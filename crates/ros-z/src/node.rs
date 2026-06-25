@@ -191,6 +191,7 @@ impl NodeBuilder {
                 },
                 &self.counter,
                 &self.clock,
+                self.graph.clone(),
             )
             .await
             .map_err(|source| Error::zenoh("create schema service", source))?;
@@ -442,6 +443,7 @@ impl Node {
             entity,
             session: self.session.clone(),
             clock: self.clock.clone(),
+            graph: self.graph.clone(),
             _phantom_data: Default::default(),
         }
     }
@@ -490,6 +492,7 @@ impl Node {
             entity,
             session: self.session.clone(),
             clock: self.clock.clone(),
+            graph: self.graph.clone(),
             _phantom_data: Default::default(),
         }
     }

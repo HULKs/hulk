@@ -17,6 +17,7 @@ use crate::{Error, Result, error::WireError, topic_name};
 use crate::{
     attachment::{Attachment, EndpointGlobalId},
     entity::EndpointEntity,
+    graph::Graph,
     message::{Message, Service, WireDecoder, WireEncoder},
     qos::QosProfile,
     queue::BoundedQueue,
@@ -28,6 +29,7 @@ pub struct ServiceClientBuilder<T> {
     pub(crate) entity: EndpointEntity,
     pub(crate) session: Session,
     pub(crate) clock: Clock,
+    pub(crate) graph: Arc<Graph>,
     pub(crate) _phantom_data: PhantomData<T>,
 }
 
@@ -109,6 +111,7 @@ where
             .map_err(|source| {
                 crate::Error::zenoh("declare service client liveliness token", source)
             })?;
+        self.warn_about_incompatible_endpoints();
         debug!("[CLN] Client ready: service={}", self.entity.topic);
 
         Ok(ServiceClient {
@@ -120,6 +123,25 @@ where
             clock: self.clock,
             _phantom_data: Default::default(),
         })
+    }
+
+    fn warn_about_incompatible_endpoints(&self) -> usize {
+        let endpoints = self.graph.type_incompatible_endpoints_for(&self.entity);
+        let count = endpoints.len();
+        for endpoint in endpoints {
+            warn!(
+                service = %self.entity.topic,
+                client_node = %self.entity.node.fully_qualified_name(),
+                client_type = %self.entity.type_info.name,
+                client_schema_hash = %self.entity.type_info.hash,
+                endpoint_kind = ?endpoint.kind,
+                endpoint_node = %endpoint.node.fully_qualified_name(),
+                endpoint_type = %endpoint.type_info.name,
+                endpoint_schema_hash = %endpoint.type_info.hash,
+                "[CLN] endpoint type metadata does not match service client"
+            );
+        }
+        count
     }
 }
 
@@ -341,6 +363,7 @@ pub struct ServiceServerBuilder<T> {
     pub(crate) entity: EndpointEntity,
     pub(crate) session: Session,
     pub(crate) clock: Clock,
+    pub(crate) graph: Arc<Graph>,
     pub(crate) _phantom_data: PhantomData<T>,
 }
 
@@ -491,6 +514,7 @@ where
             .map_err(|source| {
                 crate::Error::zenoh("declare service server liveliness token", source)
             })?;
+        self.warn_about_incompatible_endpoints();
 
         Ok(ServiceServer {
             key_expr,
@@ -518,6 +542,25 @@ where
         let queue = Arc::new(BoundedQueue::new(queue_size));
         self.build_internal(ServiceQueryHandler::Queue(queue.clone()), Some(queue))
             .await
+    }
+
+    fn warn_about_incompatible_endpoints(&self) -> usize {
+        let endpoints = self.graph.type_incompatible_endpoints_for(&self.entity);
+        let count = endpoints.len();
+        for endpoint in endpoints {
+            warn!(
+                service = %self.entity.topic,
+                server_node = %self.entity.node.fully_qualified_name(),
+                server_type = %self.entity.type_info.name,
+                server_schema_hash = %self.entity.type_info.hash,
+                endpoint_kind = ?endpoint.kind,
+                endpoint_node = %endpoint.node.fully_qualified_name(),
+                endpoint_type = %endpoint.type_info.name,
+                endpoint_schema_hash = %endpoint.type_info.hash,
+                "[SRV] endpoint type metadata does not match service server"
+            );
+        }
+        count
     }
 }
 
@@ -769,7 +812,7 @@ mod tests {
     use crate::{
         Message, SerdeCdrCodec, ServiceTypeInfo,
         context::ContextBuilder,
-        entity::TypeInfo,
+        entity::{Entity, TypeInfo},
         message::{Service, WireEncoder},
     };
     use ros_z_schema::ServiceDef;
@@ -808,6 +851,62 @@ mod tests {
                 .expect("test service hash should be static and valid");
             TypeInfo::new(descriptor.type_name.as_str(), hash)
         }
+    }
+
+    struct MultiplyTwoInts;
+
+    impl Service for MultiplyTwoInts {
+        type Request = AddTwoIntsRequest;
+        type Response = AddTwoIntsResponse;
+    }
+
+    impl ServiceTypeInfo for MultiplyTwoInts {
+        fn service_type_info() -> TypeInfo {
+            let descriptor = ServiceDef::new(
+                "test_msgs::MultiplyTwoInts",
+                AddTwoIntsRequest::type_name(),
+                AddTwoIntsResponse::type_name(),
+            )
+            .expect("test service descriptor should be static and valid");
+            let hash = ros_z_schema::compute_hash(&descriptor)
+                .expect("test service hash should be static and valid");
+            TypeInfo::new(descriptor.type_name.as_str(), hash)
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn service_builder_warning_helpers_report_same_name_type_mismatches() {
+        let context = ContextBuilder::default()
+            .disable_multicast_scouting()
+            .with_json("connect/endpoints", json!([]))
+            .build()
+            .await
+            .expect("Failed to create context");
+        let node = context
+            .create_node("service_warning_helpers")
+            .without_schema_service()
+            .build()
+            .await
+            .expect("Failed to create node");
+
+        let server_builder = node
+            .create_service_server::<AddTwoInts>("/service_warning_helpers")
+            .expect("service server factory should succeed");
+        let client_builder = node
+            .create_service_client::<MultiplyTwoInts>("/service_warning_helpers")
+            .expect("service client factory should succeed");
+
+        server_builder
+            .graph
+            .add_local_entity(Entity::Endpoint(client_builder.entity.clone()))
+            .expect("client endpoint should be inserted");
+        client_builder
+            .graph
+            .add_local_entity(Entity::Endpoint(server_builder.entity.clone()))
+            .expect("server endpoint should be inserted");
+
+        assert_eq!(server_builder.warn_about_incompatible_endpoints(), 1);
+        assert_eq!(client_builder.warn_about_incompatible_endpoints(), 1);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

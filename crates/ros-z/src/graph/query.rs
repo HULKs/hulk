@@ -178,4 +178,139 @@ impl Graph {
 
         diagnostics
     }
+    pub(crate) fn type_incompatible_endpoints_for(
+        &self,
+        endpoint: &EndpointEntity,
+    ) -> Vec<EndpointEntity> {
+        self.view()
+            .endpoints()
+            .filter(|candidate| {
+                candidate.topic == endpoint.topic && candidate.type_info != endpoint.type_info
+            })
+            .cloned()
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        Error, Result,
+        entity::{Entity, NodeEntity, SchemaHash, TypeInfo},
+    };
+
+    use super::*;
+
+    fn endpoint(
+        node: NodeEntity,
+        id: usize,
+        kind: EndpointKind,
+        topic: &str,
+        type_name: &str,
+    ) -> EndpointEntity {
+        EndpointEntity {
+            id,
+            node,
+            kind,
+            topic: topic.to_string(),
+            type_info: TypeInfo::new(type_name, SchemaHash::zero()),
+            qos: Default::default(),
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn type_incompatible_endpoints_for_returns_visible_type_mismatches_for_all_endpoint_kinds()
+    -> Result<()> {
+        let session = zenoh::open(zenoh::Config::default())
+            .await
+            .map_err(|source| Error::zenoh("open Zenoh session", source))?;
+        let graph = Graph::new(&session).await?;
+        let node = NodeEntity::new(
+            session.zid(),
+            61,
+            "type_mismatch_node".to_string(),
+            String::new(),
+        );
+        let publisher = endpoint(
+            node.clone(),
+            62,
+            EndpointKind::Publisher,
+            "/type_mismatch_topic",
+            "std_msgs::String",
+        );
+        let incompatible_subscription = endpoint(
+            node.clone(),
+            63,
+            EndpointKind::Subscription,
+            "/type_mismatch_topic",
+            "std_msgs::Int32",
+        );
+        let compatible_subscription = endpoint(
+            node.clone(),
+            64,
+            EndpointKind::Subscription,
+            "/type_mismatch_topic",
+            "std_msgs::String",
+        );
+        let different_topic_subscription = endpoint(
+            node,
+            65,
+            EndpointKind::Subscription,
+            "/other_type_mismatch_topic",
+            "std_msgs::Float32",
+        );
+        let incompatible_publisher = endpoint(
+            publisher.node.clone(),
+            66,
+            EndpointKind::Publisher,
+            "/type_mismatch_topic",
+            "std_msgs::Bool",
+        );
+        let incompatible_service = endpoint(
+            publisher.node.clone(),
+            67,
+            EndpointKind::Service,
+            "/type_mismatch_topic",
+            "test_msgs::Service",
+        );
+        let incompatible_client = endpoint(
+            publisher.node.clone(),
+            68,
+            EndpointKind::Client,
+            "/type_mismatch_topic",
+            "test_msgs::Client",
+        );
+
+        graph.add_local_entity(Entity::Endpoint(publisher.clone()))?;
+        graph.add_local_entity(Entity::Endpoint(incompatible_subscription.clone()))?;
+        graph.add_local_entity(Entity::Endpoint(compatible_subscription.clone()))?;
+        graph.add_local_entity(Entity::Endpoint(different_topic_subscription))?;
+        graph.add_local_entity(Entity::Endpoint(incompatible_publisher.clone()))?;
+        graph.add_local_entity(Entity::Endpoint(incompatible_service.clone()))?;
+        graph.add_local_entity(Entity::Endpoint(incompatible_client.clone()))?;
+
+        let incompatible_endpoints = graph.type_incompatible_endpoints_for(&publisher);
+
+        assert_eq!(incompatible_endpoints.len(), 4);
+        assert!(incompatible_endpoints.contains(&incompatible_subscription));
+        assert!(incompatible_endpoints.contains(&incompatible_publisher));
+        assert!(incompatible_endpoints.contains(&incompatible_service));
+        assert!(incompatible_endpoints.contains(&incompatible_client));
+
+        let service_incompatible_endpoints =
+            graph.type_incompatible_endpoints_for(&incompatible_service);
+
+        assert_eq!(service_incompatible_endpoints.len(), 5);
+        assert!(service_incompatible_endpoints.contains(&publisher));
+        assert!(service_incompatible_endpoints.contains(&incompatible_subscription));
+        assert!(service_incompatible_endpoints.contains(&compatible_subscription));
+        assert!(service_incompatible_endpoints.contains(&incompatible_publisher));
+        assert!(service_incompatible_endpoints.contains(&incompatible_client));
+
+        session
+            .close()
+            .await
+            .map_err(|source| Error::zenoh("close Zenoh session", source))?;
+        Ok(())
+    }
 }

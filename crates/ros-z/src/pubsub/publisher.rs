@@ -298,6 +298,22 @@ where
         ))
     }
 
+    fn warn_about_incompatible_endpoints(&self) {
+        for endpoint in self.graph.type_incompatible_endpoints_for(&self.entity) {
+            warn!(
+                topic = %self.entity.topic,
+                publisher_node = %self.entity.node.fully_qualified_name(),
+                publisher_type = %self.entity.type_info.name,
+                publisher_schema_hash = %self.entity.type_info.hash,
+                endpoint_kind = ?endpoint.kind,
+                endpoint_node = %endpoint.node.fully_qualified_name(),
+                endpoint_type = %endpoint.type_info.name,
+                endpoint_schema_hash = %endpoint.type_info.hash,
+                "[PUB] endpoint type metadata does not match publisher"
+            );
+        }
+    }
+
     async fn build_inner_async(mut self) -> Result<Publisher<T, C>> {
         let (key_expr, topic_key_expr, transient_local_cache, endpoint_global_id) =
             self.prepare_build()?;
@@ -344,6 +360,7 @@ where
             .map_err(|source| crate::Error::zenoh("declare publisher liveliness token", source))?;
         let encoding = Arc::new(Encoding::cdr().to_zenoh_encoding());
         debug!("[PUB] Using encoding: {}", encoding);
+        self.warn_about_incompatible_endpoints();
 
         Ok(Publisher {
             entity: self.entity,
