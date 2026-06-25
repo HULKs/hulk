@@ -58,6 +58,8 @@
     support: 0.75,
     walk_to_kickoff: 0.5,
     walk_to_penalty_kick: 0.5,
+    minimum_speed: 0.2,
+    velocity_fade_distance: 1.0,
   },
   role_positions: {
     defender_aggressive_ring_radius: 2.0,
