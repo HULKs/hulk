@@ -254,12 +254,14 @@ pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
     }
 }
 
-pub fn walk_to_centroid(blackboard: &mut Blackboard) -> Status {
+pub fn walk_to_voronoi_position(blackboard: &mut Blackboard) -> Status {
     if let (Some(ground_to_field), Some(map)) = (
         blackboard.world_state.robot.ground_to_field,
         &blackboard.voronoi_map,
-    ) && let Some(centroid) = map.centroid_for_player(blackboard.world_state.robot.player_number)
-    {
+    ) && let Some(target_position) = map.target_position_for_player(
+        blackboard.world_state.robot.player_number,
+        blackboard.world_state.ball,
+    ) {
         let orientation_mode = if let Some(ball) = blackboard.world_state.ball {
             OrientationMode::LookAt {
                 target: ball.ball_in_ground,
@@ -268,9 +270,10 @@ pub fn walk_to_centroid(blackboard: &mut Blackboard) -> Status {
         } else {
             OrientationMode::AlignWithPath
         };
+
         walk_to(
             blackboard,
-            Pose2::from(ground_to_field.inverse() * centroid),
+            Pose2::from(ground_to_field.inverse() * target_position),
             blackboard.parameters.walk_speed.kicking,
             orientation_mode,
             blackboard
