@@ -3986,6 +3986,7 @@ dependencies = [
  "cdr",
  "color-eyre",
  "ros-z",
+ "ros-z-streams",
  "tokio",
 ]
 
@@ -6356,6 +6357,7 @@ dependencies = [
  "rand_chacha 0.9.0",
  "ransac",
  "ros-z",
+ "ros-z-streams",
  "serde",
  "types",
 ]
@@ -6419,14 +6421,17 @@ dependencies = [
 name = "localization"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "booster",
  "color-eyre",
  "coordinate_systems",
+ "filtering",
  "geometry",
  "hsl_network_messages",
  "linear_algebra",
  "nalgebra",
  "ros-z",
+ "ros-z-streams",
  "serde",
  "types",
 ]
@@ -6493,6 +6498,7 @@ dependencies = [
  "color-eyre",
  "kinematics",
  "ros-z",
+ "ros-z-streams",
  "tokio",
 ]
 

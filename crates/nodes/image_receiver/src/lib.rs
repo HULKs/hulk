@@ -7,14 +7,15 @@ use std::{boxed::Box, future::Future, pin::Pin};
 use color_eyre::Result;
 use image::RgbImage;
 
-use ros_z::prelude::*;
-use ros_z::qos::QosDurability;
-use ros_z::time::Time;
+use ros_z::{prelude::*, qos::QosDurability, time::Time};
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
-use types::ycbcr422_image::YCbCr422Image;
-use types::{stereo_image_pair::StereoImagePair, time_wrapper::TimeWrapper};
-use x5_receiver::receiver::{Side, X5Receiver};
-use x5_receiver::types::X5CameraFrame;
+use types::{
+    stereo_image_pair::StereoImagePair, time_wrapper::TimeWrapper, ycbcr422_image::YCbCr422Image,
+};
+use x5_receiver::{
+    receiver::{Side, X5Receiver},
+    types::X5CameraFrame,
+};
 
 const X5_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 127, 10)), 7654);
 

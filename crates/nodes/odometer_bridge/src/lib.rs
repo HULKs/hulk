@@ -35,11 +35,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let odometer = cdr::deserialize(&odometer.payload().to_bytes())
                     .wrap_err("deserialization failed")?;
 
-                odometer_pub
-                    .announce(node.clock().now())
-                    .await?
-                    .publish(&odometer)
-                    .await?;
+                let source_time = node.clock().now();
+                let pending_odometer = odometer_pub.announce(source_time).await?;
+                pending_odometer.publish(&odometer).await?;
             }
         }
     }
