@@ -1,0 +1,9 @@
+line-length = 100
+fix = true
+
+[lint]
+# Pragmatic starting set (real-bug rules + import/upgrade hygiene). The sibling
+# multi-task-yolo runs a stricter set (S/ANN/FBT/...); can be tightened to match
+# once the code carries full type annotations.
+select = ["E", "F", "UP", "C4"]
+ignore = ["E501"]  # line length is handled by the formatter
