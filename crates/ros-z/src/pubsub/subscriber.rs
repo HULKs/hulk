@@ -168,7 +168,25 @@ where
             )
             .await?;
 
+        self.warn_about_incompatible_endpoints("RAW_SUB");
+
         Ok(raw::RawSubscriber::new(queue, resources))
+    }
+
+    fn warn_about_incompatible_endpoints(&self, log_prefix: &str) {
+        for endpoint in self.graph.type_incompatible_endpoints_for(&self.entity) {
+            warn!(
+                topic = %self.entity.topic,
+                subscriber_node = %self.entity.node.fully_qualified_name(),
+                subscriber_type = %self.entity.type_info.name,
+                subscriber_schema_hash = %self.entity.type_info.hash,
+                endpoint_kind = ?endpoint.kind,
+                endpoint_node = %endpoint.node.fully_qualified_name(),
+                endpoint_type = %endpoint.type_info.name,
+                endpoint_schema_hash = %endpoint.type_info.hash,
+                "[{log_prefix}] endpoint type metadata does not match subscriber"
+            );
+        }
     }
 
     async fn build_subscriber_resources<F>(
@@ -323,6 +341,8 @@ where
                 "SUB",
             )
             .await?;
+
+        builder.warn_about_incompatible_endpoints("SUB");
 
         let entity = builder.entity;
 

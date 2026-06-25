@@ -71,9 +71,9 @@ impl ManagerOptions {
 /// Owns debug subscriptions created from a `ros-z` node.
 ///
 /// Handles returned by this manager retain the latest sample, optional history,
-/// status, and queued debug events. Dropping the manager closes subscriptions it
-/// can still reach; dropping the last handle for a subscription also cancels its
-/// receive task.
+/// status, and live subscription update streams. Dropping the manager closes
+/// subscriptions it can still reach; dropping the last handle for a subscription
+/// cancels its receive task.
 pub struct SubscriptionManager {
     node: Arc<Node>,
     options: ManagerOptions,
@@ -216,24 +216,19 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
             resolved_topic: resolved_topic.clone(),
             type_info: type_info.clone(),
         });
-        let state = Arc::new(SubscriptionState::new(
+        let state = SubscriptionState::spawn(
             SubscriptionStatusSnapshot::with_metadata(
                 SubscriptionStatus::WaitingForFirstSample,
                 resolved_topic,
                 type_info,
             ),
             retention,
-        ));
+            move |state, cancellation| {
+                receive_typed_loop(subscriber, state, cancellation, metadata)
+            },
+        );
         let handle = state.handle();
         self.manager.subscriptions.register(&state);
-
-        let receive_task = tokio::spawn(receive_typed_loop(
-            subscriber,
-            Arc::downgrade(&state),
-            state.cancellation_token(),
-            metadata,
-        ));
-        state.set_receive_task(receive_task.abort_handle());
 
         Ok(handle)
     }
@@ -309,24 +304,19 @@ impl DynamicSubscriptionBuilder<'_> {
             resolved_topic: resolved_topic.clone(),
             type_info: type_info.clone(),
         });
-        let state = Arc::new(SubscriptionState::new(
+        let state = SubscriptionState::spawn(
             SubscriptionStatusSnapshot::with_metadata(
                 SubscriptionStatus::WaitingForFirstSample,
                 resolved_topic,
                 type_info,
             ),
             retention,
-        ));
+            move |state, cancellation| {
+                receive_dynamic_loop(subscriber, state, cancellation, metadata)
+            },
+        );
         let handle = state.handle();
         self.manager.subscriptions.register(&state);
-
-        let receive_task = tokio::spawn(receive_dynamic_loop(
-            subscriber,
-            Arc::downgrade(&state),
-            state.cancellation_token(),
-            metadata,
-        ));
-        state.set_receive_task(receive_task.abort_handle());
 
         Ok(handle)
     }
@@ -446,7 +436,7 @@ mod tests {
     };
     use crate::{
         Error, RetentionPolicy, SampleMetadata, SubscriptionStatus, SubscriptionStatusSnapshot,
-        TopicSelector, subscription::SubscriptionState,
+        SubscriptionUpdateClosed, TopicSelector, subscription::SubscriptionState,
     };
 
     struct TestPayload;
@@ -522,15 +512,13 @@ mod tests {
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
+        let mut updates = handle.subscribe_updates().unwrap();
         registry.register(&state);
         drop(state);
 
         registry.close_all();
 
         assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
-        assert!(matches!(
-            handle.drain_events().as_slice(),
-            [crate::DebugEvent::StatusChanged]
-        ));
+        assert!(matches!(updates.try_recv(), Err(SubscriptionUpdateClosed)));
     }
 }

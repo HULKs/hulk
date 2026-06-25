@@ -444,7 +444,9 @@
     "walk_speed": {
       "kicking": 0.5,
       "search": 0.5,
-      "blocking": 0.5
+      "blocking": 0.5,
+      "minimum_speed": 0.2,
+      "velocity_fade_distance": 1.0
     },
     "role_positions": {
       "defender_aggressive_ring_radius": 2.0,

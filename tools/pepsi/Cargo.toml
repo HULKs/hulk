@@ -1,6 +1,6 @@
 [package]
 name = "pepsi"
-version = "7.27.0"
+version = "7.28.0"
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
@@ -17,6 +17,7 @@ color-eyre = { workspace = true }
 futures-util = { workspace = true }
 glob = { workspace = true }
 indicatif = { workspace = true }
+itertools = { workspace = true }
 lazy_static = { workspace = true }
 parameters = { workspace = true }
 pathdiff = { workspace = true }
