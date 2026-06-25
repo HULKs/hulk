@@ -6,20 +6,18 @@ use crate::{
         action::{injected_motion_command, prepare, remote_control, stand, stand_up},
         behavior_tree::Node,
         condition::{
-            has_ball_position, is_ball_interception_candidate, is_close_to_ball,
-            is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state, is_remote_controlled,
-            is_remote_kick_mode,
+            has_ball_position, is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state,
+            is_remote_controlled, is_remote_kick_mode,
         },
+        goalkeeper::goalkeeper_subtree,
         head::{look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
-        kick::{intercept, kick, kick_power_subtree, kick_subtree, set_kick_target_in_front},
+        kick::{kick, kick_power_subtree, set_kick_target_in_front},
         node::Blackboard,
         search::{has_suggested_search_position, leuchtturm, walk_to_search_position},
-        substates::{is_in_sub_state, sub_state_subtree},
+        striker::striker_subtree,
         switch_motion_type::switch_motion_type,
         voronoi::calculate_voronoi_grid,
-        walk::{
-            walk_alternatives_subtree, walk_to_ball_subtree, walk_to_centroid, walk_to_kickoff_pose,
-        },
+        walk::{walk_alternatives_subtree, walk_to_centroid, walk_to_kickoff_pose},
     },
     condition, negation, selection, sequence, subtree,
 };
@@ -84,10 +82,6 @@ fn playing_subtree() -> Node<Blackboard> {
     )
 }
 
-fn goalkeeper_subtree() -> Node<Blackboard> {
-    sequence!(subtree!(look_at_ball_subtree), action!(stand))
-}
-
 pub fn search_subtree() -> Node<Blackboard> {
     sequence!(
         subtree!(search_for_lost_ball_subtree),
@@ -101,25 +95,6 @@ pub fn search_subtree() -> Node<Blackboard> {
                 action!(leuchtturm)
             ),
             subtree!(walk_alternatives_subtree),
-        )
-    )
-}
-
-fn striker_subtree() -> Node<Blackboard> {
-    sequence!(
-        subtree!(look_at_ball_subtree),
-        selection!(
-            sequence!(condition!(is_in_sub_state), subtree!(sub_state_subtree),),
-            sequence!(
-                negation!(condition!(is_close_to_ball)),
-                subtree!(walk_to_ball_subtree)
-            ),
-            sequence!(
-                condition!(is_ball_interception_candidate),
-                subtree!(kick_subtree),
-                action!(intercept),
-            ),
-            subtree!(kick_subtree)
         )
     )
 }

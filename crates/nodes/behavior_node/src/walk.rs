@@ -214,10 +214,7 @@ pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
             blackboard.parameters.standard_kickoff_positions[player_number].position;
 
         if hulks_is_kicking_team(blackboard) && player_number == PlayerNumber::Three {
-            target_position = blackboard
-                .parameters
-                .role_positions
-                .striker_kickoff_position;
+            target_position = blackboard.parameters.striker_kickoff_position;
         }
 
         let kickoff_pose_in_field = Pose2::from_parts(

@@ -23,12 +23,12 @@ pub fn is_ball_interception_candidate(blackboard: &mut Blackboard) -> bool {
             ball.velocity.x() < -parameters.minimum_ball_velocity_towards_robot;
 
         let ball_in_field_velocity = ground_to_field * ball.velocity;
-        let ball_is_moving = ball_in_field_velocity.norm() > parameters.minimum_ball_velocity;
+        let ball_is_fast_enough = ball_in_field_velocity.norm() > parameters.minimum_ball_velocity;
         let ball_is_moving_towards_own_half =
             ball_in_field_velocity.x() < -parameters.minimum_ball_velocity_towards_own_half;
 
         ball_is_in_front_of_robot
-            && ball_is_moving
+            && ball_is_fast_enough
             && ball_is_moving_towards_robot
             && ball_is_moving_towards_own_half
     } else {
@@ -157,6 +157,18 @@ pub fn is_fallen(blackboard: &mut Blackboard) -> bool {
 
 pub fn is_goalkeeper(blackboard: &mut Blackboard) -> bool {
     blackboard.world_state.robot.player_number == blackboard.parameters.goal_keeper_number
+}
+
+pub fn is_last_man_standing(blackboard: &mut Blackboard) -> bool {
+    blackboard.parameters.last_man_standing
+        && blackboard
+            .world_state
+            .player_states
+            .iter()
+            .filter(|(player_number, _)| {
+                *player_number != blackboard.world_state.robot.player_number
+            })
+            .all(|(_, player_state)| player_state.is_none())
 }
 
 pub fn is_primary_state(blackboard: &mut Blackboard, primary_state: PrimaryState) -> bool {
