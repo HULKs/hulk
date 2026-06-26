@@ -19,6 +19,7 @@ from utils.model_naming import (
     HydraModelName,
     ModelName,
     TaskType,
+    resolve_model_path,
 )
 
 logger = logging.getLogger(__name__)
@@ -162,9 +163,12 @@ def validate_hydra_model(
     validation_run_folder = Path(config.project) / model_val_folder
 
     backbone_model = cast(
-        DetectionModel, YOLO(assets_dir / hydra_model.backbone.name).model
+        DetectionModel,
+        YOLO(resolve_model_path(hydra_model.backbone.name, assets_dir)).model,
     )
-    head_model_yolo_wrapper = YOLO(assets_dir / hydra_model.heads[0].name)
+    head_model_yolo_wrapper = YOLO(
+        resolve_model_path(hydra_model.heads[0].name, assets_dir)
+    )
     head_model = cast(DetectionModel, head_model_yolo_wrapper.model)
     backbone = get_backbone(
         backbone_model, hydra_model.number_of_frozen_modules

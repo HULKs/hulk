@@ -1,18 +1,20 @@
-import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 import wandb
 import yaml
 from ultralytics.models.yolo.model import YOLO
+from ultralytics.nn.tasks import DetectionModel
 from wonderwords import RandomWord
 
+from model.hydra import get_backbone, set_backbone
 from utils.model_naming import (
     HYDRA_MODEL_NAME_TYPE,
     HydraModelName,
     TaskType,
+    resolve_model_path,
 )
 from validation.validator import DatasetNotFoundError
 
@@ -94,6 +96,28 @@ def do_hyperparameter_tuning(config: TrainingConfig, model_path: Path) -> Path:
     )
 
     return model_path.parent / "best_hyperparameters.yaml"
+
+
+def create_hydra_checkpoint(
+    hydra_model: HydraModelName,
+    model_path: Path,
+    assets_dir: Path,
+) -> None:
+    backbone_model = cast(
+        DetectionModel,
+        YOLO(resolve_model_path(hydra_model.backbone.name, assets_dir)).model,
+    )
+    head_model_yolo_wrapper = YOLO(
+        resolve_model_path(hydra_model.heads[0].name, assets_dir)
+    )
+    head_model = cast(DetectionModel, head_model_yolo_wrapper.model)
+    backbone = get_backbone(
+        backbone_model, hydra_model.number_of_frozen_modules
+    )
+    set_backbone(head_model, backbone, hydra_model.number_of_frozen_modules)
+
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    head_model_yolo_wrapper.save(model_path)
 
 
 @click.command(
@@ -201,12 +225,15 @@ def main(
         for head in hydra_model_name.heads
     ]
 
-    repo_root = os.path.abspath(".")
+    repo_root = Path.cwd()
     runs_dir = repo_root / runs_dir
     val_path = runs_dir / val_dir
 
     for hydra_model in flattened_hydra_model_names:
         model_path = val_path / str(hydra_model) / (str(hydra_model) + ".pt")
+        if not model_path.exists():
+            print(f"Creating missing Hydra checkpoint: {model_path}")
+            create_hydra_checkpoint(hydra_model, model_path, assets_dir)
 
         dataset_name = None
         match hydra_model.heads[0].task_type():

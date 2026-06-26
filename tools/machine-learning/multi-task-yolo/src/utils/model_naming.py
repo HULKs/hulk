@@ -1,5 +1,5 @@
 from enum import Enum
-from pathlib import PurePath
+from pathlib import Path, PurePath
 from typing import Self
 
 import click
@@ -15,6 +15,32 @@ def _yolo26_variant_suffix(stem: str) -> str | None:
         if stem.startswith(f"{prefix}-"):
             return stem.removeprefix(prefix)
     return None
+
+
+def _model_path_candidates(model_path: Path) -> tuple[Path, ...]:
+    if model_path.suffix:
+        return (model_path,)
+    return (
+        model_path,
+        model_path.with_suffix(".pt"),
+        model_path.with_suffix(".yaml"),
+    )
+
+
+def resolve_model_path(model_name: str, assets_dir: Path) -> str | Path:
+    model_path = Path(model_name)
+    if model_path.is_absolute() or model_path.parent != Path("."):
+        candidates = _model_path_candidates(model_path)
+    else:
+        candidates = _model_path_candidates(assets_dir / model_path)
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    if model_path.suffix:
+        return model_name
+    return str(model_path.with_suffix(".pt"))
 
 
 class ModelNameError(Exception):
