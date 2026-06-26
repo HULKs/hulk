@@ -1,7 +1,20 @@
 from enum import Enum
+from pathlib import PurePath
 from typing import Self
 
 import click
+
+YOLO26_SIZES = ("n", "s", "m", "l", "x")
+
+
+def _yolo26_variant_suffix(stem: str) -> str | None:
+    for size in YOLO26_SIZES:
+        prefix = f"yolo26{size}"
+        if stem == prefix:
+            return ""
+        if stem.startswith(f"{prefix}-"):
+            return stem.removeprefix(prefix)
+    return None
 
 
 class ModelNameError(Exception):
@@ -41,15 +54,16 @@ class ModelName:
         return f"{self.name}"
 
     def task_type(self) -> TaskType:
-        match self.name:
-            case str if str.startswith("yolo26m-pose"):
-                return TaskType.POSE
-            case str if str.startswith("yolo26m-seg"):
-                return TaskType.SEGMENTATION
-            case str if str.startswith("yolo26m"):
-                return TaskType.OBJECT
-            case _:
-                raise ModelNameError(self.name)
+        stem = PurePath(self.name).stem
+        variant_suffix = _yolo26_variant_suffix(stem)
+        if variant_suffix is None:
+            raise ModelNameError(self.name)
+
+        if variant_suffix.startswith("-pose"):
+            return TaskType.POSE
+        if variant_suffix.startswith("-seg"):
+            return TaskType.SEGMENTATION
+        return TaskType.OBJECT
 
     def is_finetuned_model(self) -> bool:
         return "~" in self.name

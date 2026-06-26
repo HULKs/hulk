@@ -93,6 +93,9 @@ uv run python src/model/train.py --do-tuning
 Runs Ultralytics validation for Hydra heads and can optionally validate the
 original source checkpoints first.
 
+Hydra model names support YOLO26 `n`, `s`, `m`, `l`, and `x` variants, for
+example `yolo26s=f11+yolo26s-pose`.
+
 - Default checkpoints:
   - `--backbone assets/yolo26m.pt`
   - `--detection-model assets/yolo26m.pt`

@@ -107,7 +107,8 @@ def do_hyperparameter_tuning(config: TrainingConfig, model_path: Path) -> Path:
     type=HYDRA_MODEL_NAME_TYPE,
     help=(
         "Hydra model name using the given naming convention. "
-        "Example: yolo26m=f11+yolo26m-pose"
+        "Supported sizes: n, s, m, l, x. "
+        "Example: yolo26s=f11+yolo26s-pose"
     ),
 )
 @click.option(

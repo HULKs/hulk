@@ -196,7 +196,8 @@ def validate_hydra_model(
     type=HYDRA_MODEL_NAME_TYPE,
     help=(
         "Hydra model name using the given naming convention. "
-        "Example: --hydra_model_name yolo26m=f11+yolo26m-pose"
+        "Supported sizes: n, s, m, l, x. "
+        "Example: --hydra_model_name yolo26s=f11+yolo26s-pose"
     ),
 )
 @click.option(
