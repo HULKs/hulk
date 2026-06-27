@@ -26,11 +26,11 @@ use twix::{
 };
 use types::{
     field_dimensions::FieldDimensions, filtered_game_state::FilteredGameState,
-    motion_command::MotionCommand, path::traits::EndPoints,
+    motion_command::MotionCommand, obstacles::ObstacleKind, path::traits::EndPoints,
 };
 
 use crate::behavior_tree_simulator::{
-    SimulationConfig, SimulatorFailure, SimulatorTimelineMarker, TimelineFrame,
+    SimulationConfig, SimulatorFailure, SimulatorObstacle, SimulatorTimelineMarker, TimelineFrame,
 };
 
 const SCRUBBER_MARGIN: f32 = 8.0;
@@ -800,6 +800,10 @@ fn show_map(
             );
         }
 
+        for obstacle in &frame.scenario_obstacles {
+            paint_scenario_obstacle(&painter, *obstacle);
+        }
+
         for (_, robot) in frame.robots.iter() {
             let Some(robot) = robot else {
                 continue;
@@ -822,6 +826,26 @@ fn show_map(
             );
             paint_robot_label(ui, &painter, pose, robot.player_number);
         }
+    }
+}
+
+fn paint_scenario_obstacle(painter: &TwixPainter<Field>, obstacle: SimulatorObstacle) {
+    let color = scenario_obstacle_color(obstacle.kind);
+    painter.circle(
+        point_world_to_field(obstacle.position),
+        obstacle.radius_at_foot_height,
+        Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 60),
+        Stroke { width: 0.02, color },
+    );
+}
+
+fn scenario_obstacle_color(kind: ObstacleKind) -> Color32 {
+    match kind {
+        ObstacleKind::Ball => Color32::YELLOW,
+        ObstacleKind::GoalPost => Color32::WHITE,
+        ObstacleKind::Robot => Color32::LIGHT_RED,
+        ObstacleKind::Person => Color32::LIGHT_GREEN,
+        ObstacleKind::Unknown => Color32::LIGHT_GRAY,
     }
 }
 

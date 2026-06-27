@@ -6,8 +6,13 @@ use bevy::{
     prelude::*,
 };
 use color_eyre::{Result, eyre::bail};
+use coordinate_systems::{Ground, World};
+use linear_algebra::{Isometry2, Point2};
+use serde::Serialize;
 use types::{
-    field_dimensions::FieldDimensions, parameters::HslNetworkParameters,
+    field_dimensions::FieldDimensions,
+    obstacles::{Obstacle, ObstacleKind},
+    parameters::HslNetworkParameters,
     rule_obstacles::RuleObstacle,
 };
 
@@ -133,6 +138,7 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
             .insert_resource(game_state)
             .insert_resource(SimulatorAutoReferee::default())
             .insert_resource(SimulatorRuleObstacles::default())
+            .insert_resource(SimulatorScenarioObstacles::default())
             .insert_resource(SimulatorHslNetworkParameters(
                 self.hsl_network_parameters.clone(),
             ))
@@ -337,6 +343,92 @@ pub struct SimulatorFieldDimensions(pub FieldDimensions);
 #[derive(Resource, Clone, Debug, Default)]
 pub struct SimulatorRuleObstacles {
     pub obstacles: Vec<RuleObstacle>,
+}
+
+#[derive(Resource, Clone, Debug, Default)]
+pub struct SimulatorScenarioObstacles {
+    pub obstacles: Vec<SimulatorObstacle>,
+}
+
+impl SimulatorScenarioObstacles {
+    pub fn add(&mut self, obstacle: SimulatorObstacle) {
+        self.obstacles.push(obstacle);
+    }
+
+    pub fn clear(&mut self) {
+        self.obstacles.clear();
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct SimulatorObstacle {
+    pub kind: ObstacleKind,
+    pub position: Point2<World>,
+    pub radius_at_foot_height: f32,
+    pub radius_at_hip_height: f32,
+}
+
+impl SimulatorObstacle {
+    pub fn new(
+        kind: ObstacleKind,
+        position: Point2<World>,
+        radius_at_foot_height: f32,
+        radius_at_hip_height: f32,
+    ) -> Self {
+        Self {
+            kind,
+            position,
+            radius_at_foot_height,
+            radius_at_hip_height,
+        }
+    }
+
+    pub fn robot(
+        position: Point2<World>,
+        radius_at_foot_height: f32,
+        radius_at_hip_height: f32,
+    ) -> Self {
+        Self::new(
+            ObstacleKind::Robot,
+            position,
+            radius_at_foot_height,
+            radius_at_hip_height,
+        )
+    }
+
+    pub fn person(
+        position: Point2<World>,
+        radius_at_foot_height: f32,
+        radius_at_hip_height: f32,
+    ) -> Self {
+        Self::new(
+            ObstacleKind::Person,
+            position,
+            radius_at_foot_height,
+            radius_at_hip_height,
+        )
+    }
+
+    pub fn unknown(position: Point2<World>, radius_at_foot_height: f32) -> Self {
+        Self::new(
+            ObstacleKind::Unknown,
+            position,
+            radius_at_foot_height,
+            radius_at_foot_height,
+        )
+    }
+
+    pub(crate) fn to_world_state_obstacle(
+        self,
+        ground_to_world: Isometry2<Ground, World>,
+    ) -> Obstacle {
+        Obstacle {
+            kind: self.kind,
+            position: ground_to_world.inverse() * self.position,
+            radius_at_foot_height: self.radius_at_foot_height,
+            radius_at_hip_height: self.radius_at_hip_height,
+        }
+    }
 }
 
 fn advance_time(mut clock: ResMut<SimulatorClock>) {
