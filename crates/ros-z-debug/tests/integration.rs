@@ -1,19 +1,19 @@
 use std::{sync::Arc, time::Duration};
 
 use ros_z::prelude::*;
-use ros_z_debug::{ManagerOptions, RetentionPolicy, SubscriptionManager};
+use ros_z_debug::{CachedSubscriptionFactory, CachedSubscriptionOptions, RetentionPolicy};
 
 #[allow(dead_code)]
 fn typed_subscription_builder_can_be_named<'a, T>(
-    builder: ros_z_debug::TypedSubscriptionBuilder<'a, T>,
-) -> ros_z_debug::TypedSubscriptionBuilder<'a, T> {
+    builder: ros_z_debug::CachedTypedSubscriptionBuilder<'a, T>,
+) -> ros_z_debug::CachedTypedSubscriptionBuilder<'a, T> {
     builder
 }
 
 #[allow(dead_code)]
 fn dynamic_subscription_builder_can_be_named<'a>(
-    builder: ros_z_debug::DynamicSubscriptionBuilder<'a>,
-) -> ros_z_debug::DynamicSubscriptionBuilder<'a> {
+    builder: ros_z_debug::CachedDynamicSubscriptionBuilder<'a>,
+) -> ros_z_debug::CachedDynamicSubscriptionBuilder<'a> {
     builder
 }
 
@@ -59,9 +59,11 @@ async fn typed_subscription_receives_latest_sample() {
         .build()
         .await
         .expect("publisher");
-    let manager = SubscriptionManager::new(subscriber_node, ManagerOptions::default());
-    let handle = manager
+    let factory =
+        CachedSubscriptionFactory::new(subscriber_node, CachedSubscriptionOptions::default());
+    let handle = factory
         .subscribe_typed::<String>("debug_text")
+        .expect("subscription builder")
         .retention(RetentionPolicy::LatestOnly)
         .build()
         .await
@@ -134,10 +136,12 @@ async fn typed_subscription_resolves_relative_topic_against_target_namespace() {
         .build()
         .await
         .expect("publisher");
-    let options = ManagerOptions::with_target_namespace("/alpha").expect("valid target namespace");
-    let manager = SubscriptionManager::new(subscriber_node, options);
-    let handle = manager
+    let options =
+        CachedSubscriptionOptions::with_target_namespace("/alpha").expect("valid target namespace");
+    let factory = CachedSubscriptionFactory::new(subscriber_node, options);
+    let handle = factory
         .subscribe_typed::<String>("debug_text")
+        .expect("subscription builder")
         .retention(RetentionPolicy::LatestOnly)
         .build()
         .await
@@ -196,9 +200,11 @@ async fn dynamic_subscription_renders_json_view() {
         .build()
         .await
         .expect("dynamic publisher");
-    let manager = SubscriptionManager::new(subscriber_node, ManagerOptions::default());
-    let json = manager
+    let factory =
+        CachedSubscriptionFactory::new(subscriber_node, CachedSubscriptionOptions::default());
+    let json = factory
         .subscribe_dynamic("debug_dynamic")
+        .expect("subscription builder")
         .retention(RetentionPolicy::LatestOnly)
         .build_json(Default::default())
         .await

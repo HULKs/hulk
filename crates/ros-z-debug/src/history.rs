@@ -122,7 +122,7 @@ mod tests {
     use super::TimeIndexedHistory;
     use crate::{
         DEFAULT_TIME_WINDOW_MAX_SAMPLES, RetentionPolicy, SampleMetadata, SampleRecord,
-        TopicSelector,
+        TopicReference,
     };
 
     fn test_type_info() -> ros_z::TypeInfo {
@@ -142,7 +142,7 @@ mod tests {
 
     fn test_metadata() -> Arc<SampleMetadata> {
         Arc::new(SampleMetadata {
-            requested_topic: TopicSelector::new("debug").unwrap(),
+            topic_reference: TopicReference::new("debug").unwrap(),
             resolved_topic: "/debug".to_string(),
             type_info: test_type_info(),
         })
