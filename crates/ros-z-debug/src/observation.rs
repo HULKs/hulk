@@ -913,6 +913,8 @@ async fn run_typed_observation<T>(
                     return;
                 }
                 task.graph_changes.mark_seen();
+                let graph_fingerprint =
+                    topic_graph_fingerprint(task.node.as_ref(), target.resolved_topic.as_str());
                 let Ok(mut cache_updates) = cache.subscribe_updates() else {
                     continue;
                 };
@@ -922,7 +924,7 @@ async fn run_typed_observation<T>(
                     (
                         task.node.as_ref(),
                         target.resolved_topic.as_str(),
-                        target.graph_fingerprint,
+                        graph_fingerprint,
                     ),
                     &mut desired_receiver,
                     &mut task.target_receiver,
@@ -1030,6 +1032,8 @@ async fn run_dynamic_observation(
                     return;
                 }
                 task.graph_changes.mark_seen();
+                let graph_fingerprint =
+                    topic_graph_fingerprint(task.node.as_ref(), target.resolved_topic.as_str());
                 let Ok(mut cache_updates) = cache.subscribe_updates() else {
                     continue;
                 };
@@ -1039,7 +1043,7 @@ async fn run_dynamic_observation(
                     (
                         task.node.as_ref(),
                         target.resolved_topic.as_str(),
-                        target.graph_fingerprint,
+                        graph_fingerprint,
                     ),
                     &mut desired_receiver,
                     &mut task.target_receiver,

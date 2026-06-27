@@ -3,7 +3,8 @@ use std::sync::Arc;
 use ros_z::{prelude::*, time::Time};
 use ros_z_debug::{
     JsonRenderPolicy, NonFiniteFloatRenderPolicy, RetentionPolicy, TopicObservationBlockReason,
-    TopicObservationStatus, TopicObservationUpdate, TopicObserver, TopicObserverOptions,
+    TopicObservationStatus, TopicObservationUpdate, TopicObservationUpdateReceiver, TopicObserver,
+    TopicObserverOptions,
 };
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, ros_z::Message)]
@@ -545,24 +546,101 @@ async fn observing_observation_ignores_unrelated_graph_revision() -> ros_z_debug
         .build()
         .await?;
 
-    let no_rebuild = tokio::time::timeout(std::time::Duration::from_millis(200), async {
-        loop {
-            if matches!(
-                updates.recv().await,
-                Ok(TopicObservationUpdate::StatusChanged(
-                    TopicObservationStatus::Rebuilding { .. }
-                ))
-            ) {
-                break;
-            }
-        }
-    })
+    wait_for_publisher_count_without_rebuilding(
+        &observer_node,
+        "/42/unrelated_graph_change",
+        1,
+        &mut updates,
+    )
     .await;
 
-    assert!(
-        no_rebuild.is_err(),
-        "unrelated graph revisions should not rebuild the observation"
+    drop(observer);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn dynamic_observation_keeps_fresh_graph_baseline_after_late_initial_publisher()
+-> ros_z_debug::Result<()> {
+    let context = ContextBuilder::default().build().await?;
+    let publisher_node = context
+        .create_node("dynamic_late_baseline_pub")
+        .build()
+        .await?;
+    let observer_node = Arc::new(
+        context
+            .create_node("dynamic_late_baseline_observer")
+            .build()
+            .await?,
     );
+    let observer = TopicObserver::new(Arc::clone(&observer_node), {
+        let mut options = TopicObserverOptions::with_namespace("/42")?;
+        options.set_retry_delay(std::time::Duration::from_secs(30));
+        options.set_schema_discovery_timeout(std::time::Duration::from_secs(2));
+        options
+    });
+    let observation = observer
+        .observe_dynamic("late_baseline")?
+        .retention(RetentionPolicy::LatestOnly)
+        .spawn();
+
+    tokio::time::timeout(std::time::Duration::from_secs(1), async {
+        loop {
+            if matches!(observation.status(), TopicObservationStatus::Building)
+                && observer_node
+                    .graph()
+                    .view()
+                    .publisher_count_on("/42/late_baseline")
+                    == 0
+            {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("dynamic observation should enter schema discovery before the publisher exists");
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+    let schema = dynamic_int_value_schema("test_msgs::LateBaselineValue");
+    let type_info = ros_z::TypeInfo::new(
+        "test_msgs::LateBaselineValue",
+        ros_z_schema::compute_hash(schema.as_ref()).expect("schema hash"),
+    );
+    let publisher = publisher_node
+        .dynamic_publisher("/42/late_baseline", type_info, Arc::clone(&schema))?
+        .build()
+        .await?;
+    let mut message =
+        ros_z::dynamic::DynamicStruct::default_for_schema(&schema).expect("default dynamic struct");
+    message.set("value", 31).expect("set value field");
+    let payload = ros_z::dynamic::DynamicPayload::from_struct(message).expect("dynamic payload");
+
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            publisher.publish(&payload).await?;
+            if observation.latest_json() == Some(serde_json::json!({ "value": 31 })) {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        Ok::<_, ros_z_debug::Error>(())
+    })
+    .await
+    .expect("dynamic observation should finish initial schema discovery")?;
+    let mut updates = observation.subscribe_updates().unwrap();
+
+    let _unrelated = publisher_node
+        .publisher::<String>("/42/dynamic_late_baseline_unrelated")?
+        .build()
+        .await?;
+
+    wait_for_publisher_count_without_rebuilding(
+        &observer_node,
+        "/42/dynamic_late_baseline_unrelated",
+        1,
+        &mut updates,
+    )
+    .await;
 
     drop(observer);
     Ok(())
@@ -757,6 +835,98 @@ async fn publish_until_latest_value(
     })
     .await
     .expect("observation should receive expected value")
+}
+
+fn dynamic_int_value_schema(type_name: &str) -> ros_z::dynamic::Schema {
+    use ros_z_schema::{
+        FieldDef, PrimitiveTypeDef, SchemaBundle, StructDef, TypeDef, TypeDefinition,
+        TypeDefinitions, TypeName,
+    };
+
+    let name = TypeName::new(type_name).expect("valid dynamic type name");
+    Arc::new(SchemaBundle {
+        root: TypeDef::Named(name.clone()),
+        definitions: TypeDefinitions::from([(
+            name,
+            TypeDefinition::Struct(StructDef {
+                fields: vec![FieldDef::new(
+                    "value",
+                    TypeDef::Primitive(PrimitiveTypeDef::I32),
+                )],
+            }),
+        )]),
+    })
+}
+
+async fn wait_for_publisher_count_without_rebuilding(
+    node: &Arc<ros_z::node::Node>,
+    topic: &str,
+    expected: usize,
+    updates: &mut TopicObservationUpdateReceiver,
+) {
+    tokio::time::timeout(std::time::Duration::from_secs(1), async {
+        loop {
+            drain_non_rebuilding_updates(updates);
+            if node.graph().view().publisher_count_on(topic) == expected {
+                drain_non_rebuilding_updates(updates);
+                break;
+            }
+
+            tokio::select! {
+                update = updates.recv() => {
+                    assert_non_rebuilding_update(update.expect("observation update stream should remain open"));
+                }
+                _ = tokio::time::sleep(std::time::Duration::from_millis(10)) => {}
+            }
+        }
+    })
+    .await
+    .expect("graph should observe publisher without rebuilding");
+
+    assert_no_rebuilding_update_for(std::time::Duration::from_millis(200), updates).await;
+}
+
+async fn assert_no_rebuilding_update_for(
+    duration: std::time::Duration,
+    updates: &mut TopicObservationUpdateReceiver,
+) {
+    let no_rebuild = tokio::time::timeout(duration, async {
+        loop {
+            assert_non_rebuilding_update(
+                updates
+                    .recv()
+                    .await
+                    .expect("observation update stream should remain open"),
+            );
+        }
+    })
+    .await;
+
+    assert!(
+        no_rebuild.is_err(),
+        "unrelated graph revisions should not rebuild the observation"
+    );
+}
+
+fn drain_non_rebuilding_updates(updates: &mut TopicObservationUpdateReceiver) {
+    while let Some(update) = updates
+        .try_recv()
+        .expect("observation update stream should remain open")
+    {
+        assert_non_rebuilding_update(update);
+    }
+}
+
+fn assert_non_rebuilding_update(update: TopicObservationUpdate) {
+    match update {
+        TopicObservationUpdate::StatusChanged(TopicObservationStatus::Rebuilding { .. }) => {
+            panic!("unrelated graph revisions should not rebuild the observation");
+        }
+        TopicObservationUpdate::Lagged { dropped } => {
+            panic!("missed {dropped} observation updates while checking for rebuild");
+        }
+        _ => {}
+    }
 }
 
 async fn wait_for_dynamic_retrying(observation: &ros_z_debug::DynamicTopicObservation) {
