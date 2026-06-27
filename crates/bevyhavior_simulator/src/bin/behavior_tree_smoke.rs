@@ -2,8 +2,9 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevyhavior_simulator::behavior_tree_simulator::{
-    BehaviorTreeSimulatorSet, SimulatorBall, SimulatorGameState, SimulatorRobotBundle,
-    SimulatorTimeline, default_behavior_parameters,
+    BehaviorTreeSimulatorSet, SimulatorBall, SimulatorGameState, SimulatorObstacle,
+    SimulatorRobotBundle, SimulatorScenarioObstacles, SimulatorTimeline,
+    default_behavior_parameters,
 };
 use coordinate_systems::{Ground, World};
 use hsl_network_messages::PlayerNumber;
@@ -26,7 +27,11 @@ fn behavior_tree_smoke(app: &mut App) {
         );
 }
 
-fn startup(mut commands: Commands, mut ball: ResMut<SimulatorBall>) {
+fn startup(
+    mut commands: Commands,
+    mut ball: ResMut<SimulatorBall>,
+    mut scenario_obstacles: ResMut<SimulatorScenarioObstacles>,
+) {
     let mut parameters =
         default_behavior_parameters().expect("failed to load default behavior parameters");
     parameters.goal_keeper_number = PlayerNumber::One;
@@ -42,6 +47,7 @@ fn startup(mut commands: Commands, mut ball: ResMut<SimulatorBall>) {
             .expect("failed to create robot bundle")
             .with_primary_state(PrimaryState::Playing),
     );
+    scenario_obstacles.add(SimulatorObstacle::robot(point![1.0, -0.1], 0.3, 0.5));
 
     ball.state = Some(
         bevyhavior_simulator::behavior_tree_simulator::SimulatedBall {
