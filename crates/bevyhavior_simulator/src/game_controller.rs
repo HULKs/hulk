@@ -60,6 +60,16 @@ impl SimulatorGameState {
     }
 }
 
+pub(crate) fn global_field_side_for_team(
+    game_controller_state: &GameControllerState,
+    team: Team,
+) -> GlobalFieldSide {
+    match team {
+        Team::Hulks => game_controller_state.global_field_side,
+        Team::Opponent => game_controller_state.global_field_side.mirror(),
+    }
+}
+
 pub(crate) fn default_game_controller_state() -> GameControllerState {
     GameControllerState {
         game_state: GameState::Playing,
@@ -100,20 +110,50 @@ pub(crate) fn default_game_controller_state() -> GameControllerState {
 pub(crate) fn filtered_game_controller_state_from(
     game_controller_state: &GameControllerState,
 ) -> FilteredGameControllerState {
+    filtered_game_controller_state_for_team(game_controller_state, Team::Hulks)
+}
+
+pub(crate) fn filtered_game_controller_state_for_team(
+    game_controller_state: &GameControllerState,
+    team: Team,
+) -> FilteredGameControllerState {
+    let (penalties, remaining_number_of_messages) = match team {
+        Team::Hulks => (
+            game_controller_state.penalties,
+            game_controller_state
+                .hulks_team
+                .remaining_amount_of_messages,
+        ),
+        Team::Opponent => (
+            game_controller_state.opponent_penalties,
+            game_controller_state
+                .opponent_team
+                .remaining_amount_of_messages,
+        ),
+    };
+
     FilteredGameControllerState {
         game_state: filtered_game_state_from(game_controller_state),
         opponent_game_state: filtered_game_state_from(game_controller_state),
         remaining_time_in_half: game_controller_state.remaining_time_in_half,
         game_phase: game_controller_state.game_phase,
-        kicking_team: game_controller_state.kicking_team,
-        penalties: game_controller_state.penalties,
-        remaining_number_of_messages: game_controller_state
-            .hulks_team
-            .remaining_amount_of_messages,
+        kicking_team: game_controller_state
+            .kicking_team
+            .map(|kicking_team| local_team_for(team, kicking_team)),
+        penalties,
+        remaining_number_of_messages,
         sub_state: game_controller_state.sub_state,
-        global_field_side: game_controller_state.global_field_side,
+        global_field_side: global_field_side_for_team(game_controller_state, team),
         new_own_penalties_last_cycle: Default::default(),
         new_opponent_penalties_last_cycle: Default::default(),
+    }
+}
+
+fn local_team_for(own_team: Team, canonical_team: Team) -> Team {
+    if own_team == canonical_team {
+        Team::Hulks
+    } else {
+        Team::Opponent
     }
 }
 
@@ -156,5 +196,36 @@ pub(crate) fn sync_primary_states_from_game_state(
     let primary_state = primary_state_from_game_controller_state(&game_state.game_controller_state);
     for mut robot_primary_state in &mut robots {
         robot_primary_state.primary_state = primary_state;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use hsl_network_messages::Penalty;
+
+    #[test]
+    fn opponent_filtered_state_uses_local_team_perspective() {
+        let mut game_controller_state = default_game_controller_state();
+        game_controller_state.global_field_side = GlobalFieldSide::Away;
+        game_controller_state.kicking_team = Some(Team::Opponent);
+        game_controller_state
+            .opponent_team
+            .remaining_amount_of_messages = 7;
+        game_controller_state.opponent_penalties.three = Some(Penalty::Pushing {
+            remaining: Duration::from_secs(5),
+        });
+
+        let filtered_state =
+            filtered_game_controller_state_for_team(&game_controller_state, Team::Opponent);
+
+        assert_eq!(filtered_state.global_field_side, GlobalFieldSide::Home);
+        assert_eq!(filtered_state.kicking_team, Some(Team::Hulks));
+        assert_eq!(filtered_state.remaining_number_of_messages, 7);
+        assert!(matches!(
+            filtered_state.penalties.three,
+            Some(Penalty::Pushing { .. })
+        ));
     }
 }

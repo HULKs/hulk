@@ -2,10 +2,10 @@ use std::{collections::BTreeMap, time::SystemTime};
 
 use bevy::prelude::*;
 use coordinate_systems::{Ground, World};
-use hsl_network_messages::PlayerNumber;
-use linear_algebra::{Isometry2, Orientation2, Point2, Vector2};
+use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, point};
 use types::{
     field_dimensions::GlobalFieldSide,
+    rule_obstacles::RuleObstacle,
     world_state::{BallState, RobotState, WorldState},
 };
 
@@ -13,15 +13,16 @@ use crate::{
     behavior_tree_simulator::{
         SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDownState,
         SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorPrimaryState,
-        SimulatorReceivedHslMessages, SimulatorRobot, SimulatorRuleObstacles,
+        SimulatorReceivedHslMessages, SimulatorRobot, SimulatorRobotId, SimulatorRuleObstacles,
         SimulatorScenarioObstacles, SimulatorSuggestedSearchPosition,
     },
     communication::player_states_from_received_hsl_messages,
-    coordinates::ground_to_field_from_world,
+    coordinates::{ground_to_field_from_world, world_to_field_transform},
+    game_controller::{filtered_game_controller_state_for_team, global_field_side_for_team},
 };
 
 #[derive(Resource, Clone, Debug, Default)]
-pub struct SimulatorWorldStates(pub BTreeMap<PlayerNumber, WorldState>);
+pub struct SimulatorWorldStates(pub BTreeMap<SimulatorRobotId, WorldState>);
 
 pub(crate) fn build_world_states(
     clock: Res<SimulatorClock>,
@@ -42,7 +43,7 @@ pub(crate) fn build_world_states(
     mut world_states: ResMut<SimulatorWorldStates>,
 ) {
     world_states.0.clear();
-    let global_field_side = game_state.game_controller_state.global_field_side;
+    let canonical_global_field_side = game_state.game_controller_state.global_field_side;
     let generated_obstacles = Vec::new();
 
     for (
@@ -54,6 +55,9 @@ pub(crate) fn build_world_states(
         suggested_search_position,
     ) in &robots
     {
+        let robot_id = robot.id();
+        let global_field_side =
+            global_field_side_for_team(&game_state.game_controller_state, robot.team);
         let ground_to_field =
             ground_to_field_from_world(ground_to_world.ground_to_world, global_field_side);
         let perceived_ball = perceived_ball_from_pose(
@@ -71,17 +75,28 @@ pub(crate) fn build_world_states(
             .copied()
             .map(|obstacle| obstacle.to_world_state_obstacle(ground_to_world.ground_to_world))
             .collect();
+        let rule_obstacles = rule_obstacles
+            .obstacles
+            .iter()
+            .copied()
+            .map(|obstacle| {
+                rule_obstacle_for_team(obstacle, canonical_global_field_side, global_field_side)
+            })
+            .collect();
 
         world_states.0.insert(
-            robot.player_number,
+            robot_id,
             WorldState {
                 ball: perceived_ball,
-                filtered_game_controller_state: game_state.filtered_game_controller_state.clone(),
+                filtered_game_controller_state: Some(filtered_game_controller_state_for_team(
+                    &game_state.game_controller_state,
+                    robot.team,
+                )),
                 hypothetical_ball_positions: Vec::new(),
                 now: clock.now.into(),
                 obstacles,
                 player_states: player_states_from_received_hsl_messages(
-                    robot.player_number,
+                    robot_id,
                     &received_hsl_messages,
                 ),
                 position_of_interest: Point2::origin(),
@@ -97,11 +112,41 @@ pub(crate) fn build_world_states(
                         clock.now,
                     )
                 }),
-                rule_obstacles: rule_obstacles.obstacles.clone(),
+                rule_obstacles,
                 fall_down_state: fall_down_state.fall_down_state,
                 suggested_search_position: suggested_search_position.position,
             },
         );
+    }
+}
+
+fn rule_obstacle_for_team(
+    obstacle: RuleObstacle,
+    canonical_global_field_side: GlobalFieldSide,
+    robot_global_field_side: GlobalFieldSide,
+) -> RuleObstacle {
+    let canonical_field_to_world = world_to_field_transform(canonical_global_field_side).inverse();
+    let world_to_robot_field = world_to_field_transform(robot_global_field_side);
+
+    match obstacle {
+        RuleObstacle::Circle(circle) => RuleObstacle::Circle(geometry::circle::Circle {
+            center: world_to_robot_field * (canonical_field_to_world * circle.center),
+            radius: circle.radius,
+        }),
+        RuleObstacle::Rectangle(rectangle) => {
+            let first_corner = world_to_robot_field * (canonical_field_to_world * rectangle.min);
+            let second_corner = world_to_robot_field * (canonical_field_to_world * rectangle.max);
+            RuleObstacle::Rectangle(geometry::rectangle::Rectangle {
+                min: point![
+                    first_corner.x().min(second_corner.x()),
+                    first_corner.y().min(second_corner.y())
+                ],
+                max: point![
+                    first_corner.x().max(second_corner.x()),
+                    first_corner.y().max(second_corner.y())
+                ],
+            })
+        }
     }
 }
 
@@ -142,7 +187,7 @@ mod tests {
     };
 
     use approx::assert_relative_eq;
-    use hsl_network_messages::{HulkMessage, PlayerNumber};
+    use hsl_network_messages::{HulkMessage, PlayerNumber, Team};
     use linear_algebra::{Isometry2, Orientation2, Pose2, point, vector};
     use types::{
         ball_position::BallPosition,
@@ -174,6 +219,10 @@ mod tests {
                 position: point![x + 1.0, y],
             }),
         })
+    }
+
+    fn robot_id(player_number: PlayerNumber) -> SimulatorRobotId {
+        SimulatorRobotId::new(Team::Hulks, player_number)
     }
 
     fn ball_at(x: f32, y: f32) -> Option<SimulatedBall> {
@@ -232,9 +281,9 @@ mod tests {
             .insert_resource(SimulatorGameState::default())
             .insert_resource(SimulatorReceivedHslMessages {
                 messages_by_receiver: BTreeMap::from([(
-                    PlayerNumber::Four,
+                    robot_id(PlayerNumber::Four),
                     BTreeMap::from([(
-                        PlayerNumber::Three,
+                        robot_id(PlayerNumber::Three),
                         SimulatorReceivedHslMessage {
                             message: teammate_message,
                             received_at,
@@ -242,7 +291,7 @@ mod tests {
                     )]),
                 )]),
                 player_states_by_receiver: BTreeMap::from([(
-                    PlayerNumber::Four,
+                    robot_id(PlayerNumber::Four),
                     Players {
                         three: Some(PlayerState {
                             pose: Pose2::new(point![1.0, 0.5], 0.0),
@@ -265,6 +314,7 @@ mod tests {
             .add_systems(Update, build_world_states);
         app.world_mut().spawn((
             SimulatorRobot {
+                team: Team::Hulks,
                 player_number: PlayerNumber::Four,
             },
             SimulatorGroundToWorld {
@@ -283,7 +333,7 @@ mod tests {
         let world_states = app.world().resource::<SimulatorWorldStates>();
         let receiver_world_state = world_states
             .0
-            .get(&PlayerNumber::Four)
+            .get(&robot_id(PlayerNumber::Four))
             .expect("receiver world state should exist");
         let teammate_state = receiver_world_state.player_states[PlayerNumber::Three]
             .expect("teammate state should come from HSL message");
@@ -329,6 +379,7 @@ mod tests {
             .add_systems(Update, build_world_states);
         app.world_mut().spawn((
             SimulatorRobot {
+                team: Team::Hulks,
                 player_number: PlayerNumber::Four,
             },
             SimulatorGroundToWorld {
@@ -344,7 +395,8 @@ mod tests {
 
         app.update();
 
-        let world_state = &app.world().resource::<SimulatorWorldStates>().0[&PlayerNumber::Four];
+        let world_state =
+            &app.world().resource::<SimulatorWorldStates>().0[&robot_id(PlayerNumber::Four)];
         let ground_to_field = world_state
             .robot
             .ground_to_field
@@ -375,8 +427,8 @@ mod tests {
             .insert_resource(SimulatorGameState::default())
             .insert_resource(SimulatorIncomingMessages {
                 messages: vec![SimulatorIncomingMessage {
-                    receiver: PlayerNumber::Four,
-                    sender: PlayerNumber::Three,
+                    receiver: robot_id(PlayerNumber::Four),
+                    sender: robot_id(PlayerNumber::Three),
                     message: IncomingMessage::Hsl(hsl_state_message(PlayerNumber::Three, 1.0, 0.5)),
                     received_at: SystemTime::UNIX_EPOCH + Duration::from_secs(2),
                 }],
@@ -392,6 +444,7 @@ mod tests {
             );
         app.world_mut().spawn((
             SimulatorRobot {
+                team: Team::Hulks,
                 player_number: PlayerNumber::Four,
             },
             SimulatorGroundToWorld {
@@ -407,15 +460,16 @@ mod tests {
 
         app.update();
         assert!(
-            app.world().resource::<SimulatorWorldStates>().0[&PlayerNumber::Four].player_states
-                [PlayerNumber::Three]
+            app.world().resource::<SimulatorWorldStates>().0[&robot_id(PlayerNumber::Four)]
+                .player_states[PlayerNumber::Three]
                 .is_some()
         );
 
         app.world_mut().resource_mut::<SimulatorClock>().now += Duration::from_secs(1);
         app.update();
 
-        let teammate_state = app.world().resource::<SimulatorWorldStates>().0[&PlayerNumber::Four]
+        let teammate_state = app.world().resource::<SimulatorWorldStates>().0
+            [&robot_id(PlayerNumber::Four)]
             .player_states[PlayerNumber::Three]
             .expect("teammate state should persist without new HSL messages");
         assert_eq!(teammate_state.pose.position(), point![1.0, 0.5]);
@@ -424,6 +478,74 @@ mod tests {
                 .resource::<SimulatorIncomingMessages>()
                 .messages
                 .is_empty()
+        );
+    }
+
+    #[test]
+    fn world_states_keep_same_player_number_on_both_teams() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(SimulatorClock {
+                now: SystemTime::UNIX_EPOCH + Duration::from_secs(1),
+                tick_duration: DEFAULT_TICK_DURATION,
+            })
+            .insert_resource(crate::behavior_tree_simulator::SimulatorFieldDimensions(
+                FieldDimensions::SPL_2025,
+            ))
+            .insert_resource(SimulatorBall::default())
+            .insert_resource(SimulatorGameState::default())
+            .insert_resource(SimulatorReceivedHslMessages::default())
+            .insert_resource(SimulatorRuleObstacles::default())
+            .insert_resource(SimulatorScenarioObstacles::default())
+            .insert_resource(SimulationConfig::default())
+            .insert_resource(SimulatorWorldStates::default())
+            .add_systems(Update, build_world_states);
+
+        for team in [Team::Hulks, Team::Opponent] {
+            app.world_mut().spawn((
+                SimulatorRobot {
+                    team,
+                    player_number: PlayerNumber::Three,
+                },
+                SimulatorGroundToWorld {
+                    ground_to_world: Isometry2::identity(),
+                },
+                SimulatorHeadYaw::default(),
+                SimulatorPrimaryState {
+                    primary_state: PrimaryState::Playing,
+                },
+                SimulatorFallDownState::default(),
+                SimulatorSuggestedSearchPosition::default(),
+            ));
+        }
+
+        app.update();
+
+        let world_states = &app.world().resource::<SimulatorWorldStates>().0;
+        let hulks_state = &world_states[&SimulatorRobotId::new(Team::Hulks, PlayerNumber::Three)];
+        let opponent_state =
+            &world_states[&SimulatorRobotId::new(Team::Opponent, PlayerNumber::Three)];
+        assert_eq!(world_states.len(), 2);
+        assert_relative_eq!(
+            hulks_state
+                .robot
+                .ground_to_field
+                .expect("ground_to_field should exist")
+                .orientation()
+                .angle(),
+            0.0,
+            epsilon = 0.0001
+        );
+        assert_relative_eq!(
+            opponent_state
+                .robot
+                .ground_to_field
+                .expect("ground_to_field should exist")
+                .orientation()
+                .angle()
+                .abs(),
+            PI,
+            epsilon = 0.0001
         );
     }
 }

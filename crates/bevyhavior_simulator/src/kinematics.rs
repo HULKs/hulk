@@ -30,7 +30,7 @@ pub(crate) fn apply_motion_kinematics(
     for (robot, mut ground_to_world, mut head_yaw, mut fall_down_state, mut last_kick_time) in
         &mut robots
     {
-        let Some(frame) = robot_frames.0.get(&robot.player_number) else {
+        let Some(frame) = robot_frames.0.get(&robot.id()) else {
             continue;
         };
 

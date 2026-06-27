@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, time::Duration, time::SystemTime};
 
 use bevy::prelude::*;
 use coordinate_systems::{Ground, World};
-use hsl_network_messages::{GamePhase, GameState, PlayerNumber, Team};
+use hsl_network_messages::{GamePhase, GameState, Team};
 use linear_algebra::{Isometry2, Point2, Vector2, distance};
 use types::{
     field_dimensions::{FieldDimensions, GlobalFieldSide, Side},
@@ -11,7 +11,7 @@ use types::{
 
 use crate::behavior_tree_simulator::{
     SimulatedBall, SimulatorBall, SimulatorFieldDimensions, SimulatorGameState,
-    SimulatorGroundToWorld, SimulatorRobot, point_world_to_field,
+    SimulatorGroundToWorld, SimulatorRobot, SimulatorRobotId, point_world_to_field,
 };
 
 const READY_STATIONARY_TRANSLATION_EPSILON: f32 = 0.01;
@@ -53,7 +53,7 @@ pub struct AutoRefereeState {
     pub playing_after_whistle_at: Option<SystemTime>,
     pub restart_reason: Option<SimulatorRestartReason>,
     pub ready_stationary_since: Option<SystemTime>,
-    pub ready_robot_poses: BTreeMap<PlayerNumber, Isometry2<Ground, World>>,
+    pub ready_robot_poses: BTreeMap<SimulatorRobotId, Isometry2<Ground, World>>,
 }
 
 impl Default for AutoRefereeState {
@@ -103,7 +103,7 @@ pub struct AutoRefereeContext<'a> {
     pub game_state: &'a mut SimulatorGameState,
     pub auto_referee: &'a mut AutoRefereeState,
     pub ball: &'a mut SimulatorBall,
-    pub robot_poses: BTreeMap<PlayerNumber, Isometry2<Ground, World>>,
+    pub robot_poses: BTreeMap<SimulatorRobotId, Isometry2<Ground, World>>,
 }
 
 impl AutoRefereeContext<'_> {
@@ -253,16 +253,16 @@ fn ready_stationary_short_circuit_elapsed(context: &mut AutoRefereeContext<'_>) 
 }
 
 fn robot_poses_are_stationary(
-    previous_poses: &BTreeMap<PlayerNumber, Isometry2<Ground, World>>,
-    current_poses: &BTreeMap<PlayerNumber, Isometry2<Ground, World>>,
+    previous_poses: &BTreeMap<SimulatorRobotId, Isometry2<Ground, World>>,
+    current_poses: &BTreeMap<SimulatorRobotId, Isometry2<Ground, World>>,
 ) -> bool {
     if previous_poses.len() != current_poses.len() {
         return false;
     }
 
-    current_poses.iter().all(|(player_number, current_pose)| {
+    current_poses.iter().all(|(robot_id, current_pose)| {
         previous_poses
-            .get(player_number)
+            .get(robot_id)
             .is_some_and(|previous_pose| robot_pose_is_stationary(*previous_pose, *current_pose))
     })
 }
@@ -345,7 +345,7 @@ pub(crate) fn run_auto_referee(
     let mut rules = std::mem::take(&mut auto_referee.rules);
     let robot_poses = robots
         .iter()
-        .map(|(robot, ground_to_world)| (robot.player_number, ground_to_world.ground_to_world))
+        .map(|(robot, ground_to_world)| (robot.id(), ground_to_world.ground_to_world))
         .collect();
     let mut context = AutoRefereeContext {
         now: clock.now,
@@ -458,6 +458,10 @@ mod tests {
     use super::*;
     use crate::behavior_tree_simulator::{SimulatedBall, SimulatorBall, SimulatorGameState};
 
+    fn robot_id(player_number: PlayerNumber) -> SimulatorRobotId {
+        SimulatorRobotId::new(Team::Hulks, player_number)
+    }
+
     fn auto_referee_context<'a>(
         now: SystemTime,
         config: &'a AutoRefereeConfig,
@@ -484,7 +488,7 @@ mod tests {
         game_state: &'a mut SimulatorGameState,
         auto_referee: &'a mut AutoRefereeState,
         ball: &'a mut SimulatorBall,
-        robot_poses: BTreeMap<PlayerNumber, Isometry2<Ground, World>>,
+        robot_poses: BTreeMap<SimulatorRobotId, Isometry2<Ground, World>>,
     ) -> AutoRefereeContext<'a> {
         AutoRefereeContext {
             now,
@@ -708,7 +712,7 @@ mod tests {
         };
         let mut ball = SimulatorBall::default();
         let mut rule = GameStateTransitionRule;
-        let robot_poses = BTreeMap::from([(PlayerNumber::Three, Isometry2::identity())]);
+        let robot_poses = BTreeMap::from([(robot_id(PlayerNumber::Three), Isometry2::identity())]);
 
         rule.apply(&mut auto_referee_context_with_robot_poses(
             SystemTime::UNIX_EPOCH,
@@ -762,7 +766,7 @@ mod tests {
             &mut game_state,
             &mut auto_referee,
             &mut ball,
-            BTreeMap::from([(PlayerNumber::Three, Isometry2::identity())]),
+            BTreeMap::from([(robot_id(PlayerNumber::Three), Isometry2::identity())]),
         ));
         rule.apply(&mut auto_referee_context_with_robot_poses(
             SystemTime::UNIX_EPOCH + Duration::from_secs(1),
@@ -772,7 +776,7 @@ mod tests {
             &mut auto_referee,
             &mut ball,
             BTreeMap::from([(
-                PlayerNumber::Three,
+                robot_id(PlayerNumber::Three),
                 Isometry2::from_parts(vector![1.0, 0.0], 0.0),
             )]),
         ));
@@ -796,7 +800,7 @@ mod tests {
         let mut auto_referee = AutoRefereeState::default();
         let mut ball = SimulatorBall::default();
         let mut rule = GameStateTransitionRule;
-        let robot_poses = BTreeMap::from([(PlayerNumber::Three, Isometry2::identity())]);
+        let robot_poses = BTreeMap::from([(robot_id(PlayerNumber::Three), Isometry2::identity())]);
 
         rule.apply(&mut auto_referee_context_with_robot_poses(
             SystemTime::UNIX_EPOCH,

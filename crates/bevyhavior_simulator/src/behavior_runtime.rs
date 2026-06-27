@@ -196,7 +196,8 @@ pub(crate) fn tick_behavior_trees(
     robot_frames.0.clear();
 
     for (robot, parameters, mut behavior) in &mut robots {
-        let Some(world_state) = world_states.0.get(&robot.player_number).cloned() else {
+        let robot_id = robot.id();
+        let Some(world_state) = world_states.0.get(&robot_id).cloned() else {
             continue;
         };
 
@@ -211,7 +212,7 @@ pub(crate) fn tick_behavior_trees(
                 current_violations.0.push(InvariantViolation {
                     check_name: BEHAVIOR_TICK_ERROR_CHECK_NAME,
                     player_number: Some(robot.player_number),
-                    message: behavior_tick_failure_message(robot.player_number, &clock, &error),
+                    message: behavior_tick_failure_message(robot_id, &clock, &error),
                     severity: InvariantSeverity::Error,
                 });
                 exit.write(AppExit::Success);
@@ -219,14 +220,14 @@ pub(crate) fn tick_behavior_trees(
             }
         };
         robot_frames.0.insert(
-            robot.player_number,
+            robot_id,
             RobotFrame::from_outputs(world_state, tick_output, Vec::new()),
         );
     }
 }
 
 fn behavior_tick_failure_message(
-    player_number: hsl_network_messages::PlayerNumber,
+    robot_id: crate::behavior_tree_simulator::SimulatorRobotId,
     clock: &SimulatorClock,
     error: &color_eyre::Report,
 ) -> String {
@@ -240,11 +241,11 @@ fn behavior_tick_failure_message(
         });
     match tick {
         Some(tick) => format!(
-            "behavior tick failed for player {player_number:?} at tick {tick} ({:?}): {error:#}",
+            "behavior tick failed for robot {robot_id} at tick {tick} ({:?}): {error:#}",
             clock.now,
         ),
         None => format!(
-            "behavior tick failed for player {player_number:?} at {:?}: {error:#}",
+            "behavior tick failed for robot {robot_id} at {:?}: {error:#}",
             clock.now,
         ),
     }
@@ -255,7 +256,7 @@ mod tests {
     use std::{collections::BTreeMap, time::Duration, time::SystemTime};
 
     use bevy::{app::App, ecs::message::Messages};
-    use hsl_network_messages::PlayerNumber;
+    use hsl_network_messages::{PlayerNumber, Team};
     use types::{behavior_tree::Status, world_state::WorldState};
 
     use super::*;
@@ -273,7 +274,10 @@ mod tests {
             })
             .insert_resource(SimulatorFieldDimensions(FieldDimensions::SPL_2025))
             .insert_resource(SimulatorWorldStates(BTreeMap::from([(
-                PlayerNumber::Three,
+                crate::behavior_tree_simulator::SimulatorRobotId::new(
+                    Team::Hulks,
+                    PlayerNumber::Three,
+                ),
                 WorldState::default(),
             )])))
             .insert_resource(SimulatorRobotFrames::default())
@@ -290,6 +294,7 @@ mod tests {
         };
         app.world_mut().spawn((
             SimulatorRobot {
+                team: Team::Hulks,
                 player_number: PlayerNumber::Three,
             },
             SimulatorRobotParameters {
@@ -319,7 +324,7 @@ mod tests {
         assert_eq!(violation.check_name, BEHAVIOR_TICK_ERROR_CHECK_NAME);
         assert_eq!(violation.player_number, Some(PlayerNumber::Three));
         assert_eq!(violation.severity, InvariantSeverity::Error);
-        assert!(violation.message.contains("player Three"));
+        assert!(violation.message.contains("robot H3"));
         assert!(violation.message.contains("tick 3"));
         assert!(
             violation

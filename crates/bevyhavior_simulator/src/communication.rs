@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, time::SystemTime};
 
 use bevy::prelude::*;
-use hsl_network_messages::{HulkMessage, PlayerNumber};
+use hsl_network_messages::{HulkMessage, Team};
 use serde::Serialize;
 use types::{
     ball_position::BallPosition,
@@ -13,7 +13,7 @@ use types::{
 
 use crate::behavior_tree_simulator::{
     SimulationConfig, SimulatorClock, SimulatorGameState, SimulatorRobot, SimulatorRobotBehavior,
-    SimulatorRobotFrames, SimulatorWorldStates,
+    SimulatorRobotFrames, SimulatorRobotId, SimulatorWorldStates,
 };
 
 #[derive(Resource, Clone, Debug, Default)]
@@ -29,20 +29,20 @@ pub struct SimulatorOutgoingMessages {
 #[derive(Resource, Clone, Debug, Default)]
 pub struct SimulatorReceivedHslMessages {
     pub messages_by_receiver:
-        BTreeMap<PlayerNumber, BTreeMap<PlayerNumber, SimulatorReceivedHslMessage>>,
-    pub player_states_by_receiver: BTreeMap<PlayerNumber, Players<Option<PlayerState>>>,
+        BTreeMap<SimulatorRobotId, BTreeMap<SimulatorRobotId, SimulatorReceivedHslMessage>>,
+    pub player_states_by_receiver: BTreeMap<SimulatorRobotId, Players<Option<PlayerState>>>,
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub struct SimulatorMessage {
-    pub sender: PlayerNumber,
+    pub sender: SimulatorRobotId,
     pub message: OutgoingMessage,
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub struct SimulatorIncomingMessage {
-    pub receiver: PlayerNumber,
-    pub sender: PlayerNumber,
+    pub receiver: SimulatorRobotId,
+    pub sender: SimulatorRobotId,
     pub message: IncomingMessage,
     pub received_at: SystemTime,
 }
@@ -67,7 +67,8 @@ pub(crate) fn plan_communication(
     outgoing_messages.messages.clear();
 
     for (robot, mut behavior) in &mut robots {
-        let Some(world_state) = world_states.0.get(&robot.player_number) else {
+        let robot_id = robot.id();
+        let Some(world_state) = world_states.0.get(&robot_id) else {
             continue;
         };
 
@@ -77,7 +78,7 @@ pub(crate) fn plan_communication(
             config.game_controller_address,
         );
 
-        if let Some(frame) = robot_frames.0.get_mut(&robot.player_number) {
+        if let Some(frame) = robot_frames.0.get_mut(&robot_id) {
             frame.outgoing_messages = outgoing_robot_messages.clone();
         }
 
@@ -87,7 +88,7 @@ pub(crate) fn plan_communication(
                 outgoing_robot_messages
                     .into_iter()
                     .map(|message| SimulatorMessage {
-                        sender: robot.player_number,
+                        sender: robot_id,
                         message,
                     }),
             );
@@ -146,22 +147,32 @@ pub(crate) fn route_outgoing_communication(
             continue;
         };
 
-        let remaining_amount_of_messages = &mut game_state
-            .game_controller_state
-            .hulks_team
-            .remaining_amount_of_messages;
+        let remaining_amount_of_messages = match outgoing_message.sender.team {
+            Team::Hulks => {
+                &mut game_state
+                    .game_controller_state
+                    .hulks_team
+                    .remaining_amount_of_messages
+            }
+            Team::Opponent => {
+                &mut game_state
+                    .game_controller_state
+                    .opponent_team
+                    .remaining_amount_of_messages
+            }
+        };
         if *remaining_amount_of_messages == 0 {
             continue;
         }
         *remaining_amount_of_messages = remaining_amount_of_messages.saturating_sub(1);
 
         for robot in &robots {
-            if robot.player_number == outgoing_message.sender {
+            if robot.team != outgoing_message.sender.team || robot.id() == outgoing_message.sender {
                 continue;
             }
 
             incoming_messages.messages.push(SimulatorIncomingMessage {
-                receiver: robot.player_number,
+                receiver: robot.id(),
                 sender: outgoing_message.sender,
                 message: IncomingMessage::Hsl(message),
                 received_at: clock.now,
@@ -173,7 +184,7 @@ pub(crate) fn route_outgoing_communication(
 }
 
 pub(crate) fn player_states_from_received_hsl_messages(
-    receiver: PlayerNumber,
+    receiver: SimulatorRobotId,
     received_hsl_messages: &SimulatorReceivedHslMessages,
 ) -> Players<Option<PlayerState>> {
     received_hsl_messages
@@ -187,7 +198,7 @@ pub(crate) fn player_states_from_received_hsl_messages(
 mod tests {
     use std::time::{Duration, SystemTime};
 
-    use hsl_network_messages::{HulkMessage, PlayerNumber};
+    use hsl_network_messages::{HulkMessage, PlayerNumber, Team};
     use linear_algebra::{Pose2, point};
     use types::messages::{IncomingMessage, OutgoingMessage};
 
@@ -205,6 +216,14 @@ mod tests {
                 position: point![x + 1.0, y],
             }),
         })
+    }
+
+    fn robot_id(player_number: PlayerNumber) -> SimulatorRobotId {
+        SimulatorRobotId::new(Team::Hulks, player_number)
+    }
+
+    fn opponent_robot_id(player_number: PlayerNumber) -> SimulatorRobotId {
+        SimulatorRobotId::new(Team::Opponent, player_number)
     }
 
     fn game_state_with_message_budget(remaining_amount_of_messages: u16) -> SimulatorGameState {
@@ -230,7 +249,10 @@ mod tests {
             .add_systems(Update, route_outgoing_communication);
 
         for player_number in [PlayerNumber::Three, PlayerNumber::Four, PlayerNumber::Five] {
-            app.world_mut().spawn(SimulatorRobot { player_number });
+            app.world_mut().spawn(SimulatorRobot {
+                team: Team::Hulks,
+                player_number,
+            });
         }
 
         app
@@ -243,7 +265,7 @@ mod tests {
             .resource_mut::<SimulatorOutgoingMessages>()
             .messages
             .push(SimulatorMessage {
-                sender: PlayerNumber::Three,
+                sender: robot_id(PlayerNumber::Three),
                 message: OutgoingMessage::Hsl(hsl_state_message(PlayerNumber::Three, 1.0, 0.0)),
             });
 
@@ -254,22 +276,22 @@ mod tests {
         assert!(
             incoming_messages
                 .iter()
-                .all(|message| message.sender == PlayerNumber::Three)
+                .all(|message| message.sender == robot_id(PlayerNumber::Three))
         );
         assert!(
             incoming_messages
                 .iter()
-                .all(|message| message.receiver != PlayerNumber::Three)
+                .all(|message| message.receiver != robot_id(PlayerNumber::Three))
         );
         assert!(
             incoming_messages
                 .iter()
-                .any(|message| message.receiver == PlayerNumber::Four)
+                .any(|message| message.receiver == robot_id(PlayerNumber::Four))
         );
         assert!(
             incoming_messages
                 .iter()
-                .any(|message| message.receiver == PlayerNumber::Five)
+                .any(|message| message.receiver == robot_id(PlayerNumber::Five))
         );
 
         let game_state = app.world().resource::<SimulatorGameState>();
@@ -291,13 +313,64 @@ mod tests {
     }
 
     #[test]
+    fn hsl_broadcast_routes_only_to_same_team_and_decrements_that_budget() {
+        let mut app = route_test_app(5);
+        app.world_mut()
+            .resource_mut::<SimulatorGameState>()
+            .game_controller_state
+            .opponent_team
+            .remaining_amount_of_messages = 3;
+        for player_number in [PlayerNumber::Three, PlayerNumber::Four] {
+            app.world_mut().spawn(SimulatorRobot {
+                team: Team::Opponent,
+                player_number,
+            });
+        }
+        app.world_mut()
+            .resource_mut::<SimulatorOutgoingMessages>()
+            .messages
+            .push(SimulatorMessage {
+                sender: opponent_robot_id(PlayerNumber::Three),
+                message: OutgoingMessage::Hsl(hsl_state_message(PlayerNumber::Three, 1.0, 0.0)),
+            });
+
+        app.update();
+
+        let incoming_messages = &app.world().resource::<SimulatorIncomingMessages>().messages;
+        assert_eq!(incoming_messages.len(), 1);
+        assert_eq!(
+            incoming_messages[0].receiver,
+            opponent_robot_id(PlayerNumber::Four)
+        );
+        assert_eq!(
+            incoming_messages[0].sender,
+            opponent_robot_id(PlayerNumber::Three)
+        );
+        let game_state = app.world().resource::<SimulatorGameState>();
+        assert_eq!(
+            game_state
+                .game_controller_state
+                .hulks_team
+                .remaining_amount_of_messages,
+            5
+        );
+        assert_eq!(
+            game_state
+                .game_controller_state
+                .opponent_team
+                .remaining_amount_of_messages,
+            2
+        );
+    }
+
+    #[test]
     fn hsl_broadcast_with_empty_budget_is_dropped() {
         let mut app = route_test_app(0);
         app.world_mut()
             .resource_mut::<SimulatorOutgoingMessages>()
             .messages
             .push(SimulatorMessage {
-                sender: PlayerNumber::Three,
+                sender: robot_id(PlayerNumber::Three),
                 message: OutgoingMessage::Hsl(hsl_state_message(PlayerNumber::Three, 1.0, 0.0)),
             });
 
@@ -326,7 +399,7 @@ mod tests {
             .resource_mut::<SimulatorOutgoingMessages>()
             .messages
             .push(SimulatorMessage {
-                sender: PlayerNumber::Three,
+                sender: robot_id(PlayerNumber::Three),
                 message: OutgoingMessage::GameController(
                     "127.0.0.1:3838".parse().expect("valid socket address"),
                     hsl_network_messages::GameControllerReturnMessage::default(),
@@ -357,8 +430,8 @@ mod tests {
         app.add_plugins(MinimalPlugins)
             .insert_resource(SimulatorIncomingMessages {
                 messages: vec![SimulatorIncomingMessage {
-                    receiver: PlayerNumber::Four,
-                    sender: PlayerNumber::Three,
+                    receiver: robot_id(PlayerNumber::Four),
+                    sender: robot_id(PlayerNumber::Three),
                     message: IncomingMessage::Hsl(hsl_state_message(PlayerNumber::Three, 1.0, 0.0)),
                     received_at: SystemTime::UNIX_EPOCH + Duration::from_secs(2),
                 }],
@@ -376,11 +449,11 @@ mod tests {
         );
         let received_hsl_messages = app.world().resource::<SimulatorReceivedHslMessages>();
         assert!(
-            received_hsl_messages.messages_by_receiver[&PlayerNumber::Four]
-                .contains_key(&PlayerNumber::Three)
+            received_hsl_messages.messages_by_receiver[&robot_id(PlayerNumber::Four)]
+                .contains_key(&robot_id(PlayerNumber::Three))
         );
         assert!(
-            received_hsl_messages.player_states_by_receiver[&PlayerNumber::Four]
+            received_hsl_messages.player_states_by_receiver[&robot_id(PlayerNumber::Four)]
                 [PlayerNumber::Three]
                 .is_some()
         );

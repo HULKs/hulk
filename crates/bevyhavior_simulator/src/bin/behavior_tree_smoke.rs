@@ -7,7 +7,7 @@ use bevyhavior_simulator::behavior_tree_simulator::{
     default_behavior_parameters,
 };
 use coordinate_systems::{Ground, World};
-use hsl_network_messages::PlayerNumber;
+use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{Isometry2, point, vector};
 use scenario::scenario;
 use types::{motion_command::MotionCommand, primary_state::PrimaryState};
@@ -38,14 +38,24 @@ fn startup(
     parameters.last_ball_timeout = Duration::from_secs(2);
 
     commands.spawn(
-        SimulatorRobotBundle::new(PlayerNumber::Three, pose(0.0, 0.0, 0.0), parameters.clone())
-            .expect("failed to create robot bundle")
-            .with_primary_state(PrimaryState::Playing),
+        SimulatorRobotBundle::new(
+            Team::Hulks,
+            PlayerNumber::Three,
+            pose(0.0, 0.0, 0.0),
+            parameters.clone(),
+        )
+        .expect("failed to create robot bundle")
+        .with_primary_state(PrimaryState::Playing),
     );
     commands.spawn(
-        SimulatorRobotBundle::new(PlayerNumber::Four, pose(-1.0, 1.0, 0.0), parameters)
-            .expect("failed to create robot bundle")
-            .with_primary_state(PrimaryState::Playing),
+        SimulatorRobotBundle::new(
+            Team::Hulks,
+            PlayerNumber::Four,
+            pose(-1.0, 1.0, 0.0),
+            parameters,
+        )
+        .expect("failed to create robot bundle")
+        .with_primary_state(PrimaryState::Playing),
     );
     scenario_obstacles.add(SimulatorObstacle::robot(point![1.0, -0.1], 0.3, 0.5));
 

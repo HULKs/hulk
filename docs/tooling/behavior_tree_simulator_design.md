@@ -135,9 +135,9 @@ The simulator also stores `last_motion_command` per robot because production kee
 
 The Bevy runtime owns simulator state as components and resources. A non-Bevy `Simulation` wrapper is not supported. Shared simulator behavior must live in Bevy systems, components, and resources.
 
-Simulator-owned physical state is stored in `coordinate_systems::World`, not `Field`. `World` is the neutral field coordinate system: it is identical to `Field` for the home team and rotated by 180 degrees for the away team. Before building each robot's behavior `WorldState`, the simulator converts the robot pose, ball, and other world-owned physical values into that robot team's `Field` frame using `GameControllerState::global_field_side`.
+Simulator-owned physical state is stored in `coordinate_systems::World`, not `Field`. `World` is the neutral field coordinate system: it is identical to `Field` for the home team and rotated by 180 degrees for the away team. Before building each robot's behavior `WorldState`, the simulator converts the robot pose, ball, rule obstacles, and other world-owned physical values into that robot team's `Field` frame using `GameControllerState::global_field_side` for HULKs and the mirrored field side for opponents.
 
-For HULKs behavior, `GlobalFieldSide::Home` means `World == Field`; `GlobalFieldSide::Away` means `Field` is `World` flipped by 180 degrees. Auto-referee logic that reasons about physical events, such as goals and stationary robots, uses `World`; behavior-tree inputs and outputs remain in `Field`/`Ground` exactly as production expects.
+For HULKs behavior, `GlobalFieldSide::Home` means `World == Field`; `GlobalFieldSide::Away` means `Field` is `World` flipped by 180 degrees. For opponent behavior, the simulator mirrors that field side so the opponent also sees its own goal-to-opponent-goal direction as local `+X`. Auto-referee logic that reasons about physical events, such as goals and stationary robots, uses `World`; behavior-tree inputs and outputs remain in `Field`/`Ground` exactly as production expects.
 
 Core resources:
 
@@ -207,16 +207,28 @@ pub struct SimulatorScenarioResult {
 }
 
 pub struct SimulatorIncomingMessages {
-    pub messages: Vec<SimulatorMessage>,
+    pub messages: Vec<SimulatorIncomingMessage>,
 }
 
 pub struct SimulatorOutgoingMessages {
     pub messages: Vec<SimulatorMessage>,
 }
 
+pub struct SimulatorMessage {
+    pub sender: SimulatorRobotId,
+    pub message: OutgoingMessage,
+}
+
+pub struct SimulatorIncomingMessage {
+    pub receiver: SimulatorRobotId,
+    pub sender: SimulatorRobotId,
+    pub message: IncomingMessage,
+    pub received_at: SystemTime,
+}
+
 pub struct SimulatorReceivedHslMessages {
-    pub messages_by_receiver: BTreeMap<PlayerNumber, BTreeMap<PlayerNumber, SimulatorReceivedHslMessage>>,
-    pub player_states_by_receiver: BTreeMap<PlayerNumber, Players<Option<PlayerState>>>,
+    pub messages_by_receiver: BTreeMap<SimulatorRobotId, BTreeMap<SimulatorRobotId, SimulatorReceivedHslMessage>>,
+    pub player_states_by_receiver: BTreeMap<SimulatorRobotId, Players<Option<PlayerState>>>,
 }
 
 pub struct SimulatorReceivedHslMessage {
@@ -233,6 +245,12 @@ Robot entities use components and a bundle:
 
 ```rust
 pub struct SimulatorRobot {
+    pub team: Team,
+    pub player_number: PlayerNumber,
+}
+
+pub struct SimulatorRobotId {
+    pub team: Team,
     pub player_number: PlayerNumber,
 }
 
@@ -377,14 +395,14 @@ The simulator should route HSL robot-to-robot messages through Bevy resources in
 Default routing semantics:
 
 - Treat `OutgoingMessage::Hsl(HulkMessage)` as a broadcast packet sent by one robot.
-- Deliver each HSL packet to every spawned `SimulatorRobot` except the sender.
+- Deliver each HSL packet to every spawned `SimulatorRobot` on the sender's team except the sender.
 - Do not deliver self messages. This matches production filtering where `filtered_message` excludes packets from the same player number.
 - Ignore `OutgoingMessage::GameController(...)` for robot-to-robot delivery. Scenarios may inspect these messages through `SimulatorOutgoingMessages`.
 - Apply routed messages on the next simulator tick. This keeps all robots' behavior ticks logically simultaneous and avoids same-tick feedback loops.
-- Store the last received HSL message per `(receiver, sender)` for inspection.
+- Store the last received HSL message per `(receiver_id, sender_id)` for inspection.
 - Convert received state messages into persistent per-receiver `PlayerState`s so teammate state remains available when no new packet arrives on a later tick.
 
-The live HSL message budget is owned by `SimulatorGameState.game_controller_state.hulks_team.remaining_amount_of_messages`.
+The live HSL message budgets are owned by `SimulatorGameState.game_controller_state.hulks_team.remaining_amount_of_messages` and `opponent_team.remaining_amount_of_messages`.
 
 `SimulationConfig::remaining_amount_of_messages` is only an initial value for that live game-controller field. The plugin should copy it into `SimulatorGameState` during initialization. After startup, the simulator must not use `SimulationConfig::remaining_amount_of_messages` as the source of truth for planning or routing.
 
@@ -392,7 +410,10 @@ Communication planning should expose the current live budget through `WorldState
 
 ```rust
 let remaining_amount_of_messages =
-    game_state.game_controller_state.hulks_team.remaining_amount_of_messages;
+    match robot.team {
+        Team::Hulks => game_state.game_controller_state.hulks_team.remaining_amount_of_messages,
+        Team::Opponent => game_state.game_controller_state.opponent_team.remaining_amount_of_messages,
+    };
 ```
 
 Routing should handle the budget authoritatively:
@@ -400,6 +421,7 @@ Routing should handle the budget authoritatively:
 - If the live budget is greater than zero, route one HSL broadcast and decrement the budget by exactly one.
 - A broadcast to multiple receivers still costs one message, not one message per receiver.
 - If the live budget is zero, drop the HSL packet and do not route it.
+- Decrement the sender team's budget only.
 - Do not decrement the HSL message budget for `OutgoingMessage::GameController(...)`.
 - After decrementing, call `SimulatorGameState::sync_filtered_game_controller_state()` so the next `WorldState.filtered_game_controller_state.remaining_number_of_messages` is consistent.
 
@@ -563,7 +585,7 @@ Detailed free-kick legality, kick-off two-touch restrictions, penalties, ball-ou
 For each robot, construct `WorldState` with:
 
 - `now` from simulation time.
-- `robot.ground_to_field` converted from simulated `ground_to_world` using `GlobalFieldSide`.
+- `robot.ground_to_field` converted from simulated `ground_to_world` using the robot team's local `GlobalFieldSide`.
 - `robot.player_number` from simulated robot identity.
 - `robot.primary_state` from robot or simulated game state.
 - `ball` from robot perception, not directly from shared truth.
