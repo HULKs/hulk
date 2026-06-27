@@ -395,6 +395,7 @@ rustdds = { git = "https://github.com/HULKs/RustDDS.git", rev = "0232af0c67e25e3
 
 egui = { git = "https://github.com/HULKs/egui/", rev = "c310aad9c54618e8845b6707899e2678fec8b842" }
 egui-wgpu = { git = "https://github.com/HULKs/egui/", rev = "c310aad9c54618e8845b6707899e2678fec8b842" }
+emath = { git = "https://github.com/HULKs/egui/", rev = "c310aad9c54618e8845b6707899e2678fec8b842" }
 booster_sdk = { git = "https://github.com/IntelligentRoboticsLab/booster_sdk", rev = "638c1973c0a1a729b47b1133af5b4af16a41b9bd" }
 
 [profile.dev]
