@@ -367,15 +367,20 @@ impl PreparedSubscriberBuild {
             let (initial_replay_publishers, initial_replay_seen) = replay::initial_replay_plan(
                 replay::replay_capable_publishers(&self.context.graph, &entity.topic),
             );
+            for &(publisher_global_id, live_capacity) in &initial_replay_publishers {
+                coordinator.begin_initial_publisher(publisher_global_id, live_capacity);
+            }
             for (publisher_global_id, _) in initial_replay_publishers {
-                replay::query_initial_transient_local_replay_async(
+                let replay_result = replay::query_initial_transient_local_replay_async(
                     &self.context.session,
                     &topic_key_expr,
                     publisher_global_id,
                     self.options.transient_local_replay_timeout,
                     coordinator.clone(),
                 )
-                .await?;
+                .await;
+                coordinator.finish_initial_publisher(publisher_global_id);
+                replay_result?;
             }
             coordinator.finish_initial_replay();
             let replay_task = replay::spawn_transient_local_replay_task(
