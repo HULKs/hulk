@@ -220,7 +220,87 @@ async fn private_topic_resolves_delivers_and_preserves_previous_cache_when_later
     .await
     .expect("blocked private observation should preserve previous cache");
 
+    for _ in 0..5 {
+        publisher.publish(&TwixDebugValue { value: 22 }).await?;
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+
+    assert_eq!(
+        observation.latest_json(),
+        Some(serde_json::json!({ "value": 21 })),
+        "blocked observation should keep a frozen previous cache"
+    );
+
     drop(observer);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn dynamic_observation_freezes_previous_cache_while_retrying_after_retarget()
+-> ros_z_debug::Result<()> {
+    let context = ContextBuilder::default().build().await?;
+    let publisher_node = context
+        .create_node("dynamic_retry_freeze_pub")
+        .build()
+        .await?;
+    let observer_node = Arc::new(
+        context
+            .create_node("dynamic_retry_freeze_observer")
+            .build()
+            .await?,
+    );
+    let publisher = publisher_node
+        .publisher::<TwixDebugValue>("/42/retry_freeze_value")?
+        .build()
+        .await?;
+    let observer = TopicObserver::new(observer_node, {
+        let mut options = TopicObserverOptions::with_namespace("/42")?;
+        options.set_retry_delay(std::time::Duration::from_secs(30));
+        options.set_schema_discovery_timeout(std::time::Duration::from_millis(100));
+        options
+    });
+    let observation = observer.observe_dynamic("retry_freeze_value")?.spawn();
+
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            publisher.publish(&TwixDebugValue { value: 1 }).await?;
+            if observation.latest_json() == Some(serde_json::json!({ "value": 1 })) {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        Ok::<_, ros_z_debug::Error>(())
+    })
+    .await
+    .expect("dynamic observation should receive initial value")?;
+
+    observation.set_topic("retry_freeze_missing")?;
+
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            if matches!(
+                observation.status(),
+                TopicObservationStatus::Retrying { .. }
+            ) {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("retargeting to a missing dynamic topic should enter retrying");
+
+    for _ in 0..5 {
+        publisher.publish(&TwixDebugValue { value: 2 }).await?;
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+
+    assert_eq!(
+        observation.latest_json(),
+        Some(serde_json::json!({ "value": 1 })),
+        "retrying observation should keep a frozen previous cache"
+    );
+
     Ok(())
 }
 

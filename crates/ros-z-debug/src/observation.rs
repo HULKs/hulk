@@ -1095,6 +1095,24 @@ fn previous_cache<T>(
     })
 }
 
+fn freeze_display_cache<T>(state: &Weak<Mutex<TopicObservationState<T>>>) -> bool {
+    let Some(state) = state.upgrade() else {
+        return false;
+    };
+    let (cache, factory) = {
+        let mut state = state.lock();
+        if state.updates.is_none() {
+            return false;
+        }
+        (state.display_cache.clone(), state.display_factory.take())
+    };
+    drop(factory);
+    if let Some(cache) = cache {
+        cache.close_retaining_samples();
+    }
+    true
+}
+
 fn set_rebuild_status<T>(state: &Weak<Mutex<TopicObservationState<T>>>) -> bool {
     let status = match previous_cache(state) {
         Some(previous_cache) => TopicObservationStatus::Rebuilding { previous_cache },
@@ -1105,6 +1123,9 @@ fn set_rebuild_status<T>(state: &Weak<Mutex<TopicObservationState<T>>>) -> bool 
 
 fn set_retrying_status<T>(state: &Weak<Mutex<TopicObservationState<T>>>, error: String) -> bool {
     let previous_cache = previous_cache(state);
+    if !freeze_display_cache(state) {
+        return false;
+    }
     set_observation_status(
         state,
         TopicObservationStatus::Retrying {
@@ -1119,6 +1140,9 @@ fn set_blocked_status<T>(
     reason: TopicObservationBlockReason,
 ) -> bool {
     let previous_cache = previous_cache(state);
+    if !freeze_display_cache(state) {
+        return false;
+    }
     set_observation_status(
         state,
         TopicObservationStatus::Blocked {

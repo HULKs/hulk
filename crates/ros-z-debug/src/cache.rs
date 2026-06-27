@@ -64,6 +64,10 @@ impl<V> CachedSubscription<V> {
     ) -> Result<CachedSubscriptionUpdateReceiver, CachedSubscriptionUpdateClosed> {
         self.state.subscribe_updates()
     }
+
+    pub(crate) fn close_retaining_samples(&self) {
+        self.state.close();
+    }
 }
 
 /// Handle that renders retained dynamic payloads as JSON on demand.
