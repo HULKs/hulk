@@ -5,7 +5,7 @@ use parking_lot::MutexGuard;
 use crate::entity::{EndpointEntity, EndpointKind, Entity, NodeEntity, NodeKey};
 use crate::qos::{QosCompatibility, QosProfile};
 
-use super::{Graph, state::GraphData};
+use super::{Graph, GraphRevision, state::GraphState};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QosIncompatibility {
@@ -19,7 +19,44 @@ pub struct QosIncompatibility {
 ///
 /// Do not hold a `GraphView` across `.await` points or while calling other `Graph` methods.
 pub struct GraphView<'a> {
-    data: MutexGuard<'a, GraphData>,
+    state: MutexGuard<'a, GraphState>,
+}
+
+/// Subscription to effective local graph changes.
+///
+/// The subscription stores only the latest graph revision. Treat each observed revision as a signal
+/// to resync from [`Graph::view`] or [`Graph::snapshot`]; revisions do not carry per-change payloads
+/// and do not prove that the distributed graph is complete.
+pub struct GraphChangeSubscription {
+    changes: tokio::sync::watch::Receiver<GraphRevision>,
+}
+
+impl GraphChangeSubscription {
+    pub(super) fn new(changes: tokio::sync::watch::Receiver<GraphRevision>) -> Self {
+        Self { changes }
+    }
+
+    /// Return the currently observed graph revision without marking it as seen.
+    pub fn current(&self) -> GraphRevision {
+        *self.changes.borrow()
+    }
+
+    /// Mark the current revision as seen and return it.
+    ///
+    /// Call this before evaluating a graph predicate when implementing a wait loop. That arms the
+    /// subscription so a later [`Self::changed`] call waits for changes after the sampled graph
+    /// state instead of returning an already-observed revision.
+    pub fn mark_seen(&mut self) -> GraphRevision {
+        *self.changes.borrow_and_update()
+    }
+
+    /// Wait for a later graph revision.
+    ///
+    /// Returns `None` when the graph change sender has closed.
+    pub async fn changed(&mut self) -> Option<GraphRevision> {
+        self.changes.changed().await.ok()?;
+        Some(*self.changes.borrow_and_update())
+    }
 }
 
 impl Graph {
@@ -29,14 +66,42 @@ impl Graph {
     /// methods; those operations may need the same lock.
     pub fn view(&self) -> GraphView<'_> {
         GraphView {
-            data: self.data.lock(),
+            state: self.store.state(),
+        }
+    }
+
+    pub(crate) async fn wait_until<F>(&self, mut predicate: F) -> bool
+    where
+        F: for<'view> FnMut(GraphView<'view>) -> bool,
+    {
+        let mut changes = self.subscribe_changes();
+        loop {
+            changes.mark_seen();
+            let satisfied = {
+                let view = self.view();
+                predicate(view)
+            };
+            if satisfied {
+                return true;
+            }
+
+            if changes.changed().await.is_none() {
+                return false;
+            }
         }
     }
 }
 
 impl GraphView<'_> {
+    /// Return the graph revision for this locked view.
+    ///
+    /// This revision belongs to the same graph state as the entities read through this view.
+    pub fn revision(&self) -> GraphRevision {
+        self.state.revision()
+    }
+
     pub fn entities(&self) -> impl Iterator<Item = &Entity> + '_ {
-        self.data.entities()
+        self.state.entities()
     }
 
     pub fn nodes(&self) -> impl Iterator<Item = &NodeEntity> + '_ {
@@ -59,6 +124,22 @@ impl GraphView<'_> {
 
     pub fn subscriptions_on(&self, topic: impl AsRef<str>) -> Vec<EndpointEntity> {
         self.endpoints_named(EndpointKind::Subscription, topic)
+    }
+
+    pub fn publisher_count_on(&self, topic: impl AsRef<str>) -> usize {
+        self.endpoint_count_named(EndpointKind::Publisher, topic)
+    }
+
+    pub fn subscription_count_on(&self, topic: impl AsRef<str>) -> usize {
+        self.endpoint_count_named(EndpointKind::Subscription, topic)
+    }
+
+    pub fn has_publishers_on(&self, topic: impl AsRef<str>) -> bool {
+        self.has_endpoint_named(EndpointKind::Publisher, topic)
+    }
+
+    pub fn has_subscriptions_on(&self, topic: impl AsRef<str>) -> bool {
+        self.has_endpoint_named(EndpointKind::Subscription, topic)
     }
 
     pub fn services_named(&self, service_name: impl AsRef<str>) -> Vec<EndpointEntity> {
@@ -117,6 +198,19 @@ impl GraphView<'_> {
             .filter(|endpoint| endpoint.kind == kind && endpoint.topic == name)
             .cloned()
             .collect()
+    }
+
+    fn endpoint_count_named(&self, kind: EndpointKind, name: impl AsRef<str>) -> usize {
+        let name = name.as_ref();
+        self.endpoints()
+            .filter(|endpoint| endpoint.kind == kind && endpoint.topic == name)
+            .count()
+    }
+
+    fn has_endpoint_named(&self, kind: EndpointKind, name: impl AsRef<str>) -> bool {
+        let name = name.as_ref();
+        self.endpoints()
+            .any(|endpoint| endpoint.kind == kind && endpoint.topic == name)
     }
 
     fn names_and_types_for(
@@ -312,5 +406,21 @@ mod tests {
             .await
             .map_err(|source| Error::zenoh("close Zenoh session", source))?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn graph_change_subscription_changed_returns_none_after_sender_closes() {
+        let (sender, receiver) = tokio::sync::watch::channel(GraphRevision::INITIAL);
+        let mut changes = GraphChangeSubscription::new(receiver);
+        changes.mark_seen();
+
+        drop(sender);
+
+        assert_eq!(changes.changed().await, None);
     }
 }

@@ -623,10 +623,15 @@ impl Node {
             .dynamic_schema(schema))
     }
 
-    /// Discover the schema that publishers currently expose on a topic.
+    /// Discover the schema exposed by publishers on a topic.
     ///
     /// The topic name is qualified according to the same ros-z graph-name rules as the
     /// regular publisher and subscriber builder APIs.
+    ///
+    /// Discovery waits up to `discovery_timeout` for a matching publisher to appear in
+    /// the graph. Once publishers are available, the remaining timeout budget is used
+    /// to query their schema services. If no matching publisher appears before the
+    /// timeout expires, this returns [`DynamicError::SchemaNotFound`].
     pub async fn discover_topic_schema(
         &self,
         topic: &str,
@@ -639,10 +644,13 @@ impl Node {
 
     /// Create a dynamic subscriber with automatic schema discovery.
     ///
-    /// This method queries publishers on the topic for their schema service
-    /// and returns a preconfigured subscriber builder using the discovered
-    /// schema. This is useful when you don't know the message type at compile
-    /// time.
+    /// This method waits for publishers on the topic, queries their schema services,
+    /// and returns a preconfigured subscriber builder using the discovered schema.
+    /// This is useful when you don't know the message type at compile time.
+    ///
+    /// The `discovery_timeout` covers both waiting for a matching publisher and
+    /// querying schema services. If no matching publisher appears before the timeout
+    /// expires, this returns [`DynamicError::SchemaNotFound`].
     ///
     /// The topic name will be qualified as a ros-z graph name:
     /// - Absolute topics (starting with '/') are used as-is
