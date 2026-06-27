@@ -14,7 +14,7 @@ use crate::{
         SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDownState,
         SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorPrimaryState,
         SimulatorReceivedHslMessages, SimulatorRobot, SimulatorRuleObstacles,
-        SimulatorSuggestedSearchPosition,
+        SimulatorScenarioObstacles, SimulatorSuggestedSearchPosition,
     },
     communication::player_states_from_received_hsl_messages,
     coordinates::ground_to_field_from_world,
@@ -29,6 +29,7 @@ pub(crate) fn build_world_states(
     game_state: Res<SimulatorGameState>,
     received_hsl_messages: Res<SimulatorReceivedHslMessages>,
     rule_obstacles: Res<SimulatorRuleObstacles>,
+    scenario_obstacles: Res<SimulatorScenarioObstacles>,
     config: Res<SimulationConfig>,
     robots: Query<(
         &SimulatorRobot,
@@ -42,6 +43,7 @@ pub(crate) fn build_world_states(
 ) {
     world_states.0.clear();
     let global_field_side = game_state.game_controller_state.global_field_side;
+    let generated_obstacles = Vec::new();
 
     for (
         robot,
@@ -62,6 +64,13 @@ pub(crate) fn build_world_states(
             head_yaw.yaw,
             &config,
         );
+        let obstacles = scenario_obstacles
+            .obstacles
+            .iter()
+            .chain(&generated_obstacles)
+            .copied()
+            .map(|obstacle| obstacle.to_world_state_obstacle(ground_to_world.ground_to_world))
+            .collect();
 
         world_states.0.insert(
             robot.player_number,
@@ -70,7 +79,7 @@ pub(crate) fn build_world_states(
                 filtered_game_controller_state: game_state.filtered_game_controller_state.clone(),
                 hypothetical_ball_positions: Vec::new(),
                 now: clock.now.into(),
-                obstacles: Vec::new(),
+                obstacles,
                 player_states: player_states_from_received_hsl_messages(
                     robot.player_number,
                     &received_hsl_messages,
@@ -151,7 +160,7 @@ mod tests {
             SimulatorFallDownState, SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw,
             SimulatorIncomingMessage, SimulatorIncomingMessages, SimulatorPrimaryState,
             SimulatorReceivedHslMessage, SimulatorReceivedHslMessages, SimulatorRobot,
-            SimulatorRuleObstacles, SimulatorSuggestedSearchPosition,
+            SimulatorRuleObstacles, SimulatorScenarioObstacles, SimulatorSuggestedSearchPosition,
         },
         communication::apply_incoming_hsl_messages,
     };
@@ -250,6 +259,7 @@ mod tests {
                 )]),
             })
             .insert_resource(SimulatorRuleObstacles::default())
+            .insert_resource(SimulatorScenarioObstacles::default())
             .insert_resource(SimulationConfig::default())
             .insert_resource(SimulatorWorldStates::default())
             .add_systems(Update, build_world_states);
@@ -313,6 +323,7 @@ mod tests {
             .insert_resource(game_state)
             .insert_resource(SimulatorReceivedHslMessages::default())
             .insert_resource(SimulatorRuleObstacles::default())
+            .insert_resource(SimulatorScenarioObstacles::default())
             .insert_resource(SimulationConfig::default())
             .insert_resource(SimulatorWorldStates::default())
             .add_systems(Update, build_world_states);
@@ -372,6 +383,7 @@ mod tests {
             })
             .insert_resource(SimulatorReceivedHslMessages::default())
             .insert_resource(SimulatorRuleObstacles::default())
+            .insert_resource(SimulatorScenarioObstacles::default())
             .insert_resource(SimulationConfig::default())
             .insert_resource(SimulatorWorldStates::default())
             .add_systems(

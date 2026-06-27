@@ -21,8 +21,8 @@ use voronoi::VoronoiGrid;
 use crate::behavior_tree_simulator::{
     InvariantViolation, RobotSnapshot, SimulatedBall, SimulatorBall, SimulatorBehaviorTickOutput,
     SimulatorClock, SimulatorCurrentInvariantViolations, SimulatorFallDownState,
-    SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorPrimaryState,
-    SimulatorRobot,
+    SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorObstacle,
+    SimulatorPrimaryState, SimulatorRobot, SimulatorScenarioObstacles,
 };
 use crate::game_controller::filtered_game_state_from;
 
@@ -80,6 +80,7 @@ pub struct TimelineFrame {
     pub now: SystemTime,
     pub game_state: FilteredGameState,
     pub ball: Option<SimulatedBall>,
+    pub scenario_obstacles: Vec<SimulatorObstacle>,
     pub robots: Players<Option<RobotSnapshot>>,
     pub robot_frames: BTreeMap<PlayerNumber, RobotFrame>,
     pub invariant_violations: Vec<InvariantViolation>,
@@ -126,6 +127,7 @@ pub(crate) fn record_timeline_frame(
     clock: Res<SimulatorClock>,
     ball: Res<SimulatorBall>,
     game_state: Res<SimulatorGameState>,
+    scenario_obstacles: Res<SimulatorScenarioObstacles>,
     robot_frames: Res<SimulatorRobotFrames>,
     current_violations: Res<SimulatorCurrentInvariantViolations>,
     mut timeline: ResMut<SimulatorTimeline>,
@@ -145,6 +147,7 @@ pub(crate) fn record_timeline_frame(
             .map(|state| state.game_state)
             .unwrap_or_else(|| filtered_game_state_from(&game_state.game_controller_state)),
         ball: ball.state,
+        scenario_obstacles: scenario_obstacles.obstacles.clone(),
         robots: robot_snapshots_from_query(&robots),
         robot_frames: robot_frames.0.clone(),
         invariant_violations: current_violations.0.clone(),

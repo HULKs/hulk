@@ -176,6 +176,17 @@ pub struct SimulatorRuleObstacles {
     pub obstacles: Vec<RuleObstacle>,
 }
 
+pub struct SimulatorObstacle {
+    pub kind: ObstacleKind,
+    pub position: Point2<World>,
+    pub radius_at_foot_height: f32,
+    pub radius_at_hip_height: f32,
+}
+
+pub struct SimulatorScenarioObstacles {
+    pub obstacles: Vec<SimulatorObstacle>,
+}
+
 pub struct SimulatorTimeline {
     pub frames: Vec<TimelineFrame>,
 }
@@ -694,7 +705,10 @@ The first perception model should be intentionally simple:
 - A robot sees the ball if it is within `ball_visibility_range` and inside `ball_visibility_angle` relative to `SimulatorHeadYaw`.
 - If visible, set `WorldState::ball` with ground and field positions plus field-side metadata.
 - If not visible, set `WorldState::ball` to `None`; persistent `Blackboard::ball` and `Blackboard::last_ball` handle timeout behavior.
-- Other robots may become obstacles; teammate `player_states` entries come from received HSL state.
+- `WorldState::obstacles` combines persistent scenario obstacles and simulator-generated obstacles.
+- Scenario obstacles live in `SimulatorScenarioObstacles` and persist until scenario code mutates that resource.
+- Simulator-generated obstacles are recalculated while building world states and stay separate from scenario-owned obstacles. The generated source may be empty initially.
+- Other robots may become generated obstacles later; teammate `player_states` entries come from received HSL state.
 - Scenario code can override visibility, ball observations, hypothetical ball positions, fall state, game state, and search position.
 
 Timeline snapshots should record `SimulatorHeadYaw`. The viewer should draw each robot's visibility cone from `ball_visibility_range`, `ball_visibility_angle`, robot pose, and recorded head yaw.
