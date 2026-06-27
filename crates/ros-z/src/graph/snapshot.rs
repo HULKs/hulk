@@ -4,11 +4,16 @@ use serde::Serialize;
 
 use crate::entity::EndpointKind;
 
-use super::Graph;
+use super::{Graph, GraphRevision};
 
-/// A serializable snapshot of the native ros-z graph state
+/// A serializable point-in-time observation of the local native ros-z graph state.
 #[derive(Debug, Clone, Serialize)]
 pub struct GraphSnapshot {
+    /// Revision of the local graph state used to produce this snapshot.
+    ///
+    /// This is a monotonic local progress token. It does not mean the distributed graph is complete
+    /// or settled.
+    pub revision: GraphRevision,
     pub timestamp: SystemTime,
     pub topics: Vec<TopicSnapshot>,
     pub nodes: Vec<NodeSnapshot>,
@@ -38,13 +43,14 @@ pub struct ServiceSnapshot {
 }
 
 impl Graph {
-    /// Create a serializable snapshot of the current graph state
+    /// Create a serializable point-in-time observation of the current local graph state.
     ///
-    /// This captures topics, nodes, and services with their metadata,
-    /// suitable for JSON serialization or other export formats.
+    /// This captures topics, nodes, services, and the local revision used to produce the snapshot.
+    /// The snapshot does not imply that the distributed graph is complete or settled.
     pub fn snapshot(&self) -> GraphSnapshot {
-        let (topics, nodes, services) = {
+        let (revision, topics, nodes, services) = {
             let view = self.view();
+            let revision = view.revision();
             let topics: Vec<TopicSnapshot> = view
                 .topic_names_and_types()
                 .into_iter()
@@ -82,10 +88,11 @@ impl Graph {
                 .map(|(name, type_name)| ServiceSnapshot { name, type_name })
                 .collect();
 
-            (topics, nodes, services)
+            (revision, topics, nodes, services)
         };
 
         GraphSnapshot {
+            revision,
             timestamp: SystemTime::now(),
             topics,
             nodes,

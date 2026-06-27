@@ -251,22 +251,30 @@ fn write_schema(mut writer: impl Write, view: &SchemaView) -> io::Result<()> {
 pub fn print_watch_event(event: &WatchEvent) {
     match event {
         WatchEvent::InitialState { snapshot } => print_graph_snapshot(snapshot),
-        WatchEvent::TopicDiscovered { name, type_name } => {
+        WatchEvent::TopicDiscovered {
+            name, type_name, ..
+        } => {
             println!("topic + {name} ({type_name})");
         }
-        WatchEvent::TopicRemoved { name } => {
+        WatchEvent::TopicRemoved { name, .. } => {
             println!("topic - {name}");
         }
-        WatchEvent::NodeDiscovered { namespace, name } => {
+        WatchEvent::NodeDiscovered {
+            namespace, name, ..
+        } => {
             println!("node + {}", fully_qualified_node_name(namespace, name));
         }
-        WatchEvent::NodeRemoved { namespace, name } => {
+        WatchEvent::NodeRemoved {
+            namespace, name, ..
+        } => {
             println!("node - {}", fully_qualified_node_name(namespace, name));
         }
-        WatchEvent::ServiceDiscovered { name, type_name } => {
+        WatchEvent::ServiceDiscovered {
+            name, type_name, ..
+        } => {
             println!("service + {name} ({type_name})");
         }
-        WatchEvent::ServiceRemoved { name } => {
+        WatchEvent::ServiceRemoved { name, .. } => {
             println!("service - {name}");
         }
     }

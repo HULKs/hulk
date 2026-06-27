@@ -1,7 +1,4 @@
-use std::{
-    sync::{Arc, atomic::AtomicUsize},
-    time::Duration,
-};
+use std::sync::{Arc, atomic::AtomicUsize};
 
 use tracing::{debug, warn};
 use zenoh::{Session, Wait};
@@ -11,7 +8,7 @@ use crate::{
     config::{SessionConfigBuilder, session_config},
     entity::normalize_node_namespace,
     error::ConfigError,
-    graph::{Graph, GraphOptions},
+    graph::Graph,
     node::NodeBuilder,
     shm::{DEFAULT_SHM_POOL_SIZE, ShmConfig, ShmProviderBuilder},
     time::Clock,
@@ -50,7 +47,6 @@ pub struct ContextBuilder {
     shm_config: Option<Arc<ShmConfig>>,
     clock: Option<Clock>,
     runtime_parameter_inputs: RuntimeParameterInputs,
-    graph_options: GraphOptions,
 }
 
 impl ContextBuilder {
@@ -222,16 +218,6 @@ impl ContextBuilder {
     /// Inject a pre-configured clock.
     pub fn with_clock(mut self, clock: Clock) -> Self {
         self.clock = Some(clock);
-        self
-    }
-
-    pub fn with_graph_initial_query_timeout(mut self, timeout: Duration) -> Self {
-        self.graph_options.initial_liveliness_query_timeout = Some(timeout);
-        self
-    }
-
-    pub fn without_graph_initial_query(mut self) -> Self {
-        self.graph_options.initial_liveliness_query_timeout = None;
         self
     }
 
@@ -489,7 +475,7 @@ impl ContextBuilder {
             }
         }
 
-        let graph = Arc::new(Graph::new_with_options(&session, builder.graph_options).await?);
+        let graph = Arc::new(Graph::new(&session).await?);
 
         Ok(Context {
             session,
