@@ -1,43 +1,42 @@
-use parking_lot::Mutex;
-use std::{sync::Arc, time::Duration};
-use tokio::sync::Notify;
-
 mod discovery;
 mod query;
 mod snapshot;
 mod state;
 
 use discovery::install_liveliness;
-pub use query::{GraphView, QosIncompatibility};
+pub use query::{GraphChangeSubscription, GraphView, QosIncompatibility};
 pub use snapshot::{GraphSnapshot, NodeSnapshot, ServiceSnapshot, TopicSnapshot};
-use state::GraphData;
+use state::GraphStore;
 
 use crate::Result;
 use crate::entity::{ADMIN_SPACE, Entity};
 use zenoh::{Session, pubsub::Subscriber, session::ZenohId};
 
-#[derive(Debug, Clone)]
-pub struct GraphOptions {
-    pub initial_liveliness_query_timeout: Option<Duration>,
-}
+/// Opaque token identifying a local graph state revision.
+///
+/// Values support equality and monotonic recency comparisons within one [`Graph`]. Ordering is
+/// intentionally exposed for revisions from the same graph instance or snapshot/subscription
+/// stream. Do not compare revisions from independently created graphs.
+///
+/// A changed revision means consumers should resync from [`Graph::view`] or [`Graph::snapshot`].
+/// Do not treat revisions as stable event counts or as proof that the distributed graph is
+/// complete.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize)]
+#[serde(transparent)]
+pub struct GraphRevision(u64);
 
-impl Default for GraphOptions {
-    fn default() -> Self {
-        Self {
-            initial_liveliness_query_timeout: Some(Duration::from_secs(3)),
-        }
+impl GraphRevision {
+    /// Baseline revision before any observed effective graph changes.
+    pub const INITIAL: Self = Self(0);
+
+    pub(super) fn next(self) -> Self {
+        Self(self.0.saturating_add(1))
     }
 }
 
 pub struct Graph {
-    data: Arc<Mutex<GraphData>>,
+    pub(crate) store: GraphStore,
     pub zid: ZenohId,
-    /// Notified whenever an entity appears or disappears in the graph.
-    ///
-    /// Publishers use this to implement `wait_for_subscribers`: they register
-    /// a `notified()` future before sampling the graph, then `await` it so no
-    /// arrival is missed between the sample and the wait.
-    pub(crate) change_notify: Arc<Notify>,
     _subscriber: Subscriber<()>,
 }
 
@@ -51,30 +50,38 @@ impl std::fmt::Debug for Graph {
 
 impl Graph {
     /// Create a new Graph using the native ros-z liveliness protocol.
+    ///
+    /// The graph is a live local observation of Zenoh liveliness. This returns after the
+    /// liveliness subscription has been declared; historical liveliness samples may still arrive
+    /// later and advance the graph revision.
     pub async fn new(session: &Session) -> Result<Self> {
-        Self::new_with_options(session, GraphOptions::default()).await
-    }
-
-    pub async fn new_with_options(session: &Session, options: GraphOptions) -> Result<Self> {
         let liveliness_pattern = format!("{}/**", ADMIN_SPACE);
         let zid = session.zid();
-        let graph_data = Arc::new(Mutex::new(GraphData::new()));
-        let change_notify = Arc::new(Notify::new());
-        let sub = install_liveliness(
-            session,
-            &liveliness_pattern,
-            &options,
-            graph_data.clone(),
-            change_notify.clone(),
-        )
-        .await?;
+        let store = GraphStore::new();
+        let sub = install_liveliness(session, &liveliness_pattern, store.clone()).await?;
 
         Ok(Self {
             _subscriber: sub,
-            data: graph_data,
-            change_notify,
+            store,
             zid,
         })
+    }
+
+    /// Return the current local graph change revision.
+    ///
+    /// The initial revision is `0`. Zenoh liveliness history and live events are reported through
+    /// the same revision stream. A revision change is a resync signal, not a graph-completeness
+    /// guarantee.
+    pub fn revision(&self) -> GraphRevision {
+        self.store.revision()
+    }
+
+    /// Subscribe to effective local graph changes.
+    ///
+    /// Subscriptions start from the current revision and keep only the latest revision. Treat each
+    /// observed change as a signal to inspect [`Graph::view`] again.
+    pub fn subscribe_changes(&self) -> GraphChangeSubscription {
+        GraphChangeSubscription::new(self.store.subscribe_changes())
     }
 
     /// Check if an entity belongs to the current session
@@ -90,24 +97,24 @@ impl Graph {
     /// immediately visible in graph queries without waiting for Zenoh liveliness propagation
     pub fn add_local_entity(&self, entity: Entity) -> Result<()> {
         let key_expr = entity.liveliness_key_expr()?;
-        self.data.lock().insert(key_expr, entity);
-        self.change_notify.notify_waiters();
+        self.store.insert(key_expr, entity);
         Ok(())
     }
 
     /// Remove a local entity from the graph
     pub fn remove_local_entity(&self, entity: &Entity) -> Result<()> {
         let key_expr = entity.liveliness_key_expr()?;
-        if self.data.lock().remove(&key_expr) {
-            self.change_notify.notify_waiters();
-        }
+        self.store.remove(&key_expr);
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use std::{
+        sync::Arc,
+        time::{Duration, SystemTime, UNIX_EPOCH},
+    };
 
     use crate::{
         Error, Result,
@@ -127,24 +134,28 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn local_entity_add_notifies_graph_waiters() -> Result<()> {
+    async fn graph_wait_until_returns_immediately_when_predicate_is_true() -> Result<()> {
         let session = zenoh::open(zenoh::Config::default())
             .await
             .map_err(|source| Error::zenoh("open Zenoh session", source))?;
         let graph = Graph::new(&session).await?;
         let entity = Entity::Node(NodeEntity::new(
             session.zid(),
-            51,
-            unique_node_name("local_add_notify"),
+            55,
+            unique_node_name("wait_until_immediate"),
             String::new(),
         ));
-
-        let notified = graph.change_notify.notified();
+        let expected = entity.clone();
         graph.add_local_entity(entity)?;
 
-        tokio::time::timeout(Duration::from_millis(100), notified)
-            .await
-            .expect("local add should notify graph waiters");
+        let observed = tokio::time::timeout(
+            Duration::from_millis(100),
+            graph.wait_until(|view| view.entities().any(|candidate| candidate == &expected)),
+        )
+        .await
+        .expect("wait_until should return immediately for a true predicate");
+
+        assert!(observed);
         session
             .close()
             .await
@@ -153,25 +164,175 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn local_entity_remove_notifies_graph_waiters() -> Result<()> {
+    async fn graph_wait_until_observes_later_graph_revision() -> Result<()> {
+        let session = zenoh::open(zenoh::Config::default())
+            .await
+            .map_err(|source| Error::zenoh("open Zenoh session", source))?;
+        let graph = Arc::new(Graph::new(&session).await?);
+        let entity = Entity::Node(NodeEntity::new(
+            session.zid(),
+            56,
+            unique_node_name("wait_until_later"),
+            String::new(),
+        ));
+        let expected = entity.clone();
+
+        let waiter = tokio::spawn({
+            let graph = Arc::clone(&graph);
+            async move {
+                graph
+                    .wait_until(|view| view.entities().any(|candidate| candidate == &expected))
+                    .await
+            }
+        });
+
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        graph.add_local_entity(entity)?;
+
+        let observed = tokio::time::timeout(Duration::from_millis(100), waiter)
+            .await
+            .expect("wait_until should observe the graph revision")
+            .expect("wait_until task should not panic");
+
+        assert!(observed);
+        session
+            .close()
+            .await
+            .map_err(|source| Error::zenoh("close Zenoh session", source))?;
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn graph_change_subscription_current_does_not_block_revision_publication() -> Result<()> {
+        let session = zenoh::open(zenoh::Config::default())
+            .await
+            .map_err(|source| Error::zenoh("open Zenoh session", source))?;
+        let graph = Arc::new(Graph::new(&session).await?);
+        let changes = graph.subscribe_changes();
+        let _held_revision = changes.current();
+        let entity = Entity::Node(NodeEntity::new(
+            session.zid(),
+            54,
+            unique_node_name("copied_revision_publish"),
+            String::new(),
+        ));
+
+        let update = tokio::task::spawn_blocking({
+            let graph = Arc::clone(&graph);
+            move || graph.add_local_entity(entity)
+        });
+
+        tokio::time::timeout(Duration::from_millis(100), update)
+            .await
+            .expect("copied public revisions must not block graph updates")
+            .expect("graph update task should not panic")?;
+
+        session
+            .close()
+            .await
+            .map_err(|source| Error::zenoh("close Zenoh session", source))?;
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn local_entity_add_and_remove_advance_graph_revision() -> Result<()> {
+        let session = zenoh::open(zenoh::Config::default())
+            .await
+            .map_err(|source| Error::zenoh("open Zenoh session", source))?;
+        let graph = Graph::new(&session).await?;
+        let mut changes = graph.subscribe_changes();
+        let initial_revision: GraphRevision = graph.revision();
+        assert_eq!(initial_revision, GraphRevision::INITIAL);
+        let entity = Entity::Node(NodeEntity::new(
+            session.zid(),
+            51,
+            unique_node_name("local_update_revision"),
+            String::new(),
+        ));
+
+        graph.add_local_entity(entity.clone())?;
+
+        let add_revision = tokio::time::timeout(Duration::from_millis(100), changes.changed())
+            .await
+            .expect("local add should publish a graph revision")
+            .expect("graph revision sender should stay alive");
+        assert_ne!(add_revision, initial_revision);
+        assert_eq!(graph.revision(), add_revision);
+
+        graph.remove_local_entity(&entity)?;
+
+        let remove_revision = tokio::time::timeout(Duration::from_millis(100), changes.changed())
+            .await
+            .expect("local remove should publish a graph revision")
+            .expect("graph revision sender should stay alive");
+        assert_ne!(remove_revision, add_revision);
+        assert_eq!(graph.revision(), remove_revision);
+        session
+            .close()
+            .await
+            .map_err(|source| Error::zenoh("close Zenoh session", source))?;
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn snapshot_captures_current_graph_revision() -> Result<()> {
         let session = zenoh::open(zenoh::Config::default())
             .await
             .map_err(|source| Error::zenoh("open Zenoh session", source))?;
         let graph = Graph::new(&session).await?;
         let entity = Entity::Node(NodeEntity::new(
             session.zid(),
+            53,
+            unique_node_name("snapshot_revision"),
+            String::new(),
+        ));
+
+        let initial_snapshot = graph.snapshot();
+        assert_eq!(initial_snapshot.revision, GraphRevision::INITIAL);
+        let initial_snapshot_json =
+            serde_json::to_value(initial_snapshot).expect("graph snapshot should serialize");
+        assert_eq!(initial_snapshot_json["revision"], serde_json::json!(0));
+
+        graph.add_local_entity(entity)?;
+
+        assert_eq!(graph.snapshot().revision, graph.revision());
+        session
+            .close()
+            .await
+            .map_err(|source| Error::zenoh("close Zenoh session", source))?;
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn unchanged_local_readd_does_not_advance_graph_revision() -> Result<()> {
+        let session = zenoh::open(zenoh::Config::default())
+            .await
+            .map_err(|source| Error::zenoh("open Zenoh session", source))?;
+        let graph = Graph::new(&session).await?;
+        let mut changes = graph.subscribe_changes();
+        let entity = Entity::Node(NodeEntity::new(
+            session.zid(),
             52,
-            unique_node_name("local_remove_notify"),
+            unique_node_name("local_readd_revision"),
             String::new(),
         ));
 
         graph.add_local_entity(entity.clone())?;
-        let notified = graph.change_notify.notified();
-        graph.remove_local_entity(&entity)?;
-
-        tokio::time::timeout(Duration::from_millis(100), notified)
+        tokio::time::timeout(Duration::from_millis(100), changes.changed())
             .await
-            .expect("local remove should notify graph waiters");
+            .expect("first local add should publish a graph revision")
+            .expect("graph revision sender should stay alive");
+        let revision_after_first_add = graph.revision();
+
+        graph.add_local_entity(entity)?;
+
+        assert!(
+            tokio::time::timeout(Duration::from_millis(50), changes.changed())
+                .await
+                .is_err(),
+            "unchanged local re-add must not publish a graph revision"
+        );
+        assert_eq!(graph.revision(), revision_after_first_add);
         session
             .close()
             .await

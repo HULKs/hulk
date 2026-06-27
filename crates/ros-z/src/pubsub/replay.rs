@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
@@ -100,9 +100,97 @@ impl ReplayWindow {
     }
 }
 
+struct SourceReplayState {
+    last_delivered: Option<i64>,
+    pending_replay_queries: usize,
+    pending_samples: BTreeMap<i64, Sample>,
+    capacity: usize,
+}
+
+impl SourceReplayState {
+    fn new(capacity: usize) -> Self {
+        Self {
+            last_delivered: None,
+            pending_replay_queries: 0,
+            pending_samples: BTreeMap::new(),
+            capacity,
+        }
+    }
+
+    fn begin_replay_query(&mut self) {
+        self.pending_replay_queries = self.pending_replay_queries.saturating_add(1);
+    }
+
+    fn begin_replay_query_if_idle(&mut self) {
+        if self.pending_replay_queries == 0 {
+            self.begin_replay_query();
+        }
+    }
+
+    fn ingest(&mut self, sequence_number: i64, sample: Sample) -> Vec<Sample> {
+        if self
+            .last_delivered
+            .is_some_and(|last_delivered| sequence_number <= last_delivered)
+        {
+            return Vec::new();
+        }
+
+        if self.pending_replay_queries > 0 {
+            self.stage(sequence_number, sample);
+            return Vec::new();
+        }
+
+        self.stage(sequence_number, sample);
+        self.flush_ready()
+    }
+
+    fn finish_replay_query(&mut self) -> Vec<Sample> {
+        self.pending_replay_queries = self.pending_replay_queries.saturating_sub(1);
+        if self.pending_replay_queries == 0 {
+            self.flush_ready()
+        } else {
+            Vec::new()
+        }
+    }
+
+    fn stage(&mut self, sequence_number: i64, sample: Sample) {
+        self.pending_samples
+            .entry(sequence_number)
+            .or_insert(sample);
+        while self.pending_samples.len() > self.capacity {
+            self.pending_samples.pop_first();
+        }
+    }
+
+    fn flush_ready(&mut self) -> Vec<Sample> {
+        let mut delivered = Vec::new();
+        loop {
+            let Some((&next_sequence_number, _)) = self.pending_samples.first_key_value() else {
+                return delivered;
+            };
+
+            if self
+                .last_delivered
+                .is_some_and(|last_delivered| next_sequence_number <= last_delivered)
+            {
+                self.pending_samples.pop_first();
+                continue;
+            }
+
+            let (sequence_number, sample) = self
+                .pending_samples
+                .pop_first()
+                .expect("first_key_value confirmed a pending sample");
+            self.last_delivered = Some(sequence_number);
+            delivered.push(sample);
+        }
+    }
+}
+
 pub(super) struct TransientLocalReplayCoordinator {
     initial_window: ParkingMutex<ReplayWindow>,
     late_windows: ParkingMutex<HashMap<EndpointGlobalId, ReplayWindow>>,
+    sources: ParkingMutex<HashMap<EndpointGlobalId, SourceReplayState>>,
     unknown_late_live: ParkingMutex<VecDeque<Sample>>,
     unknown_late_live_capacity: usize,
     handler: Arc<dyn Fn(Sample) + Send + Sync>,
@@ -123,6 +211,7 @@ impl TransientLocalReplayCoordinator {
         Self {
             initial_window: ParkingMutex::new(ReplayWindow::new(live_capacity)),
             late_windows: ParkingMutex::new(HashMap::new()),
+            sources: ParkingMutex::new(HashMap::new()),
             unknown_late_live: ParkingMutex::new(VecDeque::with_capacity(live_capacity.min(1024))),
             unknown_late_live_capacity: live_capacity,
             handler,
@@ -140,23 +229,128 @@ impl TransientLocalReplayCoordinator {
         }
     }
 
+    fn source_state_mut(
+        sources: &mut HashMap<EndpointGlobalId, SourceReplayState>,
+        source_global_id: EndpointGlobalId,
+        capacity: usize,
+    ) -> &mut SourceReplayState {
+        sources
+            .entry(source_global_id)
+            .or_insert_with(|| SourceReplayState::new(capacity))
+    }
+
+    fn deliver_sequenced(&self, samples: Vec<Sample>) {
+        for sample in samples {
+            self.deliver(sample);
+        }
+    }
+
+    fn handle_sequenced_sample(
+        &self,
+        publication_id: PublicationId,
+        sample: Sample,
+        capacity: usize,
+    ) {
+        let source_global_id = publication_id.endpoint_global_id();
+        let sequence_number = publication_id.sequence_number();
+        let samples = {
+            let mut sources = self.sources.lock();
+            let state = Self::source_state_mut(&mut sources, source_global_id, capacity);
+            state.ingest(sequence_number, sample)
+        };
+        self.deliver_sequenced(samples);
+    }
+
+    fn stage_pending_source_sample(
+        &self,
+        publication_id: PublicationId,
+        sample: Sample,
+        missing_capacity: Option<usize>,
+    ) -> Option<Sample> {
+        let source_global_id = publication_id.endpoint_global_id();
+        let sequence_number = publication_id.sequence_number();
+        let mut sources = self.sources.lock();
+        let state = match sources.entry(source_global_id) {
+            std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                let Some(capacity) = missing_capacity else {
+                    return Some(sample);
+                };
+                let mut state = SourceReplayState::new(capacity);
+                state.begin_replay_query();
+                entry.insert(state)
+            }
+        };
+        if state.pending_replay_queries == 0 {
+            return Some(sample);
+        }
+        let delivered = state.ingest(sequence_number, sample);
+        debug_assert!(
+            delivered.is_empty(),
+            "pending replay ingestion should only stage samples"
+        );
+        None
+    }
+
+    fn handle_pending_source_sample(
+        &self,
+        publication_id: PublicationId,
+        sample: Sample,
+    ) -> Option<Sample> {
+        self.stage_pending_source_sample(publication_id, sample, None)
+    }
+
+    fn finish_source_replay(&self, publisher_global_id: EndpointGlobalId) {
+        let samples = {
+            let mut sources = self.sources.lock();
+            let Some(state) = sources.get_mut(&publisher_global_id) else {
+                return;
+            };
+            state.finish_replay_query()
+        };
+        self.deliver_sequenced(samples);
+    }
+
     pub(super) fn handle_live(self: &Arc<Self>, sample: Sample) {
         if self.is_cancelled() {
             return;
         }
-        if let Some(source_global_id) = source_global_id_from_sample(&sample) {
+        let mut sample = sample;
+        let publication_id = metadata::publication_id_from_sample(&sample);
+        if let Some(publication_id) = publication_id {
+            let source_global_id = publication_id.endpoint_global_id();
             let mut late_windows = self.late_windows.lock();
-            if let Some(window) = late_windows.get_mut(&source_global_id)
-                && (window.pending || window.draining)
-            {
-                window.push_live(sample);
-                return;
+            if let Some(window) = late_windows.get_mut(&source_global_id) {
+                if window.pending {
+                    match self.stage_pending_source_sample(
+                        publication_id,
+                        sample,
+                        Some(window.live_capacity),
+                    ) {
+                        None => return,
+                        Some(returned_sample) => {
+                            window.push_live(returned_sample);
+                            return;
+                        }
+                    }
+                }
+                if window.draining {
+                    window.push_live(sample);
+                    return;
+                }
             }
         }
-        if source_global_id_from_sample(&sample).is_none()
-            && self.buffer_unknown_late_live_if_active(sample.clone())
-        {
-            return;
+
+        if let Some(publication_id) = publication_id {
+            match self.handle_pending_source_sample(publication_id, sample) {
+                None => return,
+                Some(returned_sample) => sample = returned_sample,
+            }
+        } else {
+            match self.buffer_unknown_late_live_if_active(sample) {
+                None => return,
+                Some(returned_sample) => sample = returned_sample,
+            }
         }
 
         let mut initial_window = self.initial_window.lock();
@@ -164,20 +358,39 @@ impl TransientLocalReplayCoordinator {
             initial_window.push_live(sample);
             return;
         }
-        if metadata::publication_id_from_sample(&sample)
-            .is_some_and(|id| initial_window.delivered_replay_ids.contains(&id))
-        {
+        if publication_id.is_some_and(|id| initial_window.delivered_replay_ids.contains(&id)) {
             return;
         }
         drop(initial_window);
+        if let Some(publication_id) = publication_id {
+            self.handle_sequenced_sample(publication_id, sample, self.unknown_late_live_capacity);
+            return;
+        }
         self.deliver(sample);
     }
 
+    pub(super) fn begin_initial_publisher(
+        &self,
+        publisher_global_id: EndpointGlobalId,
+        live_capacity: usize,
+    ) {
+        let mut sources = self.sources.lock();
+        Self::source_state_mut(&mut sources, publisher_global_id, live_capacity)
+            .begin_replay_query_if_idle();
+    }
+
+    pub(super) fn finish_initial_publisher(&self, publisher_global_id: EndpointGlobalId) {
+        self.finish_source_replay(publisher_global_id);
+    }
+
     fn begin_late_publisher(&self, publisher_global_id: EndpointGlobalId, live_capacity: usize) {
-        self.late_windows
-            .lock()
+        let mut late_windows = self.late_windows.lock();
+        late_windows
             .entry(publisher_global_id)
             .or_insert_with(|| ReplayWindow::new(live_capacity));
+        let mut sources = self.sources.lock();
+        Self::source_state_mut(&mut sources, publisher_global_id, live_capacity)
+            .begin_replay_query_if_idle();
     }
 
     fn handle_late_replay(
@@ -198,6 +411,10 @@ impl TransientLocalReplayCoordinator {
         }) {
             return;
         }
+        if let Some(publication_id) = publication_id {
+            self.handle_sequenced_sample(publication_id, sample, self.unknown_late_live_capacity);
+            return;
+        }
 
         let mut late_windows = self.late_windows.lock();
         let Some(window) = late_windows.get_mut(&publisher_global_id) else {
@@ -213,7 +430,7 @@ impl TransientLocalReplayCoordinator {
         window.push_replay(OrderedReplaySample {
             sample,
             insertion_order,
-            publication_id,
+            publication_id: None,
         });
     }
 
@@ -251,17 +468,18 @@ impl TransientLocalReplayCoordinator {
         }
         self.initial_window.lock().delivered_replay_ids = delivered.clone();
 
+        self.finish_source_replay(publisher_global_id);
         self.drain_late_live(publisher_global_id, live, &delivered);
     }
 
-    fn buffer_unknown_late_live_if_active(&self, sample: Sample) -> bool {
+    fn buffer_unknown_late_live_if_active(&self, sample: Sample) -> Option<Sample> {
         if !self
             .late_windows
             .lock()
             .values()
             .any(|window| window.pending || window.draining)
         {
-            return false;
+            return Some(sample);
         }
         let mut unknown_late_live = self.unknown_late_live.lock();
         push_bounded_sample(
@@ -269,7 +487,7 @@ impl TransientLocalReplayCoordinator {
             sample,
             self.unknown_late_live_capacity,
         );
-        true
+        None
     }
 
     fn handle_replay(&self, sample: Sample, insertion_order: usize) {
@@ -277,6 +495,10 @@ impl TransientLocalReplayCoordinator {
             return;
         }
         let publication_id = metadata::publication_id_from_sample(&sample);
+        if let Some(publication_id) = publication_id {
+            self.handle_sequenced_sample(publication_id, sample, self.unknown_late_live_capacity);
+            return;
+        }
         let mut initial_window = self.initial_window.lock();
         if !initial_window.pending {
             drop(initial_window);
@@ -327,9 +549,18 @@ impl TransientLocalReplayCoordinator {
     fn drain_live(&self, mut live: VecDeque<Sample>, delivered: &HashSet<PublicationId>) {
         loop {
             for sample in live {
-                if !is_replay_duplicate(&sample, delivered) {
-                    self.deliver(sample);
+                if is_replay_duplicate(&sample, delivered) {
+                    continue;
                 }
+                if let Some(publication_id) = metadata::publication_id_from_sample(&sample) {
+                    self.handle_sequenced_sample(
+                        publication_id,
+                        sample,
+                        self.unknown_late_live_capacity,
+                    );
+                    continue;
+                }
+                self.deliver(sample);
             }
 
             let mut initial_window = self.initial_window.lock();
@@ -350,9 +581,18 @@ impl TransientLocalReplayCoordinator {
     ) {
         loop {
             for sample in live {
-                if !is_replay_duplicate(&sample, delivered) {
-                    self.deliver(sample);
+                if is_replay_duplicate(&sample, delivered) {
+                    continue;
                 }
+                if let Some(publication_id) = metadata::publication_id_from_sample(&sample) {
+                    self.handle_sequenced_sample(
+                        publication_id,
+                        sample,
+                        self.unknown_late_live_capacity,
+                    );
+                    continue;
+                }
+                self.deliver(sample);
             }
 
             let mut late_windows = self.late_windows.lock();
@@ -397,13 +637,6 @@ fn push_bounded_sample(samples: &mut VecDeque<Sample>, sample: Sample, capacity:
         samples.pop_front();
     }
     samples.push_back(sample);
-}
-
-fn source_global_id_from_sample(sample: &Sample) -> Option<EndpointGlobalId> {
-    sample
-        .attachment()
-        .and_then(|raw| Attachment::try_from(raw).ok())
-        .map(|attachment| attachment.source_global_id)
 }
 
 fn should_deliver_replay_id(
@@ -642,11 +875,12 @@ pub(crate) fn spawn_transient_local_replay_task(
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut seen = initial_seen;
+        let mut changes = graph.subscribe_changes();
         loop {
             if coordinator.is_cancelled() {
                 return;
             }
-            let notified = graph.change_notify.notified();
+            changes.mark_seen();
             let discovered = begin_unseen_late_publishers(
                 &mut seen,
                 &coordinator,
@@ -672,7 +906,9 @@ pub(crate) fn spawn_transient_local_replay_task(
                 }
                 coordinator.finish_late_replay(publisher_global_id);
             }
-            notified.await;
+            if changes.changed().await.is_none() {
+                return;
+            }
         }
     })
 }
@@ -709,6 +945,82 @@ mod tests {
 
     fn sample_payload(sample: &Sample) -> String {
         String::from_utf8(sample.payload().to_bytes().to_vec()).unwrap()
+    }
+
+    fn ingest_payload(
+        state: &mut SourceReplayState,
+        sequence_number: i64,
+        payload: &str,
+    ) -> Vec<String> {
+        state
+            .ingest(sequence_number, sample_with_payload(payload))
+            .into_iter()
+            .map(|sample| sample_payload(&sample))
+            .collect()
+    }
+
+    fn finish_payloads(state: &mut SourceReplayState) -> Vec<String> {
+        state
+            .finish_replay_query()
+            .into_iter()
+            .map(|sample| sample_payload(&sample))
+            .collect()
+    }
+
+    #[test]
+    fn source_replay_state_stages_samples_while_replay_is_pending() {
+        let mut state = SourceReplayState::new(3);
+        state.begin_replay_query();
+
+        assert!(ingest_payload(&mut state, 2, "live-2").is_empty());
+        assert!(ingest_payload(&mut state, 1, "replay-1").is_empty());
+
+        assert_eq!(finish_payloads(&mut state), ["replay-1", "live-2"]);
+    }
+
+    #[test]
+    fn source_replay_state_drops_duplicate_sequence_numbers() {
+        let mut state = SourceReplayState::new(3);
+        state.begin_replay_query();
+
+        assert!(ingest_payload(&mut state, 1, "live-1").is_empty());
+        assert!(ingest_payload(&mut state, 1, "replay-1-duplicate").is_empty());
+
+        assert_eq!(finish_payloads(&mut state), ["live-1"]);
+        assert!(ingest_payload(&mut state, 1, "late-duplicate").is_empty());
+    }
+
+    #[test]
+    fn source_replay_state_bounds_pending_samples_by_capacity() {
+        let mut state = SourceReplayState::new(2);
+        state.begin_replay_query();
+
+        assert!(ingest_payload(&mut state, 1, "one").is_empty());
+        assert!(ingest_payload(&mut state, 2, "two").is_empty());
+        assert!(ingest_payload(&mut state, 3, "three").is_empty());
+
+        assert_eq!(finish_payloads(&mut state), ["two", "three"]);
+    }
+
+    #[test]
+    fn source_replay_state_starts_finished_replay_at_lowest_retained_sequence() {
+        let mut state = SourceReplayState::new(2);
+        state.begin_replay_query();
+
+        assert!(ingest_payload(&mut state, 9, "nine").is_empty());
+        assert!(ingest_payload(&mut state, 10, "ten").is_empty());
+
+        assert_eq!(finish_payloads(&mut state), ["nine", "ten"]);
+    }
+
+    #[test]
+    fn source_replay_state_ignores_double_replay_completion() {
+        let mut state = SourceReplayState::new(2);
+        state.begin_replay_query();
+
+        assert!(ingest_payload(&mut state, 1, "one").is_empty());
+        assert_eq!(finish_payloads(&mut state), ["one"]);
+        assert!(finish_payloads(&mut state).is_empty());
     }
 
     #[test]
@@ -786,6 +1098,76 @@ mod tests {
     }
 
     #[test]
+    fn replay_coordinator_flushes_initial_metadata_replay_before_same_source_live() {
+        let received = Arc::new(ParkingMutex::new(Vec::new()));
+        let handler_received = received.clone();
+        let handler = Arc::new(move |sample: Sample| {
+            handler_received.lock().push(sample_payload(&sample));
+        });
+        let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(3, handler));
+        let publisher_global_id = EndpointGlobalId::from([14_u8; 16]);
+
+        coordinator.begin_initial_publisher(publisher_global_id, 3);
+        coordinator.handle_live(sample_with_publication_id(
+            "live-2",
+            PublicationId::new(publisher_global_id, 2),
+        ));
+        coordinator.handle_replay(
+            sample_with_publication_id("replay-1", PublicationId::new(publisher_global_id, 1)),
+            0,
+        );
+
+        assert!(received.lock().is_empty());
+
+        coordinator.finish_initial_publisher(publisher_global_id);
+
+        assert_eq!(*received.lock(), ["replay-1", "live-2"]);
+    }
+
+    #[test]
+    fn replay_coordinator_keeps_later_initial_source_live_pending_until_its_query_finishes() {
+        let received = Arc::new(ParkingMutex::new(Vec::new()));
+        let handler_received = received.clone();
+        let handler = Arc::new(move |sample: Sample| {
+            handler_received.lock().push(sample_payload(&sample));
+        });
+        let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(3, handler));
+        let first_publisher_global_id = EndpointGlobalId::from([15_u8; 16]);
+        let second_publisher_global_id = EndpointGlobalId::from([16_u8; 16]);
+
+        coordinator.begin_initial_publisher(first_publisher_global_id, 3);
+        coordinator.begin_initial_publisher(second_publisher_global_id, 3);
+        coordinator.handle_live(sample_with_publication_id(
+            "second-live-2",
+            PublicationId::new(second_publisher_global_id, 2),
+        ));
+        coordinator.handle_replay(
+            sample_with_publication_id(
+                "first-replay-1",
+                PublicationId::new(first_publisher_global_id, 1),
+            ),
+            0,
+        );
+        coordinator.finish_initial_publisher(first_publisher_global_id);
+
+        assert_eq!(*received.lock(), ["first-replay-1"]);
+
+        coordinator.handle_replay(
+            sample_with_publication_id(
+                "second-replay-1",
+                PublicationId::new(second_publisher_global_id, 1),
+            ),
+            1,
+        );
+        coordinator.finish_initial_publisher(second_publisher_global_id);
+
+        assert_eq!(
+            *received.lock(),
+            ["first-replay-1", "second-replay-1", "second-live-2"]
+        );
+    }
+
+    #[test]
     fn replay_coordinator_bounds_late_replay_staging() {
         let received = Arc::new(ParkingMutex::new(Vec::new()));
         let handler_received = received.clone();
@@ -846,6 +1228,57 @@ mod tests {
                 "cached-3",
                 "live-before-drain",
                 "live-during",
+            ]
+        );
+    }
+
+    #[test]
+    fn replay_coordinator_buffers_metadata_live_arriving_during_initial_replay_drain() {
+        let received = Arc::new(ParkingMutex::new(Vec::new()));
+        let coordinator_slot = Arc::new(ParkingMutex::new(None));
+        let publisher_global_id = EndpointGlobalId::from([17_u8; 16]);
+
+        let handler_received = received.clone();
+        let handler_coordinator = coordinator_slot.clone();
+        let handler = Arc::new(move |sample: Sample| {
+            let payload = sample_payload(&sample);
+            handler_received.lock().push(payload.clone());
+            if payload == "fallback-replay-1" {
+                let coordinator: Arc<TransientLocalReplayCoordinator> = handler_coordinator
+                    .lock()
+                    .as_ref()
+                    .cloned()
+                    .expect("coordinator should be installed before replay");
+                coordinator.handle_live(sample_with_publication_id(
+                    "metadata-live-during-drain",
+                    PublicationId::new(publisher_global_id, 2),
+                ));
+            }
+        });
+        let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(10, handler));
+        *coordinator_slot.lock() = Some(coordinator.clone());
+
+        coordinator.begin_initial_publisher(publisher_global_id, 3);
+        coordinator.handle_replay(
+            sample_with_publication_id(
+                "source-replay-1",
+                PublicationId::new(publisher_global_id, 1),
+            ),
+            0,
+        );
+        coordinator.finish_initial_publisher(publisher_global_id);
+        coordinator.handle_replay(sample_with_payload("fallback-replay-1"), 1);
+        coordinator.handle_replay(sample_with_payload("fallback-replay-2"), 2);
+
+        coordinator.finish_initial_replay();
+
+        assert_eq!(
+            *received.lock(),
+            [
+                "source-replay-1",
+                "fallback-replay-1",
+                "fallback-replay-2",
+                "metadata-live-during-drain",
             ]
         );
     }
@@ -985,6 +1418,47 @@ mod tests {
     }
 
     #[test]
+    fn replay_coordinator_keeps_independent_source_ordering() {
+        let received = Arc::new(ParkingMutex::new(Vec::new()));
+        let handler_received = received.clone();
+        let handler = Arc::new(move |sample: Sample| {
+            handler_received.lock().push(sample_payload(&sample));
+        });
+        let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(3, handler));
+        let first = EndpointGlobalId::from([21_u8; 16]);
+        let second = EndpointGlobalId::from([22_u8; 16]);
+
+        coordinator.finish_initial_replay();
+        coordinator.begin_late_publisher(first, 3);
+        coordinator.begin_late_publisher(second, 3);
+        coordinator.handle_live(sample_with_publication_id(
+            "first-2",
+            PublicationId::new(first, 2),
+        ));
+        coordinator.handle_live(sample_with_publication_id(
+            "second-2",
+            PublicationId::new(second, 2),
+        ));
+        coordinator.handle_late_replay(
+            first,
+            sample_with_publication_id("first-1", PublicationId::new(first, 1)),
+            0,
+        );
+        coordinator.handle_late_replay(
+            second,
+            sample_with_publication_id("second-1", PublicationId::new(second, 1)),
+            0,
+        );
+        coordinator.finish_late_replay(first);
+        coordinator.finish_late_replay(second);
+
+        assert_eq!(
+            *received.lock(),
+            ["first-1", "first-2", "second-1", "second-2"]
+        );
+    }
+
+    #[test]
     fn replay_coordinator_keeps_late_window_active_while_draining() {
         let received = Arc::new(ParkingMutex::new(Vec::new()));
         let coordinator_slot = Arc::new(ParkingMutex::new(None));
@@ -1067,6 +1541,204 @@ mod tests {
         coordinator.finish_late_replay(publisher_global_id);
 
         assert_eq!(*received.lock(), ["replay"]);
+    }
+
+    #[test]
+    fn replay_coordinator_deduplicates_live_sample_against_later_replay() {
+        let received = Arc::new(ParkingMutex::new(Vec::new()));
+        let handler_received = received.clone();
+        let handler = Arc::new(move |sample: Sample| {
+            handler_received.lock().push(sample_payload(&sample));
+        });
+        let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(3, handler));
+        let publisher_global_id = EndpointGlobalId::from([11_u8; 16]);
+
+        coordinator.finish_initial_replay();
+        coordinator.handle_live(sample_with_publication_id(
+            "live-1",
+            PublicationId::new(publisher_global_id, 1),
+        ));
+        coordinator.begin_late_publisher(publisher_global_id, 3);
+        coordinator.handle_late_replay(
+            publisher_global_id,
+            sample_with_publication_id("replay-1", PublicationId::new(publisher_global_id, 1)),
+            0,
+        );
+        coordinator.finish_late_replay(publisher_global_id);
+
+        assert_eq!(*received.lock(), ["live-1"]);
+    }
+
+    #[test]
+    fn replay_coordinator_orders_late_replay_before_buffered_live() {
+        let received = Arc::new(ParkingMutex::new(Vec::new()));
+        let handler_received = received.clone();
+        let handler = Arc::new(move |sample: Sample| {
+            handler_received.lock().push(sample_payload(&sample));
+        });
+        let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(3, handler));
+        let publisher_global_id = EndpointGlobalId::from([12_u8; 16]);
+
+        coordinator.finish_initial_replay();
+        coordinator.begin_late_publisher(publisher_global_id, 3);
+        coordinator.handle_live(sample_with_publication_id(
+            "live-3",
+            PublicationId::new(publisher_global_id, 3),
+        ));
+        coordinator.handle_late_replay(
+            publisher_global_id,
+            sample_with_publication_id("replay-1", PublicationId::new(publisher_global_id, 1)),
+            0,
+        );
+        coordinator.handle_late_replay(
+            publisher_global_id,
+            sample_with_publication_id("replay-2", PublicationId::new(publisher_global_id, 2)),
+            1,
+        );
+        coordinator.finish_late_replay(publisher_global_id);
+
+        assert_eq!(*received.lock(), ["replay-1", "replay-2", "live-3"]);
+    }
+
+    #[test]
+    fn replay_coordinator_prefers_live_duplicate_during_pending_late_replay() {
+        let received = Arc::new(ParkingMutex::new(Vec::new()));
+        let handler_received = received.clone();
+        let handler = Arc::new(move |sample: Sample| {
+            handler_received.lock().push(sample_payload(&sample));
+        });
+        let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(3, handler));
+        let publisher_global_id = EndpointGlobalId::from([18_u8; 16]);
+
+        coordinator.finish_initial_replay();
+        coordinator.begin_late_publisher(publisher_global_id, 3);
+        coordinator.handle_live(sample_with_publication_id(
+            "live-2",
+            PublicationId::new(publisher_global_id, 2),
+        ));
+        coordinator.handle_late_replay(
+            publisher_global_id,
+            sample_with_publication_id("replay-1", PublicationId::new(publisher_global_id, 1)),
+            0,
+        );
+        coordinator.handle_late_replay(
+            publisher_global_id,
+            sample_with_publication_id(
+                "replay-2-duplicate",
+                PublicationId::new(publisher_global_id, 2),
+            ),
+            1,
+        );
+        coordinator.finish_late_replay(publisher_global_id);
+
+        assert_eq!(*received.lock(), ["replay-1", "live-2"]);
+    }
+
+    #[test]
+    fn replay_coordinator_sequences_pending_late_live_if_source_state_is_not_ready() {
+        let received = Arc::new(ParkingMutex::new(Vec::new()));
+        let handler_received = received.clone();
+        let handler = Arc::new(move |sample: Sample| {
+            handler_received.lock().push(sample_payload(&sample));
+        });
+        let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(3, handler));
+        let publisher_global_id = EndpointGlobalId::from([20_u8; 16]);
+
+        coordinator.finish_initial_replay();
+        coordinator
+            .late_windows
+            .lock()
+            .insert(publisher_global_id, ReplayWindow::new(3));
+        coordinator.handle_live(sample_with_publication_id(
+            "live-2",
+            PublicationId::new(publisher_global_id, 2),
+        ));
+        coordinator.begin_late_publisher(publisher_global_id, 3);
+        coordinator.handle_late_replay(
+            publisher_global_id,
+            sample_with_publication_id("replay-1", PublicationId::new(publisher_global_id, 1)),
+            0,
+        );
+        coordinator.handle_late_replay(
+            publisher_global_id,
+            sample_with_publication_id(
+                "replay-2-duplicate",
+                PublicationId::new(publisher_global_id, 2),
+            ),
+            1,
+        );
+        coordinator.finish_late_replay(publisher_global_id);
+
+        assert_eq!(*received.lock(), ["replay-1", "live-2"]);
+    }
+
+    #[test]
+    fn replay_coordinator_orders_live_samples_during_pending_late_replay() {
+        let received = Arc::new(ParkingMutex::new(Vec::new()));
+        let handler_received = received.clone();
+        let handler = Arc::new(move |sample: Sample| {
+            handler_received.lock().push(sample_payload(&sample));
+        });
+        let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(4, handler));
+        let publisher_global_id = EndpointGlobalId::from([19_u8; 16]);
+
+        coordinator.finish_initial_replay();
+        coordinator.begin_late_publisher(publisher_global_id, 4);
+        coordinator.handle_live(sample_with_publication_id(
+            "live-4",
+            PublicationId::new(publisher_global_id, 4),
+        ));
+        coordinator.handle_live(sample_with_publication_id(
+            "live-3",
+            PublicationId::new(publisher_global_id, 3),
+        ));
+        coordinator.handle_late_replay(
+            publisher_global_id,
+            sample_with_publication_id("replay-1", PublicationId::new(publisher_global_id, 1)),
+            0,
+        );
+        coordinator.handle_late_replay(
+            publisher_global_id,
+            sample_with_publication_id("replay-2", PublicationId::new(publisher_global_id, 2)),
+            1,
+        );
+        coordinator.finish_late_replay(publisher_global_id);
+
+        assert_eq!(
+            *received.lock(),
+            ["replay-1", "replay-2", "live-3", "live-4"]
+        );
+    }
+
+    #[test]
+    fn replay_coordinator_preserves_monotonic_order_after_live_sample_escaped() {
+        let received = Arc::new(ParkingMutex::new(Vec::new()));
+        let handler_received = received.clone();
+        let handler = Arc::new(move |sample: Sample| {
+            handler_received.lock().push(sample_payload(&sample));
+        });
+        let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(3, handler));
+        let publisher_global_id = EndpointGlobalId::from([13_u8; 16]);
+
+        coordinator.finish_initial_replay();
+        coordinator.handle_live(sample_with_publication_id(
+            "live-3",
+            PublicationId::new(publisher_global_id, 3),
+        ));
+        coordinator.begin_late_publisher(publisher_global_id, 3);
+        coordinator.handle_late_replay(
+            publisher_global_id,
+            sample_with_publication_id("replay-1", PublicationId::new(publisher_global_id, 1)),
+            0,
+        );
+        coordinator.handle_late_replay(
+            publisher_global_id,
+            sample_with_publication_id("replay-2", PublicationId::new(publisher_global_id, 2)),
+            1,
+        );
+        coordinator.finish_late_replay(publisher_global_id);
+
+        assert_eq!(*received.lock(), ["live-3"]);
     }
 
     #[test]

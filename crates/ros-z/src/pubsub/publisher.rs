@@ -432,7 +432,7 @@ where
 {
     /// Return the number of matched subscribers currently visible in the graph.
     pub fn subscriber_count(&self) -> usize {
-        self.graph.view().subscriptions_on(&self.entity.topic).len()
+        self.graph.view().subscription_count_on(&self.entity.topic)
     }
 
     /// Return whether at least one subscriber is currently matched.
@@ -457,30 +457,15 @@ where
     /// assert!(publisher.wait_for_subscribers(1, Duration::from_secs(5)).await);
     /// ```
     pub async fn wait_for_subscribers(&self, count: usize, timeout: Duration) -> bool {
-        let deadline = tokio::time::Instant::now() + timeout;
-        loop {
-            // Arm the notification *before* reading the count to avoid a TOCTOU
-            // race where a subscriber arrives between the count check and the await.
-            let notified = self.graph.change_notify.notified();
-            tokio::pin!(notified);
+        let topic = self.entity.topic.as_str();
+        let wait = self
+            .graph
+            .wait_until(move |view| view.subscription_count_on(topic) >= count);
 
-            let n = self.graph.view().subscriptions_on(&self.entity.topic).len();
-            if n >= count {
-                return true;
-            }
-
-            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
-            if remaining.is_zero() {
-                return false;
-            }
-
-            // Sleep until either a graph change fires or the deadline passes.
-            if tokio::time::timeout(remaining, &mut notified)
-                .await
-                .is_err()
-            {
-                // Timeout — do one final check in case a late notification was missed.
-                return self.graph.view().subscriptions_on(&self.entity.topic).len() >= count;
+        match tokio::time::timeout(timeout, wait).await {
+            Ok(true) => true,
+            Ok(false) | Err(_) => {
+                self.graph.view().subscription_count_on(&self.entity.topic) >= count
             }
         }
     }
@@ -530,16 +515,17 @@ where
         publication_id: PublicationId,
     ) -> Result<()> {
         let (zbytes, attachment) = self.prepare_publish_payload(message, publication_id)?;
-        let mut put_builder = self.inner.put(zbytes.clone());
+        // Keep cache-before-publish semantics so replay queries can observe the retained
+        // sample as soon as publish() returns, matching zenoh_ext AdvancedPublisher history.
+        self.retain_transient_local_sample(&zbytes, &attachment);
 
+        let mut put_builder = self.inner.put(zbytes);
         put_builder = put_builder.encoding((*self.encoding).clone());
-
-        put_builder = put_builder.attachment(attachment.clone());
+        put_builder = put_builder.attachment(attachment);
 
         put_builder
             .await
             .map_err(|source| crate::Error::zenoh("publish sample", source))?;
-        self.retain_transient_local_sample(zbytes, attachment);
         Ok(())
     }
 
@@ -602,12 +588,16 @@ where
         Ok((zbytes, attachment))
     }
 
-    fn retain_transient_local_sample(&self, payload: zenoh::bytes::ZBytes, attachment: Attachment) {
+    fn retain_transient_local_sample(
+        &self,
+        payload: &zenoh::bytes::ZBytes,
+        attachment: &Attachment,
+    ) {
         if let Some(cache) = &self.transient_local_cache {
             cache.retain(RetainedSample {
-                payload,
+                payload: payload.clone(),
                 encoding: Some((*self.encoding).clone()),
-                attachment,
+                attachment: attachment.clone(),
             });
         }
     }
