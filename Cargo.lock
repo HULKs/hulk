@@ -3485,7 +3485,7 @@ version = "0.33.3"
 source = "git+https://github.com/HULKs/egui/?rev=c310aad9c54618e8845b6707899e2678fec8b842#c310aad9c54618e8845b6707899e2678fec8b842"
 dependencies = [
  "bytemuck",
- "emath 0.33.3 (git+https://github.com/HULKs/egui/?rev=c310aad9c54618e8845b6707899e2678fec8b842)",
+ "emath",
  "serde",
 ]
 
@@ -3537,7 +3537,7 @@ dependencies = [
  "accesskit",
  "ahash",
  "bitflags 2.13.0",
- "emath 0.33.3 (git+https://github.com/HULKs/egui/?rev=c310aad9c54618e8845b6707899e2678fec8b842)",
+ "emath",
  "epaint",
  "log",
  "nohash-hasher",
@@ -3652,7 +3652,7 @@ checksum = "67fc9b427a837264e55381a5cade6e28fe83ac5b165a61b9c888548c732a9c95"
 dependencies = [
  "ahash",
  "egui",
- "emath 0.33.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "emath",
 ]
 
 [[package]]
@@ -3660,12 +3660,6 @@ name = "either"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91622ff5e7162018101f2fea40d6ebf4a78bbe5a49736a2020649edf9693679e"
-
-[[package]]
-name = "emath"
-version = "0.33.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "491bdf728bf25ddd9ad60d4cf1c48588fa82c013a2440b91aa7fc43e34a07c32"
 
 [[package]]
 name = "emath"
@@ -3882,7 +3876,7 @@ dependencies = [
  "ahash",
  "bytemuck",
  "ecolor",
- "emath 0.33.3 (git+https://github.com/HULKs/egui/?rev=c310aad9c54618e8845b6707899e2678fec8b842)",
+ "emath",
  "epaint_default_fonts",
  "log",
  "nohash-hasher",
