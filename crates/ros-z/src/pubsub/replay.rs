@@ -642,11 +642,12 @@ pub(crate) fn spawn_transient_local_replay_task(
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut seen = initial_seen;
+        let mut changes = graph.subscribe_changes();
         loop {
             if coordinator.is_cancelled() {
                 return;
             }
-            let notified = graph.change_notify.notified();
+            changes.mark_seen();
             let discovered = begin_unseen_late_publishers(
                 &mut seen,
                 &coordinator,
@@ -672,7 +673,9 @@ pub(crate) fn spawn_transient_local_replay_task(
                 }
                 coordinator.finish_late_replay(publisher_global_id);
             }
-            notified.await;
+            if changes.changed().await.is_none() {
+                return;
+            }
         }
     })
 }

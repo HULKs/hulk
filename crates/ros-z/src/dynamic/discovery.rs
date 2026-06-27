@@ -2,6 +2,7 @@ use std::fmt;
 use std::time::Duration;
 
 use itertools::Itertools;
+use tokio::time::Instant;
 
 use crate::{
     dynamic::{DynamicCdrCodec, DynamicError, DynamicPayload, DynamicSubscriber, Schema},
@@ -96,6 +97,25 @@ fn collect_topic_schema_candidates(
     collect_topic_schema_candidates_from_publishers(&publishers, qualified_topic)
 }
 
+fn schema_query_timeout(deadline: Instant) -> Option<Duration> {
+    let timeout = deadline.saturating_duration_since(Instant::now());
+    if timeout.is_zero() {
+        return None;
+    }
+    Some(timeout)
+}
+
+fn schema_query_timeout_error(
+    qualified_topic: &str,
+    last_error: Option<&DynamicError>,
+) -> DynamicError {
+    let mut message = format!("Timed out while discovering schema for topic: {qualified_topic}");
+    if let Some(error) = last_error {
+        message.push_str(&format!("; last candidate error: {error}"));
+    }
+    DynamicError::SchemaNotFound(message)
+}
+
 pub(crate) struct SchemaDiscovery {
     context: EndpointBuilderContext,
     timeout: Duration,
@@ -121,10 +141,14 @@ impl SchemaDiscovery {
         &self,
         qualified_topic: String,
     ) -> Result<DiscoveredTopicSchema, DynamicError> {
-        let candidates =
-            collect_topic_schema_candidates(self.context.graph.as_ref(), &qualified_topic)?;
+        let deadline = Instant::now() + self.timeout;
+        let candidates = self
+            .wait_for_topic_schema_candidates(&qualified_topic, deadline)
+            .await?;
 
-        let (root_name, schema, schema_hash) = self.try_schema_service(&candidates[..]).await?;
+        let (root_name, schema, schema_hash) = self
+            .try_schema_service(&qualified_topic, &candidates[..], deadline)
+            .await?;
 
         Ok(DiscoveredTopicSchema {
             qualified_topic,
@@ -134,16 +158,55 @@ impl SchemaDiscovery {
         })
     }
 
+    async fn wait_for_topic_schema_candidates(
+        &self,
+        qualified_topic: &str,
+        deadline: Instant,
+    ) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
+        let graph = &self.context.graph;
+        if tokio::time::timeout_at(
+            deadline,
+            graph.wait_until(|view| view.has_publishers_on(qualified_topic)),
+        )
+        .await
+        .is_err()
+        {
+            return Err(schema_query_timeout_error(qualified_topic, None));
+        }
+
+        collect_topic_schema_candidates(graph.as_ref(), qualified_topic)
+    }
+
     async fn try_schema_service(
         &self,
+        qualified_topic: &str,
         candidates: &[TopicSchemaCandidate],
+        deadline: Instant,
     ) -> Result<(String, Schema, SchemaHash), DynamicError> {
         let mut last_error = None;
 
         for candidate in candidates {
-            match super::schema_query::query_schema(&self.context, candidate, self.timeout).await {
-                Ok(result) => return Ok(result),
-                Err(error) => last_error = Some(error),
+            let Some(timeout) = schema_query_timeout(deadline) else {
+                return Err(schema_query_timeout_error(
+                    qualified_topic,
+                    last_error.as_ref(),
+                ));
+            };
+
+            match tokio::time::timeout_at(
+                deadline,
+                super::schema_query::query_schema(&self.context, candidate, timeout),
+            )
+            .await
+            {
+                Ok(Ok(result)) => return Ok(result),
+                Ok(Err(error)) => last_error = Some(error),
+                Err(_) => {
+                    return Err(schema_query_timeout_error(
+                        qualified_topic,
+                        last_error.as_ref(),
+                    ));
+                }
             }
         }
 
@@ -321,8 +384,21 @@ impl DynamicRawSubscriberDiscoveryBuilder {
 
 #[cfg(test)]
 mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     use super::*;
+    use crate::context::ContextBuilder;
     use crate::entity::{EndpointKind, NodeEntity, SchemaHash, TypeInfo};
+
+    fn unique_node_name(prefix: &str) -> String {
+        format!(
+            "{prefix}_{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock should be after Unix epoch")
+                .as_nanos()
+        )
+    }
 
     fn publisher(type_name: &str) -> EndpointEntity {
         EndpointEntity {
@@ -363,6 +439,73 @@ mod tests {
             type_info: TypeInfo::new(type_name, hash),
             qos: Default::default(),
         }
+    }
+
+    #[test]
+    fn schema_query_timeout_returns_none_for_elapsed_deadline() {
+        let deadline = Instant::now() - Duration::from_millis(1);
+
+        assert_eq!(schema_query_timeout(deadline), None);
+    }
+
+    #[test]
+    fn schema_query_timeout_returns_remaining_duration_for_future_deadline() {
+        let timeout = schema_query_timeout(Instant::now() + Duration::from_secs(1))
+            .expect("future deadline should leave time for one schema query");
+
+        assert!(timeout > Duration::ZERO);
+        assert!(timeout <= Duration::from_secs(1));
+    }
+
+    #[test]
+    fn schema_query_timeout_error_reports_timeout_without_candidate_error() {
+        let error = schema_query_timeout_error("/chatter", None);
+
+        let DynamicError::SchemaNotFound(message) = error else {
+            panic!("expected schema not found timeout, got {error:?}");
+        };
+        assert!(message.contains("Timed out"));
+        assert!(message.contains("/chatter"));
+    }
+
+    #[test]
+    fn schema_query_timeout_error_keeps_candidate_error_as_context() {
+        let error = schema_query_timeout_error(
+            "/chatter",
+            Some(&DynamicError::SerializationError(
+                "candidate failed".to_string(),
+            )),
+        );
+
+        let DynamicError::SchemaNotFound(message) = error else {
+            panic!("expected timeout schema not found, got {error:?}");
+        };
+        assert!(message.contains("Timed out"));
+        assert!(message.contains("/chatter"));
+        assert!(message.contains("candidate failed"));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn schema_candidate_wait_reports_timeout_when_no_publishers_arrive() {
+        let context = ContextBuilder::default()
+            .build()
+            .await
+            .expect("test context should build");
+        let node = context
+            .create_node(unique_node_name("schema_candidate_timeout"))
+            .build()
+            .await
+            .expect("test node should build");
+        let error = node
+            .discover_topic_schema("/missing_schema_timeout", Duration::from_millis(1))
+            .await
+            .expect_err("elapsed publisher wait should report timeout");
+
+        let DynamicError::SchemaNotFound(message) = error else {
+            panic!("expected timeout schema not found, got {error:?}");
+        };
+        assert!(message.contains("Timed out"));
+        assert!(message.contains("/missing_schema_timeout"));
     }
 
     #[test]
