@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, time::Duration};
 
-use color_eyre::{Result, eyre::eyre};
+use color_eyre::{Result, eyre::Context};
 use types::parameters::BehaviorParameters;
 
 pub const DEFAULT_TICK_DURATION: Duration = Duration::from_millis(10);
@@ -53,12 +53,8 @@ impl Default for SimulationConfig {
 }
 
 pub fn default_behavior_parameters() -> Result<BehaviorParameters> {
-    let parameters: serde_json::Value =
-        serde_json::from_str(include_str!("../../../etc/parameters/default.json"))?;
-    let behavior = parameters
-        .get("behavior")
-        .cloned()
-        .ok_or_else(|| eyre!("default parameters do not contain behavior parameters"))?;
-
-    Ok(serde_json::from_value(behavior)?)
+    Ok(json5::from_str(include_str!(
+        "../../../etc/parameters/ros_z/base/behavior_node.json5"
+    ))
+    .wrap_err("failed to parse behavior parameters")?)
 }

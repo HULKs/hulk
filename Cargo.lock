@@ -1982,6 +1982,7 @@ dependencies = [
  "eframe",
  "egui_dock",
  "hsl_network_messages",
+ "json5",
  "linear_algebra",
  "ros-z",
  "scenario",
