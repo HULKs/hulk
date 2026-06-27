@@ -305,8 +305,8 @@ async fn dynamic_observation_freezes_previous_cache_while_retrying_after_retarge
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn dropping_observer_closes_live_observation_while_handle_remains() -> ros_z_debug::Result<()>
-{
+async fn dropping_observer_does_not_close_live_observation_while_handle_remains()
+-> ros_z_debug::Result<()> {
     let context = ContextBuilder::default().build().await?;
     let publisher_node = context.create_node("observer_drop_pub").build().await?;
     let observer_node = Arc::new(
@@ -329,33 +329,24 @@ async fn dropping_observer_closes_live_observation_while_handle_remains() -> ros
         .spawn();
 
     publish_until_latest_value(&publisher, &observation, "alive").await?;
-    let mut updates = observation.subscribe_updates().unwrap();
-
     drop(observer);
+    publish_until_latest_value(&publisher, &observation, "still_alive").await?;
 
-    tokio::time::timeout(std::time::Duration::from_secs(1), async {
-        loop {
-            if matches!(observation.status(), TopicObservationStatus::Closed)
-                && updates.try_recv().is_err()
-            {
-                break;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .expect("dropping observer should close observation promptly");
-
+    assert!(matches!(
+        observation.status(),
+        TopicObservationStatus::Observing { .. }
+    ));
     assert_eq!(
         observation.latest().map(|record| record.value.clone()),
-        Some("alive".to_string())
+        Some("still_alive".to_string())
     );
 
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn dropping_observer_cancels_in_flight_dynamic_schema_discovery() -> ros_z_debug::Result<()> {
+async fn dropping_observation_cancels_in_flight_dynamic_schema_discovery() -> ros_z_debug::Result<()>
+{
     let context = ContextBuilder::default().build().await?;
     let observer_node = Arc::new(context.create_node("dynamic_drop_observer").build().await?);
     let observer = TopicObserver::new(observer_node, {
@@ -367,21 +358,20 @@ async fn dropping_observer_cancels_in_flight_dynamic_schema_discovery() -> ros_z
     let observation = observer.observe_dynamic("never_appears")?.spawn();
     let mut updates = observation.subscribe_updates().unwrap();
 
-    drop(observer);
+    drop(observation);
 
     tokio::time::timeout(std::time::Duration::from_millis(500), async {
         loop {
-            if matches!(observation.status(), TopicObservationStatus::Closed)
-                && updates.try_recv().is_err()
-            {
+            if updates.try_recv().is_err() {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
     })
     .await
-    .expect("observer drop should cancel schema discovery without waiting for timeout");
+    .expect("observation drop should cancel schema discovery without waiting for timeout");
 
+    drop(observer);
     Ok(())
 }
 

@@ -211,7 +211,7 @@ struct TopicObserverInner {
 }
 
 struct ObservationTaskContext {
-    observer: Weak<TopicObserverInner>,
+    _observer: Arc<TopicObserverInner>,
     node: Arc<Node>,
     schema_discovery_timeout: Duration,
     retry_delay: Duration,
@@ -274,7 +274,7 @@ impl TopicObserver {
     fn task_context(&self) -> ObservationTaskContext {
         let options = self.inner.options.lock().clone();
         ObservationTaskContext {
-            observer: Arc::downgrade(&self.inner),
+            _observer: Arc::clone(&self.inner),
             node: Arc::clone(&self.inner.node),
             schema_discovery_timeout: options.schema_discovery_timeout,
             retry_delay: options.retry_delay,
@@ -784,10 +784,6 @@ async fn run_typed_observation<T>(
     T::Codec: Send + Sync,
 {
     loop {
-        if task.observer.upgrade().is_none() {
-            close_observation(&state);
-            return;
-        }
         task.graph_changes.mark_seen();
         let desired = desired_receiver.borrow_and_update().clone();
         let observer_identity = task.target_receiver.borrow_and_update().clone();
@@ -896,10 +892,6 @@ async fn run_dynamic_observation(
     state: Weak<Mutex<TopicObservationState<DynamicPayload>>>,
 ) {
     loop {
-        if task.observer.upgrade().is_none() {
-            close_observation(&state);
-            return;
-        }
         task.graph_changes.mark_seen();
         let desired = desired_receiver.borrow_and_update().clone();
         let observer_identity = task.target_receiver.borrow_and_update().clone();
