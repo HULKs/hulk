@@ -5,45 +5,54 @@ use ros_z::{Message, dynamic::DynamicPayload, node::Node};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    JsonRenderPolicy, JsonSubscriptionHandle, Result, RetentionPolicy, SampleMetadata,
-    SampleRecord, SubscriptionHandle, SubscriptionStatus, SubscriptionStatusSnapshot,
-    TopicSelector,
-    subscription::{ManagedSubscription, SubscriptionState},
-    topic::normalize_target_namespace,
+    CachedJsonSubscription, CachedSubscription, CachedSubscriptionStatus,
+    CachedSubscriptionStatusSnapshot, JsonRenderPolicy, Result, RetentionPolicy, SampleMetadata,
+    SampleRecord, TargetIdentity, TopicReference,
+    cache::{CachedSubscriptionState, ManagedCachedSubscription},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
-pub struct ManagerOptions {
-    /// Namespace used to resolve relative topic selectors.
+pub struct CachedSubscriptionOptions {
+    /// Target identity used to resolve topic references.
     ///
-    /// This names the robot or target namespace being inspected, not the
-    /// namespace of the debug node that owns the subscriptions.
-    target_namespace: String,
+    /// This names the robot or target node being inspected, not the debug node
+    /// that owns the subscriptions.
+    target_identity: TargetIdentity,
     /// Timeout used while querying schema services for dynamic subscriptions.
     schema_discovery_timeout: Duration,
 }
 
-impl Default for ManagerOptions {
+impl Default for CachedSubscriptionOptions {
     fn default() -> Self {
         Self {
-            target_namespace: "/".to_string(),
+            target_identity: TargetIdentity::new("/").expect("root namespace is valid"),
             schema_discovery_timeout: Duration::from_secs(5),
         }
     }
 }
 
-impl ManagerOptions {
+impl CachedSubscriptionOptions {
     /// Create options with a validated target namespace.
-    pub fn with_target_namespace(target_namespace: impl Into<String>) -> Result<Self> {
+    pub fn with_target_namespace(namespace: impl Into<String>) -> Result<Self> {
         let mut options = Self::default();
-        options.set_target_namespace(target_namespace)?;
+        options.set_target_namespace(namespace)?;
         Ok(options)
     }
 
-    /// Namespace used to resolve relative topic selectors.
+    /// Identity used to resolve topic references.
+    pub fn target_identity(&self) -> &TargetIdentity {
+        &self.target_identity
+    }
+
+    /// Namespace used to resolve relative topic references.
     pub fn target_namespace(&self) -> &str {
-        &self.target_namespace
+        self.target_identity.namespace()
+    }
+
+    /// Node name used to resolve private topic references, when configured.
+    pub fn target_node_name(&self) -> Option<&str> {
+        self.target_identity.node_name()
     }
 
     /// Timeout used while querying schema services for dynamic subscriptions.
@@ -52,12 +61,14 @@ impl ManagerOptions {
     }
 
     /// Update the target namespace after validating it as a graph namespace.
-    pub fn set_target_namespace(
-        &mut self,
-        target_namespace: impl Into<String>,
-    ) -> Result<&mut Self> {
-        let target_namespace = target_namespace.into();
-        self.target_namespace = normalize_target_namespace(&target_namespace)?;
+    pub fn set_target_namespace(&mut self, namespace: impl Into<String>) -> Result<&mut Self> {
+        self.target_identity.set_namespace(namespace)?;
+        Ok(self)
+    }
+
+    /// Update the target node name after validating it as a graph component.
+    pub fn set_target_node_name(&mut self, node_name: impl Into<String>) -> Result<&mut Self> {
+        self.target_identity.set_node_name(node_name)?;
         Ok(self)
     }
 
@@ -70,60 +81,73 @@ impl ManagerOptions {
 
 /// Owns debug subscriptions created from a `ros-z` node.
 ///
-/// Handles returned by this manager retain the latest sample, optional history,
-/// status, and live subscription update streams. Dropping the manager closes
+/// Handles returned by this factory retain the latest sample, optional history,
+/// status, and live subscription update streams. Dropping the factory closes
 /// subscriptions it can still reach; dropping the last handle for a subscription
 /// cancels its receive task.
-pub struct SubscriptionManager {
+pub struct CachedSubscriptionFactory {
     node: Arc<Node>,
-    options: ManagerOptions,
-    subscriptions: SubscriptionRegistry,
+    options: CachedSubscriptionOptions,
+    subscriptions: CachedSubscriptionRegistry,
 }
 
-impl SubscriptionManager {
-    /// Create a manager for subscriptions owned by `node`.
-    pub fn new(node: Arc<Node>, options: ManagerOptions) -> Self {
+impl CachedSubscriptionFactory {
+    /// Create a factory for subscriptions owned by `node`.
+    pub fn new(node: Arc<Node>, options: CachedSubscriptionOptions) -> Self {
         Self {
             node,
             options,
-            subscriptions: SubscriptionRegistry::default(),
+            subscriptions: CachedSubscriptionRegistry::default(),
         }
     }
 
     /// Start building a typed debug subscription.
     ///
-    /// Relative topics resolve against [`ManagerOptions::target_namespace`].
+    /// Relative topics resolve against [`CachedSubscriptionOptions::target_namespace`].
+    /// Private topics resolve against [`CachedSubscriptionOptions::target_node_name`].
     /// The default retention policy is [`RetentionPolicy::LatestOnly`].
-    pub fn subscribe_typed<T>(&self, topic: impl Into<String>) -> TypedSubscriptionBuilder<'_, T> {
-        TypedSubscriptionBuilder {
-            manager: self,
-            topic: topic.into(),
+    pub fn subscribe_typed<T>(
+        &self,
+        topic: impl Into<String>,
+    ) -> Result<CachedTypedSubscriptionBuilder<'_, T>> {
+        Ok(CachedTypedSubscriptionBuilder {
+            factory: self,
+            topic: TopicReference::new(topic.into())?,
             retention: RetentionPolicy::LatestOnly,
             value: PhantomData,
-        }
+        })
     }
 
     /// Start building a dynamic debug subscription.
     ///
-    /// Relative topics resolve against [`ManagerOptions::target_namespace`].
+    /// Relative topics resolve against [`CachedSubscriptionOptions::target_namespace`].
+    /// Private topics resolve against [`CachedSubscriptionOptions::target_node_name`].
     /// Dynamic subscriptions discover the schema from currently visible
     /// publishers during `build()` or `build_json()`. Schema service queries use
-    /// [`ManagerOptions::schema_discovery_timeout`].
-    pub fn subscribe_dynamic(&self, topic: impl Into<String>) -> DynamicSubscriptionBuilder<'_> {
-        DynamicSubscriptionBuilder {
-            manager: self,
-            topic: topic.into(),
+    /// [`CachedSubscriptionOptions::schema_discovery_timeout`].
+    pub fn subscribe_dynamic(
+        &self,
+        topic: impl Into<String>,
+    ) -> Result<CachedDynamicSubscriptionBuilder<'_>> {
+        Ok(CachedDynamicSubscriptionBuilder {
+            factory: self,
+            topic: TopicReference::new(topic.into())?,
             retention: RetentionPolicy::LatestOnly,
-        }
+        })
     }
 
     pub(crate) fn node(&self) -> &Arc<Node> {
         &self.node
     }
 
-    /// Namespace used to resolve relative topic selectors.
+    /// Namespace used to resolve relative topic references.
     pub fn target_namespace(&self) -> &str {
         self.options.target_namespace()
+    }
+
+    /// Node name used to resolve private topic references, when configured.
+    pub fn target_node_name(&self) -> Option<&str> {
+        self.options.target_node_name()
     }
 
     pub(crate) fn close(&self) {
@@ -131,23 +155,23 @@ impl SubscriptionManager {
     }
 }
 
-impl Drop for SubscriptionManager {
+impl Drop for CachedSubscriptionFactory {
     fn drop(&mut self) {
         self.close();
     }
 }
 
 #[derive(Default)]
-pub(crate) struct SubscriptionRegistry {
-    subscriptions: Mutex<Vec<std::sync::Weak<dyn ManagedSubscription>>>,
+pub(crate) struct CachedSubscriptionRegistry {
+    subscriptions: Mutex<Vec<std::sync::Weak<dyn ManagedCachedSubscription>>>,
 }
 
-impl SubscriptionRegistry {
-    pub(crate) fn register<V>(&self, state: &Arc<SubscriptionState<V>>)
+impl CachedSubscriptionRegistry {
+    pub(crate) fn register<V>(&self, state: &Arc<CachedSubscriptionState<V>>)
     where
         V: Send + Sync + 'static,
     {
-        let state: Arc<dyn ManagedSubscription> = state.clone();
+        let state: Arc<dyn ManagedCachedSubscription> = state.clone();
         let mut subscriptions = self.subscriptions.lock();
         subscriptions.retain(|subscription| subscription.strong_count() > 0);
         subscriptions.push(Arc::downgrade(&state));
@@ -166,28 +190,28 @@ impl SubscriptionRegistry {
 }
 
 /// Builder for typed debug subscriptions.
-pub struct TypedSubscriptionBuilder<'a, T> {
-    pub(crate) manager: &'a SubscriptionManager,
-    pub(crate) topic: String,
+pub struct CachedTypedSubscriptionBuilder<'a, T> {
+    pub(crate) factory: &'a CachedSubscriptionFactory,
+    pub(crate) topic: TopicReference,
     pub(crate) retention: RetentionPolicy,
     value: PhantomData<T>,
 }
 
-impl<T> TypedSubscriptionBuilder<'_, T> {
+impl<T> CachedTypedSubscriptionBuilder<'_, T> {
     /// Configure how many samples the handle retains.
     pub fn retention(mut self, retention: RetentionPolicy) -> Self {
         self.retention = retention;
         self
     }
 
-    /// Manager that will own the subscription.
-    pub fn manager(&self) -> &SubscriptionManager {
-        self.manager
+    /// Factory that will own the subscription.
+    pub fn factory(&self) -> &CachedSubscriptionFactory {
+        self.factory
     }
 
-    /// Topic selector requested by the caller.
+    /// Topic reference requested by the caller.
     pub fn topic(&self) -> &str {
-        &self.topic
+        self.topic.as_str()
     }
 
     /// Configured retention policy.
@@ -196,29 +220,32 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
     }
 
     /// Build the typed subscription and spawn its receive task.
-    pub async fn build(self) -> Result<SubscriptionHandle<T>>
+    pub async fn build(self) -> Result<CachedSubscription<T>>
     where
         T: Message + Send + Sync + 'static,
         T::Codec: Send + Sync,
     {
-        let retention = self.retention;
-        let requested_topic = TopicSelector::new(self.topic)?;
-        let resolved_topic = requested_topic.resolve(self.manager.target_namespace())?;
-        let subscriber = self
-            .manager
+        let Self {
+            factory,
+            topic,
+            retention,
+            value: _,
+        } = self;
+        let resolved_topic = topic.resolve(factory.options.target_identity())?;
+        let subscriber = factory
             .node()
             .subscriber::<T>(&resolved_topic)?
             .build()
             .await?;
         let type_info = subscriber.entity().type_info.clone();
         let metadata = Arc::new(SampleMetadata {
-            requested_topic,
+            topic_reference: topic,
             resolved_topic: resolved_topic.clone(),
             type_info: type_info.clone(),
         });
-        let state = SubscriptionState::spawn(
-            SubscriptionStatusSnapshot::with_metadata(
-                SubscriptionStatus::WaitingForFirstSample,
+        let state = CachedSubscriptionState::spawn(
+            CachedSubscriptionStatusSnapshot::with_metadata(
+                CachedSubscriptionStatus::WaitingForFirstSample,
                 resolved_topic,
                 type_info,
             ),
@@ -228,7 +255,7 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
             },
         );
         let handle = state.handle();
-        self.manager.subscriptions.register(&state);
+        factory.subscriptions.register(&state);
 
         Ok(handle)
     }
@@ -238,29 +265,29 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
 ///
 /// Dynamic builders use currently visible publishers to find one consistent
 /// schema for the resolved topic. Building fails if no matching publisher/schema
-/// is visible, or if schema service queries do not complete within the manager's
+/// is visible, or if schema service queries do not complete within the factory's
 /// configured discovery timeout.
-pub struct DynamicSubscriptionBuilder<'a> {
-    pub(crate) manager: &'a SubscriptionManager,
-    pub(crate) topic: String,
+pub struct CachedDynamicSubscriptionBuilder<'a> {
+    pub(crate) factory: &'a CachedSubscriptionFactory,
+    pub(crate) topic: TopicReference,
     pub(crate) retention: RetentionPolicy,
 }
 
-impl DynamicSubscriptionBuilder<'_> {
+impl CachedDynamicSubscriptionBuilder<'_> {
     /// Configure how many samples the handle retains.
     pub fn retention(mut self, retention: RetentionPolicy) -> Self {
         self.retention = retention;
         self
     }
 
-    /// Manager that will own the subscription.
-    pub fn manager(&self) -> &SubscriptionManager {
-        self.manager
+    /// Factory that will own the subscription.
+    pub fn factory(&self) -> &CachedSubscriptionFactory {
+        self.factory
     }
 
-    /// Topic selector requested by the caller.
+    /// Topic reference requested by the caller.
     pub fn topic(&self) -> &str {
-        &self.topic
+        self.topic.as_str()
     }
 
     /// Configured retention policy.
@@ -272,41 +299,40 @@ impl DynamicSubscriptionBuilder<'_> {
     ///
     /// Schema discovery requires at least one currently visible publisher on the
     /// resolved topic, consistent type metadata, and a reachable schema service.
-    pub async fn build(self) -> Result<SubscriptionHandle<DynamicPayload>> {
+    pub async fn build(self) -> Result<CachedSubscription<DynamicPayload>> {
         self.build_dynamic_payload().await
     }
 
     /// Build a dynamic JSON subscription with `policy`.
     ///
     /// Schema discovery has the same requirements as [`Self::build`].
-    pub async fn build_json(self, policy: JsonRenderPolicy) -> Result<JsonSubscriptionHandle> {
+    pub async fn build_json(self, policy: JsonRenderPolicy) -> Result<CachedJsonSubscription> {
         let dynamic = self.build_dynamic_payload().await?;
-        Ok(JsonSubscriptionHandle::new(dynamic, policy))
+        Ok(CachedJsonSubscription::new(dynamic, policy))
     }
 
-    async fn build_dynamic_payload(self) -> Result<SubscriptionHandle<DynamicPayload>> {
-        let retention = self.retention;
-        let requested_topic = TopicSelector::new(self.topic)?;
-        let resolved_topic = requested_topic.resolve(self.manager.target_namespace())?;
-        let subscriber = self
-            .manager
+    async fn build_dynamic_payload(self) -> Result<CachedSubscription<DynamicPayload>> {
+        let Self {
+            factory,
+            topic,
+            retention,
+        } = self;
+        let resolved_topic = topic.resolve(factory.options.target_identity())?;
+        let subscriber = factory
             .node()
-            .dynamic_subscriber_auto(
-                &resolved_topic,
-                self.manager.options.schema_discovery_timeout(),
-            )
+            .dynamic_subscriber_auto(&resolved_topic, factory.options.schema_discovery_timeout())
             .await?
             .build()
             .await?;
         let type_info = subscriber.entity().type_info.clone();
         let metadata = Arc::new(SampleMetadata {
-            requested_topic,
+            topic_reference: topic,
             resolved_topic: resolved_topic.clone(),
             type_info: type_info.clone(),
         });
-        let state = SubscriptionState::spawn(
-            SubscriptionStatusSnapshot::with_metadata(
-                SubscriptionStatus::WaitingForFirstSample,
+        let state = CachedSubscriptionState::spawn(
+            CachedSubscriptionStatusSnapshot::with_metadata(
+                CachedSubscriptionStatus::WaitingForFirstSample,
                 resolved_topic,
                 type_info,
             ),
@@ -316,7 +342,7 @@ impl DynamicSubscriptionBuilder<'_> {
             },
         );
         let handle = state.handle();
-        self.manager.subscriptions.register(&state);
+        factory.subscriptions.register(&state);
 
         Ok(handle)
     }
@@ -324,7 +350,7 @@ impl DynamicSubscriptionBuilder<'_> {
 
 async fn receive_typed_loop<T>(
     subscriber: ros_z::pubsub::Subscriber<T>,
-    state: std::sync::Weak<SubscriptionState<T>>,
+    state: std::sync::Weak<CachedSubscriptionState<T>>,
     cancellation: CancellationToken,
     metadata: Arc<SampleMetadata>,
 ) where
@@ -363,7 +389,7 @@ async fn receive_typed_loop<T>(
 
 async fn receive_dynamic_loop(
     subscriber: ros_z::pubsub::Subscriber<DynamicPayload, ros_z::dynamic::DynamicCdrCodec>,
-    state: std::sync::Weak<SubscriptionState<DynamicPayload>>,
+    state: std::sync::Weak<CachedSubscriptionState<DynamicPayload>>,
     cancellation: CancellationToken,
     metadata: Arc<SampleMetadata>,
 ) {
@@ -412,7 +438,7 @@ fn receive_error_diagnostic(error: &ros_z::Error, metadata: &SampleMetadata) -> 
     message
 }
 
-fn classify_receive_error(error: &ros_z::Error, message: String) -> SubscriptionStatus {
+fn classify_receive_error(error: &ros_z::Error, message: String) -> CachedSubscriptionStatus {
     if matches!(
         error,
         ros_z::Error::Wire(source) if matches!(
@@ -421,9 +447,9 @@ fn classify_receive_error(error: &ros_z::Error, message: String) -> Subscription
                 | ros_z::error::WireError::SampleAttachmentDecode { .. }
         )
     ) {
-        SubscriptionStatus::protocol_error(message)
+        CachedSubscriptionStatus::protocol_error(message)
     } else {
-        SubscriptionStatus::decode_error(message)
+        CachedSubscriptionStatus::decode_error(message)
     }
 }
 
@@ -432,26 +458,27 @@ mod tests {
     use std::sync::Arc;
 
     use super::{
-        ManagerOptions, SubscriptionRegistry, classify_receive_error, receive_error_diagnostic,
+        CachedSubscriptionOptions, CachedSubscriptionRegistry, classify_receive_error,
+        receive_error_diagnostic,
     };
     use crate::{
-        Error, RetentionPolicy, SampleMetadata, SubscriptionStatus, SubscriptionStatusSnapshot,
-        SubscriptionUpdateClosed, TopicSelector, subscription::SubscriptionState,
+        CachedSubscriptionStatus, CachedSubscriptionStatusSnapshot, CachedSubscriptionUpdateClosed,
+        Error, RetentionPolicy, SampleMetadata, TopicReference, cache::CachedSubscriptionState,
     };
 
     struct TestPayload;
 
     fn test_metadata() -> SampleMetadata {
         SampleMetadata {
-            requested_topic: TopicSelector::new("debug").unwrap(),
+            topic_reference: TopicReference::new("debug").unwrap(),
             resolved_topic: "/debug".to_string(),
             type_info: ros_z::TypeInfo::new("test_msgs::DebugValue", ros_z::SchemaHash::zero()),
         }
     }
 
     #[test]
-    fn manager_options_reject_invalid_target_namespace() {
-        let error = ManagerOptions::with_target_namespace("alpha%bad").unwrap_err();
+    fn cached_subscription_options_reject_invalid_target_namespace() {
+        let error = CachedSubscriptionOptions::with_target_namespace("alpha%bad").unwrap_err();
 
         assert!(matches!(
             error,
@@ -461,10 +488,34 @@ mod tests {
     }
 
     #[test]
-    fn manager_options_normalize_valid_target_namespace() {
-        let options = ManagerOptions::with_target_namespace("alpha/").unwrap();
+    fn cached_subscription_options_normalize_valid_target_namespace() {
+        let options = CachedSubscriptionOptions::with_target_namespace("alpha/").unwrap();
 
         assert_eq!(options.target_namespace(), "/alpha");
+    }
+
+    #[test]
+    fn cached_subscription_options_set_target_node_name() {
+        let mut options = CachedSubscriptionOptions::with_target_namespace("/42").unwrap();
+
+        options.set_target_node_name("behavior_node").unwrap();
+
+        assert_eq!(options.target_node_name(), Some("behavior_node"));
+    }
+
+    #[test]
+    fn cached_subscription_options_keep_previous_node_name_on_invalid_update() {
+        let mut options = CachedSubscriptionOptions::with_target_namespace("/42").unwrap();
+        options.set_target_node_name("behavior_node").unwrap();
+
+        let error = options.set_target_node_name("bad%node").unwrap_err();
+
+        assert!(matches!(
+            error,
+            Error::InvalidTargetNodeName { ref target_node_name, .. }
+                if target_node_name == "bad%node"
+        ));
+        assert_eq!(options.target_node_name(), Some("behavior_node"));
     }
 
     #[test]
@@ -473,7 +524,7 @@ mod tests {
 
         assert!(matches!(
             classify_receive_error(&error, "missing attachment".to_string()),
-            SubscriptionStatus::ProtocolError { ref message } if message == "missing attachment"
+            CachedSubscriptionStatus::ProtocolError { ref message } if message == "missing attachment"
         ));
     }
 
@@ -486,7 +537,7 @@ mod tests {
 
         assert!(matches!(
             classify_receive_error(&error, "decode failed".to_string()),
-            SubscriptionStatus::DecodeError { ref message } if message == "decode failed"
+            CachedSubscriptionStatus::DecodeError { ref message } if message == "decode failed"
         ));
     }
 
@@ -506,9 +557,9 @@ mod tests {
 
     #[test]
     fn registry_closes_subscriptions_while_handles_remain_alive() {
-        let registry = SubscriptionRegistry::default();
-        let state = Arc::new(SubscriptionState::<TestPayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let registry = CachedSubscriptionRegistry::default();
+        let state = Arc::new(CachedSubscriptionState::<TestPayload>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
@@ -518,7 +569,10 @@ mod tests {
 
         registry.close_all();
 
-        assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
-        assert!(matches!(updates.try_recv(), Err(SubscriptionUpdateClosed)));
+        assert_eq!(handle.status().status(), &CachedSubscriptionStatus::Closed);
+        assert!(matches!(
+            updates.try_recv(),
+            Err(CachedSubscriptionUpdateClosed)
+        ));
     }
 }

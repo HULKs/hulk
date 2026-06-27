@@ -6,8 +6,8 @@ use ros_z::{TypeInfo, time::Time};
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct SampleMetadata {
-    /// Topic selector originally requested by the caller.
-    pub requested_topic: crate::TopicSelector,
+    /// Topic reference originally requested by the caller.
+    pub topic_reference: crate::TopicReference,
     /// Absolute topic name used for the underlying subscription.
     pub resolved_topic: String,
     /// Type metadata discovered or declared for this subscription.
@@ -28,4 +28,14 @@ pub struct SampleRecord<V> {
     pub publication_id: ros_z::pubsub::PublicationId,
     /// Metadata shared by all samples received through the same subscription.
     pub metadata: Arc<SampleMetadata>,
+}
+
+/// A retained dynamic subscription sample projected to JSON with original metadata preserved.
+#[derive(Debug, Clone)]
+pub struct JsonSampleRecord {
+    pub source_time: ros_z::time::Time,
+    pub transport_time: Option<ros_z::time::Time>,
+    pub publication_id: ros_z::pubsub::PublicationId,
+    pub metadata: Arc<SampleMetadata>,
+    pub value: serde_json::Value,
 }
