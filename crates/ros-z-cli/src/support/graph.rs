@@ -51,6 +51,7 @@ impl From<&GraphSnapshot> for SnapshotFingerprint {
 
 pub fn diff_snapshots(previous: &GraphSnapshot, current: &GraphSnapshot) -> Vec<WatchEvent> {
     let mut events = Vec::new();
+    let revision = current.revision;
 
     let previous_topics: BTreeMap<_, _> = previous
         .topics
@@ -65,6 +66,7 @@ pub fn diff_snapshots(previous: &GraphSnapshot, current: &GraphSnapshot) -> Vec<
     for (name, type_name) in &current_topics {
         if !previous_topics.contains_key(name) {
             events.push(WatchEvent::TopicDiscovered {
+                revision,
                 name: name.clone(),
                 type_name: type_name.clone(),
             });
@@ -72,7 +74,10 @@ pub fn diff_snapshots(previous: &GraphSnapshot, current: &GraphSnapshot) -> Vec<
     }
     for name in previous_topics.keys() {
         if !current_topics.contains_key(name) {
-            events.push(WatchEvent::TopicRemoved { name: name.clone() });
+            events.push(WatchEvent::TopicRemoved {
+                revision,
+                name: name.clone(),
+            });
         }
     }
 
@@ -89,6 +94,7 @@ pub fn diff_snapshots(previous: &GraphSnapshot, current: &GraphSnapshot) -> Vec<
     for (namespace, name) in &current_nodes {
         if !previous_nodes.contains(&(namespace.clone(), name.clone())) {
             events.push(WatchEvent::NodeDiscovered {
+                revision,
                 namespace: namespace.clone(),
                 name: name.clone(),
             });
@@ -97,6 +103,7 @@ pub fn diff_snapshots(previous: &GraphSnapshot, current: &GraphSnapshot) -> Vec<
     for (namespace, name) in &previous_nodes {
         if !current_nodes.contains(&(namespace.clone(), name.clone())) {
             events.push(WatchEvent::NodeRemoved {
+                revision,
                 namespace: namespace.clone(),
                 name: name.clone(),
             });
@@ -116,6 +123,7 @@ pub fn diff_snapshots(previous: &GraphSnapshot, current: &GraphSnapshot) -> Vec<
     for (name, type_name) in &current_services {
         if !previous_services.contains_key(name) {
             events.push(WatchEvent::ServiceDiscovered {
+                revision,
                 name: name.clone(),
                 type_name: type_name.clone(),
             });
@@ -123,7 +131,10 @@ pub fn diff_snapshots(previous: &GraphSnapshot, current: &GraphSnapshot) -> Vec<
     }
     for name in previous_services.keys() {
         if !current_services.contains_key(name) {
-            events.push(WatchEvent::ServiceRemoved { name: name.clone() });
+            events.push(WatchEvent::ServiceRemoved {
+                revision,
+                name: name.clone(),
+            });
         }
     }
 
