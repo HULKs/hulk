@@ -57,7 +57,7 @@ fn startup(
         .expect("failed to create robot bundle")
         .with_primary_state(PrimaryState::Playing),
     );
-    scenario_obstacles.add(SimulatorObstacle::robot(point![1.0, -0.1], 0.3, 0.5));
+    scenario_obstacles.add(SimulatorObstacle::robot(point![2.0, -0.1], 0.3, 0.5));
 
     ball.state = Some(
         bevyhavior_simulator::behavior_tree_simulator::SimulatedBall {
