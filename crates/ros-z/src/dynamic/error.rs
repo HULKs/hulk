@@ -44,8 +44,8 @@ pub enum DynamicError {
         source: ros_z_schema::SchemaError,
     },
 
-    /// Name qualification error.
-    #[error("failed to qualify name while {operation}: {source}")]
+    /// Schema service name qualification error.
+    #[error("failed to qualify schema service name while {operation}: {source}")]
     Name {
         operation: &'static str,
         #[source]
@@ -90,6 +90,14 @@ pub enum DynamicError {
     #[error("schema '{0}' not found in registry")]
     SchemaNotFound(String),
 
+    /// Topic name qualification failed during dynamic discovery.
+    #[error("invalid topic name '{topic}': {source}")]
+    TopicName {
+        topic: String,
+        #[source]
+        source: crate::topic_name::TopicNameError,
+    },
+
     /// Schema service call failed.
     #[error("schema service failed for node '{node}' on service '{service}': {source}")]
     SchemaService {
@@ -105,9 +113,13 @@ pub enum DynamicError {
     )]
     MissingNodeIdentity { topic: String },
 
-    /// Active publishers advertise incompatible schema identities for one topic.
-    #[error("topic '{topic}' has incompatible dynamic schema candidates: {candidates:?}")]
-    SchemaConflict {
+    /// No publishers are currently known for a topic that requires publisher metadata.
+    #[error("no publishers found for topic '{topic}'")]
+    NoPublishers { topic: String },
+
+    /// Active publishers advertise incompatible type metadata for one topic.
+    #[error("topic '{topic}' has incompatible publisher type metadata: {candidates:?}")]
+    TopicTypeConflict {
         topic: String,
         candidates: Vec<String>,
     },

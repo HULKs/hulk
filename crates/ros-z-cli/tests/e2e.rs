@@ -397,12 +397,28 @@ struct PublishingFixture {
 
 impl PublishingFixture {
     async fn new(env: &TestEnv, topic: &str) -> TestResult<Self> {
+        Self::new_with_schema_service(env, topic, true).await
+    }
+
+    async fn new_without_schema_service(env: &TestEnv, topic: &str) -> TestResult<Self> {
+        Self::new_with_schema_service(env, topic, false).await
+    }
+
+    async fn new_with_schema_service(
+        env: &TestEnv,
+        topic: &str,
+        enable_schema_service: bool,
+    ) -> TestResult<Self> {
         let context = env.create_context().await?;
-        let node = context
+        let node_builder = context
             .create_node("schema_fixture")
-            .with_namespace("/cli_e2e")
-            .build()
-            .await?;
+            .with_namespace("/cli_e2e");
+        let node_builder = if enable_schema_service {
+            node_builder
+        } else {
+            node_builder.without_schema_service()
+        };
+        let node = node_builder.build().await?;
         let publisher = node.publisher::<Telemetry>(topic).build().await?;
 
         Ok(Self {
@@ -629,6 +645,66 @@ async fn echo_receives_dynamic_message_from_fixture_publisher() -> TestResult {
         .map(|value| value.as_f64().expect("temperature number"))
         .collect::<Vec<_>>();
     assert_eq!(temperatures, [20.0, 20.5]);
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn hz_reports_receive_and_source_rates_without_schema_service() -> TestResult {
+    let env = TestEnv::new();
+    let fixture =
+        PublishingFixture::new_without_schema_service(&env, "/cli_e2e/hz_telemetry").await?;
+    fixture.start_publishing();
+
+    let lines = env
+        .rosz()
+        .json_command(["hz", fixture.topic.as_str(), "--count", "5"])
+        .run_json_lines();
+
+    let report = lines.last().expect("one hz report");
+    assert_eq!(report["topic"], fixture.topic);
+    assert!(
+        report["receive"]["rate_hz"]
+            .as_f64()
+            .is_some_and(|rate| rate > 0.0),
+        "hz report should include positive receive rate:\n{}",
+        serde_json::to_string_pretty(report).expect("hz report json")
+    );
+    assert_eq!(report["receive"]["window_limit"].as_u64(), Some(10));
+    assert_eq!(report["receive"]["samples"].as_u64(), Some(5));
+    assert!(report["receive"]["min_seconds"].as_f64().is_some());
+    assert!(report["receive"]["max_seconds"].as_f64().is_some());
+    assert!(report["receive"]["stddev_seconds"].as_f64().is_some());
+    assert!(
+        report["receive"]["intervals"]
+            .as_u64()
+            .is_some_and(|intervals| intervals > 0),
+        "hz report should include interval count:\n{}",
+        serde_json::to_string_pretty(report).expect("hz report json")
+    );
+    assert!(
+        report["sources"]
+            .as_array()
+            .is_some_and(|sources| !sources.is_empty()),
+        "hz report should include source stats:\n{}",
+        serde_json::to_string_pretty(report).expect("hz report json")
+    );
+    let first_source = &report["sources"].as_array().expect("source array")[0];
+    assert!(
+        first_source["source"]
+            .as_str()
+            .is_some_and(|source| !source.is_empty())
+    );
+    assert!(
+        first_source["rate_hz"]
+            .as_f64()
+            .is_some_and(|rate| rate > 0.0)
+    );
+    assert!(
+        first_source["samples"]
+            .as_u64()
+            .is_some_and(|samples| samples >= 2)
+    );
 
     Ok(())
 }

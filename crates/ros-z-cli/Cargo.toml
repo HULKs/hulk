@@ -23,7 +23,7 @@ tokio = { workspace = true, features = [
   "signal",
   "time",
 ] }
+zenoh = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-zenoh = { workspace = true }

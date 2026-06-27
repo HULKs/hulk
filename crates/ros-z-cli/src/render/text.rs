@@ -6,6 +6,7 @@ use crate::{
     model::{
         echo::EchoHeader,
         graph::{NodeSummary, ServiceSummary, TopicSummary},
+        hz::{HzReport, HzStats},
         info::{EndpointSummary, NamedType, NodeInfo, ServiceInfo, TopicInfo},
         parameter::{
             ParameterMutationView, ParameterSnapshotView, ParameterValueView,
@@ -189,6 +190,71 @@ pub fn print_echo_message(message: &str, count: Option<usize>, seen: usize) {
     }
 }
 
+pub fn print_hz_report(report: &HzReport) {
+    println!("{}", hz_report_line(&report.topic, &report.receive));
+
+    for source in &report.sources {
+        println!("{}", source_hz_report_line(&source.source, &source.stats));
+    }
+}
+
+fn hz_report_line(topic: &str, stats: &HzStats) -> String {
+    match hz_rate_fields(stats) {
+        Some((rate_hz, min_seconds, max_seconds, stddev_seconds)) => format!(
+            "{}  recv={}  min={}  max={}  stddev={}  intervals={}/{}  samples={}",
+            topic,
+            format_hz(rate_hz),
+            format_seconds(min_seconds),
+            format_seconds(max_seconds),
+            format_seconds(stddev_seconds),
+            stats.intervals,
+            stats.window_limit,
+            stats.samples,
+        ),
+        None => format!(
+            "{}  not enough samples for rate estimate  intervals={}/{}  samples={}",
+            topic, stats.intervals, stats.window_limit, stats.samples
+        ),
+    }
+}
+
+fn source_hz_report_line(source: &str, stats: &HzStats) -> String {
+    match hz_rate_fields(stats) {
+        Some((rate_hz, min_seconds, max_seconds, stddev_seconds)) => format!(
+            "  source={}  rate={}  min={}  max={}  stddev={}  intervals={}/{}  samples={}",
+            source,
+            format_hz(rate_hz),
+            format_seconds(min_seconds),
+            format_seconds(max_seconds),
+            format_seconds(stddev_seconds),
+            stats.intervals,
+            stats.window_limit,
+            stats.samples,
+        ),
+        None => format!(
+            "  source={}  not enough samples for rate estimate  intervals={}/{}  samples={}",
+            source, stats.intervals, stats.window_limit, stats.samples
+        ),
+    }
+}
+
+fn hz_rate_fields(stats: &HzStats) -> Option<(f64, f64, f64, f64)> {
+    Some((
+        stats.rate_hz?,
+        stats.min_seconds?,
+        stats.max_seconds?,
+        stats.stddev_seconds?,
+    ))
+}
+
+fn format_hz(rate_hz: f64) -> String {
+    format!("{rate_hz:.2}Hz")
+}
+
+fn format_seconds(seconds: f64) -> String {
+    format!("{seconds:.3}s")
+}
+
 pub fn print_schema(view: &SchemaView) {
     if let Err(error) = write_schema(&mut io::stdout(), view) {
         eprintln!("failed to write schema: {error}");
@@ -329,6 +395,59 @@ fn schema_field_kind_name(kind: SchemaFieldKindView) -> &'static str {
         SchemaFieldKindView::Array => "array",
         SchemaFieldKindView::Sequence => "sequence",
         SchemaFieldKindView::Map => "map",
+    }
+}
+
+#[cfg(test)]
+mod hz_tests {
+    use super::*;
+
+    fn no_rate_stats() -> HzStats {
+        HzStats {
+            rate_hz: None,
+            min_seconds: None,
+            max_seconds: None,
+            stddev_seconds: None,
+            intervals: 0,
+            window_limit: 10,
+            samples: 1,
+        }
+    }
+
+    fn rate_stats() -> HzStats {
+        HzStats {
+            rate_hz: Some(20.0),
+            min_seconds: Some(0.04),
+            max_seconds: Some(0.06),
+            stddev_seconds: Some(0.01),
+            intervals: 2,
+            window_limit: 10,
+            samples: 3,
+        }
+    }
+
+    #[test]
+    fn hz_report_line_includes_samples_without_rate() {
+        assert_eq!(
+            hz_report_line("/chatter", &no_rate_stats()),
+            "/chatter  not enough samples for rate estimate  intervals=0/10  samples=1"
+        );
+    }
+
+    #[test]
+    fn source_hz_report_line_includes_samples_without_rate() {
+        assert_eq!(
+            source_hz_report_line("0101", &no_rate_stats()),
+            "  source=0101  not enough samples for rate estimate  intervals=0/10  samples=1"
+        );
+    }
+
+    #[test]
+    fn hz_report_line_keeps_compact_rate_format() {
+        assert_eq!(
+            hz_report_line("/chatter", &rate_stats()),
+            "/chatter  recv=20.00Hz  min=0.040s  max=0.060s  stddev=0.010s  intervals=2/10  samples=3"
+        );
     }
 }
 
