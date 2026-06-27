@@ -26,7 +26,7 @@ use twix::{
 };
 use types::{
     field_dimensions::FieldDimensions, filtered_game_state::FilteredGameState,
-    motion_command::MotionCommand,
+    motion_command::MotionCommand, path::traits::EndPoints,
 };
 
 use crate::behavior_tree_simulator::{
@@ -38,6 +38,8 @@ const SCRUBBER_HEIGHT_FACTOR: f32 = 2.0;
 const MARKER_OVERHANG: f32 = 5.0;
 const MIN_PLAYBACK_SPEED: f32 = 1.0 / 8.0;
 const MAX_PLAYBACK_SPEED: f32 = 256.0;
+const WALK_PATH_LINE_COLOR: Color32 = Color32::from_rgba_premultiplied(0, 0, 202, 150);
+const WALK_PATH_ARC_COLOR: Color32 = Color32::from_rgba_premultiplied(136, 170, 182, 150);
 
 #[derive(Debug)]
 pub struct TimelineViewerData {
@@ -804,6 +806,9 @@ fn show_map(
             };
             let pose = pose_world_to_field(robot.ground_to_world.as_pose());
             let color = robot_color(robot.player_number);
+            if let Some(robot_frame) = frame.robot_frames.get(&robot.player_number) {
+                paint_walk_path(&painter, pose, &robot_frame.motion_command);
+            }
             paint_view_cone(&painter, pose, robot.head_yaw, &data.config, color);
             painter.pose(
                 pose,
@@ -818,6 +823,38 @@ fn show_map(
             paint_robot_label(ui, &painter, pose, robot.player_number);
         }
     }
+}
+
+fn paint_walk_path(
+    painter: &TwixPainter<Field>,
+    pose: Pose2<Field>,
+    motion_command: &MotionCommand,
+) {
+    let MotionCommand::Walk {
+        path,
+        target_orientation,
+        ..
+    } = motion_command
+    else {
+        return;
+    };
+
+    let ground_to_field = pose.as_transform::<Ground>();
+    let ground_painter = painter.transform_painter(ground_to_field.inverse());
+    ground_painter.path(
+        path.clone(),
+        WALK_PATH_LINE_COLOR,
+        WALK_PATH_ARC_COLOR,
+        0.025,
+    );
+
+    let path_end_point = path.end_point();
+    let target_direction = target_orientation.as_unit_vector();
+    ground_painter.line_segment(
+        path_end_point,
+        path_end_point + target_direction * 0.1,
+        Stroke::new(0.01_f32, Color32::PURPLE),
+    );
 }
 
 fn paint_view_cone(
