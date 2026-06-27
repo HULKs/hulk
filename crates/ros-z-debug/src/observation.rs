@@ -20,9 +20,10 @@ const UPDATE_BUFFER_CAPACITY: usize = 256;
 /// Lifecycle state for a topic observation.
 ///
 /// Observations rebuild their underlying cached subscription when the requested
-/// topic or target identity changes. Status snapshots retain the previous cache
-/// metadata while rebuilding or retrying so callers can keep displaying useful
-/// state.
+/// topic, target identity, retention policy, explicit reconnect revision, or
+/// relevant graph state changes. Status snapshots retain frozen previous cache
+/// metadata while rebuilding, retrying, or blocked so callers can keep displaying
+/// the last readable data without keeping the old subscription live.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum TopicObservationStatus {
@@ -39,6 +40,8 @@ pub enum TopicObservationStatus {
         previous_cache: CachedSubscriptionStatusSnapshot,
     },
     /// The observation failed to build and is waiting for a retry signal.
+    ///
+    /// The previous cache, when present, is frozen and no longer receives data.
     Retrying {
         /// Last active cache status, if the observation had one before retrying.
         previous_cache: Option<CachedSubscriptionStatusSnapshot>,
@@ -46,6 +49,8 @@ pub enum TopicObservationStatus {
         error: String,
     },
     /// The request cannot currently be resolved without additional target identity.
+    ///
+    /// The previous cache, when present, is frozen and no longer receives data.
     Blocked {
         /// Last active cache status, if the observation had one before blocking.
         previous_cache: Option<CachedSubscriptionStatusSnapshot>,
@@ -198,7 +203,10 @@ impl TopicObserverOptions {
     }
 }
 
-/// Factory for topic observations that can retarget existing observation handles.
+/// Factory for topic observations that can retarget inherited observation state.
+///
+/// Dropping a `TopicObserver` handle does not close observations that were already
+/// spawned from it. Drop the observation handles to stop their background tasks.
 #[derive(Clone)]
 pub struct TopicObserver {
     inner: Arc<TopicObserverInner>,
@@ -911,9 +919,11 @@ async fn run_typed_observation<T>(
 
                 if !wait_for_observing_rebuild(
                     &state,
-                    task.node.as_ref(),
-                    target.resolved_topic.as_str(),
-                    target.graph_fingerprint,
+                    (
+                        task.node.as_ref(),
+                        target.resolved_topic.as_str(),
+                        target.graph_fingerprint,
+                    ),
                     &mut desired_receiver,
                     &mut task.target_receiver,
                     &mut task.graph_changes,
@@ -1026,9 +1036,11 @@ async fn run_dynamic_observation(
 
                 if !wait_for_observing_rebuild(
                     &state,
-                    task.node.as_ref(),
-                    target.resolved_topic.as_str(),
-                    target.graph_fingerprint,
+                    (
+                        task.node.as_ref(),
+                        target.resolved_topic.as_str(),
+                        target.graph_fingerprint,
+                    ),
                     &mut desired_receiver,
                     &mut task.target_receiver,
                     &mut task.graph_changes,
@@ -1114,10 +1126,10 @@ async fn wait_for_retry_signal(
                 if revision.is_none() {
                     return false;
                 }
-                if let Some((node, resolved_topic, fingerprint)) = &mut graph_filter {
-                    if topic_graph_fingerprint_changed(node, resolved_topic, fingerprint) {
-                        return true;
-                    }
+                if let Some((node, resolved_topic, fingerprint)) = &mut graph_filter
+                    && topic_graph_fingerprint_changed(node, resolved_topic, fingerprint)
+                {
+                    return true;
                 }
             }
         }
@@ -1126,14 +1138,13 @@ async fn wait_for_retry_signal(
 
 async fn wait_for_observing_rebuild<T>(
     state: &Weak<Mutex<TopicObservationState<T>>>,
-    node: &Node,
-    resolved_topic: &str,
-    mut graph_fingerprint: TopicGraphFingerprint,
+    graph_filter: (&Node, &str, TopicGraphFingerprint),
     desired_receiver: &mut watch::Receiver<DesiredObservation>,
     target_receiver: &mut watch::Receiver<TargetIdentity>,
     graph_changes: &mut ros_z::graph::GraphChangeSubscription,
     cache_updates: &mut CachedSubscriptionUpdateReceiver,
 ) -> bool {
+    let (node, resolved_topic, mut graph_fingerprint) = graph_filter;
     loop {
         let rebuild = tokio::select! {
             result = desired_receiver.changed() => return result.is_ok(),

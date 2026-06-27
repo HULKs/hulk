@@ -29,6 +29,9 @@
 //! # }
 //! ```
 //!
+//! `TopicObserver` spawns observations that keep running after the observer handle
+//! is dropped. Drop the returned observation handle to stop its background task.
+//!
 //! ```rust
 //! use std::sync::Arc;
 //!
