@@ -676,6 +676,47 @@ struct BuiltTypedCache<T> {
     factory: Arc<CachedSubscriptionFactory>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TopicGraphFingerprint {
+    publisher_types: Vec<(String, String)>,
+}
+
+struct ResolvedObservationTarget {
+    identity: TargetIdentity,
+    resolved_topic: String,
+    graph_fingerprint: TopicGraphFingerprint,
+}
+
+fn topic_graph_fingerprint(node: &Node, resolved_topic: &str) -> TopicGraphFingerprint {
+    let mut publisher_types = node
+        .graph()
+        .view()
+        .publishers_on(resolved_topic)
+        .into_iter()
+        .map(|publisher| {
+            (
+                publisher.type_info.name,
+                publisher.type_info.hash.to_hash_string(),
+            )
+        })
+        .collect::<Vec<_>>();
+    publisher_types.sort();
+    TopicGraphFingerprint { publisher_types }
+}
+
+fn topic_graph_fingerprint_changed(
+    node: &Node,
+    resolved_topic: &str,
+    current: &mut TopicGraphFingerprint,
+) -> bool {
+    let next = topic_graph_fingerprint(node, resolved_topic);
+    if next == *current {
+        return false;
+    }
+    *current = next;
+    true
+}
+
 fn effective_identity(
     observer_identity: &TargetIdentity,
     desired: &DesiredObservation,
@@ -787,14 +828,13 @@ async fn run_typed_observation<T>(
         task.graph_changes.mark_seen();
         let desired = desired_receiver.borrow_and_update().clone();
         let observer_identity = task.target_receiver.borrow_and_update().clone();
-        let replacing_existing_cache = previous_cache(&state).is_some();
 
         if !set_rebuild_status(&state) {
             return;
         }
 
-        let identity = match resolve_build_identity(&observer_identity, &desired) {
-            Ok(identity) => identity,
+        let target = match resolve_build_target(&task.node, &observer_identity, &desired) {
+            Ok(target) => target,
             Err(Error::MissingTargetNodeName { .. }) => {
                 if !set_blocked_status(
                     &state,
@@ -820,6 +860,7 @@ async fn run_typed_observation<T>(
                     &mut desired_receiver,
                     &mut task.target_receiver,
                     &mut task.graph_changes,
+                    None,
                 )
                 .await
                 {
@@ -833,7 +874,7 @@ async fn run_typed_observation<T>(
         let build = build_typed_cache::<T>(
             Arc::clone(&task.node),
             task.schema_discovery_timeout,
-            identity,
+            target.identity,
             desired,
         );
         match wait_for_build(build, &mut desired_receiver, &mut task.target_receiver).await {
@@ -849,10 +890,12 @@ async fn run_typed_observation<T>(
 
                 if !wait_for_observing_rebuild(
                     &state,
+                    task.node.as_ref(),
+                    target.resolved_topic.as_str(),
+                    target.graph_fingerprint,
                     &mut desired_receiver,
                     &mut task.target_receiver,
                     &mut task.graph_changes,
-                    replacing_existing_cache,
                     &mut cache_updates,
                 )
                 .await
@@ -870,6 +913,11 @@ async fn run_typed_observation<T>(
                     &mut desired_receiver,
                     &mut task.target_receiver,
                     &mut task.graph_changes,
+                    Some((
+                        task.node.as_ref(),
+                        target.resolved_topic.as_str(),
+                        target.graph_fingerprint,
+                    )),
                 )
                 .await
                 {
@@ -895,14 +943,13 @@ async fn run_dynamic_observation(
         task.graph_changes.mark_seen();
         let desired = desired_receiver.borrow_and_update().clone();
         let observer_identity = task.target_receiver.borrow_and_update().clone();
-        let replacing_existing_cache = previous_cache(&state).is_some();
 
         if !set_rebuild_status(&state) {
             return;
         }
 
-        let identity = match resolve_build_identity(&observer_identity, &desired) {
-            Ok(identity) => identity,
+        let target = match resolve_build_target(&task.node, &observer_identity, &desired) {
+            Ok(target) => target,
             Err(Error::MissingTargetNodeName { .. }) => {
                 if !set_blocked_status(
                     &state,
@@ -928,6 +975,7 @@ async fn run_dynamic_observation(
                     &mut desired_receiver,
                     &mut task.target_receiver,
                     &mut task.graph_changes,
+                    None,
                 )
                 .await
                 {
@@ -941,7 +989,7 @@ async fn run_dynamic_observation(
         let build = build_dynamic_cache(
             Arc::clone(&task.node),
             task.schema_discovery_timeout,
-            identity,
+            target.identity,
             desired,
         );
         match wait_for_build(build, &mut desired_receiver, &mut task.target_receiver).await {
@@ -957,10 +1005,12 @@ async fn run_dynamic_observation(
 
                 if !wait_for_observing_rebuild(
                     &state,
+                    task.node.as_ref(),
+                    target.resolved_topic.as_str(),
+                    target.graph_fingerprint,
                     &mut desired_receiver,
                     &mut task.target_receiver,
                     &mut task.graph_changes,
-                    replacing_existing_cache,
                     &mut cache_updates,
                 )
                 .await
@@ -978,6 +1028,11 @@ async fn run_dynamic_observation(
                     &mut desired_receiver,
                     &mut task.target_receiver,
                     &mut task.graph_changes,
+                    Some((
+                        task.node.as_ref(),
+                        target.resolved_topic.as_str(),
+                        target.graph_fingerprint,
+                    )),
                 )
                 .await
                 {
@@ -994,13 +1049,19 @@ async fn run_dynamic_observation(
     }
 }
 
-fn resolve_build_identity(
+fn resolve_build_target(
+    node: &Node,
     observer_identity: &TargetIdentity,
     desired: &DesiredObservation,
-) -> Result<TargetIdentity> {
+) -> Result<ResolvedObservationTarget> {
     let identity = effective_identity(observer_identity, desired)?;
-    desired.topic.resolve(&identity)?;
-    Ok(identity)
+    let resolved_topic = desired.topic.resolve(&identity)?;
+    let graph_fingerprint = topic_graph_fingerprint(node, &resolved_topic);
+    Ok(ResolvedObservationTarget {
+        identity,
+        resolved_topic,
+        graph_fingerprint,
+    })
 }
 
 async fn wait_for_blocked_signal(
@@ -1018,21 +1079,38 @@ async fn wait_for_retry_signal(
     desired_receiver: &mut watch::Receiver<DesiredObservation>,
     target_receiver: &mut watch::Receiver<TargetIdentity>,
     graph_changes: &mut ros_z::graph::GraphChangeSubscription,
+    graph_filter: Option<(&Node, &str, TopicGraphFingerprint)>,
 ) -> bool {
-    tokio::select! {
-        _ = tokio::time::sleep(retry_delay) => true,
-        result = desired_receiver.changed() => result.is_ok(),
-        result = target_receiver.changed() => result.is_ok(),
-        revision = graph_changes.changed() => revision.is_some(),
+    let mut graph_filter = graph_filter;
+    let retry_sleep = tokio::time::sleep(retry_delay);
+    tokio::pin!(retry_sleep);
+    loop {
+        tokio::select! {
+            _ = &mut retry_sleep => return true,
+            result = desired_receiver.changed() => return result.is_ok(),
+            result = target_receiver.changed() => return result.is_ok(),
+            revision = graph_changes.changed() => {
+                if revision.is_none() {
+                    return false;
+                }
+                if let Some((node, resolved_topic, fingerprint)) = &mut graph_filter {
+                    if topic_graph_fingerprint_changed(node, resolved_topic, fingerprint) {
+                        return true;
+                    }
+                }
+            }
+        }
     }
 }
 
 async fn wait_for_observing_rebuild<T>(
     state: &Weak<Mutex<TopicObservationState<T>>>,
+    node: &Node,
+    resolved_topic: &str,
+    mut graph_fingerprint: TopicGraphFingerprint,
     desired_receiver: &mut watch::Receiver<DesiredObservation>,
     target_receiver: &mut watch::Receiver<TargetIdentity>,
     graph_changes: &mut ros_z::graph::GraphChangeSubscription,
-    mut suppress_next_graph_change: bool,
     cache_updates: &mut CachedSubscriptionUpdateReceiver,
 ) -> bool {
     loop {
@@ -1043,7 +1121,7 @@ async fn wait_for_observing_rebuild<T>(
                 if revision.is_none() {
                     return false;
                 }
-                !std::mem::take(&mut suppress_next_graph_change)
+                topic_graph_fingerprint_changed(node, resolved_topic, &mut graph_fingerprint)
             }
             update = cache_updates.recv() => {
                 match update {

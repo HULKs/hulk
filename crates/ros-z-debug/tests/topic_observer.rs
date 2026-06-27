@@ -421,7 +421,7 @@ async fn dropping_last_observation_handle_closes_real_spawned_loop() -> ros_z_de
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn observing_observation_rebuilds_on_graph_revision() -> ros_z_debug::Result<()> {
+async fn observing_observation_ignores_unrelated_graph_revision() -> ros_z_debug::Result<()> {
     let context = ContextBuilder::default().build().await?;
     let publisher_node = context.create_node("graph_rebuild_pub").build().await?;
     let observer_node = Arc::new(
@@ -451,6 +451,64 @@ async fn observing_observation_rebuilds_on_graph_revision() -> ros_z_debug::Resu
         .build()
         .await?;
 
+    let no_rebuild = tokio::time::timeout(std::time::Duration::from_millis(200), async {
+        loop {
+            if matches!(
+                updates.recv().await,
+                Ok(TopicObservationUpdate::StatusChanged(
+                    TopicObservationStatus::Rebuilding { .. }
+                ))
+            ) {
+                break;
+            }
+        }
+    })
+    .await;
+
+    assert!(
+        no_rebuild.is_err(),
+        "unrelated graph revisions should not rebuild the observation"
+    );
+
+    drop(observer);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn observing_observation_rebuilds_on_relevant_publisher_graph_change()
+-> ros_z_debug::Result<()> {
+    let context = ContextBuilder::default().build().await?;
+    let publisher_node = context
+        .create_node("relevant_graph_rebuild_pub")
+        .build()
+        .await?;
+    let observer_node = Arc::new(
+        context
+            .create_node("relevant_graph_rebuild_observer")
+            .build()
+            .await?,
+    );
+    let publisher = publisher_node
+        .publisher::<String>("/42/relevant_graph_rebuild")?
+        .build()
+        .await?;
+    let observer = TopicObserver::new(
+        Arc::clone(&observer_node),
+        TopicObserverOptions::with_namespace("/42")?,
+    );
+    let observation = observer
+        .observe_typed::<String>("relevant_graph_rebuild")?
+        .retention(RetentionPolicy::LatestOnly)
+        .spawn();
+
+    publish_until_latest_value(&publisher, &observation, "before_graph_change").await?;
+    let mut updates = observation.subscribe_updates().unwrap();
+
+    let _second_publisher = publisher_node
+        .publisher::<String>("/42/relevant_graph_rebuild")?
+        .build()
+        .await?;
+
     tokio::time::timeout(std::time::Duration::from_secs(1), async {
         loop {
             if matches!(
@@ -464,7 +522,7 @@ async fn observing_observation_rebuilds_on_graph_revision() -> ros_z_debug::Resu
         }
     })
     .await
-    .expect("observing graph revision should wake a rebuild");
+    .expect("relevant publisher graph change should wake a rebuild");
 
     drop(observer);
     Ok(())
