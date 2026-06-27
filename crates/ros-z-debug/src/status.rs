@@ -3,7 +3,7 @@ use ros_z::TypeInfo;
 /// Current lifecycle state for a debug subscription.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
-pub enum SubscriptionStatus {
+pub enum CachedSubscriptionStatus {
     /// The subscription has been created and is waiting for its first sample.
     WaitingForFirstSample,
     /// At least one sample has been received and retained.
@@ -16,7 +16,7 @@ pub enum SubscriptionStatus {
     Closed,
 }
 
-impl SubscriptionStatus {
+impl CachedSubscriptionStatus {
     /// Create a protocol error status with a diagnostic message.
     pub fn protocol_error(message: impl Into<String>) -> Self {
         Self::ProtocolError {
@@ -41,17 +41,17 @@ impl SubscriptionStatus {
 }
 
 /// Point-in-time subscription status and resolved metadata.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
-pub struct SubscriptionStatusSnapshot {
-    status: SubscriptionStatus,
+pub struct CachedSubscriptionStatusSnapshot {
+    status: CachedSubscriptionStatus,
     resolved_topic: Option<String>,
     type_info: Option<TypeInfo>,
 }
 
-impl SubscriptionStatusSnapshot {
+impl CachedSubscriptionStatusSnapshot {
     #[cfg(test)]
-    pub(crate) fn new(status: SubscriptionStatus) -> Self {
+    pub(crate) fn new(status: CachedSubscriptionStatus) -> Self {
         Self {
             status,
             resolved_topic: None,
@@ -60,7 +60,7 @@ impl SubscriptionStatusSnapshot {
     }
 
     pub(crate) fn with_metadata(
-        status: SubscriptionStatus,
+        status: CachedSubscriptionStatus,
         resolved_topic: String,
         type_info: TypeInfo,
     ) -> Self {
@@ -72,7 +72,7 @@ impl SubscriptionStatusSnapshot {
     }
 
     /// Return the lifecycle status at the time this snapshot was taken.
-    pub fn status(&self) -> &SubscriptionStatus {
+    pub fn status(&self) -> &CachedSubscriptionStatus {
         &self.status
     }
 
@@ -91,20 +91,20 @@ impl SubscriptionStatusSnapshot {
         self.type_info.as_ref()
     }
 
-    pub(crate) fn set_status(&mut self, status: SubscriptionStatus) {
+    pub(crate) fn set_status(&mut self, status: CachedSubscriptionStatus) {
         self.status = status;
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{SubscriptionStatus, SubscriptionStatusSnapshot};
+    use super::{CachedSubscriptionStatus, CachedSubscriptionStatusSnapshot};
 
     #[test]
     fn error_status_carries_message_in_variant() {
-        let snapshot = SubscriptionStatusSnapshot::new(SubscriptionStatus::decode_error(
-            "failed to decode sample",
-        ));
+        let snapshot = CachedSubscriptionStatusSnapshot::new(
+            CachedSubscriptionStatus::decode_error("failed to decode sample"),
+        );
 
         assert_eq!(snapshot.message(), Some("failed to decode sample"));
         assert_eq!(snapshot.resolved_topic(), None);

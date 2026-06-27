@@ -4,14 +4,20 @@ use crate::{Error, Result};
 
 const TARGET_NODE_PLACEHOLDER: &str = "debug_target";
 
-/// Validated topic selector used by debug subscriptions.
+/// Validated topic reference used by debug subscriptions.
 ///
-/// Relative selectors resolve against a target namespace. Absolute selectors
-/// are used as-is through `ros-z` topic qualification. Private `~` selectors are
-/// rejected because the debug manager has target namespace context, not target
-/// node context.
+/// Relative references resolve against a target namespace. Absolute references
+/// are used as-is through `ros-z` topic qualification. Private `~` references
+/// resolve against the target namespace and target node name.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TopicSelector(String);
+pub struct TopicReference(String);
+
+/// Identity of the ROS node namespace and optional node name being inspected.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TargetIdentity {
+    namespace: String,
+    node_name: Option<String>,
+}
 
 /// Topic name projected for display in a UI or debug tool.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,33 +42,79 @@ pub enum ProjectedTopicScope {
 /// Projects absolute or relative topic names for display under an active namespace.
 pub struct TopicProjection;
 
-impl TopicSelector {
-    /// Validate and store a topic selector.
-    pub fn new(selector: impl Into<String>) -> Result<Self> {
-        let selector = selector.into();
-
-        if selector.starts_with('~') {
-            return Err(Error::UnsupportedPrivateTopicSelector { selector });
-        }
-
-        resolve_topic_name(&selector, "/")?;
-
-        Ok(Self(selector))
+impl TargetIdentity {
+    /// Create a target identity from a ROS namespace.
+    pub fn new(namespace: impl Into<String>) -> Result<Self> {
+        let namespace = namespace.into();
+        Ok(Self {
+            namespace: normalize_target_namespace(&namespace)?,
+            node_name: None,
+        })
     }
 
-    /// Return the original selector string.
+    /// Create an updated identity with a validated target node name.
+    pub fn with_node_name(mut self, node_name: impl Into<String>) -> Result<Self> {
+        self.set_node_name(node_name)?;
+        Ok(self)
+    }
+
+    /// Namespace of the target node.
+    pub fn namespace(&self) -> &str {
+        &self.namespace
+    }
+
+    /// Name of the target node, when known.
+    pub fn node_name(&self) -> Option<&str> {
+        self.node_name.as_deref()
+    }
+
+    /// Update the target namespace after validation.
+    pub fn set_namespace(&mut self, namespace: impl Into<String>) -> Result<&mut Self> {
+        let namespace = namespace.into();
+        let namespace = normalize_target_namespace(&namespace)?;
+        if let Some(node_name) = self.node_name.as_deref() {
+            validate_node_name(&namespace, node_name)?;
+        }
+        self.namespace = namespace;
+        Ok(self)
+    }
+
+    /// Update the target node name after validation.
+    pub fn set_node_name(&mut self, node_name: impl Into<String>) -> Result<&mut Self> {
+        let node_name = node_name.into();
+        validate_node_name(&self.namespace, &node_name)?;
+        self.node_name = Some(node_name);
+        Ok(self)
+    }
+}
+
+impl TopicReference {
+    /// Validate and store a topic reference.
+    pub fn new(topic: impl Into<String>) -> Result<Self> {
+        let topic = topic.into();
+        validate_topic_reference(&topic)?;
+
+        Ok(Self(topic))
+    }
+
+    /// Return the original topic reference string.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
-    /// Return whether this selector is absolute.
+    /// Return whether this reference is absolute.
     pub fn is_absolute(&self) -> bool {
         self.0.starts_with('/')
     }
 
-    /// Resolve this selector against `target_namespace`.
-    pub fn resolve(&self, target_namespace: &str) -> Result<String> {
-        resolve_topic_name(&self.0, target_namespace)
+    /// Return whether this reference is private to a target node.
+    pub fn is_private(&self) -> bool {
+        self.0.starts_with('~')
+    }
+
+    /// Resolve this reference against `target`.
+    pub fn resolve(&self, target: &TargetIdentity) -> Result<String> {
+        resolve_topic_name(&self.0, target)
     }
 }
 
@@ -79,12 +131,14 @@ impl TopicProjection {
     where
         Topic: AsRef<str>,
     {
-        let active_namespace = normalize_target_namespace(active_namespace)?;
+        let active_identity = TargetIdentity::new(active_namespace)?;
         topics
             .into_iter()
             .map(|topic| {
-                let resolved_topic = resolve_topic_name(topic.as_ref(), &active_namespace)?;
-                let (display_name, scope) = display_name(&active_namespace, &resolved_topic);
+                let topic = TopicReference::new(topic.as_ref())?;
+                let resolved_topic = topic.resolve(&active_identity)?;
+                let (display_name, scope) =
+                    display_name(active_identity.namespace(), &resolved_topic);
 
                 Ok(ProjectedTopic {
                     display_name,
@@ -96,25 +150,48 @@ impl TopicProjection {
     }
 }
 
-fn resolve_topic_name(selector: &str, target_namespace: &str) -> Result<String> {
-    if selector.starts_with('~') {
-        return Err(Error::UnsupportedPrivateTopicSelector {
-            selector: selector.to_string(),
-        });
+fn resolve_topic_name(topic: &str, target: &TargetIdentity) -> Result<String> {
+    if let Some(private_topic) = topic.strip_prefix('~') {
+        let node_name = target
+            .node_name()
+            .ok_or_else(|| Error::MissingTargetNodeName {
+                topic: topic.to_string(),
+            })?;
+        let private_topic = private_topic.trim_start_matches('/');
+        let topic = if private_topic.is_empty() {
+            node_name.to_string()
+        } else {
+            format!("{node_name}/{private_topic}")
+        };
+        return qualify_topic_name(&topic, target.namespace(), TARGET_NODE_PLACEHOLDER).map_err(
+            |source| Error::InvalidTopicReference {
+                topic: topic.to_string(),
+                source,
+            },
+        );
     }
 
-    let namespace = if selector.starts_with('/') {
-        "/".to_string()
+    let target = if topic.starts_with('/') {
+        TargetIdentity::new("/")?
     } else {
-        normalize_target_namespace(target_namespace)?
+        target.clone()
     };
 
-    qualify_topic_name(selector, &namespace, TARGET_NODE_PLACEHOLDER).map_err(|error| {
-        Error::InvalidTopicSelector {
-            selector: selector.to_string(),
-            source: error,
+    qualify_topic_name(topic, target.namespace(), TARGET_NODE_PLACEHOLDER).map_err(|source| {
+        Error::InvalidTopicReference {
+            topic: topic.to_string(),
+            source,
         }
     })
+}
+
+fn validate_topic_reference(topic: &str) -> Result<()> {
+    qualify_topic_name(topic, "/", TARGET_NODE_PLACEHOLDER)
+        .map(|_| ())
+        .map_err(|source| Error::InvalidTopicReference {
+            topic: topic.to_string(),
+            source,
+        })
 }
 
 pub(crate) fn normalize_target_namespace(target_namespace: &str) -> Result<String> {
@@ -134,6 +211,15 @@ fn validate_target_namespace(target_namespace: &str, normalized_namespace: &str)
         target_namespace: target_namespace.to_string(),
         source: error,
     })
+}
+
+fn validate_node_name(namespace: &str, node_name: &str) -> Result<()> {
+    qualify_topic_name("ros_z_debug_node_probe", namespace, node_name)
+        .map(|_| ())
+        .map_err(|source| Error::InvalidTargetNodeName {
+            target_node_name: node_name.to_string(),
+            source,
+        })
 }
 
 fn normalize_namespace(namespace: &str) -> String {
@@ -169,75 +255,139 @@ fn display_name(active_namespace: &str, resolved_topic: &str) -> (String, Projec
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error as _;
-
-    use super::{ProjectedTopicScope, TopicProjection, TopicSelector};
+    use super::{ProjectedTopicScope, TargetIdentity, TopicProjection, TopicReference};
     use crate::Error;
 
     #[test]
-    fn relative_selector_resolves_under_target_namespace() {
-        let selector = TopicSelector::new("my_data/foo").unwrap();
+    fn relative_topic_reference_resolves_nested_path_under_target_namespace() {
+        let topic = TopicReference::new("my_data/foo").unwrap();
+        let identity = TargetIdentity::new("alpha").unwrap();
 
-        assert_eq!(selector.resolve("alpha").unwrap(), "/alpha/my_data/foo");
+        assert_eq!(topic.resolve(&identity).unwrap(), "/alpha/my_data/foo");
     }
 
     #[test]
-    fn relative_selector_trims_trailing_slash() {
-        let selector = TopicSelector::new("foo/").unwrap();
+    fn relative_topic_reference_trims_trailing_slash() {
+        let topic = TopicReference::new("foo/").unwrap();
+        let identity = TargetIdentity::new("alpha").unwrap();
 
-        assert_eq!(selector.resolve("alpha").unwrap(), "/alpha/foo");
+        assert_eq!(topic.resolve(&identity).unwrap(), "/alpha/foo");
     }
 
     #[test]
     fn target_namespace_trims_trailing_slash() {
-        let selector = TopicSelector::new("foo").unwrap();
+        let topic = TopicReference::new("foo").unwrap();
+        let identity = TargetIdentity::new("/alpha/").unwrap();
 
-        assert_eq!(selector.resolve("/alpha/").unwrap(), "/alpha/foo");
+        assert_eq!(topic.resolve(&identity).unwrap(), "/alpha/foo");
     }
 
     #[test]
-    fn absolute_selector_ignores_namespace() {
-        let selector = TopicSelector::new("/diagnostics").unwrap();
+    fn absolute_topic_reference_ignores_namespace() {
+        let topic = TopicReference::new("/diagnostics").unwrap();
+        let identity = TargetIdentity::new("alpha").unwrap();
 
-        assert_eq!(selector.resolve("alpha").unwrap(), "/diagnostics");
+        assert_eq!(topic.resolve(&identity).unwrap(), "/diagnostics");
     }
 
     #[test]
-    fn absolute_selector_does_not_validate_target_namespace() {
-        let selector = TopicSelector::new("/diagnostics").unwrap();
-
-        assert_eq!(selector.resolve("123invalid/").unwrap(), "/diagnostics");
-    }
-
-    #[test]
-    fn relative_selector_reports_invalid_target_namespace() {
-        let selector = TopicSelector::new("diagnostics").unwrap();
-
-        let error = selector.resolve("alpha%bad").unwrap_err();
-
-        assert!(
-            error
-                .to_string()
-                .contains("invalid target namespace 'alpha%bad'")
-        );
-    }
-
-    #[test]
-    fn private_selector_rejection_explains_missing_target_node() {
-        let error = TopicSelector::new("~private").unwrap_err();
+    fn target_identity_rejects_invalid_namespace() {
+        let error = TargetIdentity::new("alpha%bad").unwrap_err();
 
         assert!(matches!(
             error,
-            Error::UnsupportedPrivateTopicSelector { ref selector } if selector == "~private"
+            Error::InvalidTargetNamespace { ref target_namespace, .. }
+                if target_namespace == "alpha%bad"
         ));
     }
 
     #[test]
-    fn invalid_relative_selector_is_rejected_during_construction() {
-        let error = TopicSelector::new("foo%bar").unwrap_err();
+    fn relative_topic_reference_resolves_under_target_namespace() {
+        let topic = TopicReference::new("ball_position").unwrap();
+        let identity = TargetIdentity::new("/42").unwrap();
 
-        assert!(error.source().is_some());
-        assert!(error.to_string().contains("invalid component 'foo%bar'"));
+        assert_eq!(topic.resolve(&identity).unwrap(), "/42/ball_position");
+    }
+
+    #[test]
+    fn absolute_topic_reference_ignores_target_identity() {
+        let topic = TopicReference::new("/diagnostics").unwrap();
+        let identity = TargetIdentity::new("/42").unwrap();
+
+        assert_eq!(topic.resolve(&identity).unwrap(), "/diagnostics");
+    }
+
+    #[test]
+    fn private_topic_reference_resolves_with_target_node_name() {
+        let topic = TopicReference::new("~trace").unwrap();
+        let identity = TargetIdentity::new("/42")
+            .unwrap()
+            .with_node_name("behavior_node")
+            .unwrap();
+
+        assert_eq!(topic.resolve(&identity).unwrap(), "/42/behavior_node/trace");
+    }
+
+    #[test]
+    fn private_topic_reference_requires_target_node_name() {
+        let topic = TopicReference::new("~trace").unwrap();
+        let identity = TargetIdentity::new("/42").unwrap();
+
+        let error = topic.resolve(&identity).unwrap_err();
+
+        assert!(matches!(error, Error::MissingTargetNodeName { .. }));
+    }
+
+    #[test]
+    fn target_identity_set_namespace_leaves_previous_state_unchanged_on_error() {
+        let mut identity = TargetIdentity::new("/alpha").unwrap();
+
+        let error = identity.set_namespace("alpha%bad").unwrap_err();
+
+        assert!(matches!(
+            error,
+            Error::InvalidTargetNamespace { ref target_namespace, .. }
+                if target_namespace == "alpha%bad"
+        ));
+        assert_eq!(identity.namespace(), "/alpha");
+    }
+
+    #[test]
+    fn target_identity_set_node_name_leaves_previous_state_unchanged_on_error() {
+        let mut identity = TargetIdentity::new("/42")
+            .unwrap()
+            .with_node_name("behavior_node")
+            .unwrap();
+
+        let error = identity.set_node_name("bad%node").unwrap_err();
+
+        assert!(matches!(
+            error,
+            Error::InvalidTargetNodeName { ref target_node_name, .. }
+                if target_node_name == "bad%node"
+        ));
+        assert_eq!(identity.node_name(), Some("behavior_node"));
+    }
+
+    #[test]
+    fn private_topic_reference_is_accepted_during_construction() {
+        let topic = TopicReference::new("~private").unwrap();
+
+        assert_eq!(topic.as_str(), "~private");
+        assert!(topic.is_private());
+    }
+
+    #[test]
+    fn invalid_relative_topic_reference_is_rejected_during_construction() {
+        let error = TopicReference::new("foo%bar").unwrap_err();
+
+        match error {
+            Error::InvalidTopicReference { topic, source } => {
+                assert_eq!(topic, "foo%bar");
+                assert!(source.to_string().contains("invalid component 'foo%bar'"));
+            }
+            other => panic!("unexpected error: {other}"),
+        }
     }
 
     #[test]
@@ -279,6 +429,12 @@ mod tests {
     fn projection_rejects_invalid_relative_topics_using_ros_z_validation() {
         let error = TopicProjection::project("alpha", ["foo%bar"]).unwrap_err();
 
-        assert!(error.to_string().contains("invalid component 'foo%bar'"));
+        match error {
+            Error::InvalidTopicReference { topic, source } => {
+                assert_eq!(topic, "foo%bar");
+                assert!(source.to_string().contains("invalid component 'foo%bar'"));
+            }
+            other => panic!("unexpected error: {other}"),
+        }
     }
 }

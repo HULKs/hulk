@@ -16,4 +16,5 @@ tokio-util = { workspace = true }
 
 [dev-dependencies]
 ros-z-schema = { workspace = true }
+serde = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "time"] }
