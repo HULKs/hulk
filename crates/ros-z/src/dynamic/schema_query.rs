@@ -105,12 +105,7 @@ pub(crate) async fn query_schema(
         candidate.namespace, candidate.node_name, candidate.type_name
     );
 
-    let service_name = qualify_remote_private_service_name(
-        "get_schema",
-        &candidate.namespace,
-        &candidate.node_name,
-    )
-    .map_err(|error| DynamicError::name("querying remote schema", error))?;
+    let service_name = candidate.schema_service_name("querying remote schema")?;
     let node_fqn =
         qualify_remote_private_service_name("", &candidate.namespace, &candidate.node_name)
             .map_err(|error| DynamicError::name("querying remote schema", error))?;

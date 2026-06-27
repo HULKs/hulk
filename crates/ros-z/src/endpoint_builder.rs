@@ -110,6 +110,9 @@ pub(crate) enum MessageEndpointType {
         schema: Schema,
         validation: DynamicSchemaValidation,
     },
+    TypeInfoOnly {
+        type_info: TypeInfo,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -131,6 +134,10 @@ impl std::fmt::Debug for MessageEndpointType {
                 .field("type_info", type_info)
                 .field("validation", validation)
                 .finish_non_exhaustive(),
+            Self::TypeInfoOnly { type_info } => f
+                .debug_struct("MessageEndpointType::TypeInfoOnly")
+                .field("type_info", type_info)
+                .finish(),
         }
     }
 }
@@ -150,6 +157,10 @@ impl MessageEndpointType {
             schema,
             validation: DynamicSchemaValidation::Prevalidated,
         }
+    }
+
+    pub(crate) fn type_info_only(type_info: TypeInfo) -> Self {
+        Self::TypeInfoOnly { type_info }
     }
 }
 
@@ -252,6 +263,13 @@ impl MessageEndpointType {
                     .map_err(|source| Self::dynamic_schema_error("publisher", topic, source))?;
                 Ok((type_info, Some(schema)))
             }
+            Self::TypeInfoOnly { .. } => Err(Self::dynamic_schema_error(
+                "publisher",
+                topic,
+                DynamicError::SerializationError(
+                    "type-only message endpoint metadata cannot be used for publishers".into(),
+                ),
+            )),
         }
     }
 
@@ -275,6 +293,7 @@ impl MessageEndpointType {
                 )?;
                 Ok((type_info, Some(schema)))
             }
+            Self::TypeInfoOnly { type_info } => Ok((type_info, None)),
         }
     }
 }

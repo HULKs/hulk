@@ -1,5 +1,29 @@
-use clap::{Parser, Subcommand, ValueEnum};
+use std::{num::NonZeroUsize, time::Duration};
+
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
+
+fn parse_positive_nonzero_usize(value: &str) -> Result<NonZeroUsize, String> {
+    let parsed = value
+        .parse::<usize>()
+        .map_err(|error| format!("invalid positive integer '{value}': {error}"))?;
+    NonZeroUsize::new(parsed).ok_or_else(|| "value must be greater than zero".to_string())
+}
+
+fn parse_positive_duration(value: &str) -> Result<Duration, String> {
+    let parsed = value
+        .parse::<f64>()
+        .map_err(|error| format!("invalid positive duration '{value}': {error}"))?;
+    if parsed <= 0.0 || !parsed.is_finite() {
+        return Err("duration must be finite and greater than zero".to_string());
+    }
+    let duration = Duration::try_from_secs_f64(parsed)
+        .map_err(|error| format!("invalid duration '{value}': {error}"))?;
+    if duration.is_zero() {
+        return Err("duration is too small to represent".to_string());
+    }
+    Ok(duration)
+}
 
 /// Graph entity kind accepted by `rosz list`.
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
@@ -53,6 +77,39 @@ pub enum Command {
     Online(OnlineCommand),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HzLimit {
+    Continuous,
+    Count(NonZeroUsize),
+    Duration(Duration),
+}
+
+#[derive(Debug, Args)]
+pub struct HzArgs {
+    /// Topic to measure.
+    pub topic: String,
+    /// Number of recent intervals used for rolling statistics.
+    #[arg(long, default_value = "10", value_parser = parse_positive_nonzero_usize)]
+    pub window: NonZeroUsize,
+    /// Stop after receiving this many samples.
+    #[arg(long, conflicts_with = "duration", value_parser = parse_positive_nonzero_usize)]
+    count: Option<NonZeroUsize>,
+    /// Stop after this many seconds.
+    #[arg(long, conflicts_with = "count", value_parser = parse_positive_duration)]
+    duration: Option<Duration>,
+}
+
+impl HzArgs {
+    pub fn limit(&self) -> HzLimit {
+        match (self.count, self.duration) {
+            (Some(count), None) => HzLimit::Count(count),
+            (None, Some(duration)) => HzLimit::Duration(duration),
+            (None, None) => HzLimit::Continuous,
+            (Some(_), Some(_)) => unreachable!("clap rejects count and duration together"),
+        }
+    }
+}
+
 /// Top-level commands that operate on a ros-z graph.
 #[derive(Debug, Subcommand)]
 pub enum OnlineCommand {
@@ -73,6 +130,8 @@ pub enum OnlineCommand {
         #[arg(long)]
         timeout: Option<f64>,
     },
+    /// Estimate topic message frequency
+    Hz(HzArgs),
     /// Show metadata for a topic, service, or node
     Info {
         #[arg(value_enum)]
@@ -143,9 +202,11 @@ pub enum ParameterCommand {
 
 #[cfg(test)]
 mod tests {
+    use std::{num::NonZeroUsize, time::Duration};
+
     use clap::{Parser, error::ErrorKind};
 
-    use super::{Cli, Command, ListTarget, OnlineCommand, ParameterCommand};
+    use super::{Cli, Command, HzLimit, ListTarget, OnlineCommand, ParameterCommand};
 
     #[test]
     fn parses_echo_command_with_defaults() {
@@ -166,6 +227,102 @@ mod tests {
             }
             other => panic!("unexpected command: {other:?}"),
         }
+    }
+
+    #[test]
+    fn parses_hz_command_with_default_window() {
+        let cli = Cli::parse_from(["rosz", "hz", "/chatter"]);
+
+        match cli.command {
+            Command::Online(OnlineCommand::Hz(args)) => {
+                assert_eq!(args.topic, "/chatter");
+                assert_eq!(args.window, NonZeroUsize::new(10).unwrap());
+                assert_eq!(args.limit(), HzLimit::Continuous);
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_hz_command_with_window_and_count() {
+        let cli = Cli::parse_from(["rosz", "hz", "/chatter", "--window", "20", "--count", "5"]);
+
+        match cli.command {
+            Command::Online(OnlineCommand::Hz(args)) => {
+                assert_eq!(args.topic, "/chatter");
+                assert_eq!(args.window, NonZeroUsize::new(20).unwrap());
+                assert_eq!(args.limit(), HzLimit::Count(NonZeroUsize::new(5).unwrap()));
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_hz_duration_as_duration() {
+        let cli = Cli::parse_from(["rosz", "hz", "/chatter", "--duration", "1.5"]);
+
+        match cli.command {
+            Command::Online(OnlineCommand::Hz(args)) => {
+                assert_eq!(args.limit(), HzLimit::Duration(Duration::from_millis(1500)));
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rejects_hz_duration_overflow() {
+        let error = Cli::try_parse_from(["rosz", "hz", "/chatter", "--duration", "1e300"])
+            .expect_err("oversized duration should fail validation");
+
+        assert_eq!(error.kind(), ErrorKind::ValueValidation);
+    }
+
+    #[test]
+    fn rejects_hz_count_duration_conflict() {
+        let error = Cli::try_parse_from([
+            "rosz",
+            "hz",
+            "/chatter",
+            "--count",
+            "5",
+            "--duration",
+            "1.0",
+        ])
+        .expect_err("count and duration should conflict");
+
+        assert_eq!(error.kind(), ErrorKind::ArgumentConflict);
+    }
+
+    #[test]
+    fn rejects_hz_zero_window() {
+        let error = Cli::try_parse_from(["rosz", "hz", "/chatter", "--window", "0"])
+            .expect_err("zero window should fail");
+
+        assert_eq!(error.kind(), ErrorKind::ValueValidation);
+    }
+
+    #[test]
+    fn rejects_hz_zero_count() {
+        let error = Cli::try_parse_from(["rosz", "hz", "/chatter", "--count", "0"])
+            .expect_err("zero count should fail");
+
+        assert_eq!(error.kind(), ErrorKind::ValueValidation);
+    }
+
+    #[test]
+    fn rejects_hz_non_positive_duration() {
+        let error = Cli::try_parse_from(["rosz", "hz", "/chatter", "--duration", "0"])
+            .expect_err("zero duration should fail");
+
+        assert_eq!(error.kind(), ErrorKind::ValueValidation);
+    }
+
+    #[test]
+    fn rejects_hz_duration_that_rounds_to_zero() {
+        let error = Cli::try_parse_from(["rosz", "hz", "/chatter", "--duration", "1e-12"])
+            .expect_err("duration rounding to zero should fail validation");
+
+        assert_eq!(error.kind(), ErrorKind::ValueValidation);
     }
 
     #[test]
