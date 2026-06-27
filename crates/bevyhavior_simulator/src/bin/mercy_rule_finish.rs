@@ -7,7 +7,7 @@ use bevyhavior_simulator::behavior_tree_simulator::{
 };
 use coordinate_systems::{Ground, World};
 use eframe::egui::Color32;
-use hsl_network_messages::{GameState, PlayerNumber};
+use hsl_network_messages::{GameState, PlayerNumber, Team};
 use linear_algebra::{Isometry2, point, vector};
 use scenario::scenario;
 use types::primary_state::PrimaryState;
@@ -40,7 +40,7 @@ fn startup(mut commands: Commands, mut ball: ResMut<SimulatorBall>) {
         (PlayerNumber::Five, kickoff_pose(PlayerNumber::Five)),
     ] {
         commands.spawn(
-            SimulatorRobotBundle::new(player_number, pose, parameters.clone())
+            SimulatorRobotBundle::new(Team::Hulks, player_number, pose, parameters.clone())
                 .expect("failed to create robot bundle")
                 .with_primary_state(PrimaryState::Playing),
         );

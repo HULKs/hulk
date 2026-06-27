@@ -1981,6 +1981,7 @@ dependencies = [
  "coordinate_systems",
  "eframe",
  "egui_dock",
+ "geometry",
  "hsl_network_messages",
  "json5",
  "linear_algebra",

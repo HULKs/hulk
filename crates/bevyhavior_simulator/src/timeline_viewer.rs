@@ -16,7 +16,7 @@ use eframe::{
     run_native,
 };
 use egui_dock::{DockArea, DockState, Node, Split, TabViewer};
-use hsl_network_messages::PlayerNumber;
+use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{Orientation2, Pose2, point, vector};
 use serde_json::{Value, json};
 use twix::{
@@ -30,7 +30,8 @@ use types::{
 };
 
 use crate::behavior_tree_simulator::{
-    SimulationConfig, SimulatorFailure, SimulatorObstacle, SimulatorTimelineMarker, TimelineFrame,
+    SimulationConfig, SimulatorFailure, SimulatorObstacle, SimulatorRobotId,
+    SimulatorTimelineMarker, TimelineFrame,
 };
 
 const SCRUBBER_MARGIN: f32 = 8.0;
@@ -71,7 +72,7 @@ struct TimelineViewerApp {
     inspector_cache_frame: Option<usize>,
     inspector_cache: Option<Value>,
     zoom_and_pan: ZoomAndPanTransform,
-    selected_trace_robot: Option<PlayerNumber>,
+    selected_trace_robot: Option<SimulatorRobotId>,
     behavior_tree_visualizer: BehaviorTreeVisualizer,
     dock_state: DockState<TimelineViewerTab>,
 }
@@ -309,9 +310,9 @@ impl TimelineViewerApp {
                 if let Some(frame) = self.selected_frame() {
                     ui.separator();
                     ui.heading("Robots");
-                    for (player_number, robot_frame) in &frame.robot_frames {
+                    for (robot_id, robot_frame) in &frame.robot_frames {
                         ui.label(format!(
-                            "robot {player_number}: {}",
+                            "robot {robot_id}: {}",
                             motion_name(&robot_frame.motion_command)
                         ));
                     }
@@ -666,7 +667,7 @@ struct TimelineDockViewer<'a> {
     data: &'a TimelineViewerData,
     selected_frame: usize,
     zoom_and_pan: &'a mut ZoomAndPanTransform,
-    selected_trace_robot: &'a mut Option<PlayerNumber>,
+    selected_trace_robot: &'a mut Option<SimulatorRobotId>,
     behavior_tree_visualizer: &'a mut BehaviorTreeVisualizer,
 }
 
@@ -702,23 +703,23 @@ fn show_behavior_tree(
     ui: &mut Ui,
     data: &TimelineViewerData,
     selected_frame: usize,
-    selected_trace_robot: &mut Option<PlayerNumber>,
+    selected_trace_robot: &mut Option<SimulatorRobotId>,
     behavior_tree_visualizer: &mut BehaviorTreeVisualizer,
 ) {
-    let robot_numbers = data
+    let robot_ids = data
         .frames
         .get(selected_frame)
         .map(|frame| frame.robot_frames.keys().copied().collect::<Vec<_>>())
         .unwrap_or_default();
-    if robot_numbers.is_empty() {
+    if robot_ids.is_empty() {
         *selected_trace_robot = None;
         behavior_tree_visualizer.clear();
         ui.label("no robot traces in selected frame");
         return;
     }
 
-    if selected_trace_robot.is_none_or(|robot| !robot_numbers.contains(&robot)) {
-        *selected_trace_robot = robot_numbers.first().copied();
+    if selected_trace_robot.is_none_or(|robot| !robot_ids.contains(&robot)) {
+        *selected_trace_robot = robot_ids.first().copied();
         behavior_tree_visualizer.clear();
     }
 
@@ -730,22 +731,18 @@ fn show_behavior_tree(
                 .unwrap_or_else(|| "none".to_string()),
         )
         .show_ui(ui, |ui| {
-            for robot_number in robot_numbers {
-                ui.selectable_value(
-                    selected_trace_robot,
-                    Some(robot_number),
-                    robot_number.to_string(),
-                );
+            for robot_id in robot_ids {
+                ui.selectable_value(selected_trace_robot, Some(robot_id), robot_id.to_string());
             }
         });
     if *selected_trace_robot != previous_robot {
         behavior_tree_visualizer.clear();
     }
 
-    let tree_data = selected_trace_robot.and_then(|robot_number| {
+    let tree_data = selected_trace_robot.and_then(|robot_id| {
         data.frames
             .get(selected_frame)
-            .and_then(|frame| frame.robot_frames.get(&robot_number))
+            .and_then(|frame| frame.robot_frames.get(&robot_id))
     });
 
     let Some(robot_frame) = tree_data else {
@@ -804,13 +801,10 @@ fn show_map(
             paint_scenario_obstacle(&painter, *obstacle);
         }
 
-        for (_, robot) in frame.robots.iter() {
-            let Some(robot) = robot else {
-                continue;
-            };
+        for (robot_id, robot) in frame.robots.iter() {
             let pose = pose_world_to_field(robot.ground_to_world.as_pose());
-            let color = robot_color(robot.player_number);
-            if let Some(robot_frame) = frame.robot_frames.get(&robot.player_number) {
+            let color = robot_color(*robot_id);
+            if let Some(robot_frame) = frame.robot_frames.get(robot_id) {
                 paint_walk_path(&painter, pose, &robot_frame.motion_command);
             }
             paint_view_cone(&painter, pose, robot.head_yaw, &data.config, color);
@@ -824,7 +818,7 @@ fn show_map(
                     color: Color32::BLACK,
                 },
             );
-            paint_robot_label(ui, &painter, pose, robot.player_number);
+            paint_robot_label(ui, &painter, pose, *robot_id);
         }
     }
 }
@@ -1034,13 +1028,13 @@ fn paint_robot_label(
     ui: &mut Ui,
     painter: &TwixPainter<Field>,
     pose: Pose2<Field>,
-    player_number: PlayerNumber,
+    robot_id: SimulatorRobotId,
 ) {
     let label_position = painter.transform_world_to_pixel(pose.position() + vector![0.0, 0.26]);
     ui.painter().text(
         label_position,
         Align2::CENTER_CENTER,
-        player_number.to_string(),
+        robot_id.to_string(),
         FontId::proportional(14.0),
         Color32::WHITE,
     );
@@ -1057,13 +1051,17 @@ fn point_world_to_field(point: linear_algebra::Point2<World>) -> linear_algebra:
     point![point.x(), point.y()]
 }
 
-fn robot_color(player_number: PlayerNumber) -> Color32 {
-    match player_number {
+fn robot_color(robot_id: SimulatorRobotId) -> Color32 {
+    let base = match robot_id.player_number {
         PlayerNumber::One => Color32::from_rgb(80, 160, 255),
         PlayerNumber::Two => Color32::from_rgb(255, 128, 64),
         PlayerNumber::Three => Color32::from_rgb(128, 220, 128),
         PlayerNumber::Four => Color32::from_rgb(220, 128, 255),
         PlayerNumber::Five => Color32::from_rgb(255, 220, 80),
+    };
+    match robot_id.team {
+        Team::Hulks => base,
+        Team::Opponent => Color32::from_rgb(base.r() / 2, base.g() / 2, base.b() / 2),
     }
 }
 

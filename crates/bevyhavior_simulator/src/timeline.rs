@@ -8,13 +8,11 @@ use std::{
 use bevy::prelude::*;
 use coordinate_systems::{Field, Ground};
 use eframe::egui::Color32;
-use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Point2, Pose2};
 use serde::Serialize;
 use types::{
     behavior_tree::NodeTrace, filtered_game_state::FilteredGameState, messages::OutgoingMessage,
-    motion_command::MotionCommand, path_obstacles::PathObstacle, players::Players,
-    world_state::WorldState,
+    motion_command::MotionCommand, path_obstacles::PathObstacle, world_state::WorldState,
 };
 use voronoi::VoronoiGrid;
 
@@ -22,7 +20,7 @@ use crate::behavior_tree_simulator::{
     InvariantViolation, RobotSnapshot, SimulatedBall, SimulatorBall, SimulatorBehaviorTickOutput,
     SimulatorClock, SimulatorCurrentInvariantViolations, SimulatorFallDownState,
     SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorObstacle,
-    SimulatorPrimaryState, SimulatorRobot, SimulatorScenarioObstacles,
+    SimulatorPrimaryState, SimulatorRobot, SimulatorRobotId, SimulatorScenarioObstacles,
 };
 use crate::game_controller::filtered_game_state_from;
 
@@ -73,7 +71,7 @@ impl Display for SimulatorFailure {
 }
 
 #[derive(Resource, Clone, Debug, Default)]
-pub struct SimulatorRobotFrames(pub BTreeMap<PlayerNumber, RobotFrame>);
+pub struct SimulatorRobotFrames(pub BTreeMap<SimulatorRobotId, RobotFrame>);
 
 #[derive(Clone, Debug, Serialize)]
 pub struct TimelineFrame {
@@ -81,8 +79,8 @@ pub struct TimelineFrame {
     pub game_state: FilteredGameState,
     pub ball: Option<SimulatedBall>,
     pub scenario_obstacles: Vec<SimulatorObstacle>,
-    pub robots: Players<Option<RobotSnapshot>>,
-    pub robot_frames: BTreeMap<PlayerNumber, RobotFrame>,
+    pub robots: BTreeMap<SimulatorRobotId, RobotSnapshot>,
+    pub robot_frames: BTreeMap<SimulatorRobotId, RobotFrame>,
     pub invariant_violations: Vec<InvariantViolation>,
 }
 
@@ -162,16 +160,21 @@ pub(crate) fn robot_snapshots_from_query(
         &SimulatorPrimaryState,
         &SimulatorFallDownState,
     )>,
-) -> Players<Option<RobotSnapshot>> {
-    let mut snapshots = Players::default();
+) -> BTreeMap<SimulatorRobotId, RobotSnapshot> {
+    let mut snapshots = BTreeMap::new();
     for (robot, ground_to_world, head_yaw, primary_state, fall_down_state) in robots.iter() {
-        snapshots[robot.player_number] = Some(RobotSnapshot {
-            player_number: robot.player_number,
-            ground_to_world: ground_to_world.ground_to_world,
-            head_yaw: head_yaw.yaw,
-            primary_state: primary_state.primary_state,
-            fall_down_state: fall_down_state.fall_down_state,
-        });
+        let robot_id = robot.id();
+        snapshots.insert(
+            robot_id,
+            RobotSnapshot {
+                id: robot_id,
+                player_number: robot.player_number,
+                ground_to_world: ground_to_world.ground_to_world,
+                head_yaw: head_yaw.yaw,
+                primary_state: primary_state.primary_state,
+                fall_down_state: fall_down_state.fall_down_state,
+            },
+        );
     }
     snapshots
 }

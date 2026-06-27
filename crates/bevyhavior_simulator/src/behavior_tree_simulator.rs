@@ -40,8 +40,8 @@ pub use crate::invariant_checks::{
 };
 pub use crate::robot::{
     SimulatorFallDownState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorLastKickTime,
-    SimulatorPrimaryState, SimulatorRobot, SimulatorRobotBundle, SimulatorRobotParameters,
-    SimulatorSuggestedSearchPosition,
+    SimulatorPrimaryState, SimulatorRobot, SimulatorRobotBundle, SimulatorRobotId,
+    SimulatorRobotParameters, SimulatorSuggestedSearchPosition,
 };
 pub use crate::timeline::{
     RobotFrame, SimulatorFailure, SimulatorRobotFrames, SimulatorScenarioResult, SimulatorTimeline,
@@ -440,7 +440,7 @@ fn advance_time(mut clock: ResMut<SimulatorClock>) {
 mod tests {
     use super::*;
 
-    use hsl_network_messages::PlayerNumber;
+    use hsl_network_messages::{PlayerNumber, Team};
     use linear_algebra::{Isometry2, point, vector};
     use types::{
         field_dimensions::Side, motion_command::MotionCommand, primary_state::PrimaryState,
@@ -486,9 +486,14 @@ mod tests {
         let field_dimensions = app.world().resource::<SimulatorFieldDimensions>().0;
         let parameters = default_behavior_parameters().expect("failed to load behavior parameters");
         app.world_mut().spawn(
-            SimulatorRobotBundle::new(PlayerNumber::Three, Isometry2::identity(), parameters)
-                .expect("failed to create robot bundle")
-                .with_primary_state(PrimaryState::Playing),
+            SimulatorRobotBundle::new(
+                Team::Hulks,
+                PlayerNumber::Three,
+                Isometry2::identity(),
+                parameters,
+            )
+            .expect("failed to create robot bundle")
+            .with_primary_state(PrimaryState::Playing),
         );
         app.world_mut().resource_mut::<SimulatorBall>().state = Some(SimulatedBall {
             position: point![field_dimensions.length / 2.0 + 0.1, 0.0],
@@ -508,7 +513,7 @@ mod tests {
         let robot_frames = app.world().resource::<SimulatorRobotFrames>();
         let robot_frame = robot_frames
             .0
-            .get(&PlayerNumber::Three)
+            .get(&SimulatorRobotId::new(Team::Hulks, PlayerNumber::Three))
             .expect("robot should have ticked behavior");
         assert!(matches!(
             robot_frame.motion_command,

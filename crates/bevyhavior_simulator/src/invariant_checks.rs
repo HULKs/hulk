@@ -8,15 +8,15 @@ use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Orientation2, Point2};
 use serde::Serialize;
 use types::{
-    field_dimensions::FieldDimensions, motion_command::MotionCommand, players::Players,
-    primary_state::PrimaryState, rule_obstacles::RuleObstacle,
+    field_dimensions::FieldDimensions, motion_command::MotionCommand, primary_state::PrimaryState,
+    rule_obstacles::RuleObstacle,
 };
 
 use crate::behavior_tree_simulator::{
     RobotFrame, SimulatedBall, SimulationConfig, SimulatorBall, SimulatorFailure,
     SimulatorFallDownState, SimulatorFieldDimensions, SimulatorGroundToWorld,
-    SimulatorPrimaryState, SimulatorRobot, SimulatorRobotFrames, SimulatorRuleObstacles,
-    SimulatorScenarioResult,
+    SimulatorPrimaryState, SimulatorRobot, SimulatorRobotFrames, SimulatorRobotId,
+    SimulatorRuleObstacles, SimulatorScenarioResult,
 };
 use crate::kinematics::first_path_target;
 use crate::timeline::robot_snapshots_from_query;
@@ -31,6 +31,7 @@ pub(crate) const BEHAVIOR_TICK_ERROR_CHECK_NAME: &str = "behavior_tick_error";
 
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct RobotSnapshot {
+    pub id: SimulatorRobotId,
     pub player_number: PlayerNumber,
     pub ground_to_world: Isometry2<Ground, World>,
     pub head_yaw: Orientation2<Ground>,
@@ -42,8 +43,8 @@ pub struct RobotSnapshot {
 pub struct SimulationSnapshot {
     pub now: SystemTime,
     pub ball: Option<SimulatedBall>,
-    pub robots: Players<Option<RobotSnapshot>>,
-    pub robot_frames: BTreeMap<PlayerNumber, RobotFrame>,
+    pub robots: BTreeMap<SimulatorRobotId, RobotSnapshot>,
+    pub robot_frames: BTreeMap<SimulatorRobotId, RobotFrame>,
     pub field_dimensions: FieldDimensions,
     pub rule_obstacles: Vec<RuleObstacle>,
     pub config: SimulationConfig,
@@ -89,7 +90,7 @@ pub struct RuleObstacleWalkCheck;
 impl InvariantCheck for RuleObstacleWalkCheck {
     fn check(&mut self, snapshot: &SimulationSnapshot) -> Vec<InvariantViolation> {
         let mut violations = Vec::new();
-        for (player_number, frame) in &snapshot.robot_frames {
+        for (robot_id, frame) in &snapshot.robot_frames {
             let Some(target) = motion_target_in_field(frame) else {
                 continue;
             };
@@ -98,9 +99,9 @@ impl InvariantCheck for RuleObstacleWalkCheck {
                 if obstacle.contains(target) {
                     violations.push(InvariantViolation {
                         check_name: "rule_obstacle_walk",
-                        player_number: Some(*player_number),
+                        player_number: Some(robot_id.player_number),
                         message: format!(
-                            "robot {player_number:?} plans to walk into a known rule obstacle"
+                            "robot {robot_id} plans to walk into a known rule obstacle"
                         ),
                         severity: InvariantSeverity::Error,
                     });
@@ -117,7 +118,7 @@ pub struct FieldBoundaryWalkCheck;
 impl InvariantCheck for FieldBoundaryWalkCheck {
     fn check(&mut self, snapshot: &SimulationSnapshot) -> Vec<InvariantViolation> {
         let mut violations = Vec::new();
-        for (player_number, frame) in &snapshot.robot_frames {
+        for (robot_id, frame) in &snapshot.robot_frames {
             let Some(target) = motion_target_in_field(frame) else {
                 continue;
             };
@@ -125,10 +126,8 @@ impl InvariantCheck for FieldBoundaryWalkCheck {
             if !is_inside_field_with_border_margin(target, snapshot.field_dimensions) {
                 violations.push(InvariantViolation {
                     check_name: "field_boundary_walk",
-                    player_number: Some(*player_number),
-                    message: format!(
-                        "robot {player_number:?} plans to walk outside the known field"
-                    ),
+                    player_number: Some(robot_id.player_number),
+                    message: format!("robot {robot_id} plans to walk outside the known field"),
                     severity: InvariantSeverity::Error,
                 });
             }
