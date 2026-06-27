@@ -2,14 +2,20 @@ use std::sync::Arc;
 
 use ros_z::{prelude::*, time::Time};
 use ros_z_debug::{
-    RetentionPolicy, TopicObservationBlockReason, TopicObservationStatus, TopicObservationUpdate,
-    TopicObserver, TopicObserverOptions,
+    JsonRenderPolicy, NonFiniteFloatRenderPolicy, RetentionPolicy, TopicObservationBlockReason,
+    TopicObservationStatus, TopicObservationUpdate, TopicObserver, TopicObserverOptions,
 };
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, ros_z::Message)]
 #[message(name = "test_msgs::TwixDebugValue")]
 struct TwixDebugValue {
     value: i32,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, ros_z::Message)]
+#[message(name = "test_msgs::FloatDebugValue")]
+struct FloatDebugValue {
+    value: f64,
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -120,7 +126,7 @@ async fn dynamic_json_observation_exposes_time_window_records() -> ros_z_debug::
         loop {
             publisher.publish(&TwixDebugValue { value: 1 }).await?;
             publisher.publish(&TwixDebugValue { value: 2 }).await?;
-            let records = observation.window_json(Time::zero(), Time::from_nanos(i64::MAX));
+            let records = observation.window_json_records(Time::zero(), Time::from_nanos(i64::MAX));
             if records.len() >= 2 {
                 assert!(
                     records
@@ -140,6 +146,94 @@ async fn dynamic_json_observation_exposes_time_window_records() -> ros_z_debug::
     })
     .await
     .expect("dynamic observation should expose timestamped window records")?;
+
+    drop(observer);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn dynamic_json_observation_exposes_value_only_window_json() -> ros_z_debug::Result<()> {
+    let context = ContextBuilder::default().build().await?;
+    let publisher_node = context
+        .create_node("dynamic_value_window_pub")
+        .build()
+        .await?;
+    let observer_node = Arc::new(
+        context
+            .create_node("dynamic_value_window_observer")
+            .build()
+            .await?,
+    );
+    let publisher = publisher_node
+        .publisher::<TwixDebugValue>("/42/value_window")?
+        .build()
+        .await?;
+    let observer = TopicObserver::new(observer_node, TopicObserverOptions::with_namespace("/42")?);
+    let observation = observer
+        .observe_dynamic("value_window")?
+        .retention(RetentionPolicy::time_window(
+            std::time::Duration::from_secs(10),
+        )?)
+        .spawn();
+
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            publisher.publish(&TwixDebugValue { value: 3 }).await?;
+            publisher.publish(&TwixDebugValue { value: 4 }).await?;
+            let values = observation.window_json(Time::zero(), Time::from_nanos(i64::MAX));
+            if values.len() >= 2 {
+                assert!(values.contains(&serde_json::json!({ "value": 3 })));
+                assert!(values.contains(&serde_json::json!({ "value": 4 })));
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        Ok::<_, ros_z_debug::Error>(())
+    })
+    .await
+    .expect("dynamic observation should expose value-only window JSON")?;
+
+    drop(observer);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn dynamic_json_observation_uses_configured_render_policy() -> ros_z_debug::Result<()> {
+    let context = ContextBuilder::default().build().await?;
+    let publisher_node = context.create_node("dynamic_policy_pub").build().await?;
+    let observer_node = Arc::new(
+        context
+            .create_node("dynamic_policy_observer")
+            .build()
+            .await?,
+    );
+    let publisher = publisher_node
+        .publisher::<FloatDebugValue>("/42/policy_value")?
+        .build()
+        .await?;
+    let observer = TopicObserver::new(observer_node, TopicObserverOptions::with_namespace("/42")?);
+    let observation = observer
+        .observe_dynamic("policy_value")?
+        .json_render_policy(JsonRenderPolicy {
+            non_finite_float: NonFiniteFloatRenderPolicy::Null,
+            ..JsonRenderPolicy::default()
+        })
+        .spawn();
+
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            publisher
+                .publish(&FloatDebugValue { value: f64::NAN })
+                .await?;
+            if observation.latest_json() == Some(serde_json::json!({ "value": null })) {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        Ok::<_, ros_z_debug::Error>(())
+    })
+    .await
+    .expect("dynamic observation should use configured JSON render policy")?;
 
     drop(observer);
     Ok(())

@@ -12,7 +12,7 @@ use tokio::sync::{broadcast, watch};
 use crate::{
     CachedSubscription, CachedSubscriptionFactory, CachedSubscriptionOptions,
     CachedSubscriptionStatusSnapshot, CachedSubscriptionUpdate, CachedSubscriptionUpdateReceiver,
-    Error, Result, RetentionPolicy, TargetIdentity, TopicReference,
+    Error, JsonRenderPolicy, Result, RetentionPolicy, TargetIdentity, TopicReference,
 };
 
 const UPDATE_BUFFER_CAPACITY: usize = 256;
@@ -385,18 +385,26 @@ impl TopicObservationBuilder<DynamicPayload> {
 /// Builder for a dynamic topic observation.
 pub struct DynamicTopicObservationBuilder {
     inner: TopicObservationBuilder<DynamicPayload>,
+    json_render_policy: JsonRenderPolicy,
 }
 
 impl DynamicTopicObservationBuilder {
     fn new(observer: TopicObserver, topic: TopicReference) -> Self {
         Self {
             inner: TopicObservationBuilder::new(observer, topic),
+            json_render_policy: JsonRenderPolicy::default(),
         }
     }
 
     /// Set how much data the observation retains.
     pub fn retention(mut self, retention: RetentionPolicy) -> Self {
         self.inner = self.inner.retention(retention);
+        self
+    }
+
+    /// Set how retained dynamic payloads are rendered as JSON.
+    pub fn json_render_policy(mut self, policy: JsonRenderPolicy) -> Self {
+        self.json_render_policy = policy;
         self
     }
 
@@ -414,6 +422,7 @@ impl DynamicTopicObservationBuilder {
     pub fn spawn(self) -> DynamicTopicObservation {
         DynamicTopicObservation {
             inner: self.inner.spawn_dynamic(),
+            json_render_policy: self.json_render_policy,
         }
     }
 }
@@ -545,6 +554,7 @@ impl<T> TopicObservation<T> {
 /// Handle for reading and retargeting an observed dynamic topic.
 pub struct DynamicTopicObservation {
     inner: TopicObservation<DynamicPayload>,
+    json_render_policy: JsonRenderPolicy,
 }
 
 impl DynamicTopicObservation {
@@ -555,15 +565,25 @@ impl DynamicTopicObservation {
 
     /// Render the latest retained dynamic payload as JSON with sample metadata.
     pub fn latest_json_record(&self) -> Option<crate::JsonSampleRecord> {
-        self.inner.latest().map(dynamic_record_to_json)
+        self.inner
+            .latest()
+            .map(|record| dynamic_record_to_json(record, self.json_render_policy))
+    }
+
+    /// Render retained dynamic payloads in `[start, end]` as JSON values.
+    pub fn window_json(&self, start: Time, end: Time) -> Vec<serde_json::Value> {
+        self.window_json_records(start, end)
+            .into_iter()
+            .map(|record| record.value)
+            .collect()
     }
 
     /// Render retained dynamic payloads in `[start, end]` as JSON records.
-    pub fn window_json(&self, start: Time, end: Time) -> Vec<crate::JsonSampleRecord> {
+    pub fn window_json_records(&self, start: Time, end: Time) -> Vec<crate::JsonSampleRecord> {
         self.inner
             .window(start, end)
             .into_iter()
-            .map(dynamic_record_to_json)
+            .map(|record| dynamic_record_to_json(record, self.json_render_policy))
             .collect()
     }
 
@@ -627,13 +647,14 @@ impl DynamicTopicObservation {
 
 fn dynamic_record_to_json(
     record: Arc<crate::SampleRecord<DynamicPayload>>,
+    policy: JsonRenderPolicy,
 ) -> crate::JsonSampleRecord {
     crate::JsonSampleRecord {
         source_time: record.source_time,
         transport_time: record.transport_time,
         publication_id: record.publication_id,
         metadata: Arc::clone(&record.metadata),
-        value: crate::dynamic_payload_to_json(&record.value, crate::JsonRenderPolicy::default()),
+        value: crate::dynamic_payload_to_json(&record.value, policy),
     }
 }
 
