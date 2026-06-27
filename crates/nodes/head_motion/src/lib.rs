@@ -24,23 +24,23 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let _parameters = node.bind_parameter_as::<Parameters>("head_motion")?;
     let _look_around_target_joints_sub = node
-        .subscriber::<HeadJoints<f32>>("look_around_target_joints")?
+        .subscriber::<HeadJoints<f32>>("look_around_target_joints")
         .build()
         .await?;
     let _look_at_sub = node
-        .subscriber::<HeadJoints<f32>>("look_at")?
+        .subscriber::<HeadJoints<f32>>("look_at")
         .build()
         .await?;
     let _motor_states_sub = node
-        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")?
+        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")
         .build()
         .await?;
     let _motion_command_sub = node
-        .subscriber::<MotionCommand>("motion_command")?
+        .subscriber::<MotionCommand>("motion_command")
         .build()
         .await?;
     let _head_joints_command_pub = node
-        .publisher::<HeadJoints<f32>>("head_joints_command")?
+        .publisher::<HeadJoints<f32>>("head_joints_command")
         .build()
         .await?;
 

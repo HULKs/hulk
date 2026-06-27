@@ -4,12 +4,15 @@ use std::time::Duration;
 use itertools::Itertools;
 
 use crate::{
-    dynamic::{DynamicError, Schema},
+    dynamic::{DynamicCdrCodec, DynamicError, DynamicPayload, DynamicSubscriber, Schema},
+    endpoint_builder::{EndpointBuilderContext, MessageEndpointType},
     entity::{EndpointEntity, SchemaHash, TypeInfo},
     graph::Graph,
-    node::Node,
+    pubsub::{RawSubscriber, SubscriberBuilder, SubscriberOptions},
+    qos::QosProfile,
     topic_name::qualify_topic_name,
 };
+use tracing::info;
 
 #[derive(Debug, Clone)]
 pub struct DiscoveredTopicSchema {
@@ -93,26 +96,33 @@ fn collect_topic_schema_candidates(
     collect_topic_schema_candidates_from_publishers(&publishers, qualified_topic)
 }
 
-pub(crate) struct SchemaDiscovery<'a> {
-    node: &'a Node,
+pub(crate) struct SchemaDiscovery {
+    context: EndpointBuilderContext,
     timeout: Duration,
 }
 
-impl<'a> SchemaDiscovery<'a> {
-    pub(crate) fn new(node: &'a Node, timeout: Duration) -> Self {
-        Self { node, timeout }
+impl SchemaDiscovery {
+    pub(crate) fn new(context: EndpointBuilderContext, timeout: Duration) -> Self {
+        Self { context, timeout }
     }
 
     pub(crate) async fn discover(
         &self,
         topic: &str,
     ) -> Result<DiscoveredTopicSchema, DynamicError> {
-        let qualified_topic = qualify_topic_name(topic, self.node.namespace(), self.node.name())
-            .map_err(|error| {
-                DynamicError::SchemaNotFound(format!("Failed to qualify topic: {error}"))
-            })?;
+        let qualified_topic =
+            qualify_topic_name(topic, &self.context.node.namespace, &self.context.node.name)
+                .map_err(|error| DynamicError::name("discovering topic schema", error))?;
+
+        self.discover_qualified(qualified_topic).await
+    }
+
+    async fn discover_qualified(
+        &self,
+        qualified_topic: String,
+    ) -> Result<DiscoveredTopicSchema, DynamicError> {
         let candidates =
-            collect_topic_schema_candidates(self.node.graph().as_ref(), &qualified_topic)?;
+            collect_topic_schema_candidates(self.context.graph.as_ref(), &qualified_topic)?;
 
         let (root_name, schema, schema_hash) = self.try_schema_service(&candidates[..]).await?;
 
@@ -131,7 +141,7 @@ impl<'a> SchemaDiscovery<'a> {
         let mut last_error = None;
 
         for candidate in candidates {
-            match super::schema_query::query_schema(self.node, candidate, self.timeout).await {
+            match super::schema_query::query_schema(&self.context, candidate, self.timeout).await {
                 Ok(result) => return Ok(result),
                 Err(error) => last_error = Some(error),
             }
@@ -140,6 +150,172 @@ impl<'a> SchemaDiscovery<'a> {
         Err(last_error.unwrap_or_else(|| {
             DynamicError::SchemaNotFound("No schema service source succeeded".to_string())
         }))
+    }
+}
+
+/// Builder for dynamic subscribers that discover their schema at build time.
+///
+/// Create this with [`crate::node::Node::dynamic_subscriber_auto`]. Schema
+/// discovery runs in [`build`](Self::build), so construction and option
+/// configuration remain infallible. This builder exposes subscriber options
+/// that do not require knowing the message schema up front. Use [`raw`](Self::raw)
+/// for raw sample delivery after discovery.
+#[derive(Debug)]
+pub struct DynamicSubscriberDiscoveryBuilder {
+    context: EndpointBuilderContext,
+    topic: String,
+    discovery_timeout: Duration,
+    options: SubscriberOptions,
+}
+
+/// Builder for raw dynamic subscribers that discover schema metadata at build time.
+#[derive(Debug)]
+pub struct DynamicRawSubscriberDiscoveryBuilder {
+    context: EndpointBuilderContext,
+    topic: String,
+    discovery_timeout: Duration,
+    options: SubscriberOptions,
+}
+
+async fn discover_dynamic_subscriber_builder(
+    context: EndpointBuilderContext,
+    topic: String,
+    discovery_timeout: Duration,
+    options: SubscriberOptions,
+) -> crate::Result<SubscriberBuilder<DynamicPayload, DynamicCdrCodec>> {
+    let qualified_topic = qualify_topic_name(&topic, &context.node.namespace, &context.node.name)
+        .map_err(|source| crate::Error::topic_name(topic.clone(), source))?;
+
+    let discovered = SchemaDiscovery::new(context.clone(), discovery_timeout)
+        .discover_qualified(qualified_topic)
+        .await?;
+
+    info!(
+        "[NOD] Discovered schema for topic {}: {} (hash: {})",
+        discovered.qualified_topic,
+        discovered.root_name,
+        discovered.schema_hash.to_hash_string()
+    );
+
+    Ok(SubscriberBuilder::<DynamicPayload, DynamicCdrCodec>::new(
+        context,
+        topic,
+        MessageEndpointType::prevalidated_dynamic(discovered.type_info(), discovered.schema),
+    )
+    .options(options))
+}
+
+impl DynamicSubscriberDiscoveryBuilder {
+    pub(crate) fn new(
+        context: EndpointBuilderContext,
+        topic: String,
+        discovery_timeout: Duration,
+    ) -> Self {
+        Self {
+            context,
+            topic,
+            discovery_timeout,
+            options: SubscriberOptions::default(),
+        }
+    }
+
+    /// Set the QoS profile used by the built dynamic subscriber.
+    ///
+    /// This does not affect the schema discovery request timeout. Use
+    /// [`transient_local_replay_timeout`](Self::transient_local_replay_timeout)
+    /// to configure transient-local replay after the subscriber has been built.
+    pub fn qos(mut self, qos: QosProfile) -> Self {
+        self.options = self.options.qos(qos);
+        self
+    }
+
+    /// Limit accepted samples by their zenoh origin locality.
+    ///
+    /// The locality filter is applied to the dynamic subscriber created after
+    /// schema discovery succeeds.
+    pub fn locality(mut self, locality: zenoh::sample::Locality) -> Self {
+        self.options = self.options.locality(locality);
+        self
+    }
+
+    /// Set how long transient-local subscribers wait for replay responses.
+    ///
+    /// This timeout is separate from the schema discovery timeout passed to
+    /// [`crate::node::Node::dynamic_subscriber_auto`]. It only applies when the
+    /// subscriber QoS requests transient-local durability.
+    pub fn transient_local_replay_timeout(mut self, timeout: Duration) -> Self {
+        self.options = self.options.transient_local_replay_timeout(timeout);
+        self
+    }
+
+    /// Switch this discovery builder to raw sample delivery.
+    ///
+    /// Schema discovery still runs at build time so the subscriber advertises
+    /// the discovered dynamic type metadata, but received samples are returned
+    /// without deserialization.
+    pub fn raw(self) -> DynamicRawSubscriberDiscoveryBuilder {
+        DynamicRawSubscriberDiscoveryBuilder {
+            context: self.context,
+            topic: self.topic,
+            discovery_timeout: self.discovery_timeout,
+            options: self.options,
+        }
+    }
+
+    /// Discover the topic schema and build the dynamic subscriber.
+    ///
+    /// This performs the fallible work deferred by the builder: topic
+    /// qualification, schema discovery, schema validation, and subscriber
+    /// declaration. The returned subscriber decodes payloads using the
+    /// discovered schema.
+    pub async fn build(self) -> crate::Result<DynamicSubscriber> {
+        let Self {
+            context,
+            topic,
+            discovery_timeout,
+            options,
+        } = self;
+
+        discover_dynamic_subscriber_builder(context, topic, discovery_timeout, options)
+            .await?
+            .build()
+            .await
+    }
+}
+
+impl DynamicRawSubscriberDiscoveryBuilder {
+    /// Set the QoS profile used by the built raw dynamic subscriber.
+    pub fn qos(mut self, qos: QosProfile) -> Self {
+        self.options = self.options.qos(qos);
+        self
+    }
+
+    /// Limit accepted samples by their zenoh origin locality.
+    pub fn locality(mut self, locality: zenoh::sample::Locality) -> Self {
+        self.options = self.options.locality(locality);
+        self
+    }
+
+    /// Set how long transient-local subscribers wait for replay responses.
+    pub fn transient_local_replay_timeout(mut self, timeout: Duration) -> Self {
+        self.options = self.options.transient_local_replay_timeout(timeout);
+        self
+    }
+
+    /// Discover the topic schema and build a raw dynamic subscriber.
+    pub async fn build(self) -> crate::Result<RawSubscriber> {
+        let Self {
+            context,
+            topic,
+            discovery_timeout,
+            options,
+        } = self;
+
+        discover_dynamic_subscriber_builder(context, topic, discovery_timeout, options)
+            .await?
+            .raw()
+            .build()
+            .await
     }
 }
 

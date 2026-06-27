@@ -73,11 +73,8 @@ impl CreateAnnouncingPublisher for Node {
         &self,
         topic: &str,
     ) -> Result<AnnouncingPublisher<T>> {
-        let data_publisher = self.publisher(topic)?.build().await?;
-        let announcement_publisher = self
-            .publisher(&format!("{topic}/announce"))?
-            .build()
-            .await?;
+        let data_publisher = self.publisher(topic).build().await?;
+        let announcement_publisher = self.publisher(&format!("{topic}/announce")).build().await?;
 
         Ok(AnnouncingPublisher {
             data_publisher,

@@ -51,7 +51,8 @@ impl SchemaRegistry {
         root_name: &str,
         schema: Schema,
     ) -> Result<Schema, DynamicError> {
-        let schema_hash = registry_root_schema_hash(root_name, &schema)?;
+        let schema_hash =
+            validate_root_schema_identity(root_name, &schema, "registering dynamic schema")?;
         match self.schemas.get_mut(root_name) {
             Some(schemas) => {
                 schemas.latest_hash = schema_hash;
@@ -105,10 +106,14 @@ impl Default for SchemaRegistry {
     }
 }
 
-fn registry_root_schema_hash(root_name: &str, schema: &Schema) -> Result<SchemaHash, DynamicError> {
+pub(crate) fn validate_root_schema_identity(
+    root_name: &str,
+    schema: &Schema,
+    operation: &'static str,
+) -> Result<SchemaHash, DynamicError> {
     schema
         .validate()
-        .map_err(|error| DynamicError::schema("registering dynamic schema", error))?;
+        .map_err(|error| DynamicError::schema(operation, error))?;
     let TypeDef::Named(actual_root_name) = &schema.root else {
         return Err(DynamicError::SerializationError(format!(
             "schema root for '{root_name}' is not a named type"
@@ -116,12 +121,12 @@ fn registry_root_schema_hash(root_name: &str, schema: &Schema) -> Result<SchemaH
     };
     if actual_root_name.as_str() != root_name {
         return Err(DynamicError::SerializationError(format!(
-            "schema root '{}' does not match registered root name '{root_name}'",
+            "schema root '{}' does not match root name '{root_name}'",
             actual_root_name.as_str()
         )));
     }
     ros_z_schema::compute_hash(schema.as_ref())
-        .map_err(|error| DynamicError::schema("registering dynamic schema", error))
+        .map_err(|error| DynamicError::schema(operation, error))
 }
 
 /// Get a root schema from the global registry by type name and schema hash.

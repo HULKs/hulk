@@ -151,7 +151,6 @@ impl RemoteParameterClient {
         let operation = format!("subscribing to remote parameter events '{events_topic}'");
         self.node
             .subscriber::<NodeParameterEvent>(&events_topic)
-            .map_err(|source| ParameterError::operation(operation.clone(), source))?
             .qos(QosProfile {
                 reliability: QosReliability::Reliable,
                 durability: QosDurability::TransientLocal,
@@ -187,8 +186,7 @@ impl RemoteParameterClient {
     {
         let operation = format!("creating remote parameter service client '{service_name}'");
         self.node
-            .create_service_client::<S>(service_name)
-            .map_err(|source| ParameterError::operation(operation.clone(), source))?
+            .service_client::<S>(service_name)
             .build()
             .await
             .map_err(|source| ParameterError::operation(operation, source))

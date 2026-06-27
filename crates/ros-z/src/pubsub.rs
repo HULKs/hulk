@@ -9,6 +9,7 @@ mod subscriber;
 pub use metadata::{PublicationId, Received};
 pub use publisher::{PreparedPublication, Publisher, PublisherBuilder};
 pub use raw::{RawSubscriber, RawSubscriberBuilder};
+pub(crate) use subscriber::SubscriberOptions;
 pub use subscriber::{Subscriber, SubscriberBuilder};
 
 pub(crate) const DEFAULT_TRANSIENT_LOCAL_REPLAY_TIMEOUT: Duration = Duration::from_secs(1);

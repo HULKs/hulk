@@ -4,21 +4,19 @@ use std::sync::{Arc, RwLock};
 use ros_z_schema::{SchemaBundle, SchemaError, ServiceDef, TypeDef};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
+use zenoh::Wait;
 use zenoh::query::Query;
-use zenoh::{Result as ZResult, Session, Wait};
 
 use super::error::DynamicError;
 use super::schema::Schema;
 use crate::Message;
 use crate::ServiceTypeInfo;
 use crate::attachment::Attachment;
-use crate::context::GlobalCounter;
-use crate::entity::{EndpointEntity, EndpointKind, NodeEntity, SchemaHash, TypeInfo};
-use crate::graph::Graph;
+use crate::endpoint_builder::{EndpointBuilderContext, service_endpoint_type};
+use crate::entity::{SchemaHash, TypeInfo};
 use crate::message::{SerdeCdrCodec, Service, WireDecoder, WireEncoder};
 use crate::schema::{MessageSchema, SchemaBuilder};
 use crate::service::{ServiceServer, ServiceServerBuilder};
-use crate::time::Clock;
 
 type SchemaVersions = HashMap<SchemaHash, RegisteredSchema>;
 type SchemaRegistry = HashMap<String, SchemaVersions>;
@@ -261,57 +259,37 @@ pub struct SchemaService {
     _server: Arc<ServiceServer<GetSchema, ()>>,
 }
 
-#[derive(Clone, Copy)]
-pub(crate) struct SchemaServiceNodeIdentity<'a> {
-    pub(crate) name: &'a str,
-    pub(crate) namespace: &'a str,
-    pub(crate) id: usize,
+#[derive(Clone)]
+pub(crate) struct SchemaRegistrar {
+    schemas: Arc<RwLock<SchemaRegistry>>,
 }
 
-fn schema_service_server_builder(
-    session: Session,
-    node: SchemaServiceNodeIdentity<'_>,
-    counter: &GlobalCounter,
-    clock: &Clock,
-    graph: Arc<Graph>,
-) -> ServiceServerBuilder<GetSchema> {
-    let service_name = "~get_schema";
-
-    let node_entity = NodeEntity::new(
-        session.zid(),
-        node.id,
-        node.name.to_string(),
-        node.namespace.to_string(),
-    );
-
-    let entity = EndpointEntity {
-        id: counter.increment(),
-        node: node_entity,
-        kind: EndpointKind::Service,
-        topic: service_name.to_string(),
-        type_info: GetSchema::service_type_info(),
-        qos: Default::default(),
-    };
-
-    ServiceServerBuilder {
-        entity,
-        session,
-        clock: clock.clone(),
-        graph,
-        _phantom_data: Default::default(),
+impl SchemaRegistrar {
+    pub(crate) fn register_schema(
+        &self,
+        root_name: &str,
+        schema: Schema,
+    ) -> std::result::Result<(), DynamicError> {
+        SchemaService::register_registered_schema(&self.schemas, root_name, schema)
     }
 }
 
+fn schema_service_server_builder(
+    context: EndpointBuilderContext,
+) -> ServiceServerBuilder<GetSchema> {
+    ServiceServerBuilder::new(
+        context,
+        "~get_schema".to_string(),
+        service_endpoint_type::<GetSchema>(),
+    )
+}
+
 impl SchemaService {
-    pub(crate) async fn new(
-        session: Session,
-        node: SchemaServiceNodeIdentity<'_>,
-        counter: &GlobalCounter,
-        clock: &Clock,
-        graph: Arc<Graph>,
-    ) -> ZResult<Self> {
+    pub(crate) async fn new(context: EndpointBuilderContext) -> crate::Result<Self> {
         let schemas: Arc<RwLock<SchemaRegistry>> = Arc::new(RwLock::new(HashMap::new()));
-        let server_builder = schema_service_server_builder(session, node, counter, clock, graph);
+        let node_namespace = context.node.namespace.clone();
+        let node_name = context.node.name.clone();
+        let server_builder = schema_service_server_builder(context);
 
         let schemas_clone = Arc::clone(&schemas);
         let server = server_builder
@@ -322,13 +300,19 @@ impl SchemaService {
 
         info!(
             "[SCH] SchemaService created for node: {}/{}",
-            node.namespace, node.name
+            node_namespace, node_name
         );
 
         Ok(Self {
             schemas,
             _server: Arc::new(server),
         })
+    }
+
+    pub(crate) fn registrar(&self) -> SchemaRegistrar {
+        SchemaRegistrar {
+            schemas: Arc::clone(&self.schemas),
+        }
     }
 
     pub fn register_schema(

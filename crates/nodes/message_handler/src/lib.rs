@@ -24,11 +24,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<Parameters>("message_receiver")?;
     let incoming_message_pub = node
-        .publisher::<TimeWrapper<IncomingMessage>>("inputs/message")?
+        .publisher::<TimeWrapper<IncomingMessage>>("inputs/message")
         .build()
         .await?;
     let outgoing_message_sub = node
-        .subscriber::<OutgoingMessage>("outputs/message")?
+        .subscriber::<OutgoingMessage>("outputs/message")
         .build()
         .await?;
 

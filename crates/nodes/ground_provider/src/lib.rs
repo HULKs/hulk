@@ -18,31 +18,33 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("ground_provider").build().await?;
 
     let imu_state_sub = node
-        .subscriber::<ImuState>("inputs/imu_state")?
+        .subscriber::<ImuState>("inputs/imu_state")
         .build()
         .await?;
 
     let robot_kinematics_cache = node
-        .create_cache::<TimeWrapper<RobotKinematics>>("robot_kinematics", 10)?
+        .subscriber::<TimeWrapper<RobotKinematics>>("robot_kinematics")
+        .cache(10)
         .with_stamp(|wrapper| wrapper.time)
         .build()
         .await?;
     let support_foot_cache = node
-        .create_cache::<TimeWrapper<Option<Side>>>("support_foot", 10)?
-        .with_stamp(|wrapper| wrapper.time)
-        .with_qos(QosProfile {
+        .subscriber::<TimeWrapper<Option<Side>>>("support_foot")
+        .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
+        .cache(10)
+        .with_stamp(|wrapper| wrapper.time)
         .build()
         .await?;
 
     let robot_to_ground_pub = node
-        .publisher::<TimeWrapper<Option<Isometry3<Robot, Ground>>>>("robot_to_ground")?
+        .publisher::<TimeWrapper<Option<Isometry3<Robot, Ground>>>>("robot_to_ground")
         .build()
         .await?;
     let ground_to_robot_pub = node
-        .publisher::<TimeWrapper<Option<Isometry3<Ground, Robot>>>>("ground_to_robot")?
+        .publisher::<TimeWrapper<Option<Isometry3<Ground, Robot>>>>("ground_to_robot")
         .build()
         .await?;
 

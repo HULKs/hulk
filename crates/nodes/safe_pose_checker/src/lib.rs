@@ -31,30 +31,31 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<Parameters>("safe_pose_checker")?;
     let imu_state_sub = node
-        .subscriber::<ImuState>("inputs/imu_state")?
+        .subscriber::<ImuState>("inputs/imu_state")
         .build()
         .await?;
     let serial_motor_states_cache = node
-        .create_cache::<Joints<MotorState>>("inputs/serial_motor_states", 10)?
+        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")
+        .cache(10)
         .build()
         .await?;
     let joint_position_difference_to_safe_pub = node
-        .publisher::<Joints>("joint_position_difference_to_safe")?
+        .publisher::<Joints>("joint_position_difference_to_safe")
         .build()
         .await?;
     let joint_velocities_difference_to_safe_pub = node
-        .publisher::<Joints>("joint_velocities_difference_to_safe")?
+        .publisher::<Joints>("joint_velocities_difference_to_safe")
         .build()
         .await?;
     let angular_velocities_difference_to_safe_pub = node
-        .publisher::<Vector3<Robot>>("angular_velocities_difference_to_safe")?
+        .publisher::<Vector3<Robot>>("angular_velocities_difference_to_safe")
         .build()
         .await?;
     let linear_accelerations_difference_to_safe_pub = node
-        .publisher::<Vector3<Robot>>("linear_accelerations_difference_to_safe")?
+        .publisher::<Vector3<Robot>>("linear_accelerations_difference_to_safe")
         .build()
         .await?;
-    let is_safe_pose_pub = node.publisher::<bool>("is_safe_pose")?.build().await?;
+    let is_safe_pose_pub = node.publisher::<bool>("is_safe_pose").build().await?;
     loop {
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();

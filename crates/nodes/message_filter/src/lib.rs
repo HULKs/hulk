@@ -15,7 +15,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("message_filter").build().await?;
 
     let player_number_sub = node
-        .subscriber::<PlayerNumber>("player_number")?
+        .subscriber::<PlayerNumber>("player_number")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -23,11 +23,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let message_sub = node
-        .subscriber::<TimeWrapper<IncomingMessage>>("inputs/message")?
+        .subscriber::<TimeWrapper<IncomingMessage>>("inputs/message")
         .build()
         .await?;
     let filtered_message_pub = node
-        .publisher::<TimeWrapper<IncomingMessage>>("filtered_message")?
+        .publisher::<TimeWrapper<IncomingMessage>>("filtered_message")
         .build()
         .await?;
 

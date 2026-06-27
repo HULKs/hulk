@@ -13,7 +13,7 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("fake_odometry").build().await?;
     let _current_odometry_to_last_odometry_pub = node
-        .publisher::<na::Isometry2<f32>>("current_odometry_to_last_odometry")?
+        .publisher::<na::Isometry2<f32>>("current_odometry_to_last_odometry")
         .build()
         .await?;
 

@@ -81,7 +81,9 @@ mod tests;
 
 // Re-export main types
 pub use codec::{DynamicCdrCodec, DynamicPayload};
-pub use discovery::DiscoveredTopicSchema;
+pub use discovery::{
+    DiscoveredTopicSchema, DynamicRawSubscriberDiscoveryBuilder, DynamicSubscriberDiscoveryBuilder,
+};
 pub use error::DynamicError;
 pub use json::{
     ByteRenderPolicy, DynamicJsonRenderPolicy, NonFiniteFloatRenderPolicy, dynamic_payload_to_json,

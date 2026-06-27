@@ -41,15 +41,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<BallFilterParameters>("ball_filter")?;
     let field_dimensions_sub = node
-        .create_cache::<FieldDimensions>("field_dimensions", 1)?
-        .with_qos(QosProfile {
+        .subscriber::<FieldDimensions>("field_dimensions")
+        .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
+        .cache(1)
         .build()
         .await?;
     let camera_matrix_cache = node
-        .create_cache::<TimeWrapper<CameraMatrix>>("camera_matrix", 10)?
+        .subscriber::<TimeWrapper<CameraMatrix>>("camera_matrix")
+        .cache(10)
         .with_stamp(|wrapper: &TimeWrapper<CameraMatrix>| wrapper.time)
         .build()
         .await?;
@@ -64,29 +66,29 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?
         .build();
     let filter_state_pub = node
-        .publisher::<BallFilter>("ball_filter/ball_filter_state")?
+        .publisher::<BallFilter>("ball_filter/ball_filter_state")
         .build()
         .await?;
     let best_ball_hypothesis_pub = node
-        .publisher::<Option<BallHypothesis>>("ball_filter/best_ball_hypothesis")?
+        .publisher::<Option<BallHypothesis>>("ball_filter/best_ball_hypothesis")
         .build()
         .await?;
     let filtered_balls_in_image_pub = node
-        .publisher::<Vec<Circle<Pixel>>>("ball_filter/filtered_balls_in_image")?
+        .publisher::<Vec<Circle<Pixel>>>("ball_filter/filtered_balls_in_image")
         .build()
         .await?;
     let ball_percepts_pub = node
-        .publisher::<Vec<BallPercept>>("ball_filter/ball_percepts")?
+        .publisher::<Vec<BallPercept>>("ball_filter/ball_percepts")
         .build()
         .await?;
     let ball_position_pub = node
-        .publisher::<Option<BallPosition<Ground>>>("ball_filter/ball_position")?
+        .publisher::<Option<BallPosition<Ground>>>("ball_filter/ball_position")
         .build()
         .await?;
     let hypothetical_ball_positions_pub = node
         .publisher::<Vec<HypotheticalBallPosition<Ground>>>(
             "ball_filter/hypothetical_ball_positions",
-        )?
+        )
         .build()
         .await?;
 

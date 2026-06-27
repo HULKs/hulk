@@ -14,11 +14,11 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("button_event_handler").build().await?;
     let button_event_message_sub = node
-        .subscriber::<ButtonEventMsg>("inputs/button_event_message")?
+        .subscriber::<ButtonEventMsg>("inputs/button_event_message")
         .build()
         .await?;
     let buttons_pub = node
-        .publisher::<Buttons<Option<ButtonPressType>>>("buttons")?
+        .publisher::<Buttons<Option<ButtonPressType>>>("buttons")
         .build()
         .await?;
 

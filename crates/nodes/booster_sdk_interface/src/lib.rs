@@ -138,16 +138,16 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let light_control_client = Arc::new(LightControlClient::new()?);
 
     let led_command_sub = node
-        .subscriber::<LedCommand>("commands/led_command")?
+        .subscriber::<LedCommand>("commands/led_command")
         .build()
         .await?;
     let high_level_command_sub = node
-        .subscriber::<HighLevelCommand>("commands/high_level_command")?
+        .subscriber::<HighLevelCommand>("commands/high_level_command")
         .build()
         .await?;
 
     let mut robot_mode_service: ServiceServer<GetRobotMode> = node
-        .create_service_server::<GetRobotMode>("services/get_robot_mode")?
+        .service_server::<GetRobotMode>("services/get_robot_mode")
         .build()
         .await?;
 

@@ -27,7 +27,7 @@
 //! let node = context.create_node("cache_demo").build().await?;
 //!
 //! // Zero-config: indexed by Zenoh transport timestamp
-//! let cache = node.create_cache::<String>("/chatter", 200)?.build().await?;
+//! let cache = node.subscriber::<String>("/chatter").cache(200).build().await?;
 //!
 //! let now = Time::from_wallclock(std::time::SystemTime::now());
 //! let window = cache.get_interval(now - Duration::from_millis(100), now);
@@ -44,7 +44,6 @@ use tracing::{debug, warn};
 use crate::Result;
 use crate::message::{SerdeCdrCodec, WireDecoder};
 use crate::pubsub::SubscriberBuilder;
-use crate::qos::QosProfile;
 use crate::time::Time;
 
 // ---------------------------------------------------------------------------
@@ -210,7 +209,7 @@ impl<T> CacheInner<T> {
 /// messages.
 ///
 /// Built via [`CacheBuilder`], created through
-/// [`Node::create_cache`](crate::node::Node::create_cache).
+/// `node.subscriber::<T>(topic).cache(capacity)`.
 ///
 /// Messages are stored as [`Arc<T>`] so query methods return shared references
 /// without deep-copying the message payload.
@@ -355,13 +354,44 @@ impl<T> Cache<T> {
 
 /// Builder for [`Cache<T>`].
 ///
-/// Created by [`Node::create_cache`](crate::node::Node::create_cache).
+/// Created by `node.subscriber::<T>(topic).cache(capacity)`.
 /// Use [`with_stamp`](CacheBuilder::with_stamp) to switch from the default
 /// Zenoh transport timestamp to an application-level extractor.
 pub struct CacheBuilder<T, S = SerdeCdrCodec<T>, Stamp = ZenohStamp> {
     pub(crate) sub_builder: SubscriberBuilder<T, S>,
     capacity: usize,
     stamp: Stamp,
+}
+
+impl<T, S> SubscriberBuilder<T, S>
+where
+    S: for<'a> WireDecoder<Input<'a> = &'a [u8], Output = T>,
+{
+    /// Build a timestamp-indexed cache from this subscriber builder.
+    ///
+    /// `capacity` is the maximum number of messages retained by the cache. A
+    /// capacity of `0` keeps the subscriber alive but stores no messages. By
+    /// default, samples are indexed by their Zenoh transport timestamp; call
+    /// [`CacheBuilder::with_stamp`] to use an application-level timestamp such
+    /// as `header.stamp` instead.
+    ///
+    /// Configure subscriber options such as QoS, locality, or transient-local
+    /// replay before calling `cache`, because this method switches from the
+    /// subscriber builder to a cache builder.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let cache = node
+    ///     .subscriber::<String>("/chatter")
+    ///     .qos(qos)
+    ///     .cache(200)
+    ///     .build()
+    ///     .await?;
+    /// ```
+    pub fn cache(self, capacity: usize) -> CacheBuilder<T, S> {
+        CacheBuilder::new(self, capacity)
+    }
 }
 
 impl<T, S> CacheBuilder<T, S, ZenohStamp> {
@@ -394,15 +424,6 @@ impl<T, S> CacheBuilder<T, S, ZenohStamp> {
     /// A capacity of `0` disables retention and stores no messages.
     pub fn with_capacity(mut self, capacity: usize) -> Self {
         self.capacity = capacity;
-        self
-    }
-
-    /// Apply a QoS profile to the underlying subscriber.
-    pub fn with_qos(mut self, qos: QosProfile) -> Self
-    where
-        T: Send + Sync + 'static,
-    {
-        self.sub_builder = self.sub_builder.qos(qos);
         self
     }
 }
@@ -479,15 +500,6 @@ where
     /// A capacity of `0` disables retention and stores no messages.
     pub fn with_capacity(mut self, capacity: usize) -> Self {
         self.capacity = capacity;
-        self
-    }
-
-    /// Apply a QoS profile to the underlying subscriber.
-    pub fn with_qos(mut self, qos: QosProfile) -> Self
-    where
-        T: Send + Sync + 'static,
-    {
-        self.sub_builder = self.sub_builder.qos(qos);
         self
     }
 }

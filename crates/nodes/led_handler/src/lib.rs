@@ -15,7 +15,7 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("led_handler").build().await?;
     let primary_state_sub = node
-        .subscriber::<PrimaryState>("primary_state")?
+        .subscriber::<PrimaryState>("primary_state")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -24,7 +24,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let led_command_pub = node
-        .publisher::<LedCommand>("commands/led_command")?
+        .publisher::<LedCommand>("commands/led_command")
         .build()
         .await?;
 

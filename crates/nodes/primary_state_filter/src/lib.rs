@@ -29,29 +29,31 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<Parameters>("primary_state_filter")?;
     let player_number_cache = node
-        .create_cache::<PlayerNumber>("player_number", 1)?
-        .with_qos(QosProfile {
+        .subscriber::<PlayerNumber>("player_number")
+        .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
+        .cache(1)
         .build()
         .await?;
 
     let filtered_game_controller_state_sub = node
-        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")?
+        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
         .build()
         .await?;
     let buttons_sub = node
-        .subscriber::<Buttons<Option<ButtonPressType>>>("buttons")?
+        .subscriber::<Buttons<Option<ButtonPressType>>>("buttons")
         .build()
         .await?;
     let is_safe_pose_cache = node
-        .create_cache::<bool>("is_safe_pose", 1)?
+        .subscriber::<bool>("is_safe_pose")
+        .cache(1)
         .build()
         .await?;
 
     let primary_state_pub = node
-        .publisher::<PrimaryState>("primary_state")?
+        .publisher::<PrimaryState>("primary_state")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()

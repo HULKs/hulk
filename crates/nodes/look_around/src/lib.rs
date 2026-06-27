@@ -20,19 +20,19 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let _parameters = node.bind_parameter_as::<LookAroundParameters>("look_around")?;
     let _motion_command_sub = node
-        .subscriber::<MotionCommand>("motion_command")?
+        .subscriber::<MotionCommand>("motion_command")
         .build()
         .await?;
     let _filtered_game_controller_state_sub = node
-        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")?
+        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
         .build()
         .await?;
     let _current_mode_pub = node
-        .publisher::<LookAroundMode>("look_around_mode")?
+        .publisher::<LookAroundMode>("look_around_mode")
         .build()
         .await?;
     let _look_around_target_joints_pub = node
-        .publisher::<HeadJoints<f32>>("look_around_target_joints")?
+        .publisher::<HeadJoints<f32>>("look_around_target_joints")
         .build()
         .await?;
 

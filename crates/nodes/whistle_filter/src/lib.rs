@@ -23,11 +23,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let _parameters = node.bind_parameter_as::<Parameters>("whistle_filter")?;
     let _detected_whistle_sub = node
-        .subscriber::<Whistle>("detected_whistle")?
+        .subscriber::<Whistle>("detected_whistle")
         .build()
         .await?;
     let _filtered_whistle_pub = node
-        .publisher::<FilteredWhistle>("filtered_whistle")?
+        .publisher::<FilteredWhistle>("filtered_whistle")
         .build()
         .await?;
 

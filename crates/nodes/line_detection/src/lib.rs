@@ -39,33 +39,35 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<LineDetectionParameters>("line_detection")?;
     let camera_matrix_cache = node
-        .create_cache::<TimeWrapper<CameraMatrix>>("camera_matrix", 10)?
+        .subscriber::<TimeWrapper<CameraMatrix>>("camera_matrix")
+        .cache(10)
         .with_stamp(|w: &TimeWrapper<CameraMatrix>| w.time)
         .build()
         .await?;
     let filtered_segments_sub = node
-        .subscriber::<TimeWrapper<FilteredSegments>>("filtered_segments")?
+        .subscriber::<TimeWrapper<FilteredSegments>>("filtered_segments")
         .build()
         .await?;
     let image_cache = node
-        .create_cache::<TimeWrapper<YCbCr422Image>>("inputs/ycbcr422_image", 10)?
+        .subscriber::<TimeWrapper<YCbCr422Image>>("inputs/ycbcr422_image")
+        .cache(10)
         .with_stamp(|w: &TimeWrapper<YCbCr422Image>| w.time)
         .build()
         .await?;
     let lines_in_image_pub = node
-        .publisher::<Vec<LineSegment<Pixel>>>("line_detection/lines_in_image")?
+        .publisher::<Vec<LineSegment<Pixel>>>("line_detection/lines_in_image")
         .build()
         .await?;
     let discarded_lines_pub = node
-        .publisher::<Vec<DiscardedLine>>("line_detection/discarded_lines")?
+        .publisher::<Vec<DiscardedLine>>("line_detection/discarded_lines")
         .build()
         .await?;
     let filtered_segments_output_pub = node
-        .publisher::<Vec<GenericSegment>>("line_detection/filtered_segments")?
+        .publisher::<Vec<GenericSegment>>("line_detection/filtered_segments")
         .build()
         .await?;
     let line_data_pub = node
-        .publisher::<TimeWrapper<Option<LineData>>>("line_detection/lines_in_image")?
+        .publisher::<TimeWrapper<Option<LineData>>>("line_detection/lines_in_image")
         .build()
         .await?;
 

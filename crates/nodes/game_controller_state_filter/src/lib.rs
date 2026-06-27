@@ -32,41 +32,45 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let parameters =
         node.bind_parameter_as::<GameStateFilterParameters>("game_controller_state_filter")?;
     let field_dimensions_cache = node
-        .create_cache::<FieldDimensions>("field_dimensions", 1)?
-        .with_qos(QosProfile {
+        .subscriber::<FieldDimensions>("field_dimensions")
+        .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
+        .cache(1)
         .build()
         .await?;
     let player_number_cache = node
-        .create_cache::<PlayerNumber>("player_number", 1)?
-        .with_qos(QosProfile {
+        .subscriber::<PlayerNumber>("player_number")
+        .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
+        .cache(1)
         .build()
         .await?;
 
     let game_controller_state_sub = node
-        .subscriber::<Option<GameControllerState>>("game_controller_state")?
+        .subscriber::<Option<GameControllerState>>("game_controller_state")
         .build()
         .await?;
     let filtered_whistle_cache = node
-        .create_cache::<FilteredWhistle>("filtered_whistle", 1)?
+        .subscriber::<FilteredWhistle>("filtered_whistle")
+        .cache(1)
         .build()
         .await?;
     let ball_state_cache = node
-        .create_cache::<Option<BallState>>("ball_state", 1)?
+        .subscriber::<Option<BallState>>("ball_state")
+        .cache(1)
         .build()
         .await?;
 
     let whistle_in_set_ball_position_pub = node
-        .publisher::<Option<Point2<Field>>>("whistle_in_set_ball_position")?
+        .publisher::<Option<Point2<Field>>>("whistle_in_set_ball_position")
         .build()
         .await?;
     let filtered_game_controller_state_pub = node
-        .publisher::<FilteredGameControllerState>("filtered_game_controller_state")?
+        .publisher::<FilteredGameControllerState>("filtered_game_controller_state")
         .build()
         .await?;
 

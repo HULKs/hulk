@@ -27,7 +27,7 @@ pub async fn run(
     let service_name = format!("{node}/get_schema");
     let client = app
         .node()
-        .create_service_client::<GetSchema>(&service_name)?
+        .service_client::<GetSchema>(&service_name)
         .build()
         .await?;
     let response = client

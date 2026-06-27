@@ -34,11 +34,11 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("kinematics_provider").build().await?;
     let serial_motor_states_sub = node
-        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")?
+        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")
         .build()
         .await?;
     let robot_kinematics_pub = node
-        .publisher::<TimeWrapper<RobotKinematics>>("robot_kinematics")?
+        .publisher::<TimeWrapper<RobotKinematics>>("robot_kinematics")
         .build()
         .await?;
 

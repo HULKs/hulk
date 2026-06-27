@@ -29,20 +29,21 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let parameters =
         node.bind_parameter_as::<FieldBorderDetectionParameters>("field_border_detection")?;
     let camera_matrix_cache = node
-        .create_cache::<TimeWrapper<CameraMatrix>>("camera_matrix", 10)?
+        .subscriber::<TimeWrapper<CameraMatrix>>("camera_matrix")
+        .cache(10)
         .with_stamp(|w: &TimeWrapper<CameraMatrix>| w.time)
         .build()
         .await?;
     let image_segments_sub = node
-        .subscriber::<TimeWrapper<ImageSegments>>("image_segments")?
+        .subscriber::<TimeWrapper<ImageSegments>>("image_segments")
         .build()
         .await?;
     let field_border_points_pub = node
-        .publisher::<Vec<Point2<Pixel>>>("field_border_points")?
+        .publisher::<Vec<Point2<Pixel>>>("field_border_points")
         .build()
         .await?;
     let field_border_pub = node
-        .publisher::<TimeWrapper<Option<FieldBorder>>>("field_border")?
+        .publisher::<TimeWrapper<Option<FieldBorder>>>("field_border")
         .build()
         .await?;
 

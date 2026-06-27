@@ -6,8 +6,7 @@ use std::{
 
 use tracing::{debug, info, trace, warn};
 use zenoh::{
-    Session, Wait, bytes, key_expr::KeyExpr, liveliness::LivelinessToken, query::Query,
-    sample::Sample,
+    Wait, bytes, key_expr::KeyExpr, liveliness::LivelinessToken, query::Query, sample::Sample,
 };
 
 use std::sync::atomic::Ordering;
@@ -16,8 +15,8 @@ use crate::{Error, Result, error::WireError, topic_name};
 
 use crate::{
     attachment::{Attachment, EndpointGlobalId},
-    entity::EndpointEntity,
-    graph::Graph,
+    endpoint_builder::{EndpointBuilderContext, ServiceEndpointType},
+    entity::{EndpointEntity, EndpointKind},
     message::{Message, Service, WireDecoder, WireEncoder},
     qos::QosProfile,
     queue::BoundedQueue,
@@ -26,17 +25,17 @@ use crate::{
 
 #[derive(Debug)]
 pub struct ServiceClientBuilder<T> {
-    pub(crate) entity: EndpointEntity,
-    pub(crate) session: Session,
-    pub(crate) clock: Clock,
-    pub(crate) graph: Arc<Graph>,
+    pub(crate) context: EndpointBuilderContext,
+    pub(crate) name: String,
+    pub(crate) type_source: ServiceEndpointType,
+    pub(crate) qos: ros_z_protocol::qos::QosProfile,
     pub(crate) _phantom_data: PhantomData<T>,
 }
 
 /// A native ros-z reusable service handle for typed request/response calls.
 ///
 /// Create a client via
-/// [`Node::create_service_client`](crate::node::Node::create_service_client).
+/// [`Node::service_client`](crate::node::Node::service_client).
 /// Invoke the service with [`call`](ServiceClient::call) for blocking code or
 /// [`call_async`](ServiceClient::call_async) for async code.
 ///
@@ -76,34 +75,25 @@ where
     T: Service,
 {
     #[tracing::instrument(name = "client_build", skip(self), fields(
-        service = %self.entity.topic
+        service = %self.name
     ))]
-    pub async fn build(mut self) -> Result<ServiceClient<T>> {
-        // Qualify the service name as a ros-z graph name.
-        let topic = self.entity.topic.clone();
-        let qualified_service = topic_name::qualify_service_name(
-            &topic,
-            &self.entity.node.namespace,
-            &self.entity.node.name,
-        )
-        .map_err(|source| crate::Error::service_name(topic, source))?;
-
-        self.entity.topic = qualified_service.clone();
-        debug!("[CLN] Qualified service: {}", qualified_service);
-
-        let topic_key_expr = ros_z_protocol::format::topic_key_expr(&self.entity)?;
+    pub async fn build(self) -> Result<ServiceClient<T>> {
+        let entity = self.prepare_entity()?;
+        let topic_key_expr = ros_z_protocol::format::topic_key_expr(&entity)?;
         let key_expr = (*topic_key_expr).clone();
         debug!("[CLN] Key expression: {}", key_expr);
 
         let inner = self
+            .context
             .session
             .declare_querier(key_expr)
             .target(zenoh::query::QueryTarget::AllComplete)
             .consolidation(zenoh::query::ConsolidationMode::None)
             .await
             .map_err(|source| crate::Error::zenoh("declare service querier", source))?;
-        let liveliness_key_expr = self.entity.liveliness_key_expr()?.0;
+        let liveliness_key_expr = entity.liveliness_key_expr()?.0;
         let lv_token = self
+            .context
             .session
             .liveliness()
             .declare_token(liveliness_key_expr)
@@ -111,29 +101,29 @@ where
             .map_err(|source| {
                 crate::Error::zenoh("declare service client liveliness token", source)
             })?;
-        self.warn_about_incompatible_endpoints();
-        debug!("[CLN] Client ready: service={}", self.entity.topic);
+        self.warn_about_incompatible_endpoints(&entity);
+        debug!("[CLN] Client ready: service={}", entity.topic);
 
         Ok(ServiceClient {
             sequence_number: AtomicUsize::new(1), // Start at 1; zero is reserved for missing sequence values.
             inner,
             _lv_token: lv_token,
-            endpoint_global_id: EndpointGlobalId::from(&self.entity),
-            topic: self.entity.topic,
-            clock: self.clock,
+            endpoint_global_id: EndpointGlobalId::from(&entity),
+            topic: entity.topic,
+            clock: self.context.clock,
             _phantom_data: Default::default(),
         })
     }
 
-    fn warn_about_incompatible_endpoints(&self) -> usize {
-        let endpoints = self.graph.type_incompatible_endpoints_for(&self.entity);
+    fn warn_about_incompatible_endpoints(&self, entity: &EndpointEntity) -> usize {
+        let endpoints = self.context.graph.type_incompatible_endpoints_for(entity);
         let count = endpoints.len();
         for endpoint in endpoints {
             warn!(
-                service = %self.entity.topic,
-                client_node = %self.entity.node.fully_qualified_name(),
-                client_type = %self.entity.type_info.name,
-                client_schema_hash = %self.entity.type_info.hash,
+                service = %entity.topic,
+                client_node = %entity.node.fully_qualified_name(),
+                client_type = %entity.type_info.name,
+                client_schema_hash = %entity.type_info.hash,
                 endpoint_kind = ?endpoint.kind,
                 endpoint_node = %endpoint.node.fully_qualified_name(),
                 endpoint_type = %endpoint.type_info.name,
@@ -360,36 +350,94 @@ where
 
 #[derive(Debug)]
 pub struct ServiceServerBuilder<T> {
-    pub(crate) entity: EndpointEntity,
-    pub(crate) session: Session,
-    pub(crate) clock: Clock,
-    pub(crate) graph: Arc<Graph>,
+    pub(crate) context: EndpointBuilderContext,
+    pub(crate) name: String,
+    pub(crate) type_source: ServiceEndpointType,
+    pub(crate) qos: ros_z_protocol::qos::QosProfile,
     pub(crate) _phantom_data: PhantomData<T>,
 }
 
+fn prepare_service_endpoint(
+    context: &EndpointBuilderContext,
+    name: &str,
+    type_source: &ServiceEndpointType,
+    kind: EndpointKind,
+    qos: ros_z_protocol::qos::QosProfile,
+    log_prefix: &str,
+) -> Result<EndpointEntity> {
+    let type_info = type_source.resolve();
+    let qualified_service =
+        topic_name::qualify_service_name(name, &context.node.namespace, &context.node.name)
+            .map_err(|source| crate::Error::service_name(name, source))?;
+
+    debug!("[{}] Qualified service: {}", log_prefix, qualified_service);
+
+    Ok(context.endpoint_entity(kind, qualified_service, type_info, qos))
+}
+
 impl<T> ServiceClientBuilder<T> {
-    /// Set the QoS profile for this client.
-    pub fn with_qos(mut self, qos: QosProfile) -> Self {
-        self.entity.qos = qos.to_protocol_qos();
-        self
+    pub(crate) fn new(
+        context: crate::endpoint_builder::EndpointBuilderContext,
+        name: String,
+        type_source: crate::endpoint_builder::ServiceEndpointType,
+    ) -> Self {
+        Self {
+            context,
+            name,
+            type_source,
+            qos: crate::endpoint_builder::default_protocol_qos(),
+            _phantom_data: Default::default(),
+        }
     }
 
-    /// Get a reference to the native ros-z entity.
-    pub fn entity(&self) -> &EndpointEntity {
-        &self.entity
+    fn prepare_entity(&self) -> Result<EndpointEntity> {
+        prepare_service_endpoint(
+            &self.context,
+            &self.name,
+            &self.type_source,
+            EndpointKind::Client,
+            self.qos,
+            "CLN",
+        )
+    }
+
+    /// Set the QoS profile for this client.
+    pub fn qos(mut self, qos: QosProfile) -> Self {
+        self.qos = qos.to_protocol_qos();
+        self
     }
 }
 
 impl<T> ServiceServerBuilder<T> {
-    /// Set the QoS profile for this server.
-    pub fn with_qos(mut self, qos: QosProfile) -> Self {
-        self.entity.qos = qos.to_protocol_qos();
-        self
+    pub(crate) fn new(
+        context: crate::endpoint_builder::EndpointBuilderContext,
+        name: String,
+        type_source: crate::endpoint_builder::ServiceEndpointType,
+    ) -> Self {
+        Self {
+            context,
+            name,
+            type_source,
+            qos: crate::endpoint_builder::default_protocol_qos(),
+            _phantom_data: Default::default(),
+        }
     }
 
-    /// Get a reference to the native ros-z entity.
-    pub fn entity(&self) -> &EndpointEntity {
-        &self.entity
+    fn prepare_entity(&self) -> Result<EndpointEntity> {
+        prepare_service_endpoint(
+            &self.context,
+            &self.name,
+            &self.type_source,
+            EndpointKind::Service,
+            self.qos,
+            "SRV",
+        )
+    }
+
+    /// Set the QoS profile for this server.
+    pub fn qos(mut self, qos: QosProfile) -> Self {
+        self.qos = qos.to_protocol_qos();
+        self
     }
 }
 
@@ -456,27 +504,19 @@ where
 {
     /// Internal method that all build variants use.
     async fn build_internal<Q>(
-        mut self,
+        self,
         handler: ServiceQueryHandler,
         queue: Option<Arc<BoundedQueue<Q>>>,
     ) -> Result<ServiceServer<T, Q>> {
-        let topic = self.entity.topic.clone();
-        let qualified_service = topic_name::qualify_service_name(
-            &topic,
-            &self.entity.node.namespace,
-            &self.entity.node.name,
-        )
-        .map_err(|source| crate::Error::service_name(topic, source))?;
-
-        self.entity.topic = qualified_service.clone();
-
-        let topic_key_expr = ros_z_protocol::format::topic_key_expr(&self.entity)?;
+        let entity = self.prepare_entity()?;
+        let topic_key_expr = ros_z_protocol::format::topic_key_expr(&entity)?;
         let key_expr = (*topic_key_expr).clone();
         tracing::debug!("[SRV] KE: {key_expr}");
 
         info!("[SRV] Declaring queryable on key expression: {}", key_expr);
 
         let inner = self
+            .context
             .session
             .declare_queryable(&key_expr)
             .complete(true)
@@ -505,8 +545,9 @@ where
             .await
             .map_err(|source| crate::Error::zenoh("declare service queryable", source))?;
 
-        let liveliness_key_expr = self.entity.liveliness_key_expr()?.0;
+        let liveliness_key_expr = entity.liveliness_key_expr()?.0;
         let lv_token = self
+            .context
             .session
             .liveliness()
             .declare_token(liveliness_key_expr)
@@ -514,13 +555,13 @@ where
             .map_err(|source| {
                 crate::Error::zenoh("declare service server liveliness token", source)
             })?;
-        self.warn_about_incompatible_endpoints();
+        self.warn_about_incompatible_endpoints(&entity);
 
         Ok(ServiceServer {
             key_expr,
             _inner: inner,
             _lv_token: lv_token,
-            clock: self.clock,
+            clock: self.context.clock,
             queue,
             _phantom_data: Default::default(),
         })
@@ -535,7 +576,7 @@ where
     }
 
     pub async fn build(self) -> Result<ServiceServer<T>> {
-        let queue_size = match self.entity.qos.history {
+        let queue_size = match self.qos.history {
             ros_z_protocol::qos::QosHistory::KeepLast(depth) => depth,
             ros_z_protocol::qos::QosHistory::KeepAll => usize::MAX,
         };
@@ -544,15 +585,15 @@ where
             .await
     }
 
-    fn warn_about_incompatible_endpoints(&self) -> usize {
-        let endpoints = self.graph.type_incompatible_endpoints_for(&self.entity);
+    fn warn_about_incompatible_endpoints(&self, entity: &EndpointEntity) -> usize {
+        let endpoints = self.context.graph.type_incompatible_endpoints_for(entity);
         let count = endpoints.len();
         for endpoint in endpoints {
             warn!(
-                service = %self.entity.topic,
-                server_node = %self.entity.node.fully_qualified_name(),
-                server_type = %self.entity.type_info.name,
-                server_schema_hash = %self.entity.type_info.hash,
+                service = %entity.topic,
+                server_node = %entity.node.fully_qualified_name(),
+                server_type = %entity.type_info.name,
+                server_schema_hash = %entity.type_info.hash,
                 endpoint_kind = ?endpoint.kind,
                 endpoint_node = %endpoint.node.fully_qualified_name(),
                 endpoint_type = %endpoint.type_info.name,
@@ -889,24 +930,34 @@ mod tests {
             .await
             .expect("Failed to create node");
 
-        let server_builder = node
-            .create_service_server::<AddTwoInts>("/service_warning_helpers")
-            .expect("service server factory should succeed");
-        let client_builder = node
-            .create_service_client::<MultiplyTwoInts>("/service_warning_helpers")
-            .expect("service client factory should succeed");
+        let server_builder = node.service_server::<AddTwoInts>("/service_warning_helpers");
+        let client_builder = node.service_client::<MultiplyTwoInts>("/service_warning_helpers");
+        let server_entity = server_builder
+            .prepare_entity()
+            .expect("service server entity should prepare");
+        let client_entity = client_builder
+            .prepare_entity()
+            .expect("service client entity should prepare");
 
         server_builder
+            .context
             .graph
-            .add_local_entity(Entity::Endpoint(client_builder.entity.clone()))
+            .add_local_entity(Entity::Endpoint(client_entity.clone()))
             .expect("client endpoint should be inserted");
         client_builder
+            .context
             .graph
-            .add_local_entity(Entity::Endpoint(server_builder.entity.clone()))
+            .add_local_entity(Entity::Endpoint(server_entity.clone()))
             .expect("server endpoint should be inserted");
 
-        assert_eq!(server_builder.warn_about_incompatible_endpoints(), 1);
-        assert_eq!(client_builder.warn_about_incompatible_endpoints(), 1);
+        assert_eq!(
+            server_builder.warn_about_incompatible_endpoints(&server_entity),
+            1
+        );
+        assert_eq!(
+            client_builder.warn_about_incompatible_endpoints(&client_entity),
+            1
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -930,8 +981,7 @@ mod tests {
             .expect("Failed to create client node");
 
         let mut server = server_node
-            .create_service_server::<AddTwoInts>("raw_query_add_two_ints")
-            .expect("service server factory should succeed")
+            .service_server::<AddTwoInts>("raw_query_add_two_ints")
             .build()
             .await
             .expect("Failed to create service server");

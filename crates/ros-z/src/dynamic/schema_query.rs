@@ -4,8 +4,9 @@ use tracing::{debug, warn};
 
 use super::schema_service::{GetSchema, GetSchemaRequest, GetSchemaResponse};
 use super::{discovery::TopicSchemaCandidate, error::DynamicError, schema::Schema};
+use crate::endpoint_builder::{EndpointBuilderContext, service_endpoint_type};
 use crate::entity::SchemaHash;
-use crate::{node::Node, topic_name::qualify_remote_private_service_name};
+use crate::{service::ServiceClientBuilder, topic_name::qualify_remote_private_service_name};
 use std::sync::Arc;
 
 fn response_schema(response: &GetSchemaResponse) -> Result<Schema, DynamicError> {
@@ -95,7 +96,7 @@ fn validate_response_hash(
 }
 
 pub(crate) async fn query_schema(
-    node: &Node,
+    context: &EndpointBuilderContext,
     candidate: &TopicSchemaCandidate,
     timeout: Duration,
 ) -> Result<(String, Schema, SchemaHash), DynamicError> {
@@ -114,12 +115,14 @@ pub(crate) async fn query_schema(
         qualify_remote_private_service_name("", &candidate.namespace, &candidate.node_name)
             .map_err(|error| DynamicError::name("querying remote schema", error))?;
 
-    let client = node
-        .create_service_client::<GetSchema>(&service_name)
-        .map_err(|error| DynamicError::runtime("create schema service client", error))?
-        .build()
-        .await
-        .map_err(|error| DynamicError::runtime("create schema service client", error))?;
+    let client = ServiceClientBuilder::<GetSchema>::new(
+        context.clone(),
+        service_name.clone(),
+        service_endpoint_type::<GetSchema>(),
+    )
+    .build()
+    .await
+    .map_err(|error| DynamicError::runtime("create schema service client", error))?;
     let request = build_schema_request(candidate);
 
     let response = match client.call_with_timeout_async(&request, timeout).await {

@@ -312,7 +312,6 @@ async fn nalgebra_fields_roundtrip_via_standard_discovery() {
 
     let publisher = pub_node
         .publisher::<MathSnapshot>("/math_snapshot")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("publisher");
@@ -337,11 +336,9 @@ async fn nalgebra_fields_roundtrip_via_standard_discovery() {
     wait_for_publishers(&sub_node, "/math_snapshot", 1, Duration::from_secs(2)).await;
     let subscriber = sub_node
         .dynamic_subscriber_auto("/math_snapshot", Duration::from_secs(10))
-        .await
-        .expect("subscriber discovery")
         .build()
         .await
-        .expect("subscriber build");
+        .expect("subscriber discovery and build");
     let schema = subscriber.schema().expect("discovered schema");
     assert!(!schema_uses_extended_types(schema));
 
@@ -385,7 +382,6 @@ async fn single_schema_discovery_works_with_basic_nalgebra_fields() {
 
     let publisher = pub_node
         .publisher::<MathCommand>("/math_command")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("publisher");
@@ -415,11 +411,9 @@ async fn single_schema_discovery_works_with_basic_nalgebra_fields() {
     wait_for_publishers(&sub_node, "/math_command", 1, Duration::from_secs(2)).await;
     let subscriber = sub_node
         .dynamic_subscriber_auto("/math_command", Duration::from_secs(10))
-        .await
-        .expect("subscriber discovery")
         .build()
         .await
-        .expect("subscriber build");
+        .expect("subscriber discovery and build");
 
     let schema = subscriber.schema().expect("discovered schema");
     assert!(schema_uses_extended_types(schema));

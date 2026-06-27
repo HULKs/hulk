@@ -20,16 +20,17 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("segment_filter").build().await?;
     let field_border_sub = node
-        .subscriber::<TimeWrapper<Option<FieldBorder>>>("field_border")?
+        .subscriber::<TimeWrapper<Option<FieldBorder>>>("field_border")
         .build()
         .await?;
     let image_segments_cache = node
-        .create_cache::<TimeWrapper<ImageSegments>>("image_segments", 10)?
+        .subscriber::<TimeWrapper<ImageSegments>>("image_segments")
+        .cache(10)
         .with_stamp(|w: &TimeWrapper<ImageSegments>| w.time)
         .build()
         .await?;
     let filtered_segments_pub = node
-        .publisher::<TimeWrapper<FilteredSegments>>("filtered_segments")?
+        .publisher::<TimeWrapper<FilteredSegments>>("filtered_segments")
         .build()
         .await?;
 

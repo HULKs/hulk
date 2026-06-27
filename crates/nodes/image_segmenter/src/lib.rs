@@ -31,16 +31,17 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<ImageSegmenterParameters>("image_segmenter")?;
     let image_sub = node
-        .subscriber::<TimeWrapper<YCbCr422Image>>("inputs/ycbcr422_image")?
+        .subscriber::<TimeWrapper<YCbCr422Image>>("inputs/ycbcr422_image")
         .build()
         .await?;
     let camera_matrix_cache = node
-        .create_cache::<TimeWrapper<CameraMatrix>>("camera_matrix", 10)?
+        .subscriber::<TimeWrapper<CameraMatrix>>("camera_matrix")
+        .cache(10)
         .with_stamp(|w: &TimeWrapper<CameraMatrix>| w.time)
         .build()
         .await?;
     let image_segments_pub = node
-        .publisher::<TimeWrapper<ImageSegments>>("image_segments")?
+        .publisher::<TimeWrapper<ImageSegments>>("image_segments")
         .build()
         .await?;
 

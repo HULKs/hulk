@@ -4,7 +4,7 @@ use ros_z::{
     Message,
     attachment::Attachment,
     context::ContextBuilder,
-    entity::{EndpointEntity, EndpointKind, TypeInfo},
+    entity::{EndpointEntity, EndpointKind, SchemaHash, TypeInfo},
     message::{SerdeCdrCodec, WireEncoder},
     qos::{QosDurability, QosHistory, QosProfile, QosReliability},
     schema::SchemaBuilder,
@@ -47,6 +47,17 @@ fn mismatched_dynamic_schema() -> ros_z::dynamic::Schema {
         root: TypeDef::Named(actual.clone()),
         definitions: TypeDefinitions::from([(
             actual,
+            TypeDefinition::Struct(StructDef { fields: vec![] }),
+        )]),
+    })
+}
+
+fn dynamic_schema(root_name: &str) -> ros_z::dynamic::Schema {
+    let root = TypeName::new(root_name).unwrap();
+    std::sync::Arc::new(SchemaBundle {
+        root: TypeDef::Named(root.clone()),
+        definitions: TypeDefinitions::from([(
+            root,
             TypeDefinition::Struct(StructDef { fields: vec![] }),
         )]),
     })
@@ -135,9 +146,9 @@ async fn node_builder_rejects_protocol_reserved_identity_before_formatting() -> 
 async fn raw_subscriber_receives_sample_payload() -> zenoh::Result<()> {
     let context = ContextBuilder::default().build().await?;
     let node = context.create_node("raw_subscriber_node").build().await?;
-    let publisher = node.publisher::<TestMessage>("/raw_topic")?.build().await?;
+    let publisher = node.publisher::<TestMessage>("/raw_topic").build().await?;
     let mut subscriber = node
-        .subscriber::<TestMessage>("/raw_topic")?
+        .subscriber::<TestMessage>("/raw_topic")
         .raw()
         .build()
         .await?;
@@ -156,7 +167,7 @@ async fn raw_subscriber_receives_sample_payload() -> zenoh::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn dynamic_publisher_factory_rejects_schema_root_that_differs_from_type_info() {
+async fn dynamic_publisher_build_rejects_schema_root_that_differs_from_type_info() {
     let context = ContextBuilder::default()
         .build()
         .await
@@ -172,10 +183,12 @@ async fn dynamic_publisher_factory_rejects_schema_root_that_differs_from_type_in
         ros_z_schema::compute_hash(schema.as_ref()).unwrap(),
     );
 
-    let Err(error) = node.dynamic_publisher("/mismatched_dynamic_schema_root", type_info, schema)
-    else {
-        panic!("mismatched schema root should fail dynamic publisher factory");
-    };
+    let builder = node.dynamic_publisher("/mismatched_dynamic_schema_root", type_info, schema);
+    let error = builder
+        .build()
+        .await
+        .expect_err("mismatched schema root should fail dynamic publisher build");
+
     match error {
         ros_z::Error::Wire(source) => match source.as_ref() {
             ros_z::error::WireError::DynamicSchema {
@@ -200,6 +213,141 @@ async fn dynamic_publisher_factory_rejects_schema_root_that_differs_from_type_in
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn dynamic_publisher_build_rejects_schema_hash_that_differs_from_type_info() {
+    let context = ContextBuilder::default()
+        .build()
+        .await
+        .expect("Failed to create context");
+    let node = context
+        .create_node("mismatched_dynamic_schema_hash_publisher")
+        .build()
+        .await
+        .expect("Failed to create node");
+    let schema = dynamic_schema("test_msgs::HashCheckedDynamicRoot");
+    let type_info = TypeInfo::new("test_msgs::HashCheckedDynamicRoot", SchemaHash::zero());
+
+    let builder = node.dynamic_publisher("/mismatched_dynamic_schema_hash", type_info, schema);
+    let error = builder
+        .build()
+        .await
+        .expect_err("mismatched schema hash should fail dynamic publisher build");
+
+    match error {
+        ros_z::Error::Wire(source) => match source.as_ref() {
+            ros_z::error::WireError::DynamicSchema {
+                endpoint_kind,
+                topic,
+                source,
+            } => {
+                assert_eq!(*endpoint_kind, "publisher");
+                assert_eq!(topic, "/mismatched_dynamic_schema_hash");
+                assert!(source.to_string().contains("schema hash"));
+            }
+            other => panic!("expected dynamic schema wire error, got {other:?}"),
+        },
+        other => panic!("expected wire error, got {other:?}"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn dynamic_subscriber_build_rejects_schema_hash_that_differs_from_type_info() {
+    let context = ContextBuilder::default()
+        .build()
+        .await
+        .expect("Failed to create context");
+    let node = context
+        .create_node("mismatched_dynamic_schema_hash_subscriber")
+        .build()
+        .await
+        .expect("Failed to create node");
+    let schema = dynamic_schema("test_msgs::HashCheckedDynamicRoot");
+    let type_info = TypeInfo::new("test_msgs::HashCheckedDynamicRoot", SchemaHash::zero());
+
+    let builder = node.dynamic_subscriber("/mismatched_dynamic_schema_hash", type_info, schema);
+    let error = builder
+        .build()
+        .await
+        .expect_err("mismatched schema hash should fail dynamic subscriber build");
+
+    match error {
+        ros_z::Error::Wire(source) => match source.as_ref() {
+            ros_z::error::WireError::DynamicSchema {
+                endpoint_kind,
+                topic,
+                source,
+            } => {
+                assert_eq!(*endpoint_kind, "subscriber");
+                assert_eq!(topic, "/mismatched_dynamic_schema_hash");
+                assert!(source.to_string().contains("schema hash"));
+            }
+            other => panic!("expected dynamic schema wire error, got {other:?}"),
+        },
+        other => panic!("expected wire error, got {other:?}"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn endpoint_factories_defer_topic_errors_to_build() {
+    let context = ContextBuilder::default()
+        .build()
+        .await
+        .expect("Failed to create context");
+    let node = context
+        .create_node("deferred_topic_errors")
+        .build()
+        .await
+        .expect("Failed to create node");
+
+    let publisher_error = node
+        .publisher::<TestMessage>("bad%topic")
+        .build()
+        .await
+        .expect_err("invalid publisher topic should fail during build");
+    assert!(matches!(
+        publisher_error,
+        ros_z::Error::Name {
+            kind: ros_z::error::NameKind::Topic,
+            ..
+        }
+    ));
+
+    let subscriber_error = node
+        .subscriber::<TestMessage>("bad%topic")
+        .build()
+        .await
+        .expect_err("invalid subscriber topic should fail during build");
+    assert!(matches!(
+        subscriber_error,
+        ros_z::Error::Name {
+            kind: ros_z::error::NameKind::Topic,
+            ..
+        }
+    ));
+
+    let dynamic_auto_error = node
+        .dynamic_subscriber_auto("bad%topic", Duration::from_millis(1))
+        .build()
+        .await
+        .expect_err("invalid dynamic auto-subscriber topic should fail during build");
+    assert!(matches!(
+        dynamic_auto_error,
+        ros_z::Error::Name {
+            kind: ros_z::error::NameKind::Topic,
+            ..
+        }
+    ));
+
+    let schema_discovery_error = node
+        .discover_topic_schema("bad%topic", Duration::from_millis(1))
+        .await
+        .expect_err("invalid schema-discovery topic should fail before graph lookup");
+    assert!(matches!(
+        schema_discovery_error,
+        ros_z::dynamic::DynamicError::Name { .. }
+    ));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_basic_pubsub() {
     let context = ContextBuilder::default()
         .build()
@@ -213,14 +361,12 @@ async fn test_basic_pubsub() {
 
     let publisher = node
         .publisher::<TestMessage>("/test_topic")
-        .expect("publisher factory should succeed")
         .build()
         .await
         .unwrap();
 
     let subscriber = node
         .subscriber::<TestMessage>("/test_topic")
-        .expect("subscriber factory should succeed")
         .build()
         .await
         .unwrap();
@@ -260,7 +406,7 @@ async fn transient_local_build_waits_for_initial_replay() -> ros_z::Result<()> {
     };
 
     let publisher = pub_node
-        .publisher::<TestMessage>(topic)?
+        .publisher::<TestMessage>(topic)
         .qos(qos)
         .build()
         .await?;
@@ -271,7 +417,7 @@ async fn transient_local_build_waits_for_initial_replay() -> ros_z::Result<()> {
     publisher.publish(&message).await?;
 
     let subscriber = sub_node
-        .subscriber::<TestMessage>(topic)?
+        .subscriber::<TestMessage>(topic)
         .qos(qos)
         .build()
         .await?;
@@ -301,14 +447,12 @@ async fn test_multiple_messages() {
 
     let publisher = node
         .publisher::<TestMessage>("/multi_topic")
-        .expect("publisher factory should succeed")
         .build()
         .await
         .unwrap();
 
     let subscriber = node
         .subscriber::<TestMessage>("/multi_topic")
-        .expect("subscriber factory should succeed")
         .build()
         .await
         .unwrap();
@@ -358,7 +502,6 @@ async fn dynamic_publisher_advertises_explicit_schema_hash() {
 
     let _publisher = node
         .dynamic_publisher(topic, TypeInfo::new(&root_name, schema_hash), root_schema)
-        .expect("dynamic publisher factory should succeed")
         .build()
         .await
         .expect("publisher should build");
@@ -399,14 +542,12 @@ async fn recv_with_metadata_includes_transport_and_source_timestamps() {
 
     let publisher = node
         .publisher::<TestMessage>("/metadata_topic")
-        .expect("publisher factory should succeed")
         .build()
         .await
         .unwrap();
 
     let subscriber = node
         .subscriber::<TestMessage>("/metadata_topic")
-        .expect("subscriber factory should succeed")
         .build()
         .await
         .unwrap();
@@ -450,7 +591,6 @@ async fn typed_subscriber_errors_when_sample_has_no_attachment() {
     let topic = "/missing_attachment_pubsub";
     let subscriber = node
         .subscriber::<TestMessage>(topic)
-        .expect("subscriber factory should succeed")
         .build()
         .await
         .expect("Failed to create subscriber");
@@ -497,14 +637,12 @@ async fn test_large_payload() {
 
     let publisher = node
         .publisher::<TestMessage>("/large_topic")
-        .expect("publisher factory should succeed")
         .build()
         .await
         .unwrap();
 
     let subscriber = node
         .subscriber::<TestMessage>("/large_topic")
-        .expect("subscriber factory should succeed")
         .build()
         .await
         .unwrap();
@@ -544,13 +682,11 @@ async fn test_logical_clock_is_used_for_attachment_timestamps() {
 
     let publisher = node
         .publisher::<TestMessage>("/sim_clock")
-        .expect("publisher factory should succeed")
         .build()
         .await
         .unwrap();
     let mut subscriber = node
         .subscriber::<TestMessage>("/sim_clock")
-        .expect("subscriber factory should succeed")
         .raw()
         .build()
         .await
@@ -598,7 +734,6 @@ async fn test_vec_u8_pubsub() {
 
             let publisher = node
                 .publisher::<Vec<u8>>("zbuf_topic")
-                .expect("publisher factory should succeed")
                 .build()
                 .await
                 .expect("Failed to create publisher");
@@ -629,7 +764,6 @@ async fn test_vec_u8_pubsub() {
 
             let subscriber = node
                 .subscriber::<Vec<u8>>("zbuf_topic")
-                .expect("subscriber factory should succeed")
                 .build()
                 .await
                 .expect("Failed to create subscriber");

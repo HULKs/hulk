@@ -13,11 +13,11 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("motor_commands_collector").build().await?;
     let _head_target_joints_positions_sub = node
-        .subscriber::<HeadJoints<f32>>("head_joints_command")?
+        .subscriber::<HeadJoints<f32>>("head_joints_command")
         .build()
         .await?;
     let _collected_target_joint_positions_pub = node
-        .publisher::<Joints<f32>>("collected_target_joint_positions")?
+        .publisher::<Joints<f32>>("collected_target_joint_positions")
         .build()
         .await?;
 

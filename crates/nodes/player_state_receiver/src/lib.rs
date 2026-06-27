@@ -16,15 +16,15 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("player_state_receiver").build().await?;
     let filtered_game_controller_state_sub = node
-        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")?
+        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
         .build()
         .await?;
     let filtered_message_sub = node
-        .subscriber::<TimeWrapper<IncomingMessage>>("filtered_message")?
+        .subscriber::<TimeWrapper<IncomingMessage>>("filtered_message")
         .build()
         .await?;
     let player_states_pub = node
-        .publisher::<Players<Option<TimeWrapper<PlayerState>>>>("player_states")?
+        .publisher::<Players<Option<TimeWrapper<PlayerState>>>>("player_states")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()

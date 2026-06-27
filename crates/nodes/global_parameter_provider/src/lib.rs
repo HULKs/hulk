@@ -24,7 +24,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node_parameters = node.bind_parameter_as::<Parameters>("global")?;
 
     let player_number_pub = node
-        .publisher::<PlayerNumber>("player_number")?
+        .publisher::<PlayerNumber>("player_number")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -33,7 +33,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let field_dimensions_pub = node
-        .publisher::<FieldDimensions>("field_dimensions")?
+        .publisher::<FieldDimensions>("field_dimensions")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
