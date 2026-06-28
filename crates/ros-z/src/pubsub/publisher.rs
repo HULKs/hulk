@@ -516,7 +516,8 @@ where
     ) -> Result<()> {
         let (zbytes, attachment) = self.prepare_publish_payload(message, publication_id)?;
         // Keep cache-before-publish semantics so replay queries can observe the retained
-        // sample as soon as publish() returns, matching zenoh_ext AdvancedPublisher history.
+        // sample as soon as publish() returns, avoiding a race where a replay query arrives before
+        // the sample is cached.
         self.retain_transient_local_sample(&zbytes, &attachment);
 
         let mut put_builder = self.inner.put(zbytes);

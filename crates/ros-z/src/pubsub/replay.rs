@@ -135,6 +135,11 @@ impl SourceReplayState {
             return Vec::new();
         }
 
+        if self.pending_replay_queries == 0 && self.pending_samples.is_empty() {
+            self.last_delivered = Some(sequence_number);
+            return vec![sample];
+        }
+
         if self.pending_replay_queries > 0 {
             self.stage(sequence_number, sample);
             return Vec::new();
@@ -988,6 +993,16 @@ mod tests {
 
         assert_eq!(finish_payloads(&mut state), ["live-1"]);
         assert!(ingest_payload(&mut state, 1, "late-duplicate").is_empty());
+    }
+
+    #[test]
+    fn source_replay_state_delivers_idle_sample_without_staging_capacity() {
+        let mut state = SourceReplayState::new(0);
+
+        assert_eq!(ingest_payload(&mut state, 1, "live-1"), ["live-1"]);
+        assert_eq!(state.last_delivered, Some(1));
+        assert!(state.pending_samples.is_empty());
+        assert!(ingest_payload(&mut state, 1, "duplicate").is_empty());
     }
 
     #[test]
