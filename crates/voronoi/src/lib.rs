@@ -87,18 +87,40 @@ impl Ownership {
     PathSerialize,
     Message,
 )]
+
+pub struct VoronoiBounds {
+    pub grid_min: Point2<Field>,
+    pub grid_max: Point2<Field>,
+    pub centroid_min: Point2<Field>,
+    pub centroid_max: Point2<Field>,
+}
+
+#[derive(
+    PartialEq,
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    PathIntrospect,
+    PathDeserialize,
+    PathSerialize,
+    Message,
+)]
 pub struct VoronoiGrid {
     pub tiles: Vec<Ownership>,
     pub width_tiles: usize,
     pub height_tiles: usize,
     pub resolution: f32,
-    pub min_bound: Point2<Field>,
+    pub bounds: VoronoiBounds,
 }
 
 impl VoronoiGrid {
-    pub fn new(width: f32, height: f32, padding: f32, resolution: f32) -> Self {
-        let width_tiles = ((width + 2.0 * padding) / resolution).round() as usize;
-        let height_tiles = ((height + 2.0 * padding) / resolution).round() as usize;
+    pub fn new(bounds: VoronoiBounds, resolution: f32) -> Self {
+        let width_tiles =
+            ((bounds.grid_max.x() - bounds.grid_min.x()) / resolution).round() as usize;
+        let height_tiles =
+            ((bounds.grid_max.y() - bounds.grid_min.y()) / resolution).round() as usize;
         let tile_count = (width_tiles) * (height_tiles);
 
         Self {
@@ -106,7 +128,7 @@ impl VoronoiGrid {
             width_tiles,
             height_tiles,
             resolution,
-            min_bound: point!(-width / 2.0 - padding, -height / 2.0 - padding),
+            bounds,
         }
     }
 
@@ -261,7 +283,7 @@ impl VoronoiGrid {
         let mut count = 0;
 
         for (index, ownership) in self.tiles.iter().copied().enumerate() {
-            if ownership == Ownership::Robot(player) {
+            if ownership == Ownership::Robot(player) && self.cell_overlaps_centroid_bounds(index) {
                 let point = self.index_to_point(index);
                 sum_x += point.x();
                 sum_y += point.y();
@@ -278,8 +300,8 @@ impl VoronoiGrid {
     }
 
     fn point_to_index(&self, p: Point2<Field>) -> Option<usize> {
-        let ix = ((p.x() - self.min_bound.x()) / self.resolution).floor() as isize;
-        let iy = ((p.y() - self.min_bound.y()) / self.resolution).floor() as isize;
+        let ix = ((p.x() - self.bounds.grid_min.x()) / self.resolution).floor() as isize;
+        let iy = ((p.y() - self.bounds.grid_min.y()) / self.resolution).floor() as isize;
 
         if (0..self.width_tiles as isize).contains(&ix)
             && (0..self.height_tiles as isize).contains(&iy)
@@ -296,9 +318,25 @@ impl VoronoiGrid {
         let iy = (index / width_tiles) as f32;
 
         point!(
-            self.min_bound.x() + ix * self.resolution + self.resolution / 2.0,
-            self.min_bound.y() + iy * self.resolution + self.resolution / 2.0
+            self.bounds.grid_min.x() + ix * self.resolution + self.resolution / 2.0,
+            self.bounds.grid_min.y() + iy * self.resolution + self.resolution / 2.0
         )
+    }
+
+    fn cell_overlaps_centroid_bounds(&self, index: usize) -> bool {
+        let width_tiles = self.width_tiles;
+        let x = (index % width_tiles) as f32;
+        let y = (index / width_tiles) as f32;
+
+        let min_x = self.bounds.grid_min.x() + x * self.resolution;
+        let max_x = min_x + self.resolution;
+        let min_y = self.bounds.grid_min.y() + y * self.resolution;
+        let max_y = min_y + self.resolution;
+
+        min_x < self.bounds.centroid_max.x()
+            && max_x > self.bounds.centroid_min.x()
+            && min_y < self.bounds.centroid_max.y()
+            && max_y > self.bounds.centroid_min.y()
     }
 
     fn tile_range_for_bounds(
@@ -312,10 +350,10 @@ impl VoronoiGrid {
             return None;
         }
 
-        let tile_min_x = self.min_bound.x();
-        let tile_max_x = self.min_bound.x() + self.width_tiles as f32 * self.resolution;
-        let tile_min_y = self.min_bound.y();
-        let tile_max_y = self.min_bound.y() + self.height_tiles as f32 * self.resolution;
+        let tile_min_x = self.bounds.grid_min.x();
+        let tile_max_x = self.bounds.grid_min.x() + self.width_tiles as f32 * self.resolution;
+        let tile_min_y = self.bounds.grid_min.y();
+        let tile_max_y = self.bounds.grid_min.y() + self.height_tiles as f32 * self.resolution;
 
         if max_x < tile_min_x || min_x > tile_max_x || max_y < tile_min_y || min_y > tile_max_y {
             return None;
