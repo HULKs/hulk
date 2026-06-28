@@ -53,8 +53,8 @@ impl Default for SimulationConfig {
 }
 
 pub fn default_behavior_parameters() -> Result<BehaviorParameters> {
-    Ok(json5::from_str(include_str!(
+    json5::from_str(include_str!(
         "../../../etc/parameters/ros_z/base/behavior_node.json5"
     ))
-    .wrap_err("failed to parse behavior parameters")?)
+    .wrap_err("failed to parse behavior parameters")
 }
