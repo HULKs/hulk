@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 mod auto_referee;
 mod ball;
 mod behavior_runtime;
