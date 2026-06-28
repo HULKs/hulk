@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use linear_algebra::{Point2, point};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use coordinate_systems::Field;
+use coordinate_systems::{Field, World};
 
 #[derive(
     Copy,
@@ -148,11 +148,11 @@ impl Side {
 }
 
 impl FieldDimensions {
-    pub fn is_inside_field(&self, position: Point2<Field>) -> bool {
+    pub fn is_inside_field(&self, position: Point2<World>) -> bool {
         position.x().abs() < self.length / 2.0 && position.y().abs() < self.width / 2.0
     }
 
-    pub fn is_inside_any_goal(&self, position: Point2<Field>) -> bool {
+    pub fn is_inside_any_goal(&self, position: Point2<World>) -> bool {
         position.x().abs() > self.length / 2.0 && position.y().abs() < self.goal_inner_width / 2.0
     }
 
