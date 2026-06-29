@@ -85,11 +85,7 @@ impl Panel for TextPanel {
                     &completions,
                     &mut self.topic_editor,
                 ));
-                let commit = response.lost_focus()
-                    || ui.input(|input| {
-                        response.has_focus() && input.key_pressed(eframe::egui::Key::Enter)
-                    });
-                if commit {
+                if response.changed() {
                     self.commit_topic(&context);
                 }
                 ui.checkbox(&mut self.pretty, "Pretty");
@@ -296,6 +292,9 @@ fn create_observation(
     context: &impl ObservationContext,
     topic: &str,
 ) -> Result<(DynamicTopicObservation, ObservationRepaint), Report> {
+    let runtime_handle = context.backend().runtime_handle().clone();
+    // ros_z_debug spawns observation tasks internally and needs a current runtime.
+    let _runtime_context = runtime_handle.enter();
     let observation = context
         .backend()
         .observer()
@@ -312,7 +311,12 @@ fn format_time(time: Time) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use eframe::egui::Context;
     use serde_json::json;
+
+    use crate::{backend::RobotBackend, panel::PanelCreationContext};
 
     use super::{ObservationState, Panel, RenderedRecordCache, TextPanel};
 
@@ -359,5 +363,34 @@ mod tests {
                 "pretty": false,
             })
         );
+    }
+
+    #[test]
+    fn new_restores_saved_topic_without_current_tokio_runtime() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("runtime should build");
+        let backend = Arc::new(
+            runtime
+                .block_on(RobotBackend::new(
+                    runtime.handle().clone(),
+                    None,
+                    "/".to_string(),
+                ))
+                .expect("backend should build"),
+        );
+        let saved = json!({
+            "topic": "/output/text",
+            "pretty": true,
+        });
+
+        let panel = TextPanel::new(PanelCreationContext {
+            backend,
+            value: Some(&saved),
+            egui_context: Context::default(),
+        });
+
+        assert_eq!(panel.topic, "/output/text");
     }
 }

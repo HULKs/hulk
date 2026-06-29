@@ -313,11 +313,7 @@ impl App for TwixApp {
                     if context.keybind_pressed(KeybindAction::FocusNamespace) {
                         namespace_response.request_focus();
                     }
-                    if (namespace_response.lost_focus()
-                        || ui.input(|input| {
-                            namespace_response.has_focus()
-                                && input.key_pressed(eframe::egui::Key::Enter)
-                        }))
+                    if namespace_response.lost_focus()
                         && self.namespace_editor != self.backend.namespace()
                         && let Err(error) =
                             self.backend.set_namespace(self.namespace_editor.clone())
