@@ -126,6 +126,7 @@ members = [
   "tools/pepsi",
   "tools/tensorrt-compile",
   "tools/twix",
+  "tools/twix-legacy",
   "tools/vista",
   "tools/widget_gallery",
 ]

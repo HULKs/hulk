@@ -1,0 +1,60 @@
+use std::sync::Arc;
+
+use color_eyre::Result;
+use coordinate_systems::Pixel;
+use eframe::egui::{Align2, Color32, FontId, Stroke};
+use types::object_detection::{Object, RobocupObjectLabel};
+
+use crate::{panels::image::overlay::Overlay, robot::Robot, value_buffer::BufferHandle};
+
+pub struct ObjectDetection {
+    object_detections: BufferHandle<Vec<Object<RobocupObjectLabel>>>,
+}
+
+impl Overlay for ObjectDetection {
+    const NAME: &'static str = "Object Detection";
+
+    fn new(robot: Arc<Robot>) -> Self {
+        let object_detections = robot.subscribe_value("Hydra.main_outputs.detected_objects");
+        Self { object_detections }
+    }
+
+    fn paint(&self, painter: &crate::twix_painter::TwixPainter<Pixel>) -> Result<()> {
+        let Some(object_detections) = self.object_detections.get_last_value()? else {
+            return Ok(());
+        };
+
+        paint_bounding_boxes(painter, object_detections, Color32::LIGHT_RED);
+
+        Ok(())
+    }
+}
+
+fn paint_bounding_boxes(
+    painter: &crate::twix_painter::TwixPainter<Pixel>,
+    detections: Vec<Object<RobocupObjectLabel>>,
+    line_color: Color32,
+) {
+    for detection in detections {
+        let bounding_box = detection.bounding_box;
+        painter.rect_stroke(
+            bounding_box.area.min,
+            bounding_box.area.max,
+            Stroke::new(1.0_f32, line_color),
+        );
+        painter.floating_text(
+            bounding_box.area.min,
+            Align2::RIGHT_BOTTOM,
+            format!("{:.2}", bounding_box.confidence),
+            FontId::default(),
+            Color32::WHITE,
+        );
+        painter.floating_text(
+            bounding_box.area.max,
+            Align2::RIGHT_TOP,
+            detection.label.into(),
+            FontId::default(),
+            Color32::WHITE,
+        );
+    }
+}

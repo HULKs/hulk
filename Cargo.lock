@@ -11711,6 +11711,55 @@ dependencies = [
 ]
 
 [[package]]
+name = "twix-legacy"
+version = "0.12.16"
+dependencies = [
+ "aliveness",
+ "argument_parsers",
+ "ball_filter",
+ "bevy",
+ "bevy_mujoco",
+ "bincode",
+ "chrono",
+ "clap",
+ "color-eyre",
+ "communication",
+ "convert_case 0.7.1",
+ "coordinate_systems",
+ "dirs",
+ "eframe",
+ "egui_bevy",
+ "egui_dock",
+ "egui_extras",
+ "egui_plot",
+ "geometry",
+ "gilrs",
+ "hsl_network_messages",
+ "hula_types",
+ "hulk_widgets",
+ "image",
+ "itertools 0.14.0",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "mlua",
+ "nalgebra",
+ "ndarray",
+ "parameters",
+ "projection",
+ "repository",
+ "ros2",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml 0.8.23",
+ "tracing-subscriber",
+ "types",
+ "voronoi",
+]
+
+[[package]]
 name = "twox-hash"
 version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
