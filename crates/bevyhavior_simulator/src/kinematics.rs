@@ -2,16 +2,17 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use bevy::prelude::*;
 use coordinate_systems::{Ground, World};
-use linear_algebra::{Isometry2, Orientation2, Point2, Vector2};
+use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, vector};
 use types::{
-    motion_command::{HeadMotion, KickPower, MotionCommand, OrientationMode},
+    motion_command::{HeadMotion, KickPower, MotionCommand},
     path::PathSegment,
+    step::Step,
 };
 
 use crate::behavior_tree_simulator::{
     SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDownState,
     SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorLastKickTime, SimulatorRobot,
-    SimulatorRobotFrames,
+    SimulatorRobotFrames, SimulatorRobotParameters,
 };
 
 pub(crate) fn apply_motion_kinematics(
@@ -21,34 +22,35 @@ pub(crate) fn apply_motion_kinematics(
     mut ball: ResMut<SimulatorBall>,
     mut robots: Query<(
         &SimulatorRobot,
+        &SimulatorRobotParameters,
         &mut SimulatorGroundToWorld,
         &mut SimulatorHeadYaw,
         &mut SimulatorFallDownState,
         &mut SimulatorLastKickTime,
     )>,
 ) {
-    for (robot, mut ground_to_world, mut head_yaw, mut fall_down_state, mut last_kick_time) in
-        &mut robots
+    for (
+        robot,
+        parameters,
+        mut ground_to_world,
+        mut head_yaw,
+        mut fall_down_state,
+        mut last_kick_time,
+    ) in &mut robots
     {
         let Some(frame) = robot_frames.0.get(&robot.id()) else {
             continue;
         };
 
         match &frame.motion_command {
-            MotionCommand::Walk {
-                path,
-                orientation_mode,
-                target_orientation,
-                speed,
-                ..
-            } => {
-                let target = first_path_target(path).unwrap_or_else(Point2::origin);
+            MotionCommand::Walk { .. } => {
+                let step = motion::booster::walking::step_from_motion_command(
+                    &frame.motion_command,
+                    &parameters.walking,
+                );
                 ground_to_world.ground_to_world = apply_walk_to_pose(
                     ground_to_world.ground_to_world,
-                    target,
-                    *target_orientation,
-                    *orientation_mode,
-                    *speed,
+                    step,
                     clock.tick_duration,
                     &config,
                 );
@@ -170,16 +172,13 @@ pub(crate) fn first_path_target(path: &types::path::Path) -> Option<Point2<Groun
 
 fn apply_walk_to_pose<Frame>(
     ground_to_frame: Isometry2<Ground, Frame>,
-    target: Point2<Ground>,
-    target_orientation: Orientation2<Ground>,
-    orientation_mode: OrientationMode,
-    speed: f32,
+    step: Step,
     tick_duration: Duration,
     config: &SimulationConfig,
 ) -> Isometry2<Ground, Frame> {
     let dt = tick_duration.as_secs_f32();
-    let max_distance = config.walk_translation_speed * speed * dt;
-    let target_vector = target.coords();
+    let max_distance = config.walk_translation_speed * dt;
+    let target_vector = vector![step.forward, step.left] * dt;
     let step_translation =
         if target_vector.norm() > max_distance && target_vector.norm() > f32::EPSILON {
             target_vector.normalize() * max_distance
@@ -187,15 +186,8 @@ fn apply_walk_to_pose<Frame>(
             target_vector
         };
 
-    let desired_orientation = match orientation_mode {
-        OrientationMode::LookTowards { direction, .. } => direction,
-        OrientationMode::LookAt { target, .. } => Orientation2::from_vector(target.coords()),
-        OrientationMode::AlignWithPath | OrientationMode::Unspecified => target_orientation,
-    };
     let max_rotation = config.walk_rotation_speed * dt;
-    let step_rotation = desired_orientation
-        .angle()
-        .clamp(-max_rotation, max_rotation);
+    let step_rotation = (step.turn * dt).clamp(-max_rotation, max_rotation);
     let delta = Isometry2::from_parts(step_translation, step_rotation);
     ground_to_frame * delta
 }
@@ -261,10 +253,7 @@ fn apply_visual_kick_kinematics(
     let kick_pose = ball_position - kick_direction.as_unit_vector() * config.kick_radius;
     *ground_to_world = apply_walk_to_pose(
         *ground_to_world,
-        kick_pose,
-        kick_direction,
-        OrientationMode::AlignWithPath,
-        1.0,
+        step_towards_target(kick_pose, kick_direction, 1.0, config, tick_duration),
         tick_duration,
         config,
     );
@@ -281,16 +270,125 @@ fn apply_visual_kick_kinematics(
     );
 }
 
+fn step_towards_target(
+    target: Point2<Ground>,
+    target_orientation: Orientation2<Ground>,
+    speed: f32,
+    config: &SimulationConfig,
+    tick_duration: Duration,
+) -> Step {
+    let dt = tick_duration.as_secs_f32();
+    let max_distance = config.walk_translation_speed * speed * dt;
+    let target_vector = target.coords();
+    let velocity = if target_vector.norm() > max_distance && target_vector.norm() > f32::EPSILON {
+        target_vector.normalize() * config.walk_translation_speed * speed
+    } else if dt > f32::EPSILON {
+        target_vector / dt
+    } else {
+        target_vector
+    };
+
+    Step {
+        forward: velocity.x(),
+        left: velocity.y(),
+        turn: target_orientation.angle() / dt.max(f32::EPSILON),
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::time::{Duration, SystemTime};
+    use std::{
+        collections::BTreeMap,
+        f32::consts::FRAC_PI_2,
+        time::{Duration, SystemTime},
+    };
 
     use coordinate_systems::{Ground, World};
+    use hsl_network_messages::{PlayerNumber, Team};
     use linear_algebra::{Isometry2, Orientation2, point, vector};
-    use types::{field_dimensions::Side, motion_command::KickPower};
+    use types::{
+        behavior_tree::{NodeTrace, Status},
+        field_dimensions::Side,
+        motion_command::{HeadMotion, KickPower, MotionCommand, OrientationMode},
+        parameters::{BehaviorParameters, RLWalkingParameters},
+        path::direct_path,
+        world_state::WorldState,
+    };
 
     use super::*;
-    use crate::behavior_tree_simulator::{DEFAULT_TICK_DURATION, SimulatedBall, SimulationConfig};
+    use crate::behavior_tree_simulator::{
+        DEFAULT_TICK_DURATION, RobotFrame, SimulatedBall, SimulationConfig, SimulatorRobotId,
+    };
+
+    #[test]
+    fn walk_kinematics_uses_booster_hybrid_alignment() {
+        let robot_id = SimulatorRobotId::new(Team::Hulks, PlayerNumber::Three);
+        let mut app = App::new();
+        app.insert_resource(SimulatorClock {
+            now: SystemTime::UNIX_EPOCH,
+            tick_duration: DEFAULT_TICK_DURATION,
+        })
+        .insert_resource(SimulationConfig {
+            walk_rotation_speed: 10.0,
+            ..Default::default()
+        })
+        .insert_resource(SimulatorBall::default())
+        .insert_resource(SimulatorRobotFrames(BTreeMap::from([(
+            robot_id,
+            RobotFrame {
+                world_state: WorldState::default(),
+                motion_command: MotionCommand::Walk {
+                    head: HeadMotion::ZeroAngles,
+                    path: direct_path(point![0.0, 0.0], point![2.0, 0.0]),
+                    orientation_mode: OrientationMode::AlignWithPath,
+                    target_orientation: Orientation2::new(FRAC_PI_2),
+                    distance_to_be_aligned: 0.05,
+                    speed: 1.0,
+                },
+                trace: empty_trace(),
+                static_layout: empty_trace(),
+                path_obstacles: Vec::new(),
+                time_since_last_switch: Duration::ZERO,
+                direction_difference: 0.0,
+                walk_position: None,
+                voronoi_map: None,
+                voronoi_inputs: Vec::new(),
+                outgoing_messages: Vec::new(),
+            },
+        )])))
+        .add_systems(Update, apply_motion_kinematics);
+
+        app.world_mut().spawn((
+            SimulatorRobot {
+                team: Team::Hulks,
+                player_number: PlayerNumber::Three,
+            },
+            SimulatorRobotParameters {
+                behavior: BehaviorParameters::default(),
+                walking: RLWalkingParameters {
+                    hybrid_align_distance: 1.0,
+                    max_alignment_rate: 1.0,
+                    deceleration_distance: 0.5,
+                    ..Default::default()
+                },
+            },
+            SimulatorGroundToWorld {
+                ground_to_world: Isometry2::identity(),
+            },
+            SimulatorHeadYaw::default(),
+            SimulatorFallDownState::default(),
+            SimulatorLastKickTime {
+                last_kick_time: SystemTime::UNIX_EPOCH,
+            },
+        ));
+
+        app.update();
+
+        let mut query = app.world_mut().query::<&SimulatorGroundToWorld>();
+        let ground_to_world = query.single(app.world()).expect("robot should exist");
+        assert_eq!(ground_to_world.ground_to_world.orientation().angle(), 0.0);
+        assert!(ground_to_world.ground_to_world.translation().x() > 0.0);
+    }
 
     #[test]
     fn kick_does_not_move_ball_outside_contact_range() {
@@ -396,5 +494,13 @@ mod tests {
         );
 
         assert_eq!(yaw.angle(), 0.5);
+    }
+
+    fn empty_trace() -> NodeTrace {
+        NodeTrace {
+            name: String::new(),
+            status: Status::Success,
+            children: Vec::new(),
+        }
     }
 }

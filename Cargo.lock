@@ -1985,6 +1985,7 @@ dependencies = [
  "hsl_network_messages",
  "json5",
  "linear_algebra",
+ "motion",
  "ros-z",
  "scenario",
  "serde",

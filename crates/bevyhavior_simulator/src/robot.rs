@@ -7,9 +7,12 @@ use coordinate_systems::{Field, Ground, World};
 use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{Isometry2, Orientation2, Point2};
 use serde::Serializer;
-use types::{parameters::BehaviorParameters, primary_state::PrimaryState};
+use types::{
+    parameters::{BehaviorParameters, RLWalkingParameters},
+    primary_state::PrimaryState,
+};
 
-use crate::behavior_tree_simulator::SimulatorRobotBehavior;
+use crate::behavior_tree_simulator::{SimulatorRobotBehavior, default_walking_parameters};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SimulatorRobotId {
@@ -103,6 +106,7 @@ pub struct SimulatorPrimaryState {
 #[derive(Component, Clone, Debug)]
 pub struct SimulatorRobotParameters {
     pub behavior: BehaviorParameters,
+    pub walking: RLWalkingParameters,
 }
 
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -153,6 +157,7 @@ impl SimulatorRobotBundle {
             behavior: SimulatorRobotBehavior::new(parameters.clone()),
             parameters: SimulatorRobotParameters {
                 behavior: parameters,
+                walking: default_walking_parameters()?,
             },
             fall_down_state: SimulatorFallDownState::default(),
             suggested_search_position: SimulatorSuggestedSearchPosition::default(),

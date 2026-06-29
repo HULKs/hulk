@@ -266,6 +266,7 @@ mod tests {
     use super::*;
     use crate::behavior_tree_simulator::{
         DEFAULT_TICK_DURATION, SimulatorFieldDimensions, default_behavior_parameters,
+        default_walking_parameters,
     };
 
     #[test]
@@ -304,6 +305,7 @@ mod tests {
             SimulatorRobotParameters {
                 behavior: default_behavior_parameters()
                     .expect("failed to load behavior parameters"),
+                walking: default_walking_parameters().expect("failed to load walking parameters"),
             },
             behavior,
         ));

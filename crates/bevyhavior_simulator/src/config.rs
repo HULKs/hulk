@@ -1,7 +1,8 @@
 use std::{net::SocketAddr, time::Duration};
 
 use color_eyre::{Result, eyre::Context};
-use types::parameters::BehaviorParameters;
+use serde::Deserialize;
+use types::parameters::{BehaviorParameters, RLWalkingParameters};
 
 pub const DEFAULT_TICK_DURATION: Duration = Duration::from_millis(10);
 
@@ -59,4 +60,17 @@ pub fn default_behavior_parameters() -> Result<BehaviorParameters> {
         "../../../etc/parameters/ros_z/base/behavior_node.json5"
     ))
     .wrap_err("failed to parse behavior parameters")
+}
+
+#[derive(Deserialize)]
+struct WalkingParametersFile {
+    parameters: RLWalkingParameters,
+}
+
+pub fn default_walking_parameters() -> Result<RLWalkingParameters> {
+    let file: WalkingParametersFile = json5::from_str(include_str!(
+        "../../../etc/parameters/ros_z/base/walking.json5"
+    ))
+    .wrap_err("failed to parse walking parameters")?;
+    Ok(file.parameters)
 }

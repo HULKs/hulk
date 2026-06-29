@@ -32,7 +32,10 @@ pub use crate::communication::{
     SimulatorMessage, SimulatorOutgoingMessages, SimulatorReceivedHslMessage,
     SimulatorReceivedHslMessages,
 };
-pub use crate::config::{DEFAULT_TICK_DURATION, SimulationConfig, default_behavior_parameters};
+pub use crate::config::{
+    DEFAULT_TICK_DURATION, SimulationConfig, default_behavior_parameters,
+    default_walking_parameters,
+};
 pub use crate::game_controller::SimulatorGameState;
 pub use crate::invariant_checks::{
     InvariantCheck, InvariantSeverity, InvariantViolation, RobotSnapshot, SimulationSnapshot,
