@@ -30,71 +30,95 @@ impl DiscoveredTopicSchema {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) struct TopicSchemaCandidate {
+#[non_exhaustive]
+pub struct TopicSchemaFingerprint {
+    pub topic: String,
+    pub node_namespace: String,
     pub node_name: String,
-    pub namespace: String,
-    pub type_name: String,
-    pub schema_hash: SchemaHash,
+    pub type_info: TypeInfo,
 }
 
-impl TopicSchemaCandidate {
-    fn from_endpoint(endpoint: &EndpointEntity) -> Self {
+impl TopicSchemaFingerprint {
+    pub fn from_publisher(endpoint: &EndpointEntity) -> Self {
         Self {
+            topic: endpoint.topic.clone(),
+            node_namespace: endpoint.node.namespace.clone(),
             node_name: endpoint.node.name.clone(),
-            namespace: endpoint.node.namespace.clone(),
-            type_name: endpoint.type_info.name.clone(),
-            schema_hash: endpoint.type_info.hash,
+            type_info: endpoint.type_info.clone(),
         }
     }
 }
 
-impl fmt::Display for TopicSchemaCandidate {
+impl fmt::Display for TopicSchemaFingerprint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}/{}:{}@{}",
-            self.namespace, self.node_name, self.type_name, self.schema_hash
+            self.node_namespace, self.node_name, self.type_info.name, self.type_info.hash
         )
     }
 }
 
-pub(crate) fn collect_topic_schema_candidates_from_publishers(
+pub fn topic_schema_fingerprints_from_publishers(
+    publishers: &[EndpointEntity],
+) -> Vec<TopicSchemaFingerprint> {
+    let mut fingerprints = publishers
+        .iter()
+        .map(TopicSchemaFingerprint::from_publisher)
+        .collect_vec();
+    fingerprints.sort_by(|left, right| {
+        (
+            &left.topic,
+            &left.node_namespace,
+            &left.node_name,
+            &left.type_info.name,
+            &left.type_info.hash.0,
+        )
+            .cmp(&(
+                &right.topic,
+                &right.node_namespace,
+                &right.node_name,
+                &right.type_info.name,
+                &right.type_info.hash.0,
+            ))
+    });
+    fingerprints.dedup();
+    fingerprints
+}
+
+pub(crate) fn collect_topic_schema_fingerprints_from_publishers(
     publishers: &[EndpointEntity],
     qualified_topic: &str,
-) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
-    let candidates = publishers
-        .iter()
-        .map(TopicSchemaCandidate::from_endpoint)
-        .unique()
-        .collect_vec();
+) -> Result<Vec<TopicSchemaFingerprint>, DynamicError> {
+    let fingerprints = topic_schema_fingerprints_from_publishers(publishers);
 
-    if candidates.is_empty() {
+    if fingerprints.is_empty() {
         return Err(DynamicError::SchemaNotFound(format!(
             "No publishers found for topic: {qualified_topic}"
         )));
     }
 
-    if !candidates
+    if !fingerprints
         .iter()
-        .map(|candidate| (&candidate.type_name, candidate.schema_hash))
+        .map(|fingerprint| (&fingerprint.type_info.name, fingerprint.type_info.hash))
         .all_equal()
     {
         return Err(DynamicError::SchemaConflict {
             topic: qualified_topic.to_string(),
-            candidates: candidates.iter().map(ToString::to_string).collect_vec(),
+            candidates: fingerprints.iter().map(ToString::to_string).collect_vec(),
         });
     }
 
-    Ok(candidates)
+    Ok(fingerprints)
 }
 
 fn collect_topic_schema_candidates(
     graph: &Graph,
     qualified_topic: &str,
-) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
+) -> Result<Vec<TopicSchemaFingerprint>, DynamicError> {
     let publishers = graph.view().publishers_on(qualified_topic);
 
-    collect_topic_schema_candidates_from_publishers(&publishers, qualified_topic)
+    collect_topic_schema_fingerprints_from_publishers(&publishers, qualified_topic)
 }
 
 fn schema_query_timeout(deadline: Instant) -> Option<Duration> {
@@ -162,7 +186,7 @@ impl SchemaDiscovery {
         &self,
         qualified_topic: &str,
         deadline: Instant,
-    ) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
+    ) -> Result<Vec<TopicSchemaFingerprint>, DynamicError> {
         let graph = &self.context.graph;
         if tokio::time::timeout_at(
             deadline,
@@ -180,7 +204,7 @@ impl SchemaDiscovery {
     async fn try_schema_service(
         &self,
         qualified_topic: &str,
-        candidates: &[TopicSchemaCandidate],
+        candidates: &[TopicSchemaFingerprint],
         deadline: Instant,
     ) -> Result<(String, Schema, SchemaHash), DynamicError> {
         let mut last_error = None;
@@ -442,6 +466,29 @@ mod tests {
     }
 
     #[test]
+    fn topic_schema_fingerprints_from_publishers_returns_canonical_schema_identity() {
+        let hash = SchemaHash([7; 32]);
+        let talker_b = publisher_with_hash_from_node("std_msgs::String", hash, "talker_b", 3);
+        let mut duplicate_talker_b =
+            publisher_with_hash_from_node("std_msgs::String", hash, "talker_b", 3);
+        duplicate_talker_b.id = 99;
+        let talker_a = publisher_with_hash_from_node("std_msgs::String", hash, "talker_a", 2);
+
+        let fingerprints =
+            topic_schema_fingerprints_from_publishers(&[talker_b, duplicate_talker_b, talker_a]);
+
+        assert_eq!(fingerprints.len(), 2);
+        assert_eq!(fingerprints[0].topic, "/chatter");
+        assert_eq!(fingerprints[0].node_namespace, "/");
+        assert_eq!(fingerprints[0].node_name, "talker_a");
+        assert_eq!(
+            fingerprints[0].type_info,
+            TypeInfo::new("std_msgs::String", hash)
+        );
+        assert_eq!(fingerprints[1].node_name, "talker_b");
+    }
+
+    #[test]
     fn schema_query_timeout_returns_none_for_elapsed_deadline() {
         let deadline = Instant::now() - Duration::from_millis(1);
 
@@ -521,24 +568,24 @@ mod tests {
 
     #[test]
     fn publisher_schema_candidates_keep_native_advertised_type_name() {
-        let candidates = collect_topic_schema_candidates_from_publishers(
+        let candidates = collect_topic_schema_fingerprints_from_publishers(
             &[publisher("std_msgs::String")],
             "/chatter",
         )
         .expect("candidate");
 
-        assert_eq!(candidates[0].type_name, "std_msgs::String");
+        assert_eq!(candidates[0].type_info.name, "std_msgs::String");
     }
 
     #[test]
     fn publisher_schema_candidates_do_not_normalize_dds_shaped_names() {
-        let candidates = collect_topic_schema_candidates_from_publishers(
+        let candidates = collect_topic_schema_fingerprints_from_publishers(
             &[publisher("std_msgs::msg::dds_::String_")],
             "/chatter",
         )
         .expect("candidate");
 
-        assert_eq!(candidates[0].type_name, "std_msgs::msg::dds_::String_");
+        assert_eq!(candidates[0].type_info.name, "std_msgs::msg::dds_::String_");
     }
 
     #[test]
@@ -558,11 +605,12 @@ mod tests {
             qos: Default::default(),
         };
 
-        let candidates = collect_topic_schema_candidates_from_publishers(&[publisher], "/chatter")
-            .expect("candidate");
+        let candidates =
+            collect_topic_schema_fingerprints_from_publishers(&[publisher], "/chatter")
+                .expect("candidate");
 
-        assert_eq!(candidates[0].type_name, "std_msgs::String");
-        assert_eq!(candidates[0].schema_hash, hash);
+        assert_eq!(candidates[0].type_info.name, "std_msgs::String");
+        assert_eq!(candidates[0].type_info.hash, hash);
     }
 
     #[test]
@@ -573,16 +621,16 @@ mod tests {
             publisher_with_hash_from_node("std_msgs::String", hash, "talker_b", 3),
         ];
 
-        let candidates = collect_topic_schema_candidates_from_publishers(&publishers, "/chatter")
+        let candidates = collect_topic_schema_fingerprints_from_publishers(&publishers, "/chatter")
             .expect("matching publishers should remain query candidates");
 
         assert_eq!(candidates.len(), 2);
         assert_eq!(candidates[0].node_name, "talker_a");
-        assert_eq!(candidates[0].type_name, "std_msgs::String");
-        assert_eq!(candidates[0].schema_hash, hash);
+        assert_eq!(candidates[0].type_info.name, "std_msgs::String");
+        assert_eq!(candidates[0].type_info.hash, hash);
         assert_eq!(candidates[1].node_name, "talker_b");
-        assert_eq!(candidates[1].type_name, "std_msgs::String");
-        assert_eq!(candidates[1].schema_hash, hash);
+        assert_eq!(candidates[1].type_info.name, "std_msgs::String");
+        assert_eq!(candidates[1].type_info.hash, hash);
     }
 
     #[test]
@@ -592,7 +640,7 @@ mod tests {
             publisher_with_hash("std_msgs::String", SchemaHash([2; 32])),
         ];
 
-        let error = collect_topic_schema_candidates_from_publishers(&publishers, "/chatter")
+        let error = collect_topic_schema_fingerprints_from_publishers(&publishers, "/chatter")
             .expect_err("different schema hashes should conflict");
 
         let DynamicError::SchemaConflict { topic, candidates } = error else {
@@ -619,7 +667,7 @@ mod tests {
             publisher_with_hash("custom_msgs::StringLike", hash),
         ];
 
-        let error = collect_topic_schema_candidates_from_publishers(&publishers, "/chatter")
+        let error = collect_topic_schema_fingerprints_from_publishers(&publishers, "/chatter")
             .expect_err("different type names should conflict even with same hash");
 
         let DynamicError::SchemaConflict { topic, candidates } = error else {

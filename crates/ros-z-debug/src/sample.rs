@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use ros_z::{TypeInfo, time::Time};
+use ros_z::{TypeInfo, dynamic::DynamicPayload, time::Time};
 
 /// Metadata fixed for all samples received through one debug subscription.
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct SampleMetadata {
-    /// Topic selector originally requested by the caller.
-    pub requested_topic: crate::TopicSelector,
+    /// Topic reference originally requested by the caller.
+    pub topic_reference: crate::TopicReference,
     /// Absolute topic name used for the underlying subscription.
     pub resolved_topic: String,
     /// Type metadata discovered or declared for this subscription.
@@ -28,4 +28,24 @@ pub struct SampleRecord<V> {
     pub publication_id: ros_z::pubsub::PublicationId,
     /// Metadata shared by all samples received through the same subscription.
     pub metadata: Arc<SampleMetadata>,
+}
+
+pub(crate) fn dynamic_record_json_value(
+    record: &SampleRecord<DynamicPayload>,
+    policy: crate::JsonRenderPolicy,
+) -> serde_json::Value {
+    crate::dynamic_payload_to_json(&record.value, policy)
+}
+
+pub(crate) fn dynamic_record_to_json_sample(
+    record: Arc<SampleRecord<DynamicPayload>>,
+    policy: crate::JsonRenderPolicy,
+) -> SampleRecord<serde_json::Value> {
+    SampleRecord {
+        value: dynamic_record_json_value(record.as_ref(), policy),
+        source_time: record.source_time,
+        transport_time: record.transport_time,
+        publication_id: record.publication_id,
+        metadata: Arc::clone(&record.metadata),
+    }
 }

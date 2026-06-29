@@ -8,26 +8,24 @@ use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    JsonRenderPolicy, RetentionPolicy, SampleRecord, SubscriptionStatus,
-    SubscriptionStatusSnapshot, SubscriptionUpdate, SubscriptionUpdateClosed,
-    SubscriptionUpdateReceiver, dynamic_payload_to_json, history::TimeIndexedHistory,
+    CachedSubscriptionStatus, CachedSubscriptionStatusSnapshot, CachedSubscriptionUpdate,
+    CachedSubscriptionUpdateClosed, CachedSubscriptionUpdateReceiver, JsonRenderPolicy,
+    RetentionPolicy, SampleRecord,
+    history::TimeIndexedHistory,
+    sample::{dynamic_record_json_value, dynamic_record_to_json_sample},
 };
 
 const UPDATE_BUFFER_CAPACITY: usize = 256;
-
-pub(crate) trait ManagedSubscription: Send + Sync {
-    fn close(&self);
-}
 
 /// Handle for reading retained subscription state.
 ///
 /// Cloning the handle keeps the subscription alive. Dropping the last handle
 /// cancels the receive task.
-pub struct SubscriptionHandle<V> {
-    state: Arc<SubscriptionState<V>>,
+pub struct CachedSubscription<V> {
+    state: Arc<CachedSubscriptionState<V>>,
 }
 
-impl<V> Clone for SubscriptionHandle<V> {
+impl<V> Clone for CachedSubscription<V> {
     fn clone(&self) -> Self {
         Self {
             state: Arc::clone(&self.state),
@@ -35,9 +33,9 @@ impl<V> Clone for SubscriptionHandle<V> {
     }
 }
 
-impl<V> SubscriptionHandle<V> {
+impl<V> CachedSubscription<V> {
     /// Return the current status snapshot.
-    pub fn status(&self) -> SubscriptionStatusSnapshot {
+    pub fn status(&self) -> CachedSubscriptionStatusSnapshot {
         self.state.status()
     }
 
@@ -61,27 +59,31 @@ impl<V> SubscriptionHandle<V> {
     /// [`Self::window`] to inspect retained data.
     pub fn subscribe_updates(
         &self,
-    ) -> Result<SubscriptionUpdateReceiver, SubscriptionUpdateClosed> {
+    ) -> Result<CachedSubscriptionUpdateReceiver, CachedSubscriptionUpdateClosed> {
         self.state.subscribe_updates()
+    }
+
+    pub(crate) fn close_retaining_samples(&self) {
+        self.state.close();
     }
 }
 
 /// Handle that renders retained dynamic payloads as JSON on demand.
-pub struct JsonSubscriptionHandle {
-    dynamic: SubscriptionHandle<DynamicPayload>,
+pub struct CachedJsonSubscription {
+    dynamic: CachedSubscription<DynamicPayload>,
     policy: JsonRenderPolicy,
 }
 
-impl JsonSubscriptionHandle {
+impl CachedJsonSubscription {
     pub(crate) fn new(
-        dynamic: SubscriptionHandle<DynamicPayload>,
+        dynamic: CachedSubscription<DynamicPayload>,
         policy: JsonRenderPolicy,
     ) -> Self {
         Self { dynamic, policy }
     }
 
     /// Return the current status snapshot.
-    pub fn status(&self) -> SubscriptionStatusSnapshot {
+    pub fn status(&self) -> CachedSubscriptionStatusSnapshot {
         self.dynamic.status()
     }
 
@@ -89,7 +91,14 @@ impl JsonSubscriptionHandle {
     pub fn latest_json(&self) -> Option<Value> {
         self.dynamic
             .latest()
-            .map(|record| dynamic_payload_to_json(&record.value, self.policy))
+            .map(|record| dynamic_record_json_value(record.as_ref(), self.policy))
+    }
+
+    /// Render the latest retained dynamic payload as JSON with sample metadata.
+    pub fn latest_json_record(&self) -> Option<crate::SampleRecord<Value>> {
+        self.dynamic
+            .latest()
+            .map(|record| dynamic_record_to_json_sample(record, self.policy))
     }
 
     /// Render retained dynamic payloads in `[start, end]` as JSON.
@@ -97,7 +106,16 @@ impl JsonSubscriptionHandle {
         self.dynamic
             .window(start, end)
             .iter()
-            .map(|record| dynamic_payload_to_json(&record.value, self.policy))
+            .map(|record| dynamic_record_json_value(record.as_ref(), self.policy))
+            .collect()
+    }
+
+    /// Render retained dynamic payloads in `[start, end]` as JSON records.
+    pub fn window_json_records(&self, start: Time, end: Time) -> Vec<crate::SampleRecord<Value>> {
+        self.dynamic
+            .window(start, end)
+            .into_iter()
+            .map(|record| dynamic_record_to_json_sample(record, self.policy))
             .collect()
     }
 
@@ -109,30 +127,33 @@ impl JsonSubscriptionHandle {
     /// or [`Self::window_json`] to inspect retained data.
     pub fn subscribe_updates(
         &self,
-    ) -> Result<SubscriptionUpdateReceiver, SubscriptionUpdateClosed> {
+    ) -> Result<CachedSubscriptionUpdateReceiver, CachedSubscriptionUpdateClosed> {
         self.dynamic.subscribe_updates()
     }
 }
 
-pub(crate) struct SubscriptionState<V> {
+pub(crate) struct CachedSubscriptionState<V> {
     latest: ArcSwapOption<SampleRecord<V>>,
     history: Option<Mutex<TimeIndexedHistory<V>>>,
-    meta: Mutex<SubscriptionMeta>,
+    meta: Mutex<CachedSubscriptionMeta>,
     cancellation_token: CancellationToken,
 }
 
-enum SubscriptionMeta {
+enum CachedSubscriptionMeta {
     Open {
-        status: SubscriptionStatusSnapshot,
-        updates: broadcast::Sender<SubscriptionUpdate>,
+        status: CachedSubscriptionStatusSnapshot,
+        updates: broadcast::Sender<CachedSubscriptionUpdate>,
     },
     Closed {
-        status: SubscriptionStatusSnapshot,
+        status: CachedSubscriptionStatusSnapshot,
     },
 }
 
-impl<V> SubscriptionState<V> {
-    pub(crate) fn new(status: SubscriptionStatusSnapshot, retention: RetentionPolicy) -> Self {
+impl<V> CachedSubscriptionState<V> {
+    pub(crate) fn new(
+        status: CachedSubscriptionStatusSnapshot,
+        retention: RetentionPolicy,
+    ) -> Self {
         let history = match retention {
             RetentionPolicy::LatestOnly => None,
             RetentionPolicy::TimeWindow(_) => Some(Mutex::new(TimeIndexedHistory::new(retention))),
@@ -143,13 +164,13 @@ impl<V> SubscriptionState<V> {
         Self {
             latest: ArcSwapOption::empty(),
             history,
-            meta: Mutex::new(SubscriptionMeta::Open { status, updates }),
+            meta: Mutex::new(CachedSubscriptionMeta::Open { status, updates }),
             cancellation_token: CancellationToken::new(),
         }
     }
 
     pub(crate) fn spawn<F, Fut>(
-        status: SubscriptionStatusSnapshot,
+        status: CachedSubscriptionStatusSnapshot,
         retention: RetentionPolicy,
         receive_loop: F,
     ) -> Arc<Self>
@@ -167,8 +188,8 @@ impl<V> SubscriptionState<V> {
         state
     }
 
-    pub(crate) fn handle(self: &Arc<Self>) -> SubscriptionHandle<V> {
-        SubscriptionHandle {
+    pub(crate) fn handle(self: &Arc<Self>) -> CachedSubscription<V> {
+        CachedSubscription {
             state: Arc::clone(self),
         }
     }
@@ -180,20 +201,20 @@ impl<V> SubscriptionState<V> {
     pub(crate) fn close(&self) {
         let mut meta = self.meta.lock();
         let closed_status = match &mut *meta {
-            SubscriptionMeta::Open { status, .. } => {
-                status.set_status(SubscriptionStatus::Closed);
+            CachedSubscriptionMeta::Open { status, .. } => {
+                status.set_status(CachedSubscriptionStatus::Closed);
                 status.clone()
             }
-            SubscriptionMeta::Closed { .. } => return,
+            CachedSubscriptionMeta::Closed { .. } => return,
         };
         let updates = match std::mem::replace(
             &mut *meta,
-            SubscriptionMeta::Closed {
+            CachedSubscriptionMeta::Closed {
                 status: closed_status,
             },
         ) {
-            SubscriptionMeta::Open { updates, .. } => updates,
-            SubscriptionMeta::Closed { .. } => unreachable!("closed state was handled above"),
+            CachedSubscriptionMeta::Open { updates, .. } => updates,
+            CachedSubscriptionMeta::Closed { .. } => unreachable!("closed state was handled above"),
         };
         drop(meta);
 
@@ -203,7 +224,7 @@ impl<V> SubscriptionState<V> {
 
     pub(crate) fn store_latest(&self, record: Arc<SampleRecord<V>>) {
         let mut meta = self.meta.lock();
-        let SubscriptionMeta::Open { status, updates } = &mut *meta else {
+        let CachedSubscriptionMeta::Open { status, updates } = &mut *meta else {
             return;
         };
 
@@ -212,19 +233,19 @@ impl<V> SubscriptionState<V> {
         }
         self.latest.store(Some(record));
 
-        let status_changed = status.status() != &SubscriptionStatus::Ready;
-        status.set_status(SubscriptionStatus::Ready);
+        let status_changed = status.status() != &CachedSubscriptionStatus::Ready;
+        status.set_status(CachedSubscriptionStatus::Ready);
         let snapshot = status_changed.then(|| status.clone());
 
         if let Some(snapshot) = snapshot {
-            let _ = updates.send(SubscriptionUpdate::StatusChanged(snapshot));
+            let _ = updates.send(CachedSubscriptionUpdate::StatusChanged(snapshot));
         }
-        let _ = updates.send(SubscriptionUpdate::DataChanged);
+        let _ = updates.send(CachedSubscriptionUpdate::DataChanged);
     }
 
-    pub(crate) fn set_receive_error(&self, status: SubscriptionStatus) {
+    pub(crate) fn set_receive_error(&self, status: CachedSubscriptionStatus) {
         let mut meta = self.meta.lock();
-        let SubscriptionMeta::Open {
+        let CachedSubscriptionMeta::Open {
             status: current_status,
             updates,
         } = &mut *meta
@@ -237,15 +258,14 @@ impl<V> SubscriptionState<V> {
         let snapshot = status_changed.then(|| current_status.clone());
 
         if let Some(snapshot) = snapshot {
-            let _ = updates.send(SubscriptionUpdate::StatusChanged(snapshot));
+            let _ = updates.send(CachedSubscriptionUpdate::StatusChanged(snapshot));
         }
     }
 
-    fn status(&self) -> SubscriptionStatusSnapshot {
+    fn status(&self) -> CachedSubscriptionStatusSnapshot {
         match &*self.meta.lock() {
-            SubscriptionMeta::Open { status, .. } | SubscriptionMeta::Closed { status } => {
-                status.clone()
-            }
+            CachedSubscriptionMeta::Open { status, .. }
+            | CachedSubscriptionMeta::Closed { status } => status.clone(),
         }
     }
 
@@ -259,28 +279,21 @@ impl<V> SubscriptionState<V> {
             .map_or_else(Vec::new, |history| history.lock().window(start, end))
     }
 
-    fn subscribe_updates(&self) -> Result<SubscriptionUpdateReceiver, SubscriptionUpdateClosed> {
+    fn subscribe_updates(
+        &self,
+    ) -> Result<CachedSubscriptionUpdateReceiver, CachedSubscriptionUpdateClosed> {
         let meta = self.meta.lock();
-        let SubscriptionMeta::Open { updates, .. } = &*meta else {
-            return Err(SubscriptionUpdateClosed);
+        let CachedSubscriptionMeta::Open { updates, .. } = &*meta else {
+            return Err(CachedSubscriptionUpdateClosed);
         };
 
-        Ok(SubscriptionUpdateReceiver::new(updates.subscribe()))
+        Ok(CachedSubscriptionUpdateReceiver::new(updates.subscribe()))
     }
 }
 
-impl<V> Drop for SubscriptionState<V> {
+impl<V> Drop for CachedSubscriptionState<V> {
     fn drop(&mut self) {
         self.cancellation_token.cancel();
-    }
-}
-
-impl<V> ManagedSubscription for SubscriptionState<V>
-where
-    V: Send + Sync,
-{
-    fn close(&self) {
-        SubscriptionState::close(self);
     }
 }
 
@@ -293,10 +306,11 @@ mod tests {
         time::Time,
     };
 
-    use super::{JsonSubscriptionHandle, SubscriptionState};
+    use super::{CachedJsonSubscription, CachedSubscriptionState};
     use crate::{
-        JsonRenderPolicy, RetentionPolicy, SampleMetadata, SampleRecord, SubscriptionStatus,
-        SubscriptionStatusSnapshot, SubscriptionUpdate, SubscriptionUpdateClosed, TopicSelector,
+        CachedSubscriptionStatus, CachedSubscriptionStatusSnapshot, CachedSubscriptionUpdate,
+        CachedSubscriptionUpdateClosed, JsonRenderPolicy, RetentionPolicy, SampleMetadata,
+        SampleRecord, TopicReference,
     };
 
     struct NonClonePayload(u32);
@@ -318,7 +332,7 @@ mod tests {
 
     fn test_metadata() -> Arc<SampleMetadata> {
         Arc::new(SampleMetadata {
-            requested_topic: TopicSelector::new("camera").unwrap(),
+            topic_reference: TopicReference::new("camera").unwrap(),
             resolved_topic: "/camera".to_string(),
             type_info: test_type_info(),
         })
@@ -364,8 +378,8 @@ mod tests {
 
     #[test]
     fn latest_returns_arc_record_without_cloning_payload() {
-        let state = Arc::new(SubscriptionState::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let record = sample_record(NonClonePayload(7));
@@ -379,8 +393,8 @@ mod tests {
 
     #[test]
     fn time_window_handle_returns_stored_records_in_window() {
-        let state = Arc::new(SubscriptionState::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
         ));
         let first = sample_record_at(NonClonePayload(1), Time::from_nanos(1));
@@ -399,8 +413,8 @@ mod tests {
 
     #[test]
     fn time_window_handle_returns_empty_for_inverted_window() {
-        let state = Arc::new(SubscriptionState::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
         ));
         state.store_latest(sample_record_at(NonClonePayload(1), Time::from_nanos(1)));
@@ -414,8 +428,8 @@ mod tests {
 
     #[test]
     fn latest_only_handle_returns_empty_window_but_keeps_latest() {
-        let state = Arc::new(SubscriptionState::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let record = sample_record_at(NonClonePayload(3), Time::from_nanos(3));
@@ -433,8 +447,8 @@ mod tests {
 
     #[test]
     fn update_receiver_reports_data_changed_after_store_latest() {
-        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
@@ -445,20 +459,20 @@ mod tests {
         let first_update = updates.try_recv();
         assert!(matches!(
             first_update,
-            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
-                if snapshot.status() == &SubscriptionStatus::Ready
+            Ok(Some(CachedSubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.status() == &CachedSubscriptionStatus::Ready
         ));
         assert!(matches!(
             updates.try_recv(),
-            Ok(Some(SubscriptionUpdate::DataChanged))
+            Ok(Some(CachedSubscriptionUpdate::DataChanged))
         ));
         assert!(matches!(updates.try_recv(), Ok(None)));
     }
 
     #[test]
     fn update_receiver_does_not_replay_updates_sent_before_subscription() {
-        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
@@ -471,21 +485,21 @@ mod tests {
 
     #[test]
     fn update_receiver_reports_error_message_in_status_update() {
-        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
         let mut updates = handle.subscribe_updates().unwrap();
 
-        state.set_receive_error(SubscriptionStatus::decode_error(
+        state.set_receive_error(CachedSubscriptionStatus::decode_error(
             "failed to deserialize sample",
         ));
 
         assert!(matches!(
             updates.try_recv(),
-            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
-                if matches!(snapshot.status(), SubscriptionStatus::DecodeError { .. })
+            Ok(Some(CachedSubscriptionUpdate::StatusChanged(snapshot)))
+                if matches!(snapshot.status(), CachedSubscriptionStatus::DecodeError { .. })
                     && snapshot.message() == Some("failed to deserialize sample")
         ));
         assert!(matches!(updates.try_recv(), Ok(None)));
@@ -493,25 +507,29 @@ mod tests {
 
     #[test]
     fn update_receiver_reports_status_changed_for_repeated_error_with_new_message() {
-        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
         let mut updates = handle.subscribe_updates().unwrap();
 
-        state.set_receive_error(SubscriptionStatus::decode_error("first decode failure"));
+        state.set_receive_error(CachedSubscriptionStatus::decode_error(
+            "first decode failure",
+        ));
         assert!(matches!(
             updates.try_recv(),
-            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+            Ok(Some(CachedSubscriptionUpdate::StatusChanged(snapshot)))
                 if snapshot.message() == Some("first decode failure")
         ));
 
-        state.set_receive_error(SubscriptionStatus::decode_error("second decode failure"));
+        state.set_receive_error(CachedSubscriptionStatus::decode_error(
+            "second decode failure",
+        ));
 
         assert!(matches!(
             updates.try_recv(),
-            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+            Ok(Some(CachedSubscriptionUpdate::StatusChanged(snapshot)))
                 if snapshot.message() == Some("second decode failure")
         ));
         assert!(matches!(updates.try_recv(), Ok(None)));
@@ -519,20 +537,23 @@ mod tests {
 
     #[test]
     fn status_becomes_ready_after_storing_latest() {
-        let state = Arc::new(SubscriptionState::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
 
         state.store_latest(sample_record(NonClonePayload(1)));
 
-        assert_eq!(state.handle().status().status(), &SubscriptionStatus::Ready);
+        assert_eq!(
+            state.handle().status().status(),
+            &CachedSubscriptionStatus::Ready
+        );
     }
 
     #[test]
     fn update_receiver_closes_when_subscription_closes() {
-        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
@@ -540,14 +561,17 @@ mod tests {
 
         state.close();
 
-        assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
-        assert!(matches!(updates.try_recv(), Err(SubscriptionUpdateClosed)));
+        assert_eq!(handle.status().status(), &CachedSubscriptionStatus::Closed);
+        assert!(matches!(
+            updates.try_recv(),
+            Err(CachedSubscriptionUpdateClosed)
+        ));
     }
 
     #[test]
     fn subscribing_after_close_returns_closed() {
-        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
@@ -556,14 +580,14 @@ mod tests {
 
         assert!(matches!(
             handle.subscribe_updates(),
-            Err(SubscriptionUpdateClosed)
+            Err(CachedSubscriptionUpdateClosed)
         ));
     }
 
     #[test]
     fn close_keeps_previously_retained_latest_sample() {
-        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
@@ -574,13 +598,13 @@ mod tests {
 
         let latest = handle.latest().unwrap();
         assert!(Arc::ptr_eq(&latest, &record));
-        assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
+        assert_eq!(handle.status().status(), &CachedSubscriptionStatus::Closed);
     }
 
     #[test]
     fn close_keeps_previously_retained_time_window_samples() {
-        let state = Arc::new(SubscriptionState::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
         ));
         let handle = state.handle();
@@ -595,13 +619,13 @@ mod tests {
         assert_eq!(records.len(), 2);
         assert!(Arc::ptr_eq(&records[0], &first));
         assert!(Arc::ptr_eq(&records[1], &second));
-        assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
+        assert_eq!(handle.status().status(), &CachedSubscriptionStatus::Closed);
     }
 
     #[test]
     fn close_does_not_emit_closed_status_update() {
-        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
@@ -609,14 +633,17 @@ mod tests {
 
         state.close();
 
-        assert!(matches!(updates.try_recv(), Err(SubscriptionUpdateClosed)));
+        assert!(matches!(
+            updates.try_recv(),
+            Err(CachedSubscriptionUpdateClosed)
+        ));
     }
 
     #[tokio::test]
     async fn spawned_receive_task_exits_when_subscription_closes() {
         let (exited_sender, exited_receiver) = tokio::sync::oneshot::channel();
-        let state = SubscriptionState::<NonClonePayload>::spawn(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = CachedSubscriptionState::<NonClonePayload>::spawn(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
             move |_state, cancellation| async move {
                 cancellation.cancelled().await;
@@ -635,8 +662,8 @@ mod tests {
     #[tokio::test]
     async fn spawned_receive_task_exits_when_last_handle_drops() {
         let (exited_sender, exited_receiver) = tokio::sync::oneshot::channel();
-        let state = SubscriptionState::<NonClonePayload>::spawn(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = CachedSubscriptionState::<NonClonePayload>::spawn(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
             move |_state, cancellation| async move {
                 cancellation.cancelled().await;
@@ -656,8 +683,8 @@ mod tests {
 
     #[test]
     fn store_latest_after_close_keeps_closed_terminal() {
-        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
@@ -666,33 +693,41 @@ mod tests {
         state.close();
         state.store_latest(sample_record(NonClonePayload(1)));
 
-        assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
+        assert_eq!(handle.status().status(), &CachedSubscriptionStatus::Closed);
         assert!(handle.latest().is_none());
-        assert!(matches!(updates.try_recv(), Err(SubscriptionUpdateClosed)));
+        assert!(matches!(
+            updates.try_recv(),
+            Err(CachedSubscriptionUpdateClosed)
+        ));
     }
 
     #[test]
     fn receive_error_after_close_keeps_closed_terminal() {
-        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
         let mut updates = handle.subscribe_updates().unwrap();
 
         state.close();
-        state.set_receive_error(SubscriptionStatus::decode_error("late decode failure"));
+        state.set_receive_error(CachedSubscriptionStatus::decode_error(
+            "late decode failure",
+        ));
 
         let status = handle.status();
-        assert_eq!(status.status(), &SubscriptionStatus::Closed);
+        assert_eq!(status.status(), &CachedSubscriptionStatus::Closed);
         assert_eq!(status.message(), None);
-        assert!(matches!(updates.try_recv(), Err(SubscriptionUpdateClosed)));
+        assert!(matches!(
+            updates.try_recv(),
+            Err(CachedSubscriptionUpdateClosed)
+        ));
     }
 
     #[test]
     fn close_is_idempotent() {
-        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
@@ -701,54 +736,78 @@ mod tests {
         state.close();
         state.close();
 
-        assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
-        assert!(matches!(updates.try_recv(), Err(SubscriptionUpdateClosed)));
+        assert_eq!(handle.status().status(), &CachedSubscriptionStatus::Closed);
+        assert!(matches!(
+            updates.try_recv(),
+            Err(CachedSubscriptionUpdateClosed)
+        ));
     }
 
     #[test]
     fn json_handle_projects_latest_dynamic_payload() {
-        let state = Arc::new(SubscriptionState::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         state.store_latest(dynamic_record_at(42, Time::zero()));
-        let handle = JsonSubscriptionHandle::new(state.handle(), JsonRenderPolicy::default());
+        let handle = CachedJsonSubscription::new(state.handle(), JsonRenderPolicy::default());
 
         assert_eq!(handle.latest_json(), Some(serde_json::json!(42)));
     }
 
     #[test]
-    fn json_handle_subscribes_to_underlying_dynamic_updates() {
-        let state = Arc::new(SubscriptionState::<DynamicPayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+    fn json_handle_projects_latest_dynamic_payload_record() {
+        let state = Arc::new(CachedSubscriptionState::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
-        let handle = JsonSubscriptionHandle::new(state.handle(), JsonRenderPolicy::default());
+        let source = dynamic_record_at(42, Time::from_nanos(7));
+        state.store_latest(Arc::clone(&source));
+        let handle = CachedJsonSubscription::new(state.handle(), JsonRenderPolicy::default());
+
+        let record = handle
+            .latest_json_record()
+            .expect("latest JSON record should be available");
+
+        assert_eq!(record.value, serde_json::json!(42));
+        assert_eq!(record.source_time, source.source_time);
+        assert_eq!(record.transport_time, source.transport_time);
+        assert_eq!(record.publication_id, source.publication_id);
+        assert!(Arc::ptr_eq(&record.metadata, &source.metadata));
+    }
+
+    #[test]
+    fn json_handle_subscribes_to_underlying_dynamic_updates() {
+        let state = Arc::new(CachedSubscriptionState::<DynamicPayload>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let handle = CachedJsonSubscription::new(state.handle(), JsonRenderPolicy::default());
         let mut updates = handle.subscribe_updates().unwrap();
 
         state.store_latest(dynamic_record_at(1, Time::zero()));
 
         assert!(matches!(
             updates.try_recv(),
-            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
-                if snapshot.status() == &SubscriptionStatus::Ready
+            Ok(Some(CachedSubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.status() == &CachedSubscriptionStatus::Ready
         ));
         assert!(matches!(
             updates.try_recv(),
-            Ok(Some(SubscriptionUpdate::DataChanged))
+            Ok(Some(CachedSubscriptionUpdate::DataChanged))
         ));
         assert!(matches!(updates.try_recv(), Ok(None)));
     }
 
     #[test]
     fn json_handle_projects_dynamic_payload_window() {
-        let state = Arc::new(SubscriptionState::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
         ));
         state.store_latest(dynamic_record_at(1, Time::from_nanos(1)));
         state.store_latest(dynamic_record_at(2, Time::from_nanos(2)));
-        let handle = JsonSubscriptionHandle::new(state.handle(), JsonRenderPolicy::default());
+        let handle = CachedJsonSubscription::new(state.handle(), JsonRenderPolicy::default());
 
         assert_eq!(
             handle.window_json(Time::from_nanos(1), Time::from_nanos(2)),
@@ -757,9 +816,32 @@ mod tests {
     }
 
     #[test]
+    fn json_handle_projects_dynamic_payload_window_records() {
+        let state = Arc::new(CachedSubscriptionState::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
+        ));
+        let first = dynamic_record_at(1, Time::from_nanos(1));
+        let second = dynamic_record_at(2, Time::from_nanos(2));
+        state.store_latest(Arc::clone(&first));
+        state.store_latest(Arc::clone(&second));
+        let handle = CachedJsonSubscription::new(state.handle(), JsonRenderPolicy::default());
+
+        let records = handle.window_json_records(Time::from_nanos(1), Time::from_nanos(2));
+
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0].value, serde_json::json!(1));
+        assert_eq!(records[0].source_time, first.source_time);
+        assert!(Arc::ptr_eq(&records[0].metadata, &first.metadata));
+        assert_eq!(records[1].value, serde_json::json!(2));
+        assert_eq!(records[1].source_time, second.source_time);
+        assert!(Arc::ptr_eq(&records[1].metadata, &second.metadata));
+    }
+
+    #[test]
     fn dropping_last_handle_cancels_subscription_state() {
-        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+        let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let cancellation = state.cancellation_token();
@@ -776,14 +858,19 @@ mod tests {
     #[test]
     fn update_receiver_closes_after_subscription_state_is_dropped() {
         let mut updates = {
-            let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
-                SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
+                CachedSubscriptionStatusSnapshot::new(
+                    CachedSubscriptionStatus::WaitingForFirstSample,
+                ),
                 RetentionPolicy::LatestOnly,
             ));
 
             state.handle().subscribe_updates().unwrap()
         };
 
-        assert!(matches!(updates.try_recv(), Err(SubscriptionUpdateClosed)));
+        assert!(matches!(
+            updates.try_recv(),
+            Err(CachedSubscriptionUpdateClosed)
+        ));
     }
 }
