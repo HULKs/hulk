@@ -83,7 +83,6 @@ mod tests;
 pub use codec::{DynamicCdrCodec, DynamicPayload};
 pub use discovery::{
     DiscoveredTopicSchema, DynamicRawSubscriberDiscoveryBuilder, DynamicSubscriberDiscoveryBuilder,
-    TopicSchemaFingerprint, topic_schema_fingerprints_from_publishers,
 };
 pub use error::DynamicError;
 pub use json::{

@@ -6,7 +6,7 @@ use std::{
 use color_eyre::eyre::{Result, WrapErr};
 use ros_z::{
     context::{Context, ContextBuilder},
-    dynamic::DynamicSubscriber,
+    dynamic::{DynamicRawSubscriberDiscoveryBuilder, DynamicSubscriber},
     graph::GraphSnapshot,
     node::Node,
     parameter::RemoteParameterClient,
@@ -93,6 +93,16 @@ impl AppContext {
             .build()
             .await
             .wrap_err_with(|| format!("failed to subscribe to {topic}"))
+    }
+
+    pub fn create_raw_subscriber_builder(
+        &self,
+        topic: &str,
+        discovery_timeout: Duration,
+    ) -> DynamicRawSubscriberDiscoveryBuilder {
+        self.node
+            .dynamic_subscriber_auto(topic, discovery_timeout)
+            .raw()
     }
 
     pub fn parameter_client(&self, target_fqn: &str) -> Result<RemoteParameterClient> {
