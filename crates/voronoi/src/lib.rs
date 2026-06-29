@@ -16,6 +16,11 @@ const STRAIGHT_COST: f32 = 1.0;
 const DIAGONAL_COST: f32 = SQRT_2;
 const INV_SQRT_2: f32 = 1.0 / DIAGONAL_COST;
 
+struct SeedCell {
+    pub index: usize,
+    pub cost: f32,
+}
+
 #[derive(Copy, Clone, Debug)]
 struct Neighbor {
     pub dx: isize,
@@ -198,9 +203,7 @@ impl VoronoiGrid {
             let player_number = robots[robot_index].1;
             let (sin_h, cos_h) = robot_headings[robot_index];
 
-            for (neighbor_index, neighbor) in
-                neighbor_indices(current_index, self.width_tiles, self.height_tiles)
-            {
+            for (neighbor_index, neighbor) in self.neighbor_indices(current_index) {
                 if self.tiles[neighbor_index].is_blocked() {
                     continue;
                 }
@@ -250,20 +253,73 @@ impl VoronoiGrid {
         distance: &mut [f32],
         queue: &mut Queue,
     ) {
+        let mut seed_distance = vec![f32::INFINITY; self.tiles.len()];
+        let mut seed_queue = BinaryHeap::new();
+
         for (robot_index, (robot_pose, player_number)) in robots.iter().enumerate() {
-            if let Some((start_index, start_cost)) =
-                self.nearest_free_cell_index(robot_pose.position())
-                && start_cost < distance[start_index]
+            if let Some(seed_cell) =
+                self.nearest_free_seed(robot_pose.position(), &mut seed_distance, &mut seed_queue)
+                && seed_cell.cost < distance[seed_cell.index]
             {
-                distance[start_index] = start_cost;
-                self.tiles[start_index] = Ownership::Robot(*player_number);
+                distance[seed_cell.index] = seed_cell.cost;
+                self.tiles[seed_cell.index] = Ownership::Robot(*player_number);
                 queue.push(Reverse((
-                    NotNan::new(start_cost).unwrap(),
-                    start_index,
+                    NotNan::new(seed_cell.cost).unwrap(),
+                    seed_cell.index,
                     robot_index,
                 )));
             }
         }
+    }
+
+    fn nearest_free_seed(
+        &self,
+        point: Point2<Field>,
+        distance: &mut [f32],
+        queue: &mut BinaryHeap<Reverse<(NotNan<f32>, usize)>>,
+    ) -> Option<SeedCell> {
+        let start_index = self.point_to_index(point)?;
+        if self.tiles[start_index].is_free() {
+            return Some(SeedCell {
+                index: start_index,
+                cost: 0.0,
+            });
+        }
+
+        let mut touched = Vec::new();
+        queue.clear();
+
+        distance[start_index] = 0.0;
+        touched.push(start_index);
+        queue.push(Reverse((NotNan::new(0.0).unwrap(), start_index)));
+
+        while let Some(Reverse((current_cost, current_index))) = queue.pop() {
+            let current_cost = current_cost.into_inner();
+            if current_cost > distance[current_index] {
+                continue;
+            }
+            if self.tiles[current_index].is_free() {
+                for index in touched {
+                    distance[index] = f32::INFINITY;
+                }
+                return Some(SeedCell {
+                    index: current_index,
+                    cost: current_cost,
+                });
+            }
+            for (neighbor_index, neighbor) in self.neighbor_indices(current_index) {
+                let new_cost = current_cost + neighbor.step_cost;
+                if new_cost < distance[neighbor_index] {
+                    distance[neighbor_index] = new_cost;
+                    queue.push(Reverse((NotNan::new(new_cost).unwrap(), neighbor_index)));
+                    touched.push(neighbor_index);
+                }
+            }
+        }
+        for index in touched {
+            distance[index] = f32::INFINITY;
+        }
+        None
     }
 
     pub fn centroid_for_player(&self, player: PlayerNumber) -> Option<Point2<Field>> {
@@ -295,7 +351,7 @@ impl VoronoiGrid {
         if (0..self.width_tiles as isize).contains(&ix)
             && (0..self.height_tiles as isize).contains(&iy)
         {
-            Some(self.index_from_xy(ix as usize, iy as usize))
+            Some(index_from_xy(self.width_tiles, ix as usize, iy as usize))
         } else {
             None
         }
@@ -366,51 +422,6 @@ impl VoronoiGrid {
         ))
     }
 
-    fn nearest_free_cell_index(&self, point: Point2<Field>) -> Option<(usize, f32)> {
-        self.nearest_cell_index(point, |ownership| ownership.is_free())
-    }
-
-    fn nearest_cell_index(
-        &self,
-        point: Point2<Field>,
-        mut matches: impl FnMut(Ownership) -> bool,
-    ) -> Option<(usize, f32)> {
-        let start_index = self.point_to_index(point)?;
-        if matches(self.tiles[start_index]) {
-            return Some((start_index, 0.0));
-        }
-
-        let mut distance = vec![f32::INFINITY; self.tiles.len()];
-        let mut queue = BinaryHeap::new();
-
-        distance[start_index] = 0.0;
-        queue.push(Reverse((NotNan::new(0.0).unwrap(), start_index)));
-
-        while let Some(Reverse((current_cost, current_index))) = queue.pop() {
-            let current_cost = current_cost.into_inner();
-            if current_cost > distance[current_index] {
-                continue;
-            }
-            if matches(self.tiles[current_index]) {
-                return Some((current_index, current_cost));
-            }
-            for (neighbor_index, neighbor) in
-                neighbor_indices(current_index, self.width_tiles, self.height_tiles)
-            {
-                let new_cost = current_cost + neighbor.step_cost;
-                if new_cost < distance[neighbor_index] {
-                    distance[neighbor_index] = new_cost;
-                    queue.push(Reverse((NotNan::new(new_cost).unwrap(), neighbor_index)));
-                }
-            }
-        }
-        None
-    }
-
-    fn index_from_xy(&self, x: usize, y: usize) -> usize {
-        y * (self.width_tiles) + x
-    }
-
     fn rasterize_bounds(
         &mut self,
         min_x: f32,
@@ -427,7 +438,7 @@ impl VoronoiGrid {
 
         for y in min_y..=max_y {
             for x in min_x..=max_x {
-                let index = self.index_from_xy(x, y);
+                let index = index_from_xy(self.width_tiles, x, y);
                 let grid_point = self.index_to_point(index);
                 if contains(grid_point) {
                     self.tiles[index] = Ownership::Blocked;
@@ -436,8 +447,23 @@ impl VoronoiGrid {
         }
     }
 
-    pub fn ownership_at(&self, point: Point2<Field>) -> Option<Ownership> {
-        self.point_to_index(point).map(|index| self.tiles[index])
+    fn neighbor_indices(&self, index: usize) -> impl Iterator<Item = (usize, Neighbor)> + use<> {
+        let (x, y) = xy_from_index(self.width_tiles, index);
+        let width_tiles = self.width_tiles;
+        let height_tiles = self.height_tiles;
+
+        NEIGHBORS.into_iter().filter_map(move |neighbor| {
+            let nx = x as isize + neighbor.dx;
+            let ny = y as isize + neighbor.dy;
+            if !(0..width_tiles as isize).contains(&nx) || !(0..height_tiles as isize).contains(&ny)
+            {
+                return None;
+            }
+            Some((
+                index_from_xy(width_tiles, nx as usize, ny as usize),
+                neighbor,
+            ))
+        })
     }
 }
 
@@ -447,19 +473,12 @@ fn rotation_cost(sin_h: f32, cos_h: f32, neighbor: Neighbor, orientation_bias: f
     (turn_factor * orientation_bias).max(0.0)
 }
 
-fn neighbor_indices(
-    index: usize,
-    width_tiles: usize,
-    height_tiles: usize,
-) -> impl Iterator<Item = (usize, Neighbor)> {
+fn index_from_xy(width_tiles: usize, x: usize, y: usize) -> usize {
+    y * width_tiles + x
+}
+
+fn xy_from_index(width_tiles: usize, index: usize) -> (usize, usize) {
     let x = index % width_tiles;
     let y = index / width_tiles;
-    NEIGHBORS.into_iter().filter_map(move |neighbor| {
-        let nx = x as isize + neighbor.dx;
-        let ny = y as isize + neighbor.dy;
-        if !(0..width_tiles as isize).contains(&nx) || !(0..height_tiles as isize).contains(&ny) {
-            return None;
-        }
-        Some((ny as usize * width_tiles + nx as usize, neighbor))
-    })
+    (x, y)
 }
