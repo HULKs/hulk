@@ -15,7 +15,9 @@ pub struct SimulationConfig {
     pub kick_cooldown: Duration,
     pub ball_friction_per_second: f32,
     pub ball_visibility_range: f32,
-    pub ball_visibility_angle: f32,
+    /// Total field of view used for filtering ball and robot perception.
+    /// `visible = object_angle >= fov / 2`
+    pub visibility_field_of_view: f32,
     pub head_yaw_minimum: f32,
     pub head_yaw_maximum: f32,
     pub head_yaw_velocity: f32,
@@ -38,7 +40,7 @@ impl Default for SimulationConfig {
             kick_cooldown: Duration::from_millis(750),
             ball_friction_per_second: 0.6,
             ball_visibility_range: 4.0,
-            ball_visibility_angle: std::f32::consts::FRAC_PI_2,
+            visibility_field_of_view: std::f32::consts::FRAC_PI_2,
             head_yaw_minimum: -0.785,
             head_yaw_maximum: 0.785,
             head_yaw_velocity: 0.4,

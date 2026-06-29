@@ -884,7 +884,7 @@ fn paint_view_cone(
 ) {
     let center = pose.position();
     let direction = pose.orientation().angle() + head_yaw.angle();
-    let half_angle = config.ball_visibility_angle / 2.0;
+    let half_angle = config.visibility_field_of_view / 2.0;
     let range = config.ball_visibility_range;
     let stroke = Stroke {
         width: 0.015,
@@ -899,7 +899,7 @@ fn paint_view_cone(
     let segments = 24;
     let arc_points = (0..=segments).map(|index| {
         let factor = index as f32 / segments as f32;
-        let angle = direction - half_angle + factor * config.ball_visibility_angle;
+        let angle = direction - half_angle + factor * config.visibility_field_of_view;
         center + Orientation2::new(angle).as_unit_vector() * range
     });
     painter.polyline(arc_points, stroke);

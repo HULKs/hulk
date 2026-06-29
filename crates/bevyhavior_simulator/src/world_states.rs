@@ -12,9 +12,9 @@ use types::{
 use crate::{
     behavior_tree_simulator::{
         SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDownState,
-        SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorPrimaryState,
-        SimulatorReceivedHslMessages, SimulatorRobot, SimulatorRobotId, SimulatorRuleObstacles,
-        SimulatorScenarioObstacles, SimulatorSuggestedSearchPosition,
+        SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorObstacle,
+        SimulatorPrimaryState, SimulatorReceivedHslMessages, SimulatorRobot, SimulatorRobotId,
+        SimulatorRuleObstacles, SimulatorScenarioObstacles, SimulatorSuggestedSearchPosition,
     },
     communication::player_states_from_received_hsl_messages,
     coordinates::{ground_to_field_from_world, world_to_field_transform},
@@ -44,7 +44,10 @@ pub(crate) fn build_world_states(
 ) {
     world_states.0.clear();
     let canonical_global_field_side = game_state.game_controller_state.global_field_side;
-    let generated_obstacles = Vec::new();
+    let robot_poses = robots
+        .iter()
+        .map(|(robot, ground_to_world, _, _, _, _)| (robot.id(), ground_to_world.ground_to_world))
+        .collect::<Vec<_>>();
 
     for (
         robot,
@@ -68,10 +71,17 @@ pub(crate) fn build_world_states(
             head_yaw.yaw,
             &config,
         );
+        let generated_obstacles = perceived_robot_obstacles_from_pose(
+            robot_id,
+            ground_to_world.ground_to_world,
+            head_yaw.yaw,
+            &robot_poses,
+            &config,
+        );
         let obstacles = scenario_obstacles
             .obstacles
             .iter()
-            .chain(&generated_obstacles)
+            .chain(generated_obstacles.iter())
             .copied()
             .map(|obstacle| obstacle.to_world_state_obstacle(ground_to_world.ground_to_world))
             .collect();
@@ -160,21 +170,52 @@ fn perceived_ball_from_pose(
 ) -> Option<BallState> {
     let ball = ball?;
     let ball_in_ground = ground_to_world.inverse() * ball.position;
-    let distance = ball_in_ground.coords().norm();
-    if distance > config.ball_visibility_range {
+    if !is_visible_from_head(ball_in_ground, head_yaw, config) {
         return None;
+    }
+
+    Some(ball.to_ball_state(ground_to_world, global_field_side, now))
+}
+
+fn perceived_robot_obstacles_from_pose(
+    receiver_id: SimulatorRobotId,
+    receiver_ground_to_world: Isometry2<Ground, World>,
+    receiver_head_yaw: Orientation2<Ground>,
+    robot_poses: &[(SimulatorRobotId, Isometry2<Ground, World>)],
+    config: &SimulationConfig,
+) -> Vec<SimulatorObstacle> {
+    robot_poses
+        .iter()
+        .filter_map(|(robot_id, ground_to_world)| {
+            if *robot_id == receiver_id {
+                return None;
+            }
+
+            let position = ground_to_world * Point2::origin();
+            let position_in_receiver_ground = receiver_ground_to_world.inverse() * position;
+            is_visible_from_head(position_in_receiver_ground, receiver_head_yaw, config).then(
+                || SimulatorObstacle::robot(position, config.robot_radius, config.robot_radius),
+            )
+        })
+        .collect()
+}
+
+fn is_visible_from_head(
+    position_in_ground: Point2<Ground>,
+    head_yaw: Orientation2<Ground>,
+    config: &SimulationConfig,
+) -> bool {
+    let distance = position_in_ground.coords().norm();
+    if distance > config.ball_visibility_range {
+        return false;
     }
 
     struct Head;
 
     let head_to_ground = head_yaw.as_transform::<Head>();
-    let ball_in_head = head_to_ground.inverse() * ball_in_ground;
-    let angle = ball_in_head.coords().angle(&Vector2::x_axis());
-    if angle.abs() > config.ball_visibility_angle / 2.0 {
-        return None;
-    }
-
-    Some(ball.to_ball_state(ground_to_world, global_field_side, now))
+    let position_in_head = head_to_ground.inverse() * position_in_ground;
+    let angle = position_in_head.coords().angle(&Vector2::x_axis());
+    angle.abs() <= config.visibility_field_of_view / 2.0
 }
 
 #[cfg(test)]
@@ -193,6 +234,7 @@ mod tests {
         ball_position::BallPosition,
         field_dimensions::{FieldDimensions, GlobalFieldSide, Side},
         messages::IncomingMessage,
+        obstacles::ObstacleKind,
         players::Players,
         primary_state::PrimaryState,
         world_state::PlayerState,
@@ -236,7 +278,7 @@ mod tests {
     #[test]
     fn ball_visibility_uses_head_yaw() {
         let config = SimulationConfig {
-            ball_visibility_angle: std::f32::consts::FRAC_PI_4,
+            visibility_field_of_view: std::f32::consts::FRAC_PI_4,
             ..Default::default()
         };
 
@@ -262,6 +304,72 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    #[test]
+    fn world_states_generate_visible_robot_obstacles() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(SimulatorClock {
+                now: SystemTime::UNIX_EPOCH,
+                tick_duration: DEFAULT_TICK_DURATION,
+            })
+            .insert_resource(crate::behavior_tree_simulator::SimulatorFieldDimensions(
+                FieldDimensions::SPL_2025,
+            ))
+            .insert_resource(SimulatorBall::default())
+            .insert_resource(SimulatorGameState::default())
+            .insert_resource(SimulatorReceivedHslMessages::default())
+            .insert_resource(SimulatorRuleObstacles::default())
+            .insert_resource(SimulatorScenarioObstacles::default())
+            .insert_resource(SimulationConfig {
+                visibility_field_of_view: FRAC_PI_2,
+                ball_visibility_range: 2.0,
+                robot_radius: 0.25,
+                ..Default::default()
+            })
+            .insert_resource(SimulatorWorldStates::default())
+            .add_systems(Update, build_world_states);
+
+        for (player_number, pose) in [
+            (PlayerNumber::One, Isometry2::identity()),
+            (
+                PlayerNumber::Two,
+                Isometry2::from_parts(vector![1.0, 0.0], 0.0),
+            ),
+            (
+                PlayerNumber::Three,
+                Isometry2::from_parts(vector![0.0, 1.0], 0.0),
+            ),
+        ] {
+            app.world_mut().spawn((
+                SimulatorRobot {
+                    team: Team::Hulks,
+                    player_number,
+                },
+                SimulatorGroundToWorld {
+                    ground_to_world: pose,
+                },
+                SimulatorHeadYaw::default(),
+                SimulatorPrimaryState {
+                    primary_state: PrimaryState::Playing,
+                },
+                SimulatorFallDownState::default(),
+                SimulatorSuggestedSearchPosition::default(),
+            ));
+        }
+
+        app.update();
+
+        let world_state =
+            &app.world().resource::<SimulatorWorldStates>().0[&robot_id(PlayerNumber::One)];
+        assert_eq!(world_state.obstacles.len(), 1);
+        let obstacle = world_state.obstacles[0];
+        assert_eq!(obstacle.kind, ObstacleKind::Robot);
+        assert_relative_eq!(obstacle.position.x(), 1.0, epsilon = 0.0001);
+        assert_relative_eq!(obstacle.position.y(), 0.0, epsilon = 0.0001);
+        assert_relative_eq!(obstacle.radius_at_foot_height, 0.25, epsilon = 0.0001);
+        assert_relative_eq!(obstacle.radius_at_hip_height, 0.25, epsilon = 0.0001);
     }
 
     #[test]
