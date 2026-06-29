@@ -11674,6 +11674,7 @@ dependencies = [
  "egui_extras",
  "geometry",
  "hulk_widgets",
+ "image",
  "itertools 0.14.0",
  "linear_algebra",
  "log",
@@ -11681,12 +11682,14 @@ dependencies = [
  "repository",
  "ros-z",
  "ros-z-debug",
+ "ros2",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
  "toml 0.8.23",
  "tracing-subscriber",
+ "types",
  "uuid",
 ]
 

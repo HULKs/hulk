@@ -15,6 +15,7 @@ egui_dock = { workspace = true }
 egui_extras = { workspace = true }
 geometry = { workspace = true }
 hulk_widgets = { workspace = true }
+image = { workspace = true }
 itertools = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
@@ -22,6 +23,7 @@ nalgebra = { workspace = true }
 repository = { workspace = true }
 ros-z = { workspace = true }
 ros-z-debug = { workspace = true }
+ros2 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

@@ -22,7 +22,7 @@ use egui_dock::{
 use hulk_widgets::CompletionEdit;
 use log::{error, warn};
 use panel::{Panel, PanelCreationContext, PanelUiContext};
-use panels::TextPanel;
+use panels::{ImagePanel, TextPanel};
 use repository::{Repository, inspect_version::check_for_update};
 use serde_json::{Value, from_str, to_string};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
@@ -38,7 +38,7 @@ mod repaint;
 mod selectable_panel_macro;
 mod visuals;
 
-impl_selectable_panel!(TextPanel);
+impl_selectable_panel!(TextPanel, ImagePanel);
 
 fn panel_creation_context<'a>(
     backend: &Arc<RobotBackend>,
