@@ -256,16 +256,38 @@ impl TryFrom<Image> for RgbImage {
                 Ok(rgb_image)
             }
             "mono16" => {
-                let pixel_count = (image.width * image.height) as usize;
-                let u16_data: &[u16] = unsafe {
-                    std::slice::from_raw_parts(image.data.as_ptr() as *const u16, pixel_count)
-                };
+                let pixel_count = (image.width as usize)
+                    .checked_mul(image.height as usize)
+                    .ok_or(ImageError::Decoding(DecodingError::from_format_hint(
+                        image::error::ImageFormatHint::Name(
+                            "mono16: image dimensions overflow".to_string(),
+                        ),
+                    )))?;
+                let expected_len = pixel_count.checked_mul(2).ok_or(ImageError::Decoding(
+                    DecodingError::from_format_hint(image::error::ImageFormatHint::Name(
+                        "mono16: image buffer size overflow".to_string(),
+                    )),
+                ))?;
+
+                if image.data.len() != expected_len {
+                    return Err(ImageError::Decoding(DecodingError::from_format_hint(
+                        image::error::ImageFormatHint::Name(format!(
+                            "mono16: expected {expected_len} bytes, got {}",
+                            image.data.len()
+                        )),
+                    )));
+                }
 
                 let mut rgb_image = RgbImage::new(image.width, image.height);
                 let mut output_buffer = rgb_image.as_flat_samples_mut();
                 let output_buffer = output_buffer.as_mut_slice();
 
-                for (i, &pixel_val) in u16_data.iter().enumerate() {
+                for (i, pixel_bytes) in image.data.chunks_exact(2).enumerate() {
+                    let pixel_val = if image.is_bigendian == 0 {
+                        u16::from_le_bytes([pixel_bytes[0], pixel_bytes[1]])
+                    } else {
+                        u16::from_be_bytes([pixel_bytes[0], pixel_bytes[1]])
+                    };
                     let gray_8 = (pixel_val >> 8) as u8;
 
                     let rgb_idx = i * 3;
@@ -282,5 +304,55 @@ impl TryFrom<Image> for RgbImage {
                 )),
             ))),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mono16_image(width: u32, height: u32, is_bigendian: u8, data: Vec<u8>) -> Image {
+        Image {
+            width,
+            height,
+            encoding: "mono16".to_string(),
+            is_bigendian,
+            step: width * 2,
+            data: data.into(),
+            ..Image::default()
+        }
+    }
+
+    #[test]
+    fn mono16_short_buffer_returns_decode_error() {
+        let image = mono16_image(1, 1, 0, vec![0x12]);
+
+        let result = RgbImage::try_from(image);
+
+        assert!(matches!(result, Err(ImageError::Decoding(_))));
+    }
+
+    #[test]
+    fn mono16_little_endian_uses_high_byte_for_grayscale_rgb() {
+        let image = mono16_image(2, 1, 0, vec![0x34, 0x12, 0xcd, 0xab]);
+
+        let rgb_image = RgbImage::try_from(image).unwrap();
+
+        assert_eq!(
+            rgb_image.into_raw(),
+            vec![0x12, 0x12, 0x12, 0xab, 0xab, 0xab]
+        );
+    }
+
+    #[test]
+    fn mono16_big_endian_uses_high_byte_for_grayscale_rgb() {
+        let image = mono16_image(2, 1, 1, vec![0x12, 0x34, 0xab, 0xcd]);
+
+        let rgb_image = RgbImage::try_from(image).unwrap();
+
+        assert_eq!(
+            rgb_image.into_raw(),
+            vec![0x12, 0x12, 0x12, 0xab, 0xab, 0xab]
+        );
     }
 }
