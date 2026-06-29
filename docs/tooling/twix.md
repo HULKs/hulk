@@ -20,7 +20,7 @@ If an old saved layout fails to load, or if you want to reset the current panel 
 
 Twix checks the local repository version at startup and warns when the running binary is older than the checked-out `tools/twix/Cargo.toml` version. Use `--repository-root <path>` to point that check at a different checkout.
 
-The first ROS-Z Twix version contains a text panel. The text panel observes one ROS-Z topic through `ros-z-debug`, renders the latest dynamic payload as JSON, and shows sample metadata.
+ROS-Z Twix currently contains a Text panel and an Image panel. The Text panel observes one ROS-Z topic through `ros-z-debug`, renders the latest dynamic payload as JSON, and shows sample metadata. The Image panel observes `TimeWrapper<ros2::sensor_msgs::image::Image>` topics, defaults to `inputs/left_image`, and renders the latest raw camera frame. The first Image panel slice does not include save, pan/zoom, hover coordinates, overlays, JPEG leaf topics, YCbCr422 topics, or bare `Image` topics.
 
 ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`. Legacy Twix keeps using `hulks/twix.toml`, so the two tools do not share incompatible keybinding schemas. The default ROS-Z keybindings are:
 
