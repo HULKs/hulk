@@ -16,7 +16,7 @@ const STRAIGHT_COST: f32 = 1.0;
 const DIAGONAL_COST: f32 = SQRT_2;
 const INV_SQRT_2: f32 = 1.0 / DIAGONAL_COST;
 
-struct SeedCell {
+struct NearestCell {
     pub index: usize,
     pub cost: f32,
 }
@@ -68,16 +68,6 @@ pub enum Ownership {
     Robot(PlayerNumber),
     #[default]
     Free,
-}
-
-impl Ownership {
-    fn is_blocked(self) -> bool {
-        matches!(self, Self::Blocked)
-    }
-
-    fn is_free(self) -> bool {
-        matches!(self, Self::Free)
-    }
 }
 
 #[derive(
@@ -204,7 +194,7 @@ impl VoronoiGrid {
             let (sin_h, cos_h) = robot_headings[robot_index];
 
             for (neighbor_index, neighbor) in self.neighbor_indices(current_index) {
-                if self.tiles[neighbor_index].is_blocked() {
+                if self.tiles[neighbor_index] == Ownership::Blocked {
                     continue;
                 }
 
@@ -257,9 +247,12 @@ impl VoronoiGrid {
         let mut seed_queue = BinaryHeap::new();
 
         for (robot_index, (robot_pose, player_number)) in robots.iter().enumerate() {
-            if let Some(seed_cell) =
-                self.nearest_free_seed(robot_pose.position(), &mut seed_distance, &mut seed_queue)
-                && seed_cell.cost < distance[seed_cell.index]
+            if let Some(seed_cell) = self.nearest_matching_cell(
+                robot_pose.position(),
+                Ownership::Free,
+                &mut seed_distance,
+                &mut seed_queue,
+            ) && seed_cell.cost < distance[seed_cell.index]
             {
                 distance[seed_cell.index] = seed_cell.cost;
                 self.tiles[seed_cell.index] = Ownership::Robot(*player_number);
@@ -272,15 +265,24 @@ impl VoronoiGrid {
         }
     }
 
-    fn nearest_free_seed(
+    pub fn nearest_non_blocked_ownership(&self, point: Point2<Field>) -> Option<Ownership> {
+        let mut distance = vec![f32::INFINITY; self.tiles.len()];
+        let mut queue = BinaryHeap::new();
+
+        self.nearest_matching_cell(point, Ownership::Free, &mut distance, &mut queue)
+            .map(|nearest_cell| self.tiles[nearest_cell.index])
+    }
+
+    fn nearest_matching_cell(
         &self,
         point: Point2<Field>,
+        target_ownership: Ownership,
         distance: &mut [f32],
         queue: &mut BinaryHeap<Reverse<(NotNan<f32>, usize)>>,
-    ) -> Option<SeedCell> {
+    ) -> Option<NearestCell> {
         let start_index = self.point_to_index(point)?;
-        if self.tiles[start_index].is_free() {
-            return Some(SeedCell {
+        if self.tiles[start_index] == target_ownership {
+            return Some(NearestCell {
                 index: start_index,
                 cost: 0.0,
             });
@@ -298,11 +300,11 @@ impl VoronoiGrid {
             if current_cost > distance[current_index] {
                 continue;
             }
-            if self.tiles[current_index].is_free() {
+            if self.tiles[current_index] == target_ownership {
                 for index in touched {
                     distance[index] = f32::INFINITY;
                 }
-                return Some(SeedCell {
+                return Some(NearestCell {
                     index: current_index,
                     cost: current_cost,
                 });
@@ -358,24 +360,20 @@ impl VoronoiGrid {
     }
 
     pub fn index_to_point(&self, index: usize) -> Point2<Field> {
-        let width_tiles = self.width_tiles;
-        let ix = (index % width_tiles) as f32;
-        let iy = (index / width_tiles) as f32;
+        let (x, y) = xy_from_index(self.width_tiles, index);
 
         point!(
-            self.bounds.grid_min.x() + ix * self.resolution + self.resolution / 2.0,
-            self.bounds.grid_min.y() + iy * self.resolution + self.resolution / 2.0
+            self.bounds.grid_min.x() + (x as f32) * self.resolution + self.resolution / 2.0,
+            self.bounds.grid_min.y() + (y as f32) * self.resolution + self.resolution / 2.0
         )
     }
 
     fn cell_overlaps_centroid_bounds(&self, index: usize) -> bool {
-        let width_tiles = self.width_tiles;
-        let x = (index % width_tiles) as f32;
-        let y = (index / width_tiles) as f32;
+        let (x, y) = xy_from_index(self.width_tiles, index);
 
-        let min_x = self.bounds.grid_min.x() + x * self.resolution;
+        let min_x = self.bounds.grid_min.x() + (x as f32) * self.resolution;
         let max_x = min_x + self.resolution;
-        let min_y = self.bounds.grid_min.y() + y * self.resolution;
+        let min_y = self.bounds.grid_min.y() + (y as f32) * self.resolution;
         let max_y = min_y + self.resolution;
 
         min_x < self.bounds.centroid_max.x()
@@ -464,6 +462,10 @@ impl VoronoiGrid {
                 neighbor,
             ))
         })
+    }
+
+    pub fn ownership_at(&self, point: Point2<Field>) -> Option<Ownership> {
+        self.point_to_index(point).map(|index| self.tiles[index])
     }
 }
 
