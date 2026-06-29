@@ -15,6 +15,7 @@ use uuid::Uuid;
 use crate::{
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
+    status::format_topic_observation_status,
 };
 
 pub const DEFAULT_IMAGE_TOPIC: &str = "inputs/left_image";
@@ -221,7 +222,7 @@ impl ImagePanel {
     fn render_status(ui: &mut Ui, status: TopicObservationStatus) {
         ui.horizontal_wrapped(|ui| {
             ui.label("status:");
-            ui.monospace(format!("{status:?}"));
+            ui.monospace(format_topic_observation_status(status));
         });
     }
 }

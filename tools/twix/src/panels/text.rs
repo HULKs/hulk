@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use crate::{
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
+    status::format_topic_observation_status,
 };
 
 pub struct TextPanel {
@@ -195,7 +196,7 @@ impl TextPanel {
     fn render_status(ui: &mut Ui, status: TopicObservationStatus) {
         ui.horizontal_wrapped(|ui| {
             ui.label("status:");
-            ui.monospace(format!("{status:?}"));
+            ui.monospace(format_topic_observation_status(status));
         });
     }
 }
