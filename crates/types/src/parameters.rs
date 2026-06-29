@@ -815,6 +815,7 @@ pub struct SubstatesParameters {
     pub alignment_angle_threshold: f32,
     pub blocking_distance_offset: f32,
     pub corner_kick_blocking_angle: f32,
+    pub penalty_kick_target_y_offset: f32,
 }
 
 #[derive(

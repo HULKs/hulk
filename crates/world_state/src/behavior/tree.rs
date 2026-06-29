@@ -13,6 +13,7 @@ use crate::{
         head::{look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
         kick::{intercept, kick, kick_power_subtree, kick_subtree, set_kick_target_in_front},
         node::Blackboard,
+        penalty_shootout::{is_penalty_shootout, penalty_shootout_subtree},
         search::{has_suggested_search_position, leuchtturm, walk_to_search_position},
         substates::{is_in_sub_state, sub_state_subtree},
         switch_motion_type::switch_motion_type,
@@ -70,6 +71,10 @@ fn ready_subtree() -> Node<Blackboard> {
 
 fn playing_subtree() -> Node<Blackboard> {
     selection!(
+        sequence!(
+            condition!(is_penalty_shootout),
+            subtree!(penalty_shootout_subtree)
+        ),
         sequence!(condition!(is_goalkeeper), subtree!(goalkeeper_subtree)),
         sequence!(
             negation!(condition!(has_ball_position)),
