@@ -170,33 +170,17 @@ impl TopicProjection {
 }
 
 fn resolve_topic_name(topic: &str, target: &TargetIdentity) -> Result<String> {
-    if let Some(private_topic) = topic.strip_prefix('~') {
-        let node_name = target
+    let node_name = if topic.starts_with('~') {
+        target
             .node_name()
             .ok_or_else(|| Error::MissingTargetNodeName {
                 topic: topic.to_string(),
-            })?;
-        let private_topic = private_topic.trim_start_matches('/');
-        let topic = if private_topic.is_empty() {
-            node_name.to_string()
-        } else {
-            format!("{node_name}/{private_topic}")
-        };
-        return qualify_topic_name(&topic, target.namespace(), TARGET_NODE_PLACEHOLDER).map_err(
-            |source| Error::InvalidTopicReference {
-                topic: topic.to_string(),
-                source,
-            },
-        );
-    }
-
-    let namespace = if topic.starts_with('/') {
-        "/"
+            })?
     } else {
-        target.namespace()
+        TARGET_NODE_PLACEHOLDER
     };
 
-    qualify_topic_name(topic, namespace, TARGET_NODE_PLACEHOLDER).map_err(|source| {
+    qualify_topic_name(topic, target.namespace(), node_name).map_err(|source| {
         Error::InvalidTopicReference {
             topic: topic.to_string(),
             source,
