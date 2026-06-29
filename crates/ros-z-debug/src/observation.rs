@@ -9,8 +9,8 @@ use std::{
 use parking_lot::Mutex;
 use ros_z::{
     Message,
-    dynamic::DynamicPayload,
-    entity::{EndpointEntity, EndpointKind},
+    dynamic::{DynamicPayload, TopicSchemaFingerprint, topic_schema_fingerprints_from_publishers},
+    entity::{EndpointEntity, EndpointKind, TypeInfo},
     node::Node,
     time::Time,
     topic_name::qualify_service_name,
@@ -822,20 +822,22 @@ impl DesiredObservation {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TopicGraphFingerprint {
-    publishers: Vec<(String, String, String, ros_z::entity::SchemaHash)>,
+    publishers: Vec<TopicSchemaFingerprint>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SchemaServiceFingerprint {
+    service_name: String,
+    node_namespace: String,
+    node_name: String,
+    endpoint_id: usize,
+    type_info: TypeInfo,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct DynamicGraphFingerprint {
     topic: TopicGraphFingerprint,
-    schema_services: Vec<(
-        String,
-        String,
-        String,
-        usize,
-        String,
-        ros_z::entity::SchemaHash,
-    )>,
+    schema_services: Vec<SchemaServiceFingerprint>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -866,22 +868,9 @@ enum GraphChangeFilter<'a> {
 }
 
 fn topic_graph_fingerprint_from_publishers(publishers: &[EndpointEntity]) -> TopicGraphFingerprint {
-    let mut publishers = publishers
-        .iter()
-        .map(|publisher| {
-            (
-                publisher.node.namespace.clone(),
-                publisher.node.name.clone(),
-                publisher.type_info.name.clone(),
-                publisher.type_info.hash,
-            )
-        })
-        .collect::<Vec<_>>();
-    publishers.sort_by(|left, right| {
-        (&left.0, &left.1, &left.2, &left.3.0).cmp(&(&right.0, &right.1, &right.2, &right.3.0))
-    });
-    publishers.dedup();
-    TopicGraphFingerprint { publishers }
+    TopicGraphFingerprint {
+        publishers: topic_schema_fingerprints_from_publishers(publishers),
+    }
 }
 
 fn topic_graph_fingerprint(node: &Node, resolved_topic: &str) -> TopicGraphFingerprint {
@@ -914,15 +903,12 @@ fn dynamic_graph_fingerprint(node: &Node, resolved_topic: &str) -> DynamicGraphF
                     endpoint.kind == EndpointKind::Service
                         && schema_service_names.contains(&endpoint.topic)
                 })
-                .map(|service| {
-                    (
-                        service.topic.clone(),
-                        service.node.namespace.clone(),
-                        service.node.name.clone(),
-                        service.id,
-                        service.type_info.name.clone(),
-                        service.type_info.hash,
-                    )
+                .map(|service| SchemaServiceFingerprint {
+                    service_name: service.topic.clone(),
+                    node_namespace: service.node.namespace.clone(),
+                    node_name: service.node.name.clone(),
+                    endpoint_id: service.id,
+                    type_info: service.type_info.clone(),
                 })
                 .collect::<Vec<_>>()
         };
@@ -930,8 +916,22 @@ fn dynamic_graph_fingerprint(node: &Node, resolved_topic: &str) -> DynamicGraphF
     };
     let topic = topic_graph_fingerprint_from_publishers(&publishers);
     schema_services.sort_by(|left, right| {
-        (&left.0, &left.1, &left.2, left.3, &left.4, &left.5.0)
-            .cmp(&(&right.0, &right.1, &right.2, right.3, &right.4, &right.5.0))
+        (
+            &left.service_name,
+            &left.node_namespace,
+            &left.node_name,
+            left.endpoint_id,
+            &left.type_info.name,
+            &left.type_info.hash.0,
+        )
+            .cmp(&(
+                &right.service_name,
+                &right.node_namespace,
+                &right.node_name,
+                right.endpoint_id,
+                &right.type_info.name,
+                &right.type_info.hash.0,
+            ))
     });
     schema_services.dedup();
 
@@ -1889,6 +1889,25 @@ mod tests {
         ros_z::TypeInfo::new("test_msgs::DebugValue", ros_z::SchemaHash::zero())
     }
 
+    fn publisher_endpoint(
+        node_name: &str,
+        hash: ros_z::SchemaHash,
+    ) -> ros_z::entity::EndpointEntity {
+        ros_z::entity::EndpointEntity {
+            id: 1,
+            node: ros_z::entity::NodeEntity {
+                z_id: Default::default(),
+                id: 2,
+                name: node_name.to_string(),
+                namespace: "/".to_string(),
+            },
+            kind: ros_z::entity::EndpointKind::Publisher,
+            topic: "/chatter".to_string(),
+            type_info: ros_z::TypeInfo::new("std_msgs::String", hash),
+            qos: Default::default(),
+        }
+    }
+
     fn test_publication_id() -> ros_z::pubsub::PublicationId {
         ros_z::pubsub::Received {
             message: (),
@@ -2000,6 +2019,22 @@ mod tests {
         };
 
         assert_eq!(super::schema_service_name_for_publisher(&publisher), None);
+    }
+
+    #[test]
+    fn topic_graph_fingerprint_uses_dynamic_schema_fingerprints() {
+        let hash = ros_z::SchemaHash([4; 32]);
+        let fingerprint =
+            super::topic_graph_fingerprint_from_publishers(&[publisher_endpoint("talker", hash)]);
+
+        assert_eq!(fingerprint.publishers.len(), 1);
+        assert_eq!(fingerprint.publishers[0].topic, "/chatter");
+        assert_eq!(fingerprint.publishers[0].node_namespace, "/");
+        assert_eq!(fingerprint.publishers[0].node_name, "talker");
+        assert_eq!(
+            fingerprint.publishers[0].type_info,
+            ros_z::TypeInfo::new("std_msgs::String", hash),
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
