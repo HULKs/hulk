@@ -7,7 +7,7 @@ use crate::{
     action,
     behavior::{
         behavior_tree::Node,
-        condition::hulks_is_kicking_team,
+        condition::{hulks_is_kicking_team, is_closest_to_ball},
         head::look_at_ball_subtree,
         kick::{
             apply_visual_kick_target, intercept, kick, kick_alternatives_subtree, use_kick_power,
@@ -20,6 +20,7 @@ use crate::{
             walk_to_block_position, walk_to_goalkeeper_default_position,
             walk_to_goalkeeper_penalty_position,
         },
+        striker::striker_subtree,
     },
     condition, negation, selection, sequence, subtree,
 };
@@ -60,6 +61,19 @@ pub fn goalkeeper_subtree() -> Node<Blackboard> {
                 condition!(is_ball_near_own_goal),
                 subtree!(goalkeeper_active_defense_position_subtree)
             ),
+            sequence!(
+                condition!(is_closest_to_ball),
+                selection!(
+                    sequence!(
+                        condition!(), // closest to ball and ball is close to goal
+                        subtree!(striker_subtree)
+                    ),
+                    sequence!(
+                        condition!(), // closest to ball but ball too far from goal
+                        action!() // give striker role to someone else
+                    )
+                    )
+                )
             subtree!(goalkeeper_default_position_subtree),
         )
     )
