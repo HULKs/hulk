@@ -39,6 +39,7 @@ use parking_lot::RwLock;
 use std::collections::{BTreeMap, VecDeque};
 use std::marker::PhantomData;
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::{debug, warn};
 
 use crate::Result;
@@ -361,6 +362,27 @@ pub struct CacheBuilder<T, S = SerdeCdrCodec<T>, Stamp = ZenohStamp> {
     pub(crate) sub_builder: SubscriberBuilder<T, S>,
     capacity: usize,
     stamp: Stamp,
+}
+
+impl<T, S, Stamp> CacheBuilder<T, S, Stamp>
+where
+    T: Send + Sync + 'static,
+{
+    /// Configure how long cache receive waits before warning that no publishers are visible.
+    ///
+    /// The warning is informational only: cache receive continues waiting for samples after the
+    /// timeout fires. Use [`without_publisher_warning`](Self::without_publisher_warning) to disable
+    /// the warning.
+    pub fn publisher_warning_timeout(mut self, timeout: Duration) -> Self {
+        self.sub_builder = self.sub_builder.publisher_warning_timeout(timeout);
+        self
+    }
+
+    /// Disable warnings when cache receive waits without any visible publishers.
+    pub fn without_publisher_warning(mut self) -> Self {
+        self.sub_builder = self.sub_builder.without_publisher_warning();
+        self
+    }
 }
 
 impl<T, S> SubscriberBuilder<T, S>

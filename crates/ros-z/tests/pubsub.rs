@@ -1,4 +1,9 @@
-use std::{num::NonZeroUsize, time::Duration};
+use std::{
+    io,
+    num::NonZeroUsize,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use ros_z::{
     Message,
@@ -13,10 +18,52 @@ use ros_z::{
 use ros_z_schema::{SchemaBundle, StructDef, TypeDef, TypeDefinition, TypeDefinitions, TypeName};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use tracing_subscriber::fmt::MakeWriter;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Message)]
 struct TestMessage {
     data: Vec<u8>,
     counter: u64,
+}
+
+#[derive(Clone, Default)]
+struct CapturedLogs {
+    buffer: Arc<Mutex<Vec<u8>>>,
+}
+
+impl CapturedLogs {
+    fn contents(&self) -> String {
+        let buffer = self.buffer.lock().expect("captured log buffer poisoned");
+        String::from_utf8_lossy(&buffer).into_owned()
+    }
+}
+
+struct CapturedLogWriter {
+    buffer: Arc<Mutex<Vec<u8>>>,
+}
+
+impl io::Write for CapturedLogWriter {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.buffer
+            .lock()
+            .expect("captured log buffer poisoned")
+            .extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl<'writer> MakeWriter<'writer> for CapturedLogs {
+    type Writer = CapturedLogWriter;
+
+    fn make_writer(&'writer self) -> Self::Writer {
+        CapturedLogWriter {
+            buffer: Arc::clone(&self.buffer),
+        }
+    }
 }
 
 fn topic_key_expr_for<T: Message>(node: &ros_z::node::Node, topic: &str) -> String {
@@ -163,6 +210,116 @@ async fn raw_subscriber_receives_sample_payload() -> zenoh::Result<()> {
 
     let sample = tokio::time::timeout(Duration::from_secs(1), subscriber.recv()).await??;
     assert!(!sample.payload().to_bytes().is_empty());
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn raw_recv_warning_timeout_still_waits_for_eventual_sample() -> ros_z::Result<()> {
+    let context = ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_json("connect/endpoints", json!([]))
+        .build()
+        .await?;
+    let node = context
+        .create_node("recv_warning_timeout_raw")
+        .build()
+        .await?;
+    let topic = "/recv_warning_timeout_raw";
+    let mut subscriber = node
+        .subscriber::<TestMessage>(topic)
+        .raw()
+        .publisher_warning_timeout(Duration::from_millis(25))
+        .build()
+        .await?;
+
+    let receive_task = tokio::spawn(async move { subscriber.recv().await });
+    tokio::time::sleep(Duration::from_millis(75)).await;
+
+    let publisher = node.publisher::<TestMessage>(topic).build().await?;
+    assert!(
+        publisher
+            .wait_for_subscribers(1, Duration::from_secs(1))
+            .await
+    );
+
+    publisher
+        .publish(&TestMessage {
+            data: vec![2, 1],
+            counter: 21,
+        })
+        .await?;
+
+    let sample = tokio::time::timeout(Duration::from_secs(1), receive_task)
+        .await
+        .expect("raw receive task should complete")
+        .expect("raw receive task should not panic")?;
+    assert!(!sample.payload().to_bytes().is_empty());
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn recv_warning_timeout_logs_when_no_publishers_are_visible() -> ros_z::Result<()> {
+    let captured_logs = CapturedLogs::default();
+    let log_subscriber = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::WARN)
+        .with_ansi(false)
+        .without_time()
+        .with_writer(captured_logs.clone())
+        .finish();
+    let _log_guard = tracing::subscriber::set_default(log_subscriber);
+
+    let context = ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_json("connect/endpoints", json!([]))
+        .build()
+        .await?;
+    let node = context
+        .create_node("recv_warning_timeout_logs")
+        .build()
+        .await?;
+    let topic = "/recv_warning_timeout_logs";
+    let subscriber = node
+        .subscriber::<TestMessage>(topic)
+        .publisher_warning_timeout(Duration::from_millis(25))
+        .build()
+        .await?;
+    let message = TestMessage {
+        data: vec![3, 4, 5],
+        counter: 345,
+    };
+    let expected_message = message.clone();
+
+    let publish_later = async {
+        tokio::time::sleep(Duration::from_millis(75)).await;
+        let publisher = node.publisher::<TestMessage>(topic).build().await?;
+        assert!(
+            publisher
+                .wait_for_subscribers(1, Duration::from_secs(1))
+                .await
+        );
+        publisher.publish(&message).await
+    };
+    let receive = async {
+        tokio::time::timeout(Duration::from_secs(1), subscriber.recv())
+            .await
+            .expect("receive should complete")
+    };
+
+    let (publish_result, received) = tokio::join!(publish_later, receive);
+    publish_result?;
+    assert_eq!(received?, expected_message);
+
+    let logs = captured_logs.contents();
+    assert!(
+        logs.contains(topic),
+        "warning should include topic; captured logs:\n{logs}"
+    );
+    assert!(
+        logs.contains("no message received and no publishers are visible"),
+        "warning should describe missing publishers; captured logs:\n{logs}"
+    );
+
     Ok(())
 }
 
