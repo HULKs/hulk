@@ -72,6 +72,12 @@ impl CachedSubscriptionOptions {
         Ok(self)
     }
 
+    /// Clear the target node name used to resolve private topic references.
+    pub fn clear_target_node_name(&mut self) -> &mut Self {
+        self.target_identity.clear_node_name();
+        self
+    }
+
     /// Update the timeout used while querying schema services for dynamic subscriptions.
     pub fn set_schema_discovery_timeout(&mut self, timeout: Duration) -> &mut Self {
         self.schema_discovery_timeout = timeout;
@@ -500,6 +506,16 @@ mod tests {
         options.set_target_node_name("behavior_node").unwrap();
 
         assert_eq!(options.target_node_name(), Some("behavior_node"));
+    }
+
+    #[test]
+    fn cached_subscription_options_clear_target_node_name() {
+        let mut options = CachedSubscriptionOptions::with_target_namespace("/42").unwrap();
+        options.set_target_node_name("behavior_node").unwrap();
+
+        options.clear_target_node_name();
+
+        assert_eq!(options.target_node_name(), None);
     }
 
     #[test]

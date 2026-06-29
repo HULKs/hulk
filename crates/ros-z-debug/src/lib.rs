@@ -28,12 +28,36 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! `TopicObserver` spawns observations that keep running after the observer handle
+//! is dropped. Drop the returned observation handle to stop its background task.
+//!
+//! ```rust
+//! use std::sync::Arc;
+//!
+//! use ros_z::context::ContextBuilder;
+//! use ros_z_debug::{TopicObserver, TopicObserverOptions};
+//!
+//! # async fn observe_demo() -> ros_z_debug::Result<()> {
+//! let context = ContextBuilder::default().build().await?;
+//! let node = Arc::new(context.create_node("observer").build().await?);
+//! let observer = TopicObserver::new(
+//!     node,
+//!     TopicObserverOptions::with_namespace("/robot_1")?,
+//! );
+//! let observation = observer.observe_dynamic("status")?.spawn();
+//! let status = observation.status();
+//! # let _ = status;
+//! # Ok(())
+//! # }
+//! ```
 
 mod cache;
 mod error;
 mod event;
 mod factory;
 mod history;
+mod observation;
 mod retention;
 mod sample;
 mod status;
@@ -47,6 +71,12 @@ pub use event::{
 pub use factory::{
     CachedDynamicSubscriptionBuilder, CachedSubscriptionFactory, CachedSubscriptionOptions,
     CachedTypedSubscriptionBuilder,
+};
+pub use observation::{
+    DynamicTopicObservation, DynamicTopicObservationBuilder, TopicObservation,
+    TopicObservationBlockReason, TopicObservationBuilder, TopicObservationStatus,
+    TopicObservationUpdate, TopicObservationUpdateClosed, TopicObservationUpdateReceiver,
+    TopicObserver, TopicObserverOptions,
 };
 pub use retention::{DEFAULT_TIME_WINDOW_MAX_SAMPLES, RetentionPolicy, RetentionWindow};
 pub use ros_z::dynamic::{

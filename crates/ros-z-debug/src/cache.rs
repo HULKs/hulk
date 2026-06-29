@@ -10,7 +10,9 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     CachedSubscriptionStatus, CachedSubscriptionStatusSnapshot, CachedSubscriptionUpdate,
     CachedSubscriptionUpdateClosed, CachedSubscriptionUpdateReceiver, JsonRenderPolicy,
-    RetentionPolicy, SampleRecord, dynamic_payload_to_json, history::TimeIndexedHistory,
+    RetentionPolicy, SampleRecord,
+    history::TimeIndexedHistory,
+    sample::{dynamic_record_json_value, dynamic_record_to_json_sample},
 };
 
 const UPDATE_BUFFER_CAPACITY: usize = 256;
@@ -93,7 +95,14 @@ impl CachedJsonSubscription {
     pub fn latest_json(&self) -> Option<Value> {
         self.dynamic
             .latest()
-            .map(|record| dynamic_payload_to_json(&record.value, self.policy))
+            .map(|record| dynamic_record_json_value(record.as_ref(), self.policy))
+    }
+
+    /// Render the latest retained dynamic payload as JSON with sample metadata.
+    pub fn latest_json_record(&self) -> Option<crate::JsonSampleRecord> {
+        self.dynamic
+            .latest()
+            .map(|record| dynamic_record_to_json_sample(record, self.policy))
     }
 
     /// Render retained dynamic payloads in `[start, end]` as JSON.
@@ -101,7 +110,16 @@ impl CachedJsonSubscription {
         self.dynamic
             .window(start, end)
             .iter()
-            .map(|record| dynamic_payload_to_json(&record.value, self.policy))
+            .map(|record| dynamic_record_json_value(record.as_ref(), self.policy))
+            .collect()
+    }
+
+    /// Render retained dynamic payloads in `[start, end]` as JSON records.
+    pub fn window_json_records(&self, start: Time, end: Time) -> Vec<crate::JsonSampleRecord> {
+        self.dynamic
+            .window(start, end)
+            .into_iter()
+            .map(|record| dynamic_record_to_json_sample(record, self.policy))
             .collect()
     }
 
@@ -751,6 +769,27 @@ mod tests {
     }
 
     #[test]
+    fn json_handle_projects_latest_dynamic_payload_record() {
+        let state = Arc::new(CachedSubscriptionState::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let source = dynamic_record_at(42, Time::from_nanos(7));
+        state.store_latest(Arc::clone(&source));
+        let handle = CachedJsonSubscription::new(state.handle(), JsonRenderPolicy::default());
+
+        let record = handle
+            .latest_json_record()
+            .expect("latest JSON record should be available");
+
+        assert_eq!(record.value, serde_json::json!(42));
+        assert_eq!(record.source_time, source.source_time);
+        assert_eq!(record.transport_time, source.transport_time);
+        assert_eq!(record.publication_id, source.publication_id);
+        assert!(Arc::ptr_eq(&record.metadata, &source.metadata));
+    }
+
+    #[test]
     fn json_handle_subscribes_to_underlying_dynamic_updates() {
         let state = Arc::new(CachedSubscriptionState::<DynamicPayload>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
@@ -787,6 +826,29 @@ mod tests {
             handle.window_json(Time::from_nanos(1), Time::from_nanos(2)),
             vec![serde_json::json!(1), serde_json::json!(2)]
         );
+    }
+
+    #[test]
+    fn json_handle_projects_dynamic_payload_window_records() {
+        let state = Arc::new(CachedSubscriptionState::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
+        ));
+        let first = dynamic_record_at(1, Time::from_nanos(1));
+        let second = dynamic_record_at(2, Time::from_nanos(2));
+        state.store_latest(Arc::clone(&first));
+        state.store_latest(Arc::clone(&second));
+        let handle = CachedJsonSubscription::new(state.handle(), JsonRenderPolicy::default());
+
+        let records = handle.window_json_records(Time::from_nanos(1), Time::from_nanos(2));
+
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0].value, serde_json::json!(1));
+        assert_eq!(records[0].source_time, first.source_time);
+        assert!(Arc::ptr_eq(&records[0].metadata, &first.metadata));
+        assert_eq!(records[1].value, serde_json::json!(2));
+        assert_eq!(records[1].source_time, second.source_time);
+        assert!(Arc::ptr_eq(&records[1].metadata, &second.metadata));
     }
 
     #[test]

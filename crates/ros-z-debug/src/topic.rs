@@ -86,6 +86,12 @@ impl TargetIdentity {
         self.node_name = Some(node_name);
         Ok(self)
     }
+
+    /// Clear the target node name so private topic references require one again.
+    pub fn clear_node_name(&mut self) -> &mut Self {
+        self.node_name = None;
+        self
+    }
 }
 
 impl TopicReference {
@@ -132,13 +138,26 @@ impl TopicProjection {
         Topic: AsRef<str>,
     {
         let active_identity = TargetIdentity::new(active_namespace)?;
+        Self::project_with_target(&active_identity, topics)
+    }
+
+    /// Project topic names for display under an active target identity.
+    ///
+    /// This variant can resolve private topic references using the target's node
+    /// name before projecting the resulting absolute topic for display.
+    pub fn project_with_target<Topic>(
+        target: &TargetIdentity,
+        topics: impl IntoIterator<Item = Topic>,
+    ) -> Result<Vec<ProjectedTopic>>
+    where
+        Topic: AsRef<str>,
+    {
         topics
             .into_iter()
             .map(|topic| {
                 let topic = TopicReference::new(topic.as_ref())?;
-                let resolved_topic = topic.resolve(&active_identity)?;
-                let (display_name, scope) =
-                    display_name(active_identity.namespace(), &resolved_topic);
+                let resolved_topic = topic.resolve(target)?;
+                let (display_name, scope) = display_name(target.namespace(), &resolved_topic);
 
                 Ok(ProjectedTopic {
                     display_name,
@@ -370,6 +389,18 @@ mod tests {
     }
 
     #[test]
+    fn target_identity_clear_node_name_removes_private_target() {
+        let mut identity = TargetIdentity::new("/42")
+            .unwrap()
+            .with_node_name("behavior_node")
+            .unwrap();
+
+        identity.clear_node_name();
+
+        assert_eq!(identity.node_name(), None);
+    }
+
+    #[test]
     fn private_topic_reference_is_accepted_during_construction() {
         let topic = TopicReference::new("~private").unwrap();
 
@@ -403,6 +434,23 @@ mod tests {
                 .any(|topic| topic.display_name == "/beta/foo"
                     && topic.resolved_topic == "/beta/foo"
                     && topic.scope == ProjectedTopicScope::FullyQualified)
+        );
+    }
+
+    #[test]
+    fn projection_projects_private_topics_with_target_identity() {
+        let identity = TargetIdentity::new("/42")
+            .unwrap()
+            .with_node_name("behavior_node")
+            .unwrap();
+
+        let projected = TopicProjection::project_with_target(&identity, ["~trace"]).unwrap();
+
+        assert_eq!(projected[0].display_name, "behavior_node/trace");
+        assert_eq!(projected[0].resolved_topic, "/42/behavior_node/trace");
+        assert_eq!(
+            projected[0].scope,
+            ProjectedTopicScope::RelativeToActiveNamespace
         );
     }
 
