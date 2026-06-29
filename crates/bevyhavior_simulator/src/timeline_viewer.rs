@@ -65,6 +65,7 @@ struct TimelineViewerApp {
     data: TimelineViewerData,
     selected_frame: usize,
     is_playing: bool,
+    loop_playback: bool,
     playback_speed: f32,
     last_playback_update: Instant,
     playback_time_accumulator: f64,
@@ -97,6 +98,7 @@ impl TimelineViewerApp {
             data,
             selected_frame: 0,
             is_playing: false,
+            loop_playback: true,
             playback_speed: 1.0,
             last_playback_update: Instant::now(),
             playback_time_accumulator: 0.0,
@@ -128,9 +130,22 @@ impl TimelineViewerApp {
             return;
         }
 
-        if self.data.frames.len() <= 1 || self.selected_frame + 1 >= self.data.frames.len() {
+        if self.data.frames.len() <= 1 {
             self.is_playing = false;
             self.playback_time_accumulator = 0.0;
+            return;
+        }
+
+        if self.selected_frame + 1 >= self.data.frames.len() {
+            if self.loop_playback {
+                self.selected_frame = 0;
+                self.playback_time_accumulator = 0.0;
+                self.last_playback_update = Instant::now();
+                context.request_repaint();
+            } else {
+                self.is_playing = false;
+                self.playback_time_accumulator = 0.0;
+            }
             return;
         }
 
@@ -152,7 +167,7 @@ impl TimelineViewerApp {
             self.selected_frame += 1;
         }
 
-        if self.selected_frame + 1 >= self.data.frames.len() {
+        if self.selected_frame + 1 >= self.data.frames.len() && !self.loop_playback {
             self.is_playing = false;
             self.playback_time_accumulator = 0.0;
         } else {
@@ -406,6 +421,8 @@ impl TimelineViewerApp {
                     .text("speed")
                     .suffix("x"),
                 );
+
+                ui.checkbox(&mut self.loop_playback, "loop");
 
                 if ui.button("previous").clicked() {
                     self.select_previous_frame();
