@@ -17,10 +17,6 @@ use crate::{
 
 const UPDATE_BUFFER_CAPACITY: usize = 256;
 
-pub(crate) trait ManagedCachedSubscription: Send + Sync {
-    fn close(&self);
-}
-
 /// Handle for reading retained subscription state.
 ///
 /// Cloning the handle keeps the subscription alive. Dropping the last handle
@@ -99,7 +95,7 @@ impl CachedJsonSubscription {
     }
 
     /// Render the latest retained dynamic payload as JSON with sample metadata.
-    pub fn latest_json_record(&self) -> Option<crate::JsonSampleRecord> {
+    pub fn latest_json_record(&self) -> Option<crate::SampleRecord<Value>> {
         self.dynamic
             .latest()
             .map(|record| dynamic_record_to_json_sample(record, self.policy))
@@ -115,7 +111,7 @@ impl CachedJsonSubscription {
     }
 
     /// Render retained dynamic payloads in `[start, end]` as JSON records.
-    pub fn window_json_records(&self, start: Time, end: Time) -> Vec<crate::JsonSampleRecord> {
+    pub fn window_json_records(&self, start: Time, end: Time) -> Vec<crate::SampleRecord<Value>> {
         self.dynamic
             .window(start, end)
             .into_iter()
@@ -298,15 +294,6 @@ impl<V> CachedSubscriptionState<V> {
 impl<V> Drop for CachedSubscriptionState<V> {
     fn drop(&mut self) {
         self.cancellation_token.cancel();
-    }
-}
-
-impl<V> ManagedCachedSubscription for CachedSubscriptionState<V>
-where
-    V: Send + Sync,
-{
-    fn close(&self) {
-        CachedSubscriptionState::close(self);
     }
 }
 

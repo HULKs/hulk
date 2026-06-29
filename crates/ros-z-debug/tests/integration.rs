@@ -1,19 +1,12 @@
 use std::{sync::Arc, time::Duration};
 
 use ros_z::prelude::*;
-use ros_z_debug::{CachedSubscriptionFactory, CachedSubscriptionOptions, RetentionPolicy};
+use ros_z_debug::{CachedSubscriptionNodeExt, RetentionPolicy};
 
 #[allow(dead_code)]
-fn typed_subscription_builder_can_be_named<'a, T>(
-    builder: ros_z_debug::CachedTypedSubscriptionBuilder<'a, T>,
-) -> ros_z_debug::CachedTypedSubscriptionBuilder<'a, T> {
-    builder
-}
-
-#[allow(dead_code)]
-fn dynamic_subscription_builder_can_be_named<'a>(
-    builder: ros_z_debug::CachedDynamicSubscriptionBuilder<'a>,
-) -> ros_z_debug::CachedDynamicSubscriptionBuilder<'a> {
+fn cached_subscription_builder_can_be_named(
+    builder: ros_z_debug::CachedSubscriptionBuilder,
+) -> ros_z_debug::CachedSubscriptionBuilder {
     builder
 }
 
@@ -59,13 +52,11 @@ async fn typed_subscription_receives_latest_sample() {
         .build()
         .await
         .expect("publisher");
-    let factory =
-        CachedSubscriptionFactory::new(subscriber_node, CachedSubscriptionOptions::default());
-    let handle = factory
-        .subscribe_typed::<String>("debug_text")
+    let handle = subscriber_node
+        .cached_subscription("debug_text")
         .expect("subscription builder")
         .retention(RetentionPolicy::LatestOnly)
-        .build()
+        .build_typed::<String>()
         .await
         .expect("subscription should build");
 
@@ -136,14 +127,13 @@ async fn typed_subscription_resolves_relative_topic_against_target_namespace() {
         .build()
         .await
         .expect("publisher");
-    let options =
-        CachedSubscriptionOptions::with_target_namespace("/alpha").expect("valid target namespace");
-    let factory = CachedSubscriptionFactory::new(subscriber_node, options);
-    let handle = factory
-        .subscribe_typed::<String>("debug_text")
+    let handle = subscriber_node
+        .cached_subscription("debug_text")
         .expect("subscription builder")
+        .target_namespace("/alpha")
+        .expect("valid target namespace")
         .retention(RetentionPolicy::LatestOnly)
-        .build()
+        .build_typed::<String>()
         .await
         .expect("subscription should build");
 
@@ -200,10 +190,8 @@ async fn dynamic_subscription_renders_json_view() {
         .build()
         .await
         .expect("dynamic publisher");
-    let factory =
-        CachedSubscriptionFactory::new(subscriber_node, CachedSubscriptionOptions::default());
-    let json = factory
-        .subscribe_dynamic("debug_dynamic")
+    let json = subscriber_node
+        .cached_subscription("debug_dynamic")
         .expect("subscription builder")
         .retention(RetentionPolicy::LatestOnly)
         .build_json(Default::default())
@@ -221,7 +209,12 @@ async fn dynamic_subscription_renders_json_view() {
     let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
     loop {
         if let Some(value) = json.latest_json() {
+            let record: ros_z_debug::SampleRecord<serde_json::Value> = json
+                .latest_json_record()
+                .expect("json sample record should preserve metadata");
             assert_eq!(value, serde_json::json!({ "data": "hello" }));
+            assert_eq!(record.value, serde_json::json!({ "data": "hello" }));
+            assert_eq!(record.metadata.resolved_topic, "/debug_dynamic");
             return;
         }
         assert!(

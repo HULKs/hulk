@@ -18,9 +18,9 @@ use ros_z::{
 use tokio::sync::{broadcast, watch};
 
 use crate::{
-    CachedSubscription, CachedSubscriptionFactory, CachedSubscriptionOptions,
-    CachedSubscriptionStatusSnapshot, CachedSubscriptionUpdate, CachedSubscriptionUpdateReceiver,
-    Error, JsonRenderPolicy, Result, RetentionPolicy, TargetIdentity, TopicReference,
+    CachedSubscription, CachedSubscriptionBuilder, CachedSubscriptionStatusSnapshot,
+    CachedSubscriptionUpdate, CachedSubscriptionUpdateReceiver, Error, JsonRenderPolicy, Result,
+    RetentionPolicy, TargetIdentity, TopicReference,
     sample::{dynamic_record_json_value, dynamic_record_to_json_sample},
 };
 
@@ -409,7 +409,6 @@ where
         let state = Arc::new(Mutex::new(TopicObservationState {
             status: TopicObservationStatus::Building,
             display_cache: None,
-            display_factory: None,
             updates: Some(updates),
         }));
         let task = self.observer.task_context();
@@ -438,7 +437,6 @@ impl TopicObservationBuilder<DynamicPayload> {
         let state = Arc::new(Mutex::new(TopicObservationState {
             status: TopicObservationStatus::Building,
             display_cache: None,
-            display_factory: None,
             updates: Some(updates),
         }));
         let task = self.observer.task_context();
@@ -545,7 +543,6 @@ impl<T> TopicObservation<T> {
             state: Arc::new(Mutex::new(TopicObservationState {
                 status: TopicObservationStatus::Building,
                 display_cache: None,
-                display_factory: None,
                 updates: Some(updates),
             })),
             controls: TopicObservationControls { desired_sender },
@@ -675,7 +672,7 @@ impl DynamicTopicObservation {
     }
 
     /// Render the latest retained dynamic payload as JSON with sample metadata.
-    pub fn latest_json_record(&self) -> Option<crate::JsonSampleRecord> {
+    pub fn latest_json_record(&self) -> Option<crate::SampleRecord<serde_json::Value>> {
         self.inner
             .latest()
             .map(|record| dynamic_record_to_json_sample(record, self.json_render_policy))
@@ -691,7 +688,11 @@ impl DynamicTopicObservation {
     }
 
     /// Render retained dynamic payloads in `[start, end]` as JSON records.
-    pub fn window_json_records(&self, start: Time, end: Time) -> Vec<crate::JsonSampleRecord> {
+    pub fn window_json_records(
+        &self,
+        start: Time,
+        end: Time,
+    ) -> Vec<crate::SampleRecord<serde_json::Value>> {
         self.inner
             .window(start, end)
             .into_iter()
@@ -783,8 +784,6 @@ fn format_error_chain(error: &dyn std::error::Error) -> String {
 struct TopicObservationState<T> {
     status: TopicObservationStatus,
     display_cache: Option<CachedSubscription<T>>,
-    // Dropping a factory closes the subscriptions it built; retain it with the display cache.
-    display_factory: Option<Arc<CachedSubscriptionFactory>>,
     updates: Option<broadcast::Sender<TopicObservationUpdate>>,
 }
 
@@ -821,11 +820,6 @@ impl DesiredObservation {
     }
 }
 
-struct BuiltTypedCache<T> {
-    cache: CachedSubscription<T>,
-    factory: Arc<CachedSubscriptionFactory>,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TopicGraphFingerprint {
     publishers: Vec<(String, String, String, ros_z::entity::SchemaHash)>,
@@ -858,7 +852,7 @@ struct ResolvedObservationTarget {
     graph_fingerprint: TopicGraphFingerprint,
 }
 
-enum RetryGraphFilter<'a> {
+enum GraphChangeFilter<'a> {
     Topic {
         node: &'a Node,
         resolved_topic: &'a str,
@@ -1037,24 +1031,17 @@ async fn build_typed_cache<T>(
     schema_discovery_timeout: Duration,
     identity: TargetIdentity,
     desired: DesiredObservation,
-) -> Result<BuiltTypedCache<T>>
+) -> Result<CachedSubscription<T>>
 where
     T: Message + Send + Sync + 'static,
     T::Codec: Send + Sync,
 {
-    let mut options = CachedSubscriptionOptions::with_target_namespace(identity.namespace())?;
-    if let Some(node_name) = identity.node_name() {
-        options.set_target_node_name(node_name)?;
-    }
-    options.set_schema_discovery_timeout(schema_discovery_timeout);
-
-    let factory = Arc::new(CachedSubscriptionFactory::new(node, options));
-    let cache = factory
-        .subscribe_typed::<T>(desired.topic.as_str())?
+    CachedSubscriptionBuilder::new(node, desired.topic.as_str())?
+        .target_identity(identity)
+        .schema_discovery_timeout(schema_discovery_timeout)
         .retention(desired.retention)
-        .build()
-        .await?;
-    Ok(BuiltTypedCache { cache, factory })
+        .build_typed::<T>()
+        .await
 }
 
 async fn build_dynamic_cache(
@@ -1062,24 +1049,17 @@ async fn build_dynamic_cache(
     schema_discovery_timeout: Duration,
     identity: TargetIdentity,
     desired: DesiredObservation,
-) -> Result<BuiltTypedCache<DynamicPayload>> {
-    let mut options = CachedSubscriptionOptions::with_target_namespace(identity.namespace())?;
-    if let Some(node_name) = identity.node_name() {
-        options.set_target_node_name(node_name)?;
-    }
-    options.set_schema_discovery_timeout(schema_discovery_timeout);
-
-    let factory = Arc::new(CachedSubscriptionFactory::new(node, options));
-    let cache = factory
-        .subscribe_dynamic(desired.topic.as_str())?
+) -> Result<CachedSubscription<DynamicPayload>> {
+    CachedSubscriptionBuilder::new(node, desired.topic.as_str())?
+        .target_identity(identity)
+        .schema_discovery_timeout(schema_discovery_timeout)
         .retention(desired.retention)
-        .build()
-        .await?;
-    Ok(BuiltTypedCache { cache, factory })
+        .build_dynamic()
+        .await
 }
 
 enum BuildWait<T> {
-    Completed(Result<BuiltTypedCache<T>>),
+    Completed(Result<CachedSubscription<T>>),
     RebuildRequested,
     Closed,
 }
@@ -1090,10 +1070,10 @@ async fn wait_for_build<T, F>(
     desired_receiver: &mut watch::Receiver<DesiredObservation>,
     target_receiver: &mut watch::Receiver<TargetIdentity>,
     graph_changes: &mut ros_z::graph::GraphChangeSubscription,
-    graph_filter: Option<RetryGraphFilter<'_>>,
+    graph_filter: Option<GraphChangeFilter<'_>>,
 ) -> BuildWait<T>
 where
-    F: Future<Output = Result<BuiltTypedCache<T>>>,
+    F: Future<Output = Result<CachedSubscription<T>>>,
 {
     let mut graph_filter = graph_filter;
     tokio::pin!(build);
@@ -1127,7 +1107,7 @@ where
                     return BuildWait::Closed;
                 }
                 if let Some(filter) = &mut graph_filter
-                    && retry_graph_filter_changed(filter)
+                    && graph_change_filter_changed(filter)
                 {
                     return BuildWait::RebuildRequested;
                 }
@@ -1268,7 +1248,7 @@ async fn run_typed_observation<T>(
             &mut desired_receiver,
             &mut task.target_receiver,
             &mut task.graph_changes,
-            Some(RetryGraphFilter::Topic {
+            Some(GraphChangeFilter::Topic {
                 node: task.node.as_ref(),
                 resolved_topic: target.resolved_topic.as_str(),
                 fingerprint: target.graph_fingerprint.clone(),
@@ -1289,8 +1269,7 @@ async fn run_typed_observation<T>(
                         return;
                     }
                 }
-                let Some(mut cache_updates) = subscribe_built_cache_updates(&built_cache.cache)
-                else {
+                let Some(mut cache_updates) = subscribe_built_cache_updates(&built_cache) else {
                     continue;
                 };
                 let Some(graph_fingerprint) = preinstall_observing_graph_fingerprint(
@@ -1301,7 +1280,7 @@ async fn run_typed_observation<T>(
                 ) else {
                     continue;
                 };
-                if !install_typed_cache(&state, built_cache) {
+                if !install_cache(&state, built_cache) {
                     return;
                 }
                 if !refresh_observing_status(&state) {
@@ -1345,7 +1324,7 @@ async fn run_typed_observation<T>(
                     &mut task.target_receiver,
                     &mut task.graph_changes,
                     Some(&retry_build_key),
-                    Some(RetryGraphFilter::Topic {
+                    Some(GraphChangeFilter::Topic {
                         node: task.node.as_ref(),
                         resolved_topic: target.resolved_topic.as_str(),
                         fingerprint: target.graph_fingerprint,
@@ -1434,7 +1413,7 @@ async fn run_dynamic_observation(
             &mut desired_receiver,
             &mut task.target_receiver,
             &mut task.graph_changes,
-            Some(RetryGraphFilter::Dynamic {
+            Some(GraphChangeFilter::Dynamic {
                 node: task.node.as_ref(),
                 resolved_topic: target.resolved_topic.as_str(),
                 fingerprint: dynamic_graph_fingerprint.clone(),
@@ -1455,8 +1434,7 @@ async fn run_dynamic_observation(
                         return;
                     }
                 }
-                let Some(mut cache_updates) = subscribe_built_cache_updates(&built_cache.cache)
-                else {
+                let Some(mut cache_updates) = subscribe_built_cache_updates(&built_cache) else {
                     continue;
                 };
                 let Some(graph_fingerprint) = preinstall_dynamic_observing_graph_fingerprint(
@@ -1467,7 +1445,7 @@ async fn run_dynamic_observation(
                 ) else {
                     continue;
                 };
-                if !install_typed_cache(&state, built_cache) {
+                if !install_cache(&state, built_cache) {
                     return;
                 }
                 if !refresh_observing_status(&state) {
@@ -1511,7 +1489,7 @@ async fn run_dynamic_observation(
                     &mut task.target_receiver,
                     &mut task.graph_changes,
                     Some(&retry_build_key),
-                    Some(RetryGraphFilter::Dynamic {
+                    Some(GraphChangeFilter::Dynamic {
                         node: task.node.as_ref(),
                         resolved_topic: target.resolved_topic.as_str(),
                         fingerprint: dynamic_graph_fingerprint,
@@ -1569,7 +1547,7 @@ async fn wait_for_retry_signal(
     target_receiver: &mut watch::Receiver<TargetIdentity>,
     graph_changes: &mut ros_z::graph::GraphChangeSubscription,
     current_key: Option<&ObservationBuildKey>,
-    graph_filter: Option<RetryGraphFilter<'_>>,
+    graph_filter: Option<GraphChangeFilter<'_>>,
 ) -> bool {
     let mut graph_filter = graph_filter;
     let retry_sleep = tokio::time::sleep(retry_delay);
@@ -1604,7 +1582,7 @@ async fn wait_for_retry_signal(
                     return false;
                 }
                 if let Some(filter) = &mut graph_filter
-                    && retry_graph_filter_changed(filter)
+                    && graph_change_filter_changed(filter)
                 {
                     return true;
                 }
@@ -1623,14 +1601,14 @@ fn retry_build_key_changed(
     })
 }
 
-fn retry_graph_filter_changed(filter: &mut RetryGraphFilter<'_>) -> bool {
+fn graph_change_filter_changed(filter: &mut GraphChangeFilter<'_>) -> bool {
     match filter {
-        RetryGraphFilter::Topic {
+        GraphChangeFilter::Topic {
             node,
             resolved_topic,
             fingerprint,
         } => topic_graph_fingerprint_changed(node, resolved_topic, fingerprint),
-        RetryGraphFilter::Dynamic {
+        GraphChangeFilter::Dynamic {
             node,
             resolved_topic,
             fingerprint,
@@ -1720,14 +1698,13 @@ fn freeze_display_cache<T>(state: &Weak<Mutex<TopicObservationState<T>>>) -> boo
     let Some(state) = state.upgrade() else {
         return false;
     };
-    let (cache, factory) = {
-        let mut state = state.lock();
+    let cache = {
+        let state = state.lock();
         if state.updates.is_none() {
             return false;
         }
-        (state.display_cache.clone(), state.display_factory.take())
+        state.display_cache.clone()
     };
-    drop(factory);
     if let Some(cache) = cache {
         cache.close_retaining_samples();
     }
@@ -1780,13 +1757,13 @@ fn set_blocked_status<T>(
     )
 }
 
-fn install_typed_cache<T>(
+fn install_cache<T>(
     state: &Weak<Mutex<TopicObservationState<T>>>,
-    built_cache: BuiltTypedCache<T>,
+    cache: CachedSubscription<T>,
 ) -> bool {
-    let has_retained_sample = built_cache.cache.latest().is_some();
+    let has_retained_sample = cache.latest().is_some();
     let status = TopicObservationStatus::Observing {
-        cache: built_cache.cache.status(),
+        cache: cache.status(),
     };
     let Some(state) = state.upgrade() else {
         return false;
@@ -1797,8 +1774,7 @@ fn install_typed_cache<T>(
             return false;
         }
         let status_changed = state.status != status;
-        state.display_factory = Some(built_cache.factory);
-        state.display_cache = Some(built_cache.cache);
+        state.display_cache = Some(cache);
         state.status = status.clone();
         let updates = (status_changed || has_retained_sample)
             .then(|| state.updates.clone())
@@ -1864,13 +1840,15 @@ fn close_observation<T>(state: &Weak<Mutex<TopicObservationState<T>>>) {
     let Some(state) = state.upgrade() else {
         return;
     };
-    let display_factory = {
+    let display_cache = {
         let mut state = state.lock();
         state.status = TopicObservationStatus::Closed;
         state.updates.take();
-        state.display_factory.take()
+        state.display_cache.clone()
     };
-    drop(display_factory);
+    if let Some(cache) = display_cache {
+        cache.close_retaining_samples();
+    }
 }
 
 fn send_observation_update<T>(
@@ -1902,8 +1880,7 @@ mod tests {
         TopicObservationUpdateReceiver,
     };
     use crate::{
-        CachedSubscriptionFactory, CachedSubscriptionOptions, CachedSubscriptionStatus,
-        CachedSubscriptionStatusSnapshot, CachedSubscriptionUpdate,
+        CachedSubscriptionStatus, CachedSubscriptionStatusSnapshot, CachedSubscriptionUpdate,
         CachedSubscriptionUpdateReceiver, RetentionPolicy, SampleMetadata, SampleRecord,
         TargetIdentity, TopicReference, cache::CachedSubscriptionState,
     };
@@ -2239,7 +2216,6 @@ mod tests {
                 cache: stale_cache.clone(),
             },
             display_cache: Some(cache_state.handle()),
-            display_factory: None,
             updates: Some(observation_update_sender),
         }));
         let state = Arc::downgrade(&observation_state);
@@ -2305,7 +2281,6 @@ mod tests {
         let observation_state = Arc::new(Mutex::new(super::TopicObservationState {
             status: TopicObservationStatus::Observing { cache: stale_cache },
             display_cache: Some(cache.clone()),
-            display_factory: None,
             updates: Some(observation_update_sender),
         }));
         let state = Arc::downgrade(&observation_state);
@@ -2342,33 +2317,18 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn installing_cache_with_retained_sample_emits_data_changed() {
-        let context = ContextBuilder::default().build().await.unwrap();
-        let node = Arc::new(
-            context
-                .create_node("retained_install_observer")
-                .build()
-                .await
-                .unwrap(),
-        );
         let cache_state = Arc::new(CachedSubscriptionState::<String>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         cache_state.store_latest(string_sample_record("ready before install"));
         let cache = cache_state.handle();
-        let built_cache = super::BuiltTypedCache {
-            cache: cache.clone(),
-            factory: Arc::new(CachedSubscriptionFactory::new(
-                node,
-                CachedSubscriptionOptions::with_target_namespace("/").unwrap(),
-            )),
-        };
+        let built_cache = cache.clone();
         let (observation_update_sender, observation_update_receiver) =
             broadcast::channel(super::UPDATE_BUFFER_CAPACITY);
         let observation_state = Arc::new(Mutex::new(super::TopicObservationState {
             status: TopicObservationStatus::Building,
             display_cache: None,
-            display_factory: None,
             updates: Some(observation_update_sender),
         }));
         let state = Arc::downgrade(&observation_state);
@@ -2378,7 +2338,7 @@ mod tests {
         let mut cache_updates = super::subscribe_built_cache_updates(&cache).unwrap();
         assert!(matches!(cache_updates.try_recv(), Ok(None)));
 
-        assert!(super::install_typed_cache(&state, built_cache));
+        assert!(super::install_cache(&state, built_cache));
 
         assert!(matches!(
             observation_updates.try_recv(),
@@ -2409,27 +2369,20 @@ mod tests {
             RetentionPolicy::LatestOnly,
         ));
         let cache = cache_state.handle();
-        let built_cache = super::BuiltTypedCache {
-            cache: cache.clone(),
-            factory: Arc::new(CachedSubscriptionFactory::new(
-                Arc::clone(&node),
-                CachedSubscriptionOptions::with_target_namespace("/").unwrap(),
-            )),
-        };
+        let built_cache = cache.clone();
         let (observation_update_sender, observation_update_receiver) =
             broadcast::channel(super::UPDATE_BUFFER_CAPACITY);
         let observation_state = Arc::new(Mutex::new(super::TopicObservationState {
             status: TopicObservationStatus::Building,
             display_cache: None,
-            display_factory: None,
             updates: Some(observation_update_sender),
         }));
         let state = Arc::downgrade(&observation_state);
         let mut observation_updates =
             TopicObservationUpdateReceiver::new(observation_update_receiver);
 
-        let mut cache_updates = super::subscribe_built_cache_updates(&built_cache.cache).unwrap();
-        assert!(super::install_typed_cache(&state, built_cache));
+        let mut cache_updates = super::subscribe_built_cache_updates(&built_cache).unwrap();
+        assert!(super::install_cache(&state, built_cache));
         assert!(super::refresh_observing_status(&state));
         cache_state.store_latest(string_sample_record("ready"));
 
@@ -2502,19 +2455,12 @@ mod tests {
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
-        let built_cache = super::BuiltTypedCache {
-            cache: cache_state.handle(),
-            factory: Arc::new(CachedSubscriptionFactory::new(
-                Arc::clone(&node),
-                CachedSubscriptionOptions::with_target_namespace("/").unwrap(),
-            )),
-        };
+        let built_cache = cache_state.handle();
         let (observation_update_sender, _observation_update_receiver) =
             broadcast::channel(super::UPDATE_BUFFER_CAPACITY);
         let observation_state = Arc::new(Mutex::new(super::TopicObservationState {
             status: TopicObservationStatus::Building,
             display_cache: None,
-            display_factory: None,
             updates: Some(observation_update_sender),
         }));
         let state = Arc::downgrade(&observation_state);
@@ -2524,7 +2470,7 @@ mod tests {
             topic,
             &target_fingerprint,
         ));
-        let _cache_updates = super::subscribe_built_cache_updates(&built_cache.cache).unwrap();
+        let _cache_updates = super::subscribe_built_cache_updates(&built_cache).unwrap();
         let _late_publisher = node.publisher::<String>(topic).build().await.unwrap();
         wait_for_publisher_count(&node, topic, 1).await;
 
@@ -2536,7 +2482,7 @@ mod tests {
         )
         .is_some();
         if should_install {
-            assert!(super::install_typed_cache(&state, built_cache));
+            assert!(super::install_cache(&state, built_cache));
         }
 
         assert!(

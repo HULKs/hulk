@@ -1,26 +1,23 @@
 //! Read-only subscription helpers for `ros-z` debug tooling.
 //!
-//! `CachedSubscriptionFactory` owns debug subscriptions and keeps the latest sample,
-//! optional time-window history, status, and live update notifications. Relative
-//! topic references resolve against [`CachedSubscriptionOptions::target_namespace`],
-//! then the factory subscribes to the absolute topic name through `ros-z`.
+//! `CachedSubscription` handles keep the latest sample, optional time-window
+//! history, status, and live update notifications. Drop the last handle to stop
+//! the underlying subscription task.
 //!
 //! ```rust
 //! use std::sync::Arc;
 //!
 //! use ros_z::context::ContextBuilder;
-//! use ros_z_debug::{CachedSubscriptionFactory, CachedSubscriptionOptions, RetentionPolicy};
+//! use ros_z_debug::{CachedSubscriptionNodeExt, RetentionPolicy};
 //!
 //! # async fn demo() -> ros_z_debug::Result<()> {
 //! let context = ContextBuilder::default().build().await?;
 //! let node = Arc::new(context.create_node("debug").build().await?);
-//! let options = CachedSubscriptionOptions::with_target_namespace("/robot_1")?;
-//!
-//! let factory = CachedSubscriptionFactory::new(node, options);
-//! let cache = factory
-//!     .subscribe_typed::<String>("status")?
+//! let cache = node
+//!     .cached_subscription("status")?
+//!     .target_namespace("/robot_1")?
 //!     .retention(RetentionPolicy::LatestOnly)
-//!     .build()
+//!     .build_typed::<String>()
 //!     .await?;
 //!
 //! let latest = cache.latest();
@@ -52,10 +49,10 @@
 //! # }
 //! ```
 
+mod builder;
 mod cache;
 mod error;
 mod event;
-mod factory;
 mod history;
 mod observation;
 mod retention;
@@ -63,14 +60,11 @@ mod sample;
 mod status;
 mod topic;
 
+pub use builder::{CachedSubscriptionBuilder, CachedSubscriptionNodeExt};
 pub use cache::{CachedJsonSubscription, CachedSubscription};
 pub use error::{Error, Result};
 pub use event::{
     CachedSubscriptionUpdate, CachedSubscriptionUpdateClosed, CachedSubscriptionUpdateReceiver,
-};
-pub use factory::{
-    CachedDynamicSubscriptionBuilder, CachedSubscriptionFactory, CachedSubscriptionOptions,
-    CachedTypedSubscriptionBuilder,
 };
 pub use observation::{
     DynamicTopicObservation, DynamicTopicObservationBuilder, TopicObservation,
@@ -83,7 +77,7 @@ pub use ros_z::dynamic::{
     ByteRenderPolicy, DynamicJsonRenderPolicy as JsonRenderPolicy, NonFiniteFloatRenderPolicy,
     dynamic_payload_to_json, dynamic_value_to_json,
 };
-pub use sample::{JsonSampleRecord, SampleMetadata, SampleRecord};
+pub use sample::{SampleMetadata, SampleRecord};
 pub use status::{CachedSubscriptionStatus, CachedSubscriptionStatusSnapshot};
 pub use topic::{
     ProjectedTopic, ProjectedTopicScope, TargetIdentity, TopicProjection, TopicReference,

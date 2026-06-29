@@ -30,22 +30,6 @@ pub struct SampleRecord<V> {
     pub metadata: Arc<SampleMetadata>,
 }
 
-/// A retained dynamic subscription sample projected to JSON with original metadata preserved.
-#[derive(Debug, Clone)]
-#[non_exhaustive]
-pub struct JsonSampleRecord {
-    /// Source timestamp reported by the publisher.
-    pub source_time: ros_z::time::Time,
-    /// Zenoh transport timestamp, when present on the received sample.
-    pub transport_time: Option<ros_z::time::Time>,
-    /// Stable publication identity derived from source id and sequence number.
-    pub publication_id: ros_z::pubsub::PublicationId,
-    /// Metadata shared by all samples received through the same subscription.
-    pub metadata: Arc<SampleMetadata>,
-    /// Dynamic payload rendered with the active JSON render policy.
-    pub value: serde_json::Value,
-}
-
 pub(crate) fn dynamic_record_json_value(
     record: &SampleRecord<DynamicPayload>,
     policy: crate::JsonRenderPolicy,
@@ -56,12 +40,12 @@ pub(crate) fn dynamic_record_json_value(
 pub(crate) fn dynamic_record_to_json_sample(
     record: Arc<SampleRecord<DynamicPayload>>,
     policy: crate::JsonRenderPolicy,
-) -> JsonSampleRecord {
-    JsonSampleRecord {
+) -> SampleRecord<serde_json::Value> {
+    SampleRecord {
+        value: dynamic_record_json_value(record.as_ref(), policy),
         source_time: record.source_time,
         transport_time: record.transport_time,
         publication_id: record.publication_id,
         metadata: Arc::clone(&record.metadata),
-        value: dynamic_record_json_value(record.as_ref(), policy),
     }
 }
