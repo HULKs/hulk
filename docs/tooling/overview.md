@@ -3,7 +3,7 @@
 Apart from the NAO code our repository contains several tools to aid in the development and testing process:
 
 - [Pepsi](./pepsi.md): A multi-tool to automate repetitive tasks like compiling and deployment
-- [Twix](./twix.md): Our debugging tool to visualize live data from the NAO or a Webots simulation
+- [Twix](./twix.md): The ROS-Z debugging UI
 - [Depp](./depp.md): TODO: Irgendwas mit dependencies
 - [Fanta](./fanta.md): TODO: Irgendwas mit live data auf der CLI
 - [Recording & Replay](./recording_and_replay.md): Post-mortem analysis of game data
