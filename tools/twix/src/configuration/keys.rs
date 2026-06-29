@@ -27,15 +27,14 @@ pub enum KeybindAction {
     CloseTab,
     DuplicateTab,
     FocusAbove,
-    FocusAddress,
     FocusBelow,
     FocusLeft,
+    FocusNamespace,
     FocusPanel,
     FocusRight,
     NoOp,
     OpenSplit,
     OpenTab,
-    Reconnect,
     CloseAll,
 }
 
@@ -162,10 +161,23 @@ impl<'de> Deserialize<'de> for Keybinds {
 #[cfg(test)]
 mod tests {
     use eframe::egui::{Key, KeyboardShortcut, Modifiers};
+    use serde::Deserialize;
 
-    use crate::configuration::keys::parse_shortcut;
+    use crate::configuration::keys::{KeybindAction, parse_shortcut};
 
     use super::Error;
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct ActionConfig {
+        action: KeybindAction,
+    }
+
+    #[test]
+    fn deserialize_current_namespace_focus_action() {
+        let config: ActionConfig = toml::from_str(r#"action = "focus_namespace""#).unwrap();
+
+        assert_eq!(config.action, KeybindAction::FocusNamespace);
+    }
 
     #[test]
     fn parse_triggers() {

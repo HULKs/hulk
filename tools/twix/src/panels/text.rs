@@ -1,96 +1,363 @@
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
-use eframe::egui::{Label, Response, ScrollArea, Sense, Ui, Widget};
-use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
+use color_eyre::{Report, eyre::Context as _};
+use eframe::egui::{TextEdit, Ui};
+use hulk_widgets::CompletionEdit;
+use ros_z::{dynamic::DynamicPayload, time::Time};
+use ros_z_debug::{DynamicTopicObservation, SampleRecord, TopicObservationStatus};
 use serde_json::{Value, json};
 
 use crate::{
-    panel::{Panel, PanelCreationContext},
-    robot::Robot,
-    value_buffer::BufferHandle,
+    panel::{Panel, PanelCreationContext, PanelUiContext},
+    repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
 };
 
 pub struct TextPanel {
-    robot: Arc<Robot>,
-    path: String,
-    buffer: Option<BufferHandle<Value>>,
+    topic_editor: String,
+    topic: String,
+    pretty: bool,
+    observation: ObservationState,
 }
 
-impl<'a> Panel<'a> for TextPanel {
-    const NAME: &'static str = "Text";
+enum ObservationState {
+    Idle,
+    Observing(Box<ObservedTopic>),
+    Error(String),
+}
 
-    fn new(context: PanelCreationContext) -> Self {
-        let path = match context.value.and_then(|value| value.get("path")) {
-            Some(Value::String(string)) => string.to_string(),
-            _ => String::new(),
+struct ObservedTopic {
+    observation: DynamicTopicObservation,
+    _repaint: ObservationRepaint,
+    render_cache: RenderedRecordCache,
+}
+
+#[derive(Default)]
+struct RenderedRecordCache {
+    sample: Option<Arc<SampleRecord<DynamicPayload>>>,
+    metadata: Option<RenderedMetadata>,
+    value: Option<Value>,
+    pretty: Option<String>,
+    compact: Option<String>,
+}
+
+struct RenderedMetadata {
+    resolved_topic: String,
+    type_name: String,
+    source_time: String,
+    transport_time: String,
+    publication_id: String,
+}
+
+impl Panel for TextPanel {
+    const STORAGE_ID: &'static str = "text";
+    const DISPLAY_NAME: &'static str = "Text";
+
+    fn new(context: PanelCreationContext<'_>) -> Self {
+        let topic = context
+            .value
+            .and_then(|value| value.get("topic"))
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let pretty = context
+            .value
+            .and_then(|value| value.get("pretty"))
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+
+        let mut panel = Self {
+            topic_editor: topic.clone(),
+            topic,
+            pretty,
+            observation: ObservationState::Idle,
         };
-        let buffer = if !path.is_empty() {
-            Some(context.robot.subscribe_json(path.clone()))
-        } else {
-            None
-        };
-        Self {
-            robot: context.robot,
-            path,
-            buffer,
-        }
+        panel.recreate_observation(&context);
+        panel
+    }
+
+    fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                ui.label("Topic");
+                let completions = Vec::<String>::new();
+                let response = ui.add(CompletionEdit::new(
+                    ui.id().with("topic"),
+                    &completions,
+                    &mut self.topic_editor,
+                ));
+                let commit = response.lost_focus()
+                    || ui.input(|input| {
+                        response.has_focus() && input.key_pressed(eframe::egui::Key::Enter)
+                    });
+                if commit {
+                    self.commit_topic(&context);
+                }
+                ui.checkbox(&mut self.pretty, "Pretty");
+            });
+
+            if self.topic.is_empty() {
+                ui.label("Enter a topic.");
+                return;
+            }
+
+            match &mut self.observation {
+                ObservationState::Idle => {
+                    ui.label("No observation.");
+                }
+                ObservationState::Error(error) => {
+                    ui.colored_label(ui.visuals().error_fg_color, error);
+                }
+                ObservationState::Observing(observed) => {
+                    Self::render_status(ui, observed.observation.status());
+                    observed.render_cache.refresh(&observed.observation);
+
+                    let Some(metadata) = observed.render_cache.metadata() else {
+                        ui.label("Waiting for first sample.");
+                        return;
+                    };
+                    Self::render_metadata(ui, metadata);
+                    ui.separator();
+
+                    if let Some(rendered) = observed.render_cache.rendered_json_buffer(self.pretty)
+                    {
+                        ui.add(
+                            TextEdit::multiline(rendered)
+                                .font(eframe::egui::TextStyle::Monospace)
+                                .desired_width(f32::INFINITY)
+                                .interactive(false),
+                        );
+                    }
+                }
+            }
+        });
     }
 
     fn save(&self) -> Value {
         json!({
-            "path": self.path.clone()
+            "topic": self.topic,
+            "pretty": self.pretty,
         })
     }
 }
 
-impl Widget for &mut TextPanel {
-    fn ui(self, ui: &mut Ui) -> Response {
-        let edit_response = ui
-            .horizontal(|ui| {
-                let edit_response = ui.add(RobotPathCompletionEdit::new(
-                    ui.id().with("text-panel"),
-                    self.robot.latest_paths(),
-                    &mut self.path,
-                    PathFilter::Readable,
-                ));
-                if edit_response.changed() {
-                    self.buffer = Some(self.robot.subscribe_json(self.path.clone()));
-                }
-                if let Some(buffer) = &self.buffer
-                    && let Ok(Some(timestamp)) = buffer.get_last_timestamp()
-                {
-                    let date: DateTime<Utc> = timestamp.into();
-                    ui.label(date.format("%T%.3f").to_string());
-                }
-                edit_response
-            })
-            .inner;
-        let scroll_area = ScrollArea::vertical()
-            .auto_shrink([false, false])
-            .show(ui, |ui| {
-                self.buffer.as_ref().map(|buffer| match buffer.get_last() {
-                    Ok(Some(datum)) => {
-                        let content = match serde_json::to_string_pretty(&datum.value) {
-                            Ok(pretty_string) => pretty_string,
-                            Err(error) => error.to_string(),
-                        };
-                        let label = ui.add(Label::new(&content).sense(Sense::click()));
-                        if label.clicked() {
-                            ui.ctx().copy_text(content);
-                        }
-                        label.on_hover_ui_at_pointer(|ui| {
-                            ui.label("Click to copy");
-                        })
-                    }
-                    Err(error) => ui.label(error.to_string()),
-                    Ok(None) => ui.label("no data available"),
-                })
-            });
-        if let Some(response) = scroll_area.inner {
-            edit_response | response
-        } else {
-            edit_response
+impl TextPanel {
+    fn recreate_observation<C>(&mut self, context: &C)
+    where
+        C: ObservationContext,
+    {
+        self.observation = ObservationState::Idle;
+
+        if self.topic.is_empty() {
+            return;
         }
+
+        match create_observation(context, &self.topic) {
+            Ok((observation, repaint)) => {
+                self.observation = ObservationState::Observing(Box::new(ObservedTopic {
+                    observation,
+                    _repaint: repaint,
+                    render_cache: RenderedRecordCache::default(),
+                }));
+            }
+            Err(error) => {
+                self.observation = ObservationState::Error(format!("{error:#}"));
+            }
+        }
+    }
+
+    fn commit_topic<C>(&mut self, context: &C)
+    where
+        C: ObservationContext,
+    {
+        let next_topic = self.topic_editor.trim().to_string();
+        if next_topic == self.topic {
+            return;
+        }
+        self.topic = next_topic;
+        self.recreate_observation(context);
+    }
+
+    fn render_metadata(ui: &mut Ui, metadata: &RenderedMetadata) {
+        ui.horizontal_wrapped(|ui| {
+            ui.label("topic:");
+            ui.monospace(&metadata.resolved_topic);
+            ui.separator();
+            ui.label("type:");
+            ui.monospace(&metadata.type_name);
+            ui.separator();
+            ui.label("source:");
+            ui.monospace(&metadata.source_time);
+            ui.separator();
+            ui.label("transport:");
+            ui.monospace(&metadata.transport_time);
+            ui.separator();
+            ui.label("publication:");
+            ui.monospace(&metadata.publication_id);
+        });
+    }
+
+    fn render_status(ui: &mut Ui, status: TopicObservationStatus) {
+        ui.horizontal_wrapped(|ui| {
+            ui.label("status:");
+            ui.monospace(format!("{status:?}"));
+        });
+    }
+}
+
+impl RenderedRecordCache {
+    fn refresh(&mut self, observation: &DynamicTopicObservation) {
+        let sample = observation.latest();
+        if same_sample(self.sample.as_ref(), sample.as_ref()) {
+            return;
+        }
+
+        self.sample = sample;
+        self.metadata = None;
+        self.value = None;
+        self.pretty = None;
+        self.compact = None;
+
+        if self.sample.is_none() {
+            return;
+        }
+
+        if let Some(record) = observation.latest_json_record() {
+            self.metadata = Some(RenderedMetadata::from(&record));
+            self.value = Some(record.value);
+        } else {
+            self.sample = None;
+        }
+    }
+
+    fn metadata(&self) -> Option<&RenderedMetadata> {
+        self.metadata.as_ref()
+    }
+
+    fn rendered_json_buffer(&mut self, pretty: bool) -> Option<&mut String> {
+        let value = self.value.as_ref()?;
+        let rendered = if pretty {
+            &mut self.pretty
+        } else {
+            &mut self.compact
+        };
+
+        if rendered.is_none() {
+            *rendered = Some(render_json(value, pretty));
+        }
+
+        rendered.as_mut()
+    }
+
+    #[cfg(test)]
+    fn replace_json_for_test(&mut self, value: Value) {
+        self.value = Some(value);
+        self.pretty = None;
+        self.compact = None;
+    }
+}
+
+impl From<&SampleRecord<Value>> for RenderedMetadata {
+    fn from(record: &SampleRecord<Value>) -> Self {
+        Self {
+            resolved_topic: record.metadata.resolved_topic.clone(),
+            type_name: record.metadata.type_info.name.to_string(),
+            source_time: format_time(record.source_time),
+            transport_time: record
+                .transport_time
+                .map(format_time)
+                .unwrap_or_else(|| "none".to_string()),
+            publication_id: format!("{:?}", record.publication_id),
+        }
+    }
+}
+
+fn same_sample(
+    current: Option<&Arc<SampleRecord<DynamicPayload>>>,
+    next: Option<&Arc<SampleRecord<DynamicPayload>>>,
+) -> bool {
+    match (current, next) {
+        (Some(current), Some(next)) => Arc::ptr_eq(current, next),
+        (None, None) => true,
+        _ => false,
+    }
+}
+
+fn render_json(value: &Value, pretty: bool) -> String {
+    let rendered = if pretty {
+        serde_json::to_string_pretty(value)
+    } else {
+        serde_json::to_string(value)
+    };
+
+    rendered.unwrap_or_else(|error| format!("failed to render JSON: {error}"))
+}
+
+fn create_observation(
+    context: &impl ObservationContext,
+    topic: &str,
+) -> Result<(DynamicTopicObservation, ObservationRepaint), Report> {
+    let observation = context
+        .backend()
+        .observer()
+        .observe_dynamic(topic)
+        .wrap_err("failed to create dynamic topic observation")?
+        .spawn();
+    let repaint = observation.repaint_on_updates(context);
+    Ok((observation, repaint))
+}
+
+fn format_time(time: Time) -> String {
+    format!("{} ns", time.as_nanos())
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::{ObservationState, Panel, RenderedRecordCache, TextPanel};
+
+    #[test]
+    fn render_cache_reuses_serialized_json_for_unchanged_sample_and_format() {
+        let mut cache = RenderedRecordCache::default();
+        cache.replace_json_for_test(json!({ "answer": 42 }));
+
+        let first = cache.rendered_json_buffer(true).unwrap().as_ptr();
+        let second = cache.rendered_json_buffer(true).unwrap().as_ptr();
+
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn render_cache_exposes_mutable_display_buffer_for_unchanged_sample_and_format() {
+        let mut cache = RenderedRecordCache::default();
+        cache.replace_json_for_test(json!({ "answer": 42 }));
+
+        let rendered = cache.rendered_json_buffer(true).unwrap();
+        rendered.push_str("\nlocal display state");
+
+        assert!(
+            cache
+                .rendered_json_buffer(true)
+                .unwrap()
+                .ends_with("local display state")
+        );
+    }
+
+    #[test]
+    fn save_preserves_topic_and_pretty_flag() {
+        let panel = TextPanel {
+            topic_editor: "/draft/topic".to_string(),
+            topic: "/output/text".to_string(),
+            pretty: false,
+            observation: ObservationState::Idle,
+        };
+
+        assert_eq!(
+            panel.save(),
+            json!({
+                "topic": "/output/text",
+                "pretty": false,
+            })
+        );
     }
 }
