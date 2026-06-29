@@ -621,18 +621,16 @@ impl<T> TopicObservation<T> {
 
     /// Return the latest retained sample, if one has arrived.
     pub fn latest(&self) -> Option<Arc<crate::SampleRecord<T>>> {
-        self.state.lock().display_cache.as_ref()?.latest()
+        let cache = self.state.lock().display_cache.clone();
+        cache?.latest()
     }
 
     /// Return retained samples whose source time falls inside `[start, end]`.
     ///
     /// Observations with [`RetentionPolicy::LatestOnly`] return an empty window.
     pub fn window(&self, start: Time, end: Time) -> Vec<Arc<crate::SampleRecord<T>>> {
-        self.state
-            .lock()
-            .display_cache
-            .as_ref()
-            .map_or_else(Vec::new, |cache| cache.window(start, end))
+        let cache = self.state.lock().display_cache.clone();
+        cache.map_or_else(Vec::new, |cache| cache.window(start, end))
     }
 
     /// Subscribe to future status and data update notifications.

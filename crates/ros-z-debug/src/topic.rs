@@ -190,13 +190,13 @@ fn resolve_topic_name(topic: &str, target: &TargetIdentity) -> Result<String> {
         );
     }
 
-    let target = if topic.starts_with('/') {
-        TargetIdentity::new("/")?
+    let namespace = if topic.starts_with('/') {
+        "/"
     } else {
-        target.clone()
+        target.namespace()
     };
 
-    qualify_topic_name(topic, target.namespace(), TARGET_NODE_PLACEHOLDER).map_err(|source| {
+    qualify_topic_name(topic, namespace, TARGET_NODE_PLACEHOLDER).map_err(|source| {
         Error::InvalidTopicReference {
             topic: topic.to_string(),
             source,
