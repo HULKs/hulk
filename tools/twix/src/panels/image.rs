@@ -4,7 +4,7 @@ use color_eyre::{Report, eyre::Context as _};
 use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui, load::SizedTexture};
 use hulk_widgets::CompletionEdit;
 use image::RgbImage;
-use ros_z::time::Time;
+use ros_z::{pubsub::PublicationId, time::Time};
 use ros_z_debug::{SampleRecord, TopicObservation, TopicObservationStatus};
 use ros2::sensor_msgs::image::Image as RosImage;
 use serde_json::{Value, json};
@@ -332,7 +332,7 @@ impl From<&SampleRecord<TimeWrapper<RosImage>>> for RenderedMetadata {
                 .transport_time
                 .map(format_time)
                 .unwrap_or_else(|| "none".to_string()),
-            publication_id: format!("{:?}", record.publication_id),
+            publication_id: format_publication_id(record.publication_id),
             image_time: format_time(record.value.time),
         }
     }
@@ -359,13 +359,17 @@ fn format_time(time: Time) -> String {
     format!("{} ns", time.as_nanos())
 }
 
+fn format_publication_id(publication_id: PublicationId) -> String {
+    format!("{publication_id:#}")
+}
+
 #[cfg(test)]
 mod tests {
     use std::{sync::Arc, time::Duration};
 
     use eframe::egui::Color32;
     use eframe::egui::Context as EguiContext;
-    use ros_z::{context::ContextBuilder, time::Time};
+    use ros_z::{EndpointGlobalId, context::ContextBuilder, pubsub::Received, time::Time};
     use ros_z_debug::{TopicObserver, TopicObserverOptions};
     use ros2::{sensor_msgs::image::Image as RosImage, std_msgs::header::Header};
     use serde_json::json;
@@ -375,9 +379,22 @@ mod tests {
 
     use super::{
         DEFAULT_IMAGE_TOPIC, ImageDecodeError, ImagePanel, ObservationState, RenderedImageCache,
-        decode_color_image,
+        decode_color_image, format_publication_id,
     };
     use crate::panel::Panel;
+
+    fn publication_id() -> ros_z::pubsub::PublicationId {
+        Received {
+            message: (),
+            transport_time: None,
+            source_time: Time::zero(),
+            sequence_number: 42,
+            source_global_id: EndpointGlobalId::from([
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+            ]),
+        }
+        .publication_id()
+    }
 
     fn rgb8_image(width: u32, height: u32, data: Vec<u8>) -> RosImage {
         RosImage {
@@ -421,6 +438,14 @@ mod tests {
                 height: 1
             }
         ));
+    }
+
+    #[test]
+    fn metadata_formats_compact_publication_id() {
+        assert_eq!(
+            format_publication_id(publication_id()),
+            "01020304…0d0e0f10#42"
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

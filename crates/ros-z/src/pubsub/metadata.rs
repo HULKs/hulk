@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{fmt::Display, ops::Deref};
 
 use zenoh::sample::Sample;
 
@@ -39,6 +39,16 @@ impl PublicationId {
 
     pub fn sequence_number(&self) -> i64 {
         self.sequence_number
+    }
+}
+
+impl Display for PublicationId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            write!(f, "{:#}#{}", self.endpoint_global_id, self.sequence_number)
+        } else {
+            write!(f, "{}#{}", self.endpoint_global_id, self.sequence_number)
+        }
     }
 }
 
@@ -110,5 +120,34 @@ impl<T: PartialEq> PartialEq for Received<T> {
             && self.source_time == other.source_time
             && self.sequence_number == other.sequence_number
             && self.source_global_id == other.source_global_id
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PublicationId;
+    use crate::EndpointGlobalId;
+
+    #[test]
+    fn publication_id_display_formats_full_endpoint_and_sequence_number() {
+        let publication_id = PublicationId::new(
+            EndpointGlobalId::from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]),
+            42,
+        );
+
+        assert_eq!(
+            publication_id.to_string(),
+            "0102030405060708090a0b0c0d0e0f10#42"
+        );
+    }
+
+    #[test]
+    fn publication_id_alternate_display_formats_compact_endpoint_and_sequence_number() {
+        let publication_id = PublicationId::new(
+            EndpointGlobalId::from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]),
+            42,
+        );
+
+        assert_eq!(format!("{publication_id:#}"), "01020304…0d0e0f10#42");
     }
 }

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use color_eyre::{Report, eyre::Context as _};
 use eframe::egui::{TextEdit, Ui};
 use hulk_widgets::CompletionEdit;
-use ros_z::{dynamic::DynamicPayload, time::Time};
+use ros_z::{dynamic::DynamicPayload, pubsub::PublicationId, time::Time};
 use ros_z_debug::{DynamicTopicObservation, SampleRecord, TopicObservationStatus};
 use serde_json::{Value, json};
 
@@ -262,7 +262,7 @@ impl From<&SampleRecord<Value>> for RenderedMetadata {
                 .transport_time
                 .map(format_time)
                 .unwrap_or_else(|| "none".to_string()),
-            publication_id: format!("{:?}", record.publication_id),
+            publication_id: format_publication_id(record.publication_id),
         }
     }
 }
@@ -309,16 +309,34 @@ fn format_time(time: Time) -> String {
     format!("{} ns", time.as_nanos())
 }
 
+fn format_publication_id(publication_id: PublicationId) -> String {
+    format!("{publication_id:#}")
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
 
     use eframe::egui::Context;
+    use ros_z::{EndpointGlobalId, pubsub::Received, time::Time};
     use serde_json::json;
 
     use crate::{backend::RobotBackend, panel::PanelCreationContext};
 
-    use super::{ObservationState, Panel, RenderedRecordCache, TextPanel};
+    use super::{ObservationState, Panel, RenderedRecordCache, TextPanel, format_publication_id};
+
+    fn publication_id() -> ros_z::pubsub::PublicationId {
+        Received {
+            message: (),
+            transport_time: None,
+            source_time: Time::zero(),
+            sequence_number: 42,
+            source_global_id: EndpointGlobalId::from([
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+            ]),
+        }
+        .publication_id()
+    }
 
     #[test]
     fn render_cache_reuses_serialized_json_for_unchanged_sample_and_format() {
@@ -344,6 +362,14 @@ mod tests {
                 .rendered_json_buffer(true)
                 .unwrap()
                 .ends_with("local display state")
+        );
+    }
+
+    #[test]
+    fn metadata_formats_compact_publication_id() {
+        assert_eq!(
+            format_publication_id(publication_id()),
+            "01020304…0d0e0f10#42"
         );
     }
 
