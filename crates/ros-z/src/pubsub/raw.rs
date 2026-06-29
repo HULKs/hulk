@@ -4,7 +4,11 @@ use std::time::Duration;
 use zenoh::sample::Sample;
 
 use crate::Result;
-use crate::pubsub::subscriber::{SubscriberBuilder, SubscriberResources};
+use crate::entity::EndpointEntity;
+use crate::graph::Graph;
+use crate::pubsub::subscriber::{
+    SubscriberBuilder, SubscriberResources, recv_sample_with_publisher_warning,
+};
 use crate::qos::QosProfile;
 use crate::queue::BoundedQueue;
 
@@ -15,13 +19,25 @@ use crate::queue::BoundedQueue;
 /// Received samples are delivered as [`Sample`] values without deserialization.
 pub struct RawSubscriber {
     queue: Arc<BoundedQueue<Sample>>,
+    graph: Arc<Graph>,
+    entity: EndpointEntity,
+    publisher_warning_timeout: Option<Duration>,
     _resources: SubscriberResources,
 }
 
 impl RawSubscriber {
-    pub(super) fn new(queue: Arc<BoundedQueue<Sample>>, resources: SubscriberResources) -> Self {
+    pub(super) fn new(
+        queue: Arc<BoundedQueue<Sample>>,
+        resources: SubscriberResources,
+        graph: Arc<Graph>,
+        entity: EndpointEntity,
+        publisher_warning_timeout: Option<Duration>,
+    ) -> Self {
         Self {
             queue,
+            graph,
+            entity,
+            publisher_warning_timeout,
             _resources: resources,
         }
     }
@@ -32,8 +48,20 @@ impl RawSubscriber {
     /// Zenoh and does not deserialize it into a message type. The receive is
     /// cancel-safe: cancelling this future before it completes does not remove a
     /// sample from the queue.
+    ///
+    /// By default, this logs a warning after
+    /// [`DEFAULT_PUBLISHER_WARNING_TIMEOUT`](crate::pubsub::DEFAULT_PUBLISHER_WARNING_TIMEOUT) if
+    /// no sample arrives and no publishers are visible for the topic. The warning does not end the
+    /// receive; this method continues waiting for the next sample.
     pub async fn recv(&mut self) -> Result<Sample> {
-        Ok(self.queue.recv_async().await)
+        let sample = recv_sample_with_publisher_warning(
+            &self.queue,
+            &self.graph,
+            &self.entity,
+            self.publisher_warning_timeout,
+        )
+        .await;
+        Ok(sample)
     }
 }
 
@@ -66,6 +94,23 @@ where
     pub fn transient_local_replay_timeout(self, timeout: Duration) -> Self {
         Self {
             inner: self.inner.transient_local_replay_timeout(timeout),
+        }
+    }
+
+    /// Configure how long receive waits before warning that no publishers are visible.
+    ///
+    /// The warning is emitted only when no sample arrives before `timeout` and the graph has no
+    /// visible publishers for the subscriber topic. Receiving continues waiting after the warning.
+    pub fn publisher_warning_timeout(self, timeout: Duration) -> Self {
+        Self {
+            inner: self.inner.publisher_warning_timeout(timeout),
+        }
+    }
+
+    /// Disable warnings when receive waits without any visible publishers.
+    pub fn without_publisher_warning(self) -> Self {
+        Self {
+            inner: self.inner.without_publisher_warning(),
         }
     }
 
