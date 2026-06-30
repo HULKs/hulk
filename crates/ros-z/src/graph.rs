@@ -4,7 +4,7 @@ mod snapshot;
 mod state;
 
 use discovery::install_liveliness;
-pub use query::{GraphChangeSubscription, GraphView, QosIncompatibility};
+pub use query::{GraphChangeSubscription, GraphView, QosIncompatibility, TypeMismatch};
 pub use snapshot::{GraphSnapshot, NodeSnapshot, ServiceSnapshot, TopicSnapshot};
 use state::GraphStore;
 

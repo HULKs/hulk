@@ -704,7 +704,8 @@ mod tests {
         assert!(wait_for_publishers(&pub_node, &topic, 1, 2_000).await?);
         assert!(wait_for_subscribers(&pub_node, &topic, 1, 2_000).await?);
 
-        let diagnostics = pub_node.graph().qos_incompatibilities_for_topic(&topic);
+        let view = pub_node.graph().view();
+        let diagnostics = view.qos_incompatibilities_for_topic(&topic);
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(
@@ -751,7 +752,8 @@ mod tests {
         assert!(wait_for_publishers(&pub_node, &topic, 1, 2_000).await?);
         assert!(wait_for_subscribers(&pub_node, &topic, 1, 2_000).await?);
 
-        let diagnostics = pub_node.graph().qos_incompatibilities_for_topic(&topic);
+        let view = pub_node.graph().view();
+        let diagnostics = view.qos_incompatibilities_for_topic(&topic);
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(

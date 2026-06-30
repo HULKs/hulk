@@ -8,6 +8,8 @@ mod model;
 mod render;
 mod support;
 
+use std::process::ExitCode;
+
 use clap::CommandFactory;
 use color_eyre::eyre::Result;
 
@@ -18,7 +20,7 @@ use crate::{
 };
 
 /// Run the CLI with parsed command-line arguments.
-pub async fn run(cli: Cli) -> Result<()> {
+pub async fn run(cli: Cli) -> Result<ExitCode> {
     let Cli {
         router,
         json,
@@ -29,7 +31,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         Command::Completions { shell } => {
             let mut command = Cli::command();
             clap_complete::generate(shell, &mut command, "rosz", &mut std::io::stdout());
-            Ok(())
+            Ok(ExitCode::SUCCESS)
         }
         Command::Online(command) => {
             let output_mode = OutputMode::from_json_flag(json);
@@ -42,13 +44,25 @@ async fn run_online_command(
     router: String,
     output_mode: OutputMode,
     command: OnlineCommand,
-) -> Result<()> {
+) -> Result<ExitCode> {
     let app = AppContext::new(&router).await?;
+    let mut exit_code = ExitCode::SUCCESS;
 
     let result = match command {
         OnlineCommand::List { target } => commands::list::run(&app, output_mode, target).await,
         OnlineCommand::Watch => commands::watch::run(&app, output_mode).await,
         OnlineCommand::Graph => commands::graph::run(&app, output_mode).await,
+        OnlineCommand::Doctor { settle_timeout } => {
+            match commands::doctor::run(&app, output_mode, settle_timeout).await {
+                Ok(has_errors) => {
+                    if has_errors {
+                        exit_code = ExitCode::from(1);
+                    }
+                    Ok(())
+                }
+                Err(error) => Err(error),
+            }
+        }
         OnlineCommand::Schema {
             type_name,
             node,
@@ -72,7 +86,7 @@ async fn run_online_command(
     let shutdown_result = app.shutdown();
 
     match (result, shutdown_result) {
-        (Ok(()), Ok(())) => Ok(()),
+        (Ok(()), Ok(())) => Ok(exit_code),
         (Err(error), _) => Err(error),
         (Ok(()), Err(error)) => Err(error),
     }

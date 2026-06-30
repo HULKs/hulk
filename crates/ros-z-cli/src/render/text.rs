@@ -4,6 +4,10 @@ use ros_z::graph::GraphSnapshot;
 
 use crate::{
     model::{
+        doctor::{
+            DoctorEndpoint, DoctorFinding, DoctorFindingKind, DoctorQosCompatibility, DoctorReport,
+            DoctorSeverity,
+        },
         echo::EchoHeader,
         graph::{NodeSummary, ServiceSummary, TopicSummary},
         hz::{HzReport, HzStats},
@@ -253,6 +257,80 @@ fn format_hz(rate_hz: f64) -> String {
 
 fn format_seconds(seconds: f64) -> String {
     format!("{seconds:.3}s")
+}
+
+pub fn print_doctor_report(report: &DoctorReport) {
+    if report.findings.is_empty() {
+        println!(
+            "rosz doctor found no pub/sub graph issues at graph revision {}",
+            format_graph_revision(report.revision)
+        );
+        return;
+    }
+
+    println!(
+        "rosz doctor found {} warning(s), {} error(s) at graph revision {}",
+        report.warning_count,
+        report.error_count,
+        format_graph_revision(report.revision)
+    );
+    println!();
+
+    for (index, finding) in report.findings.iter().enumerate() {
+        if index > 0 {
+            println!();
+        }
+        print_doctor_finding(finding);
+    }
+}
+
+fn print_doctor_finding(finding: &DoctorFinding) {
+    let severity = doctor_severity_name(finding.severity);
+    let kind = doctor_finding_kind_name(finding.kind);
+    println!("{severity} {kind} topic {}", finding.topic);
+    if let Some(compatibility) = finding.qos_compatibility {
+        println!(
+            "  compatibility: {}",
+            doctor_qos_compatibility_name(compatibility)
+        );
+    }
+    for endpoint in &finding.endpoints {
+        print_doctor_endpoint(endpoint);
+    }
+}
+
+fn print_doctor_endpoint(endpoint: &DoctorEndpoint) {
+    println!(
+        "  {}: {} type={} schema_hash={}",
+        endpoint.kind, endpoint.node, endpoint.type_name, endpoint.schema_hash
+    );
+}
+
+fn doctor_severity_name(severity: DoctorSeverity) -> &'static str {
+    match severity {
+        DoctorSeverity::Warning => "warning",
+        DoctorSeverity::Error => "error",
+    }
+}
+
+fn doctor_finding_kind_name(kind: DoctorFindingKind) -> &'static str {
+    match kind {
+        DoctorFindingKind::DanglingPublisher => "dangling publisher",
+        DoctorFindingKind::DanglingSubscriber => "dangling subscriber",
+        DoctorFindingKind::TypeMismatch => "type mismatch",
+        DoctorFindingKind::QosIncompatibility => "qos incompatibility",
+    }
+}
+
+fn doctor_qos_compatibility_name(compatibility: DoctorQosCompatibility) -> &'static str {
+    match compatibility {
+        DoctorQosCompatibility::IncompatibleReliability => "incompatible reliability",
+        DoctorQosCompatibility::IncompatibleDurability => "incompatible durability",
+    }
+}
+
+fn format_graph_revision(revision: ros_z::graph::GraphRevision) -> String {
+    serde_json::to_string(&revision).unwrap_or_else(|_| format!("{revision:?}"))
 }
 
 pub fn print_schema(view: &SchemaView) {
