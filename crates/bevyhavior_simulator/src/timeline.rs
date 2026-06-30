@@ -100,7 +100,7 @@ pub struct RobotFrame {
 }
 
 impl RobotFrame {
-    pub(crate) fn from_outputs(
+    pub fn from_outputs(
         world_state: WorldState,
         tick_output: SimulatorBehaviorTickOutput,
         outgoing_messages: Vec<OutgoingMessage>,
@@ -121,7 +121,7 @@ impl RobotFrame {
     }
 }
 
-pub(crate) fn record_timeline_frame(
+pub fn record_timeline_frame(
     clock: Res<SimulatorClock>,
     ball: Res<SimulatorBall>,
     game_state: Res<SimulatorGameState>,
@@ -152,7 +152,7 @@ pub(crate) fn record_timeline_frame(
     });
 }
 
-pub(crate) fn robot_snapshots_from_query(
+pub fn robot_snapshots_from_query(
     robots: &Query<(
         &SimulatorRobot,
         &SimulatorGroundToWorld,

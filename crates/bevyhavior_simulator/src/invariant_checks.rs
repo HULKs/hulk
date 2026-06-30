@@ -27,7 +27,7 @@ pub struct SimulatorInvariantChecks(pub Vec<Box<dyn InvariantCheck>>);
 #[derive(Resource, Clone, Debug, Default)]
 pub struct SimulatorCurrentInvariantViolations(pub Vec<InvariantViolation>);
 
-pub(crate) const BEHAVIOR_TICK_ERROR_CHECK_NAME: &str = "behavior_tick_error";
+pub const BEHAVIOR_TICK_ERROR_CHECK_NAME: &str = "behavior_tick_error";
 
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct RobotSnapshot {
@@ -136,7 +136,7 @@ impl InvariantCheck for FieldBoundaryWalkCheck {
     }
 }
 
-pub(crate) fn run_invariant_checks(
+pub fn run_invariant_checks(
     clock: Res<crate::behavior_tree_simulator::SimulatorClock>,
     ball: Res<SimulatorBall>,
     field_dimensions: Res<SimulatorFieldDimensions>,

@@ -15,7 +15,7 @@ use crate::behavior_tree_simulator::{
     SimulatorRobotFrames, SimulatorRobotParameters,
 };
 
-pub(crate) fn apply_motion_kinematics(
+pub fn move_robots(
     clock: Res<SimulatorClock>,
     config: Res<SimulationConfig>,
     robot_frames: Res<SimulatorRobotFrames>,
@@ -160,7 +160,7 @@ fn wrap_angle(angle: f32) -> f32 {
     Orientation2::<Ground>::new(angle).angle()
 }
 
-pub(crate) fn first_path_target(path: &types::path::Path) -> Option<Point2<Ground>> {
+pub fn first_path_target(path: &types::path::Path) -> Option<Point2<Ground>> {
     let segment = path.segments.first()?;
     match segment {
         PathSegment::LineSegment(segment) => Some(segment.1),
@@ -356,7 +356,7 @@ mod tests {
                 outgoing_messages: Vec::new(),
             },
         )])))
-        .add_systems(Update, apply_motion_kinematics);
+        .add_systems(Update, move_robots);
 
         app.world_mut().spawn((
             SimulatorRobot {

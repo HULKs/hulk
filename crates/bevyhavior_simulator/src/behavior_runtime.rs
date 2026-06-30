@@ -183,7 +183,7 @@ fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackbo
     }
 }
 
-pub(crate) fn tick_behavior_trees(
+pub fn tick_behavior_trees(
     clock: Res<SimulatorClock>,
     field_dimensions: Res<SimulatorFieldDimensions>,
     world_states: Res<SimulatorWorldStates>,

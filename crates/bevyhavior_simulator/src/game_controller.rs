@@ -60,7 +60,7 @@ impl SimulatorGameState {
     }
 }
 
-pub(crate) fn global_field_side_for_team(
+pub fn global_field_side_for_team(
     game_controller_state: &GameControllerState,
     team: Team,
 ) -> GlobalFieldSide {
@@ -70,7 +70,7 @@ pub(crate) fn global_field_side_for_team(
     }
 }
 
-pub(crate) fn default_game_controller_state() -> GameControllerState {
+pub fn default_game_controller_state() -> GameControllerState {
     GameControllerState {
         game_state: GameState::Playing,
         stopped: false,
@@ -107,13 +107,13 @@ pub(crate) fn default_game_controller_state() -> GameControllerState {
     }
 }
 
-pub(crate) fn filtered_game_controller_state_from(
+pub fn filtered_game_controller_state_from(
     game_controller_state: &GameControllerState,
 ) -> FilteredGameControllerState {
     filtered_game_controller_state_for_team(game_controller_state, Team::Hulks)
 }
 
-pub(crate) fn filtered_game_controller_state_for_team(
+pub fn filtered_game_controller_state_for_team(
     game_controller_state: &GameControllerState,
     team: Team,
 ) -> FilteredGameControllerState {
@@ -157,9 +157,7 @@ fn local_team_for(own_team: Team, canonical_team: Team) -> Team {
     }
 }
 
-pub(crate) fn filtered_game_state_from(
-    game_controller_state: &GameControllerState,
-) -> FilteredGameState {
+pub fn filtered_game_state_from(game_controller_state: &GameControllerState) -> FilteredGameState {
     if game_controller_state.stopped {
         return FilteredGameState::Stop;
     }
@@ -176,7 +174,7 @@ pub(crate) fn filtered_game_state_from(
     }
 }
 
-pub(crate) fn primary_state_from_game_controller_state(
+pub fn primary_state_from_game_controller_state(
     game_controller_state: &GameControllerState,
 ) -> PrimaryState {
     match filtered_game_state_from(game_controller_state) {
@@ -189,7 +187,7 @@ pub(crate) fn primary_state_from_game_controller_state(
     }
 }
 
-pub(crate) fn sync_primary_states_from_game_state(
+pub fn sync_primary_states_from_game_state(
     game_state: Res<SimulatorGameState>,
     mut robots: Query<&mut SimulatorPrimaryState>,
 ) {

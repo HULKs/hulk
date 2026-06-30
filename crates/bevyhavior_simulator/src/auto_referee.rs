@@ -332,7 +332,7 @@ impl Default for SimulatorAutoReferee {
     }
 }
 
-pub(crate) fn run_auto_referee(
+pub fn run_auto_referee(
     clock: Res<crate::behavior_tree_simulator::SimulatorClock>,
     config: Res<AutoRefereeConfig>,
     field_dimensions: Res<SimulatorFieldDimensions>,

@@ -27,7 +27,7 @@ pub struct SimulatedBall {
 }
 
 impl SimulatedBall {
-    pub(crate) fn to_ball_state(
+    pub fn to_ball_state(
         self,
         ground_to_world: Isometry2<Ground, World>,
         global_field_side: GlobalFieldSide,
@@ -44,7 +44,7 @@ impl SimulatedBall {
     }
 }
 
-pub(crate) fn update_ball_kinematics(
+pub fn move_ball(
     clock: Res<SimulatorClock>,
     config: Res<SimulationConfig>,
     mut ball: ResMut<SimulatorBall>,

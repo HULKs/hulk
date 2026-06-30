@@ -52,18 +52,18 @@ pub use crate::timeline::{
 };
 pub use crate::world_states::SimulatorWorldStates;
 
-pub(crate) use crate::auto_referee::run_auto_referee;
-pub(crate) use crate::ball::update_ball_kinematics;
-pub(crate) use crate::behavior_runtime::tick_behavior_trees;
-pub(crate) use crate::communication::{
+pub use crate::auto_referee::run_auto_referee;
+pub use crate::ball::move_ball;
+pub use crate::behavior_runtime::tick_behavior_trees;
+pub use crate::communication::{
     apply_incoming_hsl_messages, plan_communication, route_outgoing_communication,
 };
-pub(crate) use crate::coordinates::point_world_to_field;
-pub(crate) use crate::game_controller::sync_primary_states_from_game_state;
-pub(crate) use crate::invariant_checks::run_invariant_checks;
-pub(crate) use crate::kinematics::apply_motion_kinematics;
-pub(crate) use crate::timeline::record_timeline_frame;
-pub(crate) use crate::world_states::build_world_states;
+pub use crate::coordinates::point_world_to_field;
+pub use crate::game_controller::sync_primary_states_from_game_state;
+pub use crate::invariant_checks::run_invariant_checks;
+pub use crate::kinematics::move_robots;
+pub use crate::timeline::record_timeline_frame;
+pub use crate::world_states::build_world_states;
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BehaviorTreeSimulatorSet {
     AdvanceTime,
@@ -245,7 +245,7 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
         if self.enable_default_ball_physics {
             app.add_systems(
                 Update,
-                update_ball_kinematics.in_set(BehaviorTreeSimulatorSet::BallPhysics),
+                move_ball.in_set(BehaviorTreeSimulatorSet::BallPhysics),
             );
         }
 
@@ -259,7 +259,7 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
         if self.enable_default_kinematics {
             app.add_systems(
                 Update,
-                apply_motion_kinematics.in_set(BehaviorTreeSimulatorSet::ApplyKinematics),
+                move_robots.in_set(BehaviorTreeSimulatorSet::ApplyKinematics),
             );
         }
     }
@@ -421,10 +421,7 @@ impl SimulatorObstacle {
         )
     }
 
-    pub(crate) fn to_world_state_obstacle(
-        self,
-        ground_to_world: Isometry2<Ground, World>,
-    ) -> Obstacle {
+    pub fn to_world_state_obstacle(self, ground_to_world: Isometry2<Ground, World>) -> Obstacle {
         Obstacle {
             kind: self.kind,
             position: ground_to_world.inverse() * self.position,

@@ -24,7 +24,7 @@ use crate::{
 #[derive(Resource, Clone, Debug, Default)]
 pub struct SimulatorWorldStates(pub BTreeMap<SimulatorRobotId, WorldState>);
 
-pub(crate) fn build_world_states(
+pub fn build_world_states(
     clock: Res<SimulatorClock>,
     ball: Res<SimulatorBall>,
     game_state: Res<SimulatorGameState>,

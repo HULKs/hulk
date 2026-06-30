@@ -4,23 +4,21 @@ use coordinate_systems::{Field, Ground, World};
 use linear_algebra::{Isometry2, Point2, Vector2};
 use types::field_dimensions::GlobalFieldSide;
 
-pub(crate) fn world_to_field_transform(
-    global_field_side: GlobalFieldSide,
-) -> Isometry2<World, Field> {
+pub fn world_to_field_transform(global_field_side: GlobalFieldSide) -> Isometry2<World, Field> {
     match global_field_side {
         GlobalFieldSide::Home => Isometry2::identity(),
         GlobalFieldSide::Away => Isometry2::from_parts(Vector2::zeros(), PI),
     }
 }
 
-pub(crate) fn ground_to_field_from_world(
+pub fn ground_to_field_from_world(
     ground_to_world: Isometry2<Ground, World>,
     global_field_side: GlobalFieldSide,
 ) -> Isometry2<Ground, Field> {
     world_to_field_transform(global_field_side) * ground_to_world
 }
 
-pub(crate) fn point_world_to_field(
+pub fn point_world_to_field(
     point: Point2<World>,
     global_field_side: GlobalFieldSide,
 ) -> Point2<Field> {

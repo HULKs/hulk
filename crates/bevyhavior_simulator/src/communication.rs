@@ -56,7 +56,7 @@ pub struct SimulatorReceivedHslMessage {
 #[derive(Resource, Clone, Debug)]
 pub struct SimulatorHslNetworkParameters(pub HslNetworkParameters);
 
-pub(crate) fn plan_communication(
+pub fn plan_communication(
     config: Res<SimulationConfig>,
     hsl_network_parameters: Res<SimulatorHslNetworkParameters>,
     world_states: Res<SimulatorWorldStates>,
@@ -95,7 +95,7 @@ pub(crate) fn plan_communication(
     }
 }
 
-pub(crate) fn apply_incoming_hsl_messages(
+pub fn apply_incoming_hsl_messages(
     mut incoming_messages: ResMut<SimulatorIncomingMessages>,
     mut received_hsl_messages: ResMut<SimulatorReceivedHslMessages>,
 ) {
@@ -133,7 +133,7 @@ pub(crate) fn apply_incoming_hsl_messages(
     }
 }
 
-pub(crate) fn route_outgoing_communication(
+pub fn route_outgoing_communication(
     clock: Res<SimulatorClock>,
     outgoing_messages: Res<SimulatorOutgoingMessages>,
     mut incoming_messages: ResMut<SimulatorIncomingMessages>,
@@ -183,7 +183,7 @@ pub(crate) fn route_outgoing_communication(
     game_state.sync_filtered_game_controller_state();
 }
 
-pub(crate) fn player_states_from_received_hsl_messages(
+pub fn player_states_from_received_hsl_messages(
     receiver: SimulatorRobotId,
     received_hsl_messages: &SimulatorReceivedHslMessages,
 ) -> Players<Option<PlayerState>> {
