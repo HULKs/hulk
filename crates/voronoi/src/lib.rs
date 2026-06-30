@@ -7,10 +7,7 @@ use ordered_float::NotNan;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
-use types::{
-    obstacles::Obstacle, parameters::VoronoiParameters, rule_obstacles::RuleObstacle,
-    world_state::BallState,
-};
+use types::{obstacles::Obstacle, parameters::VoronoiParameters, rule_obstacles::RuleObstacle};
 
 type QueueItem = Reverse<(NotNan<f32>, usize, usize)>;
 type Queue = BinaryHeap<QueueItem>;
@@ -333,58 +330,15 @@ impl VoronoiGrid {
         None
     }
 
-    pub fn centroid_for_player(&self, player: PlayerNumber) -> Option<Point2<Field>> {
+    pub fn target_player_position(
+        &self,
+        player: PlayerNumber,
+        ball_position: Option<Point2<Field>>,
+    ) -> Option<Point2<Field>> {
         let mut sum_x = 0.0;
         let mut sum_y = 0.0;
         let mut count = 0;
-
-        for (index, ownership) in self.tiles.iter().copied().enumerate() {
-            if ownership == Ownership::Robot(player) && self.cell_overlaps_centroid_bounds(index) {
-                let point = self.index_to_point(index);
-                sum_x += point.x();
-                sum_y += point.y();
-                count += 1;
-            }
-        }
-
-        if count == 0 {
-            None
-        } else {
-            let inv_count = 1.0 / count as f32;
-            Some(point![sum_x * inv_count, sum_y * inv_count])
-        }
-    }
-
-    pub fn target_position_for_player(
-        &self,
-        player: PlayerNumber,
-        ball: Option<BallState>,
-    ) -> Option<Point2<Field>> {
-        let centroid = self.centroid_for_player(player)?;
-
-        let Some(ball_position) = ball.map(|b| b.ball_in_field) else {
-            return Some(centroid);
-        };
-
-        let field_length = self.bounds.grid_max.x() - self.bounds.grid_min.x();
-        let field_width = self.bounds.grid_max.y() - self.bounds.grid_min.y();
-
-        let half_length = field_length * 0.5;
-        let ball_x = ball_position.x();
-        let ball_y = ball_position.y();
-        let side_factor = (ball_x / half_length).clamp(-1.0, 1.0);
-
-        let ball_sigma = (field_length.min(field_width) * self.parameters.ball_sigma_scale)
-            .max(self.parameters.grid_resolution);
-        let inv_two_ball_sigma_sq = 1.0 / (2.0 * ball_sigma * ball_sigma);
-
-        let centroid_sigma = (field_length.min(field_width) * self.parameters.centroid_sigma_scale)
-            .max(self.parameters.grid_resolution);
-        let inv_two_centroid_sigma_sq = 1.0 / (2.0 * centroid_sigma * centroid_sigma);
-
-        let mut sum_x = 0.0;
-        let mut sum_y = 0.0;
-        let mut weight_sum = 0.0;
+        let mut candidates = Vec::new();
 
         for (index, ownership) in self.tiles.iter().copied().enumerate() {
             if ownership != Ownership::Robot(player) {
@@ -392,37 +346,74 @@ impl VoronoiGrid {
             }
 
             let point = self.index_to_point(index);
+            candidates.push(point);
 
+            if self.cell_overlaps_centroid_bounds(index) {
+                sum_x += point.x();
+                sum_y += point.y();
+                count += 1;
+            }
+        }
+
+        if count == 0 {
+            return None;
+        }
+
+        let inv_count = 1.0 / count as f32;
+        let centroid: Point2<Field> = point![sum_x * inv_count, sum_y * inv_count];
+
+        let Some(ball_position) = ball_position else {
+            return Some(centroid);
+        };
+
+        let field_length = self.bounds.grid_max.x() - self.bounds.grid_min.x();
+        let half_length = field_length * 0.5;
+        let ball_x = ball_position.x();
+        let ball_y = ball_position.y();
+        let side_factor = (ball_x / half_length).clamp(-1.0, 1.0);
+
+        let support_distance = self
+            .parameters
+            .ball_support_distance
+            .max(self.parameters.grid_resolution);
+        let support_sigma = self
+            .parameters
+            .ball_support_sigma
+            .max(self.parameters.grid_resolution);
+        let inv_two_support_sigma_sq = 1.0 / (2.0 * support_sigma * support_sigma);
+
+        let centroid_sigma = self
+            .parameters
+            .centroid_anchor_sigma
+            .max(self.parameters.grid_resolution);
+
+        let mut best_target = None;
+
+        for point in candidates {
             let forward_norm = point.x() / half_length;
             let forward_term = self.parameters.forward_weight * side_factor * forward_norm;
 
             let dx_ball = point.x() - ball_x;
             let dy_ball = point.y() - ball_y;
+            let ball_distance = (dx_ball * dx_ball + dy_ball * dy_ball).sqrt();
+            let support_distance_error = ball_distance - support_distance;
             let ball_term = self.parameters.ball_weight
-                * (-(dx_ball * dx_ball + dy_ball * dy_ball) * inv_two_ball_sigma_sq).exp();
+                * (-(support_distance_error * support_distance_error) * inv_two_support_sigma_sq)
+                    .exp();
 
             let dx_centroid = point.x() - centroid.x();
             let dy_centroid = point.y() - centroid.y();
-            let centroid_term = self.parameters.centroid_weight
-                * (-(dx_centroid * dx_centroid + dy_centroid * dy_centroid)
-                    * inv_two_centroid_sigma_sq)
-                    .exp();
+            let centroid_penalty = self.parameters.centroid_anchor_weight
+                * (dx_centroid * dx_centroid + dy_centroid * dy_centroid).sqrt()
+                / centroid_sigma;
 
-            let weight = self.parameters.base_weight + forward_term + ball_term + centroid_term;
-            if weight <= 0.0 {
-                continue;
+            let score = forward_term + ball_term - centroid_penalty;
+            if best_target.is_none_or(|(best_score, _)| score > best_score) {
+                best_target = Some((score, point));
             }
-
-            sum_x += point.x() * weight;
-            sum_y += point.y() * weight;
-            weight_sum += weight;
         }
 
-        if weight_sum == 0.0 {
-            None
-        } else {
-            Some(point![sum_x / weight_sum, sum_y / weight_sum])
-        }
+        best_target.map(|(_, point)| point)
     }
 
     fn point_to_index(&self, p: Point2<Field>) -> Option<usize> {
