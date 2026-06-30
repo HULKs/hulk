@@ -477,6 +477,7 @@ mod tests {
                     velocity: vector![0.0, 0.0],
                     field_side: Side::Left,
                 }),
+                last_touch_team: None,
             })
             .insert_resource(game_state)
             .insert_resource(SimulatorReceivedHslMessages::default())

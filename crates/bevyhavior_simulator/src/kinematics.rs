@@ -2,6 +2,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use bevy::prelude::*;
 use coordinate_systems::{Ground, World};
+use hsl_network_messages::Team;
 use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, vector};
 use motion::booster::walking::step_from_motion_command;
 use types::{
@@ -70,17 +71,22 @@ pub fn move_robots(
                 kick_direction,
                 kick_power,
                 ..
-            } => apply_visual_kick_kinematics(
-                clock.now,
-                clock.tick_duration,
-                &mut ball.state,
-                &config,
-                &mut ground_to_world.ground_to_world,
-                &mut last_kick_time.last_kick_time,
-                *ball_position,
-                *kick_direction,
-                *kick_power,
-            ),
+            } => {
+                let ball = &mut *ball;
+                apply_visual_kick_kinematics(
+                    clock.now,
+                    clock.tick_duration,
+                    &mut ball.state,
+                    &mut ball.last_touch_team,
+                    robot.team,
+                    &config,
+                    &mut ground_to_world.ground_to_world,
+                    &mut last_kick_time.last_kick_time,
+                    *ball_position,
+                    *kick_direction,
+                    *kick_power,
+                )
+            }
             MotionCommand::StandUp => fall_down_state.fall_down_state = None,
             MotionCommand::Damping | MotionCommand::Prepare | MotionCommand::Stand { .. } => {}
         }
@@ -196,6 +202,8 @@ fn apply_walk_with_velocity_to_pose<Frame>(
 fn apply_kick_to_ball(
     now: SystemTime,
     ball: &mut Option<SimulatedBall>,
+    last_touch_team: &mut Option<Team>,
+    kicking_team: Team,
     config: &SimulationConfig,
     ground_to_world: Isometry2<Ground, World>,
     last_kick_time: &mut SystemTime,
@@ -223,6 +231,7 @@ fn apply_kick_to_ball(
         KickPower::Schlong => config.kick_ball_speed_schlong,
     };
     ball.velocity = ground_to_world * (kick_direction.as_unit_vector() * speed);
+    *last_touch_team = Some(kicking_team);
     *last_kick_time = now;
 }
 
@@ -230,6 +239,8 @@ fn apply_visual_kick_kinematics(
     now: SystemTime,
     tick_duration: Duration,
     ball: &mut Option<SimulatedBall>,
+    last_touch_team: &mut Option<Team>,
+    kicking_team: Team,
     config: &SimulationConfig,
     ground_to_world: &mut Isometry2<Ground, World>,
     last_kick_time: &mut SystemTime,
@@ -248,6 +259,8 @@ fn apply_visual_kick_kinematics(
     apply_kick_to_ball(
         now,
         ball,
+        last_touch_team,
+        kicking_team,
         config,
         *ground_to_world,
         last_kick_time,
@@ -384,11 +397,14 @@ mod tests {
             velocity: vector![0.0, 0.0],
             field_side: Side::Left,
         });
+        let mut last_touch_team = None;
         let mut last_kick_time = SystemTime::UNIX_EPOCH;
 
         apply_kick_to_ball(
             SystemTime::UNIX_EPOCH + Duration::from_secs(1),
             &mut ball,
+            &mut last_touch_team,
+            Team::Hulks,
             &SimulationConfig::default(),
             Isometry2::identity(),
             &mut last_kick_time,
@@ -401,6 +417,7 @@ mod tests {
             ball.expect("ball should still exist").velocity,
             vector![0.0, 0.0]
         );
+        assert_eq!(last_touch_team, None);
     }
 
     #[test]
@@ -410,11 +427,14 @@ mod tests {
             velocity: vector![0.0, 0.0],
             field_side: Side::Left,
         });
+        let mut last_touch_team = None;
         let mut last_kick_time = SystemTime::UNIX_EPOCH;
 
         apply_kick_to_ball(
             SystemTime::UNIX_EPOCH + Duration::from_secs(1),
             &mut ball,
+            &mut last_touch_team,
+            Team::Hulks,
             &SimulationConfig::default(),
             Isometry2::identity(),
             &mut last_kick_time,
@@ -430,6 +450,7 @@ mod tests {
                 0.0
             ]
         );
+        assert_eq!(last_touch_team, Some(Team::Hulks));
     }
 
     #[test]
@@ -440,12 +461,15 @@ mod tests {
             field_side: Side::Left,
         });
         let mut ground_to_field: Isometry2<Ground, World> = Isometry2::identity();
+        let mut last_touch_team = None;
         let mut last_kick_time = SystemTime::UNIX_EPOCH;
 
         apply_visual_kick_kinematics(
             SystemTime::UNIX_EPOCH + Duration::from_secs(1),
             DEFAULT_TICK_DURATION,
             &mut ball,
+            &mut last_touch_team,
+            Team::Hulks,
             &SimulationConfig::default(),
             &mut ground_to_field,
             &mut last_kick_time,

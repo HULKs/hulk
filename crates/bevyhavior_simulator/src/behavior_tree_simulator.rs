@@ -53,7 +53,7 @@ pub use crate::timeline::{
 pub use crate::world_states::SimulatorWorldStates;
 
 pub use crate::auto_referee::run_auto_referee;
-pub use crate::ball::move_ball;
+pub use crate::ball::{move_ball, update_ball_last_touch_from_robot_contacts};
 pub use crate::behavior_runtime::tick_behavior_trees;
 pub use crate::communication::{
     apply_incoming_hsl_messages, plan_communication, route_outgoing_communication,
@@ -212,6 +212,11 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
         .add_systems(
             Update,
             build_world_states.in_set(BehaviorTreeSimulatorSet::BuildWorldStates),
+        )
+        .add_systems(
+            Update,
+            update_ball_last_touch_from_robot_contacts
+                .in_set(BehaviorTreeSimulatorSet::BeforeAutoReferee),
         )
         .add_systems(
             Update,
