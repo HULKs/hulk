@@ -83,7 +83,6 @@ impl AutoRefereeState {
 pub enum SimulatorRestartReason {
     KickOffAfterGoal { scoring_team: Team },
     DroppedBall,
-    BallOutOfField,
 }
 
 #[derive(Clone, Copy, Debug, Message)]
@@ -207,7 +206,7 @@ impl AutoRefereeRule for GameStateTransitionRule {
                         | Some(SimulatorRestartReason::DroppedBall) => {
                             place_ball_at_center(context.ball);
                         }
-                        Some(SimulatorRestartReason::BallOutOfField) | None => {}
+                        None => {}
                     }
                     context.set_game_state(GameState::Set);
                 }
@@ -339,8 +338,6 @@ impl AutoRefereeRule for BallOutOfFieldRule {
         context.ball.last_touch_team = None;
         context.set_kicking_team(Some(kicking_team));
         context.set_sub_state(Some(sub_state));
-        context.auto_referee.restart_reason = Some(SimulatorRestartReason::BallOutOfField);
-        context.set_game_state(GameState::Ready);
     }
 }
 
