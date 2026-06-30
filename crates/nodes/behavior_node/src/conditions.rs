@@ -101,8 +101,10 @@ pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
             match ownership_at_ball {
                 Some(Ownership::Robot(player_number)) if player_number == own_player_number => true,
                 Some(Ownership::Blocked) => voronoi_map
-                    .nearest_non_blocked_ownership(ball.position)
-                    .is_some_and(|ownership| ownership == Ownership::Robot(own_player_number)),
+                    .n_nearest_non_blocked_ownerships(ball.position, 1)
+                    .is_some_and(|ownerships| {
+                        ownerships.first() == Some(&Ownership::Robot(own_player_number))
+                    }),
                 _ => false,
             }
         } else {
