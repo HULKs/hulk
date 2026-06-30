@@ -1,7 +1,7 @@
 use std::{
     ffi::{OsStr, OsString},
     path::{Path, PathBuf},
-    process::{Command, ExitStatus, Stdio},
+    process::{Child, Command, ExitStatus, Stdio},
     sync::{
         Arc, Mutex,
         atomic::{AtomicUsize, Ordering},
@@ -14,7 +14,7 @@ use ros_z::{
     Message, ServiceTypeInfo,
     context::{Context, ContextBuilder},
     entity::TypeInfo,
-    message::Service,
+    message::{Service, WireEncoder},
     node::Node,
     parameter::{NodeParameters, NodeParametersExt},
     pubsub::Publisher,
@@ -32,6 +32,7 @@ type TestResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(15);
 const EVENTUALLY_TIMEOUT: Duration = Duration::from_secs(8);
 const EVENTUALLY_POLL: Duration = Duration::from_millis(100);
+const POST_SUBSCRIPTION_PUBLISHES: usize = 3;
 
 #[derive(Debug, Clone, SerdeEnc, SerdeDec, PartialEq, ros_z::Message)]
 #[message(name = "test_cli::Telemetry")]
@@ -39,6 +40,14 @@ struct Telemetry {
     label: String,
     sequence: u32,
     temperatures: Vec<f32>,
+}
+
+fn fixture_telemetry() -> Telemetry {
+    Telemetry {
+        label: "robot-7".to_string(),
+        sequence: 7,
+        temperatures: vec![20.0, 20.5],
+    }
 }
 
 #[derive(Debug, Clone, SerdeEnc, SerdeDec, PartialEq, ros_z::Message)]
@@ -318,6 +327,17 @@ fn path_str(path: &Path) -> &str {
     path.to_str().expect("test path must be UTF-8")
 }
 
+fn wait_for_file(path: &Path) {
+    let started = Instant::now();
+    while started.elapsed() < EVENTUALLY_TIMEOUT {
+        if path.exists() {
+            return;
+        }
+        std::thread::sleep(EVENTUALLY_POLL);
+    }
+    panic!("file did not appear: {}", path.display());
+}
+
 fn write_parameter_file(layer: &Path, parameter_key: &str, contents: &str) {
     std::fs::create_dir_all(layer).expect("create parameter layer");
     std::fs::write(layer.join(format!("{parameter_key}.json5")), contents)
@@ -440,6 +460,32 @@ impl RoszCommand {
         output.assert_success();
         output
     }
+
+    fn command<I, S>(mut self, args: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        self.args
+            .extend(args.into_iter().map(|arg| arg.as_ref().to_os_string()));
+        self
+    }
+
+    fn spawn(self) -> RoszChild {
+        let binary = env!("CARGO_BIN_EXE_rosz");
+        let child = Command::new(binary)
+            .args(&self.args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap_or_else(|error| panic!("failed to spawn rosz {:?}: {error}", self.args));
+
+        RoszChild {
+            args: self.args,
+            child: Some(child),
+        }
+    }
 }
 
 struct CommandOutput {
@@ -471,6 +517,80 @@ impl CommandOutput {
             self.stdout,
             self.stderr
         );
+    }
+}
+
+struct RoszChild {
+    args: Vec<OsString>,
+    child: Option<Child>,
+}
+
+impl RoszChild {
+    fn interrupt_and_wait(mut self) -> CommandOutput {
+        let mut child = self
+            .child
+            .take()
+            .unwrap_or_else(|| panic!("rosz child already collected\nargs: {:?}", self.args));
+
+        #[cfg(unix)]
+        unsafe {
+            libc::kill(child.id() as i32, libc::SIGINT);
+        }
+
+        let started = Instant::now();
+        loop {
+            match child.try_wait() {
+                Ok(Some(_)) => {
+                    let output = child.wait_with_output().unwrap_or_else(|error| {
+                        panic!("failed to collect rosz {:?}: {error}", self.args)
+                    });
+                    let args = std::mem::take(&mut self.args);
+                    return CommandOutput {
+                        args,
+                        status: output.status,
+                        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+                    };
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    panic!("failed to poll rosz {:?}: {error}", self.args);
+                }
+            }
+
+            if started.elapsed() >= COMMAND_TIMEOUT {
+                let _ = child.kill();
+                let output = child.wait_with_output().unwrap_or_else(|error| {
+                    panic!("failed to collect timed out rosz {:?}: {error}", self.args)
+                });
+                panic!(
+                    "rosz did not stop after SIGINT\nargs: {:?}\nstdout:\n{}\nstderr:\n{}",
+                    self.args,
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+}
+
+impl Drop for RoszChild {
+    fn drop(&mut self) {
+        if let Some(mut child) = self.child.take() {
+            match child.try_wait() {
+                Ok(Some(_)) => {
+                    let _ = child.wait();
+                }
+                Ok(None) | Err(_) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                }
+            }
+        }
     }
 }
 
@@ -513,6 +633,7 @@ struct PublishingFixture {
     topic: String,
     node_fqn: String,
     publisher: Arc<Publisher<Telemetry>>,
+    published_count: Arc<AtomicUsize>,
     publish_task: Mutex<Option<tokio::task::JoinHandle<()>>>,
     _node: Node,
     _context: Context,
@@ -548,6 +669,7 @@ impl PublishingFixture {
             topic: topic.to_string(),
             node_fqn: "/cli_e2e/schema_fixture".to_string(),
             publisher: Arc::new(publisher),
+            published_count: Arc::new(AtomicUsize::new(0)),
             publish_task: Mutex::new(None),
             _node: node,
             _context: context,
@@ -556,17 +678,15 @@ impl PublishingFixture {
 
     fn start_publishing(&self) {
         let publisher = self.publisher.clone();
+        let published_count = self.published_count.clone();
         let handle = tokio::spawn(async move {
-            let message = Telemetry {
-                label: "robot-7".to_string(),
-                sequence: 7,
-                temperatures: vec![20.0, 20.5],
-            };
+            let message = fixture_telemetry();
 
             loop {
                 if publisher.publish(&message).await.is_err() {
                     break;
                 }
+                published_count.fetch_add(1, Ordering::Relaxed);
                 tokio::time::sleep(Duration::from_millis(50)).await;
             }
         });
@@ -579,6 +699,27 @@ impl PublishingFixture {
         {
             previous.abort();
         }
+    }
+
+    fn published_count(&self) -> usize {
+        self.published_count.load(Ordering::Relaxed)
+    }
+
+    async fn wait_for_publishes_after(&self, previous: usize, additional: usize) {
+        let target = previous.saturating_add(additional);
+        let started = Instant::now();
+        while started.elapsed() < EVENTUALLY_TIMEOUT {
+            if self.published_count() >= target {
+                return;
+            }
+            tokio::time::sleep(EVENTUALLY_POLL).await;
+        }
+
+        panic!(
+            "fixture published {} messages on {} after recorder subscribed, expected at least {additional}",
+            self.published_count().saturating_sub(previous),
+            self.topic
+        );
     }
 }
 
@@ -1110,6 +1251,113 @@ async fn schema_resolves_string_publisher_schema() -> TestResult {
             .as_array()
             .is_some_and(|fields| fields.is_empty())
     );
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn record_writes_mcap_for_fixture_topic() -> TestResult {
+    let env = TestEnv::new();
+    let fixture = PublishingFixture::new(&env, "/cli_e2e/record_telemetry").await?;
+    fixture.start_publishing();
+
+    eventually_json(&env, &["list", "topics"], |topics| {
+        json_array_contains_field(topics, "name", &fixture.topic)
+    });
+
+    let output_path = env.temp_path("recording.mcap");
+    let child = env
+        .rosz()
+        .command([
+            "record",
+            "--output",
+            path_str(&output_path),
+            fixture.topic.as_str(),
+        ])
+        .spawn();
+    wait_for_file(&output_path);
+    assert!(
+        fixture
+            .publisher
+            .wait_for_subscribers(1, EVENTUALLY_TIMEOUT)
+            .await,
+        "recorder did not subscribe to {}",
+        fixture.topic
+    );
+    let published_before = fixture.published_count();
+    fixture
+        .wait_for_publishes_after(published_before, POST_SUBSCRIPTION_PUBLISHES)
+        .await;
+    let output = child.interrupt_and_wait();
+    output.assert_success();
+
+    let bytes = std::fs::read(&output_path)?;
+    let messages = mcap::MessageStream::new(&bytes)?.collect::<Result<Vec<_>, _>>()?;
+    assert!(
+        !messages.is_empty(),
+        "recording should contain at least one message"
+    );
+    assert!(
+        messages
+            .iter()
+            .all(|message| message.channel.topic == fixture.topic)
+    );
+    assert!(
+        messages.iter().all(|message| {
+            message.channel.message_encoding == ros_z_recording::MESSAGE_ENCODING
+        })
+    );
+    assert!(messages.iter().all(|message| {
+        message
+            .channel
+            .schema
+            .as_ref()
+            .is_some_and(|schema| schema.encoding == ros_z_recording::SCHEMA_ENCODING)
+    }));
+
+    let expected_message = fixture_telemetry();
+    let expected_wire_bytes =
+        <<Telemetry as Message>::Codec as WireEncoder>::serialize(&expected_message)?;
+    assert!(
+        messages
+            .iter()
+            .all(|message| { message.data.as_ref() == expected_wire_bytes.as_slice() })
+    );
+
+    let total_messages = messages.len() as u64;
+    let total_bytes = messages
+        .iter()
+        .map(|message| message.data.len() as u64)
+        .sum::<u64>();
+    let per_topic_summary = format!(
+        "{}  messages={} bytes={} drops=0",
+        fixture.topic, total_messages, total_bytes
+    );
+
+    for expected in [
+        "Recording finished",
+        "Output:",
+        "Start:",
+        "End:",
+        "Duration:",
+        "Topics:",
+        "Messages:",
+        "Bytes:",
+        "Drops:",
+        "Per-topic counts",
+        path_str(&output_path),
+        "Topics: 1",
+        &format!("Messages: {total_messages}"),
+        &format!("Bytes: {total_bytes}"),
+        "Drops: 0",
+        &per_topic_summary,
+    ] {
+        assert!(
+            output.stdout.contains(expected),
+            "record summary stdout did not contain {expected:?}\nstdout:\n{}",
+            output.stdout
+        );
+    }
 
     Ok(())
 }

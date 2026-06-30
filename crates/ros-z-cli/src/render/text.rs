@@ -1,6 +1,8 @@
 use std::io::{self, Write};
+use std::path::Path;
 
 use ros_z::graph::GraphSnapshot;
+use ros_z_recording::{RecordingSummary, ResolvedTopic, format_system_time_utc};
 
 use crate::{
     model::{
@@ -451,6 +453,49 @@ fn print_named_type_section(label: &str, entries: &[NamedType]) {
     }
 }
 
+pub fn print_record_start(output_path: &Path, topics: &[ResolvedTopic]) {
+    println!("Recording to {}", output_path.display());
+    println!("Topics ({})", topics.len());
+    for topic in topics {
+        println!(
+            "{}  {} [{}]",
+            topic.topic(),
+            topic.type_name(),
+            topic.schema_hash()
+        );
+    }
+    println!("Press Ctrl-C to stop recording.");
+}
+
+pub(crate) fn write_record_summary(
+    mut writer: impl Write,
+    summary: &RecordingSummary,
+) -> io::Result<()> {
+    writeln!(writer, "Recording finished")?;
+    writeln!(writer, "Output: {}", summary.output_path.display())?;
+    writeln!(
+        writer,
+        "Start: {}",
+        format_system_time_utc(summary.start_time)
+    )?;
+    writeln!(writer, "End: {}", format_system_time_utc(summary.end_time))?;
+    writeln!(writer, "Duration: {:.3}s", summary.duration().as_secs_f64())?;
+    writeln!(writer, "Topics: {}", summary.topic_count())?;
+    writeln!(writer, "Messages: {}", summary.total_messages())?;
+    writeln!(writer, "Bytes: {}", summary.total_bytes())?;
+    writeln!(writer, "Drops: {}", summary.total_drops())?;
+    writeln!(writer)?;
+    writeln!(writer, "Per-topic counts")?;
+    for topic in &summary.topics {
+        writeln!(
+            writer,
+            "{}  messages={} bytes={} drops={}",
+            topic.topic, topic.messages, topic.bytes, topic.drops
+        )?;
+    }
+    Ok(())
+}
+
 fn column_width<'a>(values: impl Iterator<Item = &'a str>) -> usize {
     values.map(str::len).max().unwrap_or(0)
 }
@@ -543,7 +588,12 @@ mod tests {
         SchemaEnumVariantFieldView, SchemaFieldKindView, SchemaRootView, SchemaView,
     };
 
-    use super::write_schema;
+    use std::path::PathBuf;
+    use std::time::UNIX_EPOCH;
+
+    use ros_z_recording::{RecordingSummary, TopicSummary};
+
+    use super::{write_record_summary, write_schema};
 
     #[test]
     fn renders_root_schema_details() {
@@ -571,5 +621,30 @@ mod tests {
         assert!(output.contains("Root type: enum custom_msgs::Mode"));
         assert!(output.contains("Root variants: Idle, Manual"));
         assert!(output.contains("Root variant Manual.speed_limit  type=uint32"));
+    }
+
+    #[test]
+    fn writes_record_summary_to_supplied_writer() {
+        let summary = RecordingSummary {
+            output_path: PathBuf::from("recording.mcap"),
+            start_time: UNIX_EPOCH,
+            end_time: UNIX_EPOCH,
+            topics: vec![TopicSummary {
+                topic: "/alpha".to_string(),
+                type_name: "test_msgs::Alpha".to_string(),
+                schema_hash: "RZHS02_alpha".to_string(),
+                messages: 2,
+                bytes: 10,
+                drops: 1,
+            }],
+        };
+        let mut output = Vec::new();
+
+        write_record_summary(&mut output, &summary).expect("summary writes");
+        let output = String::from_utf8(output).expect("summary should be UTF-8");
+
+        assert!(output.contains("Recording finished"));
+        assert!(output.contains("Messages: 2"));
+        assert!(output.contains("/alpha  messages=2 bytes=10 drops=1"));
     }
 }

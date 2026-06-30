@@ -19,6 +19,30 @@ Be careful enabling vision cyclers because this will result in a lot of data bei
 
 Data is only recorded during `PrimaryState::Ready`, `PrimaryState::Set`, and `PrimaryState::Play`.
 
+## MCAP topic recording with `rosz`
+
+Use `rosz record [--output <path>] <topic>...` to record exact live `ros-z`
+topics into an MCAP file:
+
+```bash
+rosz record --output capture.mcap /robot/telemetry /robot/joints
+```
+
+Topic names must be exact graph topic names; prefix filters and partial recording
+are not part of V1. If `--output` is omitted, `rosz` writes a timestamped file in
+the current directory named `rosz-recording-<timestamp>.mcap`. Existing output
+files are rejected rather than overwritten.
+
+Recording starts after all requested topics have visible, type-compatible
+publishers with a resolvable schema. Stop the recording with Ctrl-C; `rosz` then
+finalizes the MCAP file and prints output path, duration, total messages, bytes,
+drops, and per-topic counts.
+
+V1 does not include prefix filters, partial mode, overwrite flags, duration or
+message limits, sampling, robot-side recording services, `pepsi` integration,
+inspect/replay commands, Foxglove-specific compatibility work, or ROS 2 MCAP
+compatibility work.
+
 ## Replay(er)
 
 Assuming you already recorded some data on a robot, you can now use the "replayer" tool to replay the recorded data.

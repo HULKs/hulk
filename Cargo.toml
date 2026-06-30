@@ -103,6 +103,7 @@ members = [
   "crates/ros-z-debug",
   "crates/ros-z-derive",
   "crates/ros-z-protocol",
+  "crates/ros-z-recording",
   "crates/ros-z-schema",
   "crates/ros-z-streams",
   "crates/ros2",
@@ -322,6 +323,7 @@ ros-z-cdr = { path = "crates/ros-z-cdr" }
 ros-z-debug = { path = "crates/ros-z-debug" }
 ros-z-derive = { path = "crates/ros-z-derive" }
 ros-z-protocol = { path = "crates/ros-z-protocol" }
+ros-z-recording = { path = "crates/ros-z-recording" }
 ros-z-schema = { path = "crates/ros-z-schema" }
 ros-z-streams = { path = "crates/ros-z-streams" }
 ros2 = { path = "crates/ros2" }
