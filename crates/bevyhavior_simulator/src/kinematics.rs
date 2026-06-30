@@ -6,7 +6,6 @@ use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, vector};
 use motion::booster::walking::step_from_motion_command;
 use types::{
     motion_command::{HeadMotion, KickPower, MotionCommand},
-    path::PathSegment,
     step::Step,
 };
 
