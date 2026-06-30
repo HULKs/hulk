@@ -2,14 +2,15 @@ use std::time::{Duration, SystemTime};
 
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevyhavior_simulator::behavior_tree_simulator::{
-    AutoRefereeConfig, BehaviorTreeSimulatorSet, SimulatorBall, SimulatorClock, SimulatorGameState,
-    SimulatorRobotBundle, SimulatorTimelineMarkers, default_behavior_parameters,
+    AutoRefereeConfig, BehaviorTreeSimulatorSet, SimulatedBall, SimulatorBall, SimulatorClock,
+    SimulatorGameState, SimulatorRobotBundle, SimulatorTimelineMarkers,
+    default_behavior_parameters,
 };
 use eframe::egui::Color32;
 use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{Isometry2, point, vector};
 use scenario::scenario;
-use types::primary_state::PrimaryState;
+use types::{field_dimensions::Side, primary_state::PrimaryState};
 
 #[scenario]
 fn mercy_rule_finish(app: &mut App) {
@@ -44,13 +45,11 @@ fn startup(mut commands: Commands, mut ball: ResMut<SimulatorBall>) {
         );
     }
 
-    ball.state = Some(
-        bevyhavior_simulator::behavior_tree_simulator::SimulatedBall {
-            position: point![1.0, 0.0],
-            velocity: vector![0.0, 0.0],
-            field_side: types::field_dimensions::Side::Left,
-        },
-    );
+    ball.state = Some(SimulatedBall {
+        position: point![1.0, 0.0],
+        velocity: vector![0.0, 0.0],
+        field_side: Side::Left,
+    });
 }
 
 #[derive(SystemParam)]
