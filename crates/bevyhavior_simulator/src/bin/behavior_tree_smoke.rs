@@ -6,25 +6,15 @@ use bevyhavior_simulator::behavior_tree_simulator::{
     SimulatorRobotBundle, SimulatorScenarioObstacles, SimulatorTimeline,
     default_behavior_parameters,
 };
-use coordinate_systems::{Ground, World};
 use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{Isometry2, point, vector};
 use scenario::scenario;
 use types::{motion_command::MotionCommand, primary_state::PrimaryState};
 
-const RUN_DURATION: Duration = Duration::from_secs(20);
-
-#[derive(Resource, Default)]
-struct PrintedFrames(usize);
-
 #[scenario]
 fn behavior_tree_smoke(app: &mut App) {
-    app.init_resource::<PrintedFrames>()
-        .add_systems(Startup, startup)
-        .add_systems(
-            Update,
-            report_and_exit.in_set(BehaviorTreeSimulatorSet::Scenario),
-        );
+    app.add_systems(Startup, startup)
+        .add_systems(Update, update.in_set(BehaviorTreeSimulatorSet::Scenario));
 }
 
 fn startup(
@@ -41,7 +31,7 @@ fn startup(
         SimulatorRobotBundle::new(
             Team::Hulks,
             PlayerNumber::Three,
-            pose(0.0, 0.0, 0.0),
+            Isometry2::from_parts(vector![0.0, 0.0], 0.0),
             parameters.clone(),
         )
         .expect("failed to create robot bundle")
@@ -51,7 +41,7 @@ fn startup(
         SimulatorRobotBundle::new(
             Team::Hulks,
             PlayerNumber::Four,
-            pose(-1.0, 1.0, 0.0),
+            Isometry2::from_parts(vector![-1.0, 1.0], 0.0),
             parameters,
         )
         .expect("failed to create robot bundle")
@@ -68,13 +58,13 @@ fn startup(
     );
 }
 
-fn report_and_exit(
+fn update(
     timeline: Res<SimulatorTimeline>,
     game_state: Res<SimulatorGameState>,
-    mut printed_frames: ResMut<PrintedFrames>,
     mut exit: MessageWriter<AppExit>,
 ) {
-    for (index, frame) in timeline.frames.iter().enumerate().skip(printed_frames.0) {
+    if let Some(frame) = timeline.frames.last() {
+        let index = timeline.frames.len() - 1;
         println!(
             "frame={index} violations={}",
             frame.invariant_violations.len()
@@ -95,7 +85,6 @@ fn report_and_exit(
             );
         }
     }
-    printed_frames.0 = timeline.frames.len();
     let score = game_state.game_controller_state.hulks_team.score
         + game_state.game_controller_state.opponent_team.score;
     if score > 0 {
@@ -109,7 +98,7 @@ fn report_and_exit(
         return;
     }
 
-    if timeline.frames.len() as u32 >= frames_to_run() {
+    if timeline.frames.len() as u32 >= 2000 {
         println!(
             "result=fail frames={} reason=no_goal",
             timeline.frames.len()
@@ -118,17 +107,7 @@ fn report_and_exit(
     }
 }
 
-fn frames_to_run() -> u32 {
-    (RUN_DURATION.as_secs_f32()
-        / bevyhavior_simulator::behavior_tree_simulator::DEFAULT_TICK_DURATION.as_secs_f32())
-    .ceil() as u32
-}
-
-fn pose(x: f32, y: f32, yaw: f32) -> Isometry2<Ground, World> {
-    Isometry2::from_parts(vector![x, y], yaw)
-}
-
-fn motion_name(motion_command: &MotionCommand) -> &'static str {
+fn motion_name(motion_command: &MotionCommand) -> &str {
     match motion_command {
         MotionCommand::Damping => "damping",
         MotionCommand::Prepare => "prepare",
