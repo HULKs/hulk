@@ -512,17 +512,22 @@ impl App for TwixApp {
 
 struct Tab {
     panel: color_eyre::Result<SelectablePanel>,
+    ui_id: uuid::Uuid,
 }
 
 impl Tab {
     fn new(context: PanelCreationContext<'_>) -> Self {
         Self {
             panel: SelectablePanel::new(context),
+            ui_id: uuid::Uuid::new_v4(),
         }
     }
 
     fn from_panel(panel: SelectablePanel) -> Self {
-        Self { panel: Ok(panel) }
+        Self {
+            panel: Ok(panel),
+            ui_id: uuid::Uuid::new_v4(),
+        }
     }
 
     fn save(&self) -> serde_json::Value {
@@ -555,12 +560,12 @@ impl egui_dock::TabViewer for TabViewer {
     type Tab = Tab;
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
-        match &mut tab.panel {
+        ui.push_id(tab.ui_id, |ui| match &mut tab.panel {
             Ok(panel) => panel.ui(ui, self.panel_ui_context()),
             Err(error) => {
                 ui.label(format!("Error loading panel: {error:#}"));
             }
-        };
+        });
     }
 
     fn title(&mut self, tab: &mut Self::Tab) -> eframe::egui::WidgetText {
