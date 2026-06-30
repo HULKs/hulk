@@ -12,7 +12,7 @@ use configuration::{
 };
 use eframe::{
     App, CreationContext, Frame, NativeOptions, Storage,
-    egui::{CentralPanel, Context, CornerRadius, Layout, StrokeKind, TopBottomPanel, Ui},
+    egui::{CentralPanel, Context, CornerRadius, Id, Layout, StrokeKind, TopBottomPanel, Ui},
     emath::Align,
     run_native,
 };
@@ -560,12 +560,12 @@ impl egui_dock::TabViewer for TabViewer {
     type Tab = Tab;
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
-        ui.push_id(tab.ui_id, |ui| match &mut tab.panel {
+        match &mut tab.panel {
             Ok(panel) => panel.ui(ui, self.panel_ui_context()),
             Err(error) => {
                 ui.label(format!("Error loading panel: {error:#}"));
             }
-        });
+        }
     }
 
     fn title(&mut self, tab: &mut Self::Tab) -> eframe::egui::WidgetText {
@@ -573,6 +573,10 @@ impl egui_dock::TabViewer for TabViewer {
             Ok(panel) => format!("{panel}").into(),
             Err(error) => format!("{error}").into(),
         }
+    }
+
+    fn id(&mut self, tab: &mut Self::Tab) -> Id {
+        Id::new(tab.ui_id)
     }
 
     fn on_add(&mut self, surface_index: SurfaceIndex, node: NodeIndex) {
@@ -660,4 +664,52 @@ fn main() -> eframe::Result<()> {
             )))
         }),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use color_eyre::eyre::eyre;
+    use eframe::egui::Context;
+    use egui_dock::TabViewer as _;
+    use uuid::Uuid;
+
+    use super::{RobotBackend, Tab, TabViewer};
+
+    #[test]
+    fn duplicate_title_tabs_have_distinct_dock_ids() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("runtime should build");
+        let backend = Arc::new(
+            runtime
+                .block_on(RobotBackend::new(
+                    runtime.handle().clone(),
+                    None,
+                    "/".to_string(),
+                ))
+                .expect("backend should build"),
+        );
+        let mut viewer = TabViewer {
+            nodes_to_add_tabs_to: Vec::new(),
+            backend,
+            egui_context: Context::default(),
+        };
+        let mut first = Tab {
+            panel: Err(eyre!("same title")),
+            ui_id: Uuid::from_u128(1),
+        };
+        let mut second = Tab {
+            panel: Err(eyre!("same title")),
+            ui_id: Uuid::from_u128(2),
+        };
+
+        assert_eq!(
+            viewer.title(&mut first).text(),
+            viewer.title(&mut second).text()
+        );
+        assert_ne!(viewer.id(&mut first), viewer.id(&mut second));
+    }
 }
