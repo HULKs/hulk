@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, ItemFn};
+use syn::{ItemFn, parse_macro_input};
 
 #[proc_macro_attribute]
 pub fn scenario(_attribute: TokenStream, item: TokenStream) -> TokenStream {
@@ -11,25 +11,22 @@ pub fn scenario(_attribute: TokenStream, item: TokenStream) -> TokenStream {
         #function_item
 
         fn main() -> color_eyre::Result<()> {
-            use clap::Parser;
-            use bevyhavior_simulator::simulator::{AppExt, SimulatorPlugin};
-
-            let args = bevyhavior_simulator::scenario::Arguments::parse();
+            use bevyhavior_simulator::behavior_tree_simulator::{AppExt, BehaviorTreeSimulatorPlugin};
 
             App::new()
-                .add_plugins(SimulatorPlugin::default().with_recording(!args.run))
+                .add_plugins(BehaviorTreeSimulatorPlugin::default())
                 .add_plugins(#function_name)
-                .run_to_completion()
+                .run_to_completion_with_viewer()
         }
 
         #[cfg(test)]
         mod test {
             #[test]
             fn #function_name() -> color_eyre::Result<()> {
-                use bevyhavior_simulator::simulator::{AppExt, SimulatorPlugin};
+                use bevyhavior_simulator::behavior_tree_simulator::{AppExt, BehaviorTreeSimulatorPlugin};
 
                 bevy::app::App::new()
-                    .add_plugins(SimulatorPlugin::default())
+                    .add_plugins(BehaviorTreeSimulatorPlugin::default())
                     .add_plugins(super::#function_name)
                     .run_to_completion()
             }

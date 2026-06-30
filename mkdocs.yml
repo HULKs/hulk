@@ -61,6 +61,7 @@ nav:
       - Recording & Replay: tooling/recording_and_replay.md
       - Machine Learning: tooling/machine-learning.md
       - Behavior Simulator: tooling/behavior_simulator.md
+      - Behavior Tree Simulator Design: tooling/behavior_tree_simulator_design.md
       - Parameter Tester: tooling/parameter_tester.md
       - Debugging with GDB/LLDB: tooling/debugging.md
       - Profiling with perf: tooling/profiling.md

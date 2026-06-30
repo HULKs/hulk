@@ -63,65 +63,7 @@ impl BoosterWalking {
         {
             return Ok(MainOutputs {});
         }
-        let parameters = context.parameters;
-        let step = match context.motion_command {
-            MotionCommand::Walk {
-                path,
-                orientation_mode,
-                target_orientation,
-                distance_to_be_aligned,
-                speed,
-                ..
-            } => {
-                let forward = path.forward(Point2::origin());
-                let distance_to_target = path.length();
-                let deceleration_factor =
-                    (distance_to_target / parameters.deceleration_distance).clamp(0.0, 1.0);
-                let velocity = forward * *speed * deceleration_factor;
-
-                let (walk_orientation, _tolerance): (Orientation2<Ground>, f32) =
-                    match orientation_mode {
-                        OrientationMode::Unspecified => todo!(),
-                        OrientationMode::AlignWithPath => (Orientation2::from_vector(forward), 0.0),
-                        OrientationMode::LookTowards {
-                            direction,
-                            tolerance,
-                        } => (*direction, *tolerance),
-                        OrientationMode::LookAt { target, tolerance } => (
-                            Orientation2::from_vector(target - Point2::origin()),
-                            *tolerance,
-                        ),
-                    };
-
-                let target_alignment_importance = target_alignment_importance(
-                    *distance_to_be_aligned,
-                    parameters.hybrid_align_distance,
-                    distance_to_target,
-                );
-
-                let orientation =
-                    walk_orientation.slerp(*target_orientation, target_alignment_importance);
-
-                let angular_velocity =
-                    orientation.as_unit_vector().y() * parameters.max_alignment_rate;
-                Step {
-                    forward: velocity.x(),
-                    left: velocity.y(),
-                    turn: angular_velocity,
-                }
-            }
-            MotionCommand::WalkWithVelocity {
-                velocity,
-                angular_velocity,
-                ..
-            } => Step {
-                forward: velocity.x(),
-                left: velocity.y(),
-                turn: *angular_velocity,
-            },
-            MotionCommand::Stand { .. } => Step::ZERO,
-            _ => Step::ZERO,
-        };
+        let step = step_from_motion_command(context.motion_command, context.parameters);
 
         context.step.fill_if_subscribed(|| step);
 
@@ -136,6 +78,69 @@ impl BoosterWalking {
         };
 
         Ok(MainOutputs {})
+    }
+}
+
+pub fn step_from_motion_command(
+    motion_command: &MotionCommand,
+    parameters: &RLWalkingParameters,
+) -> Step {
+    match motion_command {
+        MotionCommand::Walk {
+            path,
+            orientation_mode,
+            target_orientation,
+            distance_to_be_aligned,
+            speed,
+            ..
+        } => {
+            let forward = path.forward(Point2::origin());
+            let distance_to_target = path.length();
+            let deceleration_factor =
+                (distance_to_target / parameters.deceleration_distance).clamp(0.0, 1.0);
+            let velocity = forward * *speed * deceleration_factor;
+
+            let (walk_orientation, _tolerance): (Orientation2<Ground>, f32) = match orientation_mode
+            {
+                OrientationMode::Unspecified => todo!(),
+                OrientationMode::AlignWithPath => (Orientation2::from_vector(forward), 0.0),
+                OrientationMode::LookTowards {
+                    direction,
+                    tolerance,
+                } => (*direction, *tolerance),
+                OrientationMode::LookAt { target, tolerance } => (
+                    Orientation2::from_vector(target - Point2::origin()),
+                    *tolerance,
+                ),
+            };
+
+            let target_alignment_importance = target_alignment_importance(
+                *distance_to_be_aligned,
+                parameters.hybrid_align_distance,
+                distance_to_target,
+            );
+
+            let orientation =
+                walk_orientation.slerp(*target_orientation, target_alignment_importance);
+
+            let angular_velocity = orientation.as_unit_vector().y() * parameters.max_alignment_rate;
+            Step {
+                forward: velocity.x(),
+                left: velocity.y(),
+                turn: angular_velocity,
+            }
+        }
+        MotionCommand::WalkWithVelocity {
+            velocity,
+            angular_velocity,
+            ..
+        } => Step {
+            forward: velocity.x(),
+            left: velocity.y(),
+            turn: *angular_velocity,
+        },
+        MotionCommand::Stand { .. } => Step::ZERO,
+        _ => Step::ZERO,
     }
 }
 
@@ -162,5 +167,73 @@ fn target_alignment_importance(
             * 0.5
     } else {
         0.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2};
+
+    use linear_algebra::{Orientation2, point};
+    use types::{
+        motion_command::{HeadMotion, MotionCommand, OrientationMode},
+        parameters::RLWalkingParameters,
+        path::direct_path,
+    };
+
+    use super::*;
+
+    #[test]
+    fn step_aligns_with_path_while_far_from_target() {
+        let step = step_from_motion_command(&walk_command_to(2.0), &walking_parameters());
+
+        assert_near(step.forward, 1.0);
+        assert_near(step.left, 0.0);
+        assert_near(step.turn, 0.0);
+    }
+
+    #[test]
+    fn step_blends_path_and_target_alignment_in_transition_zone() {
+        let step = step_from_motion_command(&walk_command_to(0.55), &walking_parameters());
+
+        assert_near(step.forward, 1.0);
+        assert_near(step.left, 0.0);
+        assert_near(step.turn, FRAC_1_SQRT_2 * 2.0);
+    }
+
+    #[test]
+    fn step_aligns_with_target_when_close_enough() {
+        let step = step_from_motion_command(&walk_command_to(0.04), &walking_parameters());
+
+        assert_near(step.forward, 0.08);
+        assert_near(step.left, 0.0);
+        assert_near(step.turn, 2.0);
+    }
+
+    fn walking_parameters() -> RLWalkingParameters {
+        RLWalkingParameters {
+            hybrid_align_distance: 1.0,
+            max_alignment_rate: 2.0,
+            deceleration_distance: 0.5,
+            ..Default::default()
+        }
+    }
+
+    fn walk_command_to(distance: f32) -> MotionCommand {
+        MotionCommand::Walk {
+            head: HeadMotion::ZeroAngles,
+            path: direct_path(point![0.0, 0.0], point![distance, 0.0]),
+            orientation_mode: OrientationMode::AlignWithPath,
+            target_orientation: Orientation2::new(FRAC_PI_2),
+            distance_to_be_aligned: 0.05,
+            speed: 1.0,
+        }
+    }
+
+    fn assert_near(actual: f32, expected: f32) {
+        assert!(
+            (actual - expected).abs() < 1e-6,
+            "expected {actual} to be near {expected}",
+        );
     }
 }

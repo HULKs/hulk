@@ -1,518 +1,174 @@
-use std::{
-    convert::Into,
-    mem::take,
-    sync::{mpsc, Arc},
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use std::time::SystemTime;
 
-use bevy::{
-    ecs::{
-        component::Component,
-        event::Event,
-        resource::Resource,
-        system::{Query, Res, ResMut},
-    },
-    time::Time,
-};
-use color_eyre::{eyre::WrapErr, Result};
-
-use buffered_watch::{Receiver, Sender};
-use control::localization::generate_initial_pose;
-use coordinate_systems::{Field, Ground, Head, LeftSole, RightSole, Robot as RobotCoordinates};
-use framework::{future_queue, Producer, RecordingTrigger};
-use hsl_network_messages::{HulkMessage, PlayerNumber};
-use hula_types::hardware::Ids;
-use linear_algebra::{
-    vector, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Pose2, Pose3, Rotation2,
-    Vector2,
-};
-use parameters::directory::deserialize;
-use projection::intrinsic::Intrinsic;
+use bevy::prelude::*;
+use booster::FallDownState;
+use color_eyre::Result;
+use coordinate_systems::{Field, Ground, World};
+use hsl_network_messages::{PlayerNumber, Team};
+use linear_algebra::{Isometry2, Orientation2, Point2};
+use serde::Serializer;
 use types::{
-    ball_position::BallPosition,
-    filtered_whistle::FilteredWhistle,
-    joints::Joints,
-    messages::{IncomingMessage, OutgoingMessage},
-    motion_command::HeadMotion,
-    motion_selection::MotionSafeExits,
-    pose_kinds::PoseKind,
-    robot_dimensions::RobotDimensions,
-    sensor_data::Foot,
-    support_foot::Side,
+    parameters::{BehaviorParameters, RLWalkingParameters},
+    primary_state::PrimaryState,
 };
 
-use crate::{
-    ball::BallResource,
-    cyclers::control::{Cycler, CyclerInstance, Database},
-    game_controller::GameController,
-    interfake::{FakeDataInterface, Interfake},
-    structs::Parameters,
-    visual_referee::VisualRefereeResource,
-    whistle::WhistleResource,
-};
+use crate::behavior_tree_simulator::{SimulatorRobotBehavior, default_walking_parameters};
 
-#[derive(Component)]
-pub struct Robot {
-    pub interface: Arc<Interfake>,
-    pub database: Database,
-    pub parameters: Parameters,
-    pub last_kick_time: Duration,
-    pub simulator_parameters: SimulatedRobotParameters,
-
-    pub cycler: Cycler<Interfake>,
-    control_receiver: Receiver<(SystemTime, Database)>,
-    parameters_sender: Sender<(SystemTime, Parameters)>,
-    hsl_network_sender: Producer<crate::structs::hsl_network::MainOutputs>,
-    hydra_sender: Producer<crate::structs::hydra::MainOutputs>,
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SimulatorRobotId {
+    pub team: Team,
+    pub player_number: PlayerNumber,
 }
 
-impl Robot {
-    pub fn new(player_number: PlayerNumber) -> Self {
-        Self::try_new(player_number).expect("failed to create robot")
+impl SimulatorRobotId {
+    fn team_order(self) -> u8 {
+        match self.team {
+            Team::Hulks => 0,
+            Team::Opponent => 1,
+        }
     }
+}
 
-    pub fn try_new(player_number: PlayerNumber) -> Result<Self> {
-        let mut parameters: Parameters = deserialize(
-            "etc/parameters",
-            &Ids {
-                body_id: format!("behavior_simulator.{}", from_player_number(player_number)),
-                head_id: format!("behavior_simulator.{}", from_player_number(player_number)),
-            },
-            true,
-        )
-        .wrap_err("could not load initial parameters")?;
-        parameters.player_number = player_number;
+impl Ord for SimulatorRobotId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        (self.team_order(), self.player_number).cmp(&(other.team_order(), other.player_number))
+    }
+}
 
-        let interface: Arc<_> = Interfake::default().into();
+impl PartialOrd for SimulatorRobotId {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
-        let (control_sender, control_receiver) =
-            buffered_watch::channel((UNIX_EPOCH, Database::default()));
-        let (mut subscriptions_sender, subscriptions_receiver) =
-            buffered_watch::channel(Default::default());
-        let (mut parameters_sender, parameters_receiver) =
-            buffered_watch::channel((UNIX_EPOCH, Default::default()));
-        let (hsl_network_sender, hsl_network_consumer) = future_queue();
-        let (recording_sender, _recording_receiver) = mpsc::sync_channel(0);
-        let (hydra_sender, hydra_consumer) = future_queue();
+impl std::hash::Hash for SimulatorRobotId {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.team_order().hash(state);
+        self.player_number.hash(state);
+    }
+}
 
-        *parameters_sender.borrow_mut() = (SystemTime::now(), parameters.clone());
+impl SimulatorRobotId {
+    pub fn new(team: Team, player_number: PlayerNumber) -> Self {
+        Self {
+            team,
+            player_number,
+        }
+    }
+}
 
-        let mut cycler = Cycler::new(
-            CyclerInstance::Control,
-            interface.clone(),
-            control_sender,
-            subscriptions_receiver,
-            parameters_receiver,
-            hsl_network_consumer,
-            hydra_consumer,
-            recording_sender,
-            RecordingTrigger::new(0),
-        )?;
-        cycler.cycler_state.motion_safe_exits = MotionSafeExits::fill(true);
-
-        let mut database = Database::default();
-
-        database.main_outputs.ground_to_field = Some(
-            generate_initial_pose(
-                &parameters.localization.initial_poses[player_number],
-                &parameters.field_dimensions,
-            )
-            .as_transform(),
-        );
-        database.main_outputs.has_ground_contact = true;
-        database.main_outputs.buttons.is_chest_button_pressed_once = true;
-        database.main_outputs.is_localization_converged = true;
-
-        subscriptions_sender
-            .borrow_mut()
-            .insert("additional_outputs".to_string());
-
-        let simulator_parameters = SimulatedRobotParameters {
-            ball_view_range: 3.0,
-            ball_timeout_factor: 0.1,
+impl std::fmt::Display for SimulatorRobotId {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let team = match self.team {
+            Team::Hulks => "H",
+            Team::Opponent => "O",
         };
+        write!(formatter, "{team}{}", self.player_number)
+    }
+}
 
+impl serde::Serialize for SimulatorRobotId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SimulatorRobot {
+    pub team: Team,
+    pub player_number: PlayerNumber,
+}
+
+impl SimulatorRobot {
+    pub fn id(&self) -> SimulatorRobotId {
+        SimulatorRobotId::new(self.team, self.player_number)
+    }
+}
+
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SimulatorGroundToWorld {
+    pub ground_to_world: Isometry2<Ground, World>,
+}
+
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct SimulatorHeadYaw {
+    pub yaw: Orientation2<Ground>,
+}
+
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SimulatorPrimaryState {
+    pub primary_state: PrimaryState,
+}
+
+#[derive(Component, Clone, Debug)]
+pub struct SimulatorRobotParameters {
+    pub behavior: BehaviorParameters,
+    pub walking: RLWalkingParameters,
+}
+
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct SimulatorFallDownState {
+    pub fall_down_state: Option<FallDownState>,
+}
+
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct SimulatorSuggestedSearchPosition {
+    pub position: Option<Point2<Field>>,
+}
+
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SimulatorLastKickTime {
+    pub last_kick_time: SystemTime,
+}
+
+#[derive(Bundle)]
+pub struct SimulatorRobotBundle {
+    pub robot: SimulatorRobot,
+    pub ground_to_world: SimulatorGroundToWorld,
+    pub head_yaw: SimulatorHeadYaw,
+    pub primary_state: SimulatorPrimaryState,
+    pub behavior: SimulatorRobotBehavior,
+    pub parameters: SimulatorRobotParameters,
+    pub fall_down_state: SimulatorFallDownState,
+    pub suggested_search_position: SimulatorSuggestedSearchPosition,
+    pub last_kick_time: SimulatorLastKickTime,
+}
+
+impl SimulatorRobotBundle {
+    pub fn new(
+        team: Team,
+        player_number: PlayerNumber,
+        ground_to_world: Isometry2<Ground, World>,
+        parameters: BehaviorParameters,
+    ) -> Result<Self> {
         Ok(Self {
-            interface,
-            database,
-            parameters,
-            last_kick_time: Duration::default(),
-            simulator_parameters,
-
-            cycler,
-            control_receiver,
-            parameters_sender,
-            hsl_network_sender,
-            hydra_sender,
+            robot: SimulatorRobot {
+                team,
+                player_number,
+            },
+            ground_to_world: SimulatorGroundToWorld { ground_to_world },
+            head_yaw: SimulatorHeadYaw::default(),
+            primary_state: SimulatorPrimaryState {
+                primary_state: PrimaryState::Damping,
+            },
+            behavior: SimulatorRobotBehavior::new(parameters.clone()),
+            parameters: SimulatorRobotParameters {
+                behavior: parameters,
+                walking: default_walking_parameters()?,
+            },
+            fall_down_state: SimulatorFallDownState::default(),
+            suggested_search_position: SimulatorSuggestedSearchPosition::default(),
+            last_kick_time: SimulatorLastKickTime {
+                last_kick_time: SystemTime::UNIX_EPOCH,
+            },
         })
     }
 
-    pub fn cycle(
-        &mut self,
-        messages: &[Message],
-        referee_pose_kind: &Option<PoseKind>,
-    ) -> Result<()> {
-        for Message { sender, payload } in messages {
-            let source_is_other = *sender != self.parameters.player_number;
-            let message = IncomingMessage::Hsl(*payload);
-            self.hsl_network_sender.announce();
-            self.hsl_network_sender
-                .finalize(crate::structs::hsl_network::MainOutputs {
-                    filtered_message: source_is_other.then(|| message.clone()),
-                    message,
-                });
-        }
-
-        self.hydra_sender.announce();
-        self.hydra_sender
-            .finalize(crate::structs::hydra::MainOutputs {
-                referee_pose_kind: referee_pose_kind.clone(),
-                ..Default::default()
-            });
-
-        buffered_watch::Sender::<_>::borrow_mut(
-            &mut self.interface.get_last_database_sender().lock(),
-        )
-        .main_outputs = self.database.main_outputs.clone();
-        *self.parameters_sender.borrow_mut() = (SystemTime::now(), self.parameters.clone());
-
-        self.cycler.cycle()?;
-
-        let (_, database) = &*self.control_receiver.borrow_and_mark_as_seen();
-        self.database.main_outputs = database.main_outputs.clone();
-        self.database.additional_outputs = database.additional_outputs.clone();
-        Ok(())
+    pub fn with_primary_state(mut self, primary_state: PrimaryState) -> Self {
+        self.primary_state.primary_state = primary_state;
+        self
     }
-
-    pub fn field_of_view(&self) -> f32 {
-        let image_size = vector![640.0, 480.0];
-        let focal_lengths = nalgebra::vector![0.96666, 1.28574];
-        let focal_lengths_scaled = image_size.inner.cast().component_mul(&focal_lengths);
-        let field_of_view = Intrinsic::calculate_field_of_view(focal_lengths_scaled, image_size);
-
-        field_of_view.x
-    }
-
-    pub fn ground_to_field(&self) -> Isometry2<Ground, Field> {
-        self.database
-            .main_outputs
-            .ground_to_field
-            .expect("simulated robots should always have a ground to field")
-    }
-
-    pub fn ground_to_field_mut(&mut self) -> &mut Isometry2<Ground, Field> {
-        self.database
-            .main_outputs
-            .ground_to_field
-            .as_mut()
-            .expect("simulated robots should always have a ground to field")
-    }
-
-    pub fn whistle_mut(&mut self) -> &mut FilteredWhistle {
-        &mut self.database.main_outputs.filtered_whistle
-    }
-}
-
-pub fn to_player_number(value: usize) -> Result<PlayerNumber, String> {
-    let number = match value {
-        1 => PlayerNumber::One,
-        2 => PlayerNumber::Two,
-        3 => PlayerNumber::Three,
-        4 => PlayerNumber::Four,
-        5 => PlayerNumber::Five,
-        6 => PlayerNumber::Six,
-        7 => PlayerNumber::Seven,
-        number => return Err(format!("invalid player number: {number}")),
-    };
-
-    Ok(number)
-}
-
-pub fn from_player_number(val: PlayerNumber) -> usize {
-    match val {
-        PlayerNumber::One => 1,
-        PlayerNumber::Two => 2,
-        PlayerNumber::Three => 3,
-        PlayerNumber::Four => 4,
-        PlayerNumber::Five => 5,
-        PlayerNumber::Six => 6,
-        PlayerNumber::Seven => 7,
-    }
-}
-
-pub fn move_robots(mut robots: Query<&mut Robot>, _ball: ResMut<BallResource>, time: Res<Time>) {
-    for mut robot in &mut robots {
-        if let Some(ball) = robot.database.main_outputs.ball_position.as_mut() {
-            ball.position += ball.velocity * time.delta_secs();
-            ball.velocity *= 0.98
-        }
-
-        let (left_sole, right_sole) =
-            sole_positions(&robot.database.main_outputs.sensor_data.positions);
-        let support_foot = robot
-            .database
-            .main_outputs
-            .support_foot
-            .support_side
-            .unwrap();
-        let support_sole = match support_foot {
-            Side::Left => left_sole,
-            Side::Right => right_sole,
-        };
-        let ground = robot.database.main_outputs.robot_to_ground.unwrap() * support_sole;
-        let anchor = robot.ground_to_field() * to2d(ground);
-
-        let (new_left_sole, new_right_sole) =
-            sole_positions(&robot.database.main_outputs.sensor_data.positions);
-        let support_sole = match support_foot {
-            Side::Left => new_left_sole,
-            Side::Right => new_right_sole,
-        };
-        let ground = robot.database.main_outputs.robot_to_ground.unwrap() * support_sole;
-        let new_anchor = robot.ground_to_field() * to2d(ground);
-        let movement = anchor.as_transform() * new_anchor.as_transform::<Field>().inverse();
-        let step = robot.ground_to_field().inverse() * movement * robot.ground_to_field();
-        let ground_to_field_change = Some(Isometry2::from_parts(
-            step.translation().coords(),
-            step.orientation().angle(),
-        ));
-
-        let head_motion = robot
-            .database
-            .main_outputs
-            .motion_command
-            .head_motion()
-            .unwrap_or(HeadMotion::Center);
-        let desired_head_yaw = match head_motion {
-            HeadMotion::ZeroAngles => 0.0,
-            HeadMotion::Center => 0.0,
-            HeadMotion::LookAround | HeadMotion::SearchForLostBall => {
-                robot.database.main_outputs.look_around.yaw
-            }
-            HeadMotion::LookAt { target, .. } => Orientation2::from_vector(target.coords()).angle(),
-            HeadMotion::LookAtReferee { .. } => {
-                if let Some(ground_to_field) = robot.database.main_outputs.ground_to_field {
-                    let expected_referee_position = ground_to_field.inverse()
-                        * robot
-                            .database
-                            .main_outputs
-                            .expected_referee_position
-                            .unwrap_or_default();
-                    Orientation2::from_vector(expected_referee_position.coords()).angle()
-                } else {
-                    0.0
-                }
-            }
-            HeadMotion::LookLeftAndRightOf { target } => {
-                let glance_factor = time.elapsed().as_secs_f32().sin();
-                target.coords().angle(&Vector2::x_axis())
-                    + glance_factor * robot.parameters.look_at.glance_angle
-            }
-            HeadMotion::Unstiff => 0.0,
-            HeadMotion::Animation { .. } => 0.0,
-        };
-
-        let max_head_rotation_per_cycle =
-            robot.parameters.head_motion.maximum_velocity.yaw * time.delta_secs();
-        let diff = desired_head_yaw - robot.database.main_outputs.sensor_data.positions.head.yaw;
-        let movement = diff.clamp(-max_head_rotation_per_cycle, max_head_rotation_per_cycle);
-        robot.database.main_outputs.sensor_data.positions.head.yaw += movement;
-
-        if let Some(movement) = ground_to_field_change {
-            let old_ground_to_field = robot.ground_to_field();
-            let new_ground_to_field = old_ground_to_field * movement;
-
-            for obstacle in &mut robot.database.main_outputs.obstacles {
-                let obstacle_in_field = old_ground_to_field * obstacle.position;
-                obstacle.position = new_ground_to_field.inverse() * obstacle_in_field;
-            }
-            if let Some(ball) = robot.database.main_outputs.ball_position.as_mut() {
-                ball.velocity = movement.inverse() * ball.velocity;
-                ball.position = movement.inverse() * ball.position;
-            }
-
-            *robot.ground_to_field_mut() = new_ground_to_field;
-        }
-    }
-}
-
-#[derive(Event, Clone, Copy)]
-pub struct Message {
-    pub sender: PlayerNumber,
-    pub payload: HulkMessage,
-}
-
-#[derive(Resource, Default)]
-pub struct Messages {
-    pub messages: Vec<Message>,
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn cycle_robots(
-    mut robots: Query<&mut Robot>,
-    ball: Res<BallResource>,
-    whistle: Res<WhistleResource>,
-    visual_referee: Res<VisualRefereeResource>,
-    mut game_controller: ResMut<GameController>,
-    time: Res<Time>,
-    mut messages: ResMut<Messages>,
-) {
-    let messages_sent_last_cycle = take(&mut messages.messages);
-    let now = SystemTime::UNIX_EPOCH + time.elapsed();
-    let now_ros = ros_z::time::Time::from_wallclock(now);
-
-    for mut robot in &mut robots {
-        robot.database.main_outputs.cycle_time.start_time = now;
-        robot.database.main_outputs.cycle_time.last_cycle_duration = time.delta();
-
-        let ball_visible = ball.state.as_ref().is_some_and(|ball| {
-            let ball_in_ground = robot.ground_to_field().inverse() * ball.position;
-            let head_to_ground =
-                Rotation2::new(robot.database.main_outputs.sensor_data.positions.head.yaw);
-            let ball_in_head: Point2<Head> = head_to_ground.inverse() * ball_in_ground;
-            let field_of_view = robot.field_of_view();
-            let angle_to_ball = ball_in_head.coords().angle(&Vector2::x_axis());
-
-            angle_to_ball.abs() < field_of_view / 2.0
-                && ball_in_head.coords().norm() < robot.simulator_parameters.ball_view_range
-        });
-        if ball_visible {
-            robot.database.main_outputs.ball_position =
-                ball.state.as_ref().map(|ball| BallPosition {
-                    position: robot.ground_to_field().inverse() * ball.position,
-                    velocity: robot.ground_to_field().inverse() * ball.velocity,
-                    last_seen: now_ros,
-                });
-        }
-        if !robot
-            .database
-            .main_outputs
-            .ball_position
-            .is_some_and(|ball_position| {
-                ball_position.age_at(now_ros).is_some_and(|age| {
-                    age < robot
-                        .parameters
-                        .ball_filter
-                        .hypothesis_timeout
-                        .mul_f32(robot.simulator_parameters.ball_timeout_factor)
-                })
-            })
-        {
-            robot.database.main_outputs.ball_position = None
-        };
-        *robot.whistle_mut() = FilteredWhistle {
-            is_detected: Some(time.elapsed()) == whistle.last_whistle,
-            last_detection: whistle
-                .last_whistle
-                .map(|last_whistle| SystemTime::UNIX_EPOCH + last_whistle),
-        };
-        let visual_referee_pose_kind = if matches!(
-            robot.database.main_outputs.motion_command.head_motion(),
-            Some(HeadMotion::LookAtReferee { .. })
-        ) {
-            visual_referee.pose_kind.clone()
-        } else {
-            None
-        };
-        robot.database.main_outputs.game_controller_state = Some(game_controller.state.clone());
-        robot.cycler.cycler_state.ground_to_field = Some(robot.ground_to_field());
-        robot.interface.set_time(now);
-        robot.database.main_outputs.robot_orientation = robot
-            .database
-            .main_outputs
-            .robot_orientation
-            .or(Some(Orientation3::default()));
-        robot
-            .cycle(&messages_sent_last_cycle, &visual_referee_pose_kind)
-            .unwrap();
-
-        // Walking physics
-        let support_foot = robot
-            .database
-            .main_outputs
-            .support_foot
-            .support_side
-            .unwrap();
-        let is_step_finished = false;
-        let next_support_foot = if is_step_finished {
-            support_foot.opposite()
-        } else {
-            support_foot
-        };
-        let (left_pressure, right_pressure) = match next_support_foot {
-            Side::Left => (1.0, 0.0),
-            Side::Right => (0.0, 1.0),
-        };
-
-        robot
-            .database
-            .main_outputs
-            .sensor_data
-            .force_sensitive_resistors
-            .left = Foot::fill(left_pressure);
-        robot
-            .database
-            .main_outputs
-            .sensor_data
-            .force_sensitive_resistors
-            .right = Foot::fill(right_pressure);
-
-        for message in robot.interface.take_outgoing_messages() {
-            if let OutgoingMessage::Hsl(message) = message {
-                messages.messages.push(Message {
-                    sender: robot.parameters.player_number,
-                    payload: message,
-                });
-                game_controller
-                    .state
-                    .hulks_team
-                    .remaining_amount_of_messages -= 1
-            }
-        }
-    }
-}
-
-pub struct SimulatedRobotParameters {
-    pub ball_view_range: f32,
-    pub ball_timeout_factor: f32,
-}
-
-fn sole_positions(joint_positions: &Joints) -> (Pose3<RobotCoordinates>, Pose3<RobotCoordinates>) {
-    use kinematics::forward::*;
-    // left leg
-    let left_pelvis_to_robot = left_pelvis_to_robot(&joint_positions.left_leg);
-    let left_hip_to_robot =
-        left_pelvis_to_robot * left_hip_to_left_pelvis(&joint_positions.left_leg);
-    let left_thigh_to_robot = left_hip_to_robot * left_thigh_to_left_hip(&joint_positions.left_leg);
-    let left_tibia_to_robot =
-        left_thigh_to_robot * left_tibia_to_left_thigh(&joint_positions.left_leg);
-    let left_ankle_to_robot =
-        left_tibia_to_robot * left_ankle_to_left_tibia(&joint_positions.left_leg);
-    let left_foot_to_robot =
-        left_ankle_to_robot * left_foot_to_left_ankle(&joint_positions.left_leg);
-    let left_sole_to_robot: Isometry3<LeftSole, RobotCoordinates> =
-        left_foot_to_robot * Isometry3::from(RobotDimensions::LEFT_FOOT_TO_LEFT_SOLE);
-    // right leg
-    let right_pelvis_to_robot = right_pelvis_to_robot(&joint_positions.right_leg);
-    let right_hip_to_robot =
-        right_pelvis_to_robot * right_hip_to_right_pelvis(&joint_positions.right_leg);
-    let right_thigh_to_robot =
-        right_hip_to_robot * right_thigh_to_right_hip(&joint_positions.right_leg);
-    let right_tibia_to_robot =
-        right_thigh_to_robot * right_tibia_to_right_thigh(&joint_positions.right_leg);
-    let right_ankle_to_robot =
-        right_tibia_to_robot * right_ankle_to_right_tibia(&joint_positions.right_leg);
-    let right_foot_to_robot =
-        right_ankle_to_robot * right_foot_to_right_ankle(&joint_positions.right_leg);
-    let right_sole_to_robot: Isometry3<RightSole, RobotCoordinates> =
-        right_foot_to_robot * Isometry3::from(RobotDimensions::RIGHT_FOOT_TO_RIGHT_SOLE);
-
-    (left_sole_to_robot.as_pose(), right_sole_to_robot.as_pose())
-}
-
-fn to2d<To>(iso: Pose3<To>) -> Pose2<To> {
-    Pose2::from_parts(
-        iso.position().xy(),
-        Orientation2::new(iso.orientation().inner.euler_angles().2),
-    )
 }
