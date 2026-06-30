@@ -485,17 +485,6 @@ fn mode_request_due(
     now: std::time::Instant,
     parameters: &Parameters,
 ) -> bool {
-    if matches!(
-        state.mode_request,
-        ModeRequestState::InFlight {
-            desired_mode: in_flight_mode,
-            ..
-        } if desired_mode == control::DesiredMode::Damping
-            && in_flight_mode != control::DesiredMode::Damping
-    ) {
-        return true;
-    }
-
     let confirmed_desired_mode = state.confirmed_mode == Some(sdk_mode_for(desired_mode));
     if confirmed_desired_mode {
         return false;
@@ -517,6 +506,7 @@ fn mark_mode_request_started(
 ) -> u64 {
     let generation = state.next_mode_request_generation;
     state.next_mode_request_generation += 1;
+    state.confirmed_mode = None;
     state.mode_request = ModeRequestState::InFlight {
         generation,
         desired_mode,
@@ -1095,6 +1085,7 @@ mod tests {
 
         let generation = mark_mode_request_started(&mut state, desired_mode, due);
 
+        assert_eq!(state.confirmed_mode, None);
         assert_eq!(
             state.mode_request,
             ModeRequestState::InFlight {
@@ -1123,7 +1114,7 @@ mod tests {
     }
 
     #[test]
-    fn damping_request_supersedes_in_flight_walking_request() {
+    fn in_flight_mode_request_blocks_damping_request() {
         let parameters = interface_parameters();
         let mut state = InterfaceState {
             confirmed_mode: Some(booster_sdk::types::RobotMode::Prepare),
@@ -1134,24 +1125,41 @@ mod tests {
         let walking_generation =
             mark_mode_request_started(&mut state, control::DesiredMode::Walking, due);
 
-        assert!(mode_request_due(
+        assert_eq!(
+            state.mode_request,
+            ModeRequestState::InFlight {
+                generation: walking_generation,
+                desired_mode: control::DesiredMode::Walking,
+            }
+        );
+        assert!(!mode_request_due(
             &state,
             control::DesiredMode::Damping,
             due,
             &parameters,
         ));
+    }
 
-        let damping_generation =
-            mark_mode_request_started(&mut state, control::DesiredMode::Damping, due);
+    #[test]
+    fn damping_request_runs_after_walking_completion_even_if_damping_was_confirmed_before_request()
+    {
+        let parameters = interface_parameters();
+        let mut state = InterfaceState {
+            confirmed_mode: Some(booster_sdk::types::RobotMode::Damping),
+            ..Default::default()
+        };
+        let due = state.last_mode_request + parameters.mode_retry_interval;
 
-        assert_ne!(walking_generation, damping_generation);
-        assert_eq!(
-            state.mode_request,
-            ModeRequestState::InFlight {
-                generation: damping_generation,
-                desired_mode: control::DesiredMode::Damping,
-            }
-        );
+        let walking_generation =
+            mark_mode_request_started(&mut state, control::DesiredMode::Walking, due);
+
+        assert_eq!(state.confirmed_mode, None);
+        assert!(!mode_request_due(
+            &state,
+            control::DesiredMode::Damping,
+            due,
+            &parameters,
+        ));
 
         apply_effect_task_result(
             &mut state,
@@ -1161,37 +1169,12 @@ mod tests {
             },
         );
 
-        assert_eq!(
-            state.mode_request,
-            ModeRequestState::InFlight {
-                generation: damping_generation,
-                desired_mode: control::DesiredMode::Damping,
-            }
-        );
-    }
-
-    #[test]
-    fn damping_request_supersedes_walking_request_even_when_damping_is_confirmed() {
-        let parameters = interface_parameters();
-        let mut state = InterfaceState {
-            confirmed_mode: Some(booster_sdk::types::RobotMode::Damping),
-            ..Default::default()
-        };
-        let due = state.last_mode_request + parameters.mode_retry_interval;
-        let walking_generation =
-            mark_mode_request_started(&mut state, control::DesiredMode::Walking, due);
-
         assert!(mode_request_due(
             &state,
             control::DesiredMode::Damping,
             due,
             &parameters,
         ));
-
-        let damping_generation =
-            mark_mode_request_started(&mut state, control::DesiredMode::Damping, due);
-
-        assert_ne!(walking_generation, damping_generation);
     }
 
     #[test]
