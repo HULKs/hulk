@@ -685,22 +685,11 @@ impl TransientLocalCache {
     }
 }
 
-fn format_endpoint_global_id_hex(endpoint_global_id: EndpointGlobalId) -> String {
-    endpoint_global_id
-        .as_bytes()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
-}
-
 pub(crate) fn transient_local_replay_key(
     topic_key_expr: impl std::fmt::Display,
     publisher_global_id: EndpointGlobalId,
 ) -> String {
-    format!(
-        "{topic_key_expr}/__ros_z_transient_local/{}",
-        format_endpoint_global_id_hex(publisher_global_id)
-    )
+    format!("{topic_key_expr}/__ros_z_transient_local/{publisher_global_id}")
 }
 
 pub(crate) fn transient_local_cache_capacity(

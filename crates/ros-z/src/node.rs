@@ -471,7 +471,15 @@ impl Node {
         )
     }
 
-    /// Discover the schema exposed by publishers on a topic.
+    /// Discover the schema that publishers expose on a topic.
+    ///
+    /// This method qualifies `topic`, waits up to `discovery_timeout` for at
+    /// least one publisher on that qualified topic, waits for a visible schema
+    /// service from a compatible publisher, and then queries that service.
+    ///
+    /// Returns an error when the topic name is invalid, no publisher appears
+    /// before the timeout expires, active publishers advertise conflicting type
+    /// metadata, or schema service discovery/querying fails.
     ///
     /// The topic name is qualified according to the same ros-z graph-name rules as the
     /// regular publisher and subscriber builder APIs.
@@ -479,7 +487,7 @@ impl Node {
     /// Discovery waits up to `discovery_timeout` for a matching publisher to appear in
     /// the graph. Once publishers are available, the remaining timeout budget is used
     /// to query their schema services. If no matching publisher appears before the
-    /// timeout expires, this returns [`DynamicError::SchemaNotFound`].
+    /// timeout expires, this returns [`DynamicError::NoPublishers`].
     pub async fn discover_topic_schema(
         &self,
         topic: &str,
@@ -492,14 +500,16 @@ impl Node {
 
     /// Create a dynamic subscriber builder with automatic schema discovery.
     ///
-    /// This method returns a discovery builder immediately. When you build it,
-    /// the builder queries publishers on the topic for their schema service and
-    /// creates a dynamic subscriber from the discovered schema. This is useful
-    /// when you don't know the message type at compile time.
+    /// This method returns a discovery builder immediately. Building the default
+    /// dynamic subscriber waits for publishers and queries a compatible
+    /// publisher's schema service before creating the subscriber. Switching to
+    /// [`raw`](crate::dynamic::DynamicSubscriberDiscoveryBuilder::raw) only
+    /// discovers publisher type metadata. Use this when the message type is not
+    /// known at compile time.
     ///
     /// When the builder is built, `discovery_timeout` covers both waiting for a
     /// matching publisher and querying schema services. If no matching publisher
-    /// appears before the timeout expires, build returns [`DynamicError::SchemaNotFound`].
+    /// appears before the timeout expires, build returns [`DynamicError::NoPublishers`].
     ///
     /// The topic name will be qualified as a ros-z graph name:
     /// - Absolute topics (starting with '/') are used as-is
@@ -515,6 +525,12 @@ impl Node {
     ///
     /// A dynamic subscriber discovery builder. Schema discovery runs when the
     /// builder is built.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the topic name is invalid, no publishers appear
+    /// before the timeout expires, active publishers advertise conflicting type
+    /// metadata, or schema discovery fails.
     ///
     /// # Example
     ///

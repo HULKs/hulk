@@ -3,7 +3,7 @@ use std::time::Duration;
 use tracing::{debug, warn};
 
 use super::schema_service::{GetSchema, GetSchemaRequest, GetSchemaResponse};
-use super::{discovery::TopicSchemaFingerprint, error::DynamicError, schema::Schema};
+use super::{discovery::TopicSchemaCandidate, error::DynamicError, schema::Schema};
 use crate::endpoint_builder::{EndpointBuilderContext, service_endpoint_type};
 use crate::entity::SchemaHash;
 use crate::{service::ServiceClientBuilder, topic_name::qualify_remote_private_service_name};
@@ -49,10 +49,10 @@ fn request_schema_hash(discovered_hash: &SchemaHash) -> String {
     discovered_hash.to_hash_string()
 }
 
-fn build_schema_request(fingerprint: &TopicSchemaFingerprint) -> GetSchemaRequest {
+fn build_schema_request(candidate: &TopicSchemaCandidate) -> GetSchemaRequest {
     GetSchemaRequest {
-        root_type_name: fingerprint.type_info.name.clone(),
-        schema_hash: request_schema_hash(&fingerprint.type_info.hash),
+        root_type_name: candidate.type_name.clone(),
+        schema_hash: request_schema_hash(&candidate.schema_hash),
     }
 }
 
@@ -97,26 +97,18 @@ fn validate_response_hash(
 
 pub(crate) async fn query_schema(
     context: &EndpointBuilderContext,
-    fingerprint: &TopicSchemaFingerprint,
+    candidate: &TopicSchemaCandidate,
     timeout: Duration,
 ) -> Result<(String, Schema, SchemaHash), DynamicError> {
     debug!(
         "[SCH] Querying schema: node={}/{}, type={}",
-        fingerprint.node_namespace, fingerprint.node_name, fingerprint.type_info.name
+        candidate.namespace, candidate.node_name, candidate.type_name
     );
 
-    let service_name = qualify_remote_private_service_name(
-        "get_schema",
-        &fingerprint.node_namespace,
-        &fingerprint.node_name,
-    )
-    .map_err(|error| DynamicError::name("querying remote schema", error))?;
-    let node_fqn = qualify_remote_private_service_name(
-        "",
-        &fingerprint.node_namespace,
-        &fingerprint.node_name,
-    )
-    .map_err(|error| DynamicError::name("querying remote schema", error))?;
+    let service_name = candidate.schema_service_name("querying remote schema")?;
+    let node_fqn =
+        qualify_remote_private_service_name("", &candidate.namespace, &candidate.node_name)
+            .map_err(|error| DynamicError::name("querying remote schema", error))?;
 
     let client = ServiceClientBuilder::<GetSchema>::new(
         context.clone(),
@@ -126,7 +118,7 @@ pub(crate) async fn query_schema(
     .build()
     .await
     .map_err(|error| DynamicError::runtime("create schema service client", error))?;
-    let request = build_schema_request(fingerprint);
+    let request = build_schema_request(candidate);
 
     let response = match client.call_with_timeout_async(&request, timeout).await {
         Ok(response) => response,
@@ -139,7 +131,7 @@ pub(crate) async fn query_schema(
     };
 
     if response.successful {
-        schema_from_response_for_fingerprint(&response, fingerprint)
+        schema_from_response_for_candidate(&response, candidate)
     } else {
         warn!("[SCH] Schema query failed: {}", response.failure_reason);
         Err(DynamicError::SerializationError(response.failure_reason))
@@ -192,9 +184,9 @@ pub fn schema_from_response_with_hash(
     response_schema(response)
 }
 
-pub(crate) fn schema_from_response_for_fingerprint(
+pub(crate) fn schema_from_response_for_candidate(
     response: &GetSchemaResponse,
-    fingerprint: &TopicSchemaFingerprint,
+    candidate: &TopicSchemaCandidate,
 ) -> Result<(String, Schema, SchemaHash), DynamicError> {
     if !response.successful {
         return Err(DynamicError::SerializationError(format!(
@@ -203,8 +195,8 @@ pub(crate) fn schema_from_response_for_fingerprint(
         )));
     }
 
-    let schema_hash = validate_response_hash(response, Some(fingerprint.type_info.hash))?;
-    let root_name = response_root_name_or_expected(response, &fingerprint.type_info.name)?;
+    let schema_hash = validate_response_hash(response, Some(candidate.schema_hash))?;
+    let root_name = response_root_name_or_expected(response, &candidate.type_name)?;
     let schema = response_schema(response)?;
     Ok((root_name.to_string(), schema, schema_hash))
 }
@@ -214,8 +206,6 @@ mod tests {
     use ros_z_schema::{SchemaBundle, StructDef, TypeDef, TypeDefinition, TypeName};
 
     use super::*;
-    use crate::entity::TypeInfo;
-
     fn empty_struct_bundle(root_type: &str) -> SchemaBundle {
         let root_type = TypeName::new(root_type).unwrap();
         SchemaBundle {
@@ -229,7 +219,7 @@ mod tests {
     }
 
     #[test]
-    fn fingerprint_schema_response_rejects_mismatched_root_even_when_hash_matches() {
+    fn candidate_schema_response_rejects_mismatched_root_even_when_hash_matches() {
         let schema = empty_struct_bundle("test_msgs::Wrong");
         let schema_hash = ros_z_schema::compute_hash(&schema).unwrap();
         let response = GetSchemaResponse {
@@ -238,14 +228,14 @@ mod tests {
             schema,
             failure_reason: String::new(),
         };
-        let fingerprint = TopicSchemaFingerprint {
-            topic: "/chatter".to_string(),
-            node_namespace: "/robot".to_string(),
+        let candidate = TopicSchemaCandidate {
+            namespace: "/robot".to_string(),
             node_name: "talker".to_string(),
-            type_info: TypeInfo::new("test_msgs::Expected", schema_hash),
+            type_name: "test_msgs::Expected".to_string(),
+            schema_hash,
         };
 
-        let error = schema_from_response_for_fingerprint(&response, &fingerprint).unwrap_err();
+        let error = schema_from_response_for_candidate(&response, &candidate).unwrap_err();
 
         assert!(error.to_string().contains("root"));
         assert!(error.to_string().contains("test_msgs::Expected"));

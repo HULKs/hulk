@@ -1,12 +1,34 @@
+use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
 
 use zenoh::sample::Sample;
 
 use crate::Result;
+use crate::message::WireDecoder;
 use crate::pubsub::subscriber::{SubscriberBuilder, SubscriberResources};
 use crate::qos::QosProfile;
 use crate::queue::BoundedQueue;
+
+/// Marker payload for schema-free raw subscribers.
+///
+/// The raw subscriber path never decodes payload bytes into this type. It only
+/// needs a concrete payload/codec pair so it can reuse the normal subscriber
+/// builder and advertise discovered topic type metadata.
+pub struct RawPayload;
+
+/// No-op decoder used by schema-free raw subscribers.
+pub struct RawPayloadCodec;
+
+impl WireDecoder for RawPayloadCodec {
+    type Input<'a> = &'a [u8];
+    type Output = RawPayload;
+    type Error = Infallible;
+
+    fn deserialize(_input: Self::Input<'_>) -> std::result::Result<Self::Output, Self::Error> {
+        Ok(RawPayload)
+    }
+}
 
 /// Subscriber that receives raw Zenoh samples.
 ///

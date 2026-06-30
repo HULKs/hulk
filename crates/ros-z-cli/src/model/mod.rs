@@ -1,5 +1,6 @@
 pub mod echo;
 pub mod graph;
+pub mod hz;
 pub mod info;
 pub mod parameter;
 pub mod schema;

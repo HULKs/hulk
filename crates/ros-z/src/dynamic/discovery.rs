@@ -7,11 +7,11 @@ use tokio::time::Instant;
 use crate::{
     dynamic::{DynamicCdrCodec, DynamicError, DynamicPayload, DynamicSubscriber, Schema},
     endpoint_builder::{EndpointBuilderContext, MessageEndpointType},
-    entity::{EndpointEntity, SchemaHash, TypeInfo},
+    entity::{EndpointEntity, EndpointKind, SchemaHash, TypeInfo},
     graph::Graph,
-    pubsub::{RawSubscriber, SubscriberBuilder, SubscriberOptions},
+    pubsub::{RawPayload, RawPayloadCodec, RawSubscriber, SubscriberBuilder, SubscriberOptions},
     qos::QosProfile,
-    topic_name::qualify_topic_name,
+    topic_name::{qualify_remote_private_service_name, qualify_topic_name},
 };
 use tracing::info;
 
@@ -86,39 +86,79 @@ pub fn topic_schema_fingerprints_from_publishers(
     fingerprints
 }
 
-pub(crate) fn collect_topic_schema_fingerprints_from_publishers(
-    publishers: &[EndpointEntity],
-    qualified_topic: &str,
-) -> Result<Vec<TopicSchemaFingerprint>, DynamicError> {
-    let fingerprints = topic_schema_fingerprints_from_publishers(publishers);
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct TopicSchemaCandidate {
+    pub node_name: String,
+    pub namespace: String,
+    pub type_name: String,
+    pub schema_hash: SchemaHash,
+}
 
-    if fingerprints.is_empty() {
-        return Err(DynamicError::SchemaNotFound(format!(
-            "No publishers found for topic: {qualified_topic}"
-        )));
+impl TopicSchemaCandidate {
+    fn from_fingerprint(fingerprint: &TopicSchemaFingerprint) -> Self {
+        Self {
+            node_name: fingerprint.node_name.clone(),
+            namespace: fingerprint.node_namespace.clone(),
+            type_name: fingerprint.type_info.name.clone(),
+            schema_hash: fingerprint.type_info.hash,
+        }
     }
 
-    if !fingerprints
+    pub(crate) fn schema_service_name(
+        &self,
+        operation: &'static str,
+    ) -> Result<String, DynamicError> {
+        qualify_remote_private_service_name("get_schema", &self.namespace, &self.node_name)
+            .map_err(|source| DynamicError::name(operation, source))
+    }
+}
+
+impl fmt::Display for TopicSchemaCandidate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}/{}:{}@{}",
+            self.namespace, self.node_name, self.type_name, self.schema_hash
+        )
+    }
+}
+
+pub(crate) fn collect_topic_schema_candidates_from_publishers(
+    publishers: &[EndpointEntity],
+    qualified_topic: &str,
+) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
+    let candidates = topic_schema_fingerprints_from_publishers(publishers)
         .iter()
-        .map(|fingerprint| (&fingerprint.type_info.name, fingerprint.type_info.hash))
-        .all_equal()
-    {
-        return Err(DynamicError::SchemaConflict {
+        .map(TopicSchemaCandidate::from_fingerprint)
+        .collect_vec();
+
+    if candidates.is_empty() {
+        return Err(DynamicError::NoPublishers {
             topic: qualified_topic.to_string(),
-            candidates: fingerprints.iter().map(ToString::to_string).collect_vec(),
         });
     }
 
-    Ok(fingerprints)
+    if !candidates
+        .iter()
+        .map(|candidate| (&candidate.type_name, candidate.schema_hash))
+        .all_equal()
+    {
+        return Err(DynamicError::TopicTypeConflict {
+            topic: qualified_topic.to_string(),
+            candidates: candidates.iter().map(ToString::to_string).collect_vec(),
+        });
+    }
+
+    Ok(candidates)
 }
 
 fn collect_topic_schema_candidates(
     graph: &Graph,
     qualified_topic: &str,
-) -> Result<Vec<TopicSchemaFingerprint>, DynamicError> {
+) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
     let publishers = graph.view().publishers_on(qualified_topic);
 
-    collect_topic_schema_fingerprints_from_publishers(&publishers, qualified_topic)
+    collect_topic_schema_candidates_from_publishers(&publishers, qualified_topic)
 }
 
 fn schema_query_timeout(deadline: Instant) -> Option<Duration> {
@@ -129,15 +169,147 @@ fn schema_query_timeout(deadline: Instant) -> Option<Duration> {
     Some(timeout)
 }
 
-fn schema_query_timeout_error(
-    qualified_topic: &str,
-    last_error: Option<&DynamicError>,
-) -> DynamicError {
-    let mut message = format!("Timed out while discovering schema for topic: {qualified_topic}");
-    if let Some(error) = last_error {
-        message.push_str(&format!("; last candidate error: {error}"));
+fn qualify_topic_for_discovery(
+    topic: &str,
+    namespace: &str,
+    node_name: &str,
+) -> Result<String, DynamicError> {
+    qualify_topic_name(topic, namespace, node_name).map_err(|source| DynamicError::TopicName {
+        topic: topic.to_string(),
+        source,
+    })
+}
+
+fn collect_visible_schema_service_candidates(
+    candidates: &[TopicSchemaCandidate],
+    visible_services: &[EndpointEntity],
+) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
+    let mut visible_candidates = Vec::new();
+
+    for candidate in candidates {
+        let service_name =
+            candidate.schema_service_name("checking remote schema service visibility")?;
+        if visible_services
+            .iter()
+            .any(|service| service.kind == EndpointKind::Service && service.topic == service_name)
+        {
+            visible_candidates.push(candidate.clone());
+        }
     }
-    DynamicError::SchemaNotFound(message)
+
+    Ok(visible_candidates)
+}
+
+struct SchemaServiceCandidateSnapshot {
+    compatible: Vec<TopicSchemaCandidate>,
+    visible: Vec<TopicSchemaCandidate>,
+}
+
+fn collect_schema_service_candidate_snapshot(
+    graph: &Graph,
+    qualified_topic: &str,
+) -> Result<SchemaServiceCandidateSnapshot, DynamicError> {
+    let view = graph.view();
+    let publishers = view.publishers_on(qualified_topic);
+    let compatible = collect_topic_schema_candidates_from_publishers(&publishers, qualified_topic)?;
+    let visible_services = view
+        .endpoints()
+        .filter(|endpoint| endpoint.kind == EndpointKind::Service)
+        .cloned()
+        .collect_vec();
+    let visible = collect_visible_schema_service_candidates(&compatible, &visible_services)?;
+
+    Ok(SchemaServiceCandidateSnapshot {
+        compatible,
+        visible,
+    })
+}
+
+fn no_schema_services_error(
+    qualified_topic: &str,
+    candidates: &[TopicSchemaCandidate],
+) -> DynamicError {
+    DynamicError::NoSchemaServices {
+        topic: qualified_topic.to_string(),
+        candidates: candidates.iter().map(ToString::to_string).collect_vec(),
+    }
+}
+
+fn schema_discovery_timeout_error(
+    qualified_topic: &str,
+    candidates: &[TopicSchemaCandidate],
+    source: Option<DynamicError>,
+) -> DynamicError {
+    DynamicError::SchemaDiscoveryTimeout {
+        topic: qualified_topic.to_string(),
+        candidates: candidates.iter().map(ToString::to_string).collect_vec(),
+        source: source.map(|error| Box::new(error) as crate::error::BoxError),
+    }
+}
+
+async fn wait_for_topic_schema_candidates(
+    graph: &Graph,
+    qualified_topic: &str,
+    deadline: Instant,
+) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
+    let mut changes = graph.subscribe_changes();
+
+    loop {
+        changes.mark_seen();
+
+        match collect_topic_schema_candidates(graph, qualified_topic) {
+            Ok(candidates) => return Ok(candidates),
+            Err(DynamicError::NoPublishers { .. }) => {}
+            Err(error) => return Err(error),
+        }
+
+        let Some(timeout) = schema_query_timeout(deadline) else {
+            return collect_topic_schema_candidates(graph, qualified_topic);
+        };
+
+        match tokio::time::timeout(timeout, changes.changed()).await {
+            Ok(Some(_)) => {}
+            Ok(None) | Err(_) => return collect_topic_schema_candidates(graph, qualified_topic),
+        }
+    }
+}
+
+async fn wait_for_visible_schema_service_candidates(
+    graph: &Graph,
+    qualified_topic: &str,
+    deadline: Instant,
+) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
+    let mut changes = graph.subscribe_changes();
+
+    loop {
+        changes.mark_seen();
+
+        let snapshot = collect_schema_service_candidate_snapshot(graph, qualified_topic)?;
+        if !snapshot.visible.is_empty() {
+            return Ok(snapshot.visible);
+        }
+
+        let Some(timeout) = schema_query_timeout(deadline) else {
+            return Err(no_schema_services_error(
+                qualified_topic,
+                &snapshot.compatible,
+            ));
+        };
+
+        match tokio::time::timeout(timeout, changes.changed()).await {
+            Ok(Some(_)) | Err(_) => {}
+            Ok(None) => {
+                let snapshot = collect_schema_service_candidate_snapshot(graph, qualified_topic)?;
+                if !snapshot.visible.is_empty() {
+                    return Ok(snapshot.visible);
+                }
+                return Err(no_schema_services_error(
+                    qualified_topic,
+                    &snapshot.compatible,
+                ));
+            }
+        }
+    }
 }
 
 pub(crate) struct SchemaDiscovery {
@@ -150,29 +322,60 @@ impl SchemaDiscovery {
         Self { context, timeout }
     }
 
+    async fn discover_candidates(
+        &self,
+        topic: &str,
+    ) -> Result<(String, Vec<TopicSchemaCandidate>, tokio::time::Instant), DynamicError> {
+        let qualified_topic = qualify_topic_for_discovery(
+            topic,
+            &self.context.node.namespace,
+            &self.context.node.name,
+        )?;
+
+        self.discover_qualified_candidates(qualified_topic).await
+    }
+
+    async fn discover_qualified_candidates(
+        &self,
+        qualified_topic: String,
+    ) -> Result<(String, Vec<TopicSchemaCandidate>, tokio::time::Instant), DynamicError> {
+        let deadline = tokio::time::Instant::now() + self.timeout;
+        let candidates = wait_for_topic_schema_candidates(
+            self.context.graph.as_ref(),
+            &qualified_topic,
+            deadline,
+        )
+        .await?;
+
+        Ok((qualified_topic, candidates, deadline))
+    }
+
+    pub(crate) async fn discover_qualified(
+        &self,
+        qualified_topic: String,
+    ) -> Result<DiscoveredTopicSchema, DynamicError> {
+        let (qualified_topic, _candidates, deadline) =
+            self.discover_qualified_candidates(qualified_topic).await?;
+        self.discover_from_candidates(qualified_topic, deadline)
+            .await
+    }
+
     pub(crate) async fn discover(
         &self,
         topic: &str,
     ) -> Result<DiscoveredTopicSchema, DynamicError> {
-        let qualified_topic =
-            qualify_topic_name(topic, &self.context.node.namespace, &self.context.node.name)
-                .map_err(|error| DynamicError::name("discovering topic schema", error))?;
-
-        self.discover_qualified(qualified_topic).await
+        let (qualified_topic, _candidates, deadline) = self.discover_candidates(topic).await?;
+        self.discover_from_candidates(qualified_topic, deadline)
+            .await
     }
 
-    async fn discover_qualified(
+    async fn discover_from_candidates(
         &self,
         qualified_topic: String,
+        deadline: Instant,
     ) -> Result<DiscoveredTopicSchema, DynamicError> {
-        let deadline = Instant::now() + self.timeout;
-        let candidates = self
-            .wait_for_topic_schema_candidates(&qualified_topic, deadline)
-            .await?;
-
-        let (root_name, schema, schema_hash) = self
-            .try_schema_service(&qualified_topic, &candidates[..], deadline)
-            .await?;
+        let (root_name, schema, schema_hash) =
+            self.try_schema_service(&qualified_topic, deadline).await?;
 
         Ok(DiscoveredTopicSchema {
             qualified_topic,
@@ -182,38 +385,25 @@ impl SchemaDiscovery {
         })
     }
 
-    async fn wait_for_topic_schema_candidates(
-        &self,
-        qualified_topic: &str,
-        deadline: Instant,
-    ) -> Result<Vec<TopicSchemaFingerprint>, DynamicError> {
-        let graph = &self.context.graph;
-        if tokio::time::timeout_at(
-            deadline,
-            graph.wait_until(|view| view.has_publishers_on(qualified_topic)),
-        )
-        .await
-        .is_err()
-        {
-            return Err(schema_query_timeout_error(qualified_topic, None));
-        }
-
-        collect_topic_schema_candidates(graph.as_ref(), qualified_topic)
-    }
-
     async fn try_schema_service(
         &self,
         qualified_topic: &str,
-        candidates: &[TopicSchemaFingerprint],
         deadline: Instant,
     ) -> Result<(String, Schema, SchemaHash), DynamicError> {
         let mut last_error = None;
+        let candidates = wait_for_visible_schema_service_candidates(
+            self.context.graph.as_ref(),
+            qualified_topic,
+            deadline,
+        )
+        .await?;
 
-        for candidate in candidates {
+        for candidate in &candidates {
             let Some(timeout) = schema_query_timeout(deadline) else {
-                return Err(schema_query_timeout_error(
+                return Err(schema_discovery_timeout_error(
                     qualified_topic,
-                    last_error.as_ref(),
+                    &candidates,
+                    last_error,
                 ));
             };
 
@@ -226,17 +416,17 @@ impl SchemaDiscovery {
                 Ok(Ok(result)) => return Ok(result),
                 Ok(Err(error)) => last_error = Some(error),
                 Err(_) => {
-                    return Err(schema_query_timeout_error(
+                    return Err(schema_discovery_timeout_error(
                         qualified_topic,
-                        last_error.as_ref(),
+                        &candidates,
+                        last_error,
                     ));
                 }
             }
         }
 
-        Err(last_error.unwrap_or_else(|| {
-            DynamicError::SchemaNotFound("No schema service source succeeded".to_string())
-        }))
+        Err(last_error
+            .unwrap_or_else(|| schema_discovery_timeout_error(qualified_topic, &candidates, None)))
     }
 }
 
@@ -255,7 +445,7 @@ pub struct DynamicSubscriberDiscoveryBuilder {
     options: SubscriberOptions,
 }
 
-/// Builder for raw dynamic subscribers that discover schema metadata at build time.
+/// Builder for raw dynamic subscribers that discover type metadata at build time.
 #[derive(Debug)]
 pub struct DynamicRawSubscriberDiscoveryBuilder {
     context: EndpointBuilderContext,
@@ -288,6 +478,35 @@ async fn discover_dynamic_subscriber_builder(
         context,
         topic,
         MessageEndpointType::prevalidated_dynamic(discovered.type_info(), discovered.schema),
+    )
+    .options(options))
+}
+
+async fn discover_raw_subscriber_builder(
+    context: EndpointBuilderContext,
+    topic: String,
+    discovery_timeout: Duration,
+    options: SubscriberOptions,
+) -> crate::Result<SubscriberBuilder<RawPayload, RawPayloadCodec>> {
+    let qualified_topic = qualify_topic_name(&topic, &context.node.namespace, &context.node.name)
+        .map_err(|source| crate::Error::topic_name(topic.clone(), source))?;
+    let (_, candidates, _) = SchemaDiscovery::new(context.clone(), discovery_timeout)
+        .discover_qualified_candidates(qualified_topic.clone())
+        .await?;
+    let candidate = &candidates[0];
+    let type_info = TypeInfo::new(&candidate.type_name, candidate.schema_hash);
+
+    info!(
+        "[NOD] Discovered raw topic {}: {} (hash: {})",
+        qualified_topic,
+        type_info.name,
+        type_info.hash.to_hash_string()
+    );
+
+    Ok(SubscriberBuilder::<RawPayload, RawPayloadCodec>::new(
+        context,
+        topic,
+        MessageEndpointType::type_info_only(type_info),
     )
     .options(options))
 }
@@ -337,9 +556,9 @@ impl DynamicSubscriberDiscoveryBuilder {
 
     /// Switch this discovery builder to raw sample delivery.
     ///
-    /// Schema discovery still runs at build time so the subscriber advertises
-    /// the discovered dynamic type metadata, but received samples are returned
-    /// without deserialization.
+    /// Publisher type discovery still runs at build time so the subscriber
+    /// advertises the discovered dynamic type metadata, but received samples are
+    /// returned without deserialization and schema-service lookup.
     pub fn raw(self) -> DynamicRawSubscriberDiscoveryBuilder {
         DynamicRawSubscriberDiscoveryBuilder {
             context: self.context,
@@ -389,7 +608,7 @@ impl DynamicRawSubscriberDiscoveryBuilder {
         self
     }
 
-    /// Discover the topic schema and build a raw dynamic subscriber.
+    /// Discover topic type metadata and build a raw dynamic subscriber.
     pub async fn build(self) -> crate::Result<RawSubscriber> {
         let Self {
             context,
@@ -398,7 +617,7 @@ impl DynamicRawSubscriberDiscoveryBuilder {
             options,
         } = self;
 
-        discover_dynamic_subscriber_builder(context, topic, discovery_timeout, options)
+        discover_raw_subscriber_builder(context, topic, discovery_timeout, options)
             .await?
             .raw()
             .build()
@@ -408,21 +627,8 @@ impl DynamicRawSubscriberDiscoveryBuilder {
 
 #[cfg(test)]
 mod tests {
-    use std::time::{SystemTime, UNIX_EPOCH};
-
     use super::*;
-    use crate::context::ContextBuilder;
     use crate::entity::{EndpointKind, NodeEntity, SchemaHash, TypeInfo};
-
-    fn unique_node_name(prefix: &str) -> String {
-        format!(
-            "{prefix}_{}",
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("system clock should be after Unix epoch")
-                .as_nanos()
-        )
-    }
 
     fn publisher(type_name: &str) -> EndpointEntity {
         EndpointEntity {
@@ -465,6 +671,350 @@ mod tests {
         }
     }
 
+    fn schema_service_for_node(node_name: &str, node_id: usize) -> EndpointEntity {
+        EndpointEntity {
+            id: 100 + node_id,
+            node: NodeEntity {
+                z_id: Default::default(),
+                id: node_id,
+                name: node_name.to_string(),
+                namespace: "/".to_string(),
+            },
+            kind: EndpointKind::Service,
+            topic: format!("/{node_name}/get_schema"),
+            type_info: TypeInfo::new("ros_z::GetSchema", SchemaHash::zero()),
+            qos: Default::default(),
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn topic_candidate_wait_returns_existing_publishers_at_expired_deadline() {
+        let session = zenoh::open(zenoh::Config::default())
+            .await
+            .expect("open Zenoh session");
+        let graph = Graph::new(&session).await.expect("create graph");
+        graph
+            .add_local_entity(crate::entity::Entity::Endpoint(publisher(
+                "std_msgs::String",
+            )))
+            .expect("add publisher");
+
+        let candidates =
+            wait_for_topic_schema_candidates(&graph, "/chatter", tokio::time::Instant::now())
+                .await
+                .expect("publisher is visible at expired deadline");
+
+        assert_eq!(candidates.len(), 1);
+
+        session.close().await.expect("close Zenoh session");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn visible_schema_service_wait_returns_existing_services_at_expired_deadline() {
+        let session = zenoh::open(zenoh::Config::default())
+            .await
+            .expect("open Zenoh session");
+        let graph = Graph::new(&session).await.expect("create graph");
+        let hash = SchemaHash([1; 32]);
+        graph
+            .add_local_entity(crate::entity::Entity::Endpoint(
+                publisher_with_hash_from_node("std_msgs::String", hash, "talker", 2),
+            ))
+            .expect("add publisher");
+        graph
+            .add_local_entity(crate::entity::Entity::Endpoint(schema_service_for_node(
+                "talker", 2,
+            )))
+            .expect("add schema service");
+
+        let visible = wait_for_visible_schema_service_candidates(
+            &graph,
+            "/chatter",
+            tokio::time::Instant::now(),
+        )
+        .await
+        .expect("schema service is visible at expired deadline");
+
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].node_name, "talker");
+
+        session.close().await.expect("close Zenoh session");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn visible_schema_service_wait_reports_no_schema_services_at_deadline() {
+        let session = zenoh::open(zenoh::Config::default())
+            .await
+            .expect("open Zenoh session");
+        let graph = Graph::new(&session).await.expect("create graph");
+        let hash = SchemaHash([1; 32]);
+        graph
+            .add_local_entity(crate::entity::Entity::Endpoint(
+                publisher_with_hash_from_node(
+                    "std_msgs::String",
+                    hash,
+                    "talker_without_service",
+                    2,
+                ),
+            ))
+            .expect("add publisher");
+
+        let error = wait_for_visible_schema_service_candidates(
+            &graph,
+            "/chatter",
+            tokio::time::Instant::now(),
+        )
+        .await
+        .expect_err("publisher without visible schema service should fail at deadline");
+
+        let DynamicError::NoSchemaServices { topic, candidates } = error else {
+            panic!("expected no schema services error, got {error:?}");
+        };
+        assert_eq!(topic, "/chatter");
+        assert_eq!(candidates.len(), 1);
+        assert!(candidates[0].contains("talker_without_service"));
+        assert!(candidates[0].contains("std_msgs::String"));
+
+        session.close().await.expect("close Zenoh session");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn try_schema_service_reports_timeout_when_visible_service_budget_elapsed() {
+        let session = zenoh::open(zenoh::Config::default())
+            .await
+            .expect("open Zenoh session");
+        let graph = std::sync::Arc::new(Graph::new(&session).await.expect("create graph"));
+        let hash = SchemaHash([1; 32]);
+        graph
+            .add_local_entity(crate::entity::Entity::Endpoint(
+                publisher_with_hash_from_node("std_msgs::String", hash, "talker", 2),
+            ))
+            .expect("add publisher");
+        graph
+            .add_local_entity(crate::entity::Entity::Endpoint(schema_service_for_node(
+                "talker", 2,
+            )))
+            .expect("add visible schema service");
+        let context = EndpointBuilderContext::new(
+            session.clone(),
+            graph,
+            std::sync::Arc::new(crate::context::GlobalCounter::default()),
+            NodeEntity {
+                z_id: Default::default(),
+                id: 10,
+                name: "listener".to_string(),
+                namespace: "/".to_string(),
+            },
+            crate::time::Clock::default(),
+            None,
+            None,
+        );
+        let discovery = SchemaDiscovery::new(context, Duration::ZERO);
+
+        let error = discovery
+            .try_schema_service("/chatter", tokio::time::Instant::now())
+            .await
+            .expect_err("elapsed query budget should fail without denying service visibility");
+
+        let DynamicError::SchemaDiscoveryTimeout {
+            topic,
+            candidates,
+            source,
+        } = error
+        else {
+            panic!("expected schema discovery timeout, got {error:?}");
+        };
+        assert_eq!(topic, "/chatter");
+        assert_eq!(candidates.len(), 1);
+        assert!(candidates[0].contains("talker"));
+        assert!(candidates[0].contains("std_msgs::String"));
+        assert!(source.is_none());
+
+        session.close().await.expect("close Zenoh session");
+    }
+
+    #[test]
+    fn schema_discovery_timeout_error_preserves_previous_candidate_error_as_source() {
+        let candidate = TopicSchemaCandidate {
+            node_name: "talker".to_string(),
+            namespace: "/".to_string(),
+            type_name: "std_msgs::String".to_string(),
+            schema_hash: SchemaHash([1; 32]),
+        };
+        let previous_error = DynamicError::NoSchemaServices {
+            topic: "/chatter".to_string(),
+            candidates: vec![candidate.to_string()],
+        };
+
+        let error = schema_discovery_timeout_error("/chatter", &[candidate], Some(previous_error));
+
+        let DynamicError::SchemaDiscoveryTimeout {
+            topic,
+            candidates,
+            source,
+        } = error
+        else {
+            panic!("expected schema discovery timeout, got {error:?}");
+        };
+        assert_eq!(topic, "/chatter");
+        assert_eq!(candidates.len(), 1);
+        assert!(candidates[0].contains("talker"));
+        assert!(source.is_some());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn visible_schema_service_wait_rejects_current_conflicts_before_visible_service() {
+        let session = zenoh::open(zenoh::Config::default())
+            .await
+            .expect("open Zenoh session");
+        let graph = Graph::new(&session).await.expect("create graph");
+        let hash = SchemaHash([3; 32]);
+        graph
+            .add_local_entity(crate::entity::Entity::Endpoint(
+                publisher_with_hash_from_node("std_msgs::String", hash, "talker", 2),
+            ))
+            .expect("add first publisher");
+        graph
+            .add_local_entity(crate::entity::Entity::Endpoint(
+                publisher_with_hash_from_node("custom_msgs::StringLike", hash, "other_talker", 3),
+            ))
+            .expect("add conflicting publisher");
+        graph
+            .add_local_entity(crate::entity::Entity::Endpoint(schema_service_for_node(
+                "talker", 2,
+            )))
+            .expect("add schema service");
+
+        let error = wait_for_visible_schema_service_candidates(
+            &graph,
+            "/chatter",
+            tokio::time::Instant::now(),
+        )
+        .await
+        .expect_err("current publisher conflicts should win over visible services");
+
+        let DynamicError::TopicTypeConflict { topic, candidates } = error else {
+            panic!("expected topic type conflict, got {error:?}");
+        };
+        assert_eq!(topic, "/chatter");
+        assert_eq!(candidates.len(), 2);
+        assert!(
+            candidates
+                .iter()
+                .any(|candidate| candidate.contains("std_msgs::String"))
+        );
+        assert!(
+            candidates
+                .iter()
+                .any(|candidate| candidate.contains("custom_msgs::StringLike"))
+        );
+
+        session.close().await.expect("close Zenoh session");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn visible_schema_service_wait_rechecks_topic_candidates_after_graph_change() {
+        let session = zenoh::open(zenoh::Config::default())
+            .await
+            .expect("open Zenoh session");
+        let graph = Graph::new(&session).await.expect("create graph");
+        let hash = SchemaHash([1; 32]);
+        graph
+            .add_local_entity(crate::entity::Entity::Endpoint(
+                publisher_with_hash_from_node("std_msgs::String", hash, "talker", 2),
+            ))
+            .expect("add initial publisher");
+
+        let wait = wait_for_visible_schema_service_candidates(
+            &graph,
+            "/chatter",
+            tokio::time::Instant::now() + Duration::from_secs(1),
+        );
+        tokio::pin!(wait);
+
+        tokio::select! {
+            result = &mut wait => panic!("wait finished before late schema service appeared: {result:?}"),
+            _ = tokio::time::sleep(Duration::from_millis(10)) => {}
+        }
+
+        graph
+            .add_local_entity(crate::entity::Entity::Endpoint(
+                publisher_with_hash_from_node("std_msgs::String", hash, "late_talker", 3),
+            ))
+            .expect("add late publisher");
+        graph
+            .add_local_entity(crate::entity::Entity::Endpoint(schema_service_for_node(
+                "late_talker",
+                3,
+            )))
+            .expect("add late schema service");
+
+        let visible = wait.await.expect("late schema service becomes visible");
+
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].node_name, "late_talker");
+
+        session.close().await.expect("close Zenoh session");
+    }
+
+    #[test]
+    fn discovery_topic_qualification_errors_preserve_original_topic() {
+        let error = qualify_topic_for_discovery("", "/", "listener")
+            .expect_err("empty topic fails discovery topic qualification");
+
+        let DynamicError::TopicName { topic, source } = error else {
+            panic!("expected topic-name error");
+        };
+
+        assert_eq!(topic, "");
+        assert_eq!(source, crate::topic_name::TopicNameError::Empty);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn discover_topic_schema_rejects_empty_topic_name() {
+        let context = crate::context::ContextBuilder::default()
+            .disable_multicast_scouting()
+            .with_json("connect/endpoints", serde_json::json!([]))
+            .build()
+            .await
+            .expect("create test context");
+        let node = context
+            .create_node("listener")
+            .without_schema_service()
+            .build()
+            .await
+            .expect("create test node");
+
+        let result = node
+            .discover_topic_schema("", Duration::from_millis(1))
+            .await;
+        context.shutdown().expect("shutdown test context");
+        let error = result.expect_err("empty topic fails discovery API");
+
+        let DynamicError::TopicName { topic, source } = error else {
+            panic!("expected topic-name error");
+        };
+
+        assert_eq!(topic, "");
+        assert_eq!(source, crate::topic_name::TopicNameError::Empty);
+    }
+
+    #[test]
+    fn candidate_schema_service_name_uses_get_schema_private_service() {
+        let candidate = TopicSchemaCandidate {
+            node_name: "talker".to_string(),
+            namespace: "/robot".to_string(),
+            type_name: "std_msgs::String".to_string(),
+            schema_hash: SchemaHash::zero(),
+        };
+
+        let service_name = candidate
+            .schema_service_name("testing schema service helper")
+            .expect("valid candidate service name");
+
+        assert_eq!(service_name, "/robot/talker/get_schema");
+    }
+
     #[test]
     fn topic_schema_fingerprints_from_publishers_returns_canonical_schema_identity() {
         let hash = SchemaHash([7; 32]);
@@ -504,88 +1054,46 @@ mod tests {
         assert!(timeout <= Duration::from_secs(1));
     }
 
-    #[test]
-    fn schema_query_timeout_error_reports_timeout_without_candidate_error() {
-        let error = schema_query_timeout_error("/chatter", None);
-
-        let DynamicError::SchemaNotFound(message) = error else {
-            panic!("expected schema not found timeout, got {error:?}");
-        };
-        assert!(message.contains("Timed out"));
-        assert!(message.contains("/chatter"));
-    }
-
-    #[test]
-    fn schema_query_timeout_error_keeps_candidate_error_as_context() {
-        let error = schema_query_timeout_error(
-            "/chatter",
-            Some(&DynamicError::SerializationError(
-                "candidate failed".to_string(),
-            )),
-        );
-
-        let DynamicError::SchemaNotFound(message) = error else {
-            panic!("expected timeout schema not found, got {error:?}");
-        };
-        assert!(message.contains("Timed out"));
-        assert!(message.contains("/chatter"));
-        assert!(message.contains("candidate failed"));
-    }
-
     #[tokio::test(flavor = "multi_thread")]
-    async fn schema_candidate_wait_reports_timeout_when_no_publishers_arrive() {
-        let context = ContextBuilder::default()
-            .build()
+    async fn schema_candidate_wait_reports_no_publishers_when_none_arrive() {
+        let session = zenoh::open(zenoh::Config::default())
             .await
-            .expect("test context should build");
-        let node = context
-            .create_node(unique_node_name("schema_candidate_timeout"))
-            .build()
-            .await
-            .expect("test node should build");
-        let discovery_context = EndpointBuilderContext::new(
-            node.session().clone(),
-            node.graph().clone(),
-            node.counter().clone(),
-            node.node_entity().clone(),
-            node.clock().clone(),
-            None,
-            node.schema_service().map(|service| service.registrar()),
-        );
-        let discovery = SchemaDiscovery::new(discovery_context, Duration::from_millis(1));
+            .expect("open Zenoh session");
+        let graph = Graph::new(&session).await.expect("create graph");
 
-        let error = discovery
-            .wait_for_topic_schema_candidates("/missing_schema_timeout", Instant::now())
-            .await
-            .expect_err("elapsed publisher wait should report timeout");
+        let error =
+            wait_for_topic_schema_candidates(&graph, "/missing_schema_timeout", Instant::now())
+                .await
+                .expect_err("elapsed publisher wait should report missing publishers");
 
-        let DynamicError::SchemaNotFound(message) = error else {
-            panic!("expected timeout schema not found, got {error:?}");
+        let DynamicError::NoPublishers { topic } = error else {
+            panic!("expected no publishers, got {error:?}");
         };
-        assert!(message.contains("Timed out"));
-        assert!(message.contains("/missing_schema_timeout"));
+        assert_eq!(topic, "/missing_schema_timeout");
+
+        session.close().await.expect("close Zenoh session");
     }
 
     #[test]
     fn publisher_schema_candidates_keep_native_advertised_type_name() {
-        let candidates = collect_topic_schema_fingerprints_from_publishers(
+        let candidates = collect_topic_schema_candidates_from_publishers(
             &[publisher("std_msgs::String")],
             "/chatter",
         )
         .expect("candidate");
 
-        assert_eq!(candidates[0].type_info.name, "std_msgs::String");
+        assert_eq!(candidates[0].type_name, "std_msgs::String");
     }
 
     #[test]
     fn publisher_schema_candidates_do_not_normalize_dds_shaped_names() {
-        let candidates = collect_topic_schema_fingerprints_from_publishers(
+        let candidates = collect_topic_schema_candidates_from_publishers(
             &[publisher("std_msgs::msg::dds_::String_")],
             "/chatter",
         )
         .expect("candidate");
 
-        assert_eq!(candidates[0].type_info.name, "std_msgs::msg::dds_::String_");
+        assert_eq!(candidates[0].type_name, "std_msgs::msg::dds_::String_");
     }
 
     #[test]
@@ -605,12 +1113,11 @@ mod tests {
             qos: Default::default(),
         };
 
-        let candidates =
-            collect_topic_schema_fingerprints_from_publishers(&[publisher], "/chatter")
-                .expect("candidate");
+        let candidates = collect_topic_schema_candidates_from_publishers(&[publisher], "/chatter")
+            .expect("candidate");
 
-        assert_eq!(candidates[0].type_info.name, "std_msgs::String");
-        assert_eq!(candidates[0].type_info.hash, hash);
+        assert_eq!(candidates[0].type_name, "std_msgs::String");
+        assert_eq!(candidates[0].schema_hash, hash);
     }
 
     #[test]
@@ -621,16 +1128,57 @@ mod tests {
             publisher_with_hash_from_node("std_msgs::String", hash, "talker_b", 3),
         ];
 
-        let candidates = collect_topic_schema_fingerprints_from_publishers(&publishers, "/chatter")
+        let candidates = collect_topic_schema_candidates_from_publishers(&publishers, "/chatter")
             .expect("matching publishers should remain query candidates");
 
         assert_eq!(candidates.len(), 2);
         assert_eq!(candidates[0].node_name, "talker_a");
-        assert_eq!(candidates[0].type_info.name, "std_msgs::String");
-        assert_eq!(candidates[0].type_info.hash, hash);
+        assert_eq!(candidates[0].type_name, "std_msgs::String");
+        assert_eq!(candidates[0].schema_hash, hash);
         assert_eq!(candidates[1].node_name, "talker_b");
-        assert_eq!(candidates[1].type_info.name, "std_msgs::String");
-        assert_eq!(candidates[1].type_info.hash, hash);
+        assert_eq!(candidates[1].type_name, "std_msgs::String");
+        assert_eq!(candidates[1].schema_hash, hash);
+    }
+
+    #[test]
+    fn visible_schema_services_filter_compatible_candidates_before_querying() {
+        let hash = SchemaHash([1; 32]);
+        let publishers = vec![
+            publisher_with_hash_from_node("std_msgs::String", hash, "talker_without_service", 2),
+            publisher_with_hash_from_node("std_msgs::String", hash, "talker_with_service", 3),
+        ];
+        let candidates = collect_topic_schema_candidates_from_publishers(&publishers, "/chatter")
+            .expect("matching publishers should remain query candidates");
+        let visible_services = vec![schema_service_for_node("talker_with_service", 3)];
+
+        let visible_candidates =
+            collect_visible_schema_service_candidates(&candidates, &visible_services)
+                .expect("valid candidate service names");
+
+        assert_eq!(visible_candidates.len(), 1);
+        assert_eq!(visible_candidates[0].node_name, "talker_with_service");
+        assert_eq!(
+            TypeInfo::new(
+                &visible_candidates[0].type_name,
+                visible_candidates[0].schema_hash,
+            ),
+            TypeInfo::new("std_msgs::String", hash)
+        );
+    }
+
+    #[test]
+    fn schema_candidates_reject_missing_publishers_with_topic_error() {
+        let error = collect_topic_schema_candidates_from_publishers(&[], "/missing")
+            .expect_err("missing publishers should fail");
+
+        assert!(matches!(
+            &error,
+            DynamicError::NoPublishers { topic } if topic == "/missing"
+        ));
+        assert_eq!(
+            error.to_string(),
+            "no publishers found for topic '/missing'"
+        );
     }
 
     #[test]
@@ -640,11 +1188,11 @@ mod tests {
             publisher_with_hash("std_msgs::String", SchemaHash([2; 32])),
         ];
 
-        let error = collect_topic_schema_fingerprints_from_publishers(&publishers, "/chatter")
+        let error = collect_topic_schema_candidates_from_publishers(&publishers, "/chatter")
             .expect_err("different schema hashes should conflict");
 
-        let DynamicError::SchemaConflict { topic, candidates } = error else {
-            panic!("expected schema conflict, got {error:?}");
+        let DynamicError::TopicTypeConflict { topic, candidates } = error else {
+            panic!("expected topic type conflict, got {error:?}");
         };
 
         assert_eq!(topic, "/chatter");
@@ -667,11 +1215,11 @@ mod tests {
             publisher_with_hash("custom_msgs::StringLike", hash),
         ];
 
-        let error = collect_topic_schema_fingerprints_from_publishers(&publishers, "/chatter")
+        let error = collect_topic_schema_candidates_from_publishers(&publishers, "/chatter")
             .expect_err("different type names should conflict even with same hash");
 
-        let DynamicError::SchemaConflict { topic, candidates } = error else {
-            panic!("expected schema conflict, got {error:?}");
+        let DynamicError::TopicTypeConflict { topic, candidates } = error else {
+            panic!("expected topic type conflict, got {error:?}");
         };
 
         assert_eq!(topic, "/chatter");

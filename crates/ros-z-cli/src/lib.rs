@@ -62,6 +62,9 @@ async fn run_online_command(
             count,
             timeout,
         } => commands::echo::run(&app, output_mode, &topic, count, timeout).await,
+        OnlineCommand::Hz(args) => {
+            commands::hz::run(&app, output_mode, &args.topic, args.window, args.limit()).await
+        }
         OnlineCommand::Info { target, name } => {
             commands::info::run(&app, output_mode, target, &name).await
         }

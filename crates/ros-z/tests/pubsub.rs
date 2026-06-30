@@ -343,7 +343,7 @@ async fn endpoint_factories_defer_topic_errors_to_build() {
         .expect_err("invalid schema-discovery topic should fail before graph lookup");
     assert!(matches!(
         schema_discovery_error,
-        ros_z::dynamic::DynamicError::Name { .. }
+        ros_z::dynamic::DynamicError::TopicName { topic, .. } if topic == "bad%topic"
     ));
 }
 
