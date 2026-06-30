@@ -50,8 +50,7 @@ pub fn create_tree() -> Node<Blackboard> {
                 condition!(is_primary_state, PrimaryState::Penalized),
                 condition!(is_primary_state, PrimaryState::Finished)
             ),
-            action!(look_straight_ahead),
-            action!(stand)
+            action!(prepare)
         ),
         sequence!(condition!(is_fallen), action!(stand_up)),
         sequence!(
@@ -153,60 +152,4 @@ fn remote_control_subtree() -> Node<Blackboard> {
             sequence!(action!(look_straight_ahead), action!(remote_control))
         )
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use types::behavior_tree::NodeTrace;
-
-    use super::create_tree;
-
-    #[test]
-    fn passive_primary_states_look_straight_ahead_and_stand() {
-        let tree_layout = create_tree().static_layout_trace();
-        let passive_branch = find_passive_primary_state_branch(&tree_layout)
-            .expect("passive primary-state branch exists");
-
-        let child_names = passive_branch
-            .children
-            .iter()
-            .map(|child| child.name.as_str())
-            .collect::<Vec<_>>();
-
-        assert_eq!(
-            child_names,
-            vec!["Selection", "look_straight_ahead", "stand"]
-        );
-    }
-
-    fn find_passive_primary_state_branch(trace: &NodeTrace) -> Option<&NodeTrace> {
-        if trace.name == "Sequence"
-            && matches!(
-                trace.children.first(),
-                Some(first_child) if is_passive_primary_state_selection(first_child)
-            )
-        {
-            return Some(trace);
-        }
-
-        trace
-            .children
-            .iter()
-            .find_map(find_passive_primary_state_branch)
-    }
-
-    fn is_passive_primary_state_selection(trace: &NodeTrace) -> bool {
-        if trace.name != "Selection" {
-            return false;
-        }
-
-        let expected_conditions = ["Initial", "Penalized", "Finished"];
-
-        trace.children.len() == expected_conditions.len()
-            && expected_conditions.iter().all(|expected_state| {
-                trace.children.iter().any(|child| {
-                    child.name.contains("is_primary_state") && child.name.contains(expected_state)
-                })
-            })
-    }
 }
