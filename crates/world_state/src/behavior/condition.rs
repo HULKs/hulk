@@ -1,12 +1,12 @@
 use filtering::hysteresis::less_than_with_hysteresis;
-use hsl_network_messages::Team;
+use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{point, vector};
 use types::{
     filtered_game_controller_state::FilteredGameControllerState, primary_state::PrimaryState,
 };
 use voronoi::Ownership;
 
-use crate::behavior::node::Blackboard;
+use crate::behavior::{goalkeeper, node::Blackboard};
 
 pub fn is_ball_interception_candidate(blackboard: &mut Blackboard) -> bool {
     if let (Some(ball), Some(ground_to_field)) = (
@@ -92,22 +92,53 @@ pub fn is_close_to_ball_aligned(blackboard: &mut Blackboard) -> bool {
     is_close_and_aligned
 }
 
-pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
+pub fn is_second_closest_and_goalkeeper_is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
     let own_player_number = blackboard.world_state.robot.player_number;
+    let closest_ball_robots_match = has_closest_ball_robots(
+        blackboard,
+        &[blackboard.parameters.goal_keeper_number, own_player_number],
+    );
 
-    let raw_is_closest =
-        if let (Some(ball), Some(voronoi_map)) = (&blackboard.ball, &blackboard.voronoi_map) {
-            let ownership_at_ball = voronoi_map.ownership_at(ball.position);
-            match ownership_at_ball {
-                Some(Ownership::Robot(player_number)) if player_number == own_player_number => true,
-                Some(Ownership::Blocked) => voronoi_map
-                    .nearest_non_blocked_ownership(ball.position)
-                    .is_some_and(|ownership| ownership == Ownership::Robot(own_player_number)),
-                _ => false,
-            }
-        } else {
-            false
-        };
+    has_closest_ball_robots(blackboard, &[blackboard.parameters.goal_keeper_number]) == [true]
+}
+
+// pub fn goalkeeper_is_closest_to_ball(blackboard: &mut &Blackboard) -> bool {
+//     has_closest_ball_robots(blackboard, &[blackboard.parameters.goal_keeper_number]) == [true]
+// }
+
+pub fn is_closest_to_ball_helper(blackboard: &mut Blackboard) -> bool {
+    let own_player_number = blackboard.world_state.robot.player_number;
+    has_closest_ball_robots(blackboard, &[own_player_number]) == [true]
+}
+
+pub fn has_closest_ball_robots(
+    blackboard: &Blackboard,
+    expected_players_by_rank: &[PlayerNumber],
+) -> Vec<bool> {
+    let Some(ball) = &blackboard.ball else {
+        return vec![false; expected_players_by_rank.len()];
+    };
+    let Some(voronoi_map) = &blackboard.voronoi_map else {
+        return vec![false; expected_players_by_rank.len()];
+    };
+
+    let Some(ownerships) =
+        voronoi_map.n_nearest_non_blocked_ownerships(ball.position, expected_players_by_rank.len())
+    else {
+        return vec![false; expected_players_by_rank.len()];
+    };
+
+    expected_players_by_rank
+        .iter()
+        .enumerate()
+        .map(|(index, expected_player_number)| {
+            ownerships.get(index) == Some(&Ownership::Robot(*expected_player_number))
+        })
+        .collect()
+}
+
+pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
+    let raw_is_closest = is_closest_to_ball_helper(blackboard);
 
     let now = blackboard.world_state.now;
     if raw_is_closest {
@@ -146,10 +177,6 @@ pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
 
     blackboard.last_closest_to_ball = is_closest;
     is_closest
-}
-
-pub fn is_second_closest_and_goalkeeper_closest_to_ball(blackboard: &mut Blackboard) -> bool {
-    false
 }
 
 pub fn is_fallen(blackboard: &mut Blackboard) -> bool {
