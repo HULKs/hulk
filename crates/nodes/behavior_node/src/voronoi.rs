@@ -22,6 +22,12 @@ pub fn calculate_voronoi_grid(blackboard: &mut Blackboard) -> Status {
         let width_half = field_dimensions.width / 2.0;
         let border_strip_width = field_dimensions.border_strip_width;
 
+        let centroid_x_max = if let Some(ball) = &blackboard.ball {
+            ball.position.x() + voronoi_parameters.centroid_offset
+        } else {
+            length_half
+        };
+
         let bounds = VoronoiBounds {
             grid_min: point!(
                 -length_half - border_strip_width,
@@ -32,7 +38,7 @@ pub fn calculate_voronoi_grid(blackboard: &mut Blackboard) -> Status {
                 width_half + border_strip_width
             ),
             centroid_min: point!(-length_half, -width_half),
-            centroid_max: point!(length_half, width_half),
+            centroid_max: point!(centroid_x_max, width_half),
         };
 
         let mut map = VoronoiGrid::new(bounds, voronoi_parameters.clone());

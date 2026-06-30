@@ -84,23 +84,6 @@ impl Layer<Field> for VoronoiCell {
             painter.circle_stroke(point, 0.035, Stroke::new(0.01, Color32::BLACK));
         }
 
-        for player_number in [
-            PlayerNumber::One,
-            PlayerNumber::Two,
-            PlayerNumber::Three,
-            PlayerNumber::Four,
-            PlayerNumber::Five,
-        ] {
-            if let Some(centroid) = grid.centroid_for_player(player_number) {
-                painter.target(
-                    centroid,
-                    0.06,
-                    Stroke::new(0.01, Color32::GREEN),
-                    Color32::RED,
-                );
-            }
-        }
-
         if let Some(voronoi_inputs) = self.voronoi_inputs.get_last_value()? {
             let voronoi_inputs: Vec<Pose2<Field>> = match from_value(voronoi_inputs) {
                 Ok(inputs) => inputs,
