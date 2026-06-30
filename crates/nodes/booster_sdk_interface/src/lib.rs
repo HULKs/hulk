@@ -451,7 +451,10 @@ impl VisualKickRequest {
 }
 
 enum EffectTaskResult {
-    ModePoll(Option<booster_sdk::types::RobotMode>),
+    ModePoll {
+        generation: u64,
+        mode: Option<booster_sdk::types::RobotMode>,
+    },
     ModeRequest {
         generation: u64,
         desired_mode: control::DesiredMode,
@@ -471,12 +474,14 @@ enum EffectTaskResult {
 
 fn mode_poll_due(state: &InterfaceState, now: std::time::Instant, parameters: &Parameters) -> bool {
     !state.mode_poll_in_flight
+        && matches!(state.mode_request, ModeRequestState::Idle)
         && now.duration_since(state.last_mode_poll) >= parameters.mode_poll_interval
 }
 
-fn mark_mode_poll_started(state: &mut InterfaceState, now: std::time::Instant) {
+fn mark_mode_poll_started(state: &mut InterfaceState, now: std::time::Instant) -> u64 {
     state.mode_poll_in_flight = true;
     state.last_mode_poll = now;
+    state.next_mode_request_generation
 }
 
 fn mode_request_due(
@@ -518,9 +523,13 @@ fn mark_mode_request_started(
 
 fn apply_effect_task_result(state: &mut InterfaceState, result: EffectTaskResult) {
     match result {
-        EffectTaskResult::ModePoll(mode) => {
-            state.confirmed_mode = mode;
+        EffectTaskResult::ModePoll { generation, mode } => {
             state.mode_poll_in_flight = false;
+            if generation == state.next_mode_request_generation
+                && matches!(state.mode_request, ModeRequestState::Idle)
+            {
+                state.confirmed_mode = mode;
+            }
         }
         EffectTaskResult::ModeRequest {
             generation,
@@ -585,12 +594,12 @@ fn spawn_mode_poll_if_due(
         return;
     }
 
-    mark_mode_poll_started(state, now);
+    let generation = mark_mode_poll_started(state, now);
     let timeout = parameters.sdk_request_timeout;
     tokio::spawn(async move {
         let mode = poll_mode(&booster_client, timeout).await;
         let _ = effect_result_tx
-            .send(EffectTaskResult::ModePoll(mode))
+            .send(EffectTaskResult::ModePoll { generation, mode })
             .await;
     });
 }
@@ -1010,9 +1019,10 @@ mod tests {
     async fn draining_effect_task_results_applies_ready_results() {
         let (tx, mut rx) = mpsc::channel(2);
         let generation = 0;
-        tx.send(EffectTaskResult::ModePoll(Some(
-            booster_sdk::types::RobotMode::Walking,
-        )))
+        tx.send(EffectTaskResult::ModePoll {
+            generation,
+            mode: Some(booster_sdk::types::RobotMode::Walking),
+        })
         .await
         .unwrap();
         tx.send(EffectTaskResult::ModeRequest {
@@ -1028,15 +1038,13 @@ mod tests {
                 generation,
                 desired_mode: control::DesiredMode::Walking,
             },
+            next_mode_request_generation: generation + 1,
             ..Default::default()
         };
 
         drain_effect_task_results(&mut state, &mut rx);
 
-        assert_eq!(
-            state.confirmed_mode,
-            Some(booster_sdk::types::RobotMode::Walking)
-        );
+        assert_eq!(state.confirmed_mode, None);
         assert!(!state.mode_poll_in_flight);
         assert_eq!(state.mode_request, ModeRequestState::Idle);
     }
@@ -1049,7 +1057,7 @@ mod tests {
 
         assert!(mode_poll_due(&state, due, &parameters));
 
-        mark_mode_poll_started(&mut state, due);
+        let generation = mark_mode_poll_started(&mut state, due);
 
         assert!(state.mode_poll_in_flight);
         assert_eq!(state.last_mode_poll, due);
@@ -1061,7 +1069,10 @@ mod tests {
 
         apply_effect_task_result(
             &mut state,
-            EffectTaskResult::ModePoll(Some(booster_sdk::types::RobotMode::Walking)),
+            EffectTaskResult::ModePoll {
+                generation,
+                mode: Some(booster_sdk::types::RobotMode::Walking),
+            },
         );
 
         assert!(!state.mode_poll_in_flight);
@@ -1069,6 +1080,96 @@ mod tests {
             state.confirmed_mode,
             Some(booster_sdk::types::RobotMode::Walking)
         );
+    }
+
+    #[test]
+    fn stale_mode_poll_started_before_mode_request_does_not_restore_confirmed_mode() {
+        let parameters = interface_parameters();
+        let mut state = InterfaceState {
+            confirmed_mode: Some(booster_sdk::types::RobotMode::Damping),
+            ..Default::default()
+        };
+        let due = state.last_mode_poll + parameters.mode_poll_interval;
+
+        let poll_generation = mark_mode_poll_started(&mut state, due);
+        let request_generation =
+            mark_mode_request_started(&mut state, control::DesiredMode::Walking, due);
+        apply_effect_task_result(
+            &mut state,
+            EffectTaskResult::ModeRequest {
+                generation: request_generation,
+                desired_mode: control::DesiredMode::Walking,
+            },
+        );
+
+        assert_eq!(state.mode_request, ModeRequestState::Idle);
+
+        apply_effect_task_result(
+            &mut state,
+            EffectTaskResult::ModePoll {
+                generation: poll_generation,
+                mode: Some(booster_sdk::types::RobotMode::Damping),
+            },
+        );
+
+        assert!(!state.mode_poll_in_flight);
+        assert_eq!(state.confirmed_mode, None);
+        assert!(mode_request_due(
+            &state,
+            control::DesiredMode::Damping,
+            due,
+            &parameters,
+        ));
+    }
+
+    #[test]
+    fn fresh_mode_poll_after_mode_request_completion_updates_confirmed_mode() {
+        let parameters = interface_parameters();
+        let mut state = InterfaceState::default();
+        let request_time = state.last_mode_request + parameters.mode_retry_interval;
+
+        let generation =
+            mark_mode_request_started(&mut state, control::DesiredMode::Walking, request_time);
+        apply_effect_task_result(
+            &mut state,
+            EffectTaskResult::ModeRequest {
+                generation,
+                desired_mode: control::DesiredMode::Walking,
+            },
+        );
+        let poll_time = state.last_mode_poll + parameters.mode_poll_interval;
+        let poll_generation = mark_mode_poll_started(&mut state, poll_time);
+
+        apply_effect_task_result(
+            &mut state,
+            EffectTaskResult::ModePoll {
+                generation: poll_generation,
+                mode: Some(booster_sdk::types::RobotMode::Walking),
+            },
+        );
+
+        assert!(!state.mode_poll_in_flight);
+        assert_eq!(
+            state.confirmed_mode,
+            Some(booster_sdk::types::RobotMode::Walking)
+        );
+    }
+
+    #[test]
+    fn mode_poll_due_is_false_while_mode_request_is_in_flight() {
+        let parameters = interface_parameters();
+        let mut state = InterfaceState::default();
+        let due = state.last_mode_poll + parameters.mode_poll_interval;
+
+        assert!(mode_poll_due(&state, due, &parameters));
+
+        mark_mode_request_started(&mut state, control::DesiredMode::Walking, due);
+
+        assert!(!mode_poll_due(
+            &state,
+            due + parameters.mode_poll_interval,
+            &parameters,
+        ));
     }
 
     #[test]
