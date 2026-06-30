@@ -1,3 +1,5 @@
+use std::time::{Duration, SystemTime};
+
 use filtering::hysteresis::less_than_with_hysteresis;
 use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{point, vector};
@@ -6,7 +8,7 @@ use types::{
 };
 use voronoi::Ownership;
 
-use crate::behavior::{goalkeeper, node::Blackboard};
+use crate::behavior::node::{Blackboard, BooleanHysteresis};
 
 pub fn is_ball_interception_candidate(blackboard: &mut Blackboard) -> bool {
     if let (Some(ball), Some(ground_to_field)) = (
@@ -92,14 +94,20 @@ pub fn is_close_to_ball_aligned(blackboard: &mut Blackboard) -> bool {
     is_close_and_aligned
 }
 
-pub fn is_second_closest_and_goalkeeper_is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
+pub fn is_second_closest_and_goalkeeper_closest_to_ball(blackboard: &mut Blackboard) -> bool {
     let own_player_number = blackboard.world_state.robot.player_number;
-    let closest_ball_robots_match = has_closest_ball_robots(
+    let raw_is_second_closest: bool = has_closest_ball_robots(
         blackboard,
         &[blackboard.parameters.goal_keeper_number, own_player_number],
-    );
+    ) == [true, true];
 
-    has_closest_ball_robots(blackboard, &[blackboard.parameters.goal_keeper_number]) == [true]
+    apply_boolean_hysteresis(
+        raw_is_second_closest,
+        &mut blackboard.second_closest_to_ball_hysteresis,
+        blackboard.world_state.now.to_wallclock(),
+        blackboard.parameters.closest_to_ball_enter_duration,
+        blackboard.parameters.closest_to_ball_exit_duration,
+    )
 }
 
 // pub fn goalkeeper_is_closest_to_ball(blackboard: &mut &Blackboard) -> bool {
@@ -140,43 +148,54 @@ pub fn has_closest_ball_robots(
 pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
     let raw_is_closest = is_closest_to_ball_helper(blackboard);
 
-    let now = blackboard.world_state.now;
-    if raw_is_closest {
-        blackboard.closest_to_ball_entered_area_since = blackboard
-            .closest_to_ball_entered_area_since
-            .or(Some(now.to_wallclock()));
-        blackboard.closest_to_ball_left_area_since = None;
+    let mut hysteresis = BooleanHysteresis {
+        last_value: blackboard.last_closest_to_ball,
+        entered_since: blackboard.closest_to_ball_entered_area_since,
+        left_since: blackboard.closest_to_ball_left_area_since,
+    };
+    let is_closest = apply_boolean_hysteresis(
+        raw_is_closest,
+        &mut hysteresis,
+        blackboard.world_state.now.to_wallclock(),
+        blackboard.parameters.closest_to_ball_enter_duration,
+        blackboard.parameters.closest_to_ball_exit_duration,
+    );
+
+    blackboard.last_closest_to_ball = hysteresis.last_value;
+    blackboard.closest_to_ball_entered_area_since = hysteresis.entered_since;
+    blackboard.closest_to_ball_left_area_since = hysteresis.left_since;
+    is_closest
+}
+
+fn apply_boolean_hysteresis(
+    raw_value: bool,
+    state: &mut BooleanHysteresis,
+    now: SystemTime,
+    enter_duration: Duration,
+    exit_duration: Duration,
+) -> bool {
+    if raw_value {
+        state.entered_since = state.entered_since.or(Some(now));
+        state.left_since = None;
     } else {
-        blackboard.closest_to_ball_left_area_since = blackboard
-            .closest_to_ball_left_area_since
-            .or(Some(now.to_wallclock()));
-        blackboard.closest_to_ball_entered_area_since = None;
+        state.left_since = state.left_since.or(Some(now));
+        state.entered_since = None;
     }
 
-    let is_closest = if blackboard.last_closest_to_ball {
-        raw_is_closest
-            || blackboard
-                .closest_to_ball_left_area_since
-                .is_some_and(|since| {
-                    now.to_wallclock()
-                        .duration_since(since)
-                        .expect("time ran backwards")
-                        < blackboard.parameters.closest_to_ball_exit_duration
-                })
+    let value = if state.last_value {
+        raw_value
+            || state.left_since.is_some_and(|since| {
+                now.duration_since(since).expect("time ran backwards") < exit_duration
+            })
     } else {
-        raw_is_closest
-            && blackboard
-                .closest_to_ball_entered_area_since
-                .is_some_and(|since| {
-                    now.to_wallclock()
-                        .duration_since(since)
-                        .expect("time ran backwards")
-                        >= blackboard.parameters.closest_to_ball_enter_duration
-                })
+        raw_value
+            && state.entered_since.is_some_and(|since| {
+                now.duration_since(since).expect("time ran backwards") >= enter_duration
+            })
     };
 
-    blackboard.last_closest_to_ball = is_closest;
-    is_closest
+    state.last_value = value;
+    value
 }
 
 pub fn is_fallen(blackboard: &mut Blackboard) -> bool {

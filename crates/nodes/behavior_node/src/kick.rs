@@ -63,15 +63,23 @@ pub fn kick(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn select_kick_target(blackboard: &mut Blackboard) -> Status {
+    let goal_position: Point2<Field> = point!(blackboard.field_dimensions.length / 2.0, 0.0);
+    let target_offset_angle = blackboard.parameters.kicking.kick_target_offset_angle;
+
+    apply_visual_kick_target(blackboard, goal_position, target_offset_angle)
+}
+
+pub(super) fn apply_visual_kick_target(
+    blackboard: &mut Blackboard,
+    target_position_in_field: Point2<Field>,
+    target_offset_angle: f32,
+) -> Status {
     if let (Some(ground_to_field), Some(ball)) = (
         blackboard.world_state.robot.ground_to_field,
         &blackboard.ball,
     ) {
-        let goal_position: Point2<Field> = point!(blackboard.field_dimensions.length / 2.0, 0.0);
         let field_to_ground = ground_to_field.inverse();
-
-        let target_position = field_to_ground * goal_position;
-
+        let target_position = field_to_ground * target_position_in_field;
         let ball_in_ground = field_to_ground * ball.position;
         let kick_direction = Orientation2::from_vector(target_position - ball_in_ground);
 
@@ -81,14 +89,13 @@ pub fn select_kick_target(blackboard: &mut Blackboard) -> Status {
             ..
         }) = blackboard.body_motion.as_mut()
         {
-            *motion_target_position =
-                Rotation2::new(blackboard.parameters.kicking.kick_target_offset_angle)
-                    * target_position;
+            *motion_target_position = Rotation2::new(target_offset_angle) * target_position;
             *motion_kick_direction = kick_direction;
 
             return Status::Success;
         }
     }
+
     Status::Failure
 }
 
