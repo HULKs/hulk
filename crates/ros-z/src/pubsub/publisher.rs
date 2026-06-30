@@ -515,16 +515,18 @@ where
         publication_id: PublicationId,
     ) -> Result<()> {
         let (zbytes, attachment) = self.prepare_publish_payload(message, publication_id)?;
-        let mut put_builder = self.inner.put(zbytes.clone());
+        // Keep cache-before-publish semantics so replay queries can observe the retained
+        // sample as soon as publish() returns, avoiding a race where a replay query arrives before
+        // the sample is cached.
+        self.retain_transient_local_sample(&zbytes, &attachment);
 
+        let mut put_builder = self.inner.put(zbytes);
         put_builder = put_builder.encoding((*self.encoding).clone());
-
-        put_builder = put_builder.attachment(attachment.clone());
+        put_builder = put_builder.attachment(attachment);
 
         put_builder
             .await
             .map_err(|source| crate::Error::zenoh("publish sample", source))?;
-        self.retain_transient_local_sample(zbytes, attachment);
         Ok(())
     }
 
@@ -587,12 +589,16 @@ where
         Ok((zbytes, attachment))
     }
 
-    fn retain_transient_local_sample(&self, payload: zenoh::bytes::ZBytes, attachment: Attachment) {
+    fn retain_transient_local_sample(
+        &self,
+        payload: &zenoh::bytes::ZBytes,
+        attachment: &Attachment,
+    ) {
         if let Some(cache) = &self.transient_local_cache {
             cache.retain(RetainedSample {
-                payload,
+                payload: payload.clone(),
                 encoding: Some((*self.encoding).clone()),
-                attachment,
+                attachment: attachment.clone(),
             });
         }
     }

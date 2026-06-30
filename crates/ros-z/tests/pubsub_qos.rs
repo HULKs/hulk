@@ -210,6 +210,39 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn transient_local_retained_sample_is_queryable_after_publish_returns() -> Result<()> {
+        let context = ContextBuilder::default().build().await?;
+        let pub_node = context
+            .create_node("retain_before_publish_pub")
+            .build()
+            .await?;
+        let sub_node = context
+            .create_node("retain_before_publish_sub")
+            .build()
+            .await?;
+        let topic = "/transient_local_retain_before_publish";
+        let qos = QosProfile {
+            durability: QosDurability::TransientLocal,
+            reliability: QosReliability::Reliable,
+            history: QosHistory::KeepLast(NonZeroUsize::new(1).unwrap()),
+            ..Default::default()
+        };
+
+        let publisher = pub_node.publisher::<String>(topic).qos(qos).build().await?;
+        publisher.publish(&"retained".to_string()).await?;
+
+        let subscriber = sub_node
+            .subscriber::<String>(topic)
+            .qos(qos)
+            .build()
+            .await?;
+
+        let received = tokio::time::timeout(Duration::from_secs(2), subscriber.recv()).await??;
+        assert_eq!(received, "retained");
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn transient_local_replays_keep_last_depth_to_late_subscriber() -> Result<()> {
         let context = ContextBuilder::default().build().await?;
         let pub_node = context.create_node("transient_depth_pub").build().await?;
@@ -277,6 +310,47 @@ mod tests {
         publisher.publish(&"live-4".into()).await?;
         let live = tokio::time::timeout(Duration::from_secs(2), subscriber.recv()).await??;
         assert_eq!(live, "live-4");
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn transient_local_late_discovered_publisher_delivers_monotonic_samples() -> Result<()> {
+        let context = ContextBuilder::default().build().await?;
+        let sub_node = context.create_node("late_discovery_sub").build().await?;
+        let pub_node = context.create_node("late_discovery_pub").build().await?;
+        let topic = "/transient_local_late_discovery";
+        let qos = QosProfile {
+            durability: QosDurability::TransientLocal,
+            reliability: QosReliability::Reliable,
+            history: QosHistory::KeepLast(NonZeroUsize::new(2).unwrap()),
+            ..Default::default()
+        };
+
+        let subscriber = sub_node
+            .subscriber::<String>(topic)
+            .qos(qos)
+            .build()
+            .await?;
+
+        let publisher = pub_node.publisher::<String>(topic).qos(qos).build().await?;
+        publisher.publish(&"first".to_string()).await?;
+        publisher.publish(&"second".to_string()).await?;
+
+        let mut received = Vec::new();
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+        while received.len() < 2 {
+            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+            if remaining.is_zero() {
+                break;
+            }
+            match tokio::time::timeout(remaining, subscriber.recv()).await {
+                Ok(Ok(message)) => received.push(message),
+                Ok(Err(error)) => return Err(error.into()),
+                Err(_) => break,
+            }
+        }
+
+        assert_eq!(received, ["first".to_string(), "second".to_string()]);
         Ok(())
     }
 
