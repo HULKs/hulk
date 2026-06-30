@@ -148,6 +148,10 @@ pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
     is_closest
 }
 
+pub fn is_second_closest_and_goalkeeper_closest_to_ball(blackboard: &mut Blackboard) -> bool {
+    false
+}
+
 pub fn is_fallen(blackboard: &mut Blackboard) -> bool {
     blackboard
         .world_state

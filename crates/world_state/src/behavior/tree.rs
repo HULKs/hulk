@@ -8,6 +8,7 @@ use crate::{
         condition::{
             has_ball_position, is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state,
             is_remote_controlled, is_remote_kick_mode,
+            is_second_closest_and_goalkeeper_closest_to_ball,
         },
         goalkeeper::goalkeeper_subtree,
         head::{look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
@@ -75,8 +76,11 @@ fn playing_subtree() -> Node<Blackboard> {
         ),
         sequence!(
             action!(calculate_voronoi_grid),
-            condition!(is_closest_to_ball),
-            subtree!(striker_subtree)
+            selection!(condition!(is_closest_to_ball), subtree!(striker_subtree)),
+            selection!(
+                condition!(is_second_closest_and_goalkeeper_closest_to_ball),
+                subtree!(striker_subtree)
+            )
         ),
         subtree!(supporter_subtree),
     )

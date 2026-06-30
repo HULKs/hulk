@@ -17,6 +17,7 @@ use crate::{
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, Message)]
 pub struct GameControllerReturnMessage {
     pub player_number: PlayerNumber,
+    pub is_goalkeeper: bool,
     pub fallen: bool,
     pub pose: Pose2<Field>,
     pub ball: Option<BallPosition<Ground>>,
@@ -59,6 +60,11 @@ impl TryFrom<RoboCupGameControlReturnData> for GameControllerReturnMessage {
                 4 => PlayerNumber::Four,
                 5 => PlayerNumber::Five,
                 _ => bail!("unexpected player number {}", message.playerNum),
+            },
+            is_goalkeeper: match message.is_goalkeeper {
+                1 => true,
+                0 => false,
+                _ => bail!("unexpected is_goalkeeper state"),
             },
             fallen: match message.fallen {
                 1 => true,
@@ -146,6 +152,7 @@ mod test {
     fn zero_isometry() {
         let input_message = GameControllerReturnMessage {
             player_number: PlayerNumber::One,
+            is_goalkeeper: true,
             fallen: false,
             pose: Pose2::default(),
             ball: None,
@@ -165,6 +172,7 @@ mod test {
     fn one_to_the_left_isometry() {
         let input_message = GameControllerReturnMessage {
             player_number: PlayerNumber::One,
+            is_goalkeeper: true,
             fallen: false,
             pose: Pose2::new(point![0.0, 1.0], FRAC_PI_2),
             ball: None,
@@ -188,6 +196,7 @@ mod test {
     fn one_schräg_to_the_top_right_isometry() {
         let input_message = GameControllerReturnMessage {
             player_number: PlayerNumber::One,
+            is_goalkeeper: true,
             fallen: false,
             pose: Pose2::new(point![1.0, 1.0], FRAC_PI_4),
             ball: None,
