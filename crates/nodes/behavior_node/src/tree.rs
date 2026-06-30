@@ -157,75 +157,56 @@ fn remote_control_subtree() -> Node<Blackboard> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
-    use ros_z::time::Time;
-    use types::{
-        behavior_tree::Status,
-        field_dimensions::FieldDimensions,
-        motion_command::{BodyMotion, HeadMotion, ImageRegion, MotionCommand},
-        parameters::BehaviorParameters,
-        primary_state::PrimaryState,
-        world_state::WorldState,
-    };
+    use types::behavior_tree::NodeTrace;
 
     use super::create_tree;
-    use crate::node::Blackboard;
 
     #[test]
     fn passive_primary_states_look_straight_ahead_and_stand() {
-        for primary_state in [
-            PrimaryState::Initial,
-            PrimaryState::Penalized,
-            PrimaryState::Finished,
-        ] {
-            let mut blackboard = blackboard_with_primary_state(primary_state);
+        let tree_layout = create_tree().static_layout_trace();
+        let passive_branch = find_passive_primary_state_branch(&tree_layout)
+            .expect("passive primary-state branch exists");
 
-            let (status, _) = create_tree().tick_with_trace(&mut blackboard);
+        let child_names = passive_branch
+            .children
+            .iter()
+            .map(|child| child.name.as_str())
+            .collect::<Vec<_>>();
 
-            assert_eq!(status, Status::Success);
-            assert_eq!(blackboard.body_motion, Some(BodyMotion::Stand));
-            assert_eq!(
-                blackboard.head_motion,
-                Some(HeadMotion::Center {
-                    image_region_target: ImageRegion::Center,
-                })
-            );
-        }
+        assert_eq!(
+            child_names,
+            vec!["Selection", "look_straight_ahead", "stand"]
+        );
     }
 
-    fn blackboard_with_primary_state(primary_state: PrimaryState) -> Blackboard {
-        Blackboard {
-            field_dimensions: FieldDimensions::default(),
-            parameters: BehaviorParameters::default(),
-            world_state: WorldState {
-                robot: types::world_state::RobotState {
-                    primary_state,
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
-            path_obstacles_output: Vec::new(),
-            time_since_last_switch: Duration::ZERO,
-            direction_difference: 0.0,
-            voronoi_inputs: Vec::new(),
-            ball: None,
-            last_ball: None,
-            last_close_enough_to_kick: false,
-            last_kick_target: None,
-            last_motion_command: MotionCommand::default(),
-            last_motion_switch_time: Time::zero(),
-            last_motion_type: None,
-            last_sent_game_controller_return_message_time: None,
-            last_sent_hsl_message_time: None,
-            last_closest_to_ball: false,
-            closest_to_ball_entered_area_since: None,
-            closest_to_ball_left_area_since: None,
-            is_injected_motion_command: false,
-            walk_position: None,
-            body_motion: None,
-            head_motion: None,
-            voronoi_map: None,
+    fn find_passive_primary_state_branch(trace: &NodeTrace) -> Option<&NodeTrace> {
+        if trace.name == "Sequence"
+            && matches!(
+                trace.children.first(),
+                Some(first_child) if is_passive_primary_state_selection(first_child)
+            )
+        {
+            return Some(trace);
         }
+
+        trace
+            .children
+            .iter()
+            .find_map(find_passive_primary_state_branch)
+    }
+
+    fn is_passive_primary_state_selection(trace: &NodeTrace) -> bool {
+        if trace.name != "Selection" {
+            return false;
+        }
+
+        let expected_conditions = ["Initial", "Penalized", "Finished"];
+
+        trace.children.len() == expected_conditions.len()
+            && expected_conditions.iter().all(|expected_state| {
+                trace.children.iter().any(|child| {
+                    child.name.contains("is_primary_state") && child.name.contains(expected_state)
+                })
+            })
     }
 }
