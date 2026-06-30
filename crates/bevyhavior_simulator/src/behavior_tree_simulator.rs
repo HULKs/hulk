@@ -189,12 +189,12 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
         .configure_sets(
             Update,
             (
-                BehaviorTreeSimulatorSet::BeforeKinematics,
-                BehaviorTreeSimulatorSet::ApplyKinematics,
-                BehaviorTreeSimulatorSet::AfterKinematics,
                 BehaviorTreeSimulatorSet::BeforeInvariantChecks,
                 BehaviorTreeSimulatorSet::RunInvariantChecks,
                 BehaviorTreeSimulatorSet::AfterInvariantChecks,
+                BehaviorTreeSimulatorSet::BeforeKinematics,
+                BehaviorTreeSimulatorSet::ApplyKinematics,
+                BehaviorTreeSimulatorSet::AfterKinematics,
                 BehaviorTreeSimulatorSet::RecordTimeline,
                 BehaviorTreeSimulatorSet::Scenario,
             )
