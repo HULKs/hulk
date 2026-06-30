@@ -42,6 +42,12 @@ struct Telemetry {
 }
 
 #[derive(Debug, Clone, SerdeEnc, SerdeDec, PartialEq, ros_z::Message)]
+#[message(name = "test_cli::Command")]
+struct CommandMessage {
+    enabled: bool,
+}
+
+#[derive(Debug, Clone, SerdeEnc, SerdeDec, PartialEq, ros_z::Message)]
 #[message(name = "test_cli::VisionParameters")]
 #[serde(deny_unknown_fields)]
 struct VisionParameters {
@@ -211,6 +217,95 @@ where
     }
 }
 
+fn eventually_doctor_json<F>(env: &TestEnv, expected_code: i32, mut predicate: F) -> Value
+where
+    F: FnMut(&Value) -> bool,
+{
+    let started = Instant::now();
+
+    loop {
+        let output = env
+            .rosz()
+            .json_command(["doctor", "--settle-timeout", "500ms"])
+            .run();
+        let value: Value = serde_json::from_str(&output.stdout).unwrap_or_else(|error| {
+            panic!(
+                "failed to parse rosz doctor JSON: {error}\nargs: {:?}\nstatus: {}\nstdout:\n{}\nstderr:\n{}",
+                output.args, output.status, output.stdout, output.stderr
+            )
+        });
+        let status_matches = output.status.code() == Some(expected_code);
+        if status_matches && predicate(&value) {
+            return value;
+        }
+
+        if started.elapsed() >= EVENTUALLY_TIMEOUT {
+            let graph = env.rosz().json_command(["graph"]).run_json();
+            panic!(
+                "condition was not met for rosz doctor\nexpected status: {expected_code}\nlast status: {}\nlast stdout:\n{}\nlast stderr:\n{}\nlast output:\n{}\nlast graph:\n{}",
+                output.status,
+                output.stdout,
+                output.stderr,
+                serde_json::to_string_pretty(&value).expect("last doctor json"),
+                serde_json::to_string_pretty(&graph).expect("graph json")
+            );
+        }
+
+        std::thread::sleep(EVENTUALLY_POLL);
+    }
+}
+
+fn doctor_finding<'a>(
+    value: &'a Value,
+    severity: &str,
+    kind: &str,
+    topic: &str,
+) -> Option<&'a Value> {
+    value["findings"].as_array()?.iter().find(|finding| {
+        finding["severity"] == severity && finding["kind"] == kind && finding["topic"] == topic
+    })
+}
+
+fn doctor_has_finding(value: &Value, severity: &str, kind: &str, topic: &str) -> bool {
+    doctor_finding(value, severity, kind, topic).is_some()
+}
+
+fn assert_doctor_endpoint_count(finding: &Value, expected_count: usize) {
+    let endpoints = finding["endpoints"]
+        .as_array()
+        .expect("doctor finding endpoints must be an array");
+    assert_eq!(
+        endpoints.len(),
+        expected_count,
+        "doctor finding had unexpected endpoint count:\n{}",
+        serde_json::to_string_pretty(finding).expect("doctor finding json")
+    );
+}
+
+fn assert_doctor_endpoint(
+    finding: &Value,
+    node: &str,
+    kind: &str,
+    topic: &str,
+    type_name: &str,
+    schema_hash: &str,
+) {
+    let endpoints = finding["endpoints"]
+        .as_array()
+        .expect("doctor finding endpoints must be an array");
+    assert!(
+        endpoints.iter().any(|endpoint| {
+            endpoint["node"] == node
+                && endpoint["kind"] == kind
+                && endpoint["topic"] == topic
+                && endpoint["type"] == type_name
+                && endpoint["schema_hash"] == schema_hash
+        }),
+        "doctor finding missing endpoint node={node} kind={kind} topic={topic} type={type_name} schema_hash={schema_hash}:\n{}",
+        serde_json::to_string_pretty(finding).expect("doctor finding json")
+    );
+}
+
 fn json_array_contains_field(value: &Value, field: &str, expected: &str) -> bool {
     value.as_array().is_some_and(|items| {
         items
@@ -307,6 +402,22 @@ impl RoszCommand {
         })
     }
 
+    fn run_status(self, expected_code: i32) -> CommandOutput {
+        let output = self.run();
+        output.assert_code(expected_code);
+        output
+    }
+
+    fn run_json_status(self, expected_code: i32) -> Value {
+        let output = self.run_status(expected_code);
+        serde_json::from_str(&output.stdout).unwrap_or_else(|error| {
+            panic!(
+                "failed to parse rosz JSON: {error}\nargs: {:?}\nstdout:\n{}\nstderr:\n{}",
+                output.args, output.stdout, output.stderr
+            )
+        })
+    }
+
     fn run_json_lines(self) -> Vec<Value> {
         let output = self.run_success();
         output
@@ -343,6 +454,18 @@ impl CommandOutput {
         assert!(
             self.status.success(),
             "rosz failed\nargs: {:?}\nstatus: {}\nstdout:\n{}\nstderr:\n{}",
+            self.args,
+            self.status,
+            self.stdout,
+            self.stderr
+        );
+    }
+
+    fn assert_code(&self, expected_code: i32) {
+        assert_eq!(
+            self.status.code(),
+            Some(expected_code),
+            "rosz returned unexpected status\nargs: {:?}\nstatus: {}\nstdout:\n{}\nstderr:\n{}",
             self.args,
             self.status,
             self.stdout,
@@ -604,6 +727,202 @@ async fn graph_list_and_info_report_fixture_entities() -> TestResult {
         serde_json::to_string_pretty(&node_info).expect("node info json")
     );
 
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn doctor_reports_no_errors_for_matching_pubsub() -> TestResult {
+    let env = TestEnv::new();
+    let context = env.create_context().await?;
+    let node = context
+        .create_node("doctor_matching")
+        .with_namespace("/cli_e2e")
+        .build()
+        .await?;
+    let topic = "/cli_e2e/doctor_matching";
+    let _publisher = node.publisher::<Telemetry>(topic).build().await?;
+    let _subscriber = node.subscriber::<Telemetry>(topic).build().await?;
+
+    eventually_json(&env, &["graph"], |graph| {
+        graph["topics"].as_array().is_some_and(|topics| {
+            topics.iter().any(|candidate| {
+                candidate["name"] == topic
+                    && candidate["publishers"].as_u64() == Some(1)
+                    && candidate["subscribers"].as_u64() == Some(1)
+            })
+        })
+    });
+
+    let report = env
+        .rosz()
+        .json_command(["doctor", "--settle-timeout", "500ms"])
+        .run_json_status(0);
+    assert!(report["revision"].as_u64().is_some());
+    assert_eq!(report["warning_count"].as_u64(), Some(0));
+    assert_eq!(report["error_count"].as_u64(), Some(0));
+    assert!(
+        report["findings"]
+            .as_array()
+            .is_some_and(|findings| findings.is_empty()),
+        "doctor report had unexpected findings:\n{}",
+        serde_json::to_string_pretty(&report).expect("doctor report json")
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn doctor_reports_dangling_publisher_as_warning_and_exits_zero() -> TestResult {
+    let env = TestEnv::new();
+    let context = env.create_context().await?;
+    let node = context
+        .create_node("doctor_dangling_pub")
+        .with_namespace("/cli_e2e")
+        .build()
+        .await?;
+    let topic = "/cli_e2e/doctor_dangling_pub";
+    let _publisher = node.publisher::<Telemetry>(topic).build().await?;
+
+    let report = eventually_doctor_json(&env, 0, |report| {
+        doctor_has_finding(report, "warning", "dangling_publisher", topic)
+    });
+
+    assert_eq!(report["warning_count"].as_u64(), Some(1));
+    assert_eq!(report["error_count"].as_u64(), Some(0));
+    let finding = doctor_finding(&report, "warning", "dangling_publisher", topic)
+        .expect("doctor dangling publisher finding");
+    assert_doctor_endpoint_count(finding, 1);
+    let telemetry_type = Telemetry::type_name();
+    let telemetry_hash = Telemetry::schema_hash().to_hash_string();
+    assert_doctor_endpoint(
+        finding,
+        "/cli_e2e/doctor_dangling_pub",
+        "publisher",
+        topic,
+        telemetry_type.as_str(),
+        telemetry_hash.as_str(),
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn doctor_reports_type_mismatch_as_error_and_exits_one() -> TestResult {
+    let env = TestEnv::new();
+    let context = env.create_context().await?;
+    let pub_node = context
+        .create_node("doctor_type_pub")
+        .with_namespace("/cli_e2e")
+        .build()
+        .await?;
+    let sub_node = context
+        .create_node("doctor_type_sub")
+        .with_namespace("/cli_e2e")
+        .build()
+        .await?;
+    let topic = "/cli_e2e/doctor_type_mismatch";
+    let _publisher = pub_node.publisher::<Telemetry>(topic).build().await?;
+    let _subscriber = sub_node.subscriber::<CommandMessage>(topic).build().await?;
+
+    let report = eventually_doctor_json(&env, 1, |report| {
+        doctor_has_finding(report, "error", "type_mismatch", topic)
+    });
+
+    assert_eq!(report["warning_count"].as_u64(), Some(0));
+    assert_eq!(report["error_count"].as_u64(), Some(1));
+    let finding = doctor_finding(&report, "error", "type_mismatch", topic)
+        .expect("doctor type mismatch finding");
+    assert_doctor_endpoint_count(finding, 2);
+    let telemetry_type = Telemetry::type_name();
+    let telemetry_hash = Telemetry::schema_hash().to_hash_string();
+    assert_doctor_endpoint(
+        finding,
+        "/cli_e2e/doctor_type_pub",
+        "publisher",
+        topic,
+        telemetry_type.as_str(),
+        telemetry_hash.as_str(),
+    );
+    let command_type = CommandMessage::type_name();
+    let command_hash = CommandMessage::schema_hash().to_hash_string();
+    assert_doctor_endpoint(
+        finding,
+        "/cli_e2e/doctor_type_sub",
+        "subscriber",
+        topic,
+        command_type.as_str(),
+        command_hash.as_str(),
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn doctor_reports_qos_incompatibility_as_error_and_exits_one() -> TestResult {
+    use std::num::NonZeroUsize;
+
+    use ros_z::qos::{QosHistory, QosProfile, QosReliability};
+
+    let env = TestEnv::new();
+    let context = env.create_context().await?;
+    let pub_node = context
+        .create_node("doctor_qos_pub")
+        .with_namespace("/cli_e2e")
+        .build()
+        .await?;
+    let sub_node = context
+        .create_node("doctor_qos_sub")
+        .with_namespace("/cli_e2e")
+        .build()
+        .await?;
+    let topic = "/cli_e2e/doctor_qos";
+    let _publisher = pub_node
+        .publisher::<Telemetry>(topic)
+        .qos(QosProfile {
+            reliability: QosReliability::BestEffort,
+            history: QosHistory::KeepLast(NonZeroUsize::new(10).unwrap()),
+            ..Default::default()
+        })
+        .build()
+        .await?;
+    let _subscriber = sub_node
+        .subscriber::<Telemetry>(topic)
+        .qos(QosProfile {
+            reliability: QosReliability::Reliable,
+            history: QosHistory::KeepLast(NonZeroUsize::new(10).unwrap()),
+            ..Default::default()
+        })
+        .build()
+        .await?;
+
+    let report = eventually_doctor_json(&env, 1, |report| {
+        doctor_has_finding(report, "error", "qos_incompatibility", topic)
+    });
+
+    assert_eq!(report["warning_count"].as_u64(), Some(0));
+    assert_eq!(report["error_count"].as_u64(), Some(1));
+    let finding = doctor_finding(&report, "error", "qos_incompatibility", topic)
+        .expect("doctor QoS incompatibility finding");
+    assert_eq!(
+        finding["qos_compatibility"].as_str(),
+        Some("incompatible_reliability")
+    );
+    assert_doctor_endpoint_count(finding, 2);
+    let telemetry_type = Telemetry::type_name();
+    let telemetry_hash = Telemetry::schema_hash().to_hash_string();
+    assert_doctor_endpoint(
+        finding,
+        "/cli_e2e/doctor_qos_pub",
+        "publisher",
+        topic,
+        telemetry_type.as_str(),
+        telemetry_hash.as_str(),
+    );
+    assert_doctor_endpoint(
+        finding,
+        "/cli_e2e/doctor_qos_sub",
+        "subscriber",
+        topic,
+        telemetry_type.as_str(),
+        telemetry_hash.as_str(),
+    );
     Ok(())
 }
 

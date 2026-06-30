@@ -4,51 +4,6 @@ use ros_z::graph::GraphSnapshot;
 
 use crate::model::watch::WatchEvent;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SnapshotFingerprint {
-    topics: Vec<(String, String, usize, usize)>,
-    nodes: Vec<(String, String)>,
-    services: Vec<(String, String)>,
-}
-
-impl From<&GraphSnapshot> for SnapshotFingerprint {
-    fn from(snapshot: &GraphSnapshot) -> Self {
-        let mut topics: Vec<_> = snapshot
-            .topics
-            .iter()
-            .map(|topic| {
-                (
-                    topic.name.clone(),
-                    topic.type_name.clone(),
-                    topic.publishers,
-                    topic.subscribers,
-                )
-            })
-            .collect();
-        topics.sort();
-
-        let mut nodes: Vec<_> = snapshot
-            .nodes
-            .iter()
-            .map(|node| (node.namespace.clone(), node.name.clone()))
-            .collect();
-        nodes.sort();
-
-        let mut services: Vec<_> = snapshot
-            .services
-            .iter()
-            .map(|service| (service.name.clone(), service.type_name.clone()))
-            .collect();
-        services.sort();
-
-        Self {
-            topics,
-            nodes,
-            services,
-        }
-    }
-}
-
 pub fn diff_snapshots(previous: &GraphSnapshot, current: &GraphSnapshot) -> Vec<WatchEvent> {
     let mut events = Vec::new();
     let revision = current.revision;

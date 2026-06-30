@@ -24,7 +24,6 @@ fn parse_positive_duration(value: &str) -> Result<Duration, String> {
     }
     Ok(duration)
 }
-
 /// Graph entity kind accepted by `rosz list`.
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
 pub enum ListTarget {
@@ -122,6 +121,12 @@ pub enum OnlineCommand {
     Watch,
     /// Show the full graph snapshot
     Graph,
+    /// Diagnose pub/sub graph issues and exit non-zero on errors
+    Doctor {
+        /// Maximum time to wait for graph changes to settle
+        #[arg(long, default_value = "2s", value_parser = humantime::parse_duration)]
+        settle_timeout: Duration,
+    },
     /// Dynamically inspect a topic's messages
     Echo {
         topic: String,
@@ -345,6 +350,51 @@ mod tests {
             }
             other => panic!("unexpected command: {other:?}"),
         }
+    }
+
+    #[test]
+    fn parses_doctor_command_with_default_settle_timeout() {
+        let cli = Cli::parse_from(["rosz", "doctor"]);
+
+        match cli.command {
+            Command::Online(OnlineCommand::Doctor { settle_timeout }) => {
+                assert_eq!(settle_timeout, Duration::from_secs(2));
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_doctor_command_with_custom_settle_timeout() {
+        let cli = Cli::parse_from(["rosz", "doctor", "--settle-timeout", "500ms"]);
+
+        match cli.command {
+            Command::Online(OnlineCommand::Doctor { settle_timeout }) => {
+                assert_eq!(settle_timeout, Duration::from_millis(500));
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn doctor_help_describes_exit_status_and_settle_timeout() {
+        let error = Cli::try_parse_from(["rosz", "doctor", "--help"])
+            .expect_err("doctor help should exit before parsing a command");
+
+        assert_eq!(error.kind(), ErrorKind::DisplayHelp);
+
+        let help = error.to_string();
+        assert!(help.contains("Diagnose pub/sub graph issues and exit non-zero on errors"));
+        assert!(help.contains("Maximum time to wait for graph changes to settle"));
+        assert!(!help.contains("in seconds"));
+    }
+
+    #[test]
+    fn doctor_rejects_unitless_settle_timeout() {
+        let error = Cli::try_parse_from(["rosz", "doctor", "--settle-timeout", "0.5"])
+            .expect_err("unitless settle timeout should be rejected");
+
+        assert_eq!(error.kind(), ErrorKind::ValueValidation);
     }
 
     #[test]

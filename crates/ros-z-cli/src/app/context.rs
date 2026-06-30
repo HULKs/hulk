@@ -12,9 +12,8 @@ use ros_z::{
     parameter::RemoteParameterClient,
 };
 
-use crate::support::graph::SnapshotFingerprint;
-
 const GRAPH_POLL_INTERVAL: Duration = Duration::from_millis(200);
+const GRAPH_SETTLE_QUIET_WINDOW: Duration = Duration::from_millis(500);
 const GRAPH_SETTLE_TIMEOUT: Duration = Duration::from_secs(2);
 
 pub struct AppContext {
@@ -54,18 +53,26 @@ impl AppContext {
     }
 
     pub async fn wait_for_graph_settle(&self) {
-        let deadline = Instant::now() + GRAPH_SETTLE_TIMEOUT;
-        let mut previous = SnapshotFingerprint::from(&self.snapshot());
+        self.wait_for_graph_settle_with_timeout(GRAPH_SETTLE_TIMEOUT)
+            .await;
+    }
 
-        while Instant::now() < deadline {
-            tokio::time::sleep(GRAPH_POLL_INTERVAL).await;
+    pub async fn wait_for_graph_settle_with_timeout(&self, timeout: Duration) {
+        let deadline = Instant::now() + timeout;
+        let mut changes = self.graph().subscribe_changes();
+        changes.mark_seen();
 
-            let current_snapshot = self.snapshot();
-            let current = SnapshotFingerprint::from(&current_snapshot);
-            if current == previous {
+        loop {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
                 return;
             }
-            previous = current;
+
+            let wait = GRAPH_SETTLE_QUIET_WINDOW.min(remaining);
+            match tokio::time::timeout(wait, changes.changed()).await {
+                Ok(Some(_revision)) => {}
+                Ok(None) | Err(_) => return,
+            }
         }
     }
 

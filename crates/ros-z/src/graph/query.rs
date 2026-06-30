@@ -15,6 +15,18 @@ pub struct QosIncompatibility {
     pub compatibility: QosCompatibility,
 }
 
+/// A publisher/subscriber type mismatch for one topic.
+///
+/// Each value represents one publisher/subscriber pair on the same topic whose
+/// full [`TypeInfo`](crate::entity::TypeInfo) values differ. Services and
+/// clients are not considered.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypeMismatch {
+    pub topic: String,
+    pub publisher: EndpointEntity,
+    pub subscription: EndpointEntity,
+}
+
 /// A snapshot view of graph entities while the graph lock is held.
 ///
 /// Do not hold a `GraphView` across `.await` points or while calling other `Graph` methods.
@@ -192,6 +204,89 @@ impl GraphView<'_> {
             .collect()
     }
 
+    fn collect_pub_sub_pair_diagnostics<T>(
+        &self,
+        topic: &str,
+        mut diagnostic_for_pair: impl FnMut(&str, &EndpointEntity, &EndpointEntity) -> Option<T>,
+    ) -> Vec<T> {
+        let publishers = self.publishers_on(topic);
+        let subscriptions = self.subscriptions_on(topic);
+
+        let mut diagnostics = Vec::new();
+        for publisher in &publishers {
+            for subscription in &subscriptions {
+                if let Some(diagnostic) = diagnostic_for_pair(topic, publisher, subscription) {
+                    diagnostics.push(diagnostic);
+                }
+            }
+        }
+
+        diagnostics
+    }
+
+    /// Return pairwise QoS incompatibilities for publishers and subscribers on `topic`.
+    ///
+    /// The query runs against this locked graph view, so all returned diagnostics
+    /// come from the same local graph revision. Compatible pairs are omitted.
+    /// Endpoints whose QoS cannot be converted into [`QosProfile`] are ignored.
+    /// Services and clients are not considered.
+    pub fn qos_incompatibilities_for_topic(
+        &self,
+        topic: impl AsRef<str>,
+    ) -> Vec<QosIncompatibility> {
+        let topic = topic.as_ref();
+
+        self.collect_pub_sub_pair_diagnostics(topic, |topic, publisher, subscription| {
+            let Ok(offered) = QosProfile::try_from(publisher.qos) else {
+                return None;
+            };
+            let Ok(requested) = QosProfile::try_from(subscription.qos) else {
+                return None;
+            };
+
+            let compatibility = requested.compatibility_with_offered(&offered);
+            if compatibility == QosCompatibility::Compatible {
+                return None;
+            }
+
+            tracing::warn!(
+                topic = %topic,
+                publisher_qos = ?publisher.qos,
+                subscription_qos = ?subscription.qos,
+                compatibility = ?compatibility,
+                "QoS incompatibility detected"
+            );
+            Some(QosIncompatibility {
+                topic: topic.to_string(),
+                publisher: publisher.clone(),
+                subscription: subscription.clone(),
+                compatibility,
+            })
+        })
+    }
+
+    /// Return pairwise publisher/subscriber type mismatches for `topic`.
+    ///
+    /// The query runs against this locked graph view, so all returned diagnostics
+    /// come from the same local graph revision. The comparison uses the full
+    /// [`TypeInfo`](crate::entity::TypeInfo), including the schema hash. Services
+    /// and clients are not considered.
+    pub fn pub_sub_type_mismatches_for_topic(&self, topic: impl AsRef<str>) -> Vec<TypeMismatch> {
+        let topic = topic.as_ref();
+
+        self.collect_pub_sub_pair_diagnostics(topic, |topic, publisher, subscription| {
+            if publisher.type_info == subscription.type_info {
+                return None;
+            }
+
+            Some(TypeMismatch {
+                topic: topic.to_string(),
+                publisher: publisher.clone(),
+                subscription: subscription.clone(),
+            })
+        })
+    }
+
     fn endpoints_named(&self, kind: EndpointKind, name: impl AsRef<str>) -> Vec<EndpointEntity> {
         let name = name.as_ref();
         self.endpoints()
@@ -231,47 +326,6 @@ impl GraphView<'_> {
 }
 
 impl Graph {
-    pub fn qos_incompatibilities_for_topic(
-        &self,
-        topic: impl AsRef<str>,
-    ) -> Vec<QosIncompatibility> {
-        let topic = topic.as_ref();
-        let view = self.view();
-        let publishers = view.publishers_on(topic);
-        let subscriptions = view.subscriptions_on(topic);
-        drop(view);
-
-        let mut diagnostics = Vec::new();
-        for publisher in publishers {
-            let Ok(offered) = QosProfile::try_from(publisher.qos) else {
-                continue;
-            };
-
-            for subscription in &subscriptions {
-                let Ok(requested) = QosProfile::try_from(subscription.qos) else {
-                    continue;
-                };
-                let compatibility = requested.compatibility_with_offered(&offered);
-                if compatibility != QosCompatibility::Compatible {
-                    tracing::warn!(
-                        topic = %topic,
-                        publisher_qos = ?publisher.qos,
-                        subscription_qos = ?subscription.qos,
-                        compatibility = ?compatibility,
-                        "QoS incompatibility detected"
-                    );
-                    diagnostics.push(QosIncompatibility {
-                        topic: topic.to_string(),
-                        publisher: publisher.clone(),
-                        subscription: subscription.clone(),
-                        compatibility,
-                    });
-                }
-            }
-        }
-
-        diagnostics
-    }
     pub(crate) fn type_incompatible_endpoints_for(
         &self,
         endpoint: &EndpointEntity,
@@ -401,6 +455,87 @@ mod tests {
         assert!(service_incompatible_endpoints.contains(&incompatible_publisher));
         assert!(service_incompatible_endpoints.contains(&incompatible_client));
 
+        session
+            .close()
+            .await
+            .map_err(|source| Error::zenoh("close Zenoh session", source))?;
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn graph_view_pub_sub_type_mismatches_for_topic_returns_pub_sub_pairs_only() -> Result<()>
+    {
+        let session = zenoh::open(zenoh::Config::default())
+            .await
+            .map_err(|source| Error::zenoh("open Zenoh session", source))?;
+        let graph = Graph::new(&session).await?;
+        let pub_node = NodeEntity::new(
+            session.zid(),
+            71,
+            "type_mismatch_pub".to_string(),
+            String::new(),
+        );
+        let sub_node = NodeEntity::new(
+            session.zid(),
+            72,
+            "type_mismatch_sub".to_string(),
+            String::new(),
+        );
+        let publisher = endpoint(
+            pub_node.clone(),
+            73,
+            EndpointKind::Publisher,
+            "/doctor_type_mismatch",
+            "std_msgs::String",
+        );
+        let incompatible_subscription = endpoint(
+            sub_node.clone(),
+            74,
+            EndpointKind::Subscription,
+            "/doctor_type_mismatch",
+            "std_msgs::Int32",
+        );
+        let compatible_subscription = endpoint(
+            sub_node,
+            75,
+            EndpointKind::Subscription,
+            "/doctor_type_mismatch",
+            "std_msgs::String",
+        );
+        let incompatible_publisher = endpoint(
+            pub_node,
+            76,
+            EndpointKind::Publisher,
+            "/doctor_type_mismatch",
+            "std_msgs::Bool",
+        );
+
+        graph.add_local_entity(Entity::Endpoint(publisher.clone()))?;
+        graph.add_local_entity(Entity::Endpoint(incompatible_subscription.clone()))?;
+        graph.add_local_entity(Entity::Endpoint(compatible_subscription.clone()))?;
+        graph.add_local_entity(Entity::Endpoint(incompatible_publisher.clone()))?;
+
+        let view = graph.view();
+        let mismatches = view.pub_sub_type_mismatches_for_topic("/doctor_type_mismatch");
+
+        assert_eq!(mismatches.len(), 3);
+        assert!(mismatches.contains(&TypeMismatch {
+            topic: "/doctor_type_mismatch".to_string(),
+            publisher: publisher.clone(),
+            subscription: incompatible_subscription.clone(),
+        }));
+        assert!(mismatches.contains(&TypeMismatch {
+            topic: "/doctor_type_mismatch".to_string(),
+            publisher: incompatible_publisher.clone(),
+            subscription: incompatible_subscription,
+        }));
+        assert!(mismatches.contains(&TypeMismatch {
+            topic: "/doctor_type_mismatch".to_string(),
+            publisher: incompatible_publisher,
+            subscription: compatible_subscription,
+        }));
+
+        drop(view);
         session
             .close()
             .await

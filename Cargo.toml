@@ -228,6 +228,7 @@ home = "=0.5.9"
 hsl_network = { path = "crates/hsl_network" }
 hsl_network_messages = { path = "crates/hsl_network_messages" }
 hula_types = { path = "crates/hula_types" }
+humantime = "2.3.0"
 hulk_manifest = { path = "crates/hulk_manifest" }
 hulk_widgets = { path = "crates/hulk_widgets" }
 hungarian_algorithm = { path = "crates/hungarian_algorithm" }
