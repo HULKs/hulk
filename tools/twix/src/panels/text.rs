@@ -80,7 +80,7 @@ impl Panel for TextPanel {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 ui.label("Topic");
-                let completions = Vec::<String>::new();
+                let completions = context.backend.topic_completions(None);
                 let response = ui.add(CompletionEdit::new(
                     ui.id().with("topic"),
                     &completions,

@@ -4,7 +4,7 @@ use color_eyre::{Report, eyre::Context as _};
 use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui, load::SizedTexture};
 use hulk_widgets::CompletionEdit;
 use image::RgbImage;
-use ros_z::{pubsub::PublicationId, time::Time};
+use ros_z::{Message, pubsub::PublicationId, time::Time};
 use ros_z_debug::{SampleRecord, TopicObservation, TopicObservationStatus};
 use ros2::sensor_msgs::image::Image as RosImage;
 use serde_json::{Value, json};
@@ -95,7 +95,10 @@ impl Panel for ImagePanel {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 ui.label("Topic");
-                let completions = Vec::<String>::new();
+                let image_topic_type_name = <TimeWrapper<RosImage> as Message>::type_name();
+                let completions = context
+                    .backend
+                    .topic_completions(Some(&image_topic_type_name));
                 let response = ui.add(CompletionEdit::new(
                     ui.id().with("image_topic"),
                     &completions,
