@@ -19,7 +19,7 @@ use egui_dock::{DockArea, DockState, Node, Split, TabViewer};
 use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{Orientation2, Pose2, point, vector};
 use serde_json::{Value, json};
-use twix::{
+use twix_legacy::{
     behavior_tree::BehaviorTreeVisualizer,
     twix_painter::{Orientation, TwixPainter},
     zoom_and_pan::ZoomAndPanTransform,
