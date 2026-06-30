@@ -42,14 +42,12 @@ pub struct Parameters {
     pub mode_retry_interval: std::time::Duration,
     pub stand_up_retry_interval: std::time::Duration,
     pub visual_kick_retry_interval: std::time::Duration,
-    pub remote_stop_toggle: bool,
 }
 
 #[derive(Clone)]
 struct EffectInputs {
     motion_command: Arc<MotionCommand>,
     head_joints: Option<HeadJoints<f32>>,
-    emergency_damping: bool,
     parameters: Parameters,
 }
 
@@ -300,7 +298,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let (effect_inputs_tx, effect_inputs_rx) = watch::channel(EffectInputs {
         motion_command: default_motion_command.clone(),
         head_joints: None,
-        emergency_damping: initial_parameters.remote_stop_toggle,
         parameters: initial_parameters,
     });
     tokio::spawn(run_effect_worker(
@@ -327,11 +324,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let latest_head_joints = head_joints_cache
                     .get_latest()
                     .map(|head_joints| *head_joints);
-                let emergency_damping = parameters.remote_stop_toggle;
                 effect_inputs_tx.send_replace(EffectInputs {
                     motion_command: latest_motion_command,
                     head_joints: latest_head_joints,
-                    emergency_damping,
                     parameters: parameters.clone(),
                 });
             }
@@ -875,7 +870,6 @@ fn drive_booster_effects(
     inputs: &EffectInputs,
 ) {
     let latest_head_joints = inputs.head_joints;
-    let emergency_damping = inputs.emergency_damping;
     let parameters = &inputs.parameters;
     let motion_command = inputs.motion_command.as_ref();
     let mut now = std::time::Instant::now();
@@ -888,7 +882,7 @@ fn drive_booster_effects(
         parameters,
     );
 
-    let desired_mode = control::desired_mode_for(motion_command, emergency_damping);
+    let desired_mode = control::desired_mode_for(motion_command);
     spawn_mode_request_if_due(
         state,
         booster_client.clone(),
@@ -900,8 +894,8 @@ fn drive_booster_effects(
 
     now = std::time::Instant::now();
 
-    let walking_allowed =
-        control::confirmed_mode_allows_walking(state.confirmed_mode) && !emergency_damping;
+    let walking_allowed = desired_mode == control::DesiredMode::Walking
+        && control::confirmed_mode_allows_walking(state.confirmed_mode);
 
     state.stand_up_request.update_command(motion_command);
     spawn_stand_up_if_due(
@@ -910,7 +904,7 @@ fn drive_booster_effects(
         effect_result_tx.clone(),
         now,
         parameters,
-        !emergency_damping,
+        true,
     );
 
     if !walking_allowed {
@@ -1019,7 +1013,6 @@ mod tests {
             mode_retry_interval: Duration::from_millis(500),
             stand_up_retry_interval: Duration::from_millis(500),
             visual_kick_retry_interval: Duration::from_millis(500),
-            remote_stop_toggle: false,
         }
     }
 
@@ -1523,29 +1516,6 @@ mod tests {
         state.update_command(&MotionCommand::StandUp);
 
         assert!(state.is_pending());
-    }
-
-    #[test]
-    fn stand_up_retry_state_is_suppressed_during_emergency_damping() {
-        let retry_interval = Duration::from_millis(100);
-        let now = std::time::Instant::now();
-        let mut state = StandUpRequestState::default();
-
-        state.update_command(&MotionCommand::StandUp);
-
-        assert!(!state.should_request(
-            Some(booster_sdk::types::RobotMode::Damping),
-            now,
-            retry_interval,
-            false,
-        ));
-        assert!(state.is_pending());
-        assert!(state.should_request(
-            Some(booster_sdk::types::RobotMode::Damping),
-            now,
-            retry_interval,
-            true,
-        ));
     }
 
     #[test]

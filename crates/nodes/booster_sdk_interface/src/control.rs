@@ -21,11 +21,7 @@ pub enum DesiredMode {
     Walking,
 }
 
-pub fn desired_mode_for(command: &MotionCommand, emergency_damping: bool) -> DesiredMode {
-    if emergency_damping {
-        return DesiredMode::Damping;
-    }
-
+pub fn desired_mode_for(command: &MotionCommand) -> DesiredMode {
     match command {
         MotionCommand::Damping => DesiredMode::Damping,
         MotionCommand::Prepare | MotionCommand::StandUp => DesiredMode::Prepare,
@@ -228,17 +224,6 @@ mod tests {
     }
 
     #[test]
-    fn emergency_damping_overrides_walk_command() {
-        let command = MotionCommand::WalkWithVelocity {
-            head: HeadMotion::ZeroAngles,
-            velocity: vector![1.0, 0.0],
-            angular_velocity: 0.0,
-        };
-
-        assert_eq!(desired_mode_for(&command, true), DesiredMode::Damping);
-    }
-
-    #[test]
     fn walking_commands_request_walking_mode() {
         let command = MotionCommand::WalkWithVelocity {
             head: HeadMotion::ZeroAngles,
@@ -246,13 +231,13 @@ mod tests {
             angular_velocity: 0.0,
         };
 
-        assert_eq!(desired_mode_for(&command, false), DesiredMode::Walking);
+        assert_eq!(desired_mode_for(&command), DesiredMode::Walking);
     }
 
     #[test]
     fn prepare_requests_prepare_mode() {
         assert_eq!(
-            desired_mode_for(&MotionCommand::Prepare, false),
+            desired_mode_for(&MotionCommand::Prepare),
             DesiredMode::Prepare
         );
     }
@@ -260,7 +245,7 @@ mod tests {
     #[test]
     fn stand_up_requests_prepare_mode() {
         assert_eq!(
-            desired_mode_for(&MotionCommand::StandUp, false),
+            desired_mode_for(&MotionCommand::StandUp),
             DesiredMode::Prepare
         );
     }
@@ -268,7 +253,7 @@ mod tests {
     #[test]
     fn damping_requests_damping_mode() {
         assert_eq!(
-            desired_mode_for(&MotionCommand::Damping, false),
+            desired_mode_for(&MotionCommand::Damping),
             DesiredMode::Damping
         );
     }

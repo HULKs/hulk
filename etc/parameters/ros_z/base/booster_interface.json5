@@ -15,5 +15,4 @@
   mode_retry_interval: { secs: 0, nanos: 500000000 },
   stand_up_retry_interval: { secs: 0, nanos: 500000000 },
   visual_kick_retry_interval: { secs: 0, nanos: 500000000 },
-  remote_stop_toggle: false,
 }
