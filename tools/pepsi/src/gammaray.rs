@@ -263,7 +263,7 @@ async fn gammaray_robot(
             .ssh_to_robot()?
             .arg("sudo sed")
             .arg("--in-place")
-            .arg(format!("'s#hulk_booster .*#hulk_ros_z --robot {} --location lab --parameter-root etc/parameters/ros_z --router tcp/127.0.0.1:7447 \\\\#'", team_robot.number))
+            .arg(format!("'s#hulk_booster .*#hulk_ros_z --robot {} --location default-location --parameter-root etc/parameters/ros_z --router tcp/127.0.0.1:7447 \\\\#'", team_robot.number))
             .arg("/usr/bin/launch-hulk")
             .ssh_with_log("hacking launch-hulk", &progress_bar).await?;
     }
