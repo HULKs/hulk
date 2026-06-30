@@ -84,6 +84,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         tokio::select! {
             received_ball_position = ball_position_sub.recv() => {
                 let Some(ball_position) = received_ball_position? else {
+                    ball_state_pub.publish(&None).await?;
+                    last_ball_state = None;
                     continue;
                 };
 
