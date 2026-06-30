@@ -1,8 +1,10 @@
 use std::{net::SocketAddr, time::Duration};
 
 use behavior_node::{
-    behavior_tree::Node as BehaviorNodeTree, motion_assembler::assemble_motion_command,
-    node::Blackboard as BehaviorBlackboard, tree::create_tree as create_behavior_tree,
+    behavior_tree::Node as BehaviorNodeTree,
+    motion_assembler::assemble_motion_command,
+    node::{Blackboard as BehaviorBlackboard, BooleanHysteresis},
+    tree::create_tree as create_behavior_tree,
 };
 use bevy::{app::AppExit, prelude::*};
 use color_eyre::Result;
@@ -180,6 +182,7 @@ fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackbo
         body_motion: None,
         head_motion: None,
         voronoi_map: None,
+        second_closest_to_ball_hysteresis: BooleanHysteresis::default(),
     }
 }
 
