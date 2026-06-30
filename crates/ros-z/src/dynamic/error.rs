@@ -126,6 +126,17 @@ pub enum DynamicError {
         candidates: Vec<String>,
     },
 
+    /// Schema discovery timed out while querying visible schema services.
+    #[error(
+        "schema discovery timed out while querying visible schema services for topic '{topic}' among candidates: {candidates:?}"
+    )]
+    SchemaDiscoveryTimeout {
+        topic: String,
+        candidates: Vec<String>,
+        #[source]
+        source: Option<crate::error::BoxError>,
+    },
+
     /// Active publishers advertise incompatible type metadata for one topic.
     #[error("topic '{topic}' has incompatible publisher type metadata: {candidates:?}")]
     TopicTypeConflict {

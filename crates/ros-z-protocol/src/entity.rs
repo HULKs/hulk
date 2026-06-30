@@ -83,6 +83,15 @@ impl EndpointGlobalId {
     }
 }
 
+impl Display for EndpointGlobalId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        for byte in self.as_bytes() {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
+
 impl From<[u8; ENDPOINT_GLOBAL_ID_SIZE]> for EndpointGlobalId {
     fn from(bytes: [u8; ENDPOINT_GLOBAL_ID_SIZE]) -> Self {
         Self::new(bytes)
@@ -515,6 +524,16 @@ mod tests {
         assert_eq!(EndpointGlobalId::from(bytes).as_bytes(), &bytes);
         let roundtrip: [u8; ENDPOINT_GLOBAL_ID_SIZE] = EndpointGlobalId::from(bytes).into();
         assert_eq!(roundtrip, bytes);
+    }
+
+    #[test]
+    fn endpoint_global_id_displays_lowercase_fixed_width_hex() {
+        let id = EndpointGlobalId::from([
+            0x00, 0x01, 0x0a, 0x0f, 0x10, 0x2b, 0x7f, 0x80, 0xab, 0xcd, 0xef, 0xf0, 0x12, 0x34,
+            0x56, 0x78,
+        ]);
+
+        assert_eq!(id.to_string(), "00010a0f102b7f80abcdeff012345678");
     }
 
     #[test]

@@ -4,7 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use ros_z::{ENDPOINT_GLOBAL_ID_SIZE, EndpointGlobalId, time::Time};
+use ros_z::{EndpointGlobalId, time::Time};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -74,7 +74,7 @@ impl HzEstimator {
                 .sources
                 .iter()
                 .map(|(source, window)| SourceHzStats {
-                    source: format_source_id(*source),
+                    source: source.to_string(),
                     stats: window.stats(),
                 })
                 .collect(),
@@ -186,20 +186,10 @@ impl IntervalWindow {
     }
 }
 
-fn format_source_id(source: EndpointGlobalId) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-
-    let mut output = String::with_capacity(ENDPOINT_GLOBAL_ID_SIZE * 2);
-    for byte in source.as_bytes() {
-        output.push(HEX[(byte >> 4) as usize] as char);
-        output.push(HEX[(byte & 0x0f) as usize] as char);
-    }
-    output
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ros_z::ENDPOINT_GLOBAL_ID_SIZE;
     use std::num::NonZeroUsize;
 
     fn assert_close(actual: f64, expected: f64) {

@@ -30,6 +30,63 @@ impl DiscoveredTopicSchema {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub struct TopicSchemaFingerprint {
+    pub topic: String,
+    pub node_namespace: String,
+    pub node_name: String,
+    pub type_info: TypeInfo,
+}
+
+impl TopicSchemaFingerprint {
+    pub fn from_publisher(endpoint: &EndpointEntity) -> Self {
+        Self {
+            topic: endpoint.topic.clone(),
+            node_namespace: endpoint.node.namespace.clone(),
+            node_name: endpoint.node.name.clone(),
+            type_info: endpoint.type_info.clone(),
+        }
+    }
+}
+
+impl fmt::Display for TopicSchemaFingerprint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}/{}:{}@{}",
+            self.node_namespace, self.node_name, self.type_info.name, self.type_info.hash
+        )
+    }
+}
+
+pub fn topic_schema_fingerprints_from_publishers(
+    publishers: &[EndpointEntity],
+) -> Vec<TopicSchemaFingerprint> {
+    let mut fingerprints = publishers
+        .iter()
+        .map(TopicSchemaFingerprint::from_publisher)
+        .collect_vec();
+    fingerprints.sort_by(|left, right| {
+        (
+            &left.topic,
+            &left.node_namespace,
+            &left.node_name,
+            &left.type_info.name,
+            &left.type_info.hash.0,
+        )
+            .cmp(&(
+                &right.topic,
+                &right.node_namespace,
+                &right.node_name,
+                &right.type_info.name,
+                &right.type_info.hash.0,
+            ))
+    });
+    fingerprints.dedup();
+    fingerprints
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct TopicSchemaCandidate {
     pub node_name: String,
     pub namespace: String,
@@ -38,12 +95,12 @@ pub(crate) struct TopicSchemaCandidate {
 }
 
 impl TopicSchemaCandidate {
-    fn from_endpoint(endpoint: &EndpointEntity) -> Self {
+    fn from_fingerprint(fingerprint: &TopicSchemaFingerprint) -> Self {
         Self {
-            node_name: endpoint.node.name.clone(),
-            namespace: endpoint.node.namespace.clone(),
-            type_name: endpoint.type_info.name.clone(),
-            schema_hash: endpoint.type_info.hash,
+            node_name: fingerprint.node_name.clone(),
+            namespace: fingerprint.node_namespace.clone(),
+            type_name: fingerprint.type_info.name.clone(),
+            schema_hash: fingerprint.type_info.hash,
         }
     }
 
@@ -70,10 +127,9 @@ pub(crate) fn collect_topic_schema_candidates_from_publishers(
     publishers: &[EndpointEntity],
     qualified_topic: &str,
 ) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
-    let candidates = publishers
+    let candidates = topic_schema_fingerprints_from_publishers(publishers)
         .iter()
-        .map(TopicSchemaCandidate::from_endpoint)
-        .unique()
+        .map(TopicSchemaCandidate::from_fingerprint)
         .collect_vec();
 
     if candidates.is_empty() {
@@ -179,21 +235,16 @@ fn no_schema_services_error(
     }
 }
 
-fn schema_service_query_deadline_error(
+fn schema_discovery_timeout_error(
     qualified_topic: &str,
     candidates: &[TopicSchemaCandidate],
+    source: Option<DynamicError>,
 ) -> DynamicError {
-    DynamicError::runtime(
-        "query visible schema service",
-        std::io::Error::new(
-            std::io::ErrorKind::TimedOut,
-            format!(
-                "schema discovery deadline expired before querying visible schema services for topic '{}' among candidates: {:?}",
-                qualified_topic,
-                candidates.iter().map(ToString::to_string).collect_vec()
-            ),
-        ),
-    )
+    DynamicError::SchemaDiscoveryTimeout {
+        topic: qualified_topic.to_string(),
+        candidates: candidates.iter().map(ToString::to_string).collect_vec(),
+        source: source.map(|error| Box::new(error) as crate::error::BoxError),
+    }
 }
 
 async fn wait_for_topic_schema_candidates(
@@ -349,9 +400,11 @@ impl SchemaDiscovery {
 
         for candidate in &candidates {
             let Some(timeout) = schema_query_timeout(deadline) else {
-                return Err(last_error.unwrap_or_else(|| {
-                    schema_service_query_deadline_error(qualified_topic, &candidates)
-                }));
+                return Err(schema_discovery_timeout_error(
+                    qualified_topic,
+                    &candidates,
+                    last_error,
+                ));
             };
 
             match tokio::time::timeout_at(
@@ -363,15 +416,17 @@ impl SchemaDiscovery {
                 Ok(Ok(result)) => return Ok(result),
                 Ok(Err(error)) => last_error = Some(error),
                 Err(_) => {
-                    return Err(last_error.unwrap_or_else(|| {
-                        schema_service_query_deadline_error(qualified_topic, &candidates)
-                    }));
+                    return Err(schema_discovery_timeout_error(
+                        qualified_topic,
+                        &candidates,
+                        last_error,
+                    ));
                 }
             }
         }
 
         Err(last_error
-            .unwrap_or_else(|| schema_service_query_deadline_error(qualified_topic, &candidates)))
+            .unwrap_or_else(|| schema_discovery_timeout_error(qualified_topic, &candidates, None)))
     }
 }
 
@@ -761,16 +816,50 @@ mod tests {
             .await
             .expect_err("elapsed query budget should fail without denying service visibility");
 
-        let DynamicError::Runtime { operation, source } = error else {
-            panic!("expected runtime timeout for visible schema service, got {error:?}");
+        let DynamicError::SchemaDiscoveryTimeout {
+            topic,
+            candidates,
+            source,
+        } = error
+        else {
+            panic!("expected schema discovery timeout, got {error:?}");
         };
-        assert_eq!(operation, "query visible schema service");
-        assert!(
-            source.to_string().contains("deadline expired"),
-            "unexpected timeout message: {source}"
-        );
+        assert_eq!(topic, "/chatter");
+        assert_eq!(candidates.len(), 1);
+        assert!(candidates[0].contains("talker"));
+        assert!(candidates[0].contains("std_msgs::String"));
+        assert!(source.is_none());
 
         session.close().await.expect("close Zenoh session");
+    }
+
+    #[test]
+    fn schema_discovery_timeout_error_preserves_previous_candidate_error_as_source() {
+        let candidate = TopicSchemaCandidate {
+            node_name: "talker".to_string(),
+            namespace: "/".to_string(),
+            type_name: "std_msgs::String".to_string(),
+            schema_hash: SchemaHash([1; 32]),
+        };
+        let previous_error = DynamicError::NoSchemaServices {
+            topic: "/chatter".to_string(),
+            candidates: vec![candidate.to_string()],
+        };
+
+        let error = schema_discovery_timeout_error("/chatter", &[candidate], Some(previous_error));
+
+        let DynamicError::SchemaDiscoveryTimeout {
+            topic,
+            candidates,
+            source,
+        } = error
+        else {
+            panic!("expected schema discovery timeout, got {error:?}");
+        };
+        assert_eq!(topic, "/chatter");
+        assert_eq!(candidates.len(), 1);
+        assert!(candidates[0].contains("talker"));
+        assert!(source.is_some());
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -924,6 +1013,29 @@ mod tests {
             .expect("valid candidate service name");
 
         assert_eq!(service_name, "/robot/talker/get_schema");
+    }
+
+    #[test]
+    fn topic_schema_fingerprints_from_publishers_returns_canonical_schema_identity() {
+        let hash = SchemaHash([7; 32]);
+        let talker_b = publisher_with_hash_from_node("std_msgs::String", hash, "talker_b", 3);
+        let mut duplicate_talker_b =
+            publisher_with_hash_from_node("std_msgs::String", hash, "talker_b", 3);
+        duplicate_talker_b.id = 99;
+        let talker_a = publisher_with_hash_from_node("std_msgs::String", hash, "talker_a", 2);
+
+        let fingerprints =
+            topic_schema_fingerprints_from_publishers(&[talker_b, duplicate_talker_b, talker_a]);
+
+        assert_eq!(fingerprints.len(), 2);
+        assert_eq!(fingerprints[0].topic, "/chatter");
+        assert_eq!(fingerprints[0].node_namespace, "/");
+        assert_eq!(fingerprints[0].node_name, "talker_a");
+        assert_eq!(
+            fingerprints[0].type_info,
+            TypeInfo::new("std_msgs::String", hash)
+        );
+        assert_eq!(fingerprints[1].node_name, "talker_b");
     }
 
     #[test]
