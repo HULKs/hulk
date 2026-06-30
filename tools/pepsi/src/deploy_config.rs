@@ -108,7 +108,7 @@ impl DeployConfig {
             .wrap_err("failed to apply recording settings")?;
 
         repository
-            .set_location(LocationTarget::Booster, &self.location)
+            .set_location(LocationTarget::Default, &self.location)
             .await
             .wrap_err_with(|| format!("failed to set location for robot to {}", self.location))?;
 
