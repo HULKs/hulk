@@ -3,6 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use bevy::prelude::*;
 use coordinate_systems::{Ground, World};
 use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, vector};
+use motion::booster::walking::step_from_motion_command;
 use types::{
     motion_command::{HeadMotion, KickPower, MotionCommand},
     path::PathSegment,
@@ -44,10 +45,7 @@ pub fn move_robots(
 
         match &frame.motion_command {
             MotionCommand::Walk { .. } => {
-                let step = motion::booster::walking::step_from_motion_command(
-                    &frame.motion_command,
-                    &parameters.walking,
-                );
+                let step = step_from_motion_command(&frame.motion_command, &parameters.walking);
                 ground_to_world.ground_to_world = apply_walk_to_pose(
                     ground_to_world.ground_to_world,
                     step,
@@ -158,16 +156,6 @@ fn desired_head_yaw(
 
 fn wrap_angle(angle: f32) -> f32 {
     Orientation2::<Ground>::new(angle).angle()
-}
-
-pub fn first_path_target(path: &types::path::Path) -> Option<Point2<Ground>> {
-    let segment = path.segments.first()?;
-    match segment {
-        PathSegment::LineSegment(segment) => Some(segment.1),
-        PathSegment::Arc(arc) => {
-            Some(arc.circle.center + arc.end.as_unit_vector() * arc.circle.radius)
-        }
-    }
 }
 
 fn apply_walk_to_pose<Frame>(

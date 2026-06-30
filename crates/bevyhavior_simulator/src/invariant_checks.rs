@@ -7,6 +7,7 @@ use coordinate_systems::{Field, Ground, World};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Orientation2, Point2};
 use serde::Serialize;
+use types::path::traits::EndPoints;
 use types::{
     field_dimensions::FieldDimensions, motion_command::MotionCommand, primary_state::PrimaryState,
     rule_obstacles::RuleObstacle,
@@ -18,7 +19,6 @@ use crate::behavior_tree_simulator::{
     SimulatorPrimaryState, SimulatorRobot, SimulatorRobotFrames, SimulatorRobotId,
     SimulatorRuleObstacles, SimulatorScenarioResult,
 };
-use crate::kinematics::first_path_target;
 use crate::timeline::robot_snapshots_from_query;
 
 #[derive(Resource, Default)]
@@ -198,5 +198,5 @@ fn motion_target_in_field(frame: &RobotFrame) -> Option<Point2<Field>> {
         return None;
     };
     let ground_to_field = frame.world_state.robot.ground_to_field?;
-    first_path_target(path).map(|target| ground_to_field * target)
+    Some(ground_to_field * path.end_point())
 }
