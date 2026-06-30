@@ -337,20 +337,20 @@ async fn set_up_static_ips(
     team_number: u8,
     progress_bar: &ProgressBar,
 ) -> Result<()> {
+    let robot_number = team_robot.number;
     let ethernet_ip = format!("10.1.{}.{}", team_number, team_robot.number);
     const CONNECTION_NAME: &str = "Wired connection 2";
-    const INTERFACE: &str = "enP9p1s0";
 
     robot.ssh_to_robot()?.arg(format!(
         // Set the new IP but preserve the 192.168.10.102 which is necessary for services on the
         // robot to work
-        r#"sudo nmcli connection modify "{CONNECTION_NAME}" ipv4.addresses "{ethernet_ip}/24, 192.168.10.102/24" ipv4.gateway 10.1.24.1"#,
+        r#"sudo nmcli connection modify "{CONNECTION_NAME}" ipv4.addresses "{ethernet_ip}/24, 192.168.10.102/24" ipv4.gateway 10.1.24.1 802-3-ethernet.cloned-mac-address "E6:4A:A0:37:19:{robot_number}""#,
     )).ssh_with_log("setting static IP", progress_bar).await?;
 
     robot
         .ssh_to_robot()?
         // Unlike up/down-ing the connection, reapply doesn't break existing connections
-        .arg(format!("sudo nmcli device reapply {INTERFACE}"))
+        .arg("sudo nmcli connection up Wired\\ connection\\ 2")
         .ssh_with_log("applying network configuration", progress_bar)
         .await
 }
