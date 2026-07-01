@@ -10,6 +10,7 @@ use hardware::NetworkInterface;
 use hsl_network_messages::HulkMessage;
 use linear_algebra::{Point2, Pose2, Vector2};
 use serde::{Deserialize, Serialize};
+use types::parameters::HslNetworkParameters;
 use types::{
     behavior_tree::NodeTrace,
     field_dimensions::{FieldDimensions, Side},
@@ -115,6 +116,7 @@ pub struct CycleContext {
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     parameters: Parameter<BehaviorParameters, "behavior">,
+    hsl_network_parameters: Parameter<HslNetworkParameters, "hsl_network">,
     free_kick_obstacle_radius: Parameter<f32, "rule_obstacles.free_kick_obstacle_radius">,
 
     behavior_trace: AdditionalOutput<NodeTrace, "behavior.trace">,
@@ -232,13 +234,13 @@ impl Behavior {
         self.send_game_controller_return_message(
             context.world_state,
             context.game_controller_address,
-            &context.parameters.hsl_network,
+            context.hsl_network_parameters,
             context.hardware,
         )?;
 
         self.send_state_message(
             context.world_state,
-            &context.parameters.hsl_network,
+            context.hsl_network_parameters,
             context.remaining_amount_of_messages,
             &mut context.last_sent_message,
             context.hardware,
