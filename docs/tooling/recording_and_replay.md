@@ -19,6 +19,36 @@ Be careful enabling vision cyclers because this will result in a lot of data bei
 
 Data is only recorded during `PrimaryState::Ready`, `PrimaryState::Set`, and `PrimaryState::Play`.
 
+## MCAP topic recording with `rosz`
+
+Use `rosz record [--output <path>] <topic>...` to record live `ros-z`
+topics into an MCAP file:
+
+```bash
+rosz --namespace /robot --node-name recorder record --output capture.mcap telemetry '~/debug'
+```
+
+Topic names use the normal ros-z qualification rules. Absolute topics are used
+as-is, relative topics are resolved in the recorder node namespace, and private
+topics starting with `~` are resolved under the recorder node name. Use the
+global `--namespace` and `--node-name` flags to control that identity.
+
+The MVP writes raw ros-z sample payloads with `ros-z.cdr` message encoding and
+stores the discovered ros-z schema with `ros-z.schema.v1` schema encoding. If
+`--output` is omitted, `rosz` writes a timestamped file in the current directory
+named `rosz-recording-<timestamp>.mcap`. Existing output files are rejected.
+
+Recording starts after all requested topics have discoverable publishers and
+schemas. Stop recording with Ctrl-C; `rosz` finalizes the MCAP file and prints a
+text summary with output path, duration, total messages, bytes, and per-topic
+message and byte counts.
+
+V1 does not include JSON output for `record`, publisher provenance metadata,
+prefix filters, partial mode, overwrite flags, duration or message limits,
+sampling, robot-side recording services, `pepsi` integration, inspect/replay
+commands, Foxglove-specific compatibility work, or ROS 2 MCAP compatibility
+work.
+
 ## Replay(er)
 
 Assuming you already recorded some data on a robot, you can now use the "replayer" tool to replay the recorded data.

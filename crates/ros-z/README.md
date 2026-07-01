@@ -19,8 +19,9 @@ C/C++ runtime dependencies.
 - `ros-z-schema`: schema and type-shape support for generated and dynamic data.
 - `ros-z-derive`: `#[derive(Message)]` support for typed messages.
 - `ros-z-streams`: future queues and maps for timestamped sensor-fusion streams.
-- `ros-z-cli`: graph, schema, topic, and parameter inspection commands.
+- `ros-z-cli`: graph, schema, topic, parameter inspection, and MCAP recording commands.
 - `ros-z-debug`: read-only debug subscriptions with retained samples and JSON views.
+- `ros-z-recording`: `rosz record` records qualified live ros-z topics into MCAP with ros-z schema and raw payload data.
 
 ## Quick Start
 
