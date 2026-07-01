@@ -4,21 +4,27 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::Ground;
+use ros_z_debug::{SampleRecord, TopicObservation};
 use types::{field_dimensions::FieldDimensions, obstacles::Obstacle};
 
-use crate::{
-    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
-};
+use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
 
 pub struct Obstacles {
-    obstacles: BufferHandle<Vec<Obstacle>>,
+    obstacles: TopicObservation<Vec<Obstacle>>,
 }
 
 impl Layer<Ground> for Obstacles {
     const NAME: &'static str = "Obstacles";
 
-    fn new(robot: Arc<Robot>) -> Self {
-        let obstacles = robot.subscribe_value("WorldState.main_outputs.obstacles");
+    fn new(backend: Arc<RobotBackend>) -> Self {
+        let _runtime_handle = backend.runtime_handle().enter();
+
+        let obstacles = backend
+            .observer()
+            .observe_typed("obstacles")
+            .expect("failed to construct obstacles observer")
+            .spawn();
+
         Self { obstacles }
     }
 
@@ -27,7 +33,10 @@ impl Layer<Ground> for Obstacles {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        if let Some(obstacles) = self.obstacles.get_last_value()? {
+        if let Some(SampleRecord {
+            value: obstacles, ..
+        }) = self.obstacles.latest().as_deref()
+        {
             let hip_height_stroke = Stroke {
                 width: 0.025,
                 color: Color32::RED,
