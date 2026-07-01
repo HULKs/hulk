@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use color_eyre::{Result, eyre::Context as _};
-use ros_z::{context::ContextBuilder, prelude::*};
+use ros_z::{context::ContextBuilder, graph::Graph, node::Node, prelude::*};
 use ros_z_debug::{TopicObserver, TopicObserverOptions};
 use tokio::runtime::Handle;
 use uuid::Uuid;
@@ -9,7 +9,7 @@ use uuid::Uuid;
 pub struct RobotBackend {
     runtime_handle: Handle,
     context: Arc<Context>,
-    _node: Arc<Node>,
+    node: Arc<Node>,
     observer: TopicObserver,
     namespace: Mutex<String>,
 }
@@ -49,7 +49,7 @@ impl RobotBackend {
         Ok(Self {
             runtime_handle,
             context,
-            _node: node,
+            node,
             observer,
             namespace: Mutex::new(namespace),
         })
@@ -57,6 +57,14 @@ impl RobotBackend {
 
     pub fn runtime_handle(&self) -> &Handle {
         &self.runtime_handle
+    }
+
+    pub fn node(&self) -> Arc<Node> {
+        self.node.clone()
+    }
+
+    pub fn graph(&self) -> &Graph {
+        self.context.graph().as_ref()
     }
 
     pub fn observer(&self) -> &TopicObserver {
