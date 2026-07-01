@@ -28,11 +28,11 @@
     pitch: 0.4,
   },
   initial_left_positions: {
-    yaw: 0.6,
-    pitch: 0.4,
+    yaw: 1.4,
+    pitch: 0.5,
   },
   initial_right_positions: {
-    yaw: -0.6,
-    pitch: 0.4,
+    yaw: -1.4,
+    pitch: 0.5,
   },
 }
