@@ -2,6 +2,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use bevy::prelude::*;
 use coordinate_systems::{Ground, World};
+use hsl_network_messages::{GameState, Team};
 use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, vector};
 use motion::booster::walking::step_from_motion_command;
 use types::{
@@ -11,13 +12,66 @@ use types::{
 
 use crate::behavior_tree_simulator::{
     SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDownState,
-    SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorLastKickTime, SimulatorRobot,
-    SimulatorRobotFrames, SimulatorRobotParameters,
+    SimulatorFieldDimensions, SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw,
+    SimulatorLastKickTime, SimulatorRobot, SimulatorRobotFrames, SimulatorRobotId,
+    SimulatorRobotParameters,
 };
+
+pub fn resolve_collisions(
+    field_dimensions: Res<SimulatorFieldDimensions>,
+    game_state: Res<SimulatorGameState>,
+    config: Res<SimulationConfig>,
+    mut ball: ResMut<SimulatorBall>,
+    mut robots: Query<(Entity, &SimulatorRobot, &mut SimulatorGroundToWorld)>,
+) {
+    let mut robot_positions = robots
+        .iter()
+        .map(|(entity, robot, ground_to_world)| {
+            (
+                entity,
+                robot.id(),
+                ground_to_world.ground_to_world.translation(),
+            )
+        })
+        .collect::<Vec<_>>();
+    robot_positions.sort_by_key(|(_, robot_id, _)| *robot_id);
+
+    resolve_robot_robot_collisions(&mut robot_positions, config.robot_radius);
+
+    for (entity, _, resolved_position) in robot_positions.iter().copied() {
+        let Ok((_, _, mut ground_to_world)) = robots.get_mut(entity) else {
+            continue;
+        };
+        let rotation = ground_to_world.ground_to_world.orientation().angle();
+        ground_to_world.ground_to_world =
+            Isometry2::from_parts(resolved_position.coords(), rotation);
+    }
+
+    if let Some(simulated_ball) = &mut ball.state {
+        let mut last_collision = None;
+        for (_, robot_id, robot_position) in robot_positions {
+            if let Some(contact_distance) = resolve_ball_robot_collision(
+                simulated_ball,
+                robot_position,
+                config.robot_radius,
+                field_dimensions.0.ball_radius,
+            ) {
+                last_collision = closest_collision(last_collision, robot_id, contact_distance);
+            }
+        }
+
+        if game_state.game_controller_state.game_state == GameState::Playing
+            && let Some((robot_id, _)) = last_collision
+        {
+            ball.last_touched_by = Some(robot_id.team);
+        }
+    }
+}
 
 pub fn move_robots(
     clock: Res<SimulatorClock>,
     config: Res<SimulationConfig>,
+    field_dimensions: Res<SimulatorFieldDimensions>,
     robot_frames: Res<SimulatorRobotFrames>,
     mut ball: ResMut<SimulatorBall>,
     mut robots: Query<(
@@ -70,17 +124,23 @@ pub fn move_robots(
                 kick_direction,
                 kick_power,
                 ..
-            } => apply_visual_kick_kinematics(
-                clock.now,
-                clock.tick_duration,
-                &mut ball.state,
-                &config,
-                &mut ground_to_world.ground_to_world,
-                &mut last_kick_time.last_kick_time,
-                *ball_position,
-                *kick_direction,
-                *kick_power,
-            ),
+            } => {
+                let ball = &mut *ball;
+                apply_visual_kick_kinematics(
+                    clock.now,
+                    clock.tick_duration,
+                    &mut ball.state,
+                    &mut ball.last_touched_by,
+                    robot.team,
+                    &config,
+                    field_dimensions.0.ball_radius,
+                    &mut ground_to_world.ground_to_world,
+                    &mut last_kick_time.last_kick_time,
+                    *ball_position,
+                    *kick_direction,
+                    *kick_power,
+                )
+            }
             MotionCommand::StandUp => fall_down_state.fall_down_state = None,
             MotionCommand::Damping | MotionCommand::Prepare | MotionCommand::Stand { .. } => {}
         }
@@ -92,6 +152,101 @@ pub fn move_robots(
             clock.tick_duration,
             &config,
         );
+    }
+}
+
+fn resolve_robot_robot_collisions(
+    robot_positions: &mut [(Entity, SimulatorRobotId, Point2<World>)],
+    robot_radius: f32,
+) {
+    let minimum_distance = 2.0 * robot_radius;
+    if minimum_distance <= 0.0 {
+        return;
+    }
+
+    for _ in 0..4 {
+        for i in 0..robot_positions.len() {
+            for j in (i + 1)..robot_positions.len() {
+                let delta = robot_positions[j].2 - robot_positions[i].2;
+                let distance = delta.norm();
+                if distance >= minimum_distance {
+                    continue;
+                }
+
+                let normal = collision_normal(delta, robot_positions[i].1, robot_positions[j].1);
+                let overlap = minimum_distance - distance;
+                robot_positions[i].2 -= normal * (overlap / 2.0);
+                robot_positions[j].2 += normal * (overlap / 2.0);
+            }
+        }
+    }
+}
+
+fn resolve_ball_robot_collision(
+    ball: &mut SimulatedBall,
+    robot_position: Point2<World>,
+    robot_radius: f32,
+    ball_radius: f32,
+) -> Option<f32> {
+    let minimum_distance = robot_radius + ball_radius;
+    if minimum_distance <= 0.0 {
+        return None;
+    }
+
+    let delta = ball.position - robot_position;
+    let distance = delta.norm();
+    if distance >= minimum_distance {
+        return None;
+    }
+
+    let normal = if distance > f32::EPSILON {
+        delta / distance
+    } else if ball.velocity.norm() > f32::EPSILON {
+        ball.velocity.normalize()
+    } else {
+        vector![1.0, 0.0]
+    };
+
+    ball.position = robot_position + normal * minimum_distance;
+    let velocity_into_robot = ball.velocity.dot(&normal) < 0.0;
+    if velocity_into_robot {
+        ball.velocity -= normal * (2.0 * ball.velocity.dot(&normal));
+    }
+
+    Some(distance)
+}
+
+fn closest_collision(
+    current: Option<(SimulatorRobotId, f32)>,
+    robot_id: SimulatorRobotId,
+    contact_distance: f32,
+) -> Option<(SimulatorRobotId, f32)> {
+    match current {
+        Some((current_id, current_distance))
+            if current_distance
+                .total_cmp(&contact_distance)
+                .then_with(|| current_id.cmp(&robot_id))
+                .is_le() =>
+        {
+            Some((current_id, current_distance))
+        }
+        _ => Some((robot_id, contact_distance)),
+    }
+}
+
+fn collision_normal(
+    delta: Vector2<World>,
+    first_id: SimulatorRobotId,
+    second_id: SimulatorRobotId,
+) -> Vector2<World> {
+    if delta.norm() > f32::EPSILON {
+        return delta.normalize();
+    }
+
+    if first_id <= second_id {
+        vector![1.0, 0.0]
+    } else {
+        vector![-1.0, 0.0]
     }
 }
 
@@ -192,29 +347,39 @@ fn apply_walk_with_velocity_to_pose<Frame>(
     ground_to_frame * delta
 }
 
+enum KickAttempt {
+    Kicked,
+    CoolingDown,
+    NotInRange,
+}
+
 fn apply_kick_to_ball(
     now: SystemTime,
     ball: &mut Option<SimulatedBall>,
+    last_touched_by: &mut Option<Team>,
+    kicking_team: Team,
     config: &SimulationConfig,
     ground_to_world: Isometry2<Ground, World>,
     last_kick_time: &mut SystemTime,
     expected_ball_position: Point2<Ground>,
     kick_direction: Orientation2<Ground>,
     kick_power: KickPower,
-) {
-    let Some(ball) = ball else { return };
+) -> KickAttempt {
+    let Some(ball) = ball else {
+        return KickAttempt::NotInRange;
+    };
     if now.duration_since(*last_kick_time).unwrap_or_default() < config.kick_cooldown {
-        return;
+        return KickAttempt::CoolingDown;
     }
 
     let expected_ball_in_world = ground_to_world * expected_ball_position;
     if (ball.position - expected_ball_in_world).norm() > config.kick_radius {
-        return;
+        return KickAttempt::NotInRange;
     }
 
     let actual_ball_in_ground = ground_to_world.inverse() * ball.position;
     if actual_ball_in_ground.coords().norm() > config.kick_radius {
-        return;
+        return KickAttempt::NotInRange;
     }
 
     let speed = match kick_power {
@@ -222,37 +387,51 @@ fn apply_kick_to_ball(
         KickPower::Schlong => config.kick_ball_speed_schlong,
     };
     ball.velocity = ground_to_world * (kick_direction.as_unit_vector() * speed);
+    *last_touched_by = Some(kicking_team);
     *last_kick_time = now;
+    KickAttempt::Kicked
 }
 
 fn apply_visual_kick_kinematics(
     now: SystemTime,
     tick_duration: Duration,
     ball: &mut Option<SimulatedBall>,
+    last_touched_by: &mut Option<Team>,
+    kicking_team: Team,
     config: &SimulationConfig,
+    ball_radius: f32,
     ground_to_world: &mut Isometry2<Ground, World>,
     last_kick_time: &mut SystemTime,
     ball_position: Point2<Ground>,
     kick_direction: Orientation2<Ground>,
     kick_power: KickPower,
 ) {
-    let kick_pose = ball_position - kick_direction.as_unit_vector() * config.kick_radius;
-    *ground_to_world = apply_walk_to_pose(
-        *ground_to_world,
-        step_towards_target(kick_pose, kick_direction, 1.0, config, tick_duration),
-        tick_duration,
-        config,
-    );
-
-    apply_kick_to_ball(
+    let kick_direction_vector = kick_direction.as_unit_vector();
+    match apply_kick_to_ball(
         now,
         ball,
+        last_touched_by,
+        kicking_team,
         config,
         *ground_to_world,
         last_kick_time,
         ball_position,
         kick_direction,
         kick_power,
+    ) {
+        KickAttempt::Kicked | KickAttempt::CoolingDown => return,
+        KickAttempt::NotInRange => {}
+    }
+
+    let standoff_distance = (config.kick_radius * 0.9)
+        .min(ball_position.coords().dot(&kick_direction_vector))
+        .max(config.robot_radius + ball_radius);
+    let kick_pose = ball_position - kick_direction_vector * standoff_distance;
+    *ground_to_world = apply_walk_to_pose(
+        *ground_to_world,
+        step_towards_target(kick_pose, kick_direction, 1.0, config, tick_duration),
+        tick_duration,
+        config,
     );
 }
 
@@ -294,7 +473,7 @@ mod tests {
     use linear_algebra::{Isometry2, Orientation2, point, vector};
     use types::{
         behavior_tree::{NodeTrace, Status},
-        field_dimensions::Side,
+        field_dimensions::{FieldDimensions, Side},
         motion_command::{HeadMotion, KickPower, MotionCommand, OrientationMode},
         parameters::{BehaviorParameters, RLWalkingParameters},
         path::direct_path,
@@ -319,6 +498,7 @@ mod tests {
             ..Default::default()
         })
         .insert_resource(SimulatorBall::default())
+        .insert_resource(SimulatorFieldDimensions(FieldDimensions::SPL_2025))
         .insert_resource(SimulatorRobotFrames(BTreeMap::from([(
             robot_id,
             RobotFrame {
@@ -383,11 +563,14 @@ mod tests {
             velocity: vector![0.0, 0.0],
             field_side: Side::Left,
         });
+        let mut last_touched_by = None;
         let mut last_kick_time = SystemTime::UNIX_EPOCH;
 
         apply_kick_to_ball(
             SystemTime::UNIX_EPOCH + Duration::from_secs(1),
             &mut ball,
+            &mut last_touched_by,
+            Team::Hulks,
             &SimulationConfig::default(),
             Isometry2::identity(),
             &mut last_kick_time,
@@ -400,6 +583,7 @@ mod tests {
             ball.expect("ball should still exist").velocity,
             vector![0.0, 0.0]
         );
+        assert_eq!(last_touched_by, None);
     }
 
     #[test]
@@ -409,11 +593,14 @@ mod tests {
             velocity: vector![0.0, 0.0],
             field_side: Side::Left,
         });
+        let mut last_touched_by = None;
         let mut last_kick_time = SystemTime::UNIX_EPOCH;
 
         apply_kick_to_ball(
             SystemTime::UNIX_EPOCH + Duration::from_secs(1),
             &mut ball,
+            &mut last_touched_by,
+            Team::Hulks,
             &SimulationConfig::default(),
             Isometry2::identity(),
             &mut last_kick_time,
@@ -429,6 +616,7 @@ mod tests {
                 0.0
             ]
         );
+        assert_eq!(last_touched_by, Some(Team::Hulks));
     }
 
     #[test]
@@ -439,13 +627,17 @@ mod tests {
             field_side: Side::Left,
         });
         let mut ground_to_field: Isometry2<Ground, World> = Isometry2::identity();
+        let mut last_touched_by = None;
         let mut last_kick_time = SystemTime::UNIX_EPOCH;
 
         apply_visual_kick_kinematics(
             SystemTime::UNIX_EPOCH + Duration::from_secs(1),
             DEFAULT_TICK_DURATION,
             &mut ball,
+            &mut last_touched_by,
+            Team::Hulks,
             &SimulationConfig::default(),
+            FieldDimensions::SPL_2025.ball_radius,
             &mut ground_to_field,
             &mut last_kick_time,
             point![1.0, 0.0],

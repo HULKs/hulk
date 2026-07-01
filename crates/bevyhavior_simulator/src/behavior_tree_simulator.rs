@@ -61,7 +61,7 @@ pub use crate::communication::{
 pub use crate::coordinates::point_world_to_field;
 pub use crate::game_controller::sync_primary_states_from_game_state;
 pub use crate::invariant_checks::run_invariant_checks;
-pub use crate::kinematics::move_robots;
+pub use crate::kinematics::{move_robots, resolve_collisions};
 pub use crate::timeline::record_timeline_frame;
 pub use crate::world_states::build_world_states;
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -260,6 +260,10 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
             app.add_systems(
                 Update,
                 move_robots.in_set(BehaviorTreeSimulatorSet::ApplyKinematics),
+            )
+            .add_systems(
+                Update,
+                resolve_collisions.in_set(BehaviorTreeSimulatorSet::AfterKinematics),
             );
         }
     }

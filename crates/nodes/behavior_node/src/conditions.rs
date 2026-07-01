@@ -1,12 +1,15 @@
+use std::time::Duration;
+
 use filtering::hysteresis::less_than_with_hysteresis;
-use hsl_network_messages::Team;
+use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{point, vector};
+use ros_z::time::Time;
 use types::{
     filtered_game_controller_state::FilteredGameControllerState, primary_state::PrimaryState,
 };
 use voronoi::Ownership;
 
-use crate::node::Blackboard;
+use crate::node::{Blackboard, BooleanHysteresis};
 
 pub fn is_ball_interception_candidate(blackboard: &mut Blackboard) -> bool {
     if let (Some(ball), Some(ground_to_field)) = (
@@ -92,53 +95,108 @@ pub fn is_close_to_ball_aligned(blackboard: &mut Blackboard) -> bool {
     is_close_and_aligned
 }
 
-pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
+pub fn is_second_closest_and_goalkeeper_closest_to_ball(blackboard: &mut Blackboard) -> bool {
     let own_player_number = blackboard.world_state.robot.player_number;
+    let raw_is_second_closest: bool = has_closest_ball_robots(
+        blackboard,
+        &[blackboard.parameters.goal_keeper_number, own_player_number],
+    ) == [true, true];
 
-    let raw_is_closest =
-        if let (Some(ball), Some(voronoi_map)) = (&blackboard.ball, &blackboard.voronoi_map) {
-            let ownership_at_ball = voronoi_map.ownership_at(ball.position);
-            match ownership_at_ball {
-                Some(Ownership::Robot(player_number)) if player_number == own_player_number => true,
-                Some(Ownership::Blocked) => voronoi_map
-                    .nearest_non_blocked_ownership(ball.position)
-                    .is_some_and(|ownership| ownership == Ownership::Robot(own_player_number)),
-                _ => false,
-            }
-        } else {
-            false
-        };
+    apply_boolean_hysteresis(
+        raw_is_second_closest,
+        &mut blackboard.second_closest_to_ball_hysteresis,
+        blackboard.world_state.now,
+        blackboard.parameters.closest_to_ball_enter_duration,
+        blackboard.parameters.closest_to_ball_exit_duration,
+    )
+}
 
-    let now = blackboard.world_state.now;
-    if raw_is_closest {
-        blackboard.closest_to_ball_entered_area_since =
-            blackboard.closest_to_ball_entered_area_since.or(Some(now));
-        blackboard.closest_to_ball_left_area_since = None;
-    } else {
-        blackboard.closest_to_ball_left_area_since =
-            blackboard.closest_to_ball_left_area_since.or(Some(now));
-        blackboard.closest_to_ball_entered_area_since = None;
-    }
+// pub fn goalkeeper_is_closest_to_ball(blackboard: &mut &Blackboard) -> bool {
+//     has_closest_ball_robots(blackboard, &[blackboard.parameters.goal_keeper_number]) == [true]
+// }
 
-    let is_closest = if blackboard.last_closest_to_ball {
-        raw_is_closest
-            || blackboard
-                .closest_to_ball_left_area_since
-                .is_some_and(|since| {
-                    now.duration_since(since) < blackboard.parameters.closest_to_ball_exit_duration
-                })
-    } else {
-        raw_is_closest
-            && blackboard
-                .closest_to_ball_entered_area_since
-                .is_some_and(|since| {
-                    now.duration_since(since)
-                        >= blackboard.parameters.closest_to_ball_enter_duration
-                })
+pub fn is_closest_to_ball_helper(blackboard: &mut Blackboard) -> bool {
+    let own_player_number = blackboard.world_state.robot.player_number;
+    has_closest_ball_robots(blackboard, &[own_player_number]) == [true]
+}
+
+pub fn has_closest_ball_robots(
+    blackboard: &Blackboard,
+    expected_players_by_rank: &[PlayerNumber],
+) -> Vec<bool> {
+    let Some(ball) = &blackboard.ball else {
+        return vec![false; expected_players_by_rank.len()];
+    };
+    let Some(voronoi_map) = &blackboard.voronoi_map else {
+        return vec![false; expected_players_by_rank.len()];
     };
 
-    blackboard.last_closest_to_ball = is_closest;
+    let Some(ownerships) =
+        voronoi_map.n_nearest_non_blocked_ownerships(ball.position, expected_players_by_rank.len())
+    else {
+        return vec![false; expected_players_by_rank.len()];
+    };
+
+    expected_players_by_rank
+        .iter()
+        .enumerate()
+        .map(|(index, expected_player_number)| {
+            ownerships.get(index) == Some(&Ownership::Robot(*expected_player_number))
+        })
+        .collect()
+}
+
+pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
+    let raw_is_closest = is_closest_to_ball_helper(blackboard);
+
+    let mut hysteresis = BooleanHysteresis {
+        last_value: blackboard.last_closest_to_ball,
+        entered_since: blackboard.closest_to_ball_entered_area_since,
+        left_since: blackboard.closest_to_ball_left_area_since,
+    };
+    let is_closest = apply_boolean_hysteresis(
+        raw_is_closest,
+        &mut hysteresis,
+        blackboard.world_state.now,
+        blackboard.parameters.closest_to_ball_enter_duration,
+        blackboard.parameters.closest_to_ball_exit_duration,
+    );
+
+    blackboard.last_closest_to_ball = hysteresis.last_value;
+    blackboard.closest_to_ball_entered_area_since = hysteresis.entered_since;
+    blackboard.closest_to_ball_left_area_since = hysteresis.left_since;
     is_closest
+}
+
+fn apply_boolean_hysteresis(
+    raw_value: bool,
+    state: &mut BooleanHysteresis,
+    now: Time,
+    enter_duration: Duration,
+    exit_duration: Duration,
+) -> bool {
+    if raw_value {
+        state.entered_since = state.entered_since.or(Some(now));
+        state.left_since = None;
+    } else {
+        state.left_since = state.left_since.or(Some(now));
+        state.entered_since = None;
+    }
+
+    let value = if state.last_value {
+        raw_value
+            || state
+                .left_since
+                .is_some_and(|since| now.duration_since(since) < exit_duration)
+    } else {
+        raw_value
+            && state
+                .entered_since
+                .is_some_and(|since| now.duration_since(since) >= enter_duration)
+    };
+
+    state.last_value = value;
+    value
 }
 
 pub fn is_fallen(blackboard: &mut Blackboard) -> bool {

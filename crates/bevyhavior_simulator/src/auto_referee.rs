@@ -1,17 +1,20 @@
 use std::{collections::BTreeMap, time::Duration, time::SystemTime};
 
 use bevy::prelude::*;
-use coordinate_systems::{Ground, World};
-use hsl_network_messages::{GamePhase, GameState, Team};
-use linear_algebra::{Isometry2, Point2, Vector2, distance};
+use coordinate_systems::{Field, Ground, World};
+use hsl_network_messages::{GamePhase, GameState, SubState, Team};
+use linear_algebra::{Isometry2, Point2, Vector2, distance, point};
 use types::{
-    field_dimensions::{FieldDimensions, GlobalFieldSide, Side},
+    field_dimensions::{FieldDimensions, GlobalFieldSide, Half, Side},
     game_controller_state::GameControllerState,
 };
 
-use crate::behavior_tree_simulator::{
-    SimulatedBall, SimulatorBall, SimulatorFieldDimensions, SimulatorGameState,
-    SimulatorGroundToWorld, SimulatorRobot, SimulatorRobotId, point_world_to_field,
+use crate::{
+    behavior_tree_simulator::{
+        SimulatedBall, SimulatorBall, SimulatorFieldDimensions, SimulatorGameState,
+        SimulatorGroundToWorld, SimulatorRobot, SimulatorRobotId, point_world_to_field,
+    },
+    coordinates::world_to_field_transform,
 };
 
 const READY_STATIONARY_TRANSLATION_EPSILON: f32 = 0.01;
@@ -120,6 +123,10 @@ impl AutoRefereeContext<'_> {
     fn set_kicking_team(&mut self, kicking_team: Option<Team>) {
         self.game_state.set_kicking_team(kicking_team);
     }
+
+    fn set_sub_state(&mut self, sub_state: Option<SubState>) {
+        self.game_state.set_sub_state(sub_state);
+    }
 }
 
 pub struct ScoredGoalRule;
@@ -159,6 +166,7 @@ impl AutoRefereeRule for ScoredGoalRule {
             }
         }
         context.ball.state = None;
+        context.ball.last_touched_by = None;
 
         if goal_difference(&context.game_state.game_controller_state) >= 10 {
             context.set_game_state(GameState::Finished);
@@ -166,6 +174,7 @@ impl AutoRefereeRule for ScoredGoalRule {
         }
 
         context.set_kicking_team(Some(opponent_of(scoring_team)));
+        context.set_sub_state(None);
         context.auto_referee.restart_reason =
             Some(SimulatorRestartReason::KickOffAfterGoal { scoring_team });
         context.set_game_state(GameState::Ready);
@@ -192,8 +201,12 @@ impl AutoRefereeRule for GameStateTransitionRule {
                 );
                 let robots_are_stationary = ready_stationary_short_circuit_elapsed(context);
                 if ready_duration_elapsed || robots_are_stationary {
-                    if context.auto_referee.restart_reason.is_some() {
-                        place_ball_at_center(context.ball);
+                    match context.auto_referee.restart_reason {
+                        Some(SimulatorRestartReason::KickOffAfterGoal { .. })
+                        | Some(SimulatorRestartReason::DroppedBall) => {
+                            place_ball_at_center(context.ball);
+                        }
+                        None => {}
                     }
                     context.set_game_state(GameState::Set);
                 }
@@ -203,6 +216,7 @@ impl AutoRefereeRule for GameStateTransitionRule {
                     context.set_game_state(GameState::Playing);
                     context.auto_referee.playing_after_whistle_at = None;
                     context.auto_referee.restart_reason = None;
+                    context.set_sub_state(None);
                     if context.auto_referee.halftime_started_at.is_none() {
                         context.auto_referee.halftime_started_at = Some(context.now);
                     }
@@ -283,6 +297,51 @@ impl Default for GameStateTransitionRule {
     }
 }
 
+#[derive(Default)]
+pub struct BallOutOfFieldRule;
+
+impl AutoRefereeRule for BallOutOfFieldRule {
+    fn apply(&mut self, context: &mut AutoRefereeContext<'_>) {
+        if context.game_state.game_controller_state.game_state != GameState::Playing {
+            return;
+        }
+
+        let Some(ball) = context.ball.state else {
+            return;
+        };
+        if !ball_has_left_playing_area(ball.position, context.field_dimensions)
+            || context.field_dimensions.is_inside_any_goal(ball.position)
+        {
+            return;
+        }
+
+        let global_field_side = context.game_state.game_controller_state.global_field_side;
+        let ball_in_field = point_world_to_field(ball.position, global_field_side);
+        let last_touched_by = context
+            .ball
+            .last_touched_by
+            .unwrap_or_else(|| fallback_last_touched_by(context));
+        let kicking_team = opponent_of(last_touched_by);
+        let sub_state = restart_sub_state(ball_in_field, last_touched_by, context.field_dimensions);
+        let restart_position = restart_position_for(
+            ball_in_field,
+            sub_state,
+            kicking_team,
+            context.field_dimensions,
+            global_field_side,
+        );
+
+        context.ball.state = Some(SimulatedBall {
+            position: restart_position,
+            velocity: Vector2::zeros(),
+            field_side: ball.field_side,
+        });
+        context.ball.last_touched_by = None;
+        context.set_kicking_team(Some(kicking_team));
+        context.set_sub_state(Some(sub_state));
+    }
+}
+
 pub struct HalftimeTimeoutRule;
 
 impl AutoRefereeRule for HalftimeTimeoutRule {
@@ -318,6 +377,7 @@ impl SimulatorAutoReferee {
         Self {
             rules: vec![
                 Box::new(ScoredGoalRule),
+                Box::new(BallOutOfFieldRule),
                 Box::new(GameStateTransitionRule),
                 Box::new(HalftimeTimeoutRule),
             ],
@@ -388,6 +448,8 @@ fn apply_referee_command(command: SimulatorRefereeCommand, context: &mut AutoRef
         SimulatorRefereeCommand::Resume => context.game_state.set_stopped(false),
         SimulatorRefereeCommand::DroppedBall => {
             context.set_kicking_team(None);
+            context.set_sub_state(None);
+            context.ball.last_touched_by = None;
             context.auto_referee.restart_reason = Some(SimulatorRestartReason::DroppedBall);
             context.set_game_state(GameState::Ready);
         }
@@ -408,6 +470,84 @@ fn opponent_of(team: Team) -> Team {
     }
 }
 
+fn fallback_last_touched_by(context: &AutoRefereeContext<'_>) -> Team {
+    context
+        .game_state
+        .game_controller_state
+        .kicking_team
+        .map(opponent_of)
+        .unwrap_or(Team::Opponent)
+}
+
+fn restart_sub_state(
+    ball_in_field: Point2<Field>,
+    last_touched_by: Team,
+    field_dimensions: FieldDimensions,
+) -> SubState {
+    let x_excess = ball_in_field.x().abs() - field_dimensions.length / 2.0;
+    let y_excess = ball_in_field.y().abs() - field_dimensions.width / 2.0;
+    if y_excess > 0.0 && y_excess >= x_excess {
+        return SubState::ThrowIn;
+    }
+
+    let attacking_team = if ball_in_field.x() > 0.0 {
+        Team::Hulks
+    } else {
+        Team::Opponent
+    };
+    if last_touched_by == attacking_team {
+        SubState::GoalKick
+    } else {
+        SubState::CornerKick
+    }
+}
+
+fn restart_position_for(
+    ball_in_field: Point2<Field>,
+    sub_state: SubState,
+    kicking_team: Team,
+    field_dimensions: FieldDimensions,
+    global_field_side: GlobalFieldSide,
+) -> Point2<World> {
+    let restart_position = match sub_state {
+        SubState::ThrowIn => {
+            let x_limit = field_dimensions.length / 2.0 - field_dimensions.ball_radius;
+            let y = ball_in_field.y().signum()
+                * (field_dimensions.width / 2.0 - field_dimensions.ball_radius);
+            point![ball_in_field.x().clamp(-x_limit, x_limit), y]
+        }
+        SubState::GoalKick => {
+            let half = match kicking_team {
+                Team::Hulks => Half::Own,
+                Team::Opponent => Half::Opponent,
+            };
+            let side = if ball_in_field.y() > 0.0 {
+                Side::Left
+            } else {
+                Side::Right
+            };
+            field_dimensions.goal_box_corner(half, side)
+        }
+        SubState::CornerKick => {
+            let half = if ball_in_field.x() > 0.0 {
+                Half::Opponent
+            } else {
+                Half::Own
+            };
+            let side = if ball_in_field.y() > 0.0 {
+                Side::Left
+            } else {
+                Side::Right
+            };
+            field_dimensions.corner(half, side)
+        }
+        SubState::DirectFreeKick | SubState::IndirectFreeKick | SubState::PenaltyKick => {
+            Point2::origin()
+        }
+    };
+    world_to_field_transform(global_field_side).inverse() * restart_position
+}
+
 fn goal_difference(game_controller_state: &GameControllerState) -> u8 {
     game_controller_state
         .hulks_team
@@ -425,6 +565,7 @@ fn place_ball_at_center(ball: &mut SimulatorBall) {
         velocity: Vector2::zeros(),
         field_side: Side::Left,
     });
+    ball.last_touched_by = None;
 }
 
 fn ball_in_goal(
@@ -432,7 +573,7 @@ fn ball_in_goal(
     field_dimensions: FieldDimensions,
     global_field_side: GlobalFieldSide,
 ) -> Option<Team> {
-    if !field_dimensions.is_inside_any_goal(ball.position) {
+    if !ball_has_crossed_goal_line(ball.position, field_dimensions) {
         return None;
     }
 
@@ -442,6 +583,32 @@ fn ball_in_goal(
     } else {
         Some(Team::Opponent)
     }
+}
+
+fn ball_has_left_playing_area(
+    ball_position: Point2<World>,
+    field_dimensions: FieldDimensions,
+) -> bool {
+    let x_limit = field_dimensions.length / 2.0
+        + field_dimensions.line_width / 2.0
+        + field_dimensions.ball_radius;
+    let y_limit = field_dimensions.width / 2.0
+        + field_dimensions.line_width / 2.0
+        + field_dimensions.ball_radius;
+
+    ball_position.x().abs() > x_limit || ball_position.y().abs() > y_limit
+}
+
+fn ball_has_crossed_goal_line(
+    ball_position: Point2<World>,
+    field_dimensions: FieldDimensions,
+) -> bool {
+    let x_limit = field_dimensions.length / 2.0
+        + field_dimensions.line_width / 2.0
+        + field_dimensions.ball_radius;
+
+    ball_position.x().abs() > x_limit
+        && ball_position.y().abs() < field_dimensions.goal_inner_width / 2.0
 }
 
 #[cfg(test)]
@@ -551,6 +718,7 @@ mod tests {
                 velocity: vector![0.0, 0.0],
                 field_side: Side::Left,
             }),
+            last_touched_by: Some(Team::Hulks),
         };
         let mut rule = ScoredGoalRule;
 
@@ -594,6 +762,7 @@ mod tests {
                 velocity: vector![0.0, 0.0],
                 field_side: Side::Left,
             }),
+            last_touched_by: Some(Team::Opponent),
         };
         let mut rule = ScoredGoalRule;
 
@@ -619,7 +788,6 @@ mod tests {
         assert!(ball.state.is_none());
     }
 
-    #[test]
     fn auto_referee_config_defaults_match_hsl_timings() {
         let config = AutoRefereeConfig::default();
 
@@ -647,6 +815,7 @@ mod tests {
                 velocity: vector![0.0, 0.0],
                 field_side: Side::Left,
             }),
+            last_touched_by: Some(Team::Opponent),
         };
         let mut rule = ScoredGoalRule;
 

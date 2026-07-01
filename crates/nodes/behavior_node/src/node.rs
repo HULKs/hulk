@@ -61,12 +61,20 @@ pub struct Blackboard {
     pub last_closest_to_ball: bool,
     pub closest_to_ball_entered_area_since: Option<Time>,
     pub closest_to_ball_left_area_since: Option<Time>,
+    pub second_closest_to_ball_hysteresis: BooleanHysteresis,
 
     pub is_injected_motion_command: bool,
     pub walk_position: Option<Point2<Ground>>,
     pub body_motion: Option<BodyMotion>,
     pub head_motion: Option<HeadMotion>,
     pub voronoi_map: Option<VoronoiGrid>,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, Message)]
+pub struct BooleanHysteresis {
+    pub last_value: bool,
+    pub entered_since: Option<Time>,
+    pub left_since: Option<Time>,
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -272,6 +280,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         last_closest_to_ball: false,
         closest_to_ball_entered_area_since: None,
         closest_to_ball_left_area_since: None,
+        second_closest_to_ball_hysteresis: BooleanHysteresis::default(),
 
         is_injected_motion_command: false,
         walk_position: None,

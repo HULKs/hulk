@@ -43,6 +43,11 @@ impl SimulatorGameState {
         self.sync_filtered_game_controller_state();
     }
 
+    pub fn set_sub_state(&mut self, sub_state: Option<hsl_network_messages::SubState>) {
+        self.game_controller_state.sub_state = sub_state;
+        self.sync_filtered_game_controller_state();
+    }
+
     pub fn set_stopped(&mut self, stopped: bool) {
         self.game_controller_state.stopped = stopped;
         self.sync_filtered_game_controller_state();
