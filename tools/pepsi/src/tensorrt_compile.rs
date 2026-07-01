@@ -17,7 +17,10 @@ use pathdiff::diff_paths;
 use repository::{Repository, upload::get_binary};
 use robot::Robot;
 use tempfile::tempdir;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncRead, BufReader},
+    process::Command,
+};
 
 use crate::{
     cargo::{
@@ -51,6 +54,10 @@ pub struct TensorRtCompileArguments {
     /// Do not build before uploading
     #[arg(long)]
     pub no_build: bool,
+
+    /// Arguments passed to tensorrt-compile, for example: -- --raw_bytes_input 224,272,6
+    #[arg(value_name = "tensorrt-compile args", trailing_var_arg = true, num_args = 0..)]
+    pub compile_args: Vec<String>,
 }
 
 pub async fn tensorrt_compile(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -102,7 +109,15 @@ pub async fn tensorrt_compile(arguments: Arguments, repository: &Repository) -> 
 
     progress_compile.enable_steady_tick();
     let onnx_path = relative_to_repository(arguments.tensorrt_compile.onnx_path, repository)?;
-    compile_model(&robot, &onnx_path, &progress_compile.progress)
+    let compile_args = shell_args(
+        std::iter::once(onnx_path.to_string_lossy().into_owned())
+            .chain(arguments.tensorrt_compile.compile_args.iter().cloned()),
+    );
+    let mut command = robot.ssh_to_robot()?;
+    command.arg(format!(
+        "sudo podman exec hulk ./bin/tensorrt-compile {compile_args} 2>&1"
+    ));
+    run_with_printed_log(&mut command, &progress_compile)
         .await
         .inspect_err(|_| progress_compile.progress.finish())?;
     progress_compile.finish_with_success(progress_compile.progress.message());
@@ -121,6 +136,55 @@ pub fn manifest(repository: &Repository) -> OsString {
         .root
         .join("tools/tensorrt-compile/Cargo.toml")
         .into_os_string()
+}
+
+async fn run_with_printed_log(command: &mut Command, task: &Task) -> Result<()> {
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+
+    let mut process = command.spawn().wrap_err("failed to spawn process")?;
+    let stdout = process.stdout.take().wrap_err("failed to get stdout")?;
+    let stderr = process.stderr.take().wrap_err("failed to get stderr")?;
+    let (stdout, stderr) = tokio::try_join!(
+        collect_log(stdout, task.progress.clone()),
+        collect_log(stderr, task.progress.clone())
+    )?;
+
+    let status = process.wait().await?;
+    if !status.success() {
+        let message = status.code().map_or_else(
+            || "process was killed".to_string(),
+            |code| format!("process failed with code {code}"),
+        );
+        bail!("{message}\n{stdout}{stderr}");
+    }
+    Ok(())
+}
+
+async fn collect_log(
+    reader: impl AsyncRead + Unpin,
+    progress: indicatif::ProgressBar,
+) -> Result<String> {
+    let mut lines = BufReader::new(reader).lines();
+    let mut log = String::new();
+    while let Some(text) = lines.next_line().await? {
+        progress.println(&text);
+        progress.set_message(text.clone());
+        log.push_str(&text);
+        log.push('\n');
+    }
+    Ok(log)
+}
+
+fn shell_args(arguments: impl IntoIterator<Item = String>) -> String {
+    arguments
+        .into_iter()
+        .map(|argument| shell_quote(&argument))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 pub fn relative_to_repository(onnx_path: PathBuf, repository: &Repository) -> Result<PathBuf> {

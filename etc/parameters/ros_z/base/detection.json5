@@ -4,7 +4,7 @@
   model_name: "yolo26m-seg=f11+yolo26m~cheek+yolo26m-pose~badge.onnx",
   object_detection_parameters: {
     maximum_intersection_over_union: 0.7,
-    confidence_threshold: 0.5,
+    confidence_threshold: 0.45,
   },
   pose_detection_parameters: {
     maximum_intersection_over_union: 0.7,

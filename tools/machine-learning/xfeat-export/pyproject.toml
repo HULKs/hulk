@@ -1,0 +1,27 @@
+[project]
+name = "xfeat-export"
+version = "0.1.0"
+description = "ONNX export tools for XFeat and LighterGlue."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "accelerated-features[lighterglue]",
+  "click>=8.3.1",
+  "multi-task-yolo",
+  "numpy>=2.0.0",
+  "onnx>=1.20.1",
+  "onnxruntime>=1.24.3",
+]
+
+[project.scripts]
+export-xfeat-onnx = "xfeat_export.export_xfeat_onnx:main"
+export-lighterglue-onnx = "xfeat_export.export_lighterglue_onnx:main"
+export-xfeat-lighterglue-onnx = "xfeat_export.export_xfeat_lighterglue_onnx:main"
+
+[tool.uv.sources]
+accelerated-features = { git = "https://github.com/oleflb/accelerated_features.git" }
+multi-task-yolo = { path = "../multi-task-yolo" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

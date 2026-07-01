@@ -1,0 +1,29 @@
+[package]
+name = "localization-factrs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+booster.workspace = true
+coordinate_systems.workspace = true
+factrs = { git = "https://github.com/oleflb/fact-rs", rev = "4b5802bfb386d0b594464197d079d28f96bef9c7" }
+faer = "0.23.0"
+faer-ext = { version = "0.7.1", features = ["nalgebra"] }
+itertools.workspace = true
+linear_algebra.workspace = true
+log.workspace = true
+nalgebra.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+types.workspace = true
+
+[dev-dependencies]
+env_logger.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
+rand_distr.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+indicatif.workspace = true
