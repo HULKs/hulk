@@ -60,7 +60,7 @@ pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Resul
             }
         }
 
-        create_commit(&branch.to_string())
+        create_commit(&format!("merge-squash {branch}"))
             .await
             .wrap_err("failed to create commit")?;
     }
