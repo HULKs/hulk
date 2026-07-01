@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::{boxed::Box, future::Future, pin::Pin};
 
 use color_eyre::Result;
+use log::warn;
 
 use microphones::{parameters::Parameters as MicrophonesParameters, reader::Microphones};
 use ros_z::{context::Context, parameter::NodeParametersExt};
@@ -23,7 +24,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters_snapshot = parameters.snapshot();
     let parameters = parameters_snapshot.typed();
-    let mut microphones = Microphones::new(parameters.clone())?;
+    let mut microphones = match Microphones::new(parameters.clone()) {
+        Ok(microphones) => microphones,
+        Err(error) => {
+            warn!("failed to create microphones: {error:#?}");
+            return Ok(());
+        }
+    };
 
     loop {
         let samples = microphones.retrying_read()?;

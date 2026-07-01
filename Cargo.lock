@@ -6671,6 +6671,7 @@ name = "microphone_recorder"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "log",
  "microphones",
  "ros-z",
  "serde",

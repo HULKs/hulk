@@ -7,6 +7,7 @@ homepage.workspace = true
 
 [dependencies]
 color-eyre = { workspace = true }
+log = { workspace = true }
 microphones = { workspace = true }
 ros-z = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
