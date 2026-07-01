@@ -6,23 +6,33 @@ use eframe::epaint::{Color32, Stroke};
 use coordinate_systems::{Ground, Pixel};
 use geometry::line_segment::LineSegment;
 use projection::{Projection, camera_matrix::CameraMatrix};
+use ros_z_debug::TopicObservation;
 use types::field_dimensions::FieldDimensions;
 
-use crate::{
-    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
-};
+use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
 
 pub struct Lines {
-    lines_in_image: BufferHandle<Option<Vec<LineSegment<Pixel>>>>,
-    camera_matrix: BufferHandle<Option<CameraMatrix>>,
+    lines_in_image: TopicObservation<Option<Vec<LineSegment<Pixel>>>>,
+    camera_matrix: TopicObservation<Option<CameraMatrix>>,
 }
 
 impl Layer<Ground> for Lines {
     const NAME: &'static str = "Lines";
 
-    fn new(robot: Arc<Robot>) -> Self {
-        let lines_in_image = robot.subscribe_value("Vision.additional_outputs.lines_in_image");
-        let camera_matrix = robot.subscribe_value("WorldState.main_outputs.camera_matrix");
+    fn new(backend: Arc<RobotBackend>) -> Self {
+        let _runtime_handle = backend.runtime_handle().enter();
+
+        let lines_in_image = backend
+            .observer()
+            .observe_typed("Vision.additional_outputs.lines_in_image")
+            .expect("failed to create lines_in_image observation")
+            .spawn();
+        let camera_matrix = backend
+            .observer()
+            .observe_typed("WorldState.main_outputs.camera_matrix")
+            .expect("failed to create camera_matrix observation")
+            .spawn();
+
         Self {
             lines_in_image,
             camera_matrix,
@@ -34,10 +44,18 @@ impl Layer<Ground> for Lines {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let Some(lines_in_image) = self.lines_in_image.get_last_value()? else {
+        let Some(lines_in_image) = self
+            .lines_in_image
+            .latest()
+            .map(|sample| sample.value.clone())
+        else {
             return Ok(());
         };
-        let Some(camera_matrix) = self.camera_matrix.get_last_value()? else {
+        let Some(camera_matrix) = self
+            .camera_matrix
+            .latest()
+            .map(|sample| sample.value.clone())
+        else {
             return Ok(());
         };
         paint_lines(painter, lines_in_image, camera_matrix);
