@@ -17,7 +17,10 @@ use types::{
 
 mod alignment;
 
-use alignment::{exact_sample, latest_aligned_stream_time, monotonic_anchor_time, nearest_sample};
+use alignment::{
+    exact_sample, has_new_overlay_for_displayed_anchor, latest_aligned_stream_time,
+    monotonic_anchor_time, nearest_sample,
+};
 
 pub(crate) type SharedState = Arc<Mutex<ViewerState>>;
 
@@ -38,6 +41,8 @@ pub(crate) struct ViewerState {
     pub(crate) camera_frames: CacheInner<CameraFrame>,
     pub(crate) camera_sequence: u64,
     display_anchor_time: Option<Time>,
+    displayed_anchor_has_detected_objects: bool,
+    displayed_anchor_has_field_mark_associations: bool,
     pub(crate) detected_objects: CacheInner<Vec<Object<RobocupObjectLabel>>>,
     pub(crate) field_mark_associations: CacheInner<FieldMarkAssociations>,
     pub(crate) field_status: StreamStatus,
@@ -64,6 +69,8 @@ impl Default for ViewerState {
             camera_frames: CacheInner::new(CAMERA_FRAME_BUFFER_CAPACITY),
             camera_sequence: 0,
             display_anchor_time: None,
+            displayed_anchor_has_detected_objects: false,
+            displayed_anchor_has_field_mark_associations: false,
             detected_objects: CacheInner::new(STREAM_BUFFER_CAPACITY),
             field_mark_associations: CacheInner::new(STREAM_BUFFER_CAPACITY),
             field_status: StreamStatus::default(),
@@ -134,27 +141,47 @@ impl ViewerState {
     /// frame timestamp; the UI labels pose sources as latest for this reason.
     pub(crate) fn aligned_snapshot(&mut self) -> AlignedViewerState {
         let latest_camera_time = self.camera_frames.latest_stamp();
-        let preferred_anchor_time = latest_aligned_stream_time(
+        let association_anchor_time = latest_aligned_stream_time(
             &self.field_mark_associations,
             &self.camera_frames,
             latest_camera_time,
-        )
-        .or_else(|| {
-            latest_aligned_stream_time(
-                &self.detected_objects,
-                &self.camera_frames,
-                latest_camera_time,
-            )
-        })
-        .or(latest_camera_time);
+        );
+        let detection_anchor_time = latest_aligned_stream_time(
+            &self.detected_objects,
+            &self.camera_frames,
+            latest_camera_time,
+        );
+        let wait_for_detected_objects =
+            self.objects_status.publisher_count > 0 && !self.detected_objects.is_empty();
+        let preferred_anchor_time =
+            association_anchor_time
+                .or(detection_anchor_time)
+                .or_else(|| {
+                    if wait_for_detected_objects && self.display_anchor_time.is_some() {
+                        self.display_anchor_time
+                    } else {
+                        latest_camera_time
+                    }
+                });
+        let latest_camera_time_for_monotonic =
+            if wait_for_detected_objects && detection_anchor_time <= self.display_anchor_time {
+                self.display_anchor_time
+            } else {
+                latest_camera_time
+            };
         let anchor_time = monotonic_anchor_time(
             preferred_anchor_time,
-            latest_camera_time,
+            latest_camera_time_for_monotonic,
             self.display_anchor_time,
+            has_new_overlay_for_displayed_anchor(
+                preferred_anchor_time,
+                association_anchor_time,
+                detection_anchor_time,
+                self.display_anchor_time,
+                self.displayed_anchor_has_field_mark_associations,
+                self.displayed_anchor_has_detected_objects,
+            ),
         );
-        if anchor_time >= self.display_anchor_time {
-            self.display_anchor_time = anchor_time;
-        }
 
         let camera_frame = anchor_time.and_then(|time| exact_sample(&self.camera_frames, time));
         let camera_matrix = anchor_time.and_then(|time| {
@@ -167,6 +194,15 @@ impl ViewerState {
             anchor_time.and_then(|time| exact_sample(&self.detected_objects, time));
         let field_mark_associations =
             anchor_time.and_then(|time| exact_sample(&self.field_mark_associations, time));
+
+        if anchor_time != self.display_anchor_time {
+            self.display_anchor_time = anchor_time;
+            self.displayed_anchor_has_detected_objects = detected_objects.is_some();
+            self.displayed_anchor_has_field_mark_associations = field_mark_associations.is_some();
+        } else {
+            self.displayed_anchor_has_detected_objects |= detected_objects.is_some();
+            self.displayed_anchor_has_field_mark_associations |= field_mark_associations.is_some();
+        }
 
         AlignedViewerState {
             anchor_time,

@@ -59,6 +59,9 @@ const ASSOCIATION_RESIDUAL_STROKE: Stroke = Stroke {
     width: 2.0,
     color: Color32::from_rgba_premultiplied(255, 80, 200, 220),
 };
+const PROJECTED_ARC_INITIAL_SEGMENTS: usize = 16;
+const PROJECTED_ARC_MAX_DEPTH: u8 = 10;
+const PROJECTED_ARC_SCREEN_ERROR: f32 = 1.5;
 
 impl RobotViewerApp {
     pub(crate) fn new(
@@ -822,24 +825,135 @@ fn draw_projected_arc(
     let samples = ((radius * (end - start).abs()) / FIELD_LINE_SAMPLE_STEP)
         .ceil()
         .clamp(8.0, 160.0) as usize;
-    let mut previous = None;
+    let samples = samples.max(PROJECTED_ARC_INITIAL_SEGMENTS);
 
-    for index in 0..=samples {
-        let angle = start + (end - start) * index as f32 / samples as f32;
-        let point = [
-            center[0] + radius * angle.cos(),
-            center[1] + radius * angle.sin(),
-        ];
-        draw_projected_point_step(
+    for index in 0..samples {
+        let start_angle = start + (end - start) * index as f32 / samples as f32;
+        let end_angle = start + (end - start) * (index + 1) as f32 / samples as f32;
+        draw_projected_arc_segment(
             painter,
             image_rect,
             image_size,
             field_to_camera,
             intrinsics,
-            point,
-            &mut previous,
+            center,
+            radius,
+            start_angle,
+            end_angle,
+            0,
         );
     }
+}
+
+fn draw_projected_arc_segment(
+    painter: &egui::Painter,
+    image_rect: Rect,
+    image_size: Vec2,
+    field_to_camera: &Isometry3<Field, Camera>,
+    intrinsics: Intrinsic,
+    center: [f32; 2],
+    radius: f32,
+    start: f32,
+    end: f32,
+    depth: u8,
+) {
+    let middle = 0.5 * (start + end);
+    let start_position = project_arc_point_to_image(
+        image_rect,
+        image_size,
+        field_to_camera,
+        intrinsics,
+        center,
+        radius,
+        start,
+    );
+    let middle_position = project_arc_point_to_image(
+        image_rect,
+        image_size,
+        field_to_camera,
+        intrinsics,
+        center,
+        radius,
+        middle,
+    );
+    let end_position = project_arc_point_to_image(
+        image_rect,
+        image_size,
+        field_to_camera,
+        intrinsics,
+        center,
+        radius,
+        end,
+    );
+
+    if let (Some(start_position), Some(middle_position), Some(end_position)) =
+        (start_position, middle_position, end_position)
+    {
+        let error = distance_to_segment(middle_position, start_position, end_position);
+        if error <= PROJECTED_ARC_SCREEN_ERROR || depth >= PROJECTED_ARC_MAX_DEPTH {
+            painter.line_segment([start_position, end_position], PROJECTED_FIELD_LINE_STROKE);
+            return;
+        }
+    } else if depth >= PROJECTED_ARC_MAX_DEPTH {
+        return;
+    }
+
+    draw_projected_arc_segment(
+        painter,
+        image_rect,
+        image_size,
+        field_to_camera,
+        intrinsics,
+        center,
+        radius,
+        start,
+        middle,
+        depth + 1,
+    );
+    draw_projected_arc_segment(
+        painter,
+        image_rect,
+        image_size,
+        field_to_camera,
+        intrinsics,
+        center,
+        radius,
+        middle,
+        end,
+        depth + 1,
+    );
+}
+
+fn project_arc_point_to_image(
+    image_rect: Rect,
+    image_size: Vec2,
+    field_to_camera: &Isometry3<Field, Camera>,
+    intrinsics: Intrinsic,
+    center: [f32; 2],
+    radius: f32,
+    angle: f32,
+) -> Option<Pos2> {
+    project_field_point_to_image(
+        image_rect,
+        image_size,
+        field_to_camera,
+        intrinsics,
+        [
+            center[0] + radius * angle.cos(),
+            center[1] + radius * angle.sin(),
+        ],
+    )
+}
+
+fn distance_to_segment(point: Pos2, start: Pos2, end: Pos2) -> f32 {
+    let segment = end - start;
+    let length_squared = segment.x * segment.x + segment.y * segment.y;
+    if length_squared <= f32::EPSILON {
+        return point.distance(start);
+    }
+    let offset = point - start;
+    let t = ((offset.x * segment.x + offset.y * segment.y) / length_squared).clamp(0.0, 1.0);
+    point.distance(start + segment * t)
 }
 
 fn draw_projected_point_step(

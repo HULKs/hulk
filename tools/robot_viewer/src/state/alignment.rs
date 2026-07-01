@@ -9,6 +9,7 @@ pub(super) fn monotonic_anchor_time(
     preferred_anchor_time: Option<Time>,
     latest_camera_time: Option<Time>,
     display_anchor_time: Option<Time>,
+    has_new_overlay_for_displayed_anchor: bool,
 ) -> Option<Time> {
     let Some(display_anchor_time) = display_anchor_time else {
         return preferred_anchor_time;
@@ -21,6 +22,9 @@ pub(super) fn monotonic_anchor_time(
             && let Some(latest_camera_time) = latest_camera_time
             && latest_camera_time > display_anchor_time
         {
+            if has_new_overlay_for_displayed_anchor {
+                return Some(preferred_anchor_time);
+            }
             return Some(latest_camera_time);
         }
         return Some(preferred_anchor_time);
@@ -29,6 +33,28 @@ pub(super) fn monotonic_anchor_time(
     latest_camera_time
         .filter(|latest_camera_time| *latest_camera_time >= display_anchor_time)
         .or(Some(display_anchor_time))
+}
+
+pub(super) fn has_new_overlay_for_displayed_anchor(
+    preferred_anchor_time: Option<Time>,
+    association_anchor_time: Option<Time>,
+    detection_anchor_time: Option<Time>,
+    display_anchor_time: Option<Time>,
+    displayed_anchor_has_field_mark_associations: bool,
+    displayed_anchor_has_detected_objects: bool,
+) -> bool {
+    let Some(display_anchor_time) = display_anchor_time else {
+        return false;
+    };
+    if preferred_anchor_time != Some(display_anchor_time) {
+        return false;
+    }
+
+    let has_new_associations = association_anchor_time == Some(display_anchor_time)
+        && !displayed_anchor_has_field_mark_associations;
+    let has_new_detections = detection_anchor_time == Some(display_anchor_time)
+        && !displayed_anchor_has_detected_objects;
+    has_new_associations || has_new_detections
 }
 
 pub(super) fn latest_aligned_stream_time<T>(
@@ -199,5 +225,50 @@ mod tests {
 
         assert_eq!(aligned.anchor_time, Some(latest_camera_time));
         assert!(aligned.field_mark_associations.is_none());
+    }
+
+    #[test]
+    fn aligned_snapshot_keeps_current_frame_for_delayed_detection_before_advancing() {
+        let mut state = ViewerState::default();
+        let displayed_time = Time::from_nanos(1_000_000_000);
+        let latest_camera_time = Time::from_nanos(1_100_000_000);
+
+        state.push_camera_frame(displayed_time, CameraFrame::default());
+        assert_eq!(state.aligned_snapshot().anchor_time, Some(displayed_time));
+
+        state.push_detected_objects(displayed_time, Vec::new());
+        state.push_camera_frame(latest_camera_time, CameraFrame::default());
+        let aligned = state.aligned_snapshot();
+
+        assert_eq!(aligned.anchor_time, Some(displayed_time));
+        assert!(aligned.detected_objects.is_some());
+
+        let aligned = state.aligned_snapshot();
+        assert_eq!(aligned.anchor_time, Some(latest_camera_time));
+        assert!(aligned.detected_objects.is_none());
+    }
+
+    #[test]
+    fn aligned_snapshot_waits_for_next_detection_when_detector_is_live() {
+        let mut state = ViewerState::default();
+        let first_time = Time::from_nanos(1_000_000_000);
+        let second_time = Time::from_nanos(1_100_000_000);
+
+        state.objects_status.update_publishers(1);
+        state.push_camera_frame(first_time, CameraFrame::default());
+        state.push_detected_objects(first_time, Vec::new());
+        assert_eq!(state.aligned_snapshot().anchor_time, Some(first_time));
+
+        state.push_camera_frame(second_time, CameraFrame::default());
+        let aligned = state.aligned_snapshot();
+
+        assert_eq!(aligned.anchor_time, Some(first_time));
+        assert!(aligned.detected_objects.is_some());
+
+        state.push_detected_objects(second_time, Vec::new());
+        let aligned = state.aligned_snapshot();
+
+        assert_eq!(aligned.anchor_time, Some(second_time));
+        assert!(aligned.detected_objects.is_some());
     }
 }
