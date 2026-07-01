@@ -8,8 +8,8 @@ homepage.workspace = true
 [dependencies]
 color-eyre = { workspace = true }
 futures-util = { workspace = true }
-hula_types = { workspace = true }
 itertools = { workspace = true }
+json5 = { workspace = true }
 parameters = { workspace = true }
 pathdiff = { workspace = true }
 semver = { workspace = true }
