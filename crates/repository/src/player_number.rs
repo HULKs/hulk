@@ -1,12 +1,12 @@
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    io::ErrorKind,
+};
 
 use color_eyre::{Result, eyre::Context};
-use hula_types::hardware::Ids;
-use parameters::{
-    directory::{Id, Location, Scope, serialize},
-    json::nest_value_at_path,
-};
 use serde::{Deserialize, Serialize};
+use serde_json::{Value, json, to_string_pretty};
+use tokio::fs::{create_dir_all, read_to_string, write};
 
 use crate::Repository;
 
@@ -42,25 +42,49 @@ impl Repository {
         robot_id: &str,
         player_number: PlayerNumber,
     ) -> Result<()> {
-        let parameters_root = self.root.join("etc/parameters/");
-        let path = "player_number";
-        let parameters = nest_value_at_path(
-            path,
-            serde_json::to_value(player_number).wrap_err("failed to serialize player number")?,
-        );
-        serialize(
-            &parameters,
-            Scope {
-                location: Location::All,
-                id: Id::Robot,
-            },
-            path,
-            parameters_root,
-            &Ids {
-                robot_id: robot_id.to_string(),
-            },
-        )
-        .wrap_err("failed to serialize parameters directory")?;
+        let robot_parameter_directory = self.root.join("etc/parameters/ros_z/robot").join(robot_id);
+        create_dir_all(&robot_parameter_directory)
+            .await
+            .wrap_err_with(|| {
+                format!(
+                    "failed to create parameter directory {}",
+                    robot_parameter_directory.display()
+                )
+            })?;
+
+        let global_parameters_path = robot_parameter_directory.join("global.json5");
+        let mut parameters = match read_to_string(&global_parameters_path).await {
+            Ok(contents) => json5::from_str::<Value>(&contents).wrap_err_with(|| {
+                format!(
+                    "failed to parse existing global parameters in {}",
+                    global_parameters_path.display()
+                )
+            })?,
+            Err(error) if error.kind() == ErrorKind::NotFound => json!({}),
+            Err(error) => {
+                return Err(error).wrap_err_with(|| {
+                    format!(
+                        "failed to read global parameters from {}",
+                        global_parameters_path.display()
+                    )
+                });
+            }
+        };
+
+        parameters["player_number"] =
+            serde_json::to_value(player_number).wrap_err("failed to serialize player number")?;
+
+        let contents =
+            to_string_pretty(&parameters).wrap_err("failed to serialize global parameters")? + "\n";
+        write(&global_parameters_path, contents)
+            .await
+            .wrap_err_with(|| {
+                format!(
+                    "failed to write global parameters to {}",
+                    global_parameters_path.display()
+                )
+            })?;
+
         Ok(())
     }
 }
