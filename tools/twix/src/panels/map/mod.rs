@@ -77,7 +77,7 @@ pub struct MapPanel {
     // referee_position: EnabledLayer<layers::RefereePosition, Field>,
     // pose_detection: EnabledLayer<layers::PoseDetection, Field>,
     ball_percept: EnabledLayer<layers::BallPercepts, Ground>,
-    // ball_position: EnabledLayer<layers::BallPosition, Field>,
+    ball_position: EnabledLayer<layers::BallPosition, Field>,
     // ball_filter: EnabledLayer<layers::BallFilter, Ground>,
     // obstacle_filter: EnabledLayer<layers::ObstacleFilter, Ground>,
     // localization: EnabledLayer<layers::Localization, Field>,
@@ -102,7 +102,7 @@ impl Panel for MapPanel {
         let robot_pose = EnabledLayer::new(context.backend.clone(), context.value, true);
         let ball_percept = EnabledLayer::new(context.backend.clone(), context.value, false);
         // let pose_detection = EnabledLayer::new(context.backend.clone(), context.value, false);
-        // let ball_position = EnabledLayer::new(context.backend.clone(), context.value, true);
+        let ball_position = EnabledLayer::new(context.backend.clone(), context.value, true);
         // let ball_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
         // let obstacle_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
         // let localization = EnabledLayer::new(context.backend.clone(), context.value, false);
@@ -152,7 +152,7 @@ impl Panel for MapPanel {
             // pose_detection,
             // referee_position,
             ball_percept,
-            // ball_position,
+            ball_position,
             // ball_filter,
             // obstacle_filter,
             // localization,
@@ -178,7 +178,7 @@ impl Panel for MapPanel {
             "robot_pose": self.robot_pose.save(),
             // "referee_position": self.referee_position.save(),
             "ball_percept": self.ball_percept.save(),
-            // "ball_position": self.ball_position.save(),
+            "ball_position": self.ball_position.save(),
             // "ball_filter": self.ball_filter.save(),
             // "obstacle_filter": self.obstacle_filter.save(),
             // "localization": self.localization.save(),
@@ -202,7 +202,7 @@ impl Panel for MapPanel {
                 self.robot_pose.checkbox(ui);
                 // self.referee_position.checkbox(ui);
                 self.ball_percept.checkbox(ui);
-                // self.ball_position.checkbox(ui);
+                self.ball_position.checkbox(ui);
                 // self.ball_filter.checkbox(ui);
                 // self.obstacle_filter.checkbox(ui);
                 // self.localization.checkbox(ui);
@@ -284,11 +284,9 @@ impl Panel for MapPanel {
         //     .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.ball_percept
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        // self.ball_position
-        //     .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.ball_position
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
         // self.pose_detection
-        //     .generic_paint(&painter, ground_to_field, &field_dimensions);
-        // self.ball_position
         //     .generic_paint(&painter, ground_to_field, &field_dimensions);
         // self.ball_filter
         //     .generic_paint(&painter, ground_to_field, &field_dimensions);
