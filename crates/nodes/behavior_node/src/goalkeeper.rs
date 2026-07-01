@@ -225,7 +225,7 @@ fn is_ball_close_enough_to_goal_to_become_striker(blackboard: &mut Blackboard) -
 
         // ball.position.x() < own_penalty_area_x
         //     && ball.position.y().abs() < field_dimensions.penalty_area_width
-        ball.position.x() < 0.0
+        ball.position.x() < -1.0
     })
 }
 
