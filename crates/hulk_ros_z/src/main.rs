@@ -136,7 +136,7 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(low_state_bridge::run_boxed(ctx.clone()));
     join_set.spawn(message_filter::run_boxed(ctx.clone()));
     join_set.spawn(message_handler::run_boxed(ctx.clone()));
-    // join_set.spawn(microphone_recorder::run_boxed(ctx.clone()));
+    join_set.spawn(microphone_recorder::run_boxed(ctx.clone()));
     join_set.spawn(motor_commands_collector::run_boxed(ctx.clone()));
     join_set.spawn(obstacle_filter::run_boxed(ctx.clone()));
     join_set.spawn(odometer_bridge::run_boxed(ctx.clone()));
