@@ -424,7 +424,7 @@ fn apply_visual_kick_kinematics(
     }
 
     let standoff_distance = (config.kick_radius * 0.9)
-        .min(ball_position.coords().dot(&kick_direction_vector).max(0.0))
+        .min(ball_position.coords().dot(&kick_direction_vector))
         .max(config.robot_radius + ball_radius);
     let kick_pose = ball_position - kick_direction_vector * standoff_distance;
     *ground_to_world = apply_walk_to_pose(
