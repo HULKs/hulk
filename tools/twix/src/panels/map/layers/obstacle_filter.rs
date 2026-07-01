@@ -5,22 +5,27 @@ use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::Ground;
 use linear_algebra::Point2;
+use ros_z_debug::TopicObservation;
 use types::{field_dimensions::FieldDimensions, obstacle_filter::Hypothesis};
 
-use crate::{
-    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
-};
+use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
 
 pub struct ObstacleFilter {
-    hypotheses: BufferHandle<Option<Vec<Hypothesis>>>,
+    hypotheses: TopicObservation<Vec<Hypothesis>>,
 }
 
 impl Layer<Ground> for ObstacleFilter {
     const NAME: &'static str = "Obstacle Filter";
 
-    fn new(robot: Arc<Robot>) -> Self {
-        let hypotheses =
-            robot.subscribe_value("WorldState.additional_outputs.obstacle_filter_hypotheses");
+    fn new(backend: Arc<RobotBackend>) -> Self {
+        let _runtime_handle = backend.runtime_handle().enter();
+
+        let hypotheses = backend
+            .observer()
+            .observe_typed("obstacle_filter_hypotheses")
+            .expect("failed to construct obstacle filter hypotheses observer")
+            .spawn();
+
         Self { hypotheses }
     }
 
@@ -29,7 +34,10 @@ impl Layer<Ground> for ObstacleFilter {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        if let Some(hypotheses) = self.hypotheses.get_last_value()?.flatten() {
+        if let Some(ros_z_debug::SampleRecord {
+            value: hypotheses, ..
+        }) = self.hypotheses.latest().as_deref()
+        {
             for hypothesis in hypotheses.iter() {
                 let position = Point2::from(hypothesis.state.mean);
                 let covariance = hypothesis.state.covariance;
