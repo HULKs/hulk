@@ -30,7 +30,7 @@ pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Resul
     'branches: for branch in &config.branches {
         let status = merge_squash(&branch.to_string()).await;
 
-        if !status.is_ok() {
+        if status.is_err() {
             eprintln!("Automatic merge failed.");
             let skip_prompt = format!("Do you want to skip deploying '{branch}'?");
 
