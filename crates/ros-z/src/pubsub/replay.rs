@@ -824,10 +824,9 @@ pub(super) fn replay_capable_publishers(
     topic: &str,
 ) -> Vec<(EndpointGlobalId, usize)> {
     graph
-        .view()
+        .lock()
         .publishers_on(topic)
-        .into_iter()
-        .filter_map(|endpoint| replay_capable_publisher(&endpoint))
+        .filter_map(replay_capable_publisher)
         .collect()
 }
 
@@ -869,12 +868,12 @@ pub(crate) fn spawn_transient_local_replay_task(
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut seen = initial_seen;
-        let mut changes = graph.subscribe_changes();
+        let mut revisions = graph.watch_revisions();
         loop {
             if coordinator.is_cancelled() {
                 return;
             }
-            changes.mark_seen();
+            revisions.mark_seen();
             let discovered = begin_unseen_late_publishers(
                 &mut seen,
                 &coordinator,
@@ -900,7 +899,7 @@ pub(crate) fn spawn_transient_local_replay_task(
                 }
                 coordinator.finish_late_replay(publisher_global_id);
             }
-            if changes.changed().await.is_none() {
+            if revisions.changed().await.is_none() {
                 return;
             }
         }

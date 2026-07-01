@@ -508,11 +508,13 @@ where
         let topic = self.entity.topic.as_str();
         let wait = self
             .graph
-            .wait_until(move |view| view.publisher_count_on(topic) >= count);
+            .wait_until(move |data| data.publishers_on(topic).count() >= count);
 
         match tokio::time::timeout(timeout, wait).await {
             Ok(true) => true,
-            Ok(false) | Err(_) => self.graph.view().publisher_count_on(&self.entity.topic) >= count,
+            Ok(false) | Err(_) => {
+                self.graph.lock().publishers_on(&self.entity.topic).count() >= count
+            }
         }
     }
 }
@@ -524,7 +526,7 @@ where
 {
     /// Return the number of matched publishers currently visible in the graph.
     pub fn publisher_count(&self) -> usize {
-        self.graph.view().publisher_count_on(&self.entity.topic)
+        self.graph.lock().publishers_on(&self.entity.topic).count()
     }
 
     /// Return whether at least one publisher is currently matched.
