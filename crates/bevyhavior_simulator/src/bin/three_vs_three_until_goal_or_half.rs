@@ -60,7 +60,7 @@ fn update(
         .now
         .duration_since(SystemTime::UNIX_EPOCH)
         .expect("simulator time should not move backwards");
-    if hulks_score > 1 || opponent_score > 1 {
+    if hulks_score > 0 || opponent_score > 0 {
         println!(
             "result=goal elapsed={:.2} hulks_score={hulks_score} opponent_score={opponent_score}",
             elapsed.as_secs_f32()
