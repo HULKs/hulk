@@ -216,8 +216,8 @@ fn is_ball_in_own_penalty_area(blackboard: &mut Blackboard) -> bool {
 
 fn is_ball_near_own_goal(blackboard: &mut Blackboard) -> bool {
     blackboard.ball.as_ref().is_some_and(|ball| {
-        let own_goal_x = -blackboard.field_dimensions.length / 2.0;
-        let maximum_ball_x = own_goal_x + blackboard.parameters.keeper.passive_distance;
+        // let own_goal_x = blackboard.field_dimensions.length / 2.0;
+        let maximum_ball_x = 0.0; // own_goal_x + blackboard.parameters.keeper.passive_distance;
 
         ball.position.x() < maximum_ball_x
     })
