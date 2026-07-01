@@ -3,23 +3,28 @@ use coordinate_systems::Field;
 use eframe::epaint::Color32;
 use linear_algebra::point;
 use ndarray::{Array2, Axis};
+use ros_z_debug::{SampleRecord, TopicObservation};
 use std::sync::Arc;
 use types::field_dimensions::FieldDimensions;
 
-use crate::{
-    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
-};
+use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
 
 pub struct BallSearchHeatmap {
-    ball_search_heatmap: BufferHandle<Option<Array2<f32>>>,
+    ball_search_heatmap: TopicObservation<Array2<f32>>,
 }
 
 impl Layer<Field> for BallSearchHeatmap {
     const NAME: &'static str = "Ball Search Heatmap";
 
-    fn new(robot: Arc<Robot>) -> Self {
-        let ball_search_heatmap =
-            robot.subscribe_value("WorldState.additional_outputs.ball_search_heatmap");
+    fn new(backend: Arc<RobotBackend>) -> Self {
+        let _runtime_handle = backend.runtime_handle().enter();
+
+        let ball_search_heatmap = backend
+            .observer()
+            .observe_typed("ball_search_heatmap")
+            .expect("failed to construct ball search heatmap observer")
+            .spawn();
+
         Self {
             ball_search_heatmap,
         }
@@ -30,7 +35,9 @@ impl Layer<Field> for BallSearchHeatmap {
         painter: &TwixPainter<Field>,
         field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let Some(heatmap) = self.ball_search_heatmap.get_last_value()?.flatten() else {
+        let latest_sample = self.ball_search_heatmap.latest();
+
+        let Some(SampleRecord { value: heatmap, .. }) = latest_sample.as_deref() else {
             return Ok(());
         };
         let heatmap_dimensions = (heatmap.ncols(), heatmap.nrows());

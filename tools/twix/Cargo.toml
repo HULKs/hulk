@@ -22,6 +22,7 @@ itertools = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
+ndarray = { workspace = true }
 projection = { workspace = true }
 repository = { workspace = true }
 ros-z = { workspace = true }
