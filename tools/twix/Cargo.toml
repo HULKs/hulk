@@ -17,6 +17,7 @@ eframe = { workspace = true }
 egui_dock = { workspace = true }
 egui_extras = { workspace = true }
 geometry = { workspace = true }
+hsl_network_messages = { workspace = true }
 hulk_widgets = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }

@@ -81,7 +81,7 @@ pub struct MapPanel {
     ball_filter: EnabledLayer<layers::BallFilter, Ground>,
     obstacle_filter: EnabledLayer<layers::ObstacleFilter, Ground>,
     localization: EnabledLayer<layers::Localization, Field>,
-    // voronoi_cells: EnabledLayer<layers::VoronoiCell, Field>,
+    voronoi_cells: EnabledLayer<layers::VoronoiCell, Field>,
 }
 
 impl Panel for MapPanel {
@@ -106,7 +106,7 @@ impl Panel for MapPanel {
         let ball_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
         let obstacle_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
         let localization = EnabledLayer::new(context.backend.clone(), context.value, false);
-        // let voronoi_cells = EnabledLayer::new(context.backend.clone(), context.value, false);
+        let voronoi_cells = EnabledLayer::new(context.backend.clone(), context.value, false);
 
         let runtime_handle = context.backend.runtime_handle().clone();
         let _runtime_context = runtime_handle.enter();
@@ -156,7 +156,7 @@ impl Panel for MapPanel {
             ball_filter,
             obstacle_filter,
             localization,
-            // voronoi_cells,
+            voronoi_cells,
         }
     }
 
@@ -182,7 +182,7 @@ impl Panel for MapPanel {
             "ball_filter": self.ball_filter.save(),
             "obstacle_filter": self.obstacle_filter.save(),
             "localization": self.localization.save(),
-            // "voronoi_cells": self.voronoi_cells.save(),
+            "voronoi_cells": self.voronoi_cells.save(),
         })
     }
 
@@ -206,7 +206,7 @@ impl Panel for MapPanel {
                 self.ball_filter.checkbox(ui);
                 self.obstacle_filter.checkbox(ui);
                 self.localization.checkbox(ui);
-                // self.voronoi_cells.checkbox(ui);
+                self.voronoi_cells.checkbox(ui);
             });
             ComboBox::from_id_salt("plot_type_selector")
                 .selected_text(format!("{:?}", self.current_plot_type))
@@ -294,7 +294,7 @@ impl Panel for MapPanel {
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.localization
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        // self.voronoi_cells
-        //     .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.voronoi_cells
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
     }
 }
