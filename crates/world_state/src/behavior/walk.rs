@@ -269,12 +269,29 @@ pub fn walk_to_goalkeeper_default_position(blackboard: &mut Blackboard) -> Statu
         let default_pose_in_field =
             Pose2::from_parts(default_position_in_field, Orientation2::new(0.0));
         let default_pose_in_ground = ground_to_field.inverse() * default_pose_in_field;
+        let orientation_mode = if let Some(ball) = blackboard.world_state.ball {
+            OrientationMode::LookAt {
+                target: ball.ball_in_ground,
+                tolerance: blackboard.parameters.walk_and_stand.orientation_tolerance,
+            }
+        } else if blackboard
+            .ball
+            .as_ref()
+            .is_some_and(|ball| ball.position.x() <= 0.0)
+        {
+            OrientationMode::LookAt {
+                target: ground_to_field.inverse() * point!(own_goal_line_x, 0.0),
+                tolerance: blackboard.parameters.walk_and_stand.orientation_tolerance,
+            }
+        } else {
+            OrientationMode::AlignWithPath
+        };
 
         walk_to(
             blackboard,
             default_pose_in_ground,
             blackboard.parameters.walk_speed.blocking,
-            OrientationMode::AlignWithPath,
+            orientation_mode,
             blackboard
                 .parameters
                 .walk_and_stand
