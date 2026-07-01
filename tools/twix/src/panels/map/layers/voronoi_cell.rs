@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
+use behavior_node::node::Blackboard;
 use color_eyre::Result;
 use coordinate_systems::Field;
 use eframe::egui::{Color32, Stroke};
 use hsl_network_messages::PlayerNumber;
-use linear_algebra::{Point2, Pose2};
-use serde_json::{Value, from_value};
-use voronoi::{Ownership, VoronoiGrid};
+use ros_z_debug::{SampleRecord, TopicObservation};
+use voronoi::Ownership;
 
 use crate::{
     panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
@@ -15,7 +15,6 @@ use crate::{
 pub struct VoronoiCell {
     voronoi_grid: BufferHandle<Value>,
     voronoi_inputs: BufferHandle<Value>,
-    target_voronoi_position: BufferHandle<Value>,
 }
 
 impl Layer<Field> for VoronoiCell {
@@ -26,12 +25,9 @@ impl Layer<Field> for VoronoiCell {
             robot.subscribe_json("WorldState.additional_outputs.behavior.voronoi_map");
         let voronoi_inputs =
             robot.subscribe_json("WorldState.additional_outputs.behavior.voronoi_inputs");
-        let target_voronoi_position =
-            robot.subscribe_json("WorldState.additional_outputs.behavior.target_voronoi_position");
         Self {
             voronoi_grid,
             voronoi_inputs,
-            target_voronoi_position,
         }
     }
 
@@ -84,8 +80,25 @@ impl Layer<Field> for VoronoiCell {
             painter.circle_stroke(point, 0.035, Stroke::new(0.01, Color32::BLACK));
         }
 
+        for player_number in [
+            PlayerNumber::One,
+            PlayerNumber::Two,
+            PlayerNumber::Three,
+            PlayerNumber::Four,
+            PlayerNumber::Five,
+        ] {
+            if let Some(centroid) = grid.centroid_for_player(player_number) {
+                painter.target(
+                    centroid,
+                    0.06,
+                    Stroke::new(0.01, Color32::GREEN),
+                    Color32::RED,
+                );
+            }
+        }
+
         if let Some(voronoi_inputs) = self.voronoi_inputs.get_last_value()? {
-            let voronoi_inputs: Vec<Pose2<Field>> = match from_value(voronoi_inputs) {
+            let voronoi_inputs: Vec<Pose2<Field>> = match serde_json::from_value(voronoi_inputs) {
                 Ok(inputs) => inputs,
                 Err(_) => return Ok(()),
             };
@@ -96,22 +109,6 @@ impl Layer<Field> for VoronoiCell {
                     0.12,
                     Color32::from_rgba_premultiplied(255, 0, 0, 128),
                     Stroke::new(0.01, Color32::BLACK),
-                );
-            }
-        }
-
-        if let Some(target_voronoi_position) = self.target_voronoi_position.get_last_value()? {
-            let target_voronoi_position: Option<Point2<Field>> =
-                match from_value(target_voronoi_position) {
-                    Ok(position) => position,
-                    Err(_) => return Ok(()),
-                };
-            if let Some(position) = target_voronoi_position {
-                painter.target(
-                    position,
-                    0.1,
-                    Stroke::new(0.02, Color32::YELLOW),
-                    Color32::TRANSPARENT,
                 );
             }
         }

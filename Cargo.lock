@@ -11648,8 +11648,10 @@ dependencies = [
 name = "twix"
 version = "0.13.0"
 dependencies = [
+ "behavior_node",
  "clap",
  "color-eyre",
+ "convert_case 0.7.1",
  "coordinate_systems",
  "dirs",
  "eframe",
@@ -11661,6 +11663,7 @@ dependencies = [
  "itertools 0.14.0",
  "linear_algebra",
  "log",
+ "nalgebra 0.34.2",
  "projection",
  "repository",
  "ros-z",
@@ -11674,6 +11677,7 @@ dependencies = [
  "tracing-subscriber",
  "types",
  "uuid",
+ "voronoi",
 ]
 
 [[package]]

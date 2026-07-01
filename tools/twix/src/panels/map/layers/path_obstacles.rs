@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
+use behavior_node::node::Blackboard;
 use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::Ground;
-use types::{
-    field_dimensions::FieldDimensions,
-    path_obstacles::{PathObstacle, PathObstacleShape},
-};
+use ros_z_debug::{SampleRecord, TopicObservation};
+use types::{field_dimensions::FieldDimensions, path_obstacles::PathObstacleShape};
 
 use crate::{
     panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
