@@ -56,17 +56,20 @@ pub fn goalkeeper_subtree() -> Node<Blackboard> {
                     subtree!(kick_alternatives_subtree),
                 )
             ),
-            sequence!(
-                condition!(is_ball_near_own_goal),
-                selection!(
-                    sequence!(
+            sequence!(selection!(
+                sequence!(
+                    condition!(is_ball_near_own_goal),
+                    subtree!(goalkeeper_active_defense_position_subtree),
+                ),
+                sequence!(
+                    condition!(is_ball_in_own_penalty_area),
+                    selection!(sequence!(
                         action!(calculate_voronoi_grid),
                         condition!(is_closest_to_ball),
-                        subtree!(striker_subtree)
-                    ),
-                    subtree!(goalkeeper_active_defense_position_subtree)
+                        subtree!(striker_subtree),
+                    ),),
                 ),
-            ),
+            ),),
             subtree!(goalkeeper_default_position_subtree),
         ),
     )
