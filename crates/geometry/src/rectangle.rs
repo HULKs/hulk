@@ -28,6 +28,7 @@ impl<Frame> Rectangle<Frame> {
             max: center + size / 2.0,
         }
     }
+
     pub fn rectangle_intersection(self, other: Rectangle<Frame>) -> f32 {
         let intersection_x = f32::max(
             0.0,
@@ -62,6 +63,10 @@ impl<Frame> Rectangle<Frame> {
             (self.min.x() + self.max.x()) / 2.0,
             (self.min.y() + self.max.y()) / 2.0
         ]
+    }
+
+    pub fn bottom_center(&self) -> Point2<Frame> {
+        point![(self.min.x() + self.max.x()) / 2.0, self.min.y()]
     }
 }
 
