@@ -16,13 +16,34 @@ const GRAPH_POLL_INTERVAL: Duration = Duration::from_millis(200);
 const GRAPH_SETTLE_QUIET_WINDOW: Duration = Duration::from_millis(500);
 const GRAPH_SETTLE_TIMEOUT: Duration = Duration::from_secs(2);
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NodeIdentity {
+    pub namespace: String,
+    pub name: String,
+}
+
+impl NodeIdentity {
+    pub fn new(namespace: String, name: String) -> Self {
+        Self { namespace, name }
+    }
+}
+
+impl Default for NodeIdentity {
+    fn default() -> Self {
+        Self {
+            namespace: "/".to_string(),
+            name: "rosz".to_string(),
+        }
+    }
+}
+
 pub struct AppContext {
     context: Context,
     node: Arc<Node>,
 }
 
 impl AppContext {
-    pub async fn new(router: &str) -> Result<Self> {
+    pub async fn new(router: &str, identity: NodeIdentity) -> Result<Self> {
         let context = ContextBuilder::default()
             .with_mode("client")
             .with_connect_endpoints([router])
@@ -31,7 +52,8 @@ impl AppContext {
             .wrap_err("failed to build ros-z context")?;
         let node = Arc::new(
             context
-                .create_node("rosz")
+                .create_node(identity.name)
+                .with_namespace(identity.namespace)
                 .build()
                 .await
                 .wrap_err("failed to build rosz node")?,

@@ -1,3 +1,3 @@
 pub mod context;
 
-pub use context::AppContext;
+pub use context::{AppContext, NodeIdentity};
