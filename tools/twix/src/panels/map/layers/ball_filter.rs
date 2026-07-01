@@ -6,21 +6,27 @@ use eframe::epaint::{Color32, Stroke};
 use ball_filter::{BallFilter as BallFiltering, BallMode};
 use coordinate_systems::Ground;
 use linear_algebra::{Point, vector};
+use ros_z_debug::TopicObservation;
 use types::field_dimensions::FieldDimensions;
 
-use crate::{
-    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
-};
+use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
 
 pub struct BallFilter {
-    filter: BufferHandle<Option<BallFiltering>>,
+    filter: TopicObservation<BallFiltering>,
 }
 
 impl Layer<Ground> for BallFilter {
     const NAME: &'static str = "Ball Filter";
 
-    fn new(robot: Arc<Robot>) -> Self {
-        let filter = robot.subscribe_value("WorldState.additional_outputs.ball_filter_state");
+    fn new(backend: Arc<RobotBackend>) -> Self {
+        let _runtime_handle = backend.runtime_handle().enter();
+
+        let filter = backend
+            .observer()
+            .observe_typed("ball_filter/ball_filter_state")
+            .expect("failed to construct ball filter state observer")
+            .spawn();
+
         Self { filter }
     }
 
@@ -29,8 +35,10 @@ impl Layer<Ground> for BallFilter {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        if let Some(filter) = self.filter.get_last_value()?.flatten() {
-            for hypothesis in filter.hypotheses {
+        if let Some(ros_z_debug::SampleRecord { value: filter, .. }) =
+            self.filter.latest().as_deref()
+        {
+            for hypothesis in &filter.hypotheses {
                 let stroke = Stroke::new(0.01_f32, Color32::BLACK);
                 match hypothesis.mode {
                     BallMode::Resting(resting) => {

@@ -11648,6 +11648,7 @@ dependencies = [
 name = "twix"
 version = "0.13.0"
 dependencies = [
+ "ball_filter",
  "behavior_node",
  "clap",
  "color-eyre",
