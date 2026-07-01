@@ -1,6 +1,5 @@
 use coordinate_systems::Field;
-use geometry::line::Line;
-use linear_algebra::{Orientation2, Point, Point2, Rotation2, point};
+use linear_algebra::{Orientation2, Point2, Rotation2, point};
 use types::{
     behavior_tree::Status,
     motion_command::{BodyMotion, KickPower, MotionCommand},
@@ -173,11 +172,16 @@ pub fn intercept(blackboard: &mut Blackboard) -> Status {
         if velocity.norm() < f32::EPSILON {
             return Status::Failure;
         }
-        let ball_line = Line {
-            point: ball_in_ground,
-            direction: velocity,
-        };
-        let interception_point = ball_line.closest_point(Point::origin());
+        let time_to_closest_approach =
+            -ball_in_ground.coords().dot(&velocity) / velocity.norm_squared();
+        if time_to_closest_approach < 0.0 {
+            return Status::Failure;
+        }
+
+        let interception_point = ball_in_ground + velocity * time_to_closest_approach;
+        if interception_point.x() < blackboard.parameters.kicking.kick_position_ball_distance {
+            return Status::Failure;
+        }
 
         if interception_point.coords().norm()
             > blackboard

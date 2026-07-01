@@ -33,24 +33,24 @@ pub fn goalkeeper_subtree() -> Node<Blackboard> {
                 subtree!(goalkeeper_sub_state_subtree)
             ),
             sequence!(
-                condition!(is_goalkeeper_interception_candidate),
-                switch_motion_type(
-                    MotionType::Kick,
-                    sequence!(
-                        action!(kick),
-                        action!(intercept),
-                        action!(use_kick_power, KickPower::Rumpelstilzchen),
-                    ),
-                    subtree!(kick_alternatives_subtree),
-                )
-            ),
-            sequence!(
                 condition!(is_goalkeeper_kick_away_needed),
                 switch_motion_type(
                     MotionType::Kick,
                     sequence!(
                         action!(kick),
                         action!(select_goalkeeper_kick_away_target),
+                        action!(use_kick_power, KickPower::Rumpelstilzchen),
+                    ),
+                    subtree!(kick_alternatives_subtree),
+                )
+            ),
+            sequence!(
+                condition!(is_goalkeeper_interception_candidate),
+                switch_motion_type(
+                    MotionType::Kick,
+                    sequence!(
+                        action!(kick),
+                        action!(intercept),
                         action!(use_kick_power, KickPower::Rumpelstilzchen),
                     ),
                     subtree!(kick_alternatives_subtree),
@@ -138,6 +138,9 @@ fn is_goalkeeper_interception_candidate(blackboard: &mut Blackboard) -> bool {
 
     if let Some(ball) = &blackboard.ball {
         let field_dimensions = blackboard.field_dimensions;
+        let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field else {
+            return false;
+        };
 
         let own_goal_x = -field_dimensions.length / 2.0;
         let interception_line_x = own_goal_x + blackboard.parameters.keeper.x_offset;
@@ -154,7 +157,25 @@ fn is_goalkeeper_interception_candidate(blackboard: &mut Blackboard) -> bool {
             + field_dimensions.goal_post_diameter / 2.0
             + field_dimensions.ball_radius;
 
-        y_at_interception_line.abs() < goal_half_width
+        if y_at_interception_line.abs() >= goal_half_width {
+            return false;
+        }
+
+        let ball_in_ground = ground_to_field.inverse() * ball.position;
+        let velocity = ball.velocity;
+        let time_to_closest_approach =
+            -ball_in_ground.coords().dot(&velocity) / velocity.norm_squared();
+        if time_to_closest_approach < 0.0 {
+            return false;
+        }
+
+        let interception_point = ball_in_ground + velocity * time_to_closest_approach;
+        interception_point.x() >= blackboard.parameters.kicking.kick_position_ball_distance
+            && interception_point.coords().norm()
+                <= blackboard
+                    .parameters
+                    .intercept_ball
+                    .maximum_intercept_distance
     } else {
         false
     }
@@ -172,7 +193,7 @@ fn is_goalkeeper_kick_away_needed(blackboard: &mut Blackboard) -> bool {
         let parameters = &blackboard.parameters.keeper;
         let ball_in_ground = ground_to_field.inverse() * ball.position;
 
-        ball.velocity.norm() < parameters.kick_away_ball_maximum_velocity
+        ball_in_ground.x() > 0.0
             && ball_in_ground.coords().norm() < parameters.kick_away_ball_maximum_robot_distance
     } else {
         false
