@@ -34,8 +34,7 @@ pub use crate::communication::{
 };
 pub use crate::config::{
     DEFAULT_TICK_DURATION, SimulationConfig, default_behavior_parameters,
-    default_hsl_network_parameters,
-    default_walking_parameters,
+    default_hsl_network_parameters, default_walking_parameters,
 };
 pub use crate::game_controller::SimulatorGameState;
 pub use crate::invariant_checks::{
@@ -450,7 +449,7 @@ mod tests {
     use linear_algebra::{Isometry2, point, vector};
     use types::{
         field_dimensions::Side, motion_command::MotionCommand, primary_state::PrimaryState,
-    };    
+    };
     #[test]
     fn plugin_initializes_live_message_budget_from_simulation_config() {
         let mut app = App::new();
