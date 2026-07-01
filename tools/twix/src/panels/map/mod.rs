@@ -68,7 +68,7 @@ pub struct MapPanel {
     // image_segments: EnabledLayer<layers::ImageSegments, Ground>,
     lines: EnabledLayer<layers::Lines, Ground>,
     // ball_search_heatmap: EnabledLayer<layers::BallSearchHeatmap, Field>,
-    // line_correspondences: EnabledLayer<layers::LineCorrespondences, Field>,
+    line_correspondences: EnabledLayer<layers::LineCorrespondences, Field>,
     // path_obstacles: EnabledLayer<layers::PathObstacles, Ground>,
     // obstacles: EnabledLayer<layers::Obstacles, Ground>,
     // path: EnabledLayer<layers::Path, Ground>,
@@ -91,7 +91,7 @@ impl Panel for MapPanel {
     fn new(context: PanelCreationContext) -> Self {
         let field = EnabledLayer::new(context.backend.clone(), context.value, true);
         // let image_segments = EnabledLayer::new(context.backend.clone(), context.value, false);
-        // let line_correspondences = EnabledLayer::new(context.backend.clone(), context.value, false);
+        let line_correspondences = EnabledLayer::new(context.backend.clone(), context.value, false);
         let lines = EnabledLayer::new(context.backend.clone(), context.value, true);
         // let ball_search_heatmap = EnabledLayer::new(context.backend.clone(), context.value, false);
         // let path_obstacles = EnabledLayer::new(context.backend.clone(), context.value, false);
@@ -141,7 +141,7 @@ impl Panel for MapPanel {
             zoom_and_pan,
             field,
             // image_segments,
-            // line_correspondences,
+            line_correspondences,
             lines,
             // ball_search_heatmap,
             // path_obstacles,
@@ -167,7 +167,7 @@ impl Panel for MapPanel {
 
             "field": self.field.save(),
             // "image_segments": self.image_segments.save(),
-            // "line_correspondences": self.line_correspondences.save(),
+            "line_correspondences": self.line_correspondences.save(),
             "lines": self.lines.save(),
             // "ball_search_heatmap": self.obstacle_filter.save(),
             // "path_obstacles": self.path_obstacles.save(),
@@ -191,7 +191,7 @@ impl Panel for MapPanel {
             ui.menu_button("Overlays", |ui| {
                 self.field.checkbox(ui);
                 // self.image_segments.checkbox(ui);
-                // self.line_correspondences.checkbox(ui);
+                self.line_correspondences.checkbox(ui);
                 self.lines.checkbox(ui);
                 // self.ball_search_heatmap.checkbox(ui);
                 // self.path_obstacles.checkbox(ui);
@@ -263,8 +263,8 @@ impl Panel for MapPanel {
         // self.image_segments
         //     .generic_paint(&painter, ground_to_field, &field_dimensions);
 
-        // self.line_correspondences
-        //     .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.line_correspondences
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.lines
             .generic_paint(&painter, ground_to_field, &field_dimensions);
 
