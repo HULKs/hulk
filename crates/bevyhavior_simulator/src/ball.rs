@@ -2,6 +2,7 @@ use std::time::SystemTime;
 
 use bevy::prelude::*;
 use coordinate_systems::{Ground, World};
+use hsl_network_messages::Team;
 use linear_algebra::{Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::{
@@ -17,6 +18,7 @@ use crate::{
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct SimulatorBall {
     pub state: Option<SimulatedBall>,
+    pub last_touched_by: Option<Team>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
