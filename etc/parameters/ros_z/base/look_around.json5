@@ -1,7 +1,7 @@
 {
   look_around_timeout: {
     nanos: 0,
-    secs: 2,
+    secs: 5,
   },
   quick_search_timeout: {
     nanos: 300000000,
