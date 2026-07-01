@@ -413,9 +413,8 @@ fn apply_visual_kick_kinematics(
         KickAttempt::NotInRange => {}
     }
 
-    let standoff_distance = config
-        .kick_radius
-        .min(ball_position.coords().dot(&kick_direction_vector).max(0.0));
+    let standoff_distance =
+        (config.kick_radius * 0.9).min(ball_position.coords().dot(&kick_direction_vector).max(0.0));
     let kick_pose = ball_position - kick_direction_vector * standoff_distance;
     *ground_to_world = apply_walk_to_pose(
         *ground_to_world,

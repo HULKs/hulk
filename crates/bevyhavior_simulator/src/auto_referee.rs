@@ -308,7 +308,7 @@ impl AutoRefereeRule for BallOutOfFieldRule {
         let Some(ball) = context.ball.state else {
             return;
         };
-        if context.field_dimensions.is_inside_field(ball.position)
+        if !ball_has_left_playing_area(ball.position, context.field_dimensions)
             || context.field_dimensions.is_inside_any_goal(ball.position)
         {
             return;
@@ -578,7 +578,7 @@ fn ball_in_goal(
     field_dimensions: FieldDimensions,
     global_field_side: GlobalFieldSide,
 ) -> Option<Team> {
-    if !field_dimensions.is_inside_any_goal(ball.position) {
+    if !ball_has_crossed_goal_line(ball.position, field_dimensions) {
         return None;
     }
 
@@ -588,6 +588,32 @@ fn ball_in_goal(
     } else {
         Some(Team::Opponent)
     }
+}
+
+fn ball_has_left_playing_area(
+    ball_position: Point2<World>,
+    field_dimensions: FieldDimensions,
+) -> bool {
+    let x_limit = field_dimensions.length / 2.0
+        + field_dimensions.line_width / 2.0
+        + field_dimensions.ball_radius;
+    let y_limit = field_dimensions.width / 2.0
+        + field_dimensions.line_width / 2.0
+        + field_dimensions.ball_radius;
+
+    ball_position.x().abs() > x_limit || ball_position.y().abs() > y_limit
+}
+
+fn ball_has_crossed_goal_line(
+    ball_position: Point2<World>,
+    field_dimensions: FieldDimensions,
+) -> bool {
+    let x_limit = field_dimensions.length / 2.0
+        + field_dimensions.line_width / 2.0
+        + field_dimensions.ball_radius;
+
+    ball_position.x().abs() > x_limit
+        && ball_position.y().abs() < field_dimensions.goal_inner_width / 2.0
 }
 
 #[cfg(test)]
