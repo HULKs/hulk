@@ -93,8 +93,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+          fallback: none
       - name: Test
-        run: ./pepsi test --locked --all-features --workspace
+        run: ./pepsi nextest --locked --all-features --workspace
 
   # build:
   #   name: Build
