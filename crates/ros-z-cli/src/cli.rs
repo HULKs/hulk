@@ -1,4 +1,4 @@
-use std::{num::NonZeroUsize, time::Duration};
+use std::{num::NonZeroUsize, path::PathBuf, time::Duration};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
@@ -54,6 +54,14 @@ pub struct Cli {
     /// Zenoh router address
     #[arg(long, default_value = "tcp/127.0.0.1:7447", global = true)]
     pub router: String,
+
+    /// Namespace for the rosz node used by online commands
+    #[arg(long, default_value = "/", global = true)]
+    pub namespace: String,
+
+    /// Node name for the rosz node used by online commands
+    #[arg(long, default_value = "rosz", global = true)]
+    pub node_name: String,
 
     /// Emit JSON output when supported
     #[arg(long, global = true)]
@@ -137,6 +145,16 @@ pub enum OnlineCommand {
     },
     /// Estimate topic message frequency
     Hz(HzArgs),
+    /// Record topics into an MCAP file
+    Record {
+        /// Output MCAP path. Defaults to a timestamped file in the current directory.
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Topic names to record, using normal ros-z qualification rules
+        #[arg(required = true)]
+        topics: Vec<String>,
+    },
     /// Show metadata for a topic, service, or node
     Info {
         #[arg(value_enum)]
@@ -353,12 +371,74 @@ mod tests {
     }
 
     #[test]
+    fn parses_default_online_node_identity() {
+        let cli = Cli::parse_from(["rosz", "list", "topics"]);
+
+        assert_eq!(cli.namespace, "/");
+        assert_eq!(cli.node_name, "rosz");
+    }
+
+    #[test]
+    fn parses_global_online_node_identity_flags_after_subcommand() {
+        let cli = Cli::parse_from([
+            "rosz",
+            "record",
+            "relative_topic",
+            "--namespace",
+            "/tools",
+            "--node-name",
+            "recorder",
+        ]);
+
+        assert_eq!(cli.namespace, "/tools");
+        assert_eq!(cli.node_name, "recorder");
+        match cli.command {
+            Command::Online(OnlineCommand::Record { topics, .. }) => {
+                assert_eq!(topics, ["relative_topic"]);
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn record_help_describes_qualified_topic_names() {
+        let error = Cli::try_parse_from(["rosz", "record", "--help"])
+            .expect_err("record help should exit before parsing a command");
+
+        assert_eq!(error.kind(), ErrorKind::DisplayHelp);
+        let help = error.to_string();
+        assert!(help.contains("Topic names to record"));
+        assert!(help.contains("normal ros-z qualification rules"));
+        assert!(!help.contains("Exact topic names"));
+    }
+
+    #[test]
     fn parses_doctor_command_with_default_settle_timeout() {
         let cli = Cli::parse_from(["rosz", "doctor"]);
 
         match cli.command {
             Command::Online(OnlineCommand::Doctor { settle_timeout }) => {
                 assert_eq!(settle_timeout, Duration::from_secs(2));
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_record_command_with_output_and_topics() {
+        let cli = Cli::parse_from([
+            "rosz",
+            "record",
+            "--output",
+            "capture.mcap",
+            "/alpha",
+            "/beta",
+        ]);
+
+        match cli.command {
+            Command::Online(OnlineCommand::Record { output, topics }) => {
+                assert_eq!(output, Some(std::path::PathBuf::from("capture.mcap")));
+                assert_eq!(topics, ["/alpha", "/beta"]);
             }
             other => panic!("unexpected command: {other:?}"),
         }
@@ -395,6 +475,14 @@ mod tests {
             .expect_err("unitless settle timeout should be rejected");
 
         assert_eq!(error.kind(), ErrorKind::ValueValidation);
+    }
+
+    #[test]
+    fn record_command_requires_at_least_one_topic() {
+        let error = Cli::try_parse_from(["rosz", "record", "--output", "capture.mcap"])
+            .expect_err("record command must require a topic");
+
+        assert_eq!(error.kind(), ErrorKind::MissingRequiredArgument);
     }
 
     #[test]
