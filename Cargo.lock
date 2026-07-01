@@ -5170,7 +5170,7 @@ dependencies = [
  "search_suggestor",
  "segment_filter",
  "support_foot_estimator",
- "team_ball_receiver",
+ "team_ball_filter",
  "time_to_reach_kick_position",
  "tokio",
  "tracing-subscriber",
@@ -10429,13 +10429,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "591ef38edfb78ca4771ee32cf494cb8771944bee237a9b91fc9c1424ac4b777b"
 
 [[package]]
-name = "team_ball_receiver"
+name = "team_ball_filter"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
  "coordinate_systems",
+ "hsl_network_messages",
  "ros-z",
  "serde",
+ "tokio",
  "types",
 ]
 
