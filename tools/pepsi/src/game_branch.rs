@@ -2,14 +2,11 @@ use clap::Args;
 use color_eyre::{Result, eyre::WrapErr};
 use parameters::directory::LocationTarget;
 use repository::Repository;
-use tokio::{
-    io::{AsyncBufReadExt, BufReader, stdin},
-    process::Command,
-};
+use tokio::io::{AsyncBufReadExt, BufReader, stdin};
 
 use crate::{
-    deploy_config::{Branch, DeployConfig},
-    git::{create_and_switch_to_branch, create_commit, reset_to_head},
+    deploy_config::DeployConfig,
+    git::{create_and_switch_to_branch, create_commit, merge_squash, reset_to_head},
     player_number::{Arguments as PlayerNumberArguments, player_number},
 };
 
@@ -30,17 +27,12 @@ pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Resul
         .await
         .wrap_err("failed to create and switch to branch")?;
 
-    'branches: for Branch { remote, branch } in &config.branches {
-        let status = Command::new(repository.root.join("scripts/deploy"))
-            .arg(remote)
-            .arg(branch)
-            .status()
-            .await
-            .wrap_err("failed to execute deploy script")?;
+    'branches: for branch in &config.branches {
+        let status = merge_squash(&branch.to_string()).await;
 
-        if !status.success() {
+        if !status.is_ok() {
             eprintln!("Automatic merge failed.");
-            let skip_prompt = format!("Do you want to skip deploying '{remote}/{branch}'?");
+            let skip_prompt = format!("Do you want to skip deploying '{branch}'?");
 
             loop {
                 let skip = confirmation_prompt(&skip_prompt)
@@ -68,7 +60,7 @@ pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Resul
             }
         }
 
-        create_commit(&format!("{remote}/{branch}"))
+        create_commit(&branch.to_string())
             .await
             .wrap_err("failed to create commit")?;
     }
@@ -90,7 +82,7 @@ async fn configure_repository(repository: &Repository, config: DeployConfig) -> 
     repository
         .set_location(LocationTarget::Default, &config.location)
         .await
-        .wrap_err_with(|| format!("failed to set location for booster to {}", config.location))?;
+        .wrap_err_with(|| format!("failed to set location to {}", config.location))?;
 
     repository
         .configure_communication(config.with_communication)
