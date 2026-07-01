@@ -47,8 +47,8 @@ impl Default for SimulationConfig {
             head_yaw_velocity: 0.4,
             head_scan_period: Duration::from_secs(4),
             head_glance_angle: 0.25,
-            robot_radius: 0.25,
-            kick_radius: 0.25,
+            robot_radius: 0.16,
+            kick_radius: 0.35,
             remaining_amount_of_messages: Some(u16::MAX),
             game_controller_address: None,
         }

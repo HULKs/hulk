@@ -3,18 +3,64 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use bevy::prelude::*;
 use coordinate_systems::{Ground, World};
 use hsl_network_messages::Team;
-use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, vector};
+use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, point, vector};
 use motion::booster::walking::step_from_motion_command;
 use types::{
+    field_dimensions::FieldDimensions,
     motion_command::{HeadMotion, KickPower, MotionCommand},
     step::Step,
 };
 
 use crate::behavior_tree_simulator::{
     SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDownState,
-    SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorLastKickTime, SimulatorRobot,
-    SimulatorRobotFrames, SimulatorRobotParameters,
+    SimulatorFieldDimensions, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorLastKickTime,
+    SimulatorRobot, SimulatorRobotFrames, SimulatorRobotId, SimulatorRobotParameters,
 };
+
+pub fn resolve_collisions(
+    field_dimensions: Res<SimulatorFieldDimensions>,
+    config: Res<SimulationConfig>,
+    mut ball: ResMut<SimulatorBall>,
+    mut robots: Query<(Entity, &SimulatorRobot, &mut SimulatorGroundToWorld)>,
+) {
+    let mut robot_positions = robots
+        .iter()
+        .map(|(entity, robot, ground_to_world)| {
+            (
+                entity,
+                robot.id(),
+                ground_to_world.ground_to_world.translation(),
+            )
+        })
+        .collect::<Vec<_>>();
+    robot_positions.sort_by_key(|(_, robot_id, _)| *robot_id);
+
+    resolve_robot_robot_collisions(
+        &mut robot_positions,
+        config.robot_radius,
+        field_dimensions.0,
+    );
+
+    for (entity, _, resolved_position) in robot_positions.iter().copied() {
+        let Ok((_, _, mut ground_to_world)) = robots.get_mut(entity) else {
+            continue;
+        };
+        let rotation = ground_to_world.ground_to_world.orientation().angle();
+        ground_to_world.ground_to_world =
+            Isometry2::from_parts(resolved_position.coords(), rotation);
+    }
+
+    if let Some(ball) = &mut ball.state {
+        for (_, _, robot_position) in robot_positions {
+            resolve_ball_robot_collision(
+                ball,
+                robot_position,
+                config.robot_radius,
+                field_dimensions.0.ball_radius,
+            );
+        }
+    }
+}
 
 pub fn move_robots(
     clock: Res<SimulatorClock>,
@@ -98,6 +144,99 @@ pub fn move_robots(
             clock.tick_duration,
             &config,
         );
+    }
+}
+
+fn resolve_robot_robot_collisions(
+    robot_positions: &mut [(Entity, SimulatorRobotId, Point2<World>)],
+    robot_radius: f32,
+    field_dimensions: FieldDimensions,
+) {
+    let minimum_distance = 2.0 * robot_radius;
+    if minimum_distance <= 0.0 {
+        return;
+    }
+
+    for _ in 0..4 {
+        for i in 0..robot_positions.len() {
+            for j in (i + 1)..robot_positions.len() {
+                let delta = robot_positions[j].2 - robot_positions[i].2;
+                let distance = delta.norm();
+                if distance >= minimum_distance {
+                    continue;
+                }
+
+                let normal = collision_normal(delta, robot_positions[i].1, robot_positions[j].1);
+                let overlap = minimum_distance - distance;
+                robot_positions[i].2 -= normal * (overlap / 2.0);
+                robot_positions[j].2 += normal * (overlap / 2.0);
+            }
+        }
+        clamp_robot_positions_to_field(robot_positions, robot_radius, field_dimensions);
+    }
+}
+
+fn clamp_robot_positions_to_field(
+    robot_positions: &mut [(Entity, SimulatorRobotId, Point2<World>)],
+    robot_radius: f32,
+    field_dimensions: FieldDimensions,
+) {
+    let x_limit =
+        field_dimensions.length / 2.0 + field_dimensions.border_strip_width - robot_radius;
+    let y_limit = field_dimensions.width / 2.0 + field_dimensions.border_strip_width - robot_radius;
+    for (_, _, position) in robot_positions {
+        *position = point![
+            position.x().clamp(-x_limit, x_limit),
+            position.y().clamp(-y_limit, y_limit)
+        ];
+    }
+}
+
+fn resolve_ball_robot_collision(
+    ball: &mut SimulatedBall,
+    robot_position: Point2<World>,
+    robot_radius: f32,
+    ball_radius: f32,
+) {
+    let minimum_distance = robot_radius + ball_radius;
+    if minimum_distance <= 0.0 {
+        return;
+    }
+
+    let delta = ball.position - robot_position;
+    let distance = delta.norm();
+    if distance >= minimum_distance {
+        return;
+    }
+
+    let normal = if distance > f32::EPSILON {
+        delta / distance
+    } else if ball.velocity.norm() > f32::EPSILON {
+        ball.velocity.normalize()
+    } else {
+        vector![1.0, 0.0]
+    };
+
+    ball.position = robot_position + normal * minimum_distance;
+    let velocity_into_robot = ball.velocity.dot(&normal) < 0.0;
+    if velocity_into_robot {
+        ball.velocity -= normal * (2.0 * ball.velocity.dot(&normal));
+    }
+}
+
+fn collision_normal(
+    delta: Vector2<World>,
+    first_id: SimulatorRobotId,
+    second_id: SimulatorRobotId,
+) -> Vector2<World> {
+    if delta.norm() > f32::EPSILON {
+        return delta.normalize();
+    }
+
+    if first_id <= second_id {
+        vector![1.0, 0.0]
+    } else {
+        vector![-1.0, 0.0]
     }
 }
 
@@ -199,6 +338,12 @@ fn apply_walk_with_velocity_to_pose<Frame>(
     ground_to_frame * delta
 }
 
+enum KickAttempt {
+    Kicked,
+    CoolingDown,
+    NotInRange,
+}
+
 fn apply_kick_to_ball(
     now: SystemTime,
     ball: &mut Option<SimulatedBall>,
@@ -210,20 +355,22 @@ fn apply_kick_to_ball(
     expected_ball_position: Point2<Ground>,
     kick_direction: Orientation2<Ground>,
     kick_power: KickPower,
-) {
-    let Some(ball) = ball else { return };
+) -> KickAttempt {
+    let Some(ball) = ball else {
+        return KickAttempt::NotInRange;
+    };
     if now.duration_since(*last_kick_time).unwrap_or_default() < config.kick_cooldown {
-        return;
+        return KickAttempt::CoolingDown;
     }
 
     let expected_ball_in_world = ground_to_world * expected_ball_position;
     if (ball.position - expected_ball_in_world).norm() > config.kick_radius {
-        return;
+        return KickAttempt::NotInRange;
     }
 
     let actual_ball_in_ground = ground_to_world.inverse() * ball.position;
     if actual_ball_in_ground.coords().norm() > config.kick_radius {
-        return;
+        return KickAttempt::NotInRange;
     }
 
     let speed = match kick_power {
@@ -233,6 +380,7 @@ fn apply_kick_to_ball(
     ball.velocity = ground_to_world * (kick_direction.as_unit_vector() * speed);
     *last_touch_team = Some(kicking_team);
     *last_kick_time = now;
+    KickAttempt::Kicked
 }
 
 fn apply_visual_kick_kinematics(
@@ -248,15 +396,8 @@ fn apply_visual_kick_kinematics(
     kick_direction: Orientation2<Ground>,
     kick_power: KickPower,
 ) {
-    let kick_pose = ball_position - kick_direction.as_unit_vector() * config.kick_radius;
-    *ground_to_world = apply_walk_to_pose(
-        *ground_to_world,
-        step_towards_target(kick_pose, kick_direction, 1.0, config, tick_duration),
-        tick_duration,
-        config,
-    );
-
-    apply_kick_to_ball(
+    let kick_direction_vector = kick_direction.as_unit_vector();
+    match apply_kick_to_ball(
         now,
         ball,
         last_touch_team,
@@ -267,6 +408,20 @@ fn apply_visual_kick_kinematics(
         ball_position,
         kick_direction,
         kick_power,
+    ) {
+        KickAttempt::Kicked | KickAttempt::CoolingDown => return,
+        KickAttempt::NotInRange => {}
+    }
+
+    let standoff_distance = config
+        .kick_radius
+        .min(ball_position.coords().dot(&kick_direction_vector).max(0.0));
+    let kick_pose = ball_position - kick_direction_vector * standoff_distance;
+    *ground_to_world = apply_walk_to_pose(
+        *ground_to_world,
+        step_towards_target(kick_pose, kick_direction, 1.0, config, tick_duration),
+        tick_duration,
+        config,
     );
 }
 
