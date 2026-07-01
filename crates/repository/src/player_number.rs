@@ -5,7 +5,7 @@ use std::{
 
 use color_eyre::{Result, eyre::Context};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json, to_string_pretty};
+use serde_json::{Value, json};
 use tokio::fs::{create_dir_all, read_to_string, write};
 
 use crate::Repository;
@@ -75,7 +75,7 @@ impl Repository {
             serde_json::to_value(player_number).wrap_err("failed to serialize player number")?;
 
         let contents =
-            to_string_pretty(&parameters).wrap_err("failed to serialize global parameters")? + "\n";
+            json5::to_string(&parameters).wrap_err("failed to serialize global parameters")? + "\n";
         write(&global_parameters_path, contents)
             .await
             .wrap_err_with(|| {
