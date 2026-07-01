@@ -1,7 +1,7 @@
 use std::time::{Duration, SystemTime};
 
 use bevy::prelude::*;
-use hsl_network_messages::{GamePhase, GameState, PlayerNumber, Team, TeamColor, TeamState};
+use hsl_network_messages::{GamePhase, GameState, Half, PlayerNumber, Team, TeamColor, TeamState};
 use types::{
     field_dimensions::GlobalFieldSide, filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, game_controller_state::GameControllerState,
@@ -80,6 +80,7 @@ pub fn default_game_controller_state() -> GameControllerState {
         game_state: GameState::Playing,
         stopped: false,
         game_phase: GamePhase::Normal,
+        half: Half::First,
         remaining_time_in_half: Duration::ZERO,
         kicking_team: Some(Team::Hulks),
         last_game_state_change: SystemTime::UNIX_EPOCH,
@@ -140,6 +141,7 @@ pub fn filtered_game_controller_state_for_team(
     FilteredGameControllerState {
         game_state: filtered_game_state_from(game_controller_state),
         opponent_game_state: filtered_game_state_from(game_controller_state),
+        half: game_controller_state.half,
         remaining_time_in_half: game_controller_state.remaining_time_in_half,
         game_phase: game_controller_state.game_phase,
         kicking_team: game_controller_state
