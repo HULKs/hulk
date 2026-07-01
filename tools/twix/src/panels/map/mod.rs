@@ -80,7 +80,7 @@ pub struct MapPanel {
     ball_position: EnabledLayer<layers::BallPosition, Field>,
     ball_filter: EnabledLayer<layers::BallFilter, Ground>,
     obstacle_filter: EnabledLayer<layers::ObstacleFilter, Ground>,
-    // localization: EnabledLayer<layers::Localization, Field>,
+    localization: EnabledLayer<layers::Localization, Field>,
     // voronoi_cells: EnabledLayer<layers::VoronoiCell, Field>,
 }
 
@@ -105,7 +105,7 @@ impl Panel for MapPanel {
         let ball_position = EnabledLayer::new(context.backend.clone(), context.value, true);
         let ball_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
         let obstacle_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
-        // let localization = EnabledLayer::new(context.backend.clone(), context.value, false);
+        let localization = EnabledLayer::new(context.backend.clone(), context.value, false);
         // let voronoi_cells = EnabledLayer::new(context.backend.clone(), context.value, false);
 
         let runtime_handle = context.backend.runtime_handle().clone();
@@ -155,7 +155,7 @@ impl Panel for MapPanel {
             ball_position,
             ball_filter,
             obstacle_filter,
-            // localization,
+            localization,
             // voronoi_cells,
         }
     }
@@ -181,7 +181,7 @@ impl Panel for MapPanel {
             "ball_position": self.ball_position.save(),
             "ball_filter": self.ball_filter.save(),
             "obstacle_filter": self.obstacle_filter.save(),
-            // "localization": self.localization.save(),
+            "localization": self.localization.save(),
             // "voronoi_cells": self.voronoi_cells.save(),
         })
     }
@@ -205,7 +205,7 @@ impl Panel for MapPanel {
                 self.ball_position.checkbox(ui);
                 self.ball_filter.checkbox(ui);
                 self.obstacle_filter.checkbox(ui);
-                // self.localization.checkbox(ui);
+                self.localization.checkbox(ui);
                 // self.voronoi_cells.checkbox(ui);
             });
             ComboBox::from_id_salt("plot_type_selector")
@@ -292,8 +292,8 @@ impl Panel for MapPanel {
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.obstacle_filter
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        // self.localization
-        //     .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.localization
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
         // self.voronoi_cells
         //     .generic_paint(&painter, ground_to_field, &field_dimensions);
     }
