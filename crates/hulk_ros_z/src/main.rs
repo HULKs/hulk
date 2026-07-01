@@ -1,7 +1,10 @@
-use std::{future::Future, path::PathBuf, sync::Arc, time::Duration};
+use std::{env, future::Future, path::PathBuf, sync::Arc, time::Duration};
 
 use clap::Parser;
-use color_eyre::{Result, eyre::Context as _};
+use color_eyre::{
+    Result,
+    eyre::{Context as _, ContextCompat, bail},
+};
 use ros_z::prelude::*;
 use tokio::task::JoinSet;
 use tracing_subscriber::EnvFilter;
@@ -52,8 +55,17 @@ where
 async fn run() -> Result<()> {
     let args = Args::parse();
     let namespace = derive_namespace(&args.robot);
+
+    let Some(hardware_id) = env::var_os("HARDWARE_ID") else {
+        bail!("environment variable HARDWARE_ID not set");
+    };
+    let hardware_id = hardware_id
+        .into_string()
+        .ok()
+        .wrap_err("id was not valid UTF-8")?;
+
     let parameter_layers =
-        derive_parameter_layers(&args.parameter_root, &args.location, &args.robot);
+        derive_parameter_layers(&args.parameter_root, &args.location, &hardware_id);
 
     let mut builder = ContextBuilder::default()
         .with_namespace(&namespace)
