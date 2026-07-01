@@ -33,6 +33,19 @@ fn create_static_layout_default() -> NodeTrace {
     create_tree().static_layout_trace()
 }
 
+fn motion_type_for(motion_command: &MotionCommand) -> Option<MotionType> {
+    match motion_command {
+        MotionCommand::Damping => Some(MotionType::Damping),
+        MotionCommand::VisualKick { .. } => Some(MotionType::Kick),
+        MotionCommand::Walk { .. } | MotionCommand::WalkWithVelocity { .. } => {
+            Some(MotionType::Walk)
+        }
+        MotionCommand::Stand { .. } => Some(MotionType::Stand),
+        MotionCommand::StandUp => Some(MotionType::StandUp),
+        MotionCommand::Prepare => Some(MotionType::Prepare),
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Behavior {
     pub ball: Option<LastBall>,
@@ -214,14 +227,7 @@ impl Behavior {
         self.closest_to_ball_left_area_since = blackboard.closest_to_ball_left_area_since;
         *context.last_motion_command = motion_command.clone();
 
-        let motion_type = match motion_command.clone() {
-            MotionCommand::VisualKick { .. } => Some(MotionType::Kick),
-            MotionCommand::Walk { .. } => Some(MotionType::Walk),
-            MotionCommand::Stand { .. } => Some(MotionType::Stand),
-            MotionCommand::StandUp => Some(MotionType::StandUp),
-            MotionCommand::Prepare => Some(MotionType::Prepare),
-            _ => None,
-        };
+        let motion_type = motion_type_for(&motion_command);
 
         self.send_game_controller_return_message(
             context.world_state,
@@ -267,5 +273,23 @@ impl Behavior {
         Ok(MainOutputs {
             motion_command: motion_command.into(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use linear_algebra::vector;
+    use types::motion_command::HeadMotion;
+
+    #[test]
+    fn walk_with_velocity_maps_to_walk_motion_type() {
+        let command = MotionCommand::WalkWithVelocity {
+            head: HeadMotion::ZeroAngles,
+            velocity: vector![0.2, -0.1],
+            angular_velocity: 0.3,
+        };
+
+        assert_eq!(motion_type_for(&command), Some(MotionType::Walk));
     }
 }

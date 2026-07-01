@@ -21,5 +21,6 @@ path_planner = { workspace = true }
 ros-z = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 smallvec = { workspace = true }
+tracing = { workspace = true }
 types = { workspace = true }
 voronoi = { workspace = true }

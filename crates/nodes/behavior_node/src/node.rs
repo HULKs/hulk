@@ -8,6 +8,7 @@ use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
 use ros_z::{prelude::*, qos::QosDurability, time::Time};
 use serde::{Deserialize, Serialize};
+use tracing::info;
 use types::{
     ball_position::HypotheticalBallPosition,
     behavior_tree::NodeTrace,
@@ -367,17 +368,29 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let (status, trace) = tree.tick_with_trace(&mut blackboard);
         let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
 
+        let previous_motion_command = blackboard.last_motion_command.clone();
         blackboard.last_motion_command = motion_command.clone();
 
-        let motion_type = match motion_command.clone() {
+        let motion_type = match &motion_command {
+            MotionCommand::Damping => Some(MotionType::Damping),
             MotionCommand::VisualKick { .. } => Some(MotionType::Kick),
-            MotionCommand::Walk { .. } => Some(MotionType::Walk),
+            MotionCommand::Walk { .. } | MotionCommand::WalkWithVelocity { .. } => {
+                Some(MotionType::Walk)
+            }
             MotionCommand::Stand { .. } => Some(MotionType::Stand),
             MotionCommand::StandUp => Some(MotionType::StandUp),
             MotionCommand::Prepare => Some(MotionType::Prepare),
-            MotionCommand::Damping => Some(MotionType::Damping),
-            _ => None,
         };
+
+        if previous_motion_command != motion_command || motion_type != blackboard.last_motion_type {
+            info!(
+                target: "behavior_node::motion",
+                ?motion_command,
+                ?motion_type,
+                previous_motion_type = ?blackboard.last_motion_type,
+                "behavior motion command changed"
+            );
+        }
 
         if motion_type != blackboard.last_motion_type {
             blackboard.last_motion_switch_time = blackboard.world_state.now;

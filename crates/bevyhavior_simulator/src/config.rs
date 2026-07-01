@@ -63,14 +63,26 @@ pub fn default_behavior_parameters() -> Result<BehaviorParameters> {
 }
 
 #[derive(Deserialize)]
-struct WalkingParametersFile {
-    parameters: RLWalkingParameters,
+struct BoosterInterfaceParametersFile {
+    walking: BoosterWalkingParameters,
+}
+
+#[derive(Deserialize)]
+struct BoosterWalkingParameters {
+    hybrid_align_distance: f32,
+    max_alignment_rate: f32,
+    deceleration_distance: f32,
 }
 
 pub fn default_walking_parameters() -> Result<RLWalkingParameters> {
-    let file: WalkingParametersFile = json5::from_str(include_str!(
-        "../../../etc/parameters/ros_z/base/walking.json5"
+    let file: BoosterInterfaceParametersFile = json5::from_str(include_str!(
+        "../../../etc/parameters/ros_z/base/booster_interface.json5"
     ))
     .wrap_err("failed to parse walking parameters")?;
-    Ok(file.parameters)
+    Ok(RLWalkingParameters {
+        hybrid_align_distance: file.walking.hybrid_align_distance,
+        max_alignment_rate: file.walking.max_alignment_rate,
+        deceleration_distance: file.walking.deceleration_distance,
+        ..Default::default()
+    })
 }

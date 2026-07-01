@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use hsl_network_messages::PlayerNumber;
 use ros_z::{prelude::*, qos::QosDurability};
+use tracing::info;
 use types::{
     buttons::{ButtonPressType, Buttons},
     filtered_game_controller_state::FilteredGameControllerState,
@@ -75,23 +76,64 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 let filtered_game_controller_state = received_filtered_game_controller_state?;
 
+                let previous_primary_state = primary_state_filter.primary_state;
                 primary_state_filter.update_with_filtered_game_contoller_state(
                     &filtered_game_controller_state,
                     *player_number,
                 );
+                if primary_state_filter.primary_state != previous_primary_state {
+                    info!(
+                        target: "primary_state_filter::input",
+                        previous_primary_state = ?previous_primary_state,
+                        primary_state = ?primary_state_filter.primary_state,
+                        game_state = ?filtered_game_controller_state.game_state,
+                        player_number = ?*player_number,
+                        penalty = ?filtered_game_controller_state.penalties[*player_number],
+                        "primary state changed from game controller"
+                    );
+                }
             }
             received_buttons = buttons_sub.recv() => {
                 let Some(is_safe_pose) = is_safe_pose_cache.get_latest() else {continue};
 
                 let buttons = received_buttons?;
 
+                let previous_primary_state = primary_state_filter.primary_state;
+                let has_button_event = buttons.f1.is_some() || buttons.stand.is_some() || buttons.walking.is_some();
+                if has_button_event {
+                    info!(
+                        target: "primary_state_filter::input",
+                        ?buttons,
+                        is_safe_pose = *is_safe_pose,
+                        previous_primary_state = ?previous_primary_state,
+                        "received button input"
+                    );
+                }
                 primary_state_filter.update_with_buttons(&buttons, *is_safe_pose);
-
+                if primary_state_filter.primary_state != previous_primary_state {
+                    info!(
+                        target: "primary_state_filter::input",
+                        ?buttons,
+                        is_safe_pose = *is_safe_pose,
+                        previous_primary_state = ?previous_primary_state,
+                        primary_state = ?primary_state_filter.primary_state,
+                        "primary state changed from buttons"
+                    );
+                }
             }
         }
 
         if let Some(injected_primary_state) = parameters.injected_primary_state {
+            let previous_primary_state = primary_state_filter.primary_state;
             primary_state_filter.update_with_injected_primary_state(injected_primary_state);
+            if primary_state_filter.primary_state != previous_primary_state {
+                info!(
+                    target: "primary_state_filter::input",
+                    previous_primary_state = ?previous_primary_state,
+                    primary_state = ?primary_state_filter.primary_state,
+                    "primary state changed from injected parameter"
+                );
+            }
         }
 
         primary_state_pub
@@ -203,5 +245,26 @@ fn game_state_to_primary_state(game_state: FilteredGameState, is_penalized: bool
             FilteredGameState::Finished => PrimaryState::Finished,
             FilteredGameState::Stop => PrimaryState::Stop,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn update_with_buttons_enters_playing_from_initial_with_safe_long_stand_press() {
+        let mut primary_state_filter = PrimaryStateFilter {
+            primary_state: PrimaryState::Initial,
+        };
+        let buttons = Buttons {
+            f1: None,
+            stand: Some(ButtonPressType::Long),
+            walking: None,
+        };
+
+        primary_state_filter.update_with_buttons(&buttons, true);
+
+        assert_eq!(primary_state_filter.primary_state, PrimaryState::Playing);
     }
 }
