@@ -446,7 +446,7 @@ impl<World> TwixPainter<World> {
     }
 }
 impl TwixPainter<Ground> {
-    pub fn path(&self, path: Path, line_color: Color32, arc_color: Color32, width: f32) {
+    pub fn path(&self, path: &Path, line_color: Color32, arc_color: Color32, width: f32) {
         for segment in &path.segments {
             match segment {
                 PathSegment::LineSegment(line_segment) => self.line_segment(
