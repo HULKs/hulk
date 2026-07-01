@@ -23,7 +23,8 @@ pub fn calculate_voronoi_grid(blackboard: &mut Blackboard) -> Status {
         let border_strip_width = field_dimensions.border_strip_width;
 
         let centroid_x_max = if let Some(ball) = &blackboard.ball {
-            ball.position.x() + voronoi_parameters.centroid_offset
+            (ball.position.x() + voronoi_parameters.centroid_offset)
+                .max(-length_half + voronoi_parameters.minimum_centroid_margin_from_own_side)
         } else {
             length_half
         };

@@ -148,6 +148,7 @@
     centroid_anchor_weight: 0.6,
     centroid_anchor_sigma: 1.0,
     centroid_offset: 0.5,
+    minimum_centroid_margin_from_own_side: 2.0,
   },
   hsl_network: {
     game_controller_return_message_interval: {
