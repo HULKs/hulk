@@ -41,6 +41,8 @@ pub struct Behavior {
     pub last_kick_target: Option<Point2<Field>>,
     pub last_motion_switch_time: SystemTime,
     pub last_motion_type: Option<MotionType>,
+    #[serde(default)]
+    pub walk_to_state: WalkToState,
     #[serde(skip, default = "create_tree_default")]
     pub tree: Node<Blackboard>,
     #[serde(skip, default = "create_static_layout_default")]
@@ -58,6 +60,13 @@ pub struct LastBall {
     pub velocity: Vector2<Ground>,
     pub age: SystemTime,
     pub field_side: Side,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+pub struct WalkToState {
+    pub active: bool,
+    pub position_reached: bool,
+    pub orientation_reached: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -79,6 +88,7 @@ pub struct Blackboard {
     pub last_motion_command: MotionCommand,
     pub last_motion_switch_time: SystemTime,
     pub last_motion_type: Option<MotionType>,
+    pub walk_to_state: WalkToState,
     pub last_closest_to_ball: bool,
     pub closest_to_ball_entered_area_since: Option<SystemTime>,
     pub closest_to_ball_left_area_since: Option<SystemTime>,
@@ -137,6 +147,7 @@ impl Behavior {
             last_kick_target: None,
             last_motion_switch_time: SystemTime::UNIX_EPOCH,
             last_motion_type: None,
+            walk_to_state: WalkToState::default(),
             tree,
             static_layout,
             last_sent_game_controller_return_message_time: None,
@@ -175,6 +186,9 @@ impl Behavior {
             self.ball = None;
         }
 
+        let mut walk_to_state = self.walk_to_state;
+        walk_to_state.active = false;
+
         let mut blackboard = Blackboard {
             field_dimensions: *context.field_dimensions,
             free_kick_obstacle_radius: *context.free_kick_obstacle_radius,
@@ -193,6 +207,7 @@ impl Behavior {
             last_motion_command: context.last_motion_command.clone(),
             last_motion_switch_time: self.last_motion_switch_time,
             last_motion_type: self.last_motion_type,
+            walk_to_state,
             last_closest_to_ball: self.last_closest_to_ball,
             closest_to_ball_entered_area_since: self.closest_to_ball_entered_area_since,
             closest_to_ball_left_area_since: self.closest_to_ball_left_area_since,
@@ -206,6 +221,10 @@ impl Behavior {
         let (status, trace) = self.tree.tick_with_trace(&mut blackboard);
 
         let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
+        if !blackboard.walk_to_state.active {
+            blackboard.walk_to_state = WalkToState::default();
+        }
+        self.walk_to_state = blackboard.walk_to_state;
         self.last_kick_target = blackboard.last_kick_target;
 
         self.last_close_enough_to_kick = blackboard.last_close_enough_to_kick;

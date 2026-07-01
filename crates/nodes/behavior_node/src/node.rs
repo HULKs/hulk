@@ -37,6 +37,13 @@ pub struct LastBall {
     pub field_side: Side,
 }
 
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, Message)]
+pub struct WalkToState {
+    pub active: bool,
+    pub position_reached: bool,
+    pub orientation_reached: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 pub struct Blackboard {
     pub field_dimensions: FieldDimensions,
@@ -55,6 +62,8 @@ pub struct Blackboard {
     pub last_motion_command: MotionCommand,
     pub last_motion_switch_time: Time,
     pub last_motion_type: Option<MotionType>,
+    #[serde(default)]
+    pub walk_to_state: WalkToState,
     pub last_sent_game_controller_return_message_time: Option<Time>,
     pub last_sent_hsl_message_time: Option<Time>,
     pub last_closest_to_ball: bool,
@@ -266,6 +275,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         last_motion_command: MotionCommand::default(),
         last_motion_switch_time: Time::zero(),
         last_motion_type: None,
+        walk_to_state: WalkToState::default(),
         last_sent_game_controller_return_message_time: None,
         last_sent_hsl_message_time: None,
         last_closest_to_ball: false,
@@ -284,6 +294,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         blackboard.time_since_last_switch = Duration::ZERO;
         blackboard.direction_difference = 0.0;
         blackboard.voronoi_inputs.clear();
+        blackboard.walk_to_state.active = false;
 
         blackboard.is_injected_motion_command = false;
         blackboard.walk_position = None;
@@ -366,6 +377,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let (status, trace) = tree.tick_with_trace(&mut blackboard);
         let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
+        if !blackboard.walk_to_state.active {
+            blackboard.walk_to_state = WalkToState::default();
+        }
 
         blackboard.last_motion_command = motion_command.clone();
 
