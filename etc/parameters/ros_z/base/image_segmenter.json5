@@ -1,39 +1,39 @@
 {
-  horizontal_edge_threshold: 10,
+  horizontal_edge_threshold: 23,
   horizontal_median_mode: "FivePixels",
   horizontal_stride: 2,
-  vertical_edge_threshold: 8,
+  vertical_edge_threshold: 23,
   vertical_median_mode: "FivePixels",
   vertical_stride: 1,
   vertical_stride_in_ground: 0.02,
   field_color_detection: {
     luminance: {
-      start: 35,
-      end: 196,
+      start: 27,
+      end: 195,
     },
     green_luminance: {
-      start: 53,
-      end: 255,
+      start: 30,
+      end: 197,
     },
     red_chromaticity: {
-      start: 0.0,
+      start: 0.29,
       end: 0.455,
     },
     green_chromaticity: {
-      start: 0.01,
-      end: 0.69,
+      start: 0.39,
+      end: 0.57,
     },
     blue_chromaticity: {
-      start: 0.05,
+      start: 0.09,
       end: 0.48,
     },
     hue: {
-      start: 40,
-      end: 185,
+      start: 60,
+      end: 118,
     },
     saturation: {
-      start: 37,
-      end: 241,
+      start: 65,
+      end: 243,
     },
   },
 }
