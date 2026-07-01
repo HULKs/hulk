@@ -101,6 +101,8 @@ jobs:
         run: cargo binstall cargo-nextest --secure --no-confirm --disable-strategies compile
       - name: Test
         run: ./pepsi nextest
+      - name: Doctests
+        run: ./pepsi test --doc
 
   # build:
   #   name: Build
