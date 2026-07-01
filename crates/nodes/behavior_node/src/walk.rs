@@ -9,6 +9,7 @@ use types::{
     motion_type::MotionType,
     path::{Path, direct_path},
 };
+use voronoi::{Ownership, VoronoiGrid};
 
 use crate::{
     action,
@@ -258,7 +259,8 @@ pub fn walk_to_voronoi_position(blackboard: &mut Blackboard) -> Status {
     if let (Some(ground_to_field), Some(map)) = (
         blackboard.world_state.robot.ground_to_field,
         &blackboard.voronoi_map,
-    ) && let Some(target_position) = map.target_player_position(
+    ) && let Some(target_position) = target_player_position(
+        map,
         blackboard.world_state.robot.player_number,
         blackboard.ball.as_ref().map(|ball| ball.position),
     ) {
@@ -285,4 +287,89 @@ pub fn walk_to_voronoi_position(blackboard: &mut Blackboard) -> Status {
     } else {
         Status::Failure
     }
+}
+
+fn target_player_position(
+    map: &VoronoiGrid,
+    player: PlayerNumber,
+    ball_position: Option<Point2<Field>>,
+) -> Option<Point2<Field>> {
+    let mut sum_x = 0.0;
+    let mut sum_y = 0.0;
+    let mut count = 0;
+    let mut candidates = Vec::new();
+
+    for (index, ownership) in map.tiles.iter().copied().enumerate() {
+        if ownership != Ownership::Robot(player) {
+            continue;
+        }
+
+        let point = map.index_to_point(index);
+        candidates.push(point);
+
+        if map.cell_overlaps_centroid_bounds(index) {
+            sum_x += point.x();
+            sum_y += point.y();
+            count += 1;
+        }
+    }
+
+    if count == 0 {
+        return None;
+    }
+
+    let inv_count = 1.0 / count as f32;
+    let centroid: Point2<Field> = point![sum_x * inv_count, sum_y * inv_count];
+
+    let Some(ball_position) = ball_position else {
+        return Some(centroid);
+    };
+
+    let field_length = map.bounds.grid_max.x() - map.bounds.grid_min.x();
+    let half_length = field_length * 0.5;
+    let ball_x = ball_position.x();
+    let ball_y = ball_position.y();
+    let side_factor = (ball_x / half_length).clamp(-1.0, 1.0);
+
+    let support_distance = map
+        .parameters
+        .ball_support_distance
+        .max(map.parameters.grid_resolution);
+    let support_sigma = map
+        .parameters
+        .ball_support_sigma
+        .max(map.parameters.grid_resolution);
+    let inv_two_support_sigma_sq = 1.0 / (2.0 * support_sigma * support_sigma);
+
+    let centroid_sigma = map
+        .parameters
+        .centroid_anchor_sigma
+        .max(map.parameters.grid_resolution);
+
+    let mut best_target = None;
+
+    for point in candidates {
+        let forward_norm = point.x() / half_length;
+        let forward_term = map.parameters.forward_weight * side_factor * forward_norm;
+
+        let dx_ball = point.x() - ball_x;
+        let dy_ball = point.y() - ball_y;
+        let ball_distance = (dx_ball * dx_ball + dy_ball * dy_ball).sqrt();
+        let support_distance_error = ball_distance - support_distance;
+        let ball_term = map.parameters.ball_weight
+            * (-(support_distance_error * support_distance_error) * inv_two_support_sigma_sq).exp();
+
+        let dx_centroid = point.x() - centroid.x();
+        let dy_centroid = point.y() - centroid.y();
+        let centroid_penalty = map.parameters.centroid_anchor_weight
+            * (dx_centroid * dx_centroid + dy_centroid * dy_centroid).sqrt()
+            / centroid_sigma;
+
+        let score = forward_term + ball_term - centroid_penalty;
+        if best_target.is_none_or(|(best_score, _)| score > best_score) {
+            best_target = Some((score, point));
+        }
+    }
+
+    best_target.map(|(_, point)| point)
 }

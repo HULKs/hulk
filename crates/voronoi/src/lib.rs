@@ -106,8 +106,8 @@ pub struct VoronoiGrid {
     pub tiles: Vec<Ownership>,
     width_tiles: usize,
     height_tiles: usize,
-    parameters: VoronoiParameters,
-    bounds: VoronoiBounds,
+    pub parameters: VoronoiParameters,
+    pub bounds: VoronoiBounds,
 }
 
 impl VoronoiGrid {
@@ -330,92 +330,6 @@ impl VoronoiGrid {
         None
     }
 
-    pub fn target_player_position(
-        &self,
-        player: PlayerNumber,
-        ball_position: Option<Point2<Field>>,
-    ) -> Option<Point2<Field>> {
-        let mut sum_x = 0.0;
-        let mut sum_y = 0.0;
-        let mut count = 0;
-        let mut candidates = Vec::new();
-
-        for (index, ownership) in self.tiles.iter().copied().enumerate() {
-            if ownership != Ownership::Robot(player) {
-                continue;
-            }
-
-            let point = self.index_to_point(index);
-            candidates.push(point);
-
-            if self.cell_overlaps_centroid_bounds(index) {
-                sum_x += point.x();
-                sum_y += point.y();
-                count += 1;
-            }
-        }
-
-        if count == 0 {
-            return None;
-        }
-
-        let inv_count = 1.0 / count as f32;
-        let centroid: Point2<Field> = point![sum_x * inv_count, sum_y * inv_count];
-
-        let Some(ball_position) = ball_position else {
-            return Some(centroid);
-        };
-
-        let field_length = self.bounds.grid_max.x() - self.bounds.grid_min.x();
-        let half_length = field_length * 0.5;
-        let ball_x = ball_position.x();
-        let ball_y = ball_position.y();
-        let side_factor = (ball_x / half_length).clamp(-1.0, 1.0);
-
-        let support_distance = self
-            .parameters
-            .ball_support_distance
-            .max(self.parameters.grid_resolution);
-        let support_sigma = self
-            .parameters
-            .ball_support_sigma
-            .max(self.parameters.grid_resolution);
-        let inv_two_support_sigma_sq = 1.0 / (2.0 * support_sigma * support_sigma);
-
-        let centroid_sigma = self
-            .parameters
-            .centroid_anchor_sigma
-            .max(self.parameters.grid_resolution);
-
-        let mut best_target = None;
-
-        for point in candidates {
-            let forward_norm = point.x() / half_length;
-            let forward_term = self.parameters.forward_weight * side_factor * forward_norm;
-
-            let dx_ball = point.x() - ball_x;
-            let dy_ball = point.y() - ball_y;
-            let ball_distance = (dx_ball * dx_ball + dy_ball * dy_ball).sqrt();
-            let support_distance_error = ball_distance - support_distance;
-            let ball_term = self.parameters.ball_weight
-                * (-(support_distance_error * support_distance_error) * inv_two_support_sigma_sq)
-                    .exp();
-
-            let dx_centroid = point.x() - centroid.x();
-            let dy_centroid = point.y() - centroid.y();
-            let centroid_penalty = self.parameters.centroid_anchor_weight
-                * (dx_centroid * dx_centroid + dy_centroid * dy_centroid).sqrt()
-                / centroid_sigma;
-
-            let score = forward_term + ball_term - centroid_penalty;
-            if best_target.is_none_or(|(best_score, _)| score > best_score) {
-                best_target = Some((score, point));
-            }
-        }
-
-        best_target.map(|(_, point)| point)
-    }
-
     fn point_to_index(&self, p: Point2<Field>) -> Option<usize> {
         let ix =
             ((p.x() - self.bounds.grid_min.x()) / self.parameters.grid_resolution).floor() as isize;
@@ -440,7 +354,7 @@ impl VoronoiGrid {
         )
     }
 
-    fn cell_overlaps_centroid_bounds(&self, index: usize) -> bool {
+    pub fn cell_overlaps_centroid_bounds(&self, index: usize) -> bool {
         let (x, y) = xy_from_index(self.width_tiles, index);
         let resolution = self.parameters.grid_resolution;
 
