@@ -1,0 +1,281 @@
+use std::f32::consts::PI;
+
+use booster::Kick;
+use linear_algebra::{Orientation2, Point2};
+use ros_z::time::Time;
+use ros2::std_msgs::header::Header;
+use types::{
+    motion_command::{KickPower, MotionCommand, OrientationMode},
+    parameters::BoosterKickingParameters,
+    path::traits::{Length, PathProgress},
+    step::Step,
+};
+
+use crate::WalkingParameters;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum DesiredMode {
+    Damping,
+    Prepare,
+    Soccer,
+}
+
+pub fn desired_mode_for(command: &MotionCommand) -> DesiredMode {
+    match command {
+        MotionCommand::Damping => DesiredMode::Damping,
+        MotionCommand::Prepare | MotionCommand::StandUp => DesiredMode::Prepare,
+        MotionCommand::Stand { .. }
+        | MotionCommand::VisualKick { .. }
+        | MotionCommand::Walk { .. }
+        | MotionCommand::WalkWithVelocity { .. } => DesiredMode::Soccer,
+    }
+}
+
+pub fn target_alignment_importance(
+    distance_to_be_aligned: f32,
+    hybrid_align_distance: f32,
+    distance_to_target: f32,
+) -> f32 {
+    if distance_to_target < distance_to_be_aligned {
+        1.0
+    } else if distance_to_target < distance_to_be_aligned + hybrid_align_distance {
+        (1.0 + f32::cos(PI * (distance_to_target - distance_to_be_aligned) / hybrid_align_distance))
+            * 0.5
+    } else {
+        0.0
+    }
+}
+
+pub fn step_from_motion_command(command: &MotionCommand, parameters: &WalkingParameters) -> Step {
+    match command {
+        MotionCommand::Walk {
+            path,
+            orientation_mode,
+            target_orientation,
+            distance_to_be_aligned,
+            speed,
+            ..
+        } => {
+            let forward = path.forward(Point2::origin());
+            let distance_to_target = path.length();
+            let deceleration_factor =
+                (distance_to_target / parameters.deceleration_distance).clamp(0.0, 1.0);
+            let velocity = forward * *speed * deceleration_factor;
+
+            let walk_orientation = match orientation_mode {
+                OrientationMode::Unspecified | OrientationMode::AlignWithPath => {
+                    Orientation2::from_vector(forward)
+                }
+                OrientationMode::LookTowards { direction, .. } => *direction,
+                OrientationMode::LookAt { target, .. } => {
+                    Orientation2::from_vector(*target - Point2::origin())
+                }
+            };
+
+            let target_alignment_importance = target_alignment_importance(
+                *distance_to_be_aligned,
+                parameters.hybrid_align_distance,
+                distance_to_target,
+            );
+
+            let orientation =
+                walk_orientation.slerp(*target_orientation, target_alignment_importance);
+            let angular_velocity = orientation.as_unit_vector().y() * parameters.max_alignment_rate;
+
+            Step {
+                forward: velocity.x(),
+                left: velocity.y(),
+                turn: angular_velocity,
+            }
+        }
+        MotionCommand::WalkWithVelocity {
+            velocity,
+            angular_velocity,
+            ..
+        } => Step {
+            forward: velocity.x(),
+            left: velocity.y(),
+            turn: *angular_velocity,
+        },
+        MotionCommand::Stand { .. }
+        | MotionCommand::Damping
+        | MotionCommand::Prepare
+        | MotionCommand::StandUp
+        | MotionCommand::VisualKick { .. } => Step::ZERO,
+    }
+}
+
+pub fn kick_from_motion_command(
+    command: &MotionCommand,
+    stamp: Time,
+    parameters: &BoosterKickingParameters,
+) -> Option<Kick> {
+    let MotionCommand::VisualKick {
+        ball_position,
+        kick_direction,
+        target_position,
+        robot_theta_to_field,
+        kick_power,
+        ..
+    } = command
+    else {
+        return None;
+    };
+
+    let kick_power = match kick_power {
+        KickPower::Rumpelstilzchen => parameters.kick_power.rumpelstilzchen,
+        KickPower::Schlong => parameters.kick_power.schlong,
+    };
+
+    Some(Kick {
+        header: Header {
+            stamp: stamp.to_wallclock().into(),
+            frame_id: String::new(),
+        },
+        ball_position_x: ball_position.x() as f64,
+        ball_position_y: ball_position.y() as f64,
+        kick_direction_angle: kick_direction.angle() as f64,
+        target_position_x: target_position.x() as f64,
+        target_position_y: target_position.y() as f64,
+        robot_angle_to_field: robot_theta_to_field.angle() as f64,
+        kick_power,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use linear_algebra::{point, vector};
+    use types::{motion_command::HeadMotion, path::direct_path};
+
+    fn walking_parameters() -> WalkingParameters {
+        WalkingParameters {
+            hybrid_align_distance: 1.0,
+            max_alignment_rate: 2.0,
+            deceleration_distance: 0.5,
+        }
+    }
+
+    #[test]
+    fn visual_kick_command_builds_booster_kick_message() {
+        use types::motion_command::KickPower;
+        use types::parameters::{BoosterKickingParameters, KickPowerParameters};
+
+        let command = MotionCommand::VisualKick {
+            head: HeadMotion::ZeroAngles,
+            ball_position: point![1.0, -0.5],
+            kick_direction: Orientation2::new(0.25),
+            target_position: point![4.0, 0.5],
+            robot_theta_to_field: Orientation2::new(-0.2),
+            kick_power: KickPower::Schlong,
+        };
+        let parameters = BoosterKickingParameters {
+            kick_message_interval: Default::default(),
+            kick_power: KickPowerParameters {
+                rumpelstilzchen: 1.5,
+                schlong: 6.0,
+            },
+        };
+
+        let kick = kick_from_motion_command(&command, Time::zero(), &parameters).unwrap();
+
+        assert_eq!(kick.ball_position_x, 1.0);
+        assert_eq!(kick.ball_position_y, -0.5);
+        assert_eq!(kick.target_position_x, 4.0);
+        assert_eq!(kick.target_position_y, 0.5);
+        assert_eq!(kick.kick_power, 6.0);
+    }
+
+    #[test]
+    fn walking_commands_request_soccer_mode() {
+        let command = MotionCommand::WalkWithVelocity {
+            head: HeadMotion::ZeroAngles,
+            velocity: vector![1.0, 0.0],
+            angular_velocity: 0.0,
+        };
+
+        assert_eq!(desired_mode_for(&command), DesiredMode::Soccer);
+    }
+
+    #[test]
+    fn prepare_requests_prepare_mode() {
+        assert_eq!(
+            desired_mode_for(&MotionCommand::Prepare),
+            DesiredMode::Prepare
+        );
+    }
+
+    #[test]
+    fn stand_up_requests_prepare_mode() {
+        assert_eq!(
+            desired_mode_for(&MotionCommand::StandUp),
+            DesiredMode::Prepare
+        );
+    }
+
+    #[test]
+    fn damping_requests_damping_mode() {
+        assert_eq!(
+            desired_mode_for(&MotionCommand::Damping),
+            DesiredMode::Damping
+        );
+    }
+
+    #[test]
+    fn walk_with_velocity_maps_directly_to_step() {
+        let command = MotionCommand::WalkWithVelocity {
+            head: HeadMotion::ZeroAngles,
+            velocity: vector![0.3, -0.2],
+            angular_velocity: 0.4,
+        };
+        let step = step_from_motion_command(&command, &walking_parameters());
+
+        assert_eq!(step.forward, 0.3);
+        assert_eq!(step.left, -0.2);
+        assert_eq!(step.turn, 0.4);
+    }
+
+    #[test]
+    fn stand_maps_to_zero_step() {
+        let command = MotionCommand::Stand {
+            head: HeadMotion::ZeroAngles,
+        };
+        let step = step_from_motion_command(&command, &walking_parameters());
+
+        assert_eq!(step.forward, 0.0);
+        assert_eq!(step.left, 0.0);
+        assert_eq!(step.turn, 0.0);
+    }
+
+    #[test]
+    fn target_alignment_importance_is_one_inside_align_distance() {
+        assert_eq!(target_alignment_importance(1.0, 2.0, 0.5), 1.0);
+    }
+
+    #[test]
+    fn target_alignment_importance_is_zero_outside_hybrid_range() {
+        assert_eq!(target_alignment_importance(1.0, 2.0, 4.0), 0.0);
+    }
+
+    #[test]
+    fn target_alignment_importance_blends_with_cosine() {
+        let importance = target_alignment_importance(1.0, 2.0, 2.0);
+        assert!((importance - 0.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn walk_path_decelerates_near_target() {
+        let command = MotionCommand::Walk {
+            head: HeadMotion::ZeroAngles,
+            path: direct_path(point![0.0, 0.0], point![0.25, 0.0]),
+            orientation_mode: OrientationMode::AlignWithPath,
+            target_orientation: Orientation2::new(0.0),
+            distance_to_be_aligned: 0.0,
+            speed: 1.0,
+        };
+
+        let step = step_from_motion_command(&command, &walking_parameters());
+
+        assert!((step.forward - 0.5).abs() < 0.001);
+    }
+}

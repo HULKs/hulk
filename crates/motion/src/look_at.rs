@@ -105,9 +105,6 @@ impl LookAt {
                 target,
                 image_region_target,
             } => (target, image_region_target, true),
-            // HeadMotion::LookAtReferee {
-            //     image_region_target,
-            // } => (expected_referee_position, image_region_target, true),
             HeadMotion::LookLeftAndRightOf { target } => {
                 let left_right_shift = vector![
                     0.0,

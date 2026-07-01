@@ -41,12 +41,13 @@ pub fn is_allowed_to_switch(blackboard: &mut Blackboard) -> bool {
 
     blackboard.time_since_last_switch = time_since_last_switch;
     match blackboard.last_motion_type {
+        Some(MotionType::Damping) => parameters.damping < time_since_last_switch,
         Some(MotionType::Kick) => parameters.kick < time_since_last_switch,
         Some(MotionType::Prepare) => parameters.prepare < time_since_last_switch,
         Some(MotionType::Stand) => parameters.stand < time_since_last_switch,
         Some(MotionType::StandUp) => parameters.stand_up < time_since_last_switch,
         Some(MotionType::Walk) => parameters.walk < time_since_last_switch,
-        Some(MotionType::Damping) | None => true,
+        None => true,
     }
 }
 

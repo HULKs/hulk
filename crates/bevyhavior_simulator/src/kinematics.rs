@@ -147,7 +147,6 @@ fn desired_head_yaw(
         }
         Some(HeadMotion::ZeroAngles)
         | Some(HeadMotion::Center { .. })
-        | Some(HeadMotion::LookAtReferee { .. })
         | Some(HeadMotion::Unstiff)
         | None => 0.0,
     }
