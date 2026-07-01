@@ -70,7 +70,7 @@ pub struct MapPanel {
     ball_search_heatmap: EnabledLayer<layers::BallSearchHeatmap, Field>,
     line_correspondences: EnabledLayer<layers::LineCorrespondences, Field>,
     // path_obstacles: EnabledLayer<layers::PathObstacles, Ground>,
-    // obstacles: EnabledLayer<layers::Obstacles, Ground>,
+    obstacles: EnabledLayer<layers::Obstacles, Ground>,
     // path: EnabledLayer<layers::Path, Ground>,
     // behavior_simulator: EnabledLayer<layers::BehaviorSimulator, Field>,
     robot_pose: EnabledLayer<layers::RobotPose, Ground>,
@@ -95,7 +95,7 @@ impl Panel for MapPanel {
         let lines = EnabledLayer::new(context.backend.clone(), context.value, true);
         let ball_search_heatmap = EnabledLayer::new(context.backend.clone(), context.value, false);
         // let path_obstacles = EnabledLayer::new(context.backend.clone(), context.value, false);
-        // let obstacles = EnabledLayer::new(context.backend.clone(), context.value, false);
+        let obstacles = EnabledLayer::new(context.backend.clone(), context.value, false);
         // let path = EnabledLayer::new(context.backend.clone(), context.value, false);
         // let behavior_simulator = EnabledLayer::new(context.backend.clone(), context.value, false);
         // let referee_position = EnabledLayer::new(context.backend.clone(), context.value, false);
@@ -145,7 +145,7 @@ impl Panel for MapPanel {
             lines,
             ball_search_heatmap,
             // path_obstacles,
-            // obstacles,
+            obstacles,
             // path,
             // behavior_simulator,
             robot_pose,
@@ -171,7 +171,7 @@ impl Panel for MapPanel {
             "lines": self.lines.save(),
             "ball_search_heatmap": self.ball_search_heatmap.save(),
             // "path_obstacles": self.path_obstacles.save(),
-            // "obstacles": self.obstacles.save(),
+            "obstacles": self.obstacles.save(),
             // "path": self.path.save(),
             // "behavior_simulator": self.behavior_simulator.save(),
             // "pose_detection": self.referee_position.save(),
@@ -195,7 +195,7 @@ impl Panel for MapPanel {
                 self.lines.checkbox(ui);
                 self.ball_search_heatmap.checkbox(ui);
                 // self.path_obstacles.checkbox(ui);
-                // self.obstacles.checkbox(ui);
+                self.obstacles.checkbox(ui);
                 // self.path.checkbox(ui);
                 // self.behavior_simulator.checkbox(ui);
                 // self.pose_detection.checkbox(ui);
@@ -272,8 +272,8 @@ impl Panel for MapPanel {
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         // self.path_obstacles
         //     .generic_paint(&painter, ground_to_field, &field_dimensions);
-        // self.obstacles
-        //     .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.obstacles
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
         // self.path
         //     .generic_paint(&painter, ground_to_field, &field_dimensions);
         // self.behavior_simulator
