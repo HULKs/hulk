@@ -32,8 +32,6 @@ pub struct DeployConfig {
     pub assignments: Vec<RobotAddressPlayerAssignment>,
     #[serde(deserialize_with = "deserialize_assignments")]
     pub substitutions: Vec<RobotAddressPlayerAssignment>,
-    pub with_communication: bool,
-    pub recording_intervals: HashMap<String, usize>,
 }
 
 impl DeployConfig {
@@ -104,19 +102,9 @@ impl DeployConfig {
         .wrap_err("failed to set player numbers")?;
 
         repository
-            .configure_recording_intervals(self.recording_intervals)
-            .await
-            .wrap_err("failed to apply recording settings")?;
-
-        repository
             .set_location(LocationTarget::Default, &self.location)
             .await
             .wrap_err_with(|| format!("failed to set location for robot to {}", self.location))?;
-
-        repository
-            .configure_communication(self.with_communication)
-            .await
-            .wrap_err("failed to set communication")?;
 
         Ok(())
     }

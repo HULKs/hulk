@@ -12,7 +12,6 @@ use aliveness::aliveness;
 use analyze::analyze;
 use boosterize::boosterize;
 use cargo::{build, cargo, check, clippy, install, nextest, run, test};
-use communication::communication;
 use completions::completions;
 use game_branch::game_branch;
 use gammaray::gammaray;
@@ -26,7 +25,6 @@ use post_game::post_game;
 use power_off::power_off;
 use pre_game::pre_game;
 use reboot::reboot;
-use recording::recording;
 use sdk::sdk;
 use shell::shell;
 use tensorrt_compile::tensorrt_compile;
@@ -38,7 +36,6 @@ mod aliveness;
 mod analyze;
 mod boosterize;
 mod cargo;
-mod communication;
 mod completions;
 mod deploy_config;
 mod format;
@@ -56,7 +53,6 @@ mod power_off;
 mod pre_game;
 mod progress_indicator;
 mod reboot;
-mod recording;
 mod sdk;
 mod shell;
 mod tensorrt_compile;
@@ -96,9 +92,6 @@ enum Command {
     /// Check a package to catch common mistakes
     #[command(visible_alias = "klammer")]
     Clippy(cargo::Arguments<clippy::Arguments>),
-    /// Enable/disable communication
-    #[command(subcommand, visible_alias = "kommunikation")]
-    Communication(communication::Arguments),
     /// Generate shell completion files
     #[command(visible_alias = "vervollständigung")]
     Completions(completions::Arguments),
@@ -150,9 +143,6 @@ enum Command {
     /// Reboot Robots
     #[command(visible_alias = "neu-stiefeln")]
     Reboot(reboot::Arguments),
-    /// Set cycler instances to be recorded
-    #[command(visible_alias = "aufnahme")]
-    Recording(recording::Arguments),
     /// Run a binary or example of the local package
     #[command(visible_alias = "lauf")]
     Run(cargo::Arguments<run::Arguments>),
@@ -237,9 +227,6 @@ async fn main() -> Result<()> {
         Command::Clippy(arguments) => cargo(arguments, &repository?, &[] as &[&str])
             .await
             .wrap_err("failed to execute clippy command")?,
-        Command::Communication(arguments) => communication(arguments, &repository?)
-            .await
-            .wrap_err("failed to execute communication command")?,
         Command::Completions(arguments) => completions(arguments, Arguments::command())
             .await
             .wrap_err("failed to execute completion command")?,
@@ -286,9 +273,6 @@ async fn main() -> Result<()> {
         Command::Reboot(arguments) => reboot(arguments)
             .await
             .wrap_err("failed to execute reboot command")?,
-        Command::Recording(arguments) => recording(arguments, &repository?)
-            .await
-            .wrap_err("failed to execute recording command")?,
         Command::Run(arguments) => cargo(arguments, &repository?, &[] as &[&str])
             .await
             .wrap_err("failed to execute run command")?,

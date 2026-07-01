@@ -75,19 +75,9 @@ pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Resul
 
 async fn configure_repository(repository: &Repository, config: DeployConfig) -> Result<()> {
     repository
-        .configure_recording_intervals(config.recording_intervals)
-        .await
-        .wrap_err("failed to apply recording settings")?;
-
-    repository
         .set_location(LocationTarget::Default, &config.location)
         .await
         .wrap_err_with(|| format!("failed to set location to {}", config.location))?;
-
-    repository
-        .configure_communication(config.with_communication)
-        .await
-        .wrap_err("failed to set communication")?;
 
     player_number(
         PlayerNumberArguments {
