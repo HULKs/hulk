@@ -34,6 +34,7 @@ pub use crate::communication::{
 };
 pub use crate::config::{
     DEFAULT_TICK_DURATION, SimulationConfig, default_behavior_parameters,
+    default_hsl_network_parameters,
     default_walking_parameters,
 };
 pub use crate::game_controller::SimulatorGameState;
@@ -111,7 +112,8 @@ impl Default for BehaviorTreeSimulatorPlugin {
             config: SimulationConfig::default(),
             auto_referee_config: AutoRefereeConfig::default(),
             field_dimensions: FieldDimensions::SPL_2025,
-            hsl_network_parameters: HslNetworkParameters::default(),
+            hsl_network_parameters: default_hsl_network_parameters()
+                .expect("failed to load default HSL network parameters"),
             tick_duration: DEFAULT_TICK_DURATION,
             enable_default_ball_physics: true,
             enable_default_kinematics: true,
@@ -448,8 +450,7 @@ mod tests {
     use linear_algebra::{Isometry2, point, vector};
     use types::{
         field_dimensions::Side, motion_command::MotionCommand, primary_state::PrimaryState,
-    };
-
+    };    
     #[test]
     fn plugin_initializes_live_message_budget_from_simulation_config() {
         let mut app = App::new();

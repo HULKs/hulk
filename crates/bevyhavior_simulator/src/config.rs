@@ -2,7 +2,7 @@ use std::{net::SocketAddr, time::Duration};
 
 use color_eyre::{Result, eyre::Context};
 use serde::Deserialize;
-use types::parameters::{BehaviorParameters, RLWalkingParameters};
+use types::parameters::{BehaviorParameters, HslNetworkParameters, RLWalkingParameters};
 
 pub const DEFAULT_TICK_DURATION: Duration = Duration::from_millis(10);
 
@@ -60,6 +60,19 @@ pub fn default_behavior_parameters() -> Result<BehaviorParameters> {
         "../../../etc/parameters/ros_z/base/behavior_node.json5"
     ))
     .wrap_err("failed to parse behavior parameters")
+}
+
+#[derive(Deserialize)]
+struct GlobalParametersFile {
+    hsl_network: HslNetworkParameters,
+}
+
+pub fn default_hsl_network_parameters() -> Result<HslNetworkParameters> {
+    let file: GlobalParametersFile = json5::from_str(include_str!(
+        "../../../etc/parameters/ros_z/base/global.json5"
+    ))
+    .wrap_err("failed to parse global parameters")?;
+    Ok(file.hsl_network)
 }
 
 #[derive(Deserialize)]
