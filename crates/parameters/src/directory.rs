@@ -183,24 +183,20 @@ pub enum Location {
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum LocationTarget {
-    Booster,
-    Mujoco,
-    BehaviorSimulator,
+    Default,
 }
 
 impl Display for LocationTarget {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         f.write_str(match self {
-            LocationTarget::Booster => "booster",
-            LocationTarget::Mujoco => "mujoco",
-            LocationTarget::BehaviorSimulator => "behavior_simulator",
+            LocationTarget::Default => "default",
         })
     }
 }
 
 impl LocationTarget {
-    pub fn all() -> [Self; 3] {
-        [Self::Booster, Self::Mujoco, Self::BehaviorSimulator]
+    pub fn all() -> [Self; 1] {
+        [Self::Default]
     }
 
     pub fn file_name(&self) -> String {
@@ -231,16 +227,8 @@ fn file_path_from_scope(
     }
 }
 
-fn location_directory_from_id(id: &str) -> LocationTarget {
-    let mujoco_id_found = id.starts_with("mujoco");
-    let behavior_simulator_id_found = id.starts_with("behavior_simulator");
-    if mujoco_id_found {
-        LocationTarget::Mujoco
-    } else if behavior_simulator_id_found {
-        LocationTarget::BehaviorSimulator
-    } else {
-        LocationTarget::Booster
-    }
+fn location_directory_from_id(_id: &str) -> LocationTarget {
+    LocationTarget::Default
 }
 
 fn read_from_file(file_path: impl AsRef<Path>) -> Result<Value, SerializationError> {
