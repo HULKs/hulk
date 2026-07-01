@@ -6,29 +6,7 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use toml::{Value, map::Entry};
 
-const DEFAULT_CONFIG: &str = r#"
-[keys]
-C-t = "open_split"
-C-T = "open_tab"
-
-C-o = "focus_namespace"
-C-p = "focus_panel"
-
-C-h = "focus_left"
-C-j = "focus_below"
-C-k = "focus_above"
-C-l = "focus_right"
-
-C-Up = "focus_above"
-C-Down = "focus_below"
-C-Left = "focus_left"
-C-Right = "focus_right"
-
-C-w = "close_tab"
-C-d = "duplicate_tab"
-
-C-S-Backspace = "close_all"
-"#;
+const DEFAULT_CONFIG: &str = include_str!("../config_default.toml");
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -40,7 +18,7 @@ pub enum Error {
 
 fn config_path() -> PathBuf {
     let mut result = dirs::config_dir().unwrap();
-    result.extend(["hulks", "twix-ros-z.toml"]);
+    result.extend(["hulks", "twix.toml"]);
 
     result
 }
@@ -49,6 +27,14 @@ fn config_path() -> PathBuf {
 #[derive(Debug, Deserialize)]
 pub struct Configuration {
     pub keys: keys::Keybinds,
+    pub robots: RobotConfig,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Deserialize)]
+pub struct RobotConfig {
+    pub lowest: u8,
+    pub highest: u8,
 }
 
 impl Configuration {
@@ -120,31 +106,11 @@ mod tests {
     }
 
     #[test]
-    fn config_path_uses_ros_z_specific_file() {
+    fn config_path_uses_legacy_file() {
         assert_eq!(
             config_path().file_name().and_then(|name| name.to_str()),
-            Some("twix-ros-z.toml")
+            Some("twix.toml")
         );
-    }
-
-    #[test]
-    fn default_config_contains_only_current_ros_z_actions() {
-        let config: toml::Value = toml::from_str(DEFAULT_CONFIG).unwrap();
-        let keys = config
-            .get("keys")
-            .and_then(toml::Value::as_table)
-            .expect("default config should contain keys");
-
-        assert_eq!(
-            keys.get("C-o").and_then(toml::Value::as_str),
-            Some("focus_namespace")
-        );
-        assert!(
-            !keys
-                .values()
-                .any(|action| action.as_str() == Some("reconnect"))
-        );
-        assert!(config.get("robots").is_none());
     }
 
     #[test]
@@ -153,7 +119,11 @@ mod tests {
             r#"
                 [keys]
                 C-a = "focus_left"
-                C-S-a = "focus_namespace"
+                C-S-a = "reconnect"
+
+                [robots]
+                lowest = 1
+                highest = 2
             "#,
         )
         .unwrap();
@@ -163,6 +133,10 @@ mod tests {
                 [keys]
                 C-b = "focus_left"
                 C-A = "focus_right"
+
+                [robots]
+                lowest = 3
+                highest = 4
             "#,
         )
         .unwrap();
@@ -175,9 +149,13 @@ mod tests {
                 r#"
                     [keys]
                     C-a = "focus_left"
-                    C-S-a = "focus_namespace"
+                    C-S-a = "reconnect"
                     C-A = "focus_right"
                     C-b = "focus_left"
+
+                    [robots]
+                    lowest = 3
+                    highest = 4
                 "#
             )
             .unwrap()
@@ -190,7 +168,11 @@ mod tests {
             r#"
                 [keys]
                 C-a = "focus_left"
-                C-S-a = "focus_namespace"
+                C-S-a = "reconnect"
+
+                [robots]
+                lowest = 1
+                highest = 2
             "#,
         )
         .unwrap();
@@ -211,7 +193,11 @@ mod tests {
                 r#"
                     [keys]
                     C-a = "focus_right"
-                    C-S-a = "focus_namespace"
+                    C-S-a = "reconnect"
+
+                    [robots]
+                    lowest = 1
+                    highest = 2
                 "#,
             )
             .unwrap()

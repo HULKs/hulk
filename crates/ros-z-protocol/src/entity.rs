@@ -83,15 +83,6 @@ impl EndpointGlobalId {
     }
 }
 
-impl Display for EndpointGlobalId {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        for byte in self.as_bytes() {
-            write!(f, "{byte:02x}")?;
-        }
-        Ok(())
-    }
-}
-
 impl From<[u8; ENDPOINT_GLOBAL_ID_SIZE]> for EndpointGlobalId {
     fn from(bytes: [u8; ENDPOINT_GLOBAL_ID_SIZE]) -> Self {
         Self::new(bytes)
@@ -101,6 +92,26 @@ impl From<[u8; ENDPOINT_GLOBAL_ID_SIZE]> for EndpointGlobalId {
 impl From<EndpointGlobalId> for [u8; ENDPOINT_GLOBAL_ID_SIZE] {
     fn from(value: EndpointGlobalId) -> Self {
         value.into_bytes()
+    }
+}
+
+impl Display for EndpointGlobalId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        if f.alternate() {
+            for byte in &self.0[..4] {
+                write!(f, "{byte:02x}")?;
+            }
+            f.write_str("…")?;
+            for byte in &self.0[ENDPOINT_GLOBAL_ID_SIZE - 4..] {
+                write!(f, "{byte:02x}")?;
+            }
+            return Ok(());
+        }
+
+        for byte in &self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -542,6 +553,20 @@ mod tests {
             EndpointGlobalId::ZERO.as_bytes(),
             &[0u8; ENDPOINT_GLOBAL_ID_SIZE]
         );
+    }
+
+    #[test]
+    fn endpoint_global_id_display_formats_full_lowercase_hex() {
+        let id = EndpointGlobalId::from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+
+        assert_eq!(id.to_string(), "0102030405060708090a0b0c0d0e0f10");
+    }
+
+    #[test]
+    fn endpoint_global_id_alternate_display_formats_compact_hex() {
+        let id = EndpointGlobalId::from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+
+        assert_eq!(format!("{id:#}"), "01020304…0d0e0f10");
     }
 
     #[test]

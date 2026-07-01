@@ -1,79 +1,41 @@
-# Installation
+# Twix
 
-Twix doesn't have to be installed to be used, it can be directly run from the repository with `./twix` (just as pepsi).
-But you can also install it into your local system to conveniently use it without rebuilding:
+Twix is the ROS-Z debugging UI.
 
+Run it from the repository with:
+
+```bash
+./twix /42
 ```
-./pepsi install twix
+
+The positional namespace is optional. If provided, it must be an absolute ROS-Z namespace such as `/42`; bare values such as `42` are invalid. If omitted, Twix uses the last stored namespace and then falls back to `/`.
+
+To connect through a specific Zenoh router endpoint at startup, pass `--router`:
+
+```bash
+./twix /42 --router tcp/127.0.0.1:7447
 ```
 
-Twix is subsequently installed at `~/.cargo/bin/twix`. <br>
+If an old saved layout fails to load, or if you want to reset the current panel setup, start Twix with `--clear`.
 
-!!! tip
+Twix checks the local repository version at startup and warns when the running binary is older than the checked-out `tools/twix/Cargo.toml` version. Use `--repository-root <path>` to point that check at a different checkout.
 
-    Don't forget to update it from time to time by reinstalling it to get the latest features and bugfixes.
+ROS-Z Twix currently contains a Text panel and an Image panel. The Text panel observes one ROS-Z topic through `ros-z-debug`, renders the latest dynamic payload as JSON, and shows sample metadata. The Image panel observes `TimeWrapper<ros2::sensor_msgs::image::Image>` topics, defaults to `inputs/left_image`, and renders the latest raw camera frame. The first Image panel slice does not include save, pan/zoom, hover coordinates, overlays, JPEG leaf topics, YCbCr422 topics, or bare `Image` topics.
 
-# Configuration
+ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`. Legacy Twix keeps using `hulks/twix.toml`, so the two tools do not share incompatible keybinding schemas. The default ROS-Z keybindings are:
 
-Twix loads a user configuration file on startup. The location of the configuration file depends on your platform:
+| Key | Action |
+| --- | --- |
+| `C-t` | `open_split` |
+| `C-T` | `open_tab` |
+| `C-o` | `focus_namespace` |
+| `C-p` | `focus_panel` |
+| `C-h`, `C-Left` | `focus_left` |
+| `C-j`, `C-Down` | `focus_below` |
+| `C-k`, `C-Up` | `focus_above` |
+| `C-l`, `C-Right` | `focus_right` |
+| `C-w` | `close_tab` |
+| `C-d` | `duplicate_tab` |
+| `C-S-Backspace` | `close_all` |
 
--   Linux: `/home/alice/.config/hulks/twix.toml`
--   Windows: `C:\Users\Alice\AppData\Roaming\hulks\twix.toml`
--   MacOS: `/Users/Alice/Library/Application Support/hulks/twix.toml`
-
-See the example config further down on this page for the general format.
-
-After loading the user configuration, it is merged with the default values, which are defined in `tools/twix/config_default.toml`.
-
-## Keybindings
-
-You can customize your keybindings by modifying the `[keys]` table in your user configuration file.
-Each table entry is of the form `(trigger) = "(action)"`.
-A keybind trigger is a hyphen-separated list of zero or more modifiers, terminated by a key.
-
-See [here](https://github.com/emilk/egui/blob/c1eb3f884db8bc4f52dbae4f261619cee651f411/crates/egui/src/data/key.rs#L298-L413)
-for a complete list of bindable keys.
-
-Possible modifiers are `A` (Alt), `C` (Ctrl), and `S` (Shift).
-When binding a single-letter key, it is also possible and preferred to specify "Shift" by capitalizing the letter, e.g. `C-T` for Ctrl+Shift+T.
-
-!!! example "Example keybind triggers"
-
-    -   `C-t`: Ctrl + T
-    -   `C-T`: Ctrl + Shift + T
-    -   `A-S-Esc`: Alt + Shift + Escape
-
-Possible actions are:
-
-<!-- prettier-ignore -->
-| Action         | Description                                      |
-|----------------|--------------------------------------------------|
-|`close_tab`     | Close current tab                                |
-|`duplicate_tab` | Duplicate current tab                            |
-|`focus_above`   | Move focus up                                    |
-|`focus_address` | Focus the NAO address field                      |
-|`focus_below`   | Move focus down                                  |
-|`focus_left`    | Move focus left                                  |
-|`focus_panel`   | Focus the panel selector                         |
-|`focus_right`   | Move focus right                                 |
-|`no_op`         | Do nothing (used to unbind a key)                |
-|`open_split`    | Split the current surface along the longest axis |
-|`open_tab`      | Open a new tab in the current surface            |
-|`reconnect`     | Reestablish the connection to the NAO            |
-|`close_all`     | Close all tabs and windows                       |
-
-!!! example "Example configuration"
-
-    ```toml
-    # Remap navigation keys for non-vim users
-    [keys]
-    C-h = "no_op"
-    C-j = "no_op"
-    C-k = "no_op"
-    C-l = "no_op"
-
-    C-Left = "focus_left"
-    C-Down = "focus_below"
-    C-Up = "focus_above"
-    C-Right = "focus_right"
-    ```
+Supported action names are `open_split`, `open_tab`, `focus_namespace`, `focus_panel`, `focus_left`, `focus_below`, `focus_above`, `focus_right`, `close_tab`, `duplicate_tab`, `close_all`, and `no_op`.

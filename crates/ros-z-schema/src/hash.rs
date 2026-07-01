@@ -37,7 +37,19 @@ impl SchemaHash {
 
 impl std::fmt::Display for SchemaHash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.to_hash_string())
+        if !f.alternate() {
+            return f.write_str(&self.to_hash_string());
+        }
+
+        f.write_str("RZHS02_")?;
+        for byte in &self.0[..4] {
+            write!(f, "{byte:02x}")?;
+        }
+        f.write_str("…")?;
+        for byte in &self.0[self.0.len() - 4..] {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -47,4 +59,26 @@ pub fn compute_hash<T: JsonEncode>(value: &T) -> Result<SchemaHash, SchemaError>
     let mut hasher = sha2::Sha256::new();
     hasher.update(json.as_bytes());
     Ok(SchemaHash(hasher.finalize().into()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SchemaHash;
+
+    #[test]
+    fn display_formats_canonical_hash_string() {
+        let hash = SchemaHash([0x12; 32]);
+
+        assert_eq!(
+            hash.to_string(),
+            "RZHS02_1212121212121212121212121212121212121212121212121212121212121212"
+        );
+    }
+
+    #[test]
+    fn alternate_display_formats_compact_hash_string() {
+        let hash = SchemaHash([0x12; 32]);
+
+        assert_eq!(format!("{hash:#}"), "RZHS02_12121212…12121212");
+    }
 }

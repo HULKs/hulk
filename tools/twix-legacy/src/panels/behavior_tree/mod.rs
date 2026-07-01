@@ -1,5 +1,5 @@
 use eframe::egui::{Response, Ui, Widget};
-use twix::behavior_tree::BehaviorTreeVisualizer;
+use twix_legacy::behavior_tree::BehaviorTreeVisualizer;
 use types::behavior_tree::NodeTrace;
 
 use crate::{

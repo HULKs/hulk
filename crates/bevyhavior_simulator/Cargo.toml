@@ -23,6 +23,6 @@ ros-z = { workspace = true }
 scenario = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-twix = { workspace = true }
+twix-legacy = { workspace = true }
 types = { workspace = true }
 voronoi = { workspace = true }

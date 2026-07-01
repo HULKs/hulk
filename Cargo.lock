@@ -1990,7 +1990,7 @@ dependencies = [
  "scenario",
  "serde",
  "serde_json",
- "twix",
+ "twix-legacy",
  "types",
  "voronoi",
 ]
@@ -11663,6 +11663,34 @@ dependencies = [
 
 [[package]]
 name = "twix"
+version = "0.13.0"
+dependencies = [
+ "clap",
+ "color-eyre",
+ "dirs",
+ "eframe",
+ "egui_dock",
+ "egui_extras",
+ "hulk_widgets",
+ "image",
+ "itertools 0.14.0",
+ "log",
+ "repository",
+ "ros-z",
+ "ros-z-debug",
+ "ros2",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml 0.8.23",
+ "tracing-subscriber",
+ "types",
+ "uuid",
+]
+
+[[package]]
+name = "twix-legacy"
 version = "0.12.16"
 dependencies = [
  "aliveness",

@@ -1,285 +1,143 @@
-use std::{
-    convert::Into, env::current_dir, iter::once, net::Ipv4Addr, path::PathBuf, str::FromStr,
-    sync::Arc, time::SystemTime,
-};
+use std::{env::current_dir, path::PathBuf, str::FromStr, sync::Arc};
 
-use argument_parsers::RobotAddress;
 use clap::Parser;
 use color_eyre::{
-    Report, Result,
-    eyre::{Context as _, ContextCompat, bail, eyre},
+    Result,
+    eyre::{Context as _, ContextCompat as _},
 };
-use eframe::{
-    App, CreationContext, Frame, NativeOptions, Renderer, Storage,
-    egui::{
-        Button, CentralPanel, Context, CornerRadius, Id, Label, Layout, RichText, Sense,
-        StrokeKind, TopBottomPanel, Ui, Widget, WidgetText,
-    },
-    egui_wgpu::{WgpuConfiguration, WgpuSetup},
-    emath::Align,
-    epaint::Color32,
-    run_native,
-};
-use egui_dock::{
-    DockArea, DockState, LeafNode, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex,
-};
-use itertools::chain;
-use serde_json::{Value, from_str, to_string};
-use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
-
-use communication::client::Status;
-use communication::messages::TextOrBinary;
 use configuration::{
     Configuration,
     keybind_plugin::{self, KeybindSystem},
     keys::KeybindAction,
 };
+use eframe::{
+    App, CreationContext, Frame, NativeOptions, Storage,
+    egui::{CentralPanel, Context, CornerRadius, Id, Layout, StrokeKind, TopBottomPanel, Ui},
+    emath::Align,
+    run_native,
+};
+use egui_dock::{
+    DockArea, DockState, LeafNode, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex,
+};
 use hulk_widgets::CompletionEdit;
 use log::{error, warn};
-use panel::{Panel, PanelCreationContext};
-use panels::{
-    AudioSpectrumPanel, BehaviorSimulatorPanel, BehaviorTreePanel, EnumPlotPanel,
-    ImageColorSelectPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel, MapPanel,
-    MujocoSimulatorPanel, ParameterPanel, PlotPanel, RemotePanel, TextPanel, VisionTunerPanel,
-};
-use reachable_robots::ReachableRobots;
+use panel::{Panel, PanelCreationContext, PanelUiContext};
+use panels::{ImagePanel, TextPanel};
 use repository::{Repository, inspect_version::check_for_update};
+use serde_json::{Value, from_str, to_string};
+use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use visuals::Visuals;
 
-use crate::robot::Robot;
+use crate::backend::RobotBackend;
 
-mod change_buffer;
+mod backend;
 mod configuration;
-mod log_error;
 mod panel;
 mod panels;
-mod players_buffer_handle;
-mod reachable_robots;
-mod robot;
+mod repaint;
 mod selectable_panel_macro;
-mod value_buffer;
+mod status;
 mod visuals;
 
-pub use twix::{twix_painter, zoom_and_pan};
+impl_selectable_panel!(TextPanel, ImagePanel);
 
-use crate::value_buffer::BufferHandle;
+fn panel_creation_context<'a>(
+    backend: &Arc<RobotBackend>,
+    value: Option<&'a Value>,
+    egui_context: &Context,
+) -> PanelCreationContext<'a> {
+    PanelCreationContext {
+        backend: backend.clone(),
+        value,
+        egui_context: egui_context.clone(),
+    }
+}
 
-#[derive(Debug, Parser)]
+fn default_dock_state(backend: &Arc<RobotBackend>, egui_context: &Context) -> DockState<Tab> {
+    DockState::new(vec![Tab::from_panel(SelectablePanel::TextPanel(
+        TextPanel::new(panel_creation_context(backend, None, egui_context)),
+    ))])
+}
+
+#[derive(Debug, Clone, clap::Parser)]
 struct Arguments {
-    /// robot address to connect to (overrides the address saved in the configuration file)
-    pub address: Option<String>,
-    /// Alternative repository root
+    /// Target ROS-Z namespace, for example /42.
+    namespace: Option<String>,
+
+    /// Router endpoint passed to ROS-Z, for example tcp/127.0.0.1:7447.
+    #[arg(long)]
+    router: Option<String>,
+
+    /// Alternative repository root for local Twix version checks.
     #[arg(long)]
     repository_root: Option<PathBuf>,
-    /// Delete the current panel setup
+
+    /// Delete the current panel setup.
     #[arg(long)]
-    pub clear: bool,
+    clear: bool,
 }
-
-fn setup_logger() -> Result<(), Report> {
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info,bevy_render=warn"));
-
-    let layer = fmt::layer()
-        .with_target(true)
-        .with_thread_ids(false)
-        .with_level(true)
-        .with_file(false)
-        .with_line_number(true)
-        .compact();
-
-    tracing_subscriber::registry()
-        .with(filter)
-        .with(layer)
-        .try_init()
-        .wrap_err("failed to initialize tracing subscriber")?;
-
-    Ok(())
-}
-
-fn main() -> Result<(), eframe::Error> {
-    setup_logger().expect("failed to setup logger");
-
-    let arguments = Arguments::parse();
-    let repository = arguments
-        .repository_root
-        .clone()
-        .map(Repository::new)
-        .map(Ok)
-        .unwrap_or_else(|| {
-            let current_directory = current_dir().wrap_err("failed to get current directory")?;
-            Repository::find_root(current_directory).wrap_err("failed to find repository root")
-        });
-    match &repository {
-        Ok(repository) => {
-            if let Err(error) = check_for_update(
-                env!("CARGO_PKG_VERSION"),
-                repository.root.join("tools/twix/Cargo.toml"),
-                "twix",
-            ) {
-                error!("{error:#?}");
-            }
-        }
-        Err(error) => {
-            warn!("{error:#?}");
-        }
-    }
-
-    let configuration = Configuration::load()
-        .unwrap_or_else(|error| panic!("failed to load configuration: {error}"));
-
-    let mut wgpu_options = WgpuConfiguration::default();
-    match &mut wgpu_options.wgpu_setup {
-        WgpuSetup::CreateNew(wgpu_setup_create_new) => {
-            let old_closure = wgpu_setup_create_new.device_descriptor.clone();
-            wgpu_setup_create_new.device_descriptor = Arc::new(move |adapter| {
-                let mut old = (old_closure)(adapter);
-                old.required_limits.max_storage_buffers_per_shader_stage = 9;
-                old
-            })
-        }
-        WgpuSetup::Existing(_wgpu_setup_existing) => unimplemented!(),
-    }
-    run_native(
-        "Twix",
-        NativeOptions {
-            wgpu_options,
-            renderer: Renderer::Wgpu,
-            ..Default::default()
-        },
-        Box::new(|creation_context| {
-            egui_extras::install_image_loaders(&creation_context.egui_ctx);
-            Ok(Box::new(TwixApp::create(
-                creation_context,
-                arguments,
-                configuration,
-                repository.ok(),
-            )))
-        }),
-    )
-}
-
-impl_selectable_panel!(
-    AudioSpectrumPanel,
-    BehaviorSimulatorPanel,
-    BehaviorTreePanel,
-    EnumPlotPanel,
-    ImageColorSelectPanel,
-    ImagePanel,
-    ImageSegmentsPanel,
-    LookAtPanel,
-    MapPanel,
-    MujocoSimulatorPanel,
-    ParameterPanel,
-    PlotPanel,
-    RemotePanel,
-    TextPanel,
-    VisionTunerPanel,
-);
 
 struct TwixApp {
-    robot: Arc<Robot>,
-    possible_addresses: Vec<Ipv4Addr>,
-    address: String,
-    reachable_robots: ReachableRobots,
-    connection_intent: bool,
-    remote_stop_toggle: BufferHandle<bool>,
+    dock_state: DockState<Tab>,
+    namespace_editor: String,
     panel_selection: String,
     last_focused_tab: (NodeIndex, TabIndex),
-    dock_state: DockState<Tab>,
     visual: Visuals,
+    backend: Arc<RobotBackend>,
+    runtime: tokio::runtime::Runtime,
 }
 
 impl TwixApp {
     fn create(
         creation_context: &CreationContext,
         arguments: Arguments,
+        runtime: tokio::runtime::Runtime,
+        backend: Arc<RobotBackend>,
         configuration: Configuration,
-        repository: Option<Repository>,
     ) -> Self {
-        let robot_range = configuration.robots.lowest..=configuration.robots.highest;
-        let possible_addresses: Vec<_> = chain!(
-            once(Ipv4Addr::LOCALHOST),
-            robot_range.clone().map(|id| Ipv4Addr::new(10, 0, 24, id)),
-            robot_range.map(|id| Ipv4Addr::new(10, 1, 24, id)),
-        )
-        .collect();
-        let address = arguments
-            .address
-            .and_then(|address| {
-                RobotAddress::from_str(&address)
-                    .map(|robot| robot.ip.to_string())
-                    .ok()
-            })
-            .or_else(|| creation_context.storage?.get_string("address"))
-            .unwrap_or(Ipv4Addr::LOCALHOST.to_string());
+        let namespace_editor = backend.namespace();
 
-        let robot = Arc::new(Robot::new(
-            match address.split_once(":") {
-                None | Some((_, "")) => {
-                    format!("ws://{address}:1337")
-                }
-                Some((ip, port)) => {
-                    format!("ws://{ip}:{port}")
-                }
-            },
-            repository,
-        ));
-
-        let connection_intent = creation_context
-            .storage
-            .and_then(|storage| storage.get_string("connection_intent"))
-            .map(|stored| stored == "true")
-            .unwrap_or(false);
-
-        if connection_intent {
-            robot.connect();
-        }
-
-        let remote_stop_toggle = robot.subscribe_value("parameters.remote_stop_toggle");
-
-        let dock_state: Option<DockState<Value>> = if arguments.clear {
+        let egui_context = creation_context.egui_ctx.clone();
+        let dock_state = if arguments.clear {
             None
         } else {
             creation_context
                 .storage
                 .and_then(|storage| storage.get_string("dock_state"))
-                .and_then(|string| from_str(&string).ok())
-        };
+                .and_then(|string| match from_str::<DockState<Value>>(&string) {
+                    Ok(dock_state) => {
+                        let mut load_error = None;
+                        let dock_state = dock_state.map_tabs(|value| {
+                            let tab = Tab::new(panel_creation_context(
+                                &backend,
+                                Some(value),
+                                &egui_context,
+                            ));
+                            if let Err(error) = &tab.panel {
+                                load_error.get_or_insert_with(|| format!("{error:#}"));
+                            }
+                            tab
+                        });
 
-        let dock_state = match dock_state {
-            Some(dock_state) => dock_state.map_tabs(|value| {
-                Tab::new(PanelCreationContext {
-                    robot: robot.clone(),
-                    value: Some(value),
-                    wgpu_state: creation_context
-                        .wgpu_render_state
-                        .clone()
-                        .expect("no wgpu render state found"),
-                    egui_context: creation_context.egui_ctx.clone(),
+                        if let Some(error) = load_error {
+                            error!("failed to load dock tabs: {error}");
+                            None
+                        } else {
+                            Some(dock_state)
+                        }
+                    }
+                    Err(error) => {
+                        error!("failed to load dock state: {error:#}");
+                        None
+                    }
                 })
-            }),
-            None => DockState::new(vec![
-                SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
-                    robot: robot.clone(),
-                    value: None,
-                    wgpu_state: creation_context
-                        .wgpu_render_state
-                        .clone()
-                        .expect("no wgpu render state found"),
-                    egui_context: creation_context.egui_ctx.clone(),
-                }))
-                .into(),
-            ]),
-        };
+        }
+        .unwrap_or_else(|| default_dock_state(&backend, &egui_context));
 
-        let context = creation_context.egui_ctx.clone();
-
-        keybind_plugin::register(&context);
-        context.set_keybinds(Arc::new(configuration.keys));
-
-        let reachable_robots = ReachableRobots::new(context.clone());
-        robot.on_change(move || context.request_repaint());
+        keybind_plugin::register(&creation_context.egui_ctx);
+        creation_context
+            .egui_ctx
+            .set_keybinds(Arc::new(configuration.keys));
 
         let visual = creation_context
             .storage
@@ -288,20 +146,37 @@ impl TwixApp {
             .unwrap_or(Visuals::Dark);
         visual.set_visual(&creation_context.egui_ctx);
 
-        let panel_selection = "".to_string();
-
         Self {
-            robot,
-            reachable_robots,
-            connection_intent,
-            remote_stop_toggle,
-            panel_selection,
             dock_state,
+            namespace_editor,
+            panel_selection: SelectablePanel::registered()
+                .first()
+                .copied()
+                .unwrap_or_default()
+                .to_string(),
             last_focused_tab: (0.into(), 0.into()),
             visual,
-            possible_addresses,
-            address,
+            backend,
+            runtime,
         }
+    }
+
+    fn panel_context<'a>(
+        &self,
+        value: Option<&'a Value>,
+        egui_context: &Context,
+    ) -> PanelCreationContext<'a> {
+        panel_creation_context(&self.backend, value, egui_context)
+    }
+
+    fn new_text_tab(&self, egui_context: &Context) -> Tab {
+        Tab::from_panel(SelectablePanel::TextPanel(TextPanel::new(
+            self.panel_context(None, egui_context),
+        )))
+    }
+
+    fn default_dock_state(&self, egui_context: &Context) -> DockState<Tab> {
+        DockState::new(vec![self.new_text_tab(egui_context)])
     }
 
     fn focus_left(&mut self, node_id: NodeIndex, surface_index: SurfaceIndex) -> Option<()> {
@@ -411,69 +286,41 @@ impl TwixApp {
             .set_focused_node_and_surface((surface_index, child));
         Some(())
     }
+
+    fn active_tab(&mut self) -> Option<&mut Tab> {
+        let (_viewport, tab) = self.dock_state.find_active_focused()?;
+        Some(tab)
+    }
+
+    fn active_tab_index(&self) -> Option<(NodeIndex, TabIndex)> {
+        let (surface, node) = self.dock_state.focused_leaf()?;
+        if let Node::Leaf(LeafNode { active, .. }) = &self.dock_state[surface][node] {
+            Some((node, *active))
+        } else {
+            None
+        }
+    }
 }
 
 impl App for TwixApp {
-    fn update(&mut self, context: &Context, frame: &mut Frame) {
-        self.reachable_robots.update();
+    fn update(&mut self, context: &Context, _frame: &mut Frame) {
+        let _runtime_guard = self.runtime.enter();
 
         TopBottomPanel::top("top_bar").show(context, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                    let address_input = CompletionEdit::new(
-                        ui.id().with("robot-selector"),
-                        &self.possible_addresses,
-                        &mut self.address,
-                    )
-                    .ui(ui, |ui, selected, ip| {
-                        let show_green = self.reachable_robots.is_reachable(*ip);
-                        let color = if show_green {
-                            Color32::GREEN
-                        } else {
-                            Color32::WHITE
-                        };
-                        ui.selectable_label(selected, WidgetText::from(ip.to_string()).color(color))
-                    });
-
-                    if address_input.gained_focus() {
-                        self.reachable_robots.query_reachability();
+                    ui.label("Namespace:");
+                    let namespace_response = ui.text_edit_singleline(&mut self.namespace_editor);
+                    if context.keybind_pressed(KeybindAction::FocusNamespace) {
+                        namespace_response.request_focus();
                     }
-                    if context.keybind_pressed(KeybindAction::FocusAddress) {
-                        address_input.request_focus();
-                    }
-                    if address_input.changed() || address_input.lost_focus() {
-                        match &self.address.split_once(":") {
-                            None | Some((_, "")) => {
-                                let address = &self.address;
-                                self.robot.set_address(format!("ws://{address}:1337"));
-                            }
-                            Some((ip, port)) => {
-                                self.robot.set_address(format!("ws://{ip}:{port}"));
-                            }
-                        }
-                        self.connection_intent = true;
-                        self.robot.connect();
-                    }
-                    let (connect_text, color) = match self.robot.connection_status() {
-                        Status::Disconnected => ("Disconnected", Color32::RED),
-                        Status::Connecting => ("Connecting", Color32::YELLOW),
-                        Status::Connected => ("Connected", Color32::GREEN),
-                    };
-                    let connect_text = WidgetText::from(connect_text).color(color);
-                    if ui
-                        .checkbox(&mut self.connection_intent, connect_text)
-                        .changed()
+                    if namespace_response.lost_focus()
+                        && self.namespace_editor != self.backend.namespace()
+                        && let Err(error) =
+                            self.backend.set_namespace(self.namespace_editor.clone())
                     {
-                        if self.connection_intent {
-                            self.robot.connect();
-                        } else {
-                            self.robot.disconnect();
-                        }
-                    }
-                    if context.keybind_pressed(KeybindAction::Reconnect) {
-                        self.robot.disconnect();
-                        self.connection_intent = true;
-                        self.robot.connect();
+                        log::error!("failed to set namespace: {error:#}");
+                        self.namespace_editor = self.backend.namespace();
                     }
 
                     if self.active_tab_index() != Some(self.last_focused_tab) {
@@ -484,9 +331,10 @@ impl App for TwixApp {
                             .and_then(|tab| tab.panel.as_ref().ok())
                             .map(|panel| format!("{panel}"))
                         {
-                            self.panel_selection = name
+                            self.panel_selection = name;
                         }
                     }
+
                     let panels = SelectablePanel::registered();
                     let panel_input = ui.add(CompletionEdit::new(
                         ui.id().with("panel-selector"),
@@ -498,29 +346,22 @@ impl App for TwixApp {
                         panel_input.request_focus();
                     }
                     if panel_input.changed() {
-                        match SelectablePanel::try_from_name(
+                        match SelectablePanel::try_from_display_name(
                             &self.panel_selection,
-                            PanelCreationContext {
-                                robot: self.robot.clone(),
-                                value: None,
-                                wgpu_state: frame
-                                    .wgpu_render_state()
-                                    .cloned()
-                                    .expect("no wgpu render state found"),
-                                egui_context: ui.ctx().clone(),
-                            },
+                            self.panel_context(None, ui.ctx()),
                         ) {
                             Ok(panel) => {
                                 if let Some(active_tab) = self.active_tab() {
                                     active_tab.panel = Ok(panel);
                                 }
                             }
-                            Err(err) => error!("{err:?}"),
+                            Err(error) => error!("{error:#}"),
                         }
                     }
                 });
+
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.menu_button("⚙", |ui| {
+                    ui.menu_button("Settings", |ui| {
                         ui.menu_button("Theme", |ui| {
                             ui.vertical(|ui| {
                                 for visual in Visuals::iter() {
@@ -532,73 +373,36 @@ impl App for TwixApp {
                             })
                         });
                     });
-
-                    if ui
-                        .add(
-                            Button::new(RichText::new("STOP").color(Color32::WHITE))
-                                .fill(Color32::RED),
-                        )
-                        .clicked()
-                    {
-                        match self.remote_stop_toggle.get_last_value() {
-                            Ok(Some(value)) => {
-                                let new_remote_stop_toggle = !value;
-                                self.robot.write(
-                                    "parameters.remote_stop_toggle",
-                                    TextOrBinary::Text(new_remote_stop_toggle.into()),
-                                );
-                            }
-                            Ok(None) => {}
-                            Err(error) => {
-                                error!("failed to read remote_stop_toggle: {error:#?}")
-                            }
-                        }
-                    }
                 });
             })
         });
+
         CentralPanel::default().show(context, |ui| {
-            if context.keybind_pressed(KeybindAction::OpenSplit) {
-                let tab = SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
-                    robot: self.robot.clone(),
-                    value: None,
-                    wgpu_state: frame
-                        .wgpu_render_state()
-                        .cloned()
-                        .expect("no wgpu render state found"),
-                    egui_context: ui.ctx().clone(),
-                }));
-                if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
-                    let node = &mut self.dock_state[surface_index][node_id];
-                    if node.tabs_count() == 0 {
-                        node.append_tab(tab.into());
+            if context.keybind_pressed(KeybindAction::OpenSplit)
+                && let Some((surface_index, node_id)) = self.dock_state.focused_leaf()
+            {
+                let tab = self.new_text_tab(ui.ctx());
+                let node = &mut self.dock_state[surface_index][node_id];
+                if node.tabs_count() == 0 {
+                    node.append_tab(tab);
+                } else {
+                    let rect = node.rect().unwrap();
+                    let direction = if rect.height() > rect.width() {
+                        Split::Below
                     } else {
-                        let rect = node.rect().unwrap();
-                        let direction = if rect.height() > rect.width() {
-                            Split::Below
-                        } else {
-                            Split::Right
-                        };
-                        self.dock_state.split(
-                            (surface_index, node_id),
-                            direction,
-                            0.5,
-                            Node::leaf(tab.into()),
-                        );
-                    }
+                        Split::Right
+                    };
+                    self.dock_state.split(
+                        (surface_index, node_id),
+                        direction,
+                        0.5,
+                        Node::leaf(tab),
+                    );
                 }
             }
             if context.keybind_pressed(KeybindAction::OpenTab) {
-                let tab = SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
-                    robot: self.robot.clone(),
-                    value: None,
-                    wgpu_state: frame
-                        .wgpu_render_state()
-                        .cloned()
-                        .expect("no wgpu render state found"),
-                    egui_context: ui.ctx().clone(),
-                }));
-                self.dock_state.push_to_focused_leaf(tab.into());
+                let tab = self.new_text_tab(ui.ctx());
+                self.dock_state.push_to_focused_leaf(tab);
             }
 
             if context.keybind_pressed(KeybindAction::FocusLeft)
@@ -622,22 +426,18 @@ impl App for TwixApp {
                 self.focus_right(node_id, surface_index);
             }
 
-            if context.keybind_pressed(KeybindAction::DuplicateTab)
-                && let Some((_, tab)) = self.dock_state.find_active_focused()
-            {
-                let new_tab = tab.save();
-                self.dock_state.push_to_focused_leaf(Tab::from(
-                    SelectablePanel::new(PanelCreationContext {
-                        robot: self.robot.clone(),
-                        value: Some(&new_tab),
-                        wgpu_state: frame
-                            .wgpu_render_state()
-                            .cloned()
-                            .expect("no wgpu render state found"),
-                        egui_context: ui.ctx().clone(),
-                    })
-                    .unwrap(),
-                ));
+            let saved_tab = if context.keybind_pressed(KeybindAction::DuplicateTab) {
+                self.dock_state
+                    .find_active_focused()
+                    .map(|(_, tab)| tab.save())
+            } else {
+                None
+            };
+            if let Some(saved_tab) = saved_tab {
+                match SelectablePanel::new(self.panel_context(Some(&saved_tab), ui.ctx())) {
+                    Ok(panel) => self.dock_state.push_to_focused_leaf(Tab::from_panel(panel)),
+                    Err(error) => error!("failed to duplicate tab: {error:#}"),
+                }
             }
 
             if context.keybind_pressed(KeybindAction::CloseTab)
@@ -658,18 +458,7 @@ impl App for TwixApp {
             }
 
             if context.keybind_pressed(KeybindAction::CloseAll) {
-                self.dock_state = DockState::new(vec![
-                    SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
-                        robot: self.robot.clone(),
-                        value: None,
-                        wgpu_state: frame
-                            .wgpu_render_state()
-                            .cloned()
-                            .expect("no wgpu render state found"),
-                        egui_context: ui.ctx().clone(),
-                    }))
-                    .into(),
-                ]);
+                self.dock_state = self.default_dock_state(ui.ctx());
                 self.last_focused_tab = (0.into(), 0.into());
                 self.dock_state
                     .set_focused_node_and_surface((0.into(), 0.into()));
@@ -677,24 +466,20 @@ impl App for TwixApp {
 
             let mut style = egui_dock::Style::from_egui(ui.style().as_ref());
             style.buttons.add_tab_align = TabAddAlign::Left;
-            let mut tab_viewer = TabViewer::default();
+            let mut tab_viewer = TabViewer {
+                nodes_to_add_tabs_to: Vec::new(),
+                backend: self.backend.clone(),
+                egui_context: ui.ctx().clone(),
+            };
             DockArea::new(&mut self.dock_state)
                 .style(style)
                 .show_add_buttons(true)
                 .show_inside(ui, &mut tab_viewer);
 
             for (surface_index, node_id) in tab_viewer.nodes_to_add_tabs_to {
-                let tab = SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
-                    robot: self.robot.clone(),
-                    value: None,
-                    wgpu_state: frame
-                        .wgpu_render_state()
-                        .cloned()
-                        .expect("no wgpu render state found"),
-                    egui_context: ui.ctx().clone(),
-                }));
+                let tab = self.new_text_tab(ui.ctx());
                 let index = self.dock_state[surface_index][node_id].tabs_count();
-                self.dock_state[surface_index][node_id].insert_tab(index.into(), tab.into());
+                self.dock_state[surface_index][node_id].insert_tab(index.into(), tab);
                 self.dock_state
                     .set_focused_node_and_surface((surface_index, node_id));
             }
@@ -716,71 +501,59 @@ impl App for TwixApp {
     fn save(&mut self, storage: &mut dyn Storage) {
         let dock_state = self.dock_state.map_tabs(|tab| tab.save());
 
-        storage.set_string("dock_state", to_string(&dock_state).unwrap());
-        storage.set_string("address", self.address.to_string());
         storage.set_string(
-            "connection_intent",
-            if self.connection_intent {
-                "true"
-            } else {
-                "false"
-            }
-            .to_string(),
+            "dock_state",
+            to_string(&dock_state).expect("dock state should serialize"),
         );
+        storage.set_string("namespace", self.backend.namespace());
         storage.set_string("style", self.visual.to_string());
     }
 }
 
-impl TwixApp {
-    fn active_tab(&mut self) -> Option<&mut Tab> {
-        let (_viewport, tab) = self.dock_state.find_active_focused()?;
-        Some(tab)
-    }
-
-    fn active_tab_index(&self) -> Option<(NodeIndex, TabIndex)> {
-        let (surface, node) = self.dock_state.focused_leaf()?;
-        if let Node::Leaf(LeafNode { active, .. }) = &self.dock_state[surface][node] {
-            Some((node, *active))
-        } else {
-            None
-        }
-    }
-}
-
 struct Tab {
-    id: Id,
-    panel: Result<SelectablePanel, (Report, Option<Value>)>,
-}
-
-impl From<SelectablePanel> for Tab {
-    fn from(panel: SelectablePanel) -> Self {
-        Self {
-            id: Id::new(SystemTime::now()),
-            panel: Ok(panel),
-        }
-    }
+    panel: color_eyre::Result<SelectablePanel>,
+    ui_id: uuid::Uuid,
 }
 
 impl Tab {
-    fn new(context: PanelCreationContext) -> Self {
-        let value = context.value.cloned();
+    fn new(context: PanelCreationContext<'_>) -> Self {
         Self {
-            id: Id::new(SystemTime::now()),
-            panel: SelectablePanel::new(context).map_err(|error| (error, value)),
+            panel: SelectablePanel::new(context),
+            ui_id: uuid::Uuid::new_v4(),
         }
     }
 
-    fn save(&self) -> Value {
+    fn from_panel(panel: SelectablePanel) -> Self {
+        Self {
+            panel: Ok(panel),
+            ui_id: uuid::Uuid::new_v4(),
+        }
+    }
+
+    fn save(&self) -> serde_json::Value {
         match &self.panel {
             Ok(panel) => panel.save(),
-            Err((_report, value)) => value.clone().unwrap_or_default(),
+            Err(error) => serde_json::json!({
+                "kind": "load-error",
+                "state": { "error": format!("{error:#}") },
+            }),
         }
     }
 }
 
-#[derive(Default)]
 struct TabViewer {
     nodes_to_add_tabs_to: Vec<(SurfaceIndex, NodeIndex)>,
+    backend: Arc<RobotBackend>,
+    egui_context: Context,
+}
+
+impl TabViewer {
+    fn panel_ui_context(&self) -> PanelUiContext<'_> {
+        PanelUiContext {
+            backend: &self.backend,
+            egui_context: self.egui_context.clone(),
+        }
+    }
 }
 
 impl egui_dock::TabViewer for TabViewer {
@@ -788,40 +561,155 @@ impl egui_dock::TabViewer for TabViewer {
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
         match &mut tab.panel {
-            Ok(panel) => panel.ui(ui),
-
-            Err((error, value)) => {
-                ui.label(format!("Error loading panel: {error}"));
-                ui.collapsing("JSON", |ui| {
-                    let content = match serde_json::to_string_pretty(value) {
-                        Ok(pretty_string) => pretty_string,
-                        Err(error) => error.to_string(),
-                    };
-                    let label = ui.add(Label::new(&content).sense(Sense::click()));
-                    if label.clicked() {
-                        ui.ctx().copy_text(content);
-                    }
-                    label.on_hover_ui_at_pointer(|ui| {
-                        ui.label("Click to copy");
-                    });
-                })
-                .header_response
+            Ok(panel) => panel.ui(ui, self.panel_ui_context()),
+            Err(error) => {
+                ui.label(format!("Error loading panel: {error:#}"));
             }
-        };
+        }
     }
 
     fn title(&mut self, tab: &mut Self::Tab) -> eframe::egui::WidgetText {
         match &mut tab.panel {
             Ok(panel) => format!("{panel}").into(),
-            Err((error, _value)) => WidgetText::from(format!("{error}")).color(Color32::LIGHT_RED),
+            Err(error) => format!("{error}").into(),
         }
     }
 
     fn id(&mut self, tab: &mut Self::Tab) -> Id {
-        tab.id
+        Id::new(tab.ui_id)
     }
 
     fn on_add(&mut self, surface_index: SurfaceIndex, node: NodeIndex) {
         self.nodes_to_add_tabs_to.push((surface_index, node));
+    }
+}
+
+fn setup_logger() -> Result<()> {
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info,bevy_render=warn"));
+    let layer = fmt::layer()
+        .with_target(true)
+        .with_thread_ids(false)
+        .with_level(true)
+        .with_file(false)
+        .with_line_number(true)
+        .compact();
+
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(layer)
+        .try_init()
+        .wrap_err("failed to initialize tracing subscriber")?;
+
+    Ok(())
+}
+
+fn main() -> eframe::Result<()> {
+    color_eyre::install().expect("failed to install color-eyre");
+    setup_logger().expect("failed to setup logger");
+    let arguments = Arguments::parse();
+    let repository = arguments
+        .repository_root
+        .clone()
+        .map(Repository::new)
+        .map(Ok)
+        .unwrap_or_else(|| {
+            let current_directory = current_dir().wrap_err("failed to get current directory")?;
+            Repository::find_root(current_directory).wrap_err("failed to find repository root")
+        });
+    match &repository {
+        Ok(repository) => {
+            if let Err(error) = check_for_update(
+                env!("CARGO_PKG_VERSION"),
+                repository.root.join("tools/twix/Cargo.toml"),
+                "twix",
+            ) {
+                error!("{error:#}");
+            }
+        }
+        Err(error) => {
+            warn!("{error:#}");
+        }
+    }
+
+    let configuration = Configuration::load()
+        .unwrap_or_else(|error| panic!("failed to load configuration: {error}"));
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build Tokio runtime");
+    let runtime_handle = runtime.handle().clone();
+
+    run_native(
+        "Twix",
+        NativeOptions::default(),
+        Box::new(move |creation_context| {
+            egui_extras::install_image_loaders(&creation_context.egui_ctx);
+            let namespace = arguments
+                .namespace
+                .clone()
+                .or_else(|| creation_context.storage?.get_string("namespace"))
+                .unwrap_or_else(|| "/".to_string());
+            let backend = runtime.block_on(RobotBackend::new(
+                runtime_handle.clone(),
+                arguments.router.clone(),
+                namespace,
+            ))?;
+            Ok(Box::new(TwixApp::create(
+                creation_context,
+                arguments.clone(),
+                runtime,
+                Arc::new(backend),
+                configuration,
+            )))
+        }),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use color_eyre::eyre::eyre;
+    use eframe::egui::Context;
+    use egui_dock::TabViewer as _;
+    use uuid::Uuid;
+
+    use super::{RobotBackend, Tab, TabViewer};
+
+    #[test]
+    fn duplicate_title_tabs_have_distinct_dock_ids() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("runtime should build");
+        let backend = Arc::new(
+            runtime
+                .block_on(RobotBackend::new(
+                    runtime.handle().clone(),
+                    None,
+                    "/".to_string(),
+                ))
+                .expect("backend should build"),
+        );
+        let mut viewer = TabViewer {
+            nodes_to_add_tabs_to: Vec::new(),
+            backend,
+            egui_context: Context::default(),
+        };
+        let mut first = Tab {
+            panel: Err(eyre!("same title")),
+            ui_id: Uuid::from_u128(1),
+        };
+        let mut second = Tab {
+            panel: Err(eyre!("same title")),
+            ui_id: Uuid::from_u128(2),
+        };
+
+        assert_eq!(
+            viewer.title(&mut first).text(),
+            viewer.title(&mut second).text()
+        );
+        assert_ne!(viewer.id(&mut first), viewer.id(&mut second));
     }
 }
