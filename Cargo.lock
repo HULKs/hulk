@@ -8556,6 +8556,7 @@ dependencies = [
 name = "primary_state_filter"
 version = "0.1.0"
 dependencies = [
+ "booster_sdk",
  "color-eyre",
  "hsl_network_messages",
  "log",
