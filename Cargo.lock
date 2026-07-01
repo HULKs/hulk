@@ -11624,6 +11624,7 @@ dependencies = [
  "egui_dock",
  "egui_extras",
  "geometry",
+ "hsl_network_messages",
  "hulk_widgets",
  "image",
  "itertools 0.14.0",
@@ -11644,6 +11645,8 @@ dependencies = [
  "tracing-subscriber",
  "types",
  "uuid",
+ "voronoi",
+ "world_state",
 ]
 
 [[package]]

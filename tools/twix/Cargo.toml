@@ -16,6 +16,7 @@ eframe = { workspace = true }
 egui_dock = { workspace = true }
 egui_extras = { workspace = true }
 geometry = { workspace = true }
+hsl_network_messages = { workspace = true }
 hulk_widgets = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
@@ -36,3 +37,5 @@ toml = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 types = { workspace = true }
 uuid = { workspace = true }
+voronoi = { workspace = true }
+world_state = { workspace = true }
