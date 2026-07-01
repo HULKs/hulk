@@ -15,16 +15,17 @@ use crate::{
     HULKS_TEAM_NUMBER, NONE_TEAM_NUMBER, PlayerNumber,
     bindings::{
         COMPETITION_TYPE_LARGE, COMPETITION_TYPE_MIDDLE, COMPETITION_TYPE_SMALL,
-        GAME_PHASE_EXTRATIME, GAME_PHASE_NORMAL, GAME_PHASE_PENALTYSHOOT, GAME_PHASE_TIMEOUT,
+        GAME_PHASE_EXTRA_TIME, GAME_PHASE_NORMAL, GAME_PHASE_PENALTY_SHOOT_OUT, GAME_PHASE_TIMEOUT,
         GAMECONTROLLER_STRUCT_HEADER, GAMECONTROLLER_STRUCT_VERSION, MAX_NUM_PLAYERS,
-        PENALTY_BALL_HOLDING, PENALTY_ILLEGAL_POSITIONING, PENALTY_INCAPABLE_ROBOT,
-        PENALTY_LEAVING_THE_FIELD, PENALTY_LOCAL_GAME_STUCK, PENALTY_MOTION_IN_SET, PENALTY_NONE,
-        PENALTY_PICK_UP, PENALTY_PLAYING_WITH_ARMS_HANDS, PENALTY_PUSHING, PENALTY_SENT_OFF,
-        PENALTY_SUBSTITUTE, RoboCupGameControlData, RobotInfo, SET_PLAY_CORNER_KICK,
-        SET_PLAY_DIRECT_FREE_KICK, SET_PLAY_GOAL_KICK, SET_PLAY_INDIRECT_FREE_KICK, SET_PLAY_NONE,
-        SET_PLAY_PENALTY_KICK, SET_PLAY_THROW_IN, STATE_FINISHED, STATE_INITIAL, STATE_PLAYING,
-        STATE_READY, STATE_SET, TEAM_BLACK, TEAM_BLUE, TEAM_BROWN, TEAM_GRAY, TEAM_GREEN,
-        TEAM_ORANGE, TEAM_PURPLE, TEAM_RED, TEAM_WHITE, TEAM_YELLOW,
+        PENALTY_BALL_HOLDING, PENALTY_CAUTIONED, PENALTY_ILLEGAL_POSITIONING,
+        PENALTY_INCAPABLE_ROBOT, PENALTY_LEAVING_THE_FIELD, PENALTY_LOCAL_GAME_STUCK,
+        PENALTY_MOTION_IN_SET, PENALTY_MOTION_IN_STOP, PENALTY_NONE, PENALTY_PICK_UP,
+        PENALTY_PLAYING_WITH_ARMS_HANDS, PENALTY_PUSHING, PENALTY_SENT_OFF, PENALTY_SUBSTITUTE,
+        RoboCupGameControlData, RobotInfo, SET_PLAY_CORNER_KICK, SET_PLAY_DIRECT_FREE_KICK,
+        SET_PLAY_GOAL_KICK, SET_PLAY_INDIRECT_FREE_KICK, SET_PLAY_NONE, SET_PLAY_PENALTY_KICK,
+        SET_PLAY_THROW_IN, STATE_FINISHED, STATE_INITIAL, STATE_PLAYING, STATE_READY, STATE_SET,
+        TEAM_BLACK, TEAM_BLUE, TEAM_BROWN, TEAM_GRAY, TEAM_GREEN, TEAM_ORANGE, TEAM_PURPLE,
+        TEAM_RED, TEAM_WHITE, TEAM_YELLOW,
     },
 };
 
@@ -265,8 +266,8 @@ impl GamePhase {
         };
         match game_phase {
             GAME_PHASE_NORMAL => Ok(GamePhase::Normal),
-            GAME_PHASE_PENALTYSHOOT => Ok(GamePhase::PenaltyShootout { kicking_team: team }),
-            GAME_PHASE_EXTRATIME => Ok(GamePhase::Extratime),
+            GAME_PHASE_PENALTY_SHOOT_OUT => Ok(GamePhase::PenaltyShootout { kicking_team: team }),
+            GAME_PHASE_EXTRA_TIME => Ok(GamePhase::Extratime),
             GAME_PHASE_TIMEOUT => Ok(GamePhase::Timeout),
             _ => bail!("unexpected game phase"),
         }
@@ -468,7 +469,6 @@ pub enum PenaltyShoot {
 #[derive(Clone, Debug, Deserialize, Serialize, Message)]
 pub struct Player {
     pub penalty: Option<Penalty>,
-    pub warning: u8,
     pub caution: u8,
 }
 
@@ -479,7 +479,6 @@ impl TryFrom<RobotInfo> for Player {
         let remaining = Duration::from_secs(player.secsTillUnpenalised.into());
         Ok(Self {
             penalty: Penalty::try_from(remaining, player.penalty)?,
-            warning: player.warnings,
             caution: player.cautions,
         })
     }
@@ -500,6 +499,7 @@ impl TryFrom<RobotInfo> for Player {
 pub enum Penalty {
     IllegalPosition { remaining: Duration },
     MotionInSet { remaining: Duration },
+    MotionInStop { remaining: Duration },
     LocalGameStuck { remaining: Duration },
     IncapableRobot { remaining: Duration },
     PickUp { remaining: Duration },
@@ -507,6 +507,7 @@ pub enum Penalty {
     LeavingTheField { remaining: Duration },
     PlayingWithArmsHands { remaining: Duration },
     Pushing { remaining: Duration },
+    Cautioned { remaining: Duration },
     SentOff { remaining: Duration },
     Substitute { remaining: Duration },
 }
@@ -517,6 +518,7 @@ impl Penalty {
             PENALTY_NONE => Ok(None),
             PENALTY_ILLEGAL_POSITIONING => Ok(Some(Penalty::IllegalPosition { remaining })),
             PENALTY_MOTION_IN_SET => Ok(Some(Penalty::MotionInSet { remaining })),
+            PENALTY_MOTION_IN_STOP => Ok(Some(Penalty::MotionInStop { remaining })),
             PENALTY_LOCAL_GAME_STUCK => Ok(Some(Penalty::LocalGameStuck { remaining })),
             PENALTY_INCAPABLE_ROBOT => Ok(Some(Penalty::IncapableRobot { remaining })),
             PENALTY_PICK_UP => Ok(Some(Penalty::PickUp { remaining })),
@@ -526,6 +528,7 @@ impl Penalty {
                 Ok(Some(Penalty::PlayingWithArmsHands { remaining }))
             }
             PENALTY_PUSHING => Ok(Some(Penalty::Pushing { remaining })),
+            PENALTY_CAUTIONED => Ok(Some(Penalty::Cautioned { remaining })),
             PENALTY_SENT_OFF => Ok(Some(Penalty::SentOff { remaining })),
             PENALTY_SUBSTITUTE => Ok(Some(Penalty::Substitute { remaining })),
             _ => bail!("unexpected penalty type"),
