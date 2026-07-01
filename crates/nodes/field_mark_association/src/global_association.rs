@@ -72,7 +72,7 @@ impl Default for GlobalAssociationConfig {
     }
 }
 
-/// Configuration for pose-hint nearest-neighbor association fallback.
+/// Configuration for pose-hint per-class association fallback.
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize, Message)]
 #[serde(deny_unknown_fields)]
 pub struct PoseHintAssociationConfig {
@@ -82,7 +82,8 @@ pub struct PoseHintAssociationConfig {
     pub max_pose_age: Duration,
     /// Maximum reprojection error under the current pose hint.
     pub max_reprojection_error_px: f32,
-    /// Minimum pixel gap between the closest and second-closest same-class landmark projection.
+    /// Minimum single-detection pixel gap between closest and second-closest same-class landmark.
+    /// Multiple viable same-class detections are disambiguated by joint assignment instead.
     pub second_best_reprojection_margin_px: f32,
     /// Minimum pose-hint associations needed to consider tracking healthy.
     pub healthy_min_inliers: usize,
@@ -431,7 +432,7 @@ impl GlobalLocalizationResult {
 
 #[cfg(test)]
 mod tests {
-    use coordinate_systems::{Camera, Field, Ground, Robot};
+    use coordinate_systems::{Camera, Field, Ground, Pixel, Robot};
     use linear_algebra::{IntoTransform, Point2, point};
     use projection::intrinsic::Intrinsic;
     use types::field_dimensions::{FieldDimensions, Half, Side};
@@ -529,6 +530,74 @@ mod tests {
         );
 
         assert!(associations.associations.is_empty());
+    }
+
+    #[test]
+    fn pose_hint_fallback_assigns_shifted_xspots_as_group() {
+        let field = FieldDimensions::SPL_2025;
+        let center_pixel = project_point(field.center()).pixel;
+        let right_pixel = project_point(field.x_crossing(Side::Right)).pixel;
+        let y_shift = center_pixel.y() - right_pixel.y();
+        let features = DetectedVisualFeatures {
+            x_spots: vec![
+                shifted_feature(field.x_crossing(Side::Right), y_shift),
+                shifted_feature(field.center(), y_shift),
+                shifted_feature(field.x_crossing(Side::Left), y_shift),
+            ],
+            ..Default::default()
+        };
+        let localizer = GlobalAssociator::default();
+
+        let associations = localizer.associate_with_pose_hint(
+            input(
+                &features,
+                &field,
+                Some(Isometry3::<Robot, Field>::identity()),
+            ),
+            PoseHintAssociationConfig {
+                max_reprojection_error_px: y_shift.abs() + 1.0,
+                ..Default::default()
+            },
+        );
+
+        assert_eq!(
+            associations.associations.len(),
+            3,
+            "{:#?}",
+            associations.associations
+        );
+        assert_associated(
+            &associations.associations,
+            features.x_spots[0].pixel,
+            field.x_crossing(Side::Right),
+        );
+        assert_associated(
+            &associations.associations,
+            features.x_spots[1].pixel,
+            field.center(),
+        );
+        assert_associated(
+            &associations.associations,
+            features.x_spots[2].pixel,
+            field.x_crossing(Side::Left),
+        );
+    }
+
+    fn shifted_feature(point: Point2<Field>, y_shift: f32) -> DetectedVisualFeature {
+        let mut feature = project_point(point);
+        feature.pixel = point![<Pixel>, feature.pixel.x(), feature.pixel.y() + y_shift];
+        feature
+    }
+
+    fn assert_associated(
+        associations: &[FeatureAssociation],
+        detection: Point2<Pixel>,
+        field_point: Point2<Field>,
+    ) {
+        assert!(associations.iter().any(|association| {
+            (association.detection - detection).inner.norm() < 1.0e-4
+                && (association.field_point - field_point).inner.norm() < 1.0e-4
+        }));
     }
 
     #[test]

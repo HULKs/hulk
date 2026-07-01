@@ -152,6 +152,7 @@ fn pose_hint_assignments_for_class(
     }
 
     let mut row_ranges = Vec::new();
+    let mut row_second_best_errors = Vec::new();
     let mut options = Vec::new();
     for (detection_index, detection) in detections
         .iter()
@@ -164,23 +165,46 @@ fn pose_hint_assignments_for_class(
             detection,
             field_to_camera,
             intrinsic,
-            config,
         );
-        if detection_options.is_empty() {
+        let Some(best) = detection_options.first() else {
+            continue;
+        };
+        if best.reprojection_error_px > config.max_reprojection_error_px {
             continue;
         }
+
         let row_start = options.len();
-        options.extend(detection_options);
+        row_second_best_errors.push(
+            detection_options
+                .get(1)
+                .map(|option| option.reprojection_error_px),
+        );
+        options.extend(
+            detection_options.into_iter().take_while(|option| {
+                option.reprojection_error_px <= config.max_reprojection_error_px
+            }),
+        );
         row_ranges.push(row_start..options.len());
     }
     if row_ranges.is_empty() {
         return Vec::new();
     }
+    if row_ranges.len() == 1
+        && let Some(second_best_error) = row_second_best_errors[0]
+    {
+        let best_error = options[row_ranges[0].start].reprojection_error_px;
+        if second_best_error - best_error < config.second_best_reprojection_margin_px {
+            return Vec::new();
+        }
+    }
 
-    let Ok(zero) = NotNan::new(0.0) else {
+    // Prefer a complete in-gate group over a slid subset of near-zero matches.
+    let missing_assignment_penalty =
+        config.max_reprojection_error_px.powi(2) * row_ranges.len().max(1) as f32 + 1.0;
+    let Ok(missing_assignment) = NotNan::new(-missing_assignment_penalty) else {
         return Vec::new();
     };
-    let mut costs = Array2::from_elem((row_ranges.len(), landmark_ids.len()), zero);
+    let mut costs = Array2::from_elem((row_ranges.len(), landmark_ids.len()), missing_assignment);
     for (row, range) in row_ranges.iter().enumerate() {
         for option in &options[range.clone()] {
             let Some(column) = landmark_ids
@@ -189,8 +213,7 @@ fn pose_hint_assignments_for_class(
             else {
                 continue;
             };
-            let value = (config.max_reprojection_error_px - option.reprojection_error_px).max(0.0)
-                + option.confidence * 1.0e-3;
+            let value = pose_hint_assignment_value(config, option);
             let Ok(cost) = NotNan::new(value) else {
                 continue;
             };
@@ -221,7 +244,6 @@ fn pose_hint_options_for_detection(
     detection: &DetectionPoint,
     field_to_camera: Isometry3<Field, Camera>,
     intrinsic: Intrinsic,
-    config: PoseHintAssociationConfig,
 ) -> Vec<PoseHintOption> {
     let mut candidates = map
         .landmarks_for_class(detection.class)
@@ -237,29 +259,20 @@ fn pose_hint_options_for_detection(
         .collect::<Vec<_>>();
     candidates.sort_by(|left, right| left.1.total_cmp(&right.1));
 
-    let Some((best_landmark_id, best_error)) = candidates.first().copied() else {
-        return Vec::new();
-    };
-    if best_error > config.max_reprojection_error_px {
-        return Vec::new();
-    }
-    if let Some((_, second_best_error)) = candidates.get(1).copied()
-        && second_best_error - best_error < config.second_best_reprojection_margin_px
-    {
-        return Vec::new();
-    }
-
     candidates
         .into_iter()
-        .take_while(|(_, error)| *error <= config.max_reprojection_error_px)
         .map(|(landmark_id, reprojection_error_px)| PoseHintOption {
             detection_index,
             landmark_id,
             confidence: detection.confidence,
             reprojection_error_px,
         })
-        .filter(|option| option.landmark_id == best_landmark_id)
         .collect()
+}
+
+fn pose_hint_assignment_value(config: PoseHintAssociationConfig, option: &PoseHintOption) -> f32 {
+    let max_error = config.max_reprojection_error_px;
+    (max_error.powi(2) - option.reprojection_error_px.powi(2)).max(0.0) + option.confidence * 1.0e-3
 }
 
 fn reprojection_rmse(residuals: &[f32]) -> Option<f32> {
