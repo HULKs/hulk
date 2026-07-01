@@ -6929,6 +6929,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "mcap_recorder"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "color-eyre",
+ "coordinate_systems",
+ "field_mark_association",
+ "futures-util",
+ "kinematics",
+ "linear_algebra",
+ "localization-3d",
+ "mcap",
+ "nalgebra 0.34.2",
+ "projection",
+ "ros-z",
+ "ros-z-streams",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "types",
+ "zenoh",
+]
+
+[[package]]
 name = "md5"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

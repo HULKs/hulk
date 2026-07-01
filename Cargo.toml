@@ -60,6 +60,7 @@ members = [
   "crates/nodes/look_around",
   "crates/nodes/look_at",
   "crates/nodes/low_state_bridge",
+  "crates/nodes/mcap_recorder",
   "crates/nodes/message_filter",
   "crates/nodes/message_handler",
   "crates/nodes/microphone_recorder",
