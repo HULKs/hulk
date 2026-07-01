@@ -425,7 +425,23 @@ pub fn run_auto_referee(
         rule.apply(&mut context);
     }
 
+    sync_remaining_time_in_half(&mut context);
+
     auto_referee.rules = rules;
+}
+
+fn sync_remaining_time_in_half(context: &mut AutoRefereeContext<'_>) {
+    context
+        .game_state
+        .game_controller_state
+        .remaining_time_in_half = context
+        .auto_referee
+        .halftime_started_at
+        .and_then(|started_at| context.now.duration_since(started_at).ok())
+        .map_or(context.config.halftime_duration, |elapsed| {
+            context.config.halftime_duration.saturating_sub(elapsed)
+        });
+    context.game_state.sync_filtered_game_controller_state();
 }
 
 fn apply_referee_command(command: SimulatorRefereeCommand, context: &mut AutoRefereeContext<'_>) {
