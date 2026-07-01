@@ -56,20 +56,18 @@ pub fn goalkeeper_subtree() -> Node<Blackboard> {
                     subtree!(kick_alternatives_subtree),
                 )
             ),
-            sequence!(selection!(
-                sequence!(
-                    condition!(is_ball_near_own_goal),
-                    subtree!(goalkeeper_active_defense_position_subtree),
-                ),
-                sequence!(
-                    condition!(is_ball_in_own_penalty_area),
-                    selection!(sequence!(
-                        action!(calculate_voronoi_grid),
-                        condition!(is_closest_to_ball),
-                        subtree!(striker_subtree),
-                    ),),
-                ),
-            ),),
+            sequence!(
+                condition!(is_ball_close_enough_to_goal_to_become_striker),
+                selection!(sequence!(
+                    action!(calculate_voronoi_grid),
+                    condition!(is_closest_to_ball),
+                    subtree!(striker_subtree),
+                ),),
+            ),
+            sequence!(
+                condition!(is_ball_near_own_goal),
+                subtree!(goalkeeper_active_defense_position_subtree),
+            ),
             subtree!(goalkeeper_default_position_subtree),
         ),
     )
@@ -211,6 +209,18 @@ fn is_ball_in_own_penalty_area(blackboard: &mut Blackboard) -> bool {
 
         ball.position.x() < own_penalty_area_x
             && ball.position.y().abs() < field_dimensions.penalty_area_width / 2.0
+    })
+}
+
+fn is_ball_close_enough_to_goal_to_become_striker(blackboard: &mut Blackboard) -> bool {
+    blackboard.ball.as_ref().is_some_and(|ball| {
+        // let field_dimensions = blackboard.field_dimensions;
+        // let own_penalty_area_x =
+        //     -field_dimensions.length / 2.0 + (field_dimensions.penalty_area_length * 2.0);
+
+        // ball.position.x() < own_penalty_area_x
+        //     && ball.position.y().abs() < field_dimensions.penalty_area_width
+        ball.position.x() < 0.0
     })
 }
 
