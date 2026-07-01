@@ -1124,7 +1124,6 @@ impl VinsBackend {
             optimizer_status,
             BackendOptimizerStatus::Converged | BackendOptimizerStatus::MaxIterations
         ) {
-            // Marginalize only after the current batch has influenced the optimized state.
             let cutoff_time = time - self.config.max_optimization_window;
             if let Some(smallest_interval_index_in_window) =
                 self.interval_assigner.assign_interval(cutoff_time)

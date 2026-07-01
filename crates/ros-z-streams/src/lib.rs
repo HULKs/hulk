@@ -83,4 +83,4 @@ pub use announce::{AnnouncingPublisher, CreateAnnouncingPublisher, PendingAnnoun
 pub use future_map::{
     CreateFutureMapBuilder, FutureItem, FutureMap, FutureMapBuilder, FutureResult,
 };
-pub use future_queue::{CreateFutureQueue, FutureQueueSubscriber};
+pub use future_queue::{CreateFutureQueue, FutureQueueSubscriber, QueueEvent};

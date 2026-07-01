@@ -135,6 +135,12 @@ impl<T> CacheInner<T> {
             .and_then(|(_, bucket)| bucket.back().map(Arc::clone))
     }
 
+    pub fn get_exact(&self, t: Time) -> Option<Arc<T>> {
+        self.entries
+            .get(&t)
+            .and_then(|bucket| bucket.back().map(Arc::clone))
+    }
+
     pub fn get_after(&self, t: Time) -> Option<Arc<T>> {
         self.entries
             .range(t..)
@@ -189,6 +195,17 @@ impl<T> CacheInner<T> {
 
     pub fn latest_stamp(&self) -> Option<Time> {
         self.entries.keys().next_back().copied()
+    }
+
+    pub fn latest_stamp_at_or_before(&self, t: Time) -> Option<Time> {
+        self.entries
+            .range(..=t)
+            .next_back()
+            .map(|(stamp, _)| *stamp)
+    }
+
+    pub fn latest_stamp_before(&self, t: Time) -> Option<Time> {
+        self.entries.range(..t).next_back().map(|(stamp, _)| *stamp)
     }
 
     pub fn len(&self) -> usize {

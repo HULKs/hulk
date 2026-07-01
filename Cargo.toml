@@ -112,6 +112,7 @@ members = [
   "tools/hydra-bench",
   "tools/mujoco-simulator/mujoco-rust-server",
   "tools/pepsi",
+  "tools/robot_viewer",
   "tools/tensorrt-compile",
   "tools/twix",
   "tools/twix-legacy",
