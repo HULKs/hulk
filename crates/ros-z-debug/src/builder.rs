@@ -1,6 +1,6 @@
-use std::{error::Error as _, fmt::Write as _, sync::Arc, time::Duration};
+use std::{error::Error as _, fmt::Write as _, num::NonZero, sync::Arc, time::Duration};
 
-use ros_z::{Message, dynamic::DynamicPayload, node::Node};
+use ros_z::{Message, dynamic::DynamicPayload, node::Node, qos::QosProfile};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -107,7 +107,15 @@ impl CachedSubscriptionBuilder {
             schema_discovery_timeout: _,
         } = self;
         let resolved_topic = topic.resolve(&target_identity)?;
-        let subscriber = node.subscriber::<T>(&resolved_topic).build().await?;
+        let subscriber = node
+            .subscriber::<T>(&resolved_topic)
+            .qos(QosProfile {
+                durability: ros_z::qos::QosDurability::TransientLocal,
+                history: ros_z::qos::QosHistory::KeepLast(NonZero::new(1).unwrap()),
+                ..Default::default()
+            })
+            .build()
+            .await?;
         let type_info = subscriber.entity().type_info.clone();
         let metadata = Arc::new(SampleMetadata {
             topic_reference: topic,

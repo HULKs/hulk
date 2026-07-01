@@ -7,14 +7,14 @@ use coordinate_systems::Ground;
 use linear_algebra::Pose2;
 use types::field_dimensions::FieldDimensions;
 
-use crate::{panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter};
+use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
 
 pub struct RobotPose {}
 
 impl Layer<Ground> for RobotPose {
     const NAME: &'static str = "Robot Pose";
 
-    fn new(_robot: Arc<Robot>) -> Self {
+    fn new(_backend: Arc<RobotBackend>) -> Self {
         Self {}
     }
 
