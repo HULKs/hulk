@@ -220,28 +220,14 @@ pub fn set_goalkeeper_active_defense_position(blackboard: &mut Blackboard) -> St
         let parameters = &blackboard.parameters.keeper;
 
         let own_goal_line_x = -field_dimensions.length / 2.0;
-        let active_defense_edge_x = own_goal_line_x + parameters.active_defense_x_offset;
-
-        let ball_x_from_own_goal_line = ball.position.x() - own_goal_line_x;
-        let defense_line_x_from_own_goal_line = active_defense_edge_x - own_goal_line_x;
-        let projected_ball_y_at_defense_line = if ball_x_from_own_goal_line.abs() < f32::EPSILON {
-            ball.position.y()
+        let own_goal_center = point!(own_goal_line_x, 0.0);
+        let goal_to_ball = ball.position - own_goal_center;
+        let defense_radius = field_dimensions.goal_inner_width / 2.0;
+        let defense_position_in_field = if goal_to_ball.norm() < f32::EPSILON {
+            point!(own_goal_line_x + defense_radius, 0.0)
         } else {
-            ball.position.y() * defense_line_x_from_own_goal_line / ball_x_from_own_goal_line
+            own_goal_center + goal_to_ball.normalize() * defense_radius
         };
-
-        let defense_line_width_half = parameters.active_defense_line_width_half.abs();
-        let clamped_defense_y = projected_ball_y_at_defense_line
-            .clamp(-defense_line_width_half, defense_line_width_half);
-        let normalized_defense_y = if defense_line_width_half.abs() < f32::EPSILON {
-            0.0
-        } else {
-            clamped_defense_y / defense_line_width_half
-        };
-        let center_forward_offset =
-            parameters.active_defense_center_forward_offset * (1.0 - normalized_defense_y.powi(2));
-        let active_defense_x = active_defense_edge_x + center_forward_offset;
-        let defense_position_in_field = point!(active_defense_x, clamped_defense_y);
         let defense_position_in_ground = ground_to_field.inverse() * defense_position_in_field;
 
         if defense_position_in_ground.coords().norm()
