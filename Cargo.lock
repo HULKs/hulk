@@ -11613,6 +11613,7 @@ dependencies = [
 name = "twix"
 version = "0.14.0"
 dependencies = [
+ "ball_filter",
  "clap",
  "color-eyre",
  "convert_case 0.7.1",
