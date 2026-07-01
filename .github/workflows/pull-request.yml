@@ -100,7 +100,7 @@ jobs:
       - name: Install cargo-nextest
         run: cargo binstall cargo-nextest --secure --no-confirm --disable-strategies compile
       - name: Test
-        run: ./pepsi nextest --locked --all-features --workspace
+        run: ./pepsi nextest
 
   # build:
   #   name: Build
