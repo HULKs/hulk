@@ -50,9 +50,13 @@ pub fn create_tree() -> Node<Blackboard> {
         ),
         sequence!(
             selection!(
-                condition!(is_primary_state, PrimaryState::Initial),
+                condition!(is_primary_state, PrimaryState::Finished),
                 condition!(is_primary_state, PrimaryState::Penalized),
             ),
+            action!(stand)
+        ),
+        sequence!(
+            condition!(is_primary_state, PrimaryState::Initial),
             action!(look_around),
             action!(stand)
         ),
