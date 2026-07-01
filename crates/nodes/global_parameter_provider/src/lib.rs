@@ -5,13 +5,14 @@ use hsl_network_messages::PlayerNumber;
 use serde::{Deserialize, Serialize};
 
 use ros_z::{prelude::*, qos::QosDurability};
-use types::field_dimensions::FieldDimensions;
+use types::{field_dimensions::FieldDimensions, parameters::HslNetworkParameters};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
 pub struct Parameters {
     pub player_number: PlayerNumber,
     pub field_dimensions: FieldDimensions,
+    pub hsl_network: HslNetworkParameters,
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -41,13 +42,22 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
+    let hsl_network_pub = node
+        .publisher::<HslNetworkParameters>("hsl_network_parameters")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await?;
+
     let parameters_snapshot = node_parameters.snapshot();
     let parameters = parameters_snapshot.typed();
     player_number_pub.publish(&parameters.player_number).await?;
     field_dimensions_pub
         .publish(&parameters.field_dimensions)
         .await?;
-
+    hsl_network_pub.publish(&parameters.hsl_network).await?;
     let mut parameters_receiver = node_parameters.subscribe();
     loop {
         let _ = parameters_receiver.changed().await;
@@ -58,5 +68,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         field_dimensions_pub
             .publish(&parameters.field_dimensions.clone())
             .await?;
+        hsl_network_pub.publish(&parameters.hsl_network).await?;
     }
 }

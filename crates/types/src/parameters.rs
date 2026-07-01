@@ -96,7 +96,6 @@ pub struct BehaviorParameters {
     pub intercept_ball: InterceptBallParameters,
     pub substates: SubstatesParameters,
     pub voronoi: VoronoiParameters,
-    pub hsl_network: HslNetworkParameters,
     pub closest_to_ball_enter_duration: Duration,
     pub closest_to_ball_exit_duration: Duration,
 }

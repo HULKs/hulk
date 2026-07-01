@@ -14,7 +14,7 @@ impl Blackboard {
     ) -> Option<OutgoingMessage> {
         let now = self.world_state.now;
 
-        if !self.is_return_message_cooldown_elapsed(now, &self.parameters.hsl_network) {
+        if !self.is_return_message_cooldown_elapsed(now, &self.hsl_network_parameters) {
             return None;
         }
         let address = game_controller_address?;
@@ -68,14 +68,13 @@ impl Blackboard {
             .as_ref()
             .map(|state| state.remaining_number_of_messages);
 
-        if !self.is_state_message_cooldown_elapsed(now, &self.parameters.hsl_network) {
+        if !self.is_state_message_cooldown_elapsed(now, &self.hsl_network_parameters) {
             return None;
         }
         if remaining_amount_of_messages.is_none_or(|remaining_amount_of_messages| {
             remaining_amount_of_messages
                 < self
-                    .parameters
-                    .hsl_network
+                    .hsl_network_parameters
                     .remaining_amount_of_messages_to_stop_sending
         }) {
             return None;
