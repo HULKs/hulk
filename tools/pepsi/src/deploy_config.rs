@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeSet, HashMap},
+    fmt::Display,
     str::FromStr,
 };
 
@@ -191,5 +192,11 @@ impl<'de> Deserialize<'de> for Branch {
             remote: remote.to_owned(),
             branch: branch.to_owned(),
         })
+    }
+}
+
+impl Display for Branch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}/{}", self.remote, self.branch))
     }
 }

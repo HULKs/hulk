@@ -66,3 +66,11 @@ pub async fn reset_to_head() -> Result<()> {
         .run()
         .await
 }
+
+pub async fn merge_squash(branch: &str) -> Result<()> {
+    GitCommand::new("merge")
+        .arg("--squash")
+        .arg(branch)
+        .run()
+        .await
+}
