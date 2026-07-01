@@ -1,0 +1,14 @@
+{
+  walking: {
+    hybrid_align_distance: 1.0,
+    max_alignment_rate: 1.0,
+    deceleration_distance: 0.5,
+  },
+  move_robot_message_interval: { secs: 0, nanos: 20000000 },
+  kicking: {
+    kick_message_interval: { secs: 0, nanos: 20000000 },
+    kick_power: { rumpelstilzchen: 1.5, schlong: 6.0 },
+  },
+  rotate_head_message_interval: { secs: 0, nanos: 20000000 },
+  sdk_request_timeout: { secs: 0, nanos: 100000000 },
+}
