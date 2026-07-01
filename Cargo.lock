@@ -9438,7 +9438,10 @@ dependencies = [
  "clap_complete",
  "color-eyre",
  "humantime",
+ "libc",
+ "mcap",
  "ros-z",
+ "ros-z-recording",
  "serde",
  "serde_json",
  "tempfile",
@@ -9478,6 +9481,22 @@ dependencies = [
  "serde",
  "sha2",
  "thiserror 2.0.18",
+ "zenoh",
+]
+
+[[package]]
+name = "ros-z-recording"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "hex",
+ "mcap",
+ "ros-z",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
  "zenoh",
 ]
 

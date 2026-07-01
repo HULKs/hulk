@@ -5,5 +5,6 @@ pub mod hz;
 pub mod info;
 pub mod list;
 pub mod parameter;
+pub mod record;
 pub mod schema;
 pub mod watch;

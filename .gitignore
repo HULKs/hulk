@@ -37,6 +37,7 @@ site/
 
 deploy.toml
 logs
+/rosz-recording-*.mcap
 
 notes*
 .worktrees/

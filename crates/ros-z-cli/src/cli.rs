@@ -1,4 +1,4 @@
-use std::{num::NonZeroUsize, time::Duration};
+use std::{num::NonZeroUsize, path::PathBuf, time::Duration};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
@@ -137,6 +137,16 @@ pub enum OnlineCommand {
     },
     /// Estimate topic message frequency
     Hz(HzArgs),
+    /// Record exact topics into an MCAP file
+    Record {
+        /// Output MCAP path. Defaults to a timestamped file in the current directory.
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Exact topic names to record
+        #[arg(required = true)]
+        topics: Vec<String>,
+    },
     /// Show metadata for a topic, service, or node
     Info {
         #[arg(value_enum)]
@@ -365,6 +375,26 @@ mod tests {
     }
 
     #[test]
+    fn parses_record_command_with_output_and_topics() {
+        let cli = Cli::parse_from([
+            "rosz",
+            "record",
+            "--output",
+            "capture.mcap",
+            "/alpha",
+            "/beta",
+        ]);
+
+        match cli.command {
+            Command::Online(OnlineCommand::Record { output, topics }) => {
+                assert_eq!(output, Some(std::path::PathBuf::from("capture.mcap")));
+                assert_eq!(topics, ["/alpha", "/beta"]);
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
     fn parses_doctor_command_with_custom_settle_timeout() {
         let cli = Cli::parse_from(["rosz", "doctor", "--settle-timeout", "500ms"]);
 
@@ -395,6 +425,14 @@ mod tests {
             .expect_err("unitless settle timeout should be rejected");
 
         assert_eq!(error.kind(), ErrorKind::ValueValidation);
+    }
+
+    #[test]
+    fn record_command_requires_at_least_one_topic() {
+        let error = Cli::try_parse_from(["rosz", "record", "--output", "capture.mcap"])
+            .expect_err("record command must require a topic");
+
+        assert_eq!(error.kind(), ErrorKind::MissingRequiredArgument);
     }
 
     #[test]
