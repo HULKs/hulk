@@ -59,6 +59,10 @@ pub async fn create_commit(message: &str) -> Result<()> {
         .await
 }
 
+pub async fn add_all() -> Result<()> {
+    GitCommand::new("add").arg(".").run().await
+}
+
 pub async fn reset_to_head() -> Result<()> {
     GitCommand::new("reset")
         .arg("--hard")

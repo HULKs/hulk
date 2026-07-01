@@ -6,7 +6,7 @@ use tokio::io::{AsyncBufReadExt, BufReader, stdin};
 
 use crate::{
     deploy_config::DeployConfig,
-    git::{create_and_switch_to_branch, create_commit, merge_squash, reset_to_head},
+    git::{add_all, create_and_switch_to_branch, create_commit, merge_squash, reset_to_head},
     player_number::{Arguments as PlayerNumberArguments, player_number},
 };
 
@@ -66,6 +66,7 @@ pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Resul
     }
 
     configure_repository(repository, config).await?;
+    add_all().await?;
     create_commit("Add player number assigments and framework config")
         .await
         .wrap_err("failed to create commit")?;
