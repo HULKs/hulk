@@ -17,6 +17,7 @@ use crate::{
     subtree,
     switch_motion_type::switch_motion_type,
     tree::striker_subtree,
+    voronoi::calculate_voronoi_grid,
     walk::{
         set_goalkeeper_active_defense_position, walk_alternatives_subtree, walk_to_block_position,
         walk_to_goalkeeper_default_position, walk_to_goalkeeper_penalty_position,
@@ -58,7 +59,11 @@ pub fn goalkeeper_subtree() -> Node<Blackboard> {
             sequence!(
                 condition!(is_ball_near_own_goal),
                 selection!(
-                    sequence!(condition!(is_closest_to_ball), subtree!(striker_subtree)),
+                    sequence!(
+                        action!(calculate_voronoi_grid),
+                        condition!(is_closest_to_ball),
+                        subtree!(striker_subtree)
+                    ),
                     subtree!(goalkeeper_active_defense_position_subtree)
                 ),
             ),
