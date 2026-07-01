@@ -13,6 +13,7 @@ use types::time_wrapper::TimeWrapper;
 use uuid::Uuid;
 
 use crate::{
+    graph::publisher_topic_completions,
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
     status::format_topic_observation_status,
@@ -95,7 +96,11 @@ impl Panel for ImagePanel {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 ui.label("Topic");
-                let completions = Vec::<String>::new();
+                let namespace = context.backend.namespace();
+                let completions = {
+                    let graph = context.backend.graph().lock();
+                    publisher_topic_completions(graph.publishers(), &namespace, &self.topic_editor)
+                };
                 let response = ui.add(CompletionEdit::new(
                     ui.id().with("image_topic"),
                     &completions,

@@ -63,6 +63,10 @@ impl RobotBackend {
         &self.observer
     }
 
+    pub fn graph(&self) -> &ros_z::graph::Graph {
+        self.context.graph().as_ref()
+    }
+
     pub fn namespace(&self) -> String {
         self.namespace
             .lock()
