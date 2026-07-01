@@ -166,7 +166,7 @@ impl AutoRefereeRule for ScoredGoalRule {
             }
         }
         context.ball.state = None;
-        context.ball.last_touch_team = None;
+        context.ball.last_touched_by = None;
 
         if goal_difference(&context.game_state.game_controller_state) >= 10 {
             context.set_game_state(GameState::Finished);
@@ -297,6 +297,7 @@ impl Default for GameStateTransitionRule {
     }
 }
 
+#[derive(Default)]
 pub struct BallOutOfFieldRule;
 
 impl AutoRefereeRule for BallOutOfFieldRule {
@@ -316,12 +317,12 @@ impl AutoRefereeRule for BallOutOfFieldRule {
 
         let global_field_side = context.game_state.game_controller_state.global_field_side;
         let ball_in_field = point_world_to_field(ball.position, global_field_side);
-        let last_touch_team = context
+        let last_touched_by = context
             .ball
-            .last_touch_team
-            .unwrap_or_else(|| fallback_last_touch_team(context));
-        let kicking_team = opponent_of(last_touch_team);
-        let sub_state = restart_sub_state(ball_in_field, last_touch_team, context.field_dimensions);
+            .last_touched_by
+            .unwrap_or_else(|| fallback_last_touched_by(context));
+        let kicking_team = opponent_of(last_touched_by);
+        let sub_state = restart_sub_state(ball_in_field, last_touched_by, context.field_dimensions);
         let restart_position = restart_position_for(
             ball_in_field,
             sub_state,
@@ -335,15 +336,9 @@ impl AutoRefereeRule for BallOutOfFieldRule {
             velocity: Vector2::zeros(),
             field_side: ball.field_side,
         });
-        context.ball.last_touch_team = None;
+        context.ball.last_touched_by = None;
         context.set_kicking_team(Some(kicking_team));
         context.set_sub_state(Some(sub_state));
-    }
-}
-
-impl Default for BallOutOfFieldRule {
-    fn default() -> Self {
-        Self
     }
 }
 
@@ -454,7 +449,7 @@ fn apply_referee_command(command: SimulatorRefereeCommand, context: &mut AutoRef
         SimulatorRefereeCommand::DroppedBall => {
             context.set_kicking_team(None);
             context.set_sub_state(None);
-            context.ball.last_touch_team = None;
+            context.ball.last_touched_by = None;
             context.auto_referee.restart_reason = Some(SimulatorRestartReason::DroppedBall);
             context.set_game_state(GameState::Ready);
         }
@@ -475,7 +470,7 @@ fn opponent_of(team: Team) -> Team {
     }
 }
 
-fn fallback_last_touch_team(context: &AutoRefereeContext<'_>) -> Team {
+fn fallback_last_touched_by(context: &AutoRefereeContext<'_>) -> Team {
     context
         .game_state
         .game_controller_state
@@ -486,7 +481,7 @@ fn fallback_last_touch_team(context: &AutoRefereeContext<'_>) -> Team {
 
 fn restart_sub_state(
     ball_in_field: Point2<Field>,
-    last_touch_team: Team,
+    last_touched_by: Team,
     field_dimensions: FieldDimensions,
 ) -> SubState {
     let x_excess = ball_in_field.x().abs() - field_dimensions.length / 2.0;
@@ -500,7 +495,7 @@ fn restart_sub_state(
     } else {
         Team::Opponent
     };
-    if last_touch_team == attacking_team {
+    if last_touched_by == attacking_team {
         SubState::GoalKick
     } else {
         SubState::CornerKick
@@ -570,7 +565,7 @@ fn place_ball_at_center(ball: &mut SimulatorBall) {
         velocity: Vector2::zeros(),
         field_side: Side::Left,
     });
-    ball.last_touch_team = None;
+    ball.last_touched_by = None;
 }
 
 fn ball_in_goal(
@@ -723,7 +718,7 @@ mod tests {
                 velocity: vector![0.0, 0.0],
                 field_side: Side::Left,
             }),
-            last_touch_team: Some(Team::Hulks),
+            last_touched_by: Some(Team::Hulks),
         };
         let mut rule = ScoredGoalRule;
 
@@ -767,7 +762,7 @@ mod tests {
                 velocity: vector![0.0, 0.0],
                 field_side: Side::Left,
             }),
-            last_touch_team: Some(Team::Opponent),
+            last_touched_by: Some(Team::Opponent),
         };
         let mut rule = ScoredGoalRule;
 
@@ -820,7 +815,7 @@ mod tests {
                 velocity: vector![0.0, 0.0],
                 field_side: Side::Left,
             }),
-            last_touch_team: Some(Team::Opponent),
+            last_touched_by: Some(Team::Opponent),
         };
         let mut rule = ScoredGoalRule;
 
