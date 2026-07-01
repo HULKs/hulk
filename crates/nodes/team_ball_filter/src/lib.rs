@@ -34,6 +34,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<Players<Option<TimeWrapper<PlayerState>>>>("player_states")
         .build()
         .await?;
+    let team_balls_pub = node
+        .publisher::<Players<Option<BallPosition<Field>>>>("team_balls")
+        .build()
+        .await?;
     let team_ball_pub = node
         .publisher::<Option<BallPosition<Field>>>("team_ball")
         .build()
@@ -65,6 +69,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         }
 
         let team_ball = team_ball_filter.get_best_received_ball(now, parameters.maximum_age);
+        team_balls_pub
+            .publish_if_subscribed(|| async {
+                team_ball_filter.filtered_received_balls(now, parameters.maximum_age)
+            })
+            .await?;
         team_ball_pub.publish(&team_ball).await?;
     }
 }
@@ -78,6 +87,15 @@ impl TeamBallFilter {
     fn update_received_balls(&mut self, player_states: Players<Option<TimeWrapper<PlayerState>>>) {
         self.received_balls = player_states
             .map(|player_state| player_state.and_then(|state| state.inner.ball_position));
+    }
+
+    fn filtered_received_balls(
+        &self,
+        now: ros_z::time::Time,
+        maximum_age: Duration,
+    ) -> Players<Option<BallPosition<Field>>> {
+        self.received_balls
+            .map(|ball| ball.filter(|ball| ball.age_at(now).is_some_and(|age| age < maximum_age)))
     }
 
     fn get_best_received_ball(
