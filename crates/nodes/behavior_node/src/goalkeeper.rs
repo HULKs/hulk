@@ -85,21 +85,26 @@ fn goalkeeper_sub_state_subtree() -> Node<Blackboard> {
             )
         ),
         sequence!(
-            sequence!(
-                negation!(condition!(hulks_is_kicking_team)),
-                selection!(
-                    condition!(is_sub_state, SubState::CornerKick),
-                    sequence!(
-                        selection!(
-                            condition!(is_sub_state, SubState::ThrowIn),
-                            condition!(is_sub_state, SubState::IndirectFreeKick),
-                            condition!(is_sub_state, SubState::DirectFreeKick),
-                        ),
-                        condition!(is_ball_near_own_goal)
+            negation!(condition!(hulks_is_kicking_team)),
+            selection!(
+                condition!(is_sub_state, SubState::CornerKick),
+                sequence!(
+                    selection!(
+                        condition!(is_sub_state, SubState::ThrowIn),
+                        condition!(is_sub_state, SubState::IndirectFreeKick),
+                        condition!(is_sub_state, SubState::DirectFreeKick),
                     ),
+                    condition!(is_ball_near_own_goal)
                 ),
             ),
             subtree!(goalkeeper_active_defense_position_subtree)
+        ),
+        sequence!(
+            condition!(hulks_is_kicking_team),
+            sequence!(
+                condition!(is_sub_state, SubState::GoalKick),
+                sequence!(condition!(is_closest_to_ball), subtree!(striker_subtree),)
+            ),
         ),
         subtree!(goalkeeper_default_position_subtree),
     )
