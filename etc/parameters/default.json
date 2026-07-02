@@ -536,7 +536,15 @@
     "voronoi": {
       "orientation_bias": 0.5,
       "grid_resolution": 0.2,
-      "padding": 0.5
+      "padding": 0.5,
+      "forward_weight": 0.2,
+      "ball_weight": 1.0,
+      "ball_support_distance": 1.5,
+      "ball_support_sigma": 0.5,
+      "centroid_anchor_weight": 0.25,
+      "centroid_anchor_sigma": 0.3,
+      "centroid_offset": 0.5,
+      "minimum_centroid_margin_from_own_side": 2.0
     },
     "hsl_network": {
       "game_controller_return_message_interval": {

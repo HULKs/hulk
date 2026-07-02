@@ -7,7 +7,7 @@ use ordered_float::NotNan;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
-use types::{obstacles::Obstacle, rule_obstacles::RuleObstacle};
+use types::{obstacles::Obstacle, parameters::VoronoiParameters, rule_obstacles::RuleObstacle};
 
 type QueueItem = Reverse<(NotNan<f32>, usize, usize)>;
 type Queue = BinaryHeap<QueueItem>;
@@ -71,12 +71,12 @@ pub enum Ownership {
 }
 
 #[derive(
-    PartialEq,
     Clone,
     Debug,
     Deserialize,
     Serialize,
     Default,
+    PartialEq,
     PathIntrospect,
     PathDeserialize,
     PathSerialize,
@@ -104,14 +104,15 @@ pub struct VoronoiBounds {
 )]
 pub struct VoronoiGrid {
     pub tiles: Vec<Ownership>,
-    pub width_tiles: usize,
-    pub height_tiles: usize,
-    pub resolution: f32,
+    width_tiles: usize,
+    height_tiles: usize,
+    pub parameters: VoronoiParameters,
     pub bounds: VoronoiBounds,
 }
 
 impl VoronoiGrid {
-    pub fn new(bounds: VoronoiBounds, resolution: f32) -> Self {
+    pub fn new(bounds: VoronoiBounds, parameters: VoronoiParameters) -> Self {
+        let resolution = parameters.grid_resolution;
         let width_tiles =
             ((bounds.grid_max.x() - bounds.grid_min.x()) / resolution).round() as usize;
         let height_tiles =
@@ -122,7 +123,7 @@ impl VoronoiGrid {
             tiles: vec![Ownership::Free; tile_count],
             width_tiles,
             height_tiles,
-            resolution,
+            parameters,
             bounds,
         }
     }
@@ -329,31 +330,11 @@ impl VoronoiGrid {
         None
     }
 
-    pub fn centroid_for_player(&self, player: PlayerNumber) -> Option<Point2<Field>> {
-        let mut sum_x = 0.0;
-        let mut sum_y = 0.0;
-        let mut count = 0;
-
-        for (index, ownership) in self.tiles.iter().copied().enumerate() {
-            if ownership == Ownership::Robot(player) && self.cell_overlaps_centroid_bounds(index) {
-                let point = self.index_to_point(index);
-                sum_x += point.x();
-                sum_y += point.y();
-                count += 1;
-            }
-        }
-
-        if count == 0 {
-            None
-        } else {
-            let inv_count = 1.0 / count as f32;
-            Some(point![sum_x * inv_count, sum_y * inv_count])
-        }
-    }
-
     fn point_to_index(&self, p: Point2<Field>) -> Option<usize> {
-        let ix = ((p.x() - self.bounds.grid_min.x()) / self.resolution).floor() as isize;
-        let iy = ((p.y() - self.bounds.grid_min.y()) / self.resolution).floor() as isize;
+        let ix =
+            ((p.x() - self.bounds.grid_min.x()) / self.parameters.grid_resolution).floor() as isize;
+        let iy =
+            ((p.y() - self.bounds.grid_min.y()) / self.parameters.grid_resolution).floor() as isize;
 
         if (0..self.width_tiles as isize).contains(&ix)
             && (0..self.height_tiles as isize).contains(&iy)
@@ -366,20 +347,21 @@ impl VoronoiGrid {
 
     pub fn index_to_point(&self, index: usize) -> Point2<Field> {
         let (x, y) = xy_from_index(self.width_tiles, index);
-
+        let resolution = self.parameters.grid_resolution;
         point!(
-            self.bounds.grid_min.x() + (x as f32) * self.resolution + self.resolution / 2.0,
-            self.bounds.grid_min.y() + (y as f32) * self.resolution + self.resolution / 2.0
+            self.bounds.grid_min.x() + (x as f32) * resolution + resolution / 2.0,
+            self.bounds.grid_min.y() + (y as f32) * resolution + resolution / 2.0
         )
     }
 
-    fn cell_overlaps_centroid_bounds(&self, index: usize) -> bool {
+    pub fn cell_overlaps_centroid_bounds(&self, index: usize) -> bool {
         let (x, y) = xy_from_index(self.width_tiles, index);
+        let resolution = self.parameters.grid_resolution;
 
-        let min_x = self.bounds.grid_min.x() + (x as f32) * self.resolution;
-        let max_x = min_x + self.resolution;
-        let min_y = self.bounds.grid_min.y() + (y as f32) * self.resolution;
-        let max_y = min_y + self.resolution;
+        let min_x = self.bounds.grid_min.x() + (x as f32) * resolution;
+        let max_x = min_x + resolution;
+        let min_y = self.bounds.grid_min.y() + (y as f32) * resolution;
+        let max_y = min_y + resolution;
 
         min_x < self.bounds.centroid_max.x()
             && max_x > self.bounds.centroid_min.x()
@@ -398,19 +380,21 @@ impl VoronoiGrid {
             return None;
         }
 
+        let resolution = self.parameters.grid_resolution;
+
         let tile_min_x = self.bounds.grid_min.x();
-        let tile_max_x = self.bounds.grid_min.x() + self.width_tiles as f32 * self.resolution;
+        let tile_max_x = self.bounds.grid_min.x() + self.width_tiles as f32 * resolution;
         let tile_min_y = self.bounds.grid_min.y();
-        let tile_max_y = self.bounds.grid_min.y() + self.height_tiles as f32 * self.resolution;
+        let tile_max_y = self.bounds.grid_min.y() + self.height_tiles as f32 * resolution;
 
         if max_x < tile_min_x || min_x > tile_max_x || max_y < tile_min_y || min_y > tile_max_y {
             return None;
         }
 
-        let mut min_x_index = ((min_x - tile_min_x) / self.resolution).floor() as isize - 1;
-        let mut max_x_index = ((max_x - tile_min_x) / self.resolution).floor() as isize + 1;
-        let mut min_y_index = ((min_y - tile_min_y) / self.resolution).floor() as isize - 1;
-        let mut max_y_index = ((max_y - tile_min_y) / self.resolution).floor() as isize + 1;
+        let mut min_x_index = ((min_x - tile_min_x) / resolution).floor() as isize - 1;
+        let mut max_x_index = ((max_x - tile_min_x) / resolution).floor() as isize + 1;
+        let mut min_y_index = ((min_y - tile_min_y) / resolution).floor() as isize - 1;
+        let mut max_y_index = ((max_y - tile_min_y) / resolution).floor() as isize + 1;
 
         min_x_index = min_x_index.clamp(0, self.width_tiles as isize - 1);
         max_x_index = max_x_index.clamp(0, self.width_tiles as isize - 1);
