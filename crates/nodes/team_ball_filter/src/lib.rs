@@ -25,7 +25,7 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("team_ball_filter").build().await?;
 
-    let parameters = node.bind_parameter_as::<Parameters>("team_ball")?;
+    let parameters = node.bind_parameter_as::<Parameters>("team_ball_filter")?;
     let filtered_game_controller_state_sub = node
         .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
         .build()
