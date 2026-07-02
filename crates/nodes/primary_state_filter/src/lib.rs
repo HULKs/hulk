@@ -1,18 +1,21 @@
-use std::{boxed::Box, future::Future, pin::Pin};
+use std::{boxed::Box, future::Future, pin::Pin, time::Duration};
 use std::{collections::HashSet, sync::Arc};
 
-use color_eyre::Result;
+use booster_sdk::client::BoosterClient;
+use color_eyre::{Result, eyre::WrapErr};
 use serde::{Deserialize, Serialize};
 
 use hsl_network_messages::PlayerNumber;
 use ros_z::{prelude::*, qos::QosDurability};
-use tracing::info;
+use tracing::{error, info, warn};
 use types::{
     buttons::{ButtonPressType, Buttons},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     primary_state::PrimaryState,
 };
+
+const BOOSTER_MODE_RETRY_INTERVAL: Duration = Duration::from_millis(100);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
@@ -62,7 +65,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    let mut primary_state_filter = PrimaryStateFilter::default();
+    let booster_client = BoosterClient::new()
+        .wrap_err("failed to create BoosterClient for primary state initialization")?;
+    let initial_primary_state = initial_primary_state_from_booster_mode(&booster_client).await;
+    let mut primary_state_filter = PrimaryStateFilter::new(initial_primary_state);
     primary_state_pub
         .publish(&primary_state_filter.primary_state)
         .await?;
@@ -142,12 +148,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     }
 }
 
-#[derive(Default)]
 struct PrimaryStateFilter {
     pub primary_state: PrimaryState,
 }
 
 impl PrimaryStateFilter {
+    fn new(primary_state: PrimaryState) -> Self {
+        Self { primary_state }
+    }
+
     fn update_with_filtered_game_contoller_state(
         &mut self,
         filtered_game_controller_state: &FilteredGameControllerState,
@@ -248,15 +257,82 @@ fn game_state_to_primary_state(game_state: FilteredGameState, is_penalized: bool
     }
 }
 
+fn initial_primary_state_from_robot_mode(
+    robot_mode: booster_sdk::types::RobotMode,
+) -> PrimaryState {
+    match robot_mode {
+        booster_sdk::types::RobotMode::Damping => PrimaryState::Damping,
+        _ => PrimaryState::Prepare,
+    }
+}
+
+async fn initial_primary_state_from_booster_mode(client: &BoosterClient) -> PrimaryState {
+    loop {
+        match client.get_mode().await {
+            Ok(response) => {
+                let Some(robot_mode) = response.mode_enum() else {
+                    warn!(
+                        target: "primary_state_filter::startup",
+                        mode = response.mode,
+                        "booster returned unrecognized robot mode"
+                    );
+                    tokio::time::sleep(BOOSTER_MODE_RETRY_INTERVAL).await;
+                    continue;
+                };
+
+                let primary_state = initial_primary_state_from_robot_mode(robot_mode);
+                info!(
+                    target: "primary_state_filter::startup",
+                    ?robot_mode,
+                    ?primary_state,
+                    "initialized primary state from booster mode"
+                );
+                return primary_state;
+            }
+            Err(error) => {
+                error!(
+                    target: "primary_state_filter::startup",
+                    %error,
+                    "failed to query booster mode"
+                );
+                tokio::time::sleep(BOOSTER_MODE_RETRY_INTERVAL).await;
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
+    fn damping_robot_mode_initializes_damping_primary_state() {
+        assert_eq!(
+            initial_primary_state_from_robot_mode(booster_sdk::types::RobotMode::Damping),
+            PrimaryState::Damping
+        );
+    }
+
+    #[test]
+    fn non_damping_robot_modes_initialize_prepare_primary_state() {
+        for robot_mode in [
+            booster_sdk::types::RobotMode::Unknown,
+            booster_sdk::types::RobotMode::Prepare,
+            booster_sdk::types::RobotMode::Walking,
+            booster_sdk::types::RobotMode::Custom,
+            booster_sdk::types::RobotMode::Soccer,
+        ] {
+            assert_eq!(
+                initial_primary_state_from_robot_mode(robot_mode),
+                PrimaryState::Prepare,
+                "{robot_mode:?} should initialize Prepare"
+            );
+        }
+    }
+
+    #[test]
     fn update_with_buttons_enters_playing_from_initial_with_safe_long_stand_press() {
-        let mut primary_state_filter = PrimaryStateFilter {
-            primary_state: PrimaryState::Initial,
-        };
+        let mut primary_state_filter = PrimaryStateFilter::new(PrimaryState::Initial);
         let buttons = Buttons {
             f1: None,
             stand: None,
