@@ -35,7 +35,7 @@ impl NodeTarget {
     }
 }
 
-pub fn resolve_node_target(graph: &ros_z::graph::Graph, selector: &str) -> Result<NodeTarget> {
+pub fn resolve_node_target(graph: &ros_z::graph::GraphData, selector: &str) -> Result<NodeTarget> {
     if selector.starts_with('/') {
         let target = NodeTarget::from_fqn(selector)
             .ok_or_else(|| eyre!("invalid fully-qualified node name: {selector}"))?;
@@ -67,7 +67,7 @@ pub fn resolve_node_target(graph: &ros_z::graph::Graph, selector: &str) -> Resul
     }
 }
 
-pub fn can_resolve_node_target(graph: &ros_z::graph::Graph, selector: &str) -> bool {
+pub fn can_resolve_node_target(graph: &ros_z::graph::GraphData, selector: &str) -> bool {
     resolve_node_target(graph, selector).is_ok()
 }
 
@@ -82,15 +82,28 @@ pub fn fully_qualified_node_name(namespace: &str, name: &str) -> String {
     ros_z::entity::fully_qualified_node_name(namespace, name)
 }
 
-fn node_candidates(graph: &ros_z::graph::Graph) -> Vec<NodeTarget> {
+fn node_candidates(graph: &ros_z::graph::GraphData) -> Vec<NodeTarget> {
     graph
-        .view()
-        .node_names()
-        .into_iter()
-        .map(|(name, namespace)| NodeTarget::new(namespace, name))
+        .nodes()
+        .map(|node| {
+            NodeTarget::new(
+                normalized_display_namespace(&node.namespace),
+                node.name.clone(),
+            )
+        })
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect()
+}
+
+fn normalized_display_namespace(namespace: &str) -> String {
+    if namespace.is_empty() {
+        "/".to_string()
+    } else if namespace.starts_with('/') {
+        namespace.to_string()
+    } else {
+        format!("/{namespace}")
+    }
 }
 
 fn normalize_node_namespace(namespace: &str) -> String {

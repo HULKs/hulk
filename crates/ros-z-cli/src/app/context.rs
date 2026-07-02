@@ -7,7 +7,7 @@ use color_eyre::eyre::{Result, WrapErr};
 use ros_z::{
     context::{Context, ContextBuilder},
     dynamic::{DynamicRawSubscriberDiscoveryBuilder, DynamicSubscriber},
-    graph::GraphSnapshot,
+    graph::GraphData,
     node::Node,
     parameter::RemoteParameterClient,
 };
@@ -48,8 +48,8 @@ impl AppContext {
         Arc::clone(&self.node)
     }
 
-    pub fn snapshot(&self) -> GraphSnapshot {
-        self.graph().snapshot()
+    pub fn graph_data(&self) -> GraphData {
+        self.graph().lock().clone()
     }
 
     pub async fn wait_for_graph_settle(&self) {
@@ -59,8 +59,8 @@ impl AppContext {
 
     pub async fn wait_for_graph_settle_with_timeout(&self, timeout: Duration) {
         let deadline = Instant::now() + timeout;
-        let mut changes = self.graph().subscribe_changes();
-        changes.mark_seen();
+        let mut revisions = self.graph().watch_revisions();
+        revisions.mark_seen();
 
         loop {
             let remaining = deadline.saturating_duration_since(Instant::now());
@@ -69,7 +69,7 @@ impl AppContext {
             }
 
             let wait = GRAPH_SETTLE_QUIET_WINDOW.min(remaining);
-            match tokio::time::timeout(wait, changes.changed()).await {
+            match tokio::time::timeout(wait, revisions.changed()).await {
                 Ok(Some(_revision)) => {}
                 Ok(None) | Err(_) => return,
             }
@@ -78,12 +78,13 @@ impl AppContext {
 
     pub async fn wait_for_graph_condition<F>(&self, predicate: F)
     where
-        F: Fn(&ros_z::graph::Graph) -> bool,
+        F: Fn(&GraphData) -> bool,
     {
         let deadline = Instant::now() + GRAPH_SETTLE_TIMEOUT;
 
         while Instant::now() < deadline {
-            if predicate(self.graph()) {
+            let data = self.graph_data();
+            if predicate(&data) {
                 return;
             }
             tokio::time::sleep(GRAPH_POLL_INTERVAL).await;

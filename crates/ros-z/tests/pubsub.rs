@@ -508,14 +508,12 @@ async fn dynamic_publisher_advertises_explicit_schema_hash() {
 
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let endpoint = node
-        .graph()
-        .view()
+    let graph_data = node.graph().lock();
+    let endpoint = graph_data
         .publishers_on(topic)
-        .into_iter()
         .find(|endpoint| endpoint.topic == topic)
         .expect("dynamic publisher should be discoverable");
-    let advertised = endpoint.type_info;
+    let advertised = endpoint.type_info.clone();
     let registered = node
         .schema_service()
         .expect("schema service")
