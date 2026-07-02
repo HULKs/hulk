@@ -108,6 +108,7 @@ pub struct BehaviorParameters {
     pub substates: SubstatesParameters,
     pub voronoi: VoronoiParameters,
     pub hsl_network: HslNetworkParameters,
+    pub search_suggestor: SearchSuggestorParameters,
     pub closest_to_ball_enter_duration: Duration,
     pub closest_to_ball_exit_duration: Duration,
     pub is_simple: bool,
@@ -537,8 +538,6 @@ pub struct CameraMatrixParameters {
     ros_z::Message,
 )]
 pub struct SearchSuggestorParameters {
-    pub cells_per_meter: f32,
-    pub heatmap_convolution_kernel_weight: f32,
     pub minimum_validity: f32,
     pub own_ball_weight: f32,
     pub team_ball_weight: f32,

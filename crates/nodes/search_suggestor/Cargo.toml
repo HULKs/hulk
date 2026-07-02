@@ -14,8 +14,8 @@ itertools = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 ndarray = { workspace = true }
-ndarray-conv = { workspace = true }
 ros-z = { workspace = true }
+search_heatmap = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true }
 types = { workspace = true }
