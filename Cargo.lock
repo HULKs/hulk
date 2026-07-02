@@ -9215,8 +9215,8 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "futures-util",
- "hula_types",
  "itertools 0.14.0",
+ "json5",
  "parameters",
  "pathdiff",
  "semver",
