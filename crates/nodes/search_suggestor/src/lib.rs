@@ -77,6 +77,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
+    let mut timer = node.create_timer(Duration::from_millis(100));
+
     let field_dimensions = field_dimensions_sub.recv().await?;
     let initial_parameters_snapshot = parameters.snapshot();
     let initial_parameters = initial_parameters_snapshot.typed();
@@ -103,6 +105,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     };
 
     loop {
+        timer.tick().await;
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
 
@@ -208,8 +211,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         additional_heatmap_pub
             .publish_if_subscribed(|| async { heatmap.to_message() })
             .await?;
-
-        tokio::time::sleep(Duration::from_millis(5)).await;
     }
 }
 

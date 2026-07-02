@@ -245,7 +245,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     additional_behavior_tree_layout_pub
         .publish_if_subscribed(|| async { static_layout })
         .await?;
-    let mut timer = node.create_timer(Duration::from_millis(10));
+    let mut timer = node.create_timer(Duration::from_millis(20));
 
     let mut blackboard = Blackboard {
         field_dimensions: field_dimensions_cache
@@ -281,6 +281,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     };
 
     loop {
+        timer.tick().await;
+
         blackboard.path_obstacles_output.clear();
         blackboard.time_since_last_switch = Duration::ZERO;
         blackboard.direction_difference = 0.0;
@@ -417,6 +419,5 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .publish_if_subscribed(|| async { blackboard.clone() })
             .await?;
         motion_command_pub.publish(&motion_command).await?;
-        timer.tick().await;
     }
 }
