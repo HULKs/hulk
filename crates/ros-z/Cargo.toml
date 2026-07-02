@@ -15,7 +15,7 @@ event-listener = { workspace = true }
 itertools = { workspace = true }
 json5 = { workspace = true }
 nalgebra = { workspace = true, features = ["serde-serialize"], optional = true }
-ndarray = { workspace = true }
+ndarray = { workspace = true, optional = true }
 parking_lot = { workspace = true }
 ros-z-cdr = { workspace = true }
 ros-z-derive = { workspace = true }
@@ -39,6 +39,7 @@ trybuild = { workspace = true }
 
 [features]
 nalgebra = ["dep:nalgebra"]
+ndarray = ["dep:ndarray"]
 
 [[example]]
 name = "pubsub_talker"

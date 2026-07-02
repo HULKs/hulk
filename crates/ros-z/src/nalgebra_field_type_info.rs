@@ -58,7 +58,6 @@ impl_fixed_sequence_message!(UnitComplex<f32>, "nalgebra::UnitComplex<f32>", F32
 impl_fixed_sequence_message!(UnitComplex<f64>, "nalgebra::UnitComplex<f64>", F64, 2);
 impl_fixed_sequence_message!(UnitQuaternion<f32>, "nalgebra::UnitQuaternion<f32>", F32, 4);
 impl_fixed_sequence_message!(UnitQuaternion<f64>, "nalgebra::UnitQuaternion<f64>", F64, 4);
-impl_fixed_sequence_message!(ndarray::Array2<f32>, "ndarray::Array2<f32>", F32, 2);
 
 macro_rules! impl_isometry_message {
     ($ty:ty, $type_name:literal, $rotation:ty, $translation:ty) => {
