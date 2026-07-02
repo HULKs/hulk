@@ -1,0 +1,15 @@
+[package]
+name = "localization-2d"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+color-eyre = { workspace = true }
+coordinate_systems = { workspace = true }
+linear_algebra = { workspace = true }
+nalgebra = { workspace = true }
+ros-z = { workspace = true }
+tokio = { workspace = true }
+types = { workspace = true }

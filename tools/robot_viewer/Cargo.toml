@@ -1,0 +1,27 @@
+[package]
+name = "robot_viewer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+bevy = { workspace = true, features = ["3d_bevy_render"] }
+clap = { workspace = true }
+color-eyre = { workspace = true }
+coordinate_systems = { workspace = true }
+eframe = { workspace = true }
+egui_bevy = { workspace = true }
+image = { workspace = true }
+kinematics = { workspace = true }
+field_mark_association = { workspace = true }
+linear_algebra = { workspace = true }
+nalgebra = { workspace = true }
+projection = { workspace = true }
+ros-z = { workspace = true }
+ros-z-debug = { workspace = true }
+ros-z-streams = { workspace = true }
+ros2 = { workspace = true }
+tokio = { workspace = true }
+tracing-subscriber = { workspace = true }
+types = { workspace = true }

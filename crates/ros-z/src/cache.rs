@@ -135,6 +135,12 @@ impl<T> CacheInner<T> {
             .and_then(|(_, bucket)| bucket.back().map(Arc::clone))
     }
 
+    pub fn get_exact(&self, t: Time) -> Option<Arc<T>> {
+        self.entries
+            .get(&t)
+            .and_then(|bucket| bucket.back().map(Arc::clone))
+    }
+
     pub fn get_after(&self, t: Time) -> Option<Arc<T>> {
         self.entries
             .range(t..)
@@ -142,7 +148,7 @@ impl<T> CacheInner<T> {
             .and_then(|(_, bucket)| bucket.front().map(Arc::clone))
     }
 
-    pub fn get_nearest(&self, t: Time) -> Option<Arc<T>> {
+    pub fn get_nearest_with_stamp(&self, t: Time) -> Option<(Time, Arc<T>)> {
         if self.entries.is_empty() {
             return None;
         }
@@ -159,20 +165,24 @@ impl<T> CacheInner<T> {
             .and_then(|(k, bucket)| bucket.front().map(|v| (*k, Arc::clone(v))));
 
         match (before, after) {
-            (None, Some((_, v))) => Some(v),
-            (Some((_, v)), None) => Some(v),
+            (None, Some((k, v))) => Some((k, v)),
+            (Some((k, v)), None) => Some((k, v)),
             (Some((kb, vb)), Some((ka, va))) => {
                 let dist_before = t.duration_since(kb);
                 let dist_after = ka.duration_since(t);
                 // On a tie prefer earlier (before) timestamp.
                 if dist_after < dist_before {
-                    Some(va)
+                    Some((ka, va))
                 } else {
-                    Some(vb)
+                    Some((kb, vb))
                 }
             }
             (None, None) => None,
         }
+    }
+
+    pub fn get_nearest(&self, t: Time) -> Option<Arc<T>> {
+        self.get_nearest_with_stamp(t).map(|(_, value)| value)
     }
 
     pub fn get_latest(&self) -> Option<Arc<T>> {
@@ -185,6 +195,17 @@ impl<T> CacheInner<T> {
 
     pub fn latest_stamp(&self) -> Option<Time> {
         self.entries.keys().next_back().copied()
+    }
+
+    pub fn latest_stamp_at_or_before(&self, t: Time) -> Option<Time> {
+        self.entries
+            .range(..=t)
+            .next_back()
+            .map(|(stamp, _)| *stamp)
+    }
+
+    pub fn latest_stamp_before(&self, t: Time) -> Option<Time> {
+        self.entries.range(..t).next_back().map(|(stamp, _)| *stamp)
     }
 
     pub fn len(&self) -> usize {
@@ -316,6 +337,18 @@ impl<T> Cache<T> {
         let t = t.into();
         let inner = self.inner.read();
         inner.get_nearest(t)
+    }
+
+    /// The nearest message together with the timestamp used to index it.
+    ///
+    /// Selection semantics match [`Cache::get_nearest`].
+    pub fn get_nearest_with_stamp<TStamp>(&self, t: TStamp) -> Option<(Time, Arc<T>)>
+    where
+        TStamp: Into<Time>,
+    {
+        let t = t.into();
+        let inner = self.inner.read();
+        inner.get_nearest_with_stamp(t)
     }
 
     pub fn get_latest(&self) -> Option<Arc<T>> {
@@ -610,6 +643,39 @@ mod tests {
         assert_eq!(*inner.get_before(stamp).unwrap(), "second");
         assert_eq!(*inner.get_after(stamp).unwrap(), "first");
         assert_eq!(*inner.get_nearest(stamp).unwrap(), "second");
+        let (nearest_stamp, nearest_value) = inner.get_nearest_with_stamp(stamp).unwrap();
+        assert_eq!(nearest_stamp, stamp);
+        assert_eq!(*nearest_value, "second");
         assert_eq!(*inner.get_after(Time::from_nanos(1_500)).unwrap(), "third");
+    }
+
+    #[test]
+    fn cache_inner_get_nearest_with_stamp_returns_selected_stamp() {
+        let mut inner = CacheInner::new(10);
+        let before_stamp = Time::from_nanos(1_000);
+        let after_stamp = Time::from_nanos(3_000);
+        inner.insert(before_stamp, "before");
+        inner.insert(after_stamp, "after");
+
+        let (nearest_stamp, nearest_value) = inner
+            .get_nearest_with_stamp(Time::from_nanos(2_500))
+            .unwrap();
+        assert_eq!(nearest_stamp, after_stamp);
+        assert_eq!(*nearest_value, "after");
+    }
+
+    #[test]
+    fn cache_inner_get_nearest_with_stamp_prefers_earlier_stamp_on_tie() {
+        let mut inner = CacheInner::new(10);
+        let before_stamp = Time::from_nanos(1_000);
+        let after_stamp = Time::from_nanos(3_000);
+        inner.insert(before_stamp, "before");
+        inner.insert(after_stamp, "after");
+
+        let (nearest_stamp, nearest_value) = inner
+            .get_nearest_with_stamp(Time::from_nanos(2_000))
+            .unwrap();
+        assert_eq!(nearest_stamp, before_stamp);
+        assert_eq!(*nearest_value, "before");
     }
 }
