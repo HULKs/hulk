@@ -19,14 +19,10 @@ members = [
   "crates/framework",
   "crates/geometry",
   "crates/hardware",
-  "crates/hsl_network",
   "crates/hsl_network_messages",
+  "crates/hsl_network",
   "crates/hula_types",
-  "crates/hulk_booster",
-  "crates/hulk_imagine",
   "crates/hulk_manifest",
-  "crates/hulk_mujoco",
-  "crates/hulk_replayer",
   "crates/hulk_ros_z",
   "crates/hulk_widgets",
   "crates/hungarian_algorithm",
@@ -85,13 +81,11 @@ members = [
   "crates/opn",
   "crates/parameters",
   "crates/path_planner",
-  "crates/path_planner",
-  "crates/path_serde",
   "crates/path_serde_derive",
+  "crates/path_serde",
   "crates/projection",
   "crates/ransac",
   "crates/repository",
-  "crates/ros-z",
   "crates/ros-z-cdr",
   "crates/ros-z-cli",
   "crates/ros-z-debug",
@@ -99,6 +93,7 @@ members = [
   "crates/ros-z-protocol",
   "crates/ros-z-schema",
   "crates/ros-z-streams",
+  "crates/ros-z",
   "crates/ros2",
   "crates/sensor_receiver",
   "crates/simulation_message",
@@ -107,7 +102,6 @@ members = [
   "crates/vision",
   "crates/voronoi",
   "crates/walking_inference",
-  "crates/world_state",
   "crates/x5_receiver",
   "crates/zed",
   "crates/zenoh_bridge",
@@ -119,8 +113,8 @@ members = [
   "tools/parameter_tester",
   "tools/pepsi",
   "tools/tensorrt-compile",
-  "tools/twix",
   "tools/twix-legacy",
+  "tools/twix",
   "tools/vista",
   "tools/widget_gallery",
 ]
@@ -363,7 +357,6 @@ walking_inference = { path = "crates/walking_inference" }
 wgpu = "27.0.0"
 whistle_detection = { path = "crates/nodes/whistle_detection" }
 whistle_filter = { path = "crates/nodes/whistle_filter" }
-world_state = { path = "crates/world_state" }
 world_state_composer = { path = "crates/nodes/world_state_composer" }
 world_to_field_provider = { path = "crates/nodes/world_to_field_provider" }
 x5_receiver = { path = "crates/x5_receiver" }
