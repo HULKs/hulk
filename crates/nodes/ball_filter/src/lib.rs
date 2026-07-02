@@ -427,6 +427,10 @@ fn project_detected_balls(
                 if detection.label != RobocupObjectLabel::Ball {
                     return None;
                 }
+                if detection.bounding_box.confidence < parameters.ball_confidence_threshold {
+                    return None;
+                }
+
                 let area = detection.bounding_box.area;
                 let position = camera_matrix
                     .pixel_to_ground_with_z(area.center(), ball_radius)

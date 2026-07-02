@@ -463,6 +463,7 @@ pub struct BallFilterNoise {
 pub struct BallFilterParameters {
     pub hypothesis_timeout: Duration,
     pub maximum_number_of_hypotheses: usize,
+    pub ball_confidence_threshold: f32,
     pub log_likelihood_of_zero_velocity_threshold: f32,
     pub hypothesis_merge_distance: f32,
     pub visible_validity_exponential_decay_factor: f32,
@@ -497,6 +498,9 @@ pub struct ObstacleFilterParameters {
     pub goal_post_measurement_noise: nalgebra::Vector2<f32>,
     pub robot_measurement_noise: nalgebra::Vector2<f32>,
     pub person_measurement_noise: nalgebra::Vector2<f32>,
+    pub robot_confidence_threshold: f32,
+    pub goal_post_confidence_threshold: f32,
+    pub person_confidence_threshold: f32,
     pub person_feet_keypoints_confidence_threshold: f32,
     pub person_object_confidence_threshold: f32,
     pub measurement_count_threshold: usize,
@@ -680,7 +684,7 @@ pub struct DetectionParameters {
 )]
 pub struct ObjectDetectionParameters {
     pub maximum_intersection_over_union: f32,
-    pub confidence_threshold: f32,
+    pub minimum_candidate_confidence: f32,
 }
 
 #[derive(
@@ -696,7 +700,7 @@ pub struct ObjectDetectionParameters {
 )]
 pub struct PoseDetectionParameters {
     pub maximum_intersection_over_union: f32,
-    pub confidence_threshold: f32,
+    pub minimum_candidate_confidence: f32,
 }
 
 #[derive(

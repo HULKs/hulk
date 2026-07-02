@@ -125,8 +125,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         if !parameters.enable {
             continue;
         }
-        let object_parameters = &parameters.object_detection_parameters;
-        let pose_parameters = &parameters.pose_detection_parameters;
 
         let detected_objects_pending = detected_objects_pub
             .announce(image.header.stamp.into())
@@ -154,19 +152,29 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             let outputs = extract_outputs(&outputs)?;
             let candidate_detections = extract_candidate_object_detections(
                 &outputs,
-                object_parameters.confidence_threshold,
+                parameters
+                    .object_detection_parameters
+                    .minimum_candidate_confidence,
             )?;
-            let candidate_human_poses =
-                extract_candidate_pose_detections(&outputs, pose_parameters.confidence_threshold)?;
+            let candidate_human_poses = extract_candidate_pose_detections(
+                &outputs,
+                parameters
+                    .pose_detection_parameters
+                    .minimum_candidate_confidence,
+            )?;
             let post_processing_duration = post_processing_start.elapsed();
             let non_maximum_suppression_start = Instant::now();
             let detected_objects = non_maximum_suppression(
                 candidate_detections,
-                object_parameters.maximum_intersection_over_union,
+                parameters
+                    .object_detection_parameters
+                    .maximum_intersection_over_union,
             );
             let detected_poses = non_maximum_suppression(
                 candidate_human_poses,
-                pose_parameters.maximum_intersection_over_union,
+                parameters
+                    .pose_detection_parameters
+                    .maximum_intersection_over_union,
             );
             let non_maximum_suppression_duration = non_maximum_suppression_start.elapsed();
 

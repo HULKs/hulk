@@ -536,14 +536,23 @@ fn measured_object_positions(
             bounding_box,
         } = detected_object;
 
-        let (kind, measurement_noise) = match label {
+        let (kind, measurement_noise, confidence_threshold) = match label {
             RobocupObjectLabel::GoalPost => (
                 ObstacleKind::GoalPost,
                 parameters.goal_post_measurement_noise,
+                parameters.goal_post_confidence_threshold,
             ),
-            RobocupObjectLabel::Robot => (ObstacleKind::Robot, parameters.robot_measurement_noise),
+            RobocupObjectLabel::Robot => (
+                ObstacleKind::Robot,
+                parameters.robot_measurement_noise,
+                parameters.robot_confidence_threshold,
+            ),
             _ => return None,
         };
+
+        if bounding_box.confidence < confidence_threshold {
+            return None;
+        }
 
         let bottom_center_position = {
             let Rectangle { min, max } = bounding_box.area;
@@ -573,6 +582,10 @@ fn measured_pose_positions(
             YOLOObjectLabel::Person => (ObstacleKind::Person, parameters.person_measurement_noise),
             _ => return None,
         };
+
+        if bounding_box.confidence < parameters.person_confidence_threshold {
+            return None;
+        }
 
         let keypoints = detected_pose.keypoints;
 
