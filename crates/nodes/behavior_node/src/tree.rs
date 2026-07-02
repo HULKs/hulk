@@ -94,11 +94,11 @@ fn playing_subtree() -> Node<Blackboard> {
         sequence!(
             action!(calculate_voronoi_grid),
             selection!(
-                sequence!(condition!(is_closest_to_ball), subtree!(striker_subtree)),
-                sequence!(
-                    condition!(is_second_closest_and_goalkeeper_closest_to_ball),
-                    subtree!(striker_subtree)
-                )
+                // sequence!(condition!(is_closest_to_ball), subtree!(striker_subtree)),
+                // sequence!(
+                //     condition!(is_second_closest_and_goalkeeper_closest_to_ball),
+                // )
+                subtree!(striker_subtree)
             )
         ),
         subtree!(supporter_subtree),
