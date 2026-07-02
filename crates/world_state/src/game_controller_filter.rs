@@ -114,6 +114,7 @@ impl GameControllerFilter {
             game_state: message.game_state,
             stopped: message.stopped,
             game_phase: message.game_phase,
+            half: message.half,
             remaining_time_in_half: message.remaining_time_in_half,
             kicking_team: message.kicking_team,
             last_game_state_change: self.last_game_state_change.unwrap(),
