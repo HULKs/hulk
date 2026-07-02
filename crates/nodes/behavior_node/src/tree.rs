@@ -11,7 +11,7 @@ use crate::{
         is_second_closest_and_goalkeeper_closest_to_ball,
     },
     goalkeeper::goalkeeper_subtree,
-    head::{look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
+    head::{look_around, look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
     kick::{intercept, kick, kick_power_subtree, kick_subtree, set_kick_target_in_front},
     negation,
     node::Blackboard,
@@ -48,12 +48,20 @@ pub fn create_tree() -> Node<Blackboard> {
         subtree!(remote_control_subtree),
         action!(injected_motion_command),
         sequence!(
+            condition!(is_primary_state, PrimaryState::Finished),
+            action!(stand)
+        ),
+        sequence!(
             selection!(
-                condition!(is_primary_state, PrimaryState::Initial),
+                condition!(is_primary_state, PrimaryState::Finished),
                 condition!(is_primary_state, PrimaryState::Penalized),
-                condition!(is_primary_state, PrimaryState::Finished)
             ),
-            action!(prepare)
+            action!(stand)
+        ),
+        sequence!(
+            condition!(is_primary_state, PrimaryState::Initial),
+            action!(look_around),
+            action!(stand)
         ),
         sequence!(condition!(is_fallen), action!(stand_up)),
         sequence!(

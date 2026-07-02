@@ -46,6 +46,11 @@ pub fn search_for_lost_ball(blackboard: &mut Blackboard) -> Status {
     Status::Success
 }
 
+pub fn look_around(blackboard: &mut Blackboard) -> Status {
+    blackboard.head_motion = Some(HeadMotion::LookAround);
+    Status::Success
+}
+
 pub fn look_straight_ahead(blackboard: &mut Blackboard) -> Status {
     blackboard.head_motion = Some(HeadMotion::Center {
         image_region_target: ImageRegion::Center,

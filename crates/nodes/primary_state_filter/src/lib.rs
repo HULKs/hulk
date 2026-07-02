@@ -217,10 +217,10 @@ impl PrimaryStateFilter {
             (
                 PrimaryState::Initial,
                 Buttons {
-                    stand: Some(ButtonPressType::Long),
+                    walking: Some(ButtonPressType::Long),
                     ..
                 },
-            ) if is_safe_pose => PrimaryState::Playing,
+            ) => PrimaryState::Playing,
             _ => self.primary_state,
         }
     }
