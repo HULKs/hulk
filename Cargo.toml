@@ -350,7 +350,7 @@ tempfile = "3.17.0"
 thiserror = "2.0.11"
 threadbound = "0.1.7"
 time_to_reach_kick_position = { path = "crates/nodes/time_to_reach_kick_position" }
-tokio = { version = "1.47.1", features = ["full"] }
+tokio = { version = "1.47.1", features = ["full", "tracing"] }
 tokio-tungstenite = "0.26.1"
 tokio-util = "0.7.13"
 toml = "0.8.20"
