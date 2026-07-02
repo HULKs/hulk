@@ -20,10 +20,11 @@ pub async fn run(
     schema_hash: &str,
 ) -> Result<()> {
     app.wait_for_graph_settle().await;
-    app.wait_for_graph_condition(|graph| can_resolve_node_target(graph, selector))
+    app.wait_for_graph_condition(|data| can_resolve_node_target(data, selector))
         .await;
-    let node = resolve_node_target(app.graph(), selector)?.fully_qualified_name();
-    verify_schema_capability(app.graph(), &node)?;
+    let data = app.graph_data();
+    let node = resolve_node_target(&data, selector)?.fully_qualified_name();
+    verify_schema_capability(&data, &node)?;
     let service_name = format!("{node}/get_schema");
     let client = app
         .node()
@@ -63,12 +64,10 @@ pub async fn run(
     }
 }
 
-fn verify_schema_capability(graph: &ros_z::graph::Graph, node_fqn: &str) -> Result<()> {
+fn verify_schema_capability(graph: &ros_z::graph::GraphData, node_fqn: &str) -> Result<()> {
     let services = graph
-        .view()
-        .service_names_and_types()
-        .into_iter()
-        .map(|(name, _)| name)
+        .services()
+        .map(|endpoint| endpoint.topic.clone())
         .collect();
     verify_schema_capability_from_services(&services, node_fqn)
 }

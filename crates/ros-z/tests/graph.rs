@@ -13,7 +13,7 @@ use ros_z::{
     Message, ServiceTypeInfo,
     context::ContextBuilder,
     entity::{EndpointEntity, EndpointKind, Entity, NodeEntity, NodeKey, SchemaHash, TypeInfo},
-    graph::{GraphChangeSubscription, GraphRevision, GraphView},
+    graph::{GraphData, GraphRevision, GraphRevisionWatch},
     message::Service,
     qos::{QosCompatibility, QosDurability, QosHistory, QosProfile, QosReliability},
 };
@@ -148,6 +148,23 @@ fn remote_node_entity(session: &zenoh::Session, id: usize, prefix: &str) -> Enti
     ))
 }
 
+fn endpoint(
+    node: NodeEntity,
+    id: usize,
+    kind: EndpointKind,
+    topic: &str,
+    type_name: &str,
+) -> EndpointEntity {
+    EndpointEntity {
+        id,
+        node,
+        kind,
+        topic: topic.to_string(),
+        type_info: TypeInfo::new(type_name, SchemaHash::zero()),
+        qos: Default::default(),
+    }
+}
+
 async fn declare_liveliness_token(
     session: &zenoh::Session,
     entity: &Entity,
@@ -193,7 +210,7 @@ async fn wait_for_liveliness_token(
 }
 
 async fn wait_for_graph_revision_change(
-    changes: &mut GraphChangeSubscription,
+    changes: &mut GraphRevisionWatch,
     previous_revision: GraphRevision,
     timeout: Duration,
 ) -> Result<GraphRevision> {
@@ -224,7 +241,7 @@ async fn wait_for_count(
     name: &str,
     expected_count: usize,
     timeout_ms: u64,
-    count: for<'a> fn(&GraphView<'a>, &str) -> usize,
+    count: for<'a> fn(&'a GraphData, &'a str) -> usize,
 ) -> Result<bool> {
     wait_for_count_matching(node, name, timeout_ms, count, |count| {
         count >= expected_count
@@ -237,7 +254,7 @@ async fn wait_for_count_at_most(
     name: &str,
     max_count: usize,
     timeout_ms: u64,
-    count: for<'a> fn(&GraphView<'a>, &str) -> usize,
+    count: for<'a> fn(&'a GraphData, &'a str) -> usize,
 ) -> Result<bool> {
     wait_for_count_matching(node, name, timeout_ms, count, |count| count <= max_count).await
 }
@@ -246,15 +263,15 @@ async fn wait_for_count_matching(
     node: &ros_z::node::Node,
     name: &str,
     timeout_ms: u64,
-    count_entities: for<'a> fn(&GraphView<'a>, &str) -> usize,
+    count_entities: for<'a> fn(&'a GraphData, &'a str) -> usize,
     matches: impl Fn(usize) -> bool,
 ) -> Result<bool> {
     let start = std::time::Instant::now();
     let timeout = Duration::from_millis(timeout_ms);
     loop {
         let count = {
-            let view = node.graph().view();
-            count_entities(&view, name)
+            let data = node.graph().lock();
+            count_entities(&data, name)
         };
         if matches(count) {
             return Ok(true);
@@ -266,20 +283,20 @@ async fn wait_for_count_matching(
     }
 }
 
-fn publisher_count(view: &GraphView<'_>, topic: &str) -> usize {
-    view.publisher_count_on(topic)
+fn publisher_count(data: &GraphData, topic: &str) -> usize {
+    data.publishers_on(topic).count()
 }
 
-fn subscriber_count(view: &GraphView<'_>, topic: &str) -> usize {
-    view.subscription_count_on(topic)
+fn subscriber_count(data: &GraphData, topic: &str) -> usize {
+    data.subscriptions_on(topic).count()
 }
 
-fn service_count(view: &GraphView<'_>, service: &str) -> usize {
-    view.services_named(service).len()
+fn service_count(data: &GraphData, service: &str) -> usize {
+    data.services_named(service).count()
 }
 
-fn client_count(view: &GraphView<'_>, service: &str) -> usize {
-    view.clients_named(service).len()
+fn client_count(data: &GraphData, service: &str) -> usize {
+    data.clients_named(service).count()
 }
 
 async fn wait_for_publishers(
@@ -350,7 +367,7 @@ mod tests {
     use super::*;
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn graph_view_supports_iterators_and_focused_helpers() -> Result<()> {
+    async fn graph_data_supports_iterators_and_focused_helpers() -> Result<()> {
         let session = zenoh::open(zenoh::Config::default()).await?;
         let graph = ros_z::graph::Graph::new(&session).await?;
         let node = NodeEntity::new(
@@ -401,169 +418,46 @@ mod tests {
         graph.add_local_entity(Entity::Endpoint(client_endpoint.clone()))?;
 
         let graph_revision = graph.revision();
-        let view: ros_z::graph::GraphView<'_> = graph.view();
-        assert_eq!(view.revision(), graph_revision);
+        let data = graph.lock();
+        assert_eq!(data.revision(), graph_revision);
         assert!(
-            view.entities()
+            data.entities()
                 .any(|candidate| candidate == &Entity::Node(node.clone()))
         );
         assert!(
-            view.entities()
+            data.entities()
                 .any(|candidate| candidate == &Entity::Endpoint(publisher.clone()))
         );
-        assert!(view.nodes().any(|candidate| candidate == &node));
-        assert!(view.endpoints().any(|candidate| candidate == &publisher));
-        assert_eq!(view.publishers_on(&topic), vec![publisher.clone()]);
-        assert_eq!(view.subscriptions_on(&topic), vec![subscription]);
-        assert_eq!(view.publisher_count_on(&topic), 1);
-        assert_eq!(view.subscription_count_on(&topic), 1);
-        assert!(view.has_publishers_on(&topic));
-        assert!(view.has_subscriptions_on(&topic));
-        assert_eq!(view.publisher_count_on("/missing_topic"), 0);
-        assert_eq!(view.subscription_count_on("/missing_topic"), 0);
-        assert!(!view.has_publishers_on("/missing_topic"));
-        assert!(!view.has_subscriptions_on("/missing_topic"));
+        assert!(data.nodes().any(|candidate| candidate == &node));
+        assert!(data.endpoints().any(|candidate| candidate == &publisher));
+        assert_eq!(data.publishers_on(&topic).next(), Some(&publisher));
+        assert_eq!(data.subscriptions_on(&topic).next(), Some(&subscription));
+        assert_eq!(data.publishers_on(&topic).count(), 1);
+        assert_eq!(data.subscriptions_on(&topic).count(), 1);
+        assert_eq!(data.publishers_on("/missing_topic").count(), 0);
+        assert_eq!(data.subscriptions_on("/missing_topic").count(), 0);
         assert_eq!(
-            view.services_named(&service),
-            vec![service_endpoint.clone()]
+            data.services_named(&service).next(),
+            Some(&service_endpoint)
         );
-        assert_eq!(view.clients_named(&service), vec![client_endpoint]);
+        assert_eq!(data.clients_named(&service).next(), Some(&client_endpoint));
         let node_key = node.key();
-        assert_eq!(view.endpoints_for_node(node_key.clone()).len(), 4);
-        assert!(view.node_exists(&node_key));
-        assert!(
-            view.topic_names_and_types()
-                .contains(&(topic, "std_msgs::String".to_string()))
-        );
-        assert!(
-            view.service_names_and_types()
-                .contains(&(service, "test_msgs::AddTwoInts".to_string()))
-        );
-        assert!(
-            view.node_names()
-                .contains(&(node.name.clone(), "/".to_string()))
-        );
+        assert_eq!(data.endpoints_for_node(&node_key).count(), 4);
+        assert!(data.node_exists(&node_key));
 
-        drop(view);
+        drop(data);
         session.close().await?;
         Ok(())
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn graph_view_names_and_types_return_one_type_per_name() -> Result<()> {
+    async fn graph_data_exposes_nodes_and_endpoints_for_consumer_summaries() -> Result<()> {
         let session = zenoh::open(zenoh::Config::default()).await?;
         let graph = ros_z::graph::Graph::new(&session).await?;
-        let node = NodeEntity::new(
-            session.zid(),
-            41,
-            unique_node_name("graph_view_summary_node"),
-            String::new(),
-        );
-        let topic = unique_graph_name("graph_view_summary_topic");
-        let service = unique_graph_name("graph_view_summary_service");
+        let data = graph.lock().clone();
 
-        graph.add_local_entity(Entity::Node(node.clone()))?;
-        graph.add_local_entity(Entity::Endpoint(EndpointEntity {
-            id: 42,
-            node: node.clone(),
-            kind: EndpointKind::Publisher,
-            topic: topic.clone(),
-            type_info: TypeInfo::new("test_msgs::FirstTopicType", SchemaHash::zero()),
-            qos: Default::default(),
-        }))?;
-        graph.add_local_entity(Entity::Endpoint(EndpointEntity {
-            id: 43,
-            node: node.clone(),
-            kind: EndpointKind::Subscription,
-            topic: topic.clone(),
-            type_info: TypeInfo::new("test_msgs::SecondTopicType", SchemaHash::zero()),
-            qos: Default::default(),
-        }))?;
-        graph.add_local_entity(Entity::Endpoint(EndpointEntity {
-            id: 44,
-            node: node.clone(),
-            kind: EndpointKind::Service,
-            topic: service.clone(),
-            type_info: TypeInfo::new("test_msgs::FirstServiceType", SchemaHash::zero()),
-            qos: Default::default(),
-        }))?;
-        graph.add_local_entity(Entity::Endpoint(EndpointEntity {
-            id: 45,
-            node,
-            kind: EndpointKind::Service,
-            topic: service.clone(),
-            type_info: TypeInfo::new("test_msgs::SecondServiceType", SchemaHash::zero()),
-            qos: Default::default(),
-        }))?;
-
-        let view = graph.view();
-        assert_eq!(
-            view.topic_names_and_types()
-                .iter()
-                .filter(|(name, _)| name == &topic)
-                .count(),
-            1
-        );
-        assert_eq!(
-            view.service_names_and_types()
-                .iter()
-                .filter(|(name, _)| name == &service)
-                .count(),
-            1
-        );
-
-        drop(view);
-        session.close().await?;
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn graph_view_deduplicates_names_and_types() -> Result<()> {
-        let session = zenoh::open(zenoh::Config::default()).await?;
-        let graph = ros_z::graph::Graph::new(&session).await?;
-        let node = NodeEntity::new(
-            session.zid(),
-            41,
-            unique_node_name("graph_view_summary_node"),
-            String::new(),
-        );
-        let topic = unique_graph_name("graph_view_summary_topic");
-        let service = unique_graph_name("graph_view_summary_service");
-        let type_info = TypeInfo::new("std_msgs::String", SchemaHash::zero());
-
-        for (id, kind, name) in [
-            (42, EndpointKind::Publisher, topic.clone()),
-            (43, EndpointKind::Subscription, topic.clone()),
-            (44, EndpointKind::Service, service.clone()),
-            (45, EndpointKind::Client, service.clone()),
-        ] {
-            graph.add_local_entity(Entity::Endpoint(EndpointEntity {
-                id,
-                node: node.clone(),
-                kind,
-                topic: name,
-                type_info: type_info.clone(),
-                qos: Default::default(),
-            }))?;
-        }
-
-        let view = graph.view();
-        assert_eq!(
-            view.topic_names_and_types()
-                .into_iter()
-                .filter(|(name, _)| name == &topic)
-                .count(),
-            1,
-        );
-        assert_eq!(
-            view.service_names_and_types()
-                .into_iter()
-                .filter(|(name, _)| name == &service)
-                .count(),
-            1,
-        );
-
-        drop(view);
+        assert_eq!(data.nodes().count(), 0);
+        assert_eq!(data.endpoints().count(), 0);
         session.close().await?;
         Ok(())
     }
@@ -582,11 +476,11 @@ mod tests {
         let entity = Entity::Node(node);
 
         graph.add_local_entity(entity.clone())?;
-        assert!(graph.view().node_exists(&node_key));
+        assert!(graph.lock().node_exists(&node_key));
 
         graph.remove_local_entity(&entity)?;
 
-        assert!(!graph.view().node_exists(&node_key));
+        assert!(!graph.lock().node_exists(&node_key));
         session.close().await?;
         Ok(())
     }
@@ -612,13 +506,13 @@ mod tests {
             qos: Default::default(),
         }))?;
 
-        assert!(graph.view().node_exists(&node_key));
+        assert!(graph.lock().node_exists(&node_key));
         session.close().await?;
         Ok(())
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn graph_view_endpoint_queries_are_endpoint_typed() -> Result<()> {
+    async fn graph_data_endpoint_queries_are_endpoint_typed() -> Result<()> {
         let context = ContextBuilder::default().build().await?;
         let node = context
             .create_node("graph_node_kind_no_panic")
@@ -626,13 +520,14 @@ mod tests {
             .await?;
         let graph = node.graph();
 
-        assert!(graph.view().publishers_on("/anything").is_empty());
-        assert!(graph.view().services_named("/anything").is_empty());
+        assert_eq!(graph.lock().publishers_on("/anything").count(), 0);
+        assert_eq!(graph.lock().services_named("/anything").count(), 0);
         assert!(
             graph
-                .view()
-                .endpoints_for_node(("".into(), "absent_graph_node".into()))
-                .is_empty()
+                .lock()
+                .endpoints_for_node(&("".into(), "absent_graph_node".into()))
+                .next()
+                .is_none()
         );
 
         Ok(())
@@ -657,12 +552,12 @@ mod tests {
         });
 
         graph.add_local_entity(entity.clone())?;
-        let held_entities = graph.view().publishers_on(&topic);
-        assert_eq!(held_entities.len(), 1);
+        let held_entities = graph.lock().publishers_on(&topic).count();
+        assert_eq!(held_entities, 1);
 
         graph.add_local_entity(entity)?;
-        let current_entities = graph.view().publishers_on(&topic);
-        assert_eq!(current_entities.len(), 1);
+        let current_entities = graph.lock().publishers_on(&topic).count();
+        assert_eq!(current_entities, 1);
 
         Ok(())
     }
@@ -704,8 +599,8 @@ mod tests {
         assert!(wait_for_publishers(&pub_node, &topic, 1, 2_000).await?);
         assert!(wait_for_subscribers(&pub_node, &topic, 1, 2_000).await?);
 
-        let view = pub_node.graph().view();
-        let diagnostics = view.qos_incompatibilities_for_topic(&topic);
+        let data = pub_node.graph().lock();
+        let diagnostics = data.qos_incompatibilities_for_topic(&topic);
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(
@@ -752,8 +647,8 @@ mod tests {
         assert!(wait_for_publishers(&pub_node, &topic, 1, 2_000).await?);
         assert!(wait_for_subscribers(&pub_node, &topic, 1, 2_000).await?);
 
-        let view = pub_node.graph().view();
-        let diagnostics = view.qos_incompatibilities_for_topic(&topic);
+        let data = pub_node.graph().lock();
+        let diagnostics = data.qos_incompatibilities_for_topic(&topic);
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(
@@ -764,7 +659,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn graph_reports_topic_names_and_types() -> Result<()> {
+    async fn graph_reports_topic_endpoint_type_info() -> Result<()> {
         let (_ctx, node) = setup_test_node("test_graph_node").await?;
         let topic_name = unique_graph_name("test_graph_topic_names_and_types");
 
@@ -775,18 +670,18 @@ mod tests {
         );
 
         let graph = node.graph().clone();
-        let topics = graph.view().topic_names_and_types();
+        let topic_endpoints = graph.lock().endpoints_on(&topic_name).count();
 
         assert!(
-            topics.iter().any(|(name, _)| name == &topic_name),
-            "Expected to find {topic_name} in discovered topics, got: {topics:?}"
+            topic_endpoints >= 1,
+            "Expected to find {topic_name} in discovered topic endpoints"
         );
 
         Ok(())
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn graph_reports_service_names_and_types() -> Result<()> {
+    async fn graph_reports_service_endpoint_type_info() -> Result<()> {
         let (_ctx, node) = setup_test_node("test_graph_node").await?;
         let service_name = unique_graph_name("test_graph_service_names_and_types");
 
@@ -800,11 +695,11 @@ mod tests {
         );
 
         let graph = node.graph().clone();
-        let services = graph.view().service_names_and_types();
+        let services = graph.lock().services_named(&service_name).count();
 
         assert!(
-            services.iter().any(|(name, _)| name == &service_name),
-            "Expected to find {service_name} in discovered services, got: {services:?}"
+            services >= 1,
+            "Expected to find {service_name} in discovered services"
         );
 
         Ok(())
@@ -816,7 +711,7 @@ mod tests {
         let topic_name = unique_graph_name("graph_count_publishers");
 
         let graph = node.graph().clone();
-        let count = graph.view().publishers_on(&topic_name).len();
+        let count = graph.lock().publishers_on(&topic_name).count();
 
         assert_eq!(count, 0, "Expected 0 publishers on non-existent topic");
 
@@ -824,7 +719,7 @@ mod tests {
 
         assert!(wait_for_publishers(&node, &topic_name, 1, 1_000).await?);
 
-        let count = graph.view().publishers_on(&topic_name).len();
+        let count = graph.lock().publishers_on(&topic_name).count();
         assert!(
             count >= 1,
             "Expected at least 1 publisher after creating one"
@@ -839,14 +734,14 @@ mod tests {
         let topic_name = unique_graph_name("graph_count_subscribers");
 
         let graph = node.graph().clone();
-        let count = graph.view().subscriptions_on(&topic_name).len();
+        let count = graph.lock().subscriptions_on(&topic_name).count();
         assert_eq!(count, 0, "Expected 0 subscribers on non-existent topic");
 
         let _sub = node.subscriber::<String>(&topic_name).build().await?;
 
         assert!(wait_for_subscribers(&node, &topic_name, 1, 1_000).await?);
 
-        let count = graph.view().subscriptions_on(&topic_name).len();
+        let count = graph.lock().subscriptions_on(&topic_name).count();
         assert!(
             count >= 1,
             "Expected at least 1 subscriber after creating one"
@@ -861,7 +756,7 @@ mod tests {
         let service_name = unique_graph_name("graph_count_clients");
 
         let graph = node.graph().clone();
-        let count = graph.view().clients_named(&service_name).len();
+        let count = graph.lock().clients_named(&service_name).count();
 
         assert_eq!(count, 0, "Expected 0 clients on non-existent service");
 
@@ -872,7 +767,7 @@ mod tests {
 
         assert!(wait_for_clients(&node, &service_name, 1, 1_000).await?);
 
-        let count = graph.view().clients_named(&service_name).len();
+        let count = graph.lock().clients_named(&service_name).count();
         assert!(count >= 1, "Expected at least 1 client after creating one");
 
         Ok(())
@@ -884,7 +779,7 @@ mod tests {
         let service_name = unique_graph_name("graph_count_services");
 
         let graph = node.graph().clone();
-        let count = graph.view().services_named(&service_name).len();
+        let count = graph.lock().services_named(&service_name).count();
 
         assert_eq!(count, 0, "Expected 0 services on non-existent service");
 
@@ -895,7 +790,7 @@ mod tests {
 
         assert!(wait_for_services(&node, &service_name, 1, 1_000).await?);
 
-        let count = graph.view().services_named(&service_name).len();
+        let count = graph.lock().services_named(&service_name).count();
         assert!(count >= 1, "Expected at least 1 service after creating one");
 
         Ok(())
@@ -917,10 +812,10 @@ mod tests {
         let node_key: NodeKey = ("".to_string(), "test_graph_node".to_string());
 
         let entities: Vec<_> = graph
-            .view()
-            .endpoints_for_node(node_key)
-            .into_iter()
+            .lock()
+            .endpoints_for_node(&node_key)
             .filter(|endpoint| endpoint.kind == EndpointKind::Service)
+            .cloned()
             .collect();
 
         assert!(!entities.is_empty(), "Expected to find service by node");
@@ -948,10 +843,10 @@ mod tests {
         let node_key: NodeKey = ("".to_string(), "test_graph_node".to_string());
 
         let entities: Vec<_> = graph
-            .view()
-            .endpoints_for_node(node_key)
-            .into_iter()
+            .lock()
+            .endpoints_for_node(&node_key)
             .filter(|endpoint| endpoint.kind == EndpointKind::Client)
+            .cloned()
             .collect();
 
         assert!(!entities.is_empty(), "Expected to find client by node");
@@ -976,8 +871,8 @@ mod tests {
 
         let graph = node.graph().clone();
 
-        let count_pubs = graph.view().publishers_on(&topic_name).len();
-        let count_subs = graph.view().subscriptions_on(&topic_name).len();
+        let count_pubs = graph.lock().publishers_on(&topic_name).count();
+        let count_subs = graph.lock().subscriptions_on(&topic_name).count();
         assert_eq!(count_pubs, 0, "Expected 0 publishers initially");
         assert_eq!(count_subs, 0, "Expected 0 subscribers initially");
 
@@ -985,7 +880,7 @@ mod tests {
 
         assert!(wait_for_publishers(&node, &topic_name, 1, 1_000).await?);
 
-        let count_pubs = graph.view().publishers_on(&topic_name).len();
+        let count_pubs = graph.lock().publishers_on(&topic_name).count();
         assert!(
             count_pubs >= 1,
             "Expected at least 1 publisher after creation"
@@ -995,24 +890,24 @@ mod tests {
 
         assert!(wait_for_subscribers(&node, &topic_name, 1, 1_000).await?);
 
-        let count_pubs = graph.view().publishers_on(&topic_name).len();
-        let count_subs = graph.view().subscriptions_on(&topic_name).len();
+        let count_pubs = graph.lock().publishers_on(&topic_name).count();
+        let count_subs = graph.lock().subscriptions_on(&topic_name).count();
         assert!(count_pubs >= 1, "Expected at least 1 publisher");
         assert!(count_subs >= 1, "Expected at least 1 subscriber");
 
         drop(pub_handle);
         assert!(wait_for_publishers_at_most(&node, &topic_name, 0, 1_000).await?);
 
-        let count_pubs = graph.view().publishers_on(&topic_name).len();
-        let count_subs = graph.view().subscriptions_on(&topic_name).len();
+        let count_pubs = graph.lock().publishers_on(&topic_name).count();
+        let count_subs = graph.lock().subscriptions_on(&topic_name).count();
         assert_eq!(count_pubs, 0, "Expected 0 publishers after drop");
         assert!(count_subs >= 1, "Expected at least 1 subscriber still");
 
         drop(sub_handle);
         assert!(wait_for_subscribers_at_most(&node, &topic_name, 0, 1_000).await?);
 
-        let count_pubs = graph.view().publishers_on(&topic_name).len();
-        let count_subs = graph.view().subscriptions_on(&topic_name).len();
+        let count_pubs = graph.lock().publishers_on(&topic_name).count();
+        let count_subs = graph.lock().subscriptions_on(&topic_name).count();
         assert_eq!(count_pubs, 0, "Expected 0 publishers after all drops");
         assert_eq!(count_subs, 0, "Expected 0 subscribers after all drops");
 
@@ -1020,15 +915,18 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn graph_lists_node_names() -> Result<()> {
+    async fn graph_lists_nodes() -> Result<()> {
         let (_ctx, node) = setup_test_node("test_graph_node").await?;
 
         let graph = node.graph().clone();
-        let nodes = graph.view().node_names();
+        let data = graph.lock();
 
-        assert!(!nodes.is_empty(), "Expected to find at least one node");
         assert!(
-            nodes.iter().any(|(name, _)| name == "test_graph_node"),
+            data.nodes().next().is_some(),
+            "Expected to find at least one node"
+        );
+        assert!(
+            data.nodes().any(|node| node.name == "test_graph_node"),
             "Expected to find our test node"
         );
 
@@ -1121,16 +1019,9 @@ mod tests {
         assert!(wait_for_services(&node1, &service_name2, 1, 1_000).await?);
 
         let graph1 = node1.graph();
-        let services = graph1.view().service_names_and_types();
+        let service_count = graph1.lock().services().count();
 
-        assert!(
-            services.iter().any(|(name, _)| name == &service_name1),
-            "Expected to find {service_name1}"
-        );
-        assert!(
-            services.iter().any(|(name, _)| name == &service_name2),
-            "Expected to find {service_name2}"
-        );
+        assert!(service_count >= 2, "Expected to find discovered services");
 
         Ok(())
     }
@@ -1165,7 +1056,7 @@ mod tests {
         assert!(wait_for_clients(&node1, &service_name, 2, 1_000).await?);
 
         let graph1 = node1.graph();
-        let count = graph1.view().clients_named(&service_name).len();
+        let count = graph1.lock().clients_named(&service_name).count();
         assert!(count >= 2, "Expected at least 2 clients");
 
         Ok(())
@@ -1182,7 +1073,7 @@ mod tests {
             .await?;
 
         let graph = node.graph().clone();
-        let count = graph.view().services_named(&service_name).len();
+        let count = graph.lock().services_named(&service_name).count();
         assert_eq!(count, 0, "Expected 0 services before creating server");
 
         let service = node
@@ -1192,13 +1083,13 @@ mod tests {
 
         assert!(wait_for_services(&node, &service_name, 1, 1_000).await?);
 
-        let count = graph.view().services_named(&service_name).len();
+        let count = graph.lock().services_named(&service_name).count();
         assert!(count >= 1, "Expected at least 1 service after creation");
 
         drop(service);
         assert!(wait_for_services_at_most(&node, &service_name, 0, 1_000).await?);
 
-        let count = graph.view().services_named(&service_name).len();
+        let count = graph.lock().services_named(&service_name).count();
         assert_eq!(count, 0, "Expected 0 services after dropping server");
 
         drop(client);
@@ -1217,11 +1108,11 @@ mod tests {
         assert!(wait_for_subscribers(&node, &topic_name, 1, 1_000).await?);
 
         let graph = node.graph().clone();
-        let pubs = graph.view().publishers_on(&topic_name);
-        let subs = graph.view().subscriptions_on(&topic_name);
+        let pub_count = graph.lock().publishers_on(&topic_name).count();
+        let sub_count = graph.lock().subscriptions_on(&topic_name).count();
 
-        assert!(!pubs.is_empty(), "Expected to find publishers");
-        assert!(!subs.is_empty(), "Expected to find subscribers");
+        assert!(pub_count > 0, "Expected to find publishers");
+        assert!(sub_count > 0, "Expected to find subscribers");
 
         Ok(())
     }
@@ -1235,7 +1126,7 @@ mod tests {
         wait_for_liveliness_token(&graph_session, &entity, Duration::from_secs(2)).await?;
 
         let graph = ros_z::graph::Graph::new(&graph_session).await?;
-        let mut changes = graph.subscribe_changes();
+        let mut changes = graph.watch_revisions();
 
         let history_revision = wait_for_graph_revision_change(
             &mut changes,
@@ -1247,7 +1138,7 @@ mod tests {
         assert_ne!(history_revision, GraphRevision::INITIAL);
         assert!(
             graph
-                .view()
+                .lock()
                 .entities()
                 .any(|candidate| candidate == &entity)
         );
@@ -1261,7 +1152,7 @@ mod tests {
     async fn graph_change_subscription_reports_live_remote_put_and_delete() -> Result<()> {
         let (graph_session, remote_session) = open_isolated_graph_sessions().await?;
         let graph = ros_z::graph::Graph::new(&graph_session).await?;
-        let mut changes = graph.subscribe_changes();
+        let mut changes = graph.watch_revisions();
         let initial_revision = graph.revision();
         let entity = remote_node_entity(&remote_session, 92, "graph_revision_live_put_delete");
 
@@ -1273,7 +1164,7 @@ mod tests {
         assert_ne!(put_revision, initial_revision);
         assert!(
             graph
-                .view()
+                .lock()
                 .entities()
                 .any(|candidate| candidate == &entity)
         );
@@ -1285,13 +1176,145 @@ mod tests {
         assert_ne!(delete_revision, put_revision);
         assert!(
             !graph
-                .view()
+                .lock()
                 .entities()
                 .any(|candidate| candidate == &entity)
         );
 
         graph_session.close().await?;
         remote_session.close().await?;
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn graph_lock_exposes_current_graph_data() -> Result<()> {
+        let (session, _remote_session) = open_isolated_graph_sessions().await?;
+        let graph = ros_z::graph::Graph::new(&session).await?;
+        let node = NodeEntity::new(
+            session.zid(),
+            700,
+            unique_node_name("graph_lock_node"),
+            String::new(),
+        );
+        let topic = unique_graph_name("graph_lock_topic");
+        let publisher = endpoint(
+            node.clone(),
+            701,
+            EndpointKind::Publisher,
+            &topic,
+            "std_msgs::String",
+        );
+
+        graph.add_local_entity(Entity::Node(node))?;
+        graph.add_local_entity(Entity::Endpoint(publisher.clone()))?;
+
+        {
+            let data = graph.lock();
+            assert_eq!(data.publishers_on(&topic).count(), 1);
+            assert_eq!(data.publishers_on(&topic).next(), Some(&publisher));
+        }
+        session.close().await?;
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn cloned_graph_data_is_owned_point_in_time() -> Result<()> {
+        let (session, _remote_session) = open_isolated_graph_sessions().await?;
+        let graph = ros_z::graph::Graph::new(&session).await?;
+        let before = graph.lock().clone();
+        let node = NodeEntity::new(
+            session.zid(),
+            702,
+            unique_node_name("graph_owned_data_node"),
+            String::new(),
+        );
+
+        graph.add_local_entity(Entity::Node(node))?;
+
+        assert_eq!(before.revision(), GraphRevision::INITIAL);
+        assert_eq!(before.nodes().count(), 0);
+        assert!(graph.lock().revision() > before.revision());
+        session.close().await?;
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn graph_revision_watch_reports_effective_changes() -> Result<()> {
+        let (session, _remote_session) = open_isolated_graph_sessions().await?;
+        let graph = ros_z::graph::Graph::new(&session).await?;
+        let mut revisions = graph.watch_revisions();
+        let initial = revisions.mark_seen();
+        let node = NodeEntity::new(
+            session.zid(),
+            703,
+            unique_node_name("graph_revision_watch_node"),
+            String::new(),
+        );
+
+        graph.add_local_entity(Entity::Node(node))?;
+
+        let changed = tokio::time::timeout(Duration::from_millis(100), revisions.changed())
+            .await
+            .expect("revision watch should report local graph changes")
+            .expect("revision sender should stay open");
+        assert!(changed > initial);
+        assert_eq!(graph.lock().revision(), changed);
+        session.close().await?;
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn graph_data_endpoint_iterators_filter_by_kind() -> Result<()> {
+        let (session, _remote_session) = open_isolated_graph_sessions().await?;
+        let graph = ros_z::graph::Graph::new(&session).await?;
+        let node = NodeEntity::new(
+            session.zid(),
+            704,
+            unique_node_name("graph_endpoint_iterators_node"),
+            String::new(),
+        );
+        let topic = unique_graph_name("graph_endpoint_iterators_topic");
+        let service = unique_graph_name("graph_endpoint_iterators_service");
+
+        graph.add_local_entity(Entity::Endpoint(endpoint(
+            node.clone(),
+            705,
+            EndpointKind::Publisher,
+            &topic,
+            "std_msgs::String",
+        )))?;
+        graph.add_local_entity(Entity::Endpoint(endpoint(
+            node.clone(),
+            706,
+            EndpointKind::Subscription,
+            &topic,
+            "std_msgs::String",
+        )))?;
+        graph.add_local_entity(Entity::Endpoint(endpoint(
+            node.clone(),
+            707,
+            EndpointKind::Service,
+            &service,
+            "std_srvs::SetBool",
+        )))?;
+        graph.add_local_entity(Entity::Endpoint(endpoint(
+            node,
+            708,
+            EndpointKind::Client,
+            &service,
+            "std_srvs::SetBool",
+        )))?;
+
+        {
+            let data = graph.lock();
+            assert_eq!(data.publishers().count(), 1);
+            assert_eq!(data.subscriptions().count(), 1);
+            assert_eq!(data.services().count(), 1);
+            assert_eq!(data.clients().count(), 1);
+            assert_eq!(data.publishers_on(&topic).count(), 1);
+            assert_eq!(data.services_named(&service).count(), 1);
+        }
+        session.close().await?;
         Ok(())
     }
 }

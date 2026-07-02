@@ -32,6 +32,7 @@ use crate::backend::RobotBackend;
 
 mod backend;
 mod configuration;
+mod graph;
 mod panel;
 mod panels;
 mod repaint;

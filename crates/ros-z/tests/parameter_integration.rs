@@ -119,7 +119,7 @@ async fn wait_for_service(
     let start = std::time::Instant::now();
     let timeout = Duration::from_secs(5);
     loop {
-        if node.graph().view().services_named(service).len() >= expected_count {
+        if node.graph().lock().services_named(service).count() >= expected_count {
             return Ok(());
         }
         if start.elapsed() >= timeout {

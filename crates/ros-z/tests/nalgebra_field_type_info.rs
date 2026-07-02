@@ -265,7 +265,7 @@ async fn wait_for_publishers(
 ) {
     let start = tokio::time::Instant::now();
     loop {
-        if node.graph().view().publishers_on(topic).len() >= expected_count {
+        if node.graph().lock().publishers_on(topic).count() >= expected_count {
             return;
         }
         assert!(

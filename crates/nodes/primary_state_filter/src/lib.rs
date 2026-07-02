@@ -217,10 +217,10 @@ impl PrimaryStateFilter {
             (
                 PrimaryState::Initial,
                 Buttons {
-                    stand: Some(ButtonPressType::Long),
+                    walking: Some(ButtonPressType::Long),
                     ..
                 },
-            ) if is_safe_pose => PrimaryState::Playing,
+            ) => PrimaryState::Playing,
             _ => self.primary_state,
         }
     }
@@ -259,8 +259,8 @@ mod tests {
         };
         let buttons = Buttons {
             f1: None,
-            stand: Some(ButtonPressType::Long),
-            walking: None,
+            stand: None,
+            walking: Some(ButtonPressType::Long),
         };
 
         primary_state_filter.update_with_buttons(&buttons, true);

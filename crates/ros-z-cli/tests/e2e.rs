@@ -731,6 +731,63 @@ async fn graph_list_and_info_report_fixture_entities() -> TestResult {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn info_waits_for_matching_endpoint_kind_when_names_overlap() -> TestResult {
+    let env = TestEnv::new();
+    let context = env.create_context().await?;
+    let node = context
+        .create_node("overlap_fixture")
+        .with_namespace("/cli_e2e")
+        .build()
+        .await?;
+
+    let topic_name = "/cli_e2e/overlap_topic";
+    let _service = node
+        .service_server::<AddTwoInts>(topic_name)
+        .build()
+        .await?;
+    eventually_json(&env, &["list", "services"], |services| {
+        json_array_contains_field(services, "name", topic_name)
+    });
+
+    let router = env.router.endpoint().to_string();
+    let topic_name_owned = topic_name.to_string();
+    let topic_info_task = tokio::task::spawn_blocking(move || {
+        RoszCommand::new(&router)
+            .json_command(["info", "topic", topic_name_owned.as_str()])
+            .run_json()
+    });
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    let _publisher = node.publisher::<Telemetry>(topic_name).build().await?;
+    let topic_info = topic_info_task.await?;
+    assert_eq!(topic_info["name"], topic_name);
+    assert_eq!(topic_info["type"], Telemetry::type_name());
+
+    let service_name = "/cli_e2e/overlap_service";
+    let _other_publisher = node.publisher::<Telemetry>(service_name).build().await?;
+    eventually_json(&env, &["list", "topics"], |topics| {
+        json_array_contains_field(topics, "name", service_name)
+    });
+
+    let router = env.router.endpoint().to_string();
+    let service_name_owned = service_name.to_string();
+    let service_info_task = tokio::task::spawn_blocking(move || {
+        RoszCommand::new(&router)
+            .json_command(["info", "service", service_name_owned.as_str()])
+            .run_json()
+    });
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    let _other_service = node
+        .service_server::<AddTwoInts>(service_name)
+        .build()
+        .await?;
+    let service_info = service_info_task.await?;
+    assert_eq!(service_info["name"], service_name);
+    assert_eq!(service_info["type"], "test_cli::AddTwoInts");
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn doctor_reports_no_errors_for_matching_pubsub() -> TestResult {
     let env = TestEnv::new();
     let context = env.create_context().await?;
