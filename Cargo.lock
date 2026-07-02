@@ -892,6 +892,7 @@ dependencies = [
  "filtering",
  "geometry",
  "hsl_network_messages",
+ "kinematics",
  "linear_algebra",
  "log",
  "nalgebra 0.34.2",

@@ -12,8 +12,8 @@ use types::{
 };
 
 use crate::behavior_tree_simulator::{
-    SimulationConfig, SimulatorClock, SimulatorGameState, SimulatorRobot, SimulatorRobotBehavior,
-    SimulatorRobotFrames, SimulatorRobotId, SimulatorWorldStates,
+    SimulationConfig, SimulatorClock, SimulatorGameState, SimulatorHeadYaw, SimulatorRobot,
+    SimulatorRobotBehavior, SimulatorRobotFrames, SimulatorRobotId, SimulatorWorldStates,
 };
 
 #[derive(Resource, Clone, Debug, Default)]
@@ -62,11 +62,15 @@ pub fn plan_communication(
     world_states: Res<SimulatorWorldStates>,
     mut robot_frames: ResMut<SimulatorRobotFrames>,
     mut outgoing_messages: ResMut<SimulatorOutgoingMessages>,
-    mut robots: Query<(&SimulatorRobot, &mut SimulatorRobotBehavior)>,
+    mut robots: Query<(
+        &SimulatorRobot,
+        &SimulatorHeadYaw,
+        &mut SimulatorRobotBehavior,
+    )>,
 ) {
     outgoing_messages.messages.clear();
 
-    for (robot, mut behavior) in &mut robots {
+    for (robot, head_yaw, mut behavior) in &mut robots {
         let robot_id = robot.id();
         let Some(world_state) = world_states.0.get(&robot_id) else {
             continue;
@@ -76,6 +80,7 @@ pub fn plan_communication(
             world_state.clone(),
             hsl_network_parameters.0.clone(),
             config.game_controller_address,
+            head_yaw.yaw.angle(),
         );
 
         if let Some(frame) = robot_frames.0.get_mut(&robot_id) {
@@ -215,6 +220,7 @@ mod tests {
                 age: Duration::from_millis(500),
                 position: point![x + 1.0, y],
             }),
+            head_yaw: 0.0,
         })
     }
 

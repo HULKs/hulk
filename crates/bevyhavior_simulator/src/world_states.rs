@@ -258,6 +258,7 @@ mod tests {
                 age: Duration::from_millis(500),
                 position: point![x + 1.0, y],
             }),
+            head_yaw: 0.0,
         })
     }
 
