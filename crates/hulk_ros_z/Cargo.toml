@@ -19,6 +19,7 @@ button_event_handler = { workspace = true }
 camera_matrix_calculator = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 color-eyre = { workspace = true }
+console-subscriber = "0.5.0"
 detection = { workspace = true, features = ["ort-dynamic"] }
 fake_odometry = { workspace = true }
 fall_down_state_receiver = { workspace = true }
