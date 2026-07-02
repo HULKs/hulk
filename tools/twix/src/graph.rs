@@ -56,16 +56,6 @@ impl<'a> TopicCompletionQuery<'a> {
     }
 }
 
-pub fn publisher_topic_completions<'a>(
-    publishers: impl Iterator<Item = &'a EndpointEntity>,
-    active_namespace: &str,
-    input: &str,
-) -> Vec<String> {
-    TopicCompletionQuery::new(active_namespace, input)
-        .endpoint_kind(EndpointKind::Publisher)
-        .complete(publishers)
-}
-
 fn completion_namespace_prefix(namespace: &str) -> String {
     let namespace = namespace.trim_matches('/');
     if namespace.is_empty() {
@@ -79,7 +69,7 @@ fn completion_namespace_prefix(namespace: &str) -> String {
 mod tests {
     use ros_z::entity::{EndpointEntity, EndpointKind, NodeEntity, SchemaHash, TypeInfo};
 
-    use super::{TopicCompletionQuery, publisher_topic_completions};
+    use super::TopicCompletionQuery;
 
     fn endpoint(kind: EndpointKind, topic: &str) -> EndpointEntity {
         EndpointEntity {
@@ -100,7 +90,9 @@ mod tests {
             endpoint(EndpointKind::Publisher, "/43/status"),
         ];
 
-        let suggestions = publisher_topic_completions(endpoints.iter(), "/42", "sta");
+        let suggestions = TopicCompletionQuery::new("/42", "sta")
+            .endpoint_kind(EndpointKind::Publisher)
+            .complete(endpoints.iter());
 
         assert_eq!(
             suggestions,
@@ -115,7 +107,9 @@ mod tests {
             endpoint(EndpointKind::Publisher, "/43/status"),
         ];
 
-        let suggestions = publisher_topic_completions(endpoints.iter(), "/42", "/");
+        let suggestions = TopicCompletionQuery::new("/42", "/")
+            .endpoint_kind(EndpointKind::Publisher)
+            .complete(endpoints.iter());
 
         assert_eq!(
             suggestions,
@@ -131,7 +125,9 @@ mod tests {
             endpoint(EndpointKind::Subscription, "/42/command"),
         ];
 
-        let suggestions = publisher_topic_completions(endpoints.iter(), "/42", "");
+        let suggestions = TopicCompletionQuery::new("/42", "")
+            .endpoint_kind(EndpointKind::Publisher)
+            .complete(endpoints.iter());
 
         assert_eq!(suggestions, vec!["status".to_string()]);
     }
