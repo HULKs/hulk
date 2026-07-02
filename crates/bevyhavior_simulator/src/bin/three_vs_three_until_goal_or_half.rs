@@ -54,6 +54,10 @@ fn update(
     game_state: Res<SimulatorGameState>,
     mut exit: MessageWriter<AppExit>,
 ) {
+    // HACK: stop scenario from running so long
+    exit.write(AppExit::Success);
+    // HACK: stop scenario from running so long
+
     let hulks_score = game_state.game_controller_state.hulks_team.score;
     let opponent_score = game_state.game_controller_state.opponent_team.score;
     let elapsed = clock
