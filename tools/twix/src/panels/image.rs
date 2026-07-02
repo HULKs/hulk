@@ -13,16 +13,10 @@ use types::time_wrapper::TimeWrapper;
 use uuid::Uuid;
 
 use crate::{
-    graph::publisher_topic_completions,
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
     status::format_topic_observation_status,
 };
-
-use self::image_overlay::{ImageOverlayPainter, ImageOverlays};
-
-mod image_overlay;
-mod overlays;
 
 pub const DEFAULT_IMAGE_TOPIC: &str = "inputs/left_image";
 
@@ -53,7 +47,6 @@ pub struct ImagePanel {
     topic_editor: String,
     topic: String,
     observation: ObservationState,
-    overlays: Box<ImageOverlays>,
 }
 
 enum ObservationState {
@@ -93,10 +86,6 @@ impl Panel for ImagePanel {
             topic_editor: topic.clone(),
             topic,
             observation: ObservationState::Idle,
-            overlays: Box::new(ImageOverlays::new(
-                context.value.and_then(|value| value.get("overlays")),
-                &context,
-            )),
         };
         panel.recreate_observation(&context);
         panel
@@ -105,13 +94,8 @@ impl Panel for ImagePanel {
     fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
-                self.overlays.ui(ui, &context);
                 ui.label("Topic");
-                let namespace = context.backend.namespace();
-                let completions = {
-                    let graph = context.backend.graph().lock();
-                    publisher_topic_completions(graph.publishers(), &namespace, &self.topic_editor)
-                };
+                let completions = Vec::<String>::new();
                 let response = ui.add(CompletionEdit::new(
                     ui.id().with("image_topic"),
                     &completions,
@@ -162,15 +146,7 @@ impl Panel for ImagePanel {
                             id: texture.id(),
                             size,
                         };
-                        let response = ui.add(eframe::egui::Image::new(texture).shrink_to_fit());
-                        if let Some(dimensions) = observed.render_cache.dimensions() {
-                            let painter = ImageOverlayPainter::new(
-                                ui.painter_at(response.rect),
-                                response.rect,
-                                dimensions,
-                            );
-                            self.overlays.paint(&painter);
-                        }
+                        ui.add(eframe::egui::Image::new(texture).shrink_to_fit());
                     }
                 }
             };
@@ -180,7 +156,6 @@ impl Panel for ImagePanel {
     fn save(&self) -> Value {
         json!({
             "topic": self.topic,
-            "overlays": self.overlays.save(),
         })
     }
 }
@@ -404,8 +379,8 @@ mod tests {
     use crate::{backend::RobotBackend, panel::PanelCreationContext};
 
     use super::{
-        DEFAULT_IMAGE_TOPIC, ImageDecodeError, ImageOverlays, ImagePanel, ObservationState,
-        RenderedImageCache, decode_color_image, format_publication_id,
+        DEFAULT_IMAGE_TOPIC, ImageDecodeError, ImagePanel, ObservationState, RenderedImageCache,
+        decode_color_image, format_publication_id,
     };
     use crate::panel::Panel;
 
@@ -523,21 +498,12 @@ mod tests {
             topic_editor: "inputs/right_image".to_string(),
             topic: "inputs/right_image".to_string(),
             observation: ObservationState::Idle,
-            overlays: Box::new(ImageOverlays::default()),
         };
 
         assert_eq!(
             panel.save(),
             json!({
                 "topic": "inputs/right_image",
-                "overlays": {
-                    "line_detection": {"active": false},
-                    "ball_detection": {"active": false},
-                    "horizon": {"active": false},
-                    "field_border": {"active": false},
-                    "object_detection": {"active": false},
-                    "pose_detection": {"active": false},
-                },
             })
         );
     }
@@ -548,15 +514,18 @@ mod tests {
             .enable_all()
             .build()
             .expect("runtime should build");
-        let backend = Arc::new(
-            runtime
-                .block_on(RobotBackend::new(
-                    runtime.handle().clone(),
-                    None,
-                    "/".to_string(),
-                ))
-                .expect("backend should build"),
-        );
+        let backend = {
+            let _runtime_guard = runtime.enter();
+            Arc::new(
+                runtime
+                    .block_on(tokio::time::timeout(
+                        Duration::from_secs(5),
+                        RobotBackend::new(runtime.handle().clone(), Vec::new(), "/".to_string()),
+                    ))
+                    .expect("backend startup should not time out")
+                    .expect("backend should build"),
+            )
+        };
 
         let panel = ImagePanel::new(PanelCreationContext {
             backend,

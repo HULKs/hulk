@@ -7,27 +7,91 @@ use tokio::sync::watch;
 use super::GraphRevision;
 use crate::entity::{Entity, LivelinessKE};
 
-#[derive(Debug, Clone)]
-pub struct GraphData {
-    revision: GraphRevision,
+pub(super) struct GraphData {
     entities: HashMap<LivelinessKE, Entity>,
 }
 
-pub(super) struct GraphInner {
-    data: Mutex<GraphData>,
+pub(super) struct GraphState {
+    data: GraphData,
+    revision: GraphRevision,
+}
+
+impl GraphState {
+    pub(super) fn revision(&self) -> GraphRevision {
+        self.revision
+    }
+
+    pub(super) fn entities(&self) -> impl Iterator<Item = &Entity> + '_ {
+        self.data.entities()
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct GraphStore {
+    state: Arc<Mutex<GraphState>>,
     revision_tx: watch::Sender<GraphRevision>,
+}
+
+impl GraphStore {
+    pub(super) fn new() -> Self {
+        let (revision_tx, _) = watch::channel(GraphRevision::INITIAL);
+        Self {
+            state: Arc::new(Mutex::new(GraphState {
+                data: GraphData::new(),
+                revision: GraphRevision::INITIAL,
+            })),
+            revision_tx,
+        }
+    }
+
+    pub(super) fn revision(&self) -> GraphRevision {
+        self.state.lock().revision()
+    }
+
+    pub(super) fn subscribe_changes(&self) -> watch::Receiver<GraphRevision> {
+        self.revision_tx.subscribe()
+    }
+
+    pub(super) fn state(&self) -> MutexGuard<'_, GraphState> {
+        self.state.lock()
+    }
+
+    pub(super) fn insert(&self, key_expr: LivelinessKE, entity: Entity) -> bool {
+        self.apply_effective_change(|data| data.insert(key_expr, entity))
+    }
+
+    pub(super) fn remove(&self, key_expr: &LivelinessKE) -> bool {
+        self.apply_effective_change(|data| data.remove(key_expr))
+    }
+
+    fn apply_effective_change(&self, update: impl FnOnce(&mut GraphData) -> bool) -> bool {
+        let revision = {
+            let mut state = self.state.lock();
+            if !update(&mut state.data) {
+                return false;
+            }
+
+            let revision = state.revision.next();
+            state.revision = revision;
+            revision
+        };
+
+        self.revision_tx.send_if_modified(|current| {
+            if *current >= revision {
+                return false;
+            }
+            *current = revision;
+            true
+        });
+        true
+    }
 }
 
 impl GraphData {
     pub(super) fn new() -> Self {
         Self {
-            revision: GraphRevision::INITIAL,
             entities: HashMap::new(),
         }
-    }
-
-    pub fn revision(&self) -> GraphRevision {
-        self.revision
     }
 
     pub(super) fn insert(&mut self, key_expr: LivelinessKE, entity: Entity) -> bool {
@@ -48,58 +112,8 @@ impl GraphData {
         self.entities.remove(key_expr).is_some()
     }
 
-    pub(super) fn entities_raw(&self) -> impl Iterator<Item = &Entity> + '_ {
+    pub(super) fn entities(&self) -> impl Iterator<Item = &Entity> + '_ {
         self.entities.values()
-    }
-}
-
-impl GraphInner {
-    pub(super) fn new() -> Arc<Self> {
-        let (revision_tx, _) = watch::channel(GraphRevision::INITIAL);
-        Arc::new(Self {
-            data: Mutex::new(GraphData::new()),
-            revision_tx,
-        })
-    }
-
-    pub(super) fn lock(&self) -> MutexGuard<'_, GraphData> {
-        self.data.lock()
-    }
-
-    pub(super) fn revision(&self) -> GraphRevision {
-        self.data.lock().revision()
-    }
-
-    pub(super) fn watch_revisions(&self) -> watch::Receiver<GraphRevision> {
-        self.revision_tx.subscribe()
-    }
-
-    pub(super) fn insert(&self, key_expr: LivelinessKE, entity: Entity) -> bool {
-        self.apply_effective_change(|data| data.insert(key_expr, entity))
-    }
-
-    pub(super) fn remove(&self, key_expr: &LivelinessKE) -> bool {
-        self.apply_effective_change(|data| data.remove(key_expr))
-    }
-
-    fn apply_effective_change(&self, update: impl FnOnce(&mut GraphData) -> bool) -> bool {
-        let revision = {
-            let mut data = self.data.lock();
-            if !update(&mut data) {
-                return false;
-            }
-            data.revision = data.revision.next();
-            data.revision
-        };
-
-        self.revision_tx.send_if_modified(|current| {
-            if *current >= revision {
-                return false;
-            }
-            *current = revision;
-            true
-        });
-        true
     }
 }
 
@@ -137,7 +151,7 @@ mod tests {
         let key = key_for(&entity);
 
         assert!(data.insert(key, entity.clone()));
-        assert_eq!(data.entities_raw().collect::<Vec<_>>(), vec![&entity]);
+        assert_eq!(data.entities().collect::<Vec<_>>(), vec![&entity]);
     }
 
     #[test]
@@ -148,7 +162,7 @@ mod tests {
 
         assert!(data.insert(key.clone(), entity.clone()));
         assert!(!data.insert(key, entity));
-        assert_eq!(data.entities_raw().count(), 1);
+        assert_eq!(data.entities().count(), 1);
     }
 
     #[test]
@@ -161,7 +175,7 @@ mod tests {
 
         assert!(data.insert(key.clone(), old));
         assert!(data.insert(key, new.clone()));
-        assert_eq!(data.entities_raw().collect::<Vec<_>>(), vec![&new]);
+        assert_eq!(data.entities().collect::<Vec<_>>(), vec![&new]);
     }
 
     #[test]
@@ -181,7 +195,7 @@ mod tests {
         data.insert(second_key, second.clone());
 
         assert!(data.remove(&first_key));
-        assert_eq!(data.entities_raw().collect::<Vec<_>>(), vec![&second]);
+        assert_eq!(data.entities().collect::<Vec<_>>(), vec![&second]);
     }
 
     #[test]
@@ -191,28 +205,28 @@ mod tests {
         let key = key_for(&entity);
 
         assert!(!data.remove(&key));
-        assert_eq!(data.entities_raw().count(), 0);
+        assert_eq!(data.entities().count(), 0);
     }
 
     #[test]
-    fn inner_insert_and_remove_advance_revision_only_for_effective_changes() {
-        let inner = GraphInner::new();
+    fn store_insert_and_remove_advance_revision_only_for_effective_changes() {
+        let store = GraphStore::new();
         let entity = Entity::Node(node("store_revision_node"));
         let key = key_for(&entity);
 
-        assert_eq!(inner.revision(), GraphRevision::INITIAL);
-        assert!(inner.insert(key.clone(), entity.clone()));
-        let insert_revision = inner.revision();
+        assert_eq!(store.revision(), GraphRevision::INITIAL);
+        assert!(store.insert(key.clone(), entity.clone()));
+        let insert_revision = store.revision();
         assert!(insert_revision > GraphRevision::INITIAL);
 
-        assert!(!inner.insert(key.clone(), entity.clone()));
-        assert_eq!(inner.revision(), insert_revision);
+        assert!(!store.insert(key.clone(), entity.clone()));
+        assert_eq!(store.revision(), insert_revision);
 
-        assert!(inner.remove(&key));
-        let remove_revision = inner.revision();
+        assert!(store.remove(&key));
+        let remove_revision = store.revision();
         assert!(remove_revision > insert_revision);
 
-        assert!(!inner.remove(&key));
-        assert_eq!(inner.revision(), remove_revision);
+        assert!(!store.remove(&key));
+        assert_eq!(store.revision(), remove_revision);
     }
 }

@@ -1,5 +1,7 @@
 use std::io::{self, Write};
 
+use ros_z::graph::GraphSnapshot;
+
 use crate::{
     model::{
         doctor::{
@@ -7,7 +9,7 @@ use crate::{
             DoctorSeverity,
         },
         echo::EchoHeader,
-        graph::{GraphSummary, NodeSummary, ServiceSummary, TopicSummary},
+        graph::{NodeSummary, ServiceSummary, TopicSummary},
         hz::{HzReport, HzStats},
         info::{EndpointSummary, NamedType, NodeInfo, ServiceInfo, TopicInfo},
         parameter::{
@@ -52,17 +54,42 @@ pub fn print_service_summaries(services: &[ServiceSummary]) {
     }
 }
 
-pub fn print_graph_summary(summary: &GraphSummary) {
-    println!("Topics ({})", summary.topics.len());
-    print_topic_summaries(&summary.topics);
+pub fn print_graph_snapshot(snapshot: &GraphSnapshot) {
+    println!("Topics ({})", snapshot.topics.len());
+    let topics: Vec<_> = snapshot
+        .topics
+        .clone()
+        .into_iter()
+        .map(TopicSummary::from)
+        .collect();
+    print_topic_summaries(&topics);
     println!();
 
-    println!("Nodes ({})", summary.nodes.len());
-    print_node_summaries(&summary.nodes);
+    println!("Nodes ({})", snapshot.nodes.len());
+    let mut nodes: Vec<_> = snapshot
+        .nodes
+        .iter()
+        .map(|node| NodeSummary::new(node.name.clone(), node.namespace.clone()))
+        .collect();
+    nodes.sort_by(|left, right| left.fqn.cmp(&right.fqn));
+    print_node_summaries(&nodes);
     println!();
 
-    println!("Services ({})", summary.services.len());
-    print_service_summaries(&summary.services);
+    println!("Services ({})", snapshot.services.len());
+    let mut services: Vec<_> = snapshot
+        .services
+        .iter()
+        .map(|service| ServiceSummary::new(service.name.clone(), service.type_name.clone(), 0, 0))
+        .collect();
+    services.sort_by(|left, right| left.name.cmp(&right.name));
+    let name_width = column_width(services.iter().map(|service| service.name.as_str()));
+    let type_width = column_width(services.iter().map(|service| service.type_name.as_str()));
+    for service in services {
+        println!(
+            "{:<name_width$}  {:<type_width$}",
+            service.name, service.type_name,
+        );
+    }
 }
 
 pub fn print_topic_info(info: &TopicInfo) {
@@ -367,7 +394,7 @@ fn write_schema(mut writer: impl Write, view: &SchemaView) -> io::Result<()> {
 
 pub fn print_watch_event(event: &WatchEvent) {
     match event {
-        WatchEvent::InitialState { snapshot } => print_graph_summary(snapshot),
+        WatchEvent::InitialState { snapshot } => print_graph_snapshot(snapshot),
         WatchEvent::TopicDiscovered {
             name, type_name, ..
         } => {

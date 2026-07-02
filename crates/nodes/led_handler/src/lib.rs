@@ -39,13 +39,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let light_control_parameter = match primary_state {
             PrimaryState::Damping => SetLedLightColorParameter::BLUE,
-            PrimaryState::Prepare => SetLedLightColorParameter::YELLOW,
-            PrimaryState::Stop => SetLedLightColorParameter::BLACK,
-            PrimaryState::Ready => SetLedLightColorParameter::WHITE,
-            PrimaryState::Initial => SetLedLightColorParameter::MAGENTA,
+            PrimaryState::Prepare => SetLedLightColorParameter::MAGENTA,
+            PrimaryState::Stop => SetLedLightColorParameter::LIGHT_BLUE,
+            PrimaryState::Ready => SetLedLightColorParameter::LIGHT_GREEN,
+            PrimaryState::Initial => SetLedLightColorParameter::YELLOW,
             PrimaryState::Set => SetLedLightColorParameter::ORANGE,
             PrimaryState::Playing => SetLedLightColorParameter::GREEN,
-            PrimaryState::Penalized => SetLedLightColorParameter::RED,
+            PrimaryState::Penalized => SetLedLightColorParameter::LIGHT_RED,
             PrimaryState::Finished => SetLedLightColorParameter::PURPLE,
         };
 
@@ -71,18 +71,12 @@ pub trait DefaultLEDColors {
     const YELLOW: Self;
     const PURPLE: Self;
     const MAGENTA: Self;
-    const BLACK: Self;
-    const WHITE: Self;
 }
 
 impl DefaultLEDColors for SetLedLightColorParameter {
     const BLUE: Self = SetLedLightColorParameter { r: 0, g: 0, b: 255 };
     const RED: Self = SetLedLightColorParameter { r: 255, g: 0, b: 0 };
-    const GREEN: Self = SetLedLightColorParameter {
-        r: 0,
-        g: 255,
-        b: 50,
-    };
+    const GREEN: Self = SetLedLightColorParameter { r: 0, g: 255, b: 0 };
     const LIGHT_BLUE: Self = SetLedLightColorParameter {
         r: 128,
         g: 128,
@@ -100,7 +94,7 @@ impl DefaultLEDColors for SetLedLightColorParameter {
     };
     const ORANGE: Self = SetLedLightColorParameter {
         r: 255,
-        g: 94,
+        g: 128,
         b: 0,
     };
     const YELLOW: Self = SetLedLightColorParameter {
@@ -110,18 +104,12 @@ impl DefaultLEDColors for SetLedLightColorParameter {
     };
     const PURPLE: Self = SetLedLightColorParameter {
         r: 128,
-        g: 50,
-        b: 161,
+        g: 0,
+        b: 255,
     };
     const MAGENTA: Self = SetLedLightColorParameter {
-        r: 255,
+        r: 226,
         g: 0,
         b: 116,
-    };
-    const BLACK: Self = SetLedLightColorParameter { r: 0, g: 0, b: 0 };
-    const WHITE: Self = SetLedLightColorParameter {
-        r: 255,
-        g: 255,
-        b: 255,
     };
 }

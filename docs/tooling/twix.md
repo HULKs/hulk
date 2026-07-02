@@ -10,11 +10,15 @@ Run it from the repository with:
 
 The positional namespace is optional. If provided, it must be an absolute ROS-Z namespace such as `/42`; bare values such as `42` are invalid. If omitted, Twix uses the last stored namespace and then falls back to `/`.
 
-To connect through a specific Zenoh router endpoint at startup, pass `--router`:
+Twix starts a private in-process Zenoh router for each Twix process and connects its ROS-Z session through that router. By default, that private router has no direct upstream Zenoh endpoints configured.
+
+To connect the private router to one or more direct upstream Zenoh routers for the current run, repeat `--router`:
 
 ```bash
-./twix /42 --router tcp/127.0.0.1:7447
+./twix /42 --router tcp/robot-a:7447 --router tcp/robot-b:7447
 ```
+
+The top bar shows local backend health. Hover the status to see the private local router endpoint and best-effort direct upstream-link status for each configured endpoint. The symbols mean `✓` for a matched direct link, `×` for a disconnected literal endpoint, and `?` when Twix cannot confidently map the endpoint to an active direct link. These diagnostics are not transitive Zenoh network reachability checks.
 
 If an old saved layout fails to load, or if you want to reset the current panel setup, start Twix with `--clear`.
 

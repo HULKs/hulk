@@ -3,8 +3,8 @@ use color_eyre::eyre::Result;
 use crate::{
     app::AppContext,
     cli::ListTarget,
+    model::graph::{NodeSummary, ServiceSummary, TopicSummary},
     render::{OutputMode, json, text},
-    support::graph::{node_summaries, service_summaries, topic_summaries},
 };
 
 pub async fn run(app: &AppContext, output_mode: OutputMode, target: ListTarget) -> Result<()> {
@@ -18,7 +18,13 @@ pub async fn run(app: &AppContext, output_mode: OutputMode, target: ListTarget) 
 }
 
 fn render_topics(output_mode: OutputMode, app: &AppContext) -> Result<()> {
-    let topics = topic_summaries(&app.graph_data());
+    let mut topics: Vec<_> = app
+        .snapshot()
+        .topics
+        .into_iter()
+        .map(TopicSummary::from)
+        .collect();
+    topics.sort_by(|left, right| left.name.cmp(&right.name));
 
     match output_mode {
         OutputMode::Json => json::print_pretty(&topics),
@@ -30,7 +36,14 @@ fn render_topics(output_mode: OutputMode, app: &AppContext) -> Result<()> {
 }
 
 fn render_nodes(output_mode: OutputMode, app: &AppContext) -> Result<()> {
-    let nodes = node_summaries(&app.graph_data());
+    let mut nodes: Vec<_> = {
+        let view = app.graph().view();
+        view.node_names()
+            .into_iter()
+            .map(|(name, namespace)| NodeSummary::new(name, namespace))
+            .collect()
+    };
+    nodes.sort_by(|left, right| left.fqn.cmp(&right.fqn));
 
     match output_mode {
         OutputMode::Json => json::print_pretty(&nodes),
@@ -42,7 +55,18 @@ fn render_nodes(output_mode: OutputMode, app: &AppContext) -> Result<()> {
 }
 
 fn render_services(output_mode: OutputMode, app: &AppContext) -> Result<()> {
-    let services = service_summaries(&app.graph_data());
+    let mut services: Vec<_> = {
+        let view = app.graph().view();
+        view.service_names_and_types()
+            .into_iter()
+            .map(|(name, type_name)| {
+                let service_count = view.services_named(&name).len();
+                let client_count = view.clients_named(&name).len();
+                ServiceSummary::new(name, type_name, service_count, client_count)
+            })
+            .collect()
+    };
+    services.sort_by(|left, right| left.name.cmp(&right.name));
 
     match output_mode {
         OutputMode::Json => json::print_pretty(&services),

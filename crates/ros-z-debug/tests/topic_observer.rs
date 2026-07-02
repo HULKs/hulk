@@ -909,9 +909,8 @@ async fn dropping_last_observation_handle_closes_real_spawned_loop() -> ros_z_de
             if updates.try_recv().is_err()
                 && observer_node
                     .graph()
-                    .lock()
-                    .subscriptions_on("/42/drop_handle")
-                    .count()
+                    .view()
+                    .subscription_count_on("/42/drop_handle")
                     == 0
             {
                 break;
@@ -999,9 +998,8 @@ async fn dynamic_observation_keeps_fresh_graph_baseline_after_late_initial_publi
             if matches!(observation.status(), TopicObservationStatus::Building)
                 && observer_node
                     .graph()
-                    .lock()
-                    .publishers_on("/42/late_baseline")
-                    .count()
+                    .view()
+                    .publisher_count_on("/42/late_baseline")
                     == 0
             {
                 break;
@@ -1663,7 +1661,7 @@ async fn reply_fresh_schema_requests_until_subscription(
 ) -> ros_z_debug::Result<()> {
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            if node.graph().lock().subscriptions_on(topic).count() == 1 {
+            if node.graph().view().subscription_count_on(topic) == 1 {
                 break;
             }
 
@@ -1692,7 +1690,7 @@ async fn wait_for_publisher_count_without_rebuilding(
     tokio::time::timeout(std::time::Duration::from_secs(1), async {
         loop {
             drain_non_rebuilding_updates(updates);
-            if node.graph().lock().publishers_on(topic).count() == expected {
+            if node.graph().view().publisher_count_on(topic) == expected {
                 drain_non_rebuilding_updates(updates);
                 break;
             }
@@ -1781,7 +1779,7 @@ async fn wait_for_dynamic_retrying(observation: &ros_z_debug::DynamicTopicObserv
 async fn wait_for_subscription_count(node: &Arc<ros_z::node::Node>, topic: &str, expected: usize) {
     tokio::time::timeout(std::time::Duration::from_secs(1), async {
         loop {
-            if node.graph().lock().subscriptions_on(topic).count() == expected {
+            if node.graph().view().subscription_count_on(topic) == expected {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
@@ -1794,7 +1792,7 @@ async fn wait_for_subscription_count(node: &Arc<ros_z::node::Node>, topic: &str,
 async fn wait_for_publisher_count(node: &Arc<ros_z::node::Node>, topic: &str, expected: usize) {
     tokio::time::timeout(std::time::Duration::from_secs(1), async {
         loop {
-            if node.graph().lock().publishers_on(topic).count() == expected {
+            if node.graph().view().publisher_count_on(topic) == expected {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
@@ -1811,12 +1809,7 @@ async fn wait_for_only_publisher_type_info(
 ) {
     tokio::time::timeout(std::time::Duration::from_secs(1), async {
         loop {
-            let publishers = node
-                .graph()
-                .lock()
-                .publishers_on(topic)
-                .cloned()
-                .collect::<Vec<_>>();
+            let publishers = node.graph().view().publishers_on(topic);
             if publishers.len() == 1 && publishers[0].type_info == *expected {
                 break;
             }
@@ -1830,7 +1823,7 @@ async fn wait_for_only_publisher_type_info(
 async fn wait_for_client_count(node: &ros_z::node::Node, service: &str, expected: usize) {
     tokio::time::timeout(std::time::Duration::from_secs(1), async {
         loop {
-            if node.graph().lock().clients_named(service).count() == expected {
+            if node.graph().view().clients_named(service).len() == expected {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
@@ -1843,7 +1836,7 @@ async fn wait_for_client_count(node: &ros_z::node::Node, service: &str, expected
 async fn wait_for_service_count(node: &Arc<ros_z::node::Node>, service: &str, expected: usize) {
     tokio::time::timeout(std::time::Duration::from_secs(1), async {
         loop {
-            if node.graph().lock().services_named(service).count() == expected {
+            if node.graph().view().services_named(service).len() == expected {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;

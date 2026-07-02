@@ -1,13 +1,12 @@
 mod discovery;
 mod query;
+mod snapshot;
 mod state;
 
-use std::{ops::Deref, sync::Arc};
-
 use discovery::install_liveliness;
-pub use query::{GraphRevisionWatch, QosIncompatibility, TypeMismatch};
-pub use state::GraphData;
-use state::GraphInner;
+pub use query::{GraphChangeSubscription, GraphView, QosIncompatibility, TypeMismatch};
+pub use snapshot::{GraphSnapshot, NodeSnapshot, ServiceSnapshot, TopicSnapshot};
+use state::GraphStore;
 
 use crate::Result;
 use crate::entity::{ADMIN_SPACE, Entity};
@@ -19,8 +18,9 @@ use zenoh::{Session, pubsub::Subscriber, session::ZenohId};
 /// intentionally exposed for revisions from the same graph instance or snapshot/subscription
 /// stream. Do not compare revisions from independently created graphs.
 ///
-/// A changed revision means consumers should resync from [`Graph::lock`]. Do not treat revisions as
-/// stable event counts or as proof that the distributed graph is complete.
+/// A changed revision means consumers should resync from [`Graph::view`] or [`Graph::snapshot`].
+/// Do not treat revisions as stable event counts or as proof that the distributed graph is
+/// complete.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize)]
 #[serde(transparent)]
 pub struct GraphRevision(u64);
@@ -35,21 +35,9 @@ impl GraphRevision {
 }
 
 pub struct Graph {
-    inner: Arc<GraphInner>,
+    pub(crate) store: GraphStore,
     pub zid: ZenohId,
     _subscriber: Subscriber<()>,
-}
-
-pub struct GraphLock<'a> {
-    data: parking_lot::MutexGuard<'a, GraphData>,
-}
-
-impl Deref for GraphLock<'_> {
-    type Target = GraphData;
-
-    fn deref(&self) -> &Self::Target {
-        &self.data
-    }
 }
 
 impl std::fmt::Debug for Graph {
@@ -69,12 +57,12 @@ impl Graph {
     pub async fn new(session: &Session) -> Result<Self> {
         let liveliness_pattern = format!("{}/**", ADMIN_SPACE);
         let zid = session.zid();
-        let inner = GraphInner::new();
-        let sub = install_liveliness(session, &liveliness_pattern, Arc::clone(&inner)).await?;
+        let store = GraphStore::new();
+        let sub = install_liveliness(session, &liveliness_pattern, store.clone()).await?;
 
         Ok(Self {
-            inner,
             _subscriber: sub,
+            store,
             zid,
         })
     }
@@ -85,26 +73,15 @@ impl Graph {
     /// the same revision stream. A revision change is a resync signal, not a graph-completeness
     /// guarantee.
     pub fn revision(&self) -> GraphRevision {
-        self.inner.revision()
-    }
-
-    /// Lock and inspect the current local graph data.
-    ///
-    /// The returned guard holds the graph mutex. Keep it short-lived: do not hold it across
-    /// `.await`, UI rendering, or calls that may need graph updates. Use
-    /// [`Graph::watch_revisions`] to wait for change signals and then inspect a fresh lock.
-    pub fn lock(&self) -> GraphLock<'_> {
-        GraphLock {
-            data: self.inner.lock(),
-        }
+        self.store.revision()
     }
 
     /// Subscribe to effective local graph changes.
     ///
-    /// Watches start from the current revision and keep only the latest revision. Treat each
-    /// observed change as a signal to inspect [`Graph::lock`] again.
-    pub fn watch_revisions(&self) -> GraphRevisionWatch {
-        GraphRevisionWatch::new(self.inner.watch_revisions())
+    /// Subscriptions start from the current revision and keep only the latest revision. Treat each
+    /// observed change as a signal to inspect [`Graph::view`] again.
+    pub fn subscribe_changes(&self) -> GraphChangeSubscription {
+        GraphChangeSubscription::new(self.store.subscribe_changes())
     }
 
     /// Check if an entity belongs to the current session
@@ -120,14 +97,14 @@ impl Graph {
     /// immediately visible in graph queries without waiting for Zenoh liveliness propagation
     pub fn add_local_entity(&self, entity: Entity) -> Result<()> {
         let key_expr = entity.liveliness_key_expr()?;
-        self.inner.insert(key_expr, entity);
+        self.store.insert(key_expr, entity);
         Ok(())
     }
 
     /// Remove a local entity from the graph
     pub fn remove_local_entity(&self, entity: &Entity) -> Result<()> {
         let key_expr = entity.liveliness_key_expr()?;
-        self.inner.remove(&key_expr);
+        self.store.remove(&key_expr);
         Ok(())
     }
 }
@@ -226,12 +203,12 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn graph_revision_watch_current_does_not_block_revision_publication() -> Result<()> {
+    async fn graph_change_subscription_current_does_not_block_revision_publication() -> Result<()> {
         let session = zenoh::open(zenoh::Config::default())
             .await
             .map_err(|source| Error::zenoh("open Zenoh session", source))?;
         let graph = Arc::new(Graph::new(&session).await?);
-        let changes = graph.watch_revisions();
+        let changes = graph.subscribe_changes();
         let _held_revision = changes.current();
         let entity = Entity::Node(NodeEntity::new(
             session.zid(),
@@ -263,7 +240,7 @@ mod tests {
             .await
             .map_err(|source| Error::zenoh("open Zenoh session", source))?;
         let graph = Graph::new(&session).await?;
-        let mut changes = graph.watch_revisions();
+        let mut changes = graph.subscribe_changes();
         let initial_revision: GraphRevision = graph.revision();
         assert_eq!(initial_revision, GraphRevision::INITIAL);
         let entity = Entity::Node(NodeEntity::new(
@@ -298,7 +275,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn cloned_graph_data_captures_current_graph_revision() -> Result<()> {
+    async fn snapshot_captures_current_graph_revision() -> Result<()> {
         let session = zenoh::open(zenoh::Config::default())
             .await
             .map_err(|source| Error::zenoh("open Zenoh session", source))?;
@@ -310,13 +287,15 @@ mod tests {
             String::new(),
         ));
 
-        let initial_data = graph.lock().clone();
-        assert_eq!(initial_data.revision(), GraphRevision::INITIAL);
+        let initial_snapshot = graph.snapshot();
+        assert_eq!(initial_snapshot.revision, GraphRevision::INITIAL);
+        let initial_snapshot_json =
+            serde_json::to_value(initial_snapshot).expect("graph snapshot should serialize");
+        assert_eq!(initial_snapshot_json["revision"], serde_json::json!(0));
 
         graph.add_local_entity(entity)?;
 
-        let data_revision = graph.lock().revision();
-        assert_eq!(data_revision, graph.revision());
+        assert_eq!(graph.snapshot().revision, graph.revision());
         session
             .close()
             .await
@@ -330,7 +309,7 @@ mod tests {
             .await
             .map_err(|source| Error::zenoh("open Zenoh session", source))?;
         let graph = Graph::new(&session).await?;
-        let mut changes = graph.watch_revisions();
+        let mut changes = graph.subscribe_changes();
         let entity = Entity::Node(NodeEntity::new(
             session.zid(),
             52,

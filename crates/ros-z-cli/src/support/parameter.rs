@@ -1,21 +1,21 @@
 use std::collections::BTreeSet;
 
 use color_eyre::eyre::{Result, WrapErr, bail};
-use ros_z::graph::GraphData;
+use ros_z::graph::Graph;
 use serde_json::Value;
 
 use crate::support::nodes::fully_qualified_node_name;
 
-pub fn resolve_parameter_node_fqn(graph: &GraphData, selector: &str) -> Result<String> {
+pub fn resolve_parameter_node_fqn(graph: &Graph, selector: &str) -> Result<String> {
     let candidates = sorted_node_fqns(graph);
     resolve_parameter_node_fqn_from_candidates(&candidates, selector)
 }
 
-pub fn can_resolve_parameter_node_fqn(graph: &GraphData, selector: &str) -> bool {
+pub fn can_resolve_parameter_node_fqn(graph: &Graph, selector: &str) -> bool {
     resolve_parameter_node_fqn(graph, selector).is_ok()
 }
 
-pub fn verify_parameter_capability(graph: &GraphData, node_fqn: &str) -> Result<()> {
+pub fn verify_parameter_capability(graph: &Graph, node_fqn: &str) -> Result<()> {
     let services = service_names(graph);
     verify_parameter_capability_from_services(&services, node_fqn)
 }
@@ -74,19 +74,23 @@ fn verify_parameter_capability_from_services(
     bail!("node exists but does not expose remote parameter services: {node_fqn}")
 }
 
-fn sorted_node_fqns(graph: &GraphData) -> Vec<String> {
+fn sorted_node_fqns(graph: &Graph) -> Vec<String> {
     graph
-        .nodes()
-        .map(|node| fully_qualified_node_name(&node.namespace, &node.name))
+        .view()
+        .node_names()
+        .into_iter()
+        .map(|(name, namespace)| fully_qualified_node_name(&namespace, &name))
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect()
 }
 
-fn service_names(graph: &GraphData) -> BTreeSet<String> {
+fn service_names(graph: &Graph) -> BTreeSet<String> {
     graph
-        .services()
-        .map(|endpoint| endpoint.topic.clone())
+        .view()
+        .service_names_and_types()
+        .into_iter()
+        .map(|(name, _)| name)
         .collect()
 }
 

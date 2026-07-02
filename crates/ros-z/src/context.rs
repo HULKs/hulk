@@ -401,7 +401,7 @@ impl ContextBuilder {
     ))]
     pub async fn build(self) -> Result<Context> {
         // Priority order:
-        // 1. Custom Zenoh config passed via with_zenoh_config()
+        // 1. Custom Zenoh config passed via with_zenoh_config() or with_router_endpoint()
         // 2. Config file passed via with_config_file()
         // 3. ZENOH_SESSION_CONFIG_URI environment variable
         // 4. Default ros-z session config (connects to router at tcp/localhost:7447)
@@ -411,7 +411,6 @@ impl ContextBuilder {
             self.config_file.is_some()
         );
 
-        // Apply environment variable overrides first
         let builder = self.apply_env_overrides()?;
         debug!(
             "[CTX] Applied {} env overrides",

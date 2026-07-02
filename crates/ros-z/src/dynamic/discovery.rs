@@ -156,11 +156,7 @@ fn collect_topic_schema_candidates(
     graph: &Graph,
     qualified_topic: &str,
 ) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
-    let data = graph.lock();
-    let publishers = data
-        .publishers_on(qualified_topic)
-        .cloned()
-        .collect::<Vec<_>>();
+    let publishers = graph.view().publishers_on(qualified_topic);
 
     collect_topic_schema_candidates_from_publishers(&publishers, qualified_topic)
 }
@@ -213,13 +209,14 @@ fn collect_schema_service_candidate_snapshot(
     graph: &Graph,
     qualified_topic: &str,
 ) -> Result<SchemaServiceCandidateSnapshot, DynamicError> {
-    let data = graph.lock();
-    let publishers = data
-        .publishers_on(qualified_topic)
-        .cloned()
-        .collect::<Vec<_>>();
+    let view = graph.view();
+    let publishers = view.publishers_on(qualified_topic);
     let compatible = collect_topic_schema_candidates_from_publishers(&publishers, qualified_topic)?;
-    let visible_services = data.services().cloned().collect_vec();
+    let visible_services = view
+        .endpoints()
+        .filter(|endpoint| endpoint.kind == EndpointKind::Service)
+        .cloned()
+        .collect_vec();
     let visible = collect_visible_schema_service_candidates(&compatible, &visible_services)?;
 
     Ok(SchemaServiceCandidateSnapshot {
@@ -255,10 +252,10 @@ async fn wait_for_topic_schema_candidates(
     qualified_topic: &str,
     deadline: Instant,
 ) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
-    let mut revisions = graph.watch_revisions();
+    let mut changes = graph.subscribe_changes();
 
     loop {
-        revisions.mark_seen();
+        changes.mark_seen();
 
         match collect_topic_schema_candidates(graph, qualified_topic) {
             Ok(candidates) => return Ok(candidates),
@@ -270,7 +267,7 @@ async fn wait_for_topic_schema_candidates(
             return collect_topic_schema_candidates(graph, qualified_topic);
         };
 
-        match tokio::time::timeout(timeout, revisions.changed()).await {
+        match tokio::time::timeout(timeout, changes.changed()).await {
             Ok(Some(_)) => {}
             Ok(None) | Err(_) => return collect_topic_schema_candidates(graph, qualified_topic),
         }
@@ -282,10 +279,10 @@ async fn wait_for_visible_schema_service_candidates(
     qualified_topic: &str,
     deadline: Instant,
 ) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
-    let mut revisions = graph.watch_revisions();
+    let mut changes = graph.subscribe_changes();
 
     loop {
-        revisions.mark_seen();
+        changes.mark_seen();
 
         let snapshot = collect_schema_service_candidate_snapshot(graph, qualified_topic)?;
         if !snapshot.visible.is_empty() {
@@ -299,7 +296,7 @@ async fn wait_for_visible_schema_service_candidates(
             ));
         };
 
-        match tokio::time::timeout(timeout, revisions.changed()).await {
+        match tokio::time::timeout(timeout, changes.changed()).await {
             Ok(Some(_)) | Err(_) => {}
             Ok(None) => {
                 let snapshot = collect_schema_service_candidate_snapshot(graph, qualified_topic)?;

@@ -10,7 +10,7 @@ use parking_lot::Mutex;
 use ros_z::{
     Message,
     dynamic::{DynamicPayload, TopicSchemaFingerprint, topic_schema_fingerprints_from_publishers},
-    entity::{EndpointEntity, TypeInfo},
+    entity::{EndpointEntity, EndpointKind, TypeInfo},
     node::Node,
     time::Time,
     topic_name::qualify_service_name,
@@ -239,7 +239,7 @@ struct ObservationTaskContext {
     schema_discovery_timeout: Duration,
     retry_delay: Duration,
     target_receiver: watch::Receiver<TargetIdentity>,
-    graph_revisions: ros_z::graph::GraphRevisionWatch,
+    graph_changes: ros_z::graph::GraphChangeSubscription,
 }
 
 impl TopicObserver {
@@ -311,7 +311,7 @@ impl TopicObserver {
             schema_discovery_timeout: options.schema_discovery_timeout,
             retry_delay: options.retry_delay,
             target_receiver: self.inner.target_sender.subscribe(),
-            graph_revisions: self.inner.node.graph().watch_revisions(),
+            graph_changes: self.inner.node.graph().subscribe_changes(),
         }
     }
 }
@@ -872,11 +872,7 @@ fn topic_graph_fingerprint_from_publishers(publishers: &[EndpointEntity]) -> Top
 }
 
 fn topic_graph_fingerprint(node: &Node, resolved_topic: &str) -> TopicGraphFingerprint {
-    let graph = node.graph().lock();
-    let publishers = graph
-        .publishers_on(resolved_topic)
-        .cloned()
-        .collect::<Vec<_>>();
+    let publishers = node.graph().view().publishers_on(resolved_topic);
     topic_graph_fingerprint_from_publishers(&publishers)
 }
 
@@ -891,11 +887,8 @@ fn schema_service_name_for_publisher(publisher: &EndpointEntity) -> Option<Strin
 
 fn dynamic_graph_fingerprint(node: &Node, resolved_topic: &str) -> DynamicGraphFingerprint {
     let (publishers, mut schema_services) = {
-        let graph = node.graph().lock();
-        let publishers = graph
-            .publishers_on(resolved_topic)
-            .cloned()
-            .collect::<Vec<_>>();
+        let view = node.graph().view();
+        let publishers = view.publishers_on(resolved_topic);
         let schema_service_names = publishers
             .iter()
             .filter_map(schema_service_name_for_publisher)
@@ -903,9 +896,11 @@ fn dynamic_graph_fingerprint(node: &Node, resolved_topic: &str) -> DynamicGraphF
         let schema_services = if schema_service_names.is_empty() {
             Vec::new()
         } else {
-            graph
-                .services()
-                .filter(|endpoint| schema_service_names.contains(&endpoint.topic))
+            view.endpoints()
+                .filter(|endpoint| {
+                    endpoint.kind == EndpointKind::Service
+                        && schema_service_names.contains(&endpoint.topic)
+                })
                 .map(|service| SchemaServiceFingerprint {
                     service_name: service.topic.clone(),
                     node_namespace: service.node.namespace.clone(),
@@ -987,23 +982,23 @@ fn dynamic_graph_fingerprint_changed_from(
 }
 
 fn preinstall_observing_graph_fingerprint(
-    graph_revisions: &mut ros_z::graph::GraphRevisionWatch,
+    graph_changes: &mut ros_z::graph::GraphChangeSubscription,
     node: &Node,
     resolved_topic: &str,
     build_fingerprint: &TopicGraphFingerprint,
 ) -> Option<TopicGraphFingerprint> {
-    graph_revisions.mark_seen();
+    graph_changes.mark_seen();
     let current = topic_graph_fingerprint(node, resolved_topic);
     (&current == build_fingerprint).then_some(current)
 }
 
 fn preinstall_dynamic_observing_graph_fingerprint(
-    graph_revisions: &mut ros_z::graph::GraphRevisionWatch,
+    graph_changes: &mut ros_z::graph::GraphChangeSubscription,
     node: &Node,
     resolved_topic: &str,
     build_fingerprint: &DynamicGraphFingerprint,
 ) -> Option<TopicGraphFingerprint> {
-    graph_revisions.mark_seen();
+    graph_changes.mark_seen();
     let current = dynamic_graph_fingerprint(node, resolved_topic);
     (&current == build_fingerprint).then_some(current.topic)
 }
@@ -1072,7 +1067,7 @@ async fn wait_for_build<T, F>(
     current_key: &ObservationBuildKey,
     desired_receiver: &mut watch::Receiver<DesiredObservation>,
     target_receiver: &mut watch::Receiver<TargetIdentity>,
-    graph_revisions: &mut ros_z::graph::GraphRevisionWatch,
+    graph_changes: &mut ros_z::graph::GraphChangeSubscription,
     graph_filter: Option<GraphChangeFilter<'_>>,
 ) -> BuildWait<T>
 where
@@ -1105,7 +1100,7 @@ where
                     Err(_) => return BuildWait::Closed,
                 }
             }
-            revision = graph_revisions.changed() => {
+            revision = graph_changes.changed() => {
                 if revision.is_none() {
                     return BuildWait::Closed;
                 }
@@ -1192,7 +1187,7 @@ async fn run_typed_observation<T>(
     T::Codec: Send + Sync,
 {
     loop {
-        task.graph_revisions.mark_seen();
+        task.graph_changes.mark_seen();
         let desired = desired_receiver.borrow_and_update().clone();
         let observer_identity = task.target_receiver.borrow_and_update().clone();
 
@@ -1226,7 +1221,7 @@ async fn run_typed_observation<T>(
                     task.retry_delay,
                     &mut desired_receiver,
                     &mut task.target_receiver,
-                    &mut task.graph_revisions,
+                    &mut task.graph_changes,
                     None,
                     None,
                 )
@@ -1250,7 +1245,7 @@ async fn run_typed_observation<T>(
             &target.build_key,
             &mut desired_receiver,
             &mut task.target_receiver,
-            &mut task.graph_revisions,
+            &mut task.graph_changes,
             Some(GraphChangeFilter::Topic {
                 node: task.node.as_ref(),
                 resolved_topic: target.resolved_topic.as_str(),
@@ -1276,7 +1271,7 @@ async fn run_typed_observation<T>(
                     continue;
                 };
                 let Some(graph_fingerprint) = preinstall_observing_graph_fingerprint(
-                    &mut task.graph_revisions,
+                    &mut task.graph_changes,
                     task.node.as_ref(),
                     target.resolved_topic.as_str(),
                     &target.graph_fingerprint,
@@ -1300,7 +1295,7 @@ async fn run_typed_observation<T>(
                     ),
                     &mut desired_receiver,
                     &mut task.target_receiver,
-                    &mut task.graph_revisions,
+                    &mut task.graph_changes,
                     &mut cache_updates,
                 )
                 .await
@@ -1325,7 +1320,7 @@ async fn run_typed_observation<T>(
                     task.retry_delay,
                     &mut desired_receiver,
                     &mut task.target_receiver,
-                    &mut task.graph_revisions,
+                    &mut task.graph_changes,
                     Some(&retry_build_key),
                     Some(GraphChangeFilter::Topic {
                         node: task.node.as_ref(),
@@ -1354,7 +1349,7 @@ async fn run_dynamic_observation(
     state: Weak<Mutex<TopicObservationState<DynamicPayload>>>,
 ) {
     loop {
-        task.graph_revisions.mark_seen();
+        task.graph_changes.mark_seen();
         let desired = desired_receiver.borrow_and_update().clone();
         let observer_identity = task.target_receiver.borrow_and_update().clone();
 
@@ -1388,7 +1383,7 @@ async fn run_dynamic_observation(
                     task.retry_delay,
                     &mut desired_receiver,
                     &mut task.target_receiver,
-                    &mut task.graph_revisions,
+                    &mut task.graph_changes,
                     None,
                     None,
                 )
@@ -1415,7 +1410,7 @@ async fn run_dynamic_observation(
             &target.build_key,
             &mut desired_receiver,
             &mut task.target_receiver,
-            &mut task.graph_revisions,
+            &mut task.graph_changes,
             Some(GraphChangeFilter::Dynamic {
                 node: task.node.as_ref(),
                 resolved_topic: target.resolved_topic.as_str(),
@@ -1441,7 +1436,7 @@ async fn run_dynamic_observation(
                     continue;
                 };
                 let Some(graph_fingerprint) = preinstall_dynamic_observing_graph_fingerprint(
-                    &mut task.graph_revisions,
+                    &mut task.graph_changes,
                     task.node.as_ref(),
                     target.resolved_topic.as_str(),
                     &dynamic_graph_fingerprint,
@@ -1465,7 +1460,7 @@ async fn run_dynamic_observation(
                     ),
                     &mut desired_receiver,
                     &mut task.target_receiver,
-                    &mut task.graph_revisions,
+                    &mut task.graph_changes,
                     &mut cache_updates,
                 )
                 .await
@@ -1490,7 +1485,7 @@ async fn run_dynamic_observation(
                     task.retry_delay,
                     &mut desired_receiver,
                     &mut task.target_receiver,
-                    &mut task.graph_revisions,
+                    &mut task.graph_changes,
                     Some(&retry_build_key),
                     Some(GraphChangeFilter::Dynamic {
                         node: task.node.as_ref(),
@@ -1548,7 +1543,7 @@ async fn wait_for_retry_signal(
     retry_delay: Duration,
     desired_receiver: &mut watch::Receiver<DesiredObservation>,
     target_receiver: &mut watch::Receiver<TargetIdentity>,
-    graph_revisions: &mut ros_z::graph::GraphRevisionWatch,
+    graph_changes: &mut ros_z::graph::GraphChangeSubscription,
     current_key: Option<&ObservationBuildKey>,
     graph_filter: Option<GraphChangeFilter<'_>>,
 ) -> bool {
@@ -1580,7 +1575,7 @@ async fn wait_for_retry_signal(
                     Err(_) => return false,
                 }
             }
-            revision = graph_revisions.changed() => {
+            revision = graph_changes.changed() => {
                 if revision.is_none() {
                     return false;
                 }
@@ -1624,7 +1619,7 @@ async fn wait_for_observing_rebuild<T>(
     graph_filter: (&Node, &str, ObservationBuildKey, TopicGraphFingerprint),
     desired_receiver: &mut watch::Receiver<DesiredObservation>,
     target_receiver: &mut watch::Receiver<TargetIdentity>,
-    graph_revisions: &mut ros_z::graph::GraphRevisionWatch,
+    graph_changes: &mut ros_z::graph::GraphChangeSubscription,
     cache_updates: &mut CachedSubscriptionUpdateReceiver,
 ) -> bool {
     let (node, resolved_topic, build_key, mut graph_fingerprint) = graph_filter;
@@ -1650,7 +1645,7 @@ async fn wait_for_observing_rebuild<T>(
                     Err(_) => return false,
                 }
             }
-            revision = graph_revisions.changed() => {
+            revision = graph_changes.changed() => {
                 if revision.is_none() {
                     return false;
                 }
@@ -2059,8 +2054,8 @@ mod tests {
 
         wait_for_publisher_count(&node, topic, 1).await;
         wait_for_service_count(&node, "/dynamic_preinstall_guard/get_schema", 1).await;
-        let mut graph_revisions = node.graph().watch_revisions();
-        graph_revisions.mark_seen();
+        let mut graph_changes = node.graph().subscribe_changes();
+        graph_changes.mark_seen();
         let build_fingerprint = super::dynamic_graph_fingerprint(&node, topic);
 
         drop(schema_service);
@@ -2068,7 +2063,7 @@ mod tests {
 
         assert!(
             super::preinstall_dynamic_observing_graph_fingerprint(
-                &mut graph_revisions,
+                &mut graph_changes,
                 &node,
                 topic,
                 &build_fingerprint,
@@ -2267,7 +2262,7 @@ mod tests {
         let (_desired_sender, mut desired_receiver) = watch::channel(desired);
         let (_target_sender, mut target_receiver) =
             watch::channel(TargetIdentity::new("/").unwrap());
-        let mut graph_revisions = node.graph().watch_revisions();
+        let mut graph_changes = node.graph().subscribe_changes();
         let graph_fingerprint = super::topic_graph_fingerprint(&node, topic);
         let build_key =
             super::observation_build_key(&target_receiver.borrow(), &desired_receiver.borrow())
@@ -2281,7 +2276,7 @@ mod tests {
             (&node, topic, build_key, graph_fingerprint),
             &mut desired_receiver,
             &mut target_receiver,
-            &mut graph_revisions,
+            &mut graph_changes,
             &mut cache_updates,
         );
         let send_cache_update = async {
@@ -2431,7 +2426,7 @@ mod tests {
         let (desired_sender, mut desired_receiver) = watch::channel(desired);
         let (_target_sender, mut target_receiver) =
             watch::channel(TargetIdentity::new("/").unwrap());
-        let mut graph_revisions = node.graph().watch_revisions();
+        let mut graph_changes = node.graph().subscribe_changes();
         let graph_fingerprint = super::topic_graph_fingerprint(&node, topic);
         let build_key =
             super::observation_build_key(&target_receiver.borrow(), &desired_receiver.borrow())
@@ -2442,7 +2437,7 @@ mod tests {
             (&node, topic, build_key, graph_fingerprint),
             &mut desired_receiver,
             &mut target_receiver,
-            &mut graph_revisions,
+            &mut graph_changes,
             &mut cache_updates,
         );
         let observe_data_changed = async {
@@ -2486,8 +2481,8 @@ mod tests {
                 .unwrap(),
         );
         let topic = "/preinstall_graph_change_observer";
-        let mut graph_revisions = node.graph().watch_revisions();
-        graph_revisions.mark_seen();
+        let mut graph_changes = node.graph().subscribe_changes();
+        graph_changes.mark_seen();
         let target_fingerprint = super::topic_graph_fingerprint(&node, topic);
         let cache_state = Arc::new(CachedSubscriptionState::<String>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
@@ -2513,7 +2508,7 @@ mod tests {
         wait_for_publisher_count(&node, topic, 1).await;
 
         let should_install = super::preinstall_observing_graph_fingerprint(
-            &mut graph_revisions,
+            &mut graph_changes,
             node.as_ref(),
             topic,
             &target_fingerprint,
@@ -2663,7 +2658,7 @@ mod tests {
     async fn wait_for_publisher_count(node: &ros_z::node::Node, topic: &str, expected: usize) {
         tokio::time::timeout(Duration::from_secs(1), async {
             loop {
-                if node.graph().lock().publishers_on(topic).count() == expected {
+                if node.graph().view().publisher_count_on(topic) == expected {
                     break;
                 }
                 tokio::time::sleep(Duration::from_millis(10)).await;
@@ -2676,7 +2671,7 @@ mod tests {
     async fn wait_for_service_count(node: &ros_z::node::Node, service: &str, expected: usize) {
         tokio::time::timeout(Duration::from_secs(1), async {
             loop {
-                if node.graph().lock().services_named(service).count() == expected {
+                if node.graph().view().services_named(service).len() == expected {
                     break;
                 }
                 tokio::time::sleep(Duration::from_millis(10)).await;

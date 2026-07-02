@@ -12,7 +12,9 @@ use configuration::{
 };
 use eframe::{
     App, CreationContext, Frame, NativeOptions, Storage,
-    egui::{CentralPanel, Context, CornerRadius, Id, Layout, StrokeKind, TopBottomPanel, Ui},
+    egui::{
+        CentralPanel, Color32, Context, CornerRadius, Id, Layout, StrokeKind, TopBottomPanel, Ui,
+    },
     emath::Align,
     run_native,
 };
@@ -28,17 +30,17 @@ use serde_json::{Value, from_str, to_string};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use visuals::Visuals;
 
-use crate::backend::RobotBackend;
+use crate::backend::{BackendStatus, DirectUpstreamLinkState, RobotBackend};
 
 mod backend;
 mod configuration;
-mod graph;
 mod panel;
 mod panels;
 mod repaint;
 mod selectable_panel_macro;
 mod status;
 mod visuals;
+mod zenoh_router;
 
 impl_selectable_panel!(TextPanel, ImagePanel);
 
@@ -60,14 +62,51 @@ fn default_dock_state(backend: &Arc<RobotBackend>, egui_context: &Context) -> Do
     ))])
 }
 
+fn render_backend_status(ui: &mut Ui, backend: &RobotBackend) {
+    let status = backend.status();
+
+    ui.colored_label(Color32::GREEN, "Backend: healthy")
+        .on_hover_text(format_backend_status_hover_text(&status));
+}
+
+fn format_backend_status_hover_text(status: &BackendStatus) -> String {
+    let mut lines = vec![
+        format!("Local router: {}", status.local_router_endpoint),
+        String::new(),
+        "Direct upstream links:".to_string(),
+    ];
+
+    if status.direct_upstream_links.is_empty() {
+        lines.push("none configured".to_string());
+    } else {
+        lines.extend(status.direct_upstream_links.iter().map(|upstream| {
+            format!(
+                "{} {}",
+                direct_upstream_link_symbol(upstream.state),
+                upstream.endpoint
+            )
+        }));
+    }
+
+    lines.join("\n")
+}
+
+fn direct_upstream_link_symbol(state: DirectUpstreamLinkState) -> &'static str {
+    match state {
+        DirectUpstreamLinkState::Connected => "✓",
+        DirectUpstreamLinkState::Disconnected => "×",
+        DirectUpstreamLinkState::Unknown => "?",
+    }
+}
+
 #[derive(Debug, Clone, clap::Parser)]
 struct Arguments {
     /// Target ROS-Z namespace, for example /42.
     namespace: Option<String>,
 
-    /// Router endpoint passed to ROS-Z, for example tcp/127.0.0.1:7447.
-    #[arg(long)]
-    router: Option<String>,
+    /// Direct upstream Zenoh router endpoint for Twix's private router. Can be repeated.
+    #[arg(long, value_name = "ENDPOINT")]
+    router: Vec<String>,
 
     /// Alternative repository root for local Twix version checks.
     #[arg(long)]
@@ -323,6 +362,9 @@ impl App for TwixApp {
                         log::error!("failed to set namespace: {error:#}");
                         self.namespace_editor = self.backend.namespace();
                     }
+
+                    ui.separator();
+                    render_backend_status(ui, &self.backend);
 
                     if self.active_tab_index() != Some(self.last_focused_tab) {
                         self.last_focused_tab =
@@ -669,14 +711,88 @@ fn main() -> eframe::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{sync::Arc, time::Duration};
 
+    use clap::Parser as _;
     use color_eyre::eyre::eyre;
     use eframe::egui::Context;
     use egui_dock::TabViewer as _;
     use uuid::Uuid;
 
-    use super::{RobotBackend, Tab, TabViewer};
+    use crate::backend::{
+        BackendStatus, DirectUpstreamLinkState, DirectUpstreamLinkStatus, RobotBackend,
+    };
+
+    use super::{Arguments, Tab, TabViewer, format_backend_status_hover_text};
+
+    #[test]
+    fn backend_status_hover_text_formats_empty_direct_upstream_links() {
+        let status = BackendStatus {
+            local_router_endpoint: "tcp/127.0.0.1:12345".to_string(),
+            direct_upstream_links: Vec::new(),
+        };
+
+        assert_eq!(
+            format_backend_status_hover_text(&status),
+            "Local router: tcp/127.0.0.1:12345\n\nDirect upstream links:\nnone configured",
+        );
+    }
+
+    #[test]
+    fn backend_status_hover_text_formats_direct_upstream_symbols() {
+        let status = BackendStatus {
+            local_router_endpoint: "tcp/127.0.0.1:12345".to_string(),
+            direct_upstream_links: vec![
+                DirectUpstreamLinkStatus {
+                    endpoint: "tcp/127.0.0.1:7447".to_string(),
+                    state: DirectUpstreamLinkState::Connected,
+                },
+                DirectUpstreamLinkStatus {
+                    endpoint: "tcp/robot-a:7447".to_string(),
+                    state: DirectUpstreamLinkState::Unknown,
+                },
+                DirectUpstreamLinkStatus {
+                    endpoint: "tcp/192.168.1.20:7447".to_string(),
+                    state: DirectUpstreamLinkState::Disconnected,
+                },
+            ],
+        };
+
+        assert_eq!(
+            format_backend_status_hover_text(&status),
+            "Local router: tcp/127.0.0.1:12345\n\nDirect upstream links:\n✓ tcp/127.0.0.1:7447\n? tcp/robot-a:7447\n× tcp/192.168.1.20:7447",
+        );
+    }
+
+    #[test]
+    fn parses_repeated_router_flags() {
+        let arguments = Arguments::try_parse_from([
+            "twix",
+            "/42",
+            "--router",
+            "tcp/robot-a:7447",
+            "--router",
+            "tcp/robot-b:7447",
+        ])
+        .expect("repeated router flags should parse");
+
+        assert_eq!(arguments.namespace.as_deref(), Some("/42"));
+        assert_eq!(
+            arguments.router,
+            vec![
+                "tcp/robot-a:7447".to_string(),
+                "tcp/robot-b:7447".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn router_defaults_to_empty_list() {
+        let arguments = Arguments::try_parse_from(["twix", "/42"])
+            .expect("arguments without router should parse");
+
+        assert!(arguments.router.is_empty());
+    }
 
     #[test]
     fn duplicate_title_tabs_have_distinct_dock_ids() {
@@ -684,15 +800,18 @@ mod tests {
             .enable_all()
             .build()
             .expect("runtime should build");
-        let backend = Arc::new(
-            runtime
-                .block_on(RobotBackend::new(
-                    runtime.handle().clone(),
-                    None,
-                    "/".to_string(),
-                ))
-                .expect("backend should build"),
-        );
+        let backend = {
+            let _runtime_guard = runtime.enter();
+            Arc::new(
+                runtime
+                    .block_on(tokio::time::timeout(
+                        Duration::from_secs(5),
+                        RobotBackend::new(runtime.handle().clone(), Vec::new(), "/".to_string()),
+                    ))
+                    .expect("backend startup should not time out")
+                    .expect("backend should build"),
+            )
+        };
         let mut viewer = TabViewer {
             nodes_to_add_tabs_to: Vec::new(),
             backend,
