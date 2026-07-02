@@ -71,7 +71,6 @@ pub struct MapPanel {
     path_obstacles: EnabledLayer<layers::PathObstacles, Ground>,
     obstacles: EnabledLayer<layers::Obstacles, Ground>,
     path: EnabledLayer<layers::Path, Ground>,
-    // behavior_simulator: EnabledLayer<layers::BehaviorSimulator, Field>,
     robot_pose: EnabledLayer<layers::RobotPose, Ground>,
     // referee_position: EnabledLayer<layers::RefereePosition, Field>,
     // pose_detection: EnabledLayer<layers::PoseDetection, Field>,
@@ -95,7 +94,6 @@ impl Panel for MapPanel {
         let path_obstacles = EnabledLayer::new(context.backend.clone(), context.value, false);
         let obstacles = EnabledLayer::new(context.backend.clone(), context.value, false);
         let path = EnabledLayer::new(context.backend.clone(), context.value, false);
-        // let behavior_simulator = EnabledLayer::new(context.backend.clone(), context.value, false);
         // let referee_position = EnabledLayer::new(context.backend.clone(), context.value, false);
         let robot_pose = EnabledLayer::new(context.backend.clone(), context.value, true);
         let ball_percept = EnabledLayer::new(context.backend.clone(), context.value, false);
@@ -144,7 +142,6 @@ impl Panel for MapPanel {
             path_obstacles,
             obstacles,
             path,
-            // behavior_simulator,
             robot_pose,
             // pose_detection,
             // referee_position,
@@ -169,7 +166,6 @@ impl Panel for MapPanel {
             "path_obstacles": self.path_obstacles.save(),
             "obstacles": self.obstacles.save(),
             "path": self.path.save(),
-            // "behavior_simulator": self.behavior_simulator.save(),
             // "pose_detection": self.referee_position.save(),
             "robot_pose": self.robot_pose.save(),
             // "referee_position": self.referee_position.save(),
@@ -192,7 +188,6 @@ impl Panel for MapPanel {
                 self.path_obstacles.checkbox(ui);
                 self.obstacles.checkbox(ui);
                 self.path.checkbox(ui);
-                // self.behavior_simulator.checkbox(ui);
                 // self.pose_detection.checkbox(ui);
                 self.robot_pose.checkbox(ui);
                 // self.referee_position.checkbox(ui);
