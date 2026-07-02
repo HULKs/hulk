@@ -10,7 +10,6 @@ mod obstacle_filter;
 mod obstacles;
 mod path;
 mod path_obstacles;
-// mod referee_position;
 mod robot_pose;
 mod voronoi_cell;
 
@@ -26,6 +25,5 @@ pub use obstacle_filter::ObstacleFilter;
 pub use obstacles::Obstacles;
 pub use path::Path;
 pub use path_obstacles::PathObstacles;
-// pub use referee_position::RefereePosition;
 pub use robot_pose::RobotPose;
 pub use voronoi_cell::VoronoiCell;
