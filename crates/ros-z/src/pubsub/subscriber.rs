@@ -36,10 +36,21 @@ pub(super) fn subscriber_queue_capacity(
     }
 }
 
+/// Controls how local subscriber queue overflow is reported.
+///
+/// This setting only affects reporting. It does not change advertised QoS,
+/// queue capacity, or the queue drop policy. When the local receive queue is
+/// full, the oldest queued sample is still dropped to make room for the newest
+/// sample.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum QueueOverflowReporting {
+    /// Do not emit a log message when the local queue overflows.
+    ///
+    /// Dropped samples are still accounted internally.
     Silent,
+    /// Emit a debug log message for each local queue overflow.
     Debug,
+    /// Emit a warning log message for each local queue overflow.
     #[default]
     Warn,
 }
@@ -234,6 +245,9 @@ impl<T, C> SubscriberBuilder<T, C> {
     }
 
     /// Set how local subscriber queue overflow is reported.
+    ///
+    /// This only controls log output. Overflow still drops the oldest queued
+    /// sample and does not alter advertised endpoint QoS.
     pub fn queue_overflow_reporting(mut self, reporting: QueueOverflowReporting) -> Self {
         self.options = self.options.queue_overflow_reporting(reporting);
         self
