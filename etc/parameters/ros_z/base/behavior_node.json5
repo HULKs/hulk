@@ -157,8 +157,8 @@
       secs: 3,
     },
     hsl_state_message_send_interval: {
-      nanos: 0,
-      secs: 2,
+      nanos: 300000000,
+      secs: 0,
     },
   },
 }
