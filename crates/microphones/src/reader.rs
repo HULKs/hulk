@@ -1,10 +1,7 @@
 use std::{sync::Arc, thread::sleep};
 
 use alsa::{Direction, PCM, ValueOr, pcm::HwParams};
-use color_eyre::{
-    Result,
-    eyre::{WrapErr, eyre},
-};
+use color_eyre::{Result, eyre::WrapErr};
 use log::warn;
 use types::samples::Samples;
 
@@ -18,14 +15,15 @@ pub struct Microphones {
 impl Microphones {
     pub fn new(parameters: Parameters) -> Result<Self> {
         let device = create_device(&parameters).wrap_err("failed to create device")?;
+
         Ok(Self { device, parameters })
     }
 
-    pub fn retrying_read(&mut self) -> Result<Samples> {
+    pub fn retrying_read(&mut self) -> Result<Option<Samples>> {
         let number_of_retries = self.parameters.number_of_retries;
         for _ in 0..number_of_retries {
             match self.read() {
-                Ok(samples) => return Ok(samples),
+                Ok(samples) => return Ok(Some(samples)),
                 Err(error) => {
                     warn!("failed to read from microphones: {error:#?}");
                     sleep(self.parameters.retry_sleep_duration);
@@ -39,9 +37,8 @@ impl Microphones {
                 }
             }
         }
-        Err(eyre!(
-            "failed to read from microphones after {number_of_retries}, giving up..."
-        ))
+        warn!("failed to read from microphones after {number_of_retries}, giving up...");
+        Ok(None)
     }
 
     fn read(&self) -> std::result::Result<Samples, color_eyre::eyre::Error> {

@@ -34,7 +34,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     };
 
     loop {
-        let samples = block_in_place(|| microphones.retrying_read())?;
+        let Some(samples) = block_in_place(|| microphones.retrying_read())? else {
+            continue;
+        };
         microphones_samples_pub.publish(&samples).await?;
     }
 }
