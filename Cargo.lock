@@ -9368,6 +9368,7 @@ dependencies = [
  "itertools 0.14.0",
  "json5",
  "nalgebra",
+ "ndarray",
  "parking_lot",
  "ros-z-cdr",
  "ros-z-derive",
@@ -11611,18 +11612,27 @@ dependencies = [
 
 [[package]]
 name = "twix"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
+ "ball_filter",
  "clap",
  "color-eyre",
+ "convert_case 0.7.1",
+ "coordinate_systems",
  "dirs",
  "eframe",
  "egui_dock",
  "egui_extras",
+ "geometry",
+ "hsl_network_messages",
  "hulk_widgets",
  "image",
  "itertools 0.14.0",
+ "linear_algebra",
  "log",
+ "nalgebra",
+ "ndarray",
+ "projection",
  "repository",
  "ros-z",
  "ros-z-debug",
@@ -11635,6 +11645,8 @@ dependencies = [
  "tracing-subscriber",
  "types",
  "uuid",
+ "voronoi",
+ "world_state",
 ]
 
 [[package]]

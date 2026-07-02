@@ -51,6 +51,20 @@ impl<V> CachedSubscription<V> {
         self.state.window(start, end)
     }
 
+    /// Return all retained samples.
+    ///
+    /// Handles with [`RetentionPolicy::LatestOnly`] return an empty window.
+    pub fn get_all(&self) -> Vec<Arc<SampleRecord<V>>> {
+        self.state.get_all()
+    }
+
+    /// Return the retained sample closest to `time`, or `None` if the history is empty.
+    ///
+    /// Handles with [`RetentionPolicy::LatestOnly`] return an empty window.
+    pub fn get_nearest(&self, time: Time) -> Option<Arc<SampleRecord<V>>> {
+        self.state.get_nearest(time)
+    }
+
     /// Subscribe to future status and data update notifications.
     ///
     /// The receiver is a live stream and does not replay updates that happened
@@ -277,6 +291,18 @@ impl<V> CachedSubscriptionState<V> {
         self.history
             .as_ref()
             .map_or_else(Vec::new, |history| history.lock().window(start, end))
+    }
+
+    fn get_all(&self) -> Vec<Arc<SampleRecord<V>>> {
+        self.history
+            .as_ref()
+            .map_or_else(Vec::new, |history| history.lock().get_all())
+    }
+
+    fn get_nearest(&self, time: Time) -> Option<Arc<SampleRecord<V>>> {
+        self.history
+            .as_ref()
+            .and_then(|history| history.lock().get_nearest(time))
     }
 
     fn subscribe_updates(

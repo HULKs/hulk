@@ -1,21 +1,30 @@
 [package]
 name = "twix"
-version = "0.13.0"
+version = "0.14.0"
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+ball_filter = { workspace = true }
 clap = { workspace = true }
 color-eyre = { workspace = true }
+convert_case = { workspace = true }
+coordinate_systems = { workspace = true }
 dirs = { workspace = true }
 eframe = { workspace = true }
 egui_dock = { workspace = true }
 egui_extras = { workspace = true }
+geometry = { workspace = true }
+hsl_network_messages = { workspace = true }
 hulk_widgets = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
+linear_algebra = { workspace = true }
 log = { workspace = true }
+nalgebra = { workspace = true }
+ndarray = { workspace = true }
+projection = { workspace = true }
 repository = { workspace = true }
 ros-z = { workspace = true }
 ros-z-debug = { workspace = true }
@@ -28,3 +37,5 @@ toml = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 types = { workspace = true }
 uuid = { workspace = true }
+voronoi = { workspace = true }
+world_state = { workspace = true }

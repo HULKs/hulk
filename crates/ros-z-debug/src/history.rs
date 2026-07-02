@@ -41,6 +41,43 @@ impl<T> TimestampIndex<T> {
             .collect()
     }
 
+    fn get_all(&self) -> Vec<Arc<T>> {
+        self.entries
+            .values()
+            .flat_map(|value| value.iter().cloned())
+            .collect()
+    }
+
+    fn get_nearest(&self, time: Time) -> Option<Arc<T>> {
+        let nearest_preceding_sample = self.entries.range(..time).next_back();
+        let nearest_following_sample = self.entries.range(time..).next();
+
+        match ((nearest_preceding_sample), nearest_following_sample) {
+            (Some((_, nearest_preceding_sample)), None) => {
+                Some(nearest_preceding_sample.iter().last().unwrap().clone())
+            }
+            (None, Some((_, nearest_following_sample))) => {
+                Some(nearest_following_sample.iter().next().unwrap().clone())
+            }
+            (None, None) => None,
+            (
+                Some((nearest_preceding_sample_time, nearest_preceding_sample)),
+                Some((nearest_following_sample_time, nearest_following_sample)),
+            ) => {
+                let distance_to_nearest_preceding_sample =
+                    time.duration_since(*nearest_preceding_sample_time);
+                let distance_to_nearest_following_sample =
+                    nearest_following_sample_time.duration_since(time);
+
+                if distance_to_nearest_preceding_sample < distance_to_nearest_following_sample {
+                    Some(nearest_preceding_sample.iter().last().unwrap().clone())
+                } else {
+                    Some(nearest_following_sample.iter().next().unwrap().clone())
+                }
+            }
+        }
+    }
+
     fn latest_stamp(&self) -> Option<Time> {
         self.entries.keys().next_back().copied()
     }
@@ -87,6 +124,14 @@ impl<V> TimeIndexedHistory<V> {
 
     pub fn window(&self, start: Time, end: Time) -> Vec<Arc<SampleRecord<V>>> {
         self.entries.get_interval(start, end)
+    }
+
+    pub fn get_all(&self) -> Vec<Arc<SampleRecord<V>>> {
+        self.entries.get_all()
+    }
+
+    pub fn get_nearest(&self, time: Time) -> Option<Arc<SampleRecord<V>>> {
+        self.entries.get_nearest(time)
     }
 
     fn evict(&mut self) {
@@ -270,5 +315,32 @@ mod tests {
             values.last().map(|record| record.value),
             Some(DEFAULT_TIME_WINDOW_MAX_SAMPLES as i32)
         );
+    }
+
+    #[test]
+    fn get_nearest() {
+        let mut history =
+            TimeIndexedHistory::new(RetentionPolicy::time_window(Duration::from_secs(10)).unwrap());
+
+        for value in 1..=10 {
+            history.insert(record(value as i32, value * 100));
+        }
+
+        assert_eq!(history.get_nearest(Time::from_nanos(90)).unwrap().value, 1);
+        assert_eq!(history.get_nearest(Time::from_nanos(140)).unwrap().value, 1);
+        assert_eq!(history.get_nearest(Time::from_nanos(160)).unwrap().value, 2);
+        assert_eq!(
+            history.get_nearest(Time::from_nanos(1100)).unwrap().value,
+            10
+        );
+    }
+
+    #[test]
+    fn get_nearest_on_empty_returns_none() {
+        let history = TimeIndexedHistory::<i32>::new(
+            RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
+        );
+
+        assert!(history.get_nearest(Time::from_nanos(1)).is_none());
     }
 }

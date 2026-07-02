@@ -633,6 +633,22 @@ impl<T> TopicObservation<T> {
         cache.map_or_else(Vec::new, |cache| cache.window(start, end))
     }
 
+    /// Return all retained samples.
+    ///
+    /// Observations with [`RetentionPolicy::LatestOnly`] return an empty window.
+    pub fn get_all(&self) -> Vec<Arc<crate::SampleRecord<T>>> {
+        let cache = self.state.lock().display_cache.clone();
+        cache.map_or_else(Vec::new, |cache| cache.get_all())
+    }
+
+    /// Return the retained sample closest to `time`, or `None` if the history is empty.
+    ///
+    /// Observations with [`RetentionPolicy::LatestOnly`] return an empty window.
+    pub fn get_nearest(&self, time: Time) -> Option<Arc<crate::SampleRecord<T>>> {
+        let cache = self.state.lock().display_cache.clone();
+        cache.and_then(|cache| cache.get_nearest(time))
+    }
+
     /// Subscribe to future status and data update notifications.
     ///
     /// The receiver is a live stream and does not replay updates that happened
