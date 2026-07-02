@@ -26,6 +26,31 @@
 //! # }
 //! ```
 //!
+//! A full [`ObservationPolicy`] exposes observer-side buffering knobs when the
+//! default retention shortcut is not enough:
+//!
+//! ```rust,ignore
+//! use std::{num::NonZeroUsize, sync::Arc};
+//!
+//! use ros_z::context::ContextBuilder;
+//! use ros_z_debug::{CachedSubscriptionNodeExt, ObservationPolicy};
+//!
+//! # async fn demo() -> ros_z_debug::Result<()> {
+//! let context = ContextBuilder::default().build().await?;
+//! let node = Arc::new(context.create_node("debug").build().await?);
+//! let cache = node
+//!     .cached_subscription("status")?
+//!     .policy(
+//!         ObservationPolicy::latest()
+//!             .with_subscriber_queue_capacity(NonZeroUsize::new(128).unwrap()),
+//!     )
+//!     .build_typed::<String>()
+//!     .await?;
+//! # let _ = cache;
+//! # Ok(())
+//! # }
+//! ```
+//!
 //! `TopicObserver` spawns observations that keep running after the observer handle
 //! is dropped. Drop the returned observation handle to stop its background task.
 //!
