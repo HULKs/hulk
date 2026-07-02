@@ -107,12 +107,12 @@
     maximum_intercept_distance: 1.5,
   },
   kicking: {
-    allow_schlong: true,
-    distance_for_kick: 1.5,
-    distance_for_kick_hysteresis: 1.0,
+    allow_schlong: false,
+    distance_for_kick: 2.0,
+    distance_for_kick_hysteresis: 0.5,
     distance_to_look_directly_at_the_ball: 4.0,
     kick_target_offset_angle: 0.1,
-    target_distance_kick_power_threshold: 4.0,
+    target_distance_kick_power_threshold: 6.0,
     kick_position_ball_distance: 0.3,
   },
   substates: {
