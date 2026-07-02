@@ -1866,7 +1866,7 @@ fn send_observation_update<T>(
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, time::Duration};
+    use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
     use parking_lot::Mutex;
     use ros_z::{prelude::*, time::Time};
@@ -2241,6 +2241,7 @@ mod tests {
         let cache_state = Arc::new(CachedSubscriptionState::<String>::new(
             fresh_cache,
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let (observation_update_sender, observation_update_receiver) =
             broadcast::channel(super::UPDATE_BUFFER_CAPACITY);
@@ -2307,6 +2308,7 @@ mod tests {
         let cache_state = Arc::new(CachedSubscriptionState::<String>::new(
             stale_cache.clone(),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let cache = cache_state.handle();
         let (observation_update_sender, observation_update_receiver) =
@@ -2353,6 +2355,7 @@ mod tests {
         let cache_state = Arc::new(CachedSubscriptionState::<String>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         cache_state.store_latest(string_sample_record("ready before install"));
         let cache = cache_state.handle();
@@ -2400,6 +2403,7 @@ mod tests {
         let cache_state = Arc::new(CachedSubscriptionState::<String>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let cache = cache_state.handle();
         let built_cache = cache.clone();
@@ -2487,6 +2491,7 @@ mod tests {
         let cache_state = Arc::new(CachedSubscriptionState::<String>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let built_cache = cache_state.handle();
         let (observation_update_sender, _observation_update_receiver) =

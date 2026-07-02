@@ -5,8 +5,8 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     CachedJsonSubscription, CachedSubscription, CachedSubscriptionStatus,
-    CachedSubscriptionStatusSnapshot, JsonRenderPolicy, Result, RetentionPolicy, SampleMetadata,
-    SampleRecord, TargetIdentity, TopicReference, cache::CachedSubscriptionState,
+    CachedSubscriptionStatusSnapshot, JsonRenderPolicy, ObservationPolicy, Result, RetentionPolicy,
+    SampleMetadata, SampleRecord, TargetIdentity, TopicReference, cache::CachedSubscriptionState,
 };
 
 /// Convenience methods for creating cached debug subscriptions from a `ros-z` node.
@@ -121,6 +121,7 @@ impl CachedSubscriptionBuilder {
                 type_info,
             ),
             retention,
+            ObservationPolicy::default().update_buffer_capacity(),
             move |state, cancellation| {
                 receive_typed_loop(subscriber, state, cancellation, metadata)
             },
@@ -171,6 +172,7 @@ impl CachedSubscriptionBuilder {
                 type_info,
             ),
             retention,
+            ObservationPolicy::default().update_buffer_capacity(),
             move |state, cancellation| {
                 receive_dynamic_loop(subscriber, state, cancellation, metadata)
             },

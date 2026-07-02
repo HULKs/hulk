@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{num::NonZeroUsize, sync::Arc};
 
 use arc_swap::ArcSwapOption;
 use parking_lot::Mutex;
@@ -14,8 +14,6 @@ use crate::{
     history::TimeIndexedHistory,
     sample::{dynamic_record_json_value, dynamic_record_to_json_sample},
 };
-
-const UPDATE_BUFFER_CAPACITY: usize = 256;
 
 /// Handle for reading retained subscription state.
 ///
@@ -153,13 +151,14 @@ impl<V> CachedSubscriptionState<V> {
     pub(crate) fn new(
         status: CachedSubscriptionStatusSnapshot,
         retention: RetentionPolicy,
+        update_buffer_capacity: NonZeroUsize,
     ) -> Self {
         let history = match retention {
             RetentionPolicy::LatestOnly => None,
             RetentionPolicy::TimeWindow(_) => Some(Mutex::new(TimeIndexedHistory::new(retention))),
         };
 
-        let (updates, _) = broadcast::channel(UPDATE_BUFFER_CAPACITY);
+        let (updates, _) = broadcast::channel(update_buffer_capacity.get());
 
         Self {
             latest: ArcSwapOption::empty(),
@@ -172,6 +171,7 @@ impl<V> CachedSubscriptionState<V> {
     pub(crate) fn spawn<F, Fut>(
         status: CachedSubscriptionStatusSnapshot,
         retention: RetentionPolicy,
+        update_buffer_capacity: NonZeroUsize,
         receive_loop: F,
     ) -> Arc<Self>
     where
@@ -179,7 +179,7 @@ impl<V> CachedSubscriptionState<V> {
         Fut: std::future::Future<Output = ()> + Send + 'static,
         V: Send + Sync + 'static,
     {
-        let state = Arc::new(Self::new(status, retention));
+        let state = Arc::new(Self::new(status, retention, update_buffer_capacity));
         let weak_state = Arc::downgrade(&state);
         let cancellation = state.cancellation_token();
 
@@ -299,7 +299,7 @@ impl<V> Drop for CachedSubscriptionState<V> {
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, time::Duration};
+    use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
     use ros_z::{
         dynamic::{DynamicPayload, DynamicValue, PrimitiveTypeDef, SchemaBundle, TypeDef},
@@ -381,6 +381,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let record = sample_record(NonClonePayload(7));
 
@@ -396,6 +397,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
+            NonZeroUsize::new(256).unwrap(),
         ));
         let first = sample_record_at(NonClonePayload(1), Time::from_nanos(1));
         let second = sample_record_at(NonClonePayload(2), Time::from_nanos(2));
@@ -416,6 +418,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
+            NonZeroUsize::new(256).unwrap(),
         ));
         state.store_latest(sample_record_at(NonClonePayload(1), Time::from_nanos(1)));
 
@@ -431,6 +434,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let record = sample_record_at(NonClonePayload(3), Time::from_nanos(3));
 
@@ -450,6 +454,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let handle = state.handle();
         let mut updates = handle.subscribe_updates().unwrap();
@@ -474,6 +479,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let handle = state.handle();
 
@@ -488,6 +494,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let handle = state.handle();
         let mut updates = handle.subscribe_updates().unwrap();
@@ -510,6 +517,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let handle = state.handle();
         let mut updates = handle.subscribe_updates().unwrap();
@@ -540,6 +548,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
 
         state.store_latest(sample_record(NonClonePayload(1)));
@@ -555,6 +564,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let handle = state.handle();
         let mut updates = handle.subscribe_updates().unwrap();
@@ -573,6 +583,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let handle = state.handle();
 
@@ -589,6 +600,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let handle = state.handle();
         let record = sample_record(NonClonePayload(11));
@@ -606,6 +618,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
+            NonZeroUsize::new(256).unwrap(),
         ));
         let handle = state.handle();
         let first = sample_record_at(NonClonePayload(1), Time::from_nanos(1));
@@ -627,6 +640,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let handle = state.handle();
         let mut updates = handle.subscribe_updates().unwrap();
@@ -645,6 +659,7 @@ mod tests {
         let state = CachedSubscriptionState::<NonClonePayload>::spawn(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
             move |_state, cancellation| async move {
                 cancellation.cancelled().await;
                 let _ = exited_sender.send(());
@@ -665,6 +680,7 @@ mod tests {
         let state = CachedSubscriptionState::<NonClonePayload>::spawn(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
             move |_state, cancellation| async move {
                 cancellation.cancelled().await;
                 let _ = exited_sender.send(());
@@ -686,6 +702,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let handle = state.handle();
         let mut updates = handle.subscribe_updates().unwrap();
@@ -706,6 +723,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let handle = state.handle();
         let mut updates = handle.subscribe_updates().unwrap();
@@ -729,6 +747,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let handle = state.handle();
         let mut updates = handle.subscribe_updates().unwrap();
@@ -748,6 +767,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         state.store_latest(dynamic_record_at(42, Time::zero()));
         let handle = CachedJsonSubscription::new(state.handle(), JsonRenderPolicy::default());
@@ -760,6 +780,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let source = dynamic_record_at(42, Time::from_nanos(7));
         state.store_latest(Arc::clone(&source));
@@ -781,6 +802,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::<DynamicPayload>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let handle = CachedJsonSubscription::new(state.handle(), JsonRenderPolicy::default());
         let mut updates = handle.subscribe_updates().unwrap();
@@ -804,6 +826,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
+            NonZeroUsize::new(256).unwrap(),
         ));
         state.store_latest(dynamic_record_at(1, Time::from_nanos(1)));
         state.store_latest(dynamic_record_at(2, Time::from_nanos(2)));
@@ -820,6 +843,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
+            NonZeroUsize::new(256).unwrap(),
         ));
         let first = dynamic_record_at(1, Time::from_nanos(1));
         let second = dynamic_record_at(2, Time::from_nanos(2));
@@ -843,6 +867,7 @@ mod tests {
         let state = Arc::new(CachedSubscriptionState::<NonClonePayload>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let cancellation = state.cancellation_token();
         let handle = state.handle();
@@ -863,6 +888,7 @@ mod tests {
                     CachedSubscriptionStatus::WaitingForFirstSample,
                 ),
                 RetentionPolicy::LatestOnly,
+                NonZeroUsize::new(256).unwrap(),
             ));
 
             state.handle().subscribe_updates().unwrap()

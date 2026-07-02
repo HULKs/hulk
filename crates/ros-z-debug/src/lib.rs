@@ -55,6 +55,7 @@ mod error;
 mod event;
 mod history;
 mod observation;
+mod policy;
 mod retention;
 mod sample;
 mod status;
@@ -72,6 +73,7 @@ pub use observation::{
     TopicObservationUpdate, TopicObservationUpdateClosed, TopicObservationUpdateReceiver,
     TopicObserver, TopicObserverOptions,
 };
+pub use policy::ObservationPolicy;
 pub use retention::{DEFAULT_TIME_WINDOW_MAX_SAMPLES, RetentionPolicy, RetentionWindow};
 pub use ros_z::dynamic::{
     ByteRenderPolicy, DynamicJsonRenderPolicy as JsonRenderPolicy, NonFiniteFloatRenderPolicy,
