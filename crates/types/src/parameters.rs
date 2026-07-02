@@ -45,6 +45,7 @@ pub struct BehaviorParameters {
     pub kickoff: KickoffParameters,
     pub voronoi: VoronoiParameters,
     pub network: HslNetworkParameters,
+    pub search_suggestor: SearchSuggestorParameters,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
@@ -274,8 +275,6 @@ pub struct CameraMatrixParameters {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct SearchSuggestorParameters {
-    pub cells_per_meter: f32,
-    pub heatmap_convolution_kernel_weight: f32,
     pub minimum_validity: f32,
     pub own_ball_weight: f32,
     pub team_ball_weight: f32,
