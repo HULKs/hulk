@@ -13,7 +13,9 @@ use crate::{
     entity::*,
     graph::Graph,
     message::{Message, Service, WireDecoder, WireEncoder},
-    pubsub::{PublisherBuilder, SubscriberBuilder},
+    pubsub::{
+        PublisherBuilder, RawPayload, RawPayloadCodec, RawSubscriberBuilder, SubscriberBuilder,
+    },
     service::{ServiceClientBuilder, ServiceServerBuilder},
     shm::ShmConfig,
     time::{Clock, Timer},
@@ -621,6 +623,53 @@ impl Node {
             topic.to_string(),
             MessageEndpointType::dynamic(type_info, schema),
         )
+    }
+
+    /// Create a raw dynamic subscriber builder with known type metadata.
+    ///
+    /// Use this for tools that need raw payload bytes and already know the
+    /// topic's runtime type metadata, for example after calling
+    /// [`discover_topic_schema`](Self::discover_topic_schema). The built
+    /// subscriber advertises `type_info` in the graph and receives raw Zenoh
+    /// samples without deserializing them or validating a dynamic schema root.
+    ///
+    /// This is useful for generic recorders because schemas whose root is not a
+    /// named type, such as `Vec<T>` or `Option<T>`, can still be recorded as raw
+    /// CDR bytes. If full schema data is needed for side-channel metadata, keep
+    /// using the schema returned by [`discover_topic_schema`](Self::discover_topic_schema)
+    /// separately.
+    ///
+    /// The topic name will be qualified as a ros-z graph name:
+    /// - Absolute topics (starting with '/') are used as-is
+    /// - Private topics (starting with '~') are expanded to `/<namespace>/<node_name>/<topic>`
+    /// - Relative topics are expanded to `/<namespace>/<topic>`
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let discovered = node
+    ///     .discover_topic_schema("detected_objects", Duration::from_secs(5))
+    ///     .await?;
+    ///
+    /// let subscriber = node
+    ///     .dynamic_raw_subscriber("detected_objects", discovered.type_info())
+    ///     .build()
+    ///     .await?;
+    ///
+    /// let sample = subscriber.recv().await?;
+    /// let payload = sample.payload().to_bytes();
+    /// ```
+    pub fn dynamic_raw_subscriber(
+        &self,
+        topic: &str,
+        type_info: TypeInfo,
+    ) -> RawSubscriberBuilder<RawPayload, RawPayloadCodec> {
+        SubscriberBuilder::new(
+            self.endpoint_builder_context(),
+            topic.to_string(),
+            MessageEndpointType::type_info_only(type_info),
+        )
+        .raw()
     }
 
     pub fn register_schema_with_service(

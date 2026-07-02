@@ -1,6 +1,6 @@
 use std::{
     boxed::Box,
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs::{self, File},
     future::Future,
     io::BufWriter,
@@ -11,36 +11,19 @@ use std::{
     time::Duration,
 };
 
-use booster::{ImuState, MotorState};
 use color_eyre::{Result, eyre::WrapErr};
-use coordinate_systems::{Field, Ground, Robot};
-use field_mark_association::{FieldMarkAssociations, GlobalLocalizationDebug};
 use futures_util::{FutureExt, StreamExt, future::BoxFuture, stream::FuturesUnordered};
-use kinematics::joints::{Joints, head::HeadJoints};
-use kinematics::robot_kinematics::RobotKinematics;
-use linear_algebra::Isometry3;
-use localization_3d::SolveDiagnostics;
 use mcap::{Compression, WriteOptions, Writer, records::MessageHeader};
-use projection::{camera_matrix::CameraMatrix, intrinsic::Intrinsic};
 use ros_z::{
     Message,
     attachment::Attachment,
+    dynamic::DiscoveredTopicSchema,
     prelude::*,
     pubsub::RawSubscriber,
     qos::{QosHistory, QosReliability},
     time::Time,
 };
-use ros_z_streams::Announcement;
 use serde::{Deserialize, Serialize};
-use types::{
-    field_dimensions::FieldDimensions,
-    motion_command::MotionCommand,
-    object_detection::{Object, RobocupObjectLabel},
-    stereo_image_pair::StereoImagePair,
-    support_foot::Side,
-    time_wrapper::TimeWrapper,
-    visual_odometry::{VisualOdometer, VisualOdometryDelta},
-};
 use zenoh::sample::Sample;
 
 type ChannelId = u16;
@@ -56,6 +39,8 @@ pub struct McapRecorderParameters {
     pub include_raw_images: bool,
     pub raw_image_min_interval: Option<Duration>,
     pub queue_depth: usize,
+    pub schema_discovery_timeout: Duration,
+    pub topics: Vec<String>,
 }
 
 impl McapRecorderParameters {
@@ -74,6 +59,27 @@ impl McapRecorderParameters {
         }
         if self.queue_depth == 0 {
             return Err("queue_depth must be positive".to_string());
+        }
+        if self.schema_discovery_timeout.is_zero() {
+            return Err("schema_discovery_timeout must be positive".to_string());
+        }
+        if self.topics.is_empty() {
+            return Err("topics must not be empty".to_string());
+        }
+
+        let mut unique_topics = BTreeSet::new();
+        for topic in &self.topics {
+            if topic.is_empty() {
+                return Err("topics must not contain empty topic names".to_string());
+            }
+            if !unique_topics.insert(topic) {
+                return Err(format!("topics must not contain duplicates: {topic}"));
+            }
+        }
+        if self.include_raw_images && self.topics.iter().any(|topic| topic == RAW_IMAGE_TOPIC) {
+            return Err(format!(
+                "{RAW_IMAGE_TOPIC} must not be listed in topics when include_raw_images is enabled"
+            ));
         }
         Ok(())
     }
@@ -115,161 +121,23 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut writer = writer;
 
     let mut recorders = RecorderTasks::new();
-    subscribe_topic::<ImuState>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "inputs/imu_state",
-    )
-    .await?;
-    subscribe_topic::<VisualOdometryDelta>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "visual_odometry/current_left_camera_to_previous_left_camera",
-    )
-    .await?;
-    subscribe_topic::<TimeWrapper<RobotKinematics>>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "robot_kinematics",
-    )
-    .await?;
-    subscribe_topic::<TimeWrapper<Option<Side>>>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "support_foot",
-    )
-    .await?;
-    subscribe_topic::<TimeWrapper<Option<Isometry3<Ground, Robot>>>>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "ground_to_robot",
-    )
-    .await?;
-    subscribe_topic::<TimeWrapper<CameraMatrix>>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "camera_matrix",
-    )
-    .await?;
-    subscribe_topic::<Vec<Object<RobocupObjectLabel>>>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "detected_objects",
-    )
-    .await?;
-    subscribe_topic::<Announcement>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "detected_objects/announce",
-    )
-    .await?;
-    subscribe_topic::<FieldDimensions>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "field_dimensions",
-    )
-    .await?;
-    subscribe_topic::<Option<Isometry3<Field, Robot>>>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "localization",
-    )
-    .await?;
-    subscribe_topic::<VisualOdometer>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "visual_odometry/current_left_camera_to_visual_odometer",
-    )
-    .await?;
-    subscribe_topic::<Option<nalgebra::Isometry3<f32>>>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "debug/visual_odometry/previous_left_camera_to_current_left_camera",
-    )
-    .await?;
-    subscribe_topic::<Option<GlobalLocalizationDebug>>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "debug/global_localization",
-    )
-    .await?;
-    subscribe_topic::<TimeWrapper<FieldMarkAssociations>>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "field_mark_association/associations",
-    )
-    .await?;
-    subscribe_topic::<Intrinsic>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "debug/calibrated_intrinsics",
-    )
-    .await?;
-    subscribe_topic::<TimeWrapper<SolveDiagnostics>>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "debug/solve_diagnostics",
-    )
-    .await?;
-    subscribe_topic::<Joints<MotorState>>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "inputs/serial_motor_states",
-    )
-    .await?;
-    subscribe_topic::<MotionCommand>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "behavior/motion_command",
-    )
-    .await?;
-    subscribe_topic::<MotionCommand>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "motion_command",
-    )
-    .await?;
-    subscribe_topic::<HeadJoints<f32>>(&node, &mut recorders, parameters.queue_depth, "look_at")
-        .await?;
-    subscribe_topic::<HeadJoints<f32>>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "look_around_target_joints",
-    )
-    .await?;
-    subscribe_topic::<HeadJoints<f32>>(
-        &node,
-        &mut recorders,
-        parameters.queue_depth,
-        "head_joints_command",
-    )
-    .await?;
-
-    if parameters.include_raw_images {
-        subscribe_topic::<TimeWrapper<StereoImagePair>>(
+    for topic in &parameters.topics {
+        subscribe_topic(
             &node,
             &mut recorders,
             parameters.queue_depth,
+            parameters.schema_discovery_timeout,
+            topic,
+        )
+        .await?;
+    }
+
+    if parameters.include_raw_images {
+        subscribe_topic(
+            &node,
+            &mut recorders,
+            parameters.queue_depth,
+            parameters.schema_discovery_timeout,
             RAW_IMAGE_TOPIC,
         )
         .await?;
@@ -280,6 +148,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         include_raw_images = parameters.include_raw_images,
         raw_image_min_interval = ?parameters.raw_image_min_interval,
         queue_depth = parameters.queue_depth,
+        topics = parameters.topics.len(),
         compression = "lz4",
         "localization recording started"
     );
@@ -305,25 +174,34 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     Ok(())
 }
 
-async fn subscribe_topic<T>(
+async fn subscribe_topic(
     node: &Node,
     recorders: &mut RecorderTasks,
     queue_depth: usize,
-    topic: &'static str,
-) -> Result<()>
-where
-    T: Message + Send + Sync + 'static,
-{
+    schema_discovery_timeout: Duration,
+    topic: &str,
+) -> Result<()> {
+    let discovered = node
+        .discover_topic_schema(topic, schema_discovery_timeout)
+        .await
+        .wrap_err_with(|| format!("failed to discover schema for {topic}"))?;
     let subscriber = node
-        .subscriber::<T>(topic)
-        .raw()
+        .dynamic_raw_subscriber(topic, discovered.type_info())
         .qos(recorder_qos(queue_depth))
         .build()
-        .await?;
+        .await
+        .wrap_err_with(|| format!("failed to subscribe to {topic}"))?;
     let recorder = TopicRecorder {
         subscriber,
-        channel: RecordedChannel::for_message::<T>(topic),
+        channel: RecordedChannel::for_discovered(topic, &discovered)?,
     };
+    tracing::info!(
+        topic,
+        qualified_topic = %discovered.qualified_topic,
+        type_name = %discovered.root_name,
+        schema_hash = %discovered.schema_hash.to_hash_string(),
+        "localization recorder subscribed to topic"
+    );
 
     recorders.push(receive_sample(recorder));
 
@@ -401,29 +279,30 @@ fn handle_recorded_sample(
 }
 
 struct RecordedChannel {
-    topic: &'static str,
+    topic: String,
     schema_name: String,
     schema_data: Vec<u8>,
     metadata: BTreeMap<String, String>,
 }
 
 impl RecordedChannel {
-    fn for_message<T: Message>(topic: &'static str) -> Self {
-        let schema_name = T::type_name();
-        let schema_data = serde_json::to_vec(&T::schema()).unwrap_or_default();
+    fn for_discovered(topic: &str, discovered: &DiscoveredTopicSchema) -> Result<Self> {
+        let schema_name = discovered.root_name.clone();
+        let schema_data = serde_json::to_vec(discovered.schema.as_ref())
+            .wrap_err_with(|| format!("failed to serialize schema for {topic}"))?;
         let mut metadata = BTreeMap::new();
         metadata.insert("ros_z.type_name".to_string(), schema_name.clone());
         metadata.insert(
             "ros_z.schema_hash".to_string(),
-            T::schema_hash().to_hash_string(),
+            discovered.schema_hash.to_hash_string(),
         );
 
-        Self {
-            topic,
+        Ok(Self {
+            topic: topic.to_string(),
             schema_name,
             schema_data,
             metadata,
-        }
+        })
     }
 }
 
@@ -439,8 +318,8 @@ struct RecordedSample {
 
 struct McapWriter<W: std::io::Write + std::io::Seek> {
     writer: Writer<W>,
-    channel_mapping: BTreeMap<&'static str, ChannelId>,
-    last_written_source_time_by_topic: BTreeMap<&'static str, Time>,
+    channel_mapping: BTreeMap<String, ChannelId>,
+    last_written_source_time_by_topic: BTreeMap<String, Time>,
     raw_image_min_interval: Option<Duration>,
 }
 
@@ -479,7 +358,7 @@ where
             }
         };
         let source_time = attachment.source_time();
-        if !self.should_write_sample(channel.topic, source_time) {
+        if !self.should_write_sample(&channel.topic, source_time) {
             return Ok(false);
         }
         let transport_time = sample
@@ -489,7 +368,7 @@ where
         let sequence = u32::try_from(attachment.sequence_number).unwrap_or(u32::MAX);
         let payload = sample.payload().to_bytes();
 
-        let channel_id = match self.channel_mapping.get(channel.topic).copied() {
+        let channel_id = match self.channel_mapping.get(&channel.topic).copied() {
             Some(channel_id) => channel_id,
             None => {
                 let schema_id = self.writer.add_schema(
@@ -499,11 +378,12 @@ where
                 )?;
                 let channel_id = self.writer.add_channel(
                     schema_id,
-                    channel.topic,
+                    &channel.topic,
                     "ros-z-cdr",
                     &channel.metadata,
                 )?;
-                self.channel_mapping.insert(channel.topic, channel_id);
+                self.channel_mapping
+                    .insert(channel.topic.clone(), channel_id);
                 channel_id
             }
         };
@@ -519,12 +399,12 @@ where
         )?;
 
         self.last_written_source_time_by_topic
-            .insert(channel.topic, source_time);
+            .insert(channel.topic.clone(), source_time);
 
         Ok(true)
     }
 
-    fn should_write_sample(&self, topic: &'static str, source_time: Time) -> bool {
+    fn should_write_sample(&self, topic: &str, source_time: Time) -> bool {
         if topic != RAW_IMAGE_TOPIC {
             return true;
         }
