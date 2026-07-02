@@ -32,7 +32,7 @@
     },
     max_message_difference_scale: 0.3,
     silence_interval_between_messages: {
-      nanos: 500000000,
+      nanos: 200000000,
       secs: 0,
     },
     hsl_striker_message_receive_timeout: {
