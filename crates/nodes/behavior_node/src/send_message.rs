@@ -67,9 +67,6 @@ impl Blackboard {
         let filtered_game_controller_state =
             self.world_state.filtered_game_controller_state.as_ref()?;
 
-        if !self.is_state_message_cooldown_elapsed(now, &self.parameters.hsl_network) {
-            return None;
-        }
         if filtered_game_controller_state.remaining_number_of_messages
             < self
                 .parameters
@@ -79,6 +76,21 @@ impl Blackboard {
             return None;
         }
         if self.world_state.robot.primary_state != PrimaryState::Playing {
+            return None;
+        }
+
+        let message_budget_scale = message_budget_scale(
+            filtered_game_controller_state.half,
+            filtered_game_controller_state.remaining_time_in_half,
+            filtered_game_controller_state.remaining_number_of_messages,
+            &self.parameters.hsl_network,
+        )?;
+
+        if !is_cooldown_elapsed(
+            now,
+            self.last_sent_hsl_message_time,
+            state_message_send_interval(&self.parameters.hsl_network, message_budget_scale),
+        ) {
             return None;
         }
 
@@ -102,12 +114,8 @@ impl Blackboard {
             ball_position,
         });
 
-        let max_difference_scale = message_difference_scale(
-            filtered_game_controller_state.half,
-            filtered_game_controller_state.remaining_time_in_half,
-            filtered_game_controller_state.remaining_number_of_messages,
-            &self.parameters.hsl_network,
-        )?;
+        let max_difference_scale =
+            self.parameters.hsl_network.max_message_difference_scale * message_budget_scale;
 
         if !is_message_different(
             &message,
@@ -128,18 +136,6 @@ impl Blackboard {
 
         Some(OutgoingMessage::Hsl(message))
     }
-
-    fn is_state_message_cooldown_elapsed(
-        &self,
-        now: Time,
-        hsl_network_parameters: &HslNetworkParameters,
-    ) -> bool {
-        is_cooldown_elapsed(
-            now,
-            self.last_sent_hsl_message_time,
-            hsl_network_parameters.hsl_state_message_send_interval,
-        )
-    }
 }
 
 fn is_cooldown_elapsed(now: Time, last: Option<Time>, cooldown: Duration) -> bool {
@@ -149,7 +145,7 @@ fn is_cooldown_elapsed(now: Time, last: Option<Time>, cooldown: Duration) -> boo
     }
 }
 
-fn message_difference_scale(
+fn message_budget_scale(
     half: Half,
     mut remaining_time: Duration,
     remaining_number_of_messages: u16,
@@ -176,7 +172,17 @@ fn message_difference_scale(
         / full_game_duration.as_secs_f32();
     let remaining_message_ratio = expected_remaining_messages / remaining_messages as f32;
 
-    Some(hsl_network_parameters.max_message_difference_scale * remaining_message_ratio)
+    Some(remaining_message_ratio)
+}
+
+fn state_message_send_interval(
+    hsl_network_parameters: &HslNetworkParameters,
+    message_budget_scale: f32,
+) -> Duration {
+    hsl_network_parameters
+        .hsl_state_message_send_interval
+        .mul_f32(message_budget_scale.min(1.0))
+        .max(hsl_network_parameters.silence_interval_between_messages)
 }
 
 fn is_message_different(
@@ -230,10 +236,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn message_difference_scale_uses_full_game_budget_units() {
+    fn message_budget_scale_uses_full_game_budget_units() {
         let hsl_network_parameters = hsl_network_parameters();
 
-        let scale = message_difference_scale(
+        let scale = message_budget_scale(
             Half::Second,
             Duration::from_secs(600),
             600,
@@ -241,7 +247,7 @@ mod tests {
         )
         .unwrap();
 
-        assert!((scale - 0.3).abs() < f32::EPSILON);
+        assert!((scale - 1.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -276,11 +282,35 @@ mod tests {
         assert!(blackboard.state_message().is_some());
     }
 
-    fn allow_recheck_before_timeout(blackboard: &mut Blackboard) {
+    #[test]
+    fn state_message_catches_up_when_budget_is_ahead() {
+        let mut blackboard = blackboard_for_state_message();
         blackboard
-            .parameters
-            .hsl_network
-            .hsl_state_message_send_interval = Duration::from_millis(1);
+            .world_state
+            .filtered_game_controller_state
+            .as_mut()
+            .unwrap()
+            .remaining_time_in_half = Duration::from_secs(300);
+        blackboard
+            .world_state
+            .filtered_game_controller_state
+            .as_mut()
+            .unwrap()
+            .remaining_number_of_messages = 600;
+
+        assert!(blackboard.state_message().is_some());
+
+        blackboard.world_state.now = Time::from_nanos(1_600_000_000);
+        blackboard.world_state.robot.ground_to_field =
+            Some(Isometry2::from_parts(vector![10.0, 0.0], 0.0));
+
+        assert!(blackboard.state_message().is_some());
+    }
+
+    fn allow_recheck_before_timeout(blackboard: &mut Blackboard) {
+        let hsl_network = &mut blackboard.parameters.hsl_network;
+        hsl_network.hsl_state_message_send_interval = Duration::from_millis(1);
+        hsl_network.silence_interval_between_messages = Duration::from_millis(1);
     }
 
     fn hsl_network_parameters() -> HslNetworkParameters {
@@ -289,6 +319,8 @@ mod tests {
             half_duration: Duration::from_secs(600),
             max_time_since_last_message: Duration::from_secs(2),
             max_message_difference_scale: 0.3,
+            silence_interval_between_messages: Duration::from_millis(500),
+            hsl_state_message_send_interval: Duration::from_secs(1),
             ..Default::default()
         }
     }
