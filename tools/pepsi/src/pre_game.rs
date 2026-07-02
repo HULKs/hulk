@@ -13,7 +13,7 @@ use robot::{Network, Robot, SystemctlAction};
 use tempfile::tempdir;
 
 use crate::{
-    cargo::{self, CargoCommand, build, cargo, environment::EnvironmentArguments, run},
+    cargo::{self, CargoCommand, build, cargo, environment::EnvironmentArguments},
     deploy_config::DeployConfig,
     progress_indicator::ProgressIndicator,
 };
