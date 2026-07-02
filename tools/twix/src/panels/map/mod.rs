@@ -204,9 +204,7 @@ impl Panel for MapPanel {
             }
         };
 
-        let ground_to_field = self
-            .ground_to_field
-            .latest()
+        let ground_to_field = dbg!(self.ground_to_field.latest())
             .map(|sample_record| sample_record.value)
             .unwrap_or_default();
         let (response, mut painter) = match self.current_plot_type {
