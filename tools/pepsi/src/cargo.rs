@@ -50,7 +50,6 @@ lazy_static! {
             ("pepsi", "tools/pepsi"),
             ("twix", "tools/twix"),
             ("widget_gallery", "tools/widget_gallery"),
-            ("zenoh_bridge", "crates/zenoh_bridge"),
         ])
     };
 }

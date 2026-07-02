@@ -1,10 +1,9 @@
 use std::time::SystemTime;
 
 use booster::{
-    ButtonEventMsg, FallDownState, Kick, LowCommand, LowState, Odometer, RemoteControllerState,
-    TransformMessage,
+    ButtonEventMsg, FallDownState, Kick, LedColor, LowCommand, LowState, Odometer,
+    RemoteControllerState, RobotMode, TransformMessage,
 };
-use booster_sdk::{client::light_control::SetLedLightColorParameter, types::RobotMode};
 use color_eyre::eyre::Result;
 
 use hula_types::hardware::{Ids, Paths};
@@ -110,7 +109,7 @@ pub trait OdometerInterface {
 }
 
 pub trait LightControlInterface {
-    fn set_led_color(&self, light_control_parameter: SetLedLightColorParameter) -> Result<()>;
+    fn set_led_color(&self, light_control_parameter: LedColor) -> Result<()>;
 
     fn stop_led_control(&self) -> Result<()>;
 }

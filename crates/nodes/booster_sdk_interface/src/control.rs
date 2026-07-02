@@ -23,11 +23,12 @@ pub enum DesiredMode {
 pub fn desired_mode_for(command: &MotionCommand) -> DesiredMode {
     match command {
         MotionCommand::Damping => DesiredMode::Damping,
-        MotionCommand::Prepare | MotionCommand::StandUp => DesiredMode::Prepare,
+        MotionCommand::Prepare => DesiredMode::Prepare,
         MotionCommand::Stand { .. }
         | MotionCommand::VisualKick { .. }
         | MotionCommand::Walk { .. }
-        | MotionCommand::WalkWithVelocity { .. } => DesiredMode::Soccer,
+        | MotionCommand::WalkWithVelocity { .. }
+        | MotionCommand::StandUp => DesiredMode::Soccer,
     }
 }
 
@@ -206,10 +207,10 @@ mod tests {
     }
 
     #[test]
-    fn stand_up_requests_prepare_mode() {
+    fn stand_up_requests_soccer_mode() {
         assert_eq!(
             desired_mode_for(&MotionCommand::StandUp),
-            DesiredMode::Prepare
+            DesiredMode::Soccer
         );
     }
 

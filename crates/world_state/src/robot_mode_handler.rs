@@ -1,6 +1,6 @@
 use std::time::{Duration, SystemTime};
 
-use booster_sdk::types::RobotMode;
+use booster::RobotMode;
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
