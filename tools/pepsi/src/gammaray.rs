@@ -38,6 +38,11 @@ pub struct Arguments {
     #[arg(short, long)]
     image_file: Option<PathBuf>,
 
+    /// Optional `update_x5` path
+    /// e.g. `../update_x5`
+    #[arg(short, long)]
+    update_x5_file: Option<PathBuf>,
+
     /// Use old booster binary
     #[arg(long)]
     old: bool,
@@ -71,6 +76,7 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
                     progress_bar,
                     &arguments.password,
                     arguments.image_file.as_deref(),
+                    arguments.update_x5_file.as_deref(),
                     &team,
                     setup_path,
                     arguments.old,
@@ -88,6 +94,7 @@ async fn gammaray_robot(
     progress_bar: ProgressBar,
     password: &str,
     image_file: Option<&Path>,
+    update_x5_file: Option<&Path>,
     team: &Team,
     setup: &Path,
     old: bool,
@@ -245,6 +252,21 @@ async fn gammaray_robot(
             .ssh_to_robot()?
             .arg(format!("sudo podman load -i {REMOTE_IMAGE_PATH}"))
             .ssh_with_log("loading podman image", &progress_bar)
+            .await?;
+    }
+
+    if let Some(update_x5_file) = update_x5_file {
+        robot
+            .rsync_with_robot()?
+            .arg("--info=progress2")
+            .arg(update_x5_file)
+            .arg(format!("{}:.", robot.address))
+            .rsync_with_log("uploading update_x5 binary", &progress_bar)
+            .await?;
+        robot
+            .ssh_to_robot()?
+            .arg("sudo ./update_x5")
+            .ssh_with_log("executing update_x5 binary", &progress_bar)
             .await?;
     }
 
