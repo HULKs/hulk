@@ -23,6 +23,7 @@ detection = { workspace = true, features = ["ort-dynamic"] }
 fake_odometry = { workspace = true }
 fall_down_state_receiver = { workspace = true }
 field_border_detection = { workspace = true }
+field_mark_association = { workspace = true }
 game_controller_filter = { workspace = true }
 game_controller_state_filter = { workspace = true }
 global_parameter_provider = { workspace = true }
@@ -33,7 +34,8 @@ image_segmenter = { workspace = true }
 kinematics_provider = { workspace = true }
 led_handler = { workspace = true }
 line_detection = { workspace = true }
-localization = { workspace = true }
+localization-2d = { workspace = true }
+localization-3d = { workspace = true }
 look_around = { workspace = true }
 look_at = { workspace = true }
 low_state_bridge = { workspace = true }
@@ -50,6 +52,7 @@ rule_obstacle_composer = { workspace = true }
 safe_pose_checker = { workspace = true }
 search_suggestor = { workspace = true }
 segment_filter = { workspace = true }
+stereo_visual_odometry = { workspace = true, features = ["ort-dynamic"] }
 support_foot_estimator = { workspace = true }
 team_ball_receiver = { workspace = true }
 time_to_reach_kick_position = { workspace = true }
