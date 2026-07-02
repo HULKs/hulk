@@ -19,9 +19,9 @@ use crate::{
     status::format_topic_observation_status,
 };
 
-use self::overlay::{ImageOverlayPainter, ImageOverlays};
+use self::image_overlay::{ImageOverlayPainter, ImageOverlays};
 
-mod overlay;
+mod image_overlay;
 mod overlays;
 
 pub const DEFAULT_IMAGE_TOPIC: &str = "inputs/left_image";

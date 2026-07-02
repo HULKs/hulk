@@ -5,7 +5,7 @@ use geometry::circle::Circle;
 
 use crate::repaint::ObservationContext;
 
-use super::super::overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
+use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
 
 pub(in crate::panels::image) struct BallDetectionOverlay {
     filtered_balls: OverlayObservation<Vec<Circle<Pixel>>>,

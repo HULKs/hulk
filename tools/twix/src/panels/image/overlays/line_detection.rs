@@ -9,7 +9,7 @@ use types::{
 
 use crate::repaint::ObservationContext;
 
-use super::super::overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
+use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
 
 pub(in crate::panels::image) struct LineDetectionOverlay {
     lines_in_image: OverlayObservation<Vec<LineSegment<Pixel>>>,

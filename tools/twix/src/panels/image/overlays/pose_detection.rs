@@ -8,7 +8,7 @@ use types::{
 
 use crate::repaint::ObservationContext;
 
-use super::super::overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
+use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
 
 const POSE_SKELETON_KEYPOINT_LINE_MAPPING: [(usize, usize); 16] = [
     (0, 1),

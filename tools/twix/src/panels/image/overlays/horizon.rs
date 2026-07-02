@@ -6,7 +6,7 @@ use types::time_wrapper::TimeWrapper;
 
 use crate::repaint::ObservationContext;
 
-use super::super::overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
+use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
 
 pub(in crate::panels::image) struct HorizonOverlay {
     camera_matrix: OverlayObservation<TimeWrapper<CameraMatrix>>,
