@@ -69,7 +69,7 @@ pub struct MapPanel {
     lines: EnabledLayer<layers::Lines, Ground>,
     ball_search_heatmap: EnabledLayer<layers::BallSearchHeatmap, Field>,
     line_correspondences: EnabledLayer<layers::LineCorrespondences, Field>,
-    // path_obstacles: EnabledLayer<layers::PathObstacles, Ground>,
+    path_obstacles: EnabledLayer<layers::PathObstacles, Ground>,
     obstacles: EnabledLayer<layers::Obstacles, Ground>,
     path: EnabledLayer<layers::Path, Ground>,
     // behavior_simulator: EnabledLayer<layers::BehaviorSimulator, Field>,
@@ -94,7 +94,7 @@ impl Panel for MapPanel {
         let line_correspondences = EnabledLayer::new(context.backend.clone(), context.value, false);
         let lines = EnabledLayer::new(context.backend.clone(), context.value, true);
         let ball_search_heatmap = EnabledLayer::new(context.backend.clone(), context.value, false);
-        // let path_obstacles = EnabledLayer::new(context.backend.clone(), context.value, false);
+        let path_obstacles = EnabledLayer::new(context.backend.clone(), context.value, false);
         let obstacles = EnabledLayer::new(context.backend.clone(), context.value, false);
         let path = EnabledLayer::new(context.backend.clone(), context.value, false);
         // let behavior_simulator = EnabledLayer::new(context.backend.clone(), context.value, false);
@@ -144,7 +144,7 @@ impl Panel for MapPanel {
             line_correspondences,
             lines,
             ball_search_heatmap,
-            // path_obstacles,
+            path_obstacles,
             obstacles,
             path,
             // behavior_simulator,
@@ -170,7 +170,7 @@ impl Panel for MapPanel {
             "line_correspondences": self.line_correspondences.save(),
             "lines": self.lines.save(),
             "ball_search_heatmap": self.ball_search_heatmap.save(),
-            // "path_obstacles": self.path_obstacles.save(),
+            "path_obstacles": self.path_obstacles.save(),
             "obstacles": self.obstacles.save(),
             "path": self.path.save(),
             // "behavior_simulator": self.behavior_simulator.save(),
@@ -194,7 +194,7 @@ impl Panel for MapPanel {
                 self.line_correspondences.checkbox(ui);
                 self.lines.checkbox(ui);
                 self.ball_search_heatmap.checkbox(ui);
-                // self.path_obstacles.checkbox(ui);
+                self.path_obstacles.checkbox(ui);
                 self.obstacles.checkbox(ui);
                 self.path.checkbox(ui);
                 // self.behavior_simulator.checkbox(ui);
@@ -270,8 +270,8 @@ impl Panel for MapPanel {
 
         self.ball_search_heatmap
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        // self.path_obstacles
-        //     .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.path_obstacles
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.obstacles
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.path

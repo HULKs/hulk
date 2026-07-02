@@ -4,25 +4,29 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::Ground;
-use types::{
-    field_dimensions::FieldDimensions,
-    path_obstacles::{PathObstacle, PathObstacleShape},
-};
+use ros_z_debug::{SampleRecord, TopicObservation};
+use types::{field_dimensions::FieldDimensions, path_obstacles::PathObstacleShape};
+use world_state::behavior::node::Blackboard;
 
-use crate::{
-    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
-};
+use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
 
 pub struct PathObstacles {
-    path_obstacles: BufferHandle<Option<Vec<PathObstacle>>>,
+    blackboard: TopicObservation<Blackboard>,
 }
 
 impl Layer<Ground> for PathObstacles {
     const NAME: &'static str = "Path Obstacles";
 
-    fn new(robot: Arc<Robot>) -> Self {
-        let path_obstacles = robot.subscribe_value("WorldState.additional_outputs.path_obstacles");
-        Self { path_obstacles }
+    fn new(backend: Arc<RobotBackend>) -> Self {
+        let _runtime_handle = backend.runtime_handle().enter();
+
+        let blackboard = backend
+            .observer()
+            .observe_typed("behavior/blackboard")
+            .expect("failed to construct blackboard observer")
+            .spawn();
+
+        Self { blackboard }
     }
 
     fn paint(
@@ -30,19 +34,26 @@ impl Layer<Ground> for PathObstacles {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        if let Some(path_obstacles) = self.path_obstacles.get_last_value()?.flatten() {
-            let path_obstacle_stroke = Stroke {
-                width: 0.025,
-                color: Color32::RED,
-            };
-            for path_obstacle in path_obstacles {
-                match path_obstacle.shape {
-                    PathObstacleShape::Circle(circle) => {
-                        painter.circle_stroke(circle.center, circle.radius, path_obstacle_stroke)
-                    }
-                    PathObstacleShape::LineSegment(line_segment) => {
-                        painter.line_segment(line_segment.0, line_segment.1, path_obstacle_stroke)
-                    }
+        let latest_blackboard_sample = self.blackboard.latest();
+
+        let Some(SampleRecord {
+            value: blackboard, ..
+        }) = latest_blackboard_sample.as_deref()
+        else {
+            return Ok(());
+        };
+
+        let path_obstacle_stroke = Stroke {
+            width: 0.025,
+            color: Color32::RED,
+        };
+        for path_obstacle in &blackboard.path_obstacles_output {
+            match path_obstacle.shape {
+                PathObstacleShape::Circle(circle) => {
+                    painter.circle_stroke(circle.center, circle.radius, path_obstacle_stroke)
+                }
+                PathObstacleShape::LineSegment(line_segment) => {
+                    painter.line_segment(line_segment.0, line_segment.1, path_obstacle_stroke)
                 }
             }
         }
