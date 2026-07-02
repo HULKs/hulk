@@ -15,7 +15,6 @@ use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
     initial_pose::InitialPose,
-    line_data::LineData,
     localization::{ScoredPose, Update},
     players::Players,
     primary_state::PrimaryState,
@@ -79,10 +78,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let _imu_state_sub = node
         .subscriber::<ImuState>("inputs/imu_state")
-        .build()
-        .await?;
-    let _line_data_sub = node
-        .subscriber::<LineData>("line_detection/line_data")
         .build()
         .await?;
     let _field_dimensions_sub = node

@@ -1,6 +1,15 @@
-use std::{boxed::Box, future::Future, pin::Pin, sync::Arc, time::Duration};
+use std::{
+    boxed::Box,
+    future::Future,
+    pin::Pin,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
-use color_eyre::{Result, eyre::bail};
+use color_eyre::{
+    Result,
+    eyre::{WrapErr as _, bail},
+};
 use ndarray::{ArrayView2, ArrayView3, Axis};
 use ort::{
     execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
@@ -12,7 +21,6 @@ use ros_z_streams::CreateAnnouncingPublisher;
 use ros2::sensor_msgs::image::Image;
 
 use ros_z::prelude::*;
-use tokio::time::Instant;
 use types::{
     bounding_box::BoundingBox,
     object_detection::{NUMBER_OF_VALUES_PER_OBJECT, Object, RobocupObjectLabel, YOLOObjectLabel},
@@ -51,6 +59,15 @@ struct ModelOutputs<'a> {
     poses: ArrayView2<'a, f32>,
 }
 
+struct DetectionOutput {
+    session: Session,
+    detected_objects: Vec<Object<RobocupObjectLabel>>,
+    detected_poses: Vec<Pose<YOLOObjectLabel>>,
+    inference_duration: Duration,
+    post_processing_duration: Duration,
+    non_maximum_suppression_duration: Duration,
+}
+
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
 }
@@ -84,29 +101,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let initial_parameters_snapshot = node_parameters.snapshot();
-    let parameters = initial_parameters_snapshot.typed();
-
-    let model_path = parameters
-        .neural_networks_folder
-        .join(&parameters.model_name);
-
-    let tensor_rt = TensorRTExecutionProvider::default()
-        .with_device_id(0)
-        .with_fp16(true)
-        .with_engine_cache(true)
-        .with_engine_cache_path(parameters.neural_networks_folder.display())
-        .build();
-    let cuda = CUDAExecutionProvider::default().build();
-
-    let mut session = Session::builder()?
-        .with_execution_providers([tensor_rt, cuda])?
-        .with_optimization_level(GraphOptimizationLevel::Level3)?
-        .with_intra_threads(2)?
-        .commit_from_file(model_path)?;
+    let initial_parameters = initial_parameters_snapshot.typed().clone();
+    let mut session = tokio::task::spawn_blocking(move || create_session(&initial_parameters))
+        .await
+        .wrap_err("detection session creation task failed")??;
 
     loop {
         let parameters_snapshot = node_parameters.snapshot();
-        let parameters = parameters_snapshot.typed();
+        let parameters = parameters_snapshot.typed().clone();
         if !parameters.enable {
             continue;
         }
@@ -118,45 +120,17 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let detected_poses_pending = detected_poses_pub.announce(image_time).await?;
 
         let image = timed_image.inner;
-        check_image(&image)?;
+        let detection_output =
+            tokio::task::spawn_blocking(move || run_detection(session, image, parameters))
+                .await
+                .wrap_err("detection inference task failed")??;
 
-        let inference_start = Instant::now();
-
-        let nv12_data = ArrayView3::from_shape(
-            [image.height as usize / 2, image.width as usize / 2, 6],
-            &image.data,
-        )?;
-        let outputs: SessionOutputs =
-            session.run(inputs!["raw_bytes_input" => TensorRef::from_array_view(nv12_data)?])?;
-
-        let inference_duration = inference_start.elapsed();
-
-        let post_processing_start = Instant::now();
-
-        let outputs = extract_outputs(&outputs)?;
-        let candidate_detections = extract_candidate_object_detections(
-            &outputs,
-            parameters.object_detection_parameters.confidence_threshold,
-        )?;
-        let candidate_human_poses = extract_candidate_pose_detections(
-            &outputs,
-            parameters.pose_detection_parameters.confidence_threshold,
-        )?;
-        let post_processing_duration = post_processing_start.elapsed();
-        let non_maximum_suppression_start = Instant::now();
-        let detected_objects = non_maximum_suppression(
-            candidate_detections,
-            parameters
-                .object_detection_parameters
-                .maximum_intersection_over_union,
-        );
-        let detected_poses = non_maximum_suppression(
-            candidate_human_poses,
-            parameters
-                .pose_detection_parameters
-                .maximum_intersection_over_union,
-        );
-        let non_maximum_suppression_duration = non_maximum_suppression_start.elapsed();
+        session = detection_output.session;
+        let inference_duration = detection_output.inference_duration;
+        let post_processing_duration = detection_output.post_processing_duration;
+        let non_maximum_suppression_duration = detection_output.non_maximum_suppression_duration;
+        let detected_objects = detection_output.detected_objects;
+        let detected_poses = detection_output.detected_poses;
 
         inference_duration_pub.publish(&inference_duration).await?;
         post_processing_duration_pub
@@ -169,6 +143,81 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         detected_objects_pending.publish(&detected_objects).await?;
         detected_poses_pending.publish(&detected_poses).await?;
     }
+}
+
+fn create_session(parameters: &DetectionParameters) -> Result<Session> {
+    let model_path = parameters
+        .neural_networks_folder
+        .join(&parameters.model_name);
+
+    let tensor_rt = TensorRTExecutionProvider::default()
+        .with_device_id(0)
+        .with_fp16(true)
+        .with_engine_cache(true)
+        .with_engine_cache_path(parameters.neural_networks_folder.display())
+        .build();
+    let cuda = CUDAExecutionProvider::default().build();
+
+    Ok(Session::builder()?
+        .with_execution_providers([tensor_rt, cuda])?
+        .with_optimization_level(GraphOptimizationLevel::Level3)?
+        .with_intra_threads(2)?
+        .commit_from_file(model_path)?)
+}
+
+fn run_detection(
+    mut session: Session,
+    image: Image,
+    parameters: DetectionParameters,
+) -> Result<DetectionOutput> {
+    check_image(&image)?;
+
+    let inference_start = Instant::now();
+    let nv12_data = ArrayView3::from_shape(
+        [image.height as usize / 2, image.width as usize / 2, 6],
+        &image.data,
+    )?;
+    let session_outputs: SessionOutputs =
+        session.run(inputs!["raw_bytes_input" => TensorRef::from_array_view(nv12_data)?])?;
+    let inference_duration = inference_start.elapsed();
+
+    let post_processing_start = Instant::now();
+    let model_outputs = extract_outputs(&session_outputs)?;
+    let candidate_detections = extract_candidate_object_detections(
+        &model_outputs,
+        parameters.object_detection_parameters.confidence_threshold,
+    )?;
+    let candidate_human_poses = extract_candidate_pose_detections(
+        &model_outputs,
+        parameters.pose_detection_parameters.confidence_threshold,
+    )?;
+    let post_processing_duration = post_processing_start.elapsed();
+    drop(model_outputs);
+    drop(session_outputs);
+
+    let non_maximum_suppression_start = Instant::now();
+    let detected_objects = non_maximum_suppression(
+        candidate_detections,
+        parameters
+            .object_detection_parameters
+            .maximum_intersection_over_union,
+    );
+    let detected_poses = non_maximum_suppression(
+        candidate_human_poses,
+        parameters
+            .pose_detection_parameters
+            .maximum_intersection_over_union,
+    );
+    let non_maximum_suppression_duration = non_maximum_suppression_start.elapsed();
+
+    Ok(DetectionOutput {
+        session,
+        detected_objects,
+        detected_poses,
+        inference_duration,
+        post_processing_duration,
+        non_maximum_suppression_duration,
+    })
 }
 
 fn check_image(image: &Image) -> Result<()> {
@@ -306,4 +355,41 @@ fn non_maximum_suppression<T: HasBoundingBox>(
     }
 
     remaining_detections
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn image(width: u32, height: u32, encoding: &str) -> Image {
+        Image {
+            height,
+            width,
+            encoding: encoding.to_string(),
+            data: vec![0; (width * height * 3 / 2) as usize].into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn check_image_accepts_nv12_multiple_of_32() {
+        check_image(&image(640, 480, "nv12")).expect("valid image should pass");
+    }
+
+    #[test]
+    fn check_image_rejects_non_nv12_encoding() {
+        let error =
+            check_image(&image(640, 480, "rgb8")).expect_err("invalid encoding should fail");
+        assert!(error.to_string().contains("unsupported image encoding"));
+    }
+
+    #[test]
+    fn check_image_rejects_dimensions_not_multiple_of_32() {
+        let error = check_image(&image(641, 480, "nv12")).expect_err("invalid width should fail");
+        assert!(
+            error
+                .to_string()
+                .contains("image dimensions must be multiples of 32")
+        );
+    }
 }

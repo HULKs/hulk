@@ -531,10 +531,8 @@ mod tests {
             json!({
                 "topic": "inputs/right_image",
                 "overlays": {
-                    "line_detection": {"active": false},
                     "ball_detection": {"active": false},
                     "horizon": {"active": false},
-                    "field_border": {"active": false},
                     "object_detection": {"active": false},
                     "pose_detection": {"active": false},
                 },

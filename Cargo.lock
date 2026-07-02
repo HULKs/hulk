@@ -3980,24 +3980,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "field_border_detection"
-version = "0.1.0"
-dependencies = [
- "approx",
- "color-eyre",
- "coordinate_systems",
- "geometry",
- "linear_algebra",
- "projection",
- "rand 0.9.4",
- "rand_chacha 0.9.0",
- "ransac",
- "ros-z",
- "serde",
- "types",
-]
-
-[[package]]
 name = "filetime"
 version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5141,17 +5123,14 @@ dependencies = [
  "detection",
  "fake_odometry",
  "fall_down_state_receiver",
- "field_border_detection",
  "game_controller_filter",
  "game_controller_state_filter",
  "global_parameter_provider",
  "ground_provider",
  "head_motion",
  "image_receiver",
- "image_segmenter",
  "kinematics_provider",
  "led_handler",
- "line_detection",
  "localization",
  "look_around",
  "look_at",
@@ -5168,7 +5147,6 @@ dependencies = [
  "rule_obstacle_composer",
  "safe_pose_checker",
  "search_suggestor",
- "segment_filter",
  "support_foot_estimator",
  "team_ball_receiver",
  "time_to_reach_kick_position",
@@ -5475,26 +5453,11 @@ name = "image_receiver"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
- "image",
  "ros-z",
  "ros2",
  "tokio",
  "types",
  "x5_receiver",
-]
-
-[[package]]
-name = "image_segmenter"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "coordinate_systems",
- "itertools 0.14.0",
- "linear_algebra",
- "projection",
- "ros-z",
- "serde",
- "types",
 ]
 
 [[package]]
@@ -5981,25 +5944,6 @@ checksum = "3c8469b4a23b962c1396b9b451dda50ef5b283e8dd309d69033475fa9b334324"
 dependencies = [
  "libc",
  "pkg-config",
-]
-
-[[package]]
-name = "line_detection"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "coordinate_systems",
- "geometry",
- "linear_algebra",
- "nalgebra",
- "ordered-float 4.6.0",
- "projection",
- "rand 0.9.4",
- "rand_chacha 0.9.0",
- "ransac",
- "ros-z",
- "serde",
- "types",
 ]
 
 [[package]]
@@ -9551,16 +9495,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "segment_filter"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "linear_algebra",
- "ros-z",
- "types",
-]
-
-[[package]]
 name = "self_cell"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11583,30 +11517,6 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "vision"
-version = "0.1.0"
-dependencies = [
- "approx",
- "color-eyre",
- "context_attribute",
- "coordinate_systems",
- "framework",
- "geometry",
- "hardware",
- "itertools 0.14.0",
- "linear_algebra",
- "nalgebra",
- "ordered-float 4.6.0",
- "projection",
- "rand 0.9.4",
- "rand_chacha 0.9.0",
- "ransac",
- "ros2",
- "serde",
- "types",
-]
 
 [[package]]
 name = "vista"

@@ -1,7 +1,0 @@
-{
-  enable: true,
-  min_points_per_line: 10,
-  angle_threshold: 0.35,
-  first_line_association_distance: 2.0,
-  second_line_association_distance: 2.0,
-}
