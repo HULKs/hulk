@@ -1,4 +1,4 @@
-use std::{env, future::Future, path::PathBuf, sync::Arc, time::Duration};
+use std::{env, future::Future, net::Ipv4Addr, path::PathBuf, sync::Arc, time::Duration};
 
 use clap::Parser;
 use color_eyre::{
@@ -31,10 +31,16 @@ struct RunningStack {
 fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let console_layer = console_subscriber::spawn();
+    let console_layer = console_subscriber::Builder::default()
+        .server_addr((Ipv4Addr::UNSPECIFIED, 6669))
+        .spawn();
+
+    let env_filter = EnvFilter::from_default_env()
+        .add_directive("tokio=trace".parse()?)
+        .add_directive("runtime=trace".parse()?);
 
     tracing_subscriber::registry()
-        .with(EnvFilter::from_default_env())
+        .with(env_filter)
         .with(tracing_subscriber::fmt::layer())
         .with(console_layer)
         .init();
