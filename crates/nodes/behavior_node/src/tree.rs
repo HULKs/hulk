@@ -6,8 +6,9 @@ use crate::{
     behavior_tree::Node,
     condition,
     conditions::{
-        has_ball_position, is_ball_interception_candidate, is_close_to_ball, is_closest_to_ball,
-        is_fallen, is_goalkeeper, is_primary_state, is_remote_controlled, is_remote_kick_mode,
+        has_ball_position, is_alone, is_ball_interception_candidate, is_close_to_ball,
+        is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state, is_remote_controlled,
+        is_remote_kick_mode,
     },
     head::{look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
     kick::{intercept, kick, kick_power_subtree, kick_subtree, set_kick_target_in_front},
@@ -20,7 +21,8 @@ use crate::{
     switch_motion_type::switch_motion_type,
     voronoi::calculate_voronoi_grid,
     walk::{
-        walk_alternatives_subtree, walk_to_ball_subtree, walk_to_centroid, walk_to_kickoff_pose,
+        walk_alternatives_subtree, walk_to_ball_subtree, walk_to_kickoff_pose,
+        walk_to_voronoi_position,
     },
 };
 
@@ -81,8 +83,13 @@ fn playing_subtree() -> Node<Blackboard> {
             subtree!(search_subtree)
         ),
         sequence!(
-            action!(calculate_voronoi_grid),
-            condition!(is_closest_to_ball),
+            selection!(
+                condition!(is_alone),
+                sequence!(
+                    action!(calculate_voronoi_grid),
+                    condition!(is_closest_to_ball)
+                ),
+            ),
             subtree!(striker_subtree)
         ),
         subtree!(supporter_subtree),
@@ -132,7 +139,7 @@ fn striker_subtree() -> Node<Blackboard> {
 fn supporter_subtree() -> Node<Blackboard> {
     sequence!(
         subtree!(look_at_ball_subtree),
-        selection!(action!(walk_to_centroid), action!(stand)),
+        selection!(action!(walk_to_voronoi_position), action!(stand)),
     )
 }
 
