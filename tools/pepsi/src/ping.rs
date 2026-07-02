@@ -5,7 +5,7 @@ use clap::Args;
 use argument_parsers::RobotAddress;
 use color_eyre::owo_colors::OwoColorize;
 use robot::Robot;
-use tokio::time::Instant;
+use tokio::time::{Instant, sleep};
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -13,7 +13,7 @@ use crate::progress_indicator::ProgressIndicator;
 pub struct Arguments {
     /// Timeout in seconds after which ping is aborted
     #[arg(long, short, default_value = "2")]
-    pub timeout: u64,
+    pub timeout: f64,
     /// Repeat ping indefinitely
     #[arg(long, short)]
     pub watch: bool,
@@ -23,6 +23,7 @@ pub struct Arguments {
 }
 
 pub async fn ping(arguments: Arguments) {
+    let timeout = Duration::from_secs_f64(arguments.timeout);
     ProgressIndicator::new()
         .map_tasks(
             arguments.robots,
@@ -31,37 +32,40 @@ pub async fn ping(arguments: Arguments) {
                 let mut last_change = Instant::now();
                 let mut last_success = false;
                 loop {
-                    let result = Robot::try_new_with_ping_and_arguments(
-                        robot_address.ip,
-                        Duration::from_secs(arguments.timeout),
-                    )
-                    .await
-                    .map(|_| ());
+                    let result = Robot::try_new_with_ping_and_arguments(robot_address.ip, timeout)
+                        .await
+                        .map(|_| ());
 
                     if !arguments.watch {
                         return result;
                     }
 
-                    let message = match &result {
+                    match &result {
                         Ok(_) => {
                             if !last_success {
                                 last_change = Instant::now();
                             }
-                            format!("{} since {}s", "✔".green(), last_change.elapsed().as_secs())
+                            let message = format!(
+                                "{} since {}s",
+                                "✔".green(),
+                                last_change.elapsed().as_secs()
+                            );
+                            progress_bar.set_message(message);
+                            sleep(timeout).await;
                         }
                         Err(report) => {
                             if last_success {
                                 last_change = Instant::now();
                             }
-                            format!(
+                            let message = format!(
                                 "{} {report} since {}s",
                                 "✗".red(),
                                 last_change.elapsed().as_secs()
-                            )
+                            );
+                            progress_bar.set_message(message);
                         }
                     };
                     last_success = result.is_ok();
-                    progress_bar.set_message(message);
                 }
             },
         )
