@@ -13,7 +13,7 @@ use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     primary_state::PrimaryState,
-    world_state::{BallState, LastBallState},
+    world_state::{BallSource, BallState, LastBallState},
 };
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -139,9 +139,17 @@ fn compose_ball_state(
     ground_to_field: Isometry2<Ground, Field>,
     last_ball_field_side: &mut Side,
 ) -> Option<BallState> {
-    let (ball_position, ball_in_field) = match (ball_position, team_ball) {
-        (Some(ball_position), _) => (ball_position, ground_to_field * ball_position.position),
-        (None, Some(team_ball)) => (ground_to_field.inverse() * team_ball, team_ball.position),
+    let (ball_position, ball_in_field, source) = match (ball_position, team_ball) {
+        (Some(ball_position), _) => (
+            ball_position,
+            ground_to_field * ball_position.position,
+            BallSource::Own,
+        ),
+        (None, Some(team_ball)) => (
+            ground_to_field.inverse() * team_ball,
+            team_ball.position,
+            BallSource::Team,
+        ),
         (None, None) => return None,
     };
 
@@ -150,6 +158,7 @@ fn compose_ball_state(
         ball_in_field,
         ball_position.velocity,
         ball_position.last_seen.to_wallclock(),
+        source,
         last_ball_field_side,
     ))
 }
@@ -192,6 +201,7 @@ fn compose_rule_ball_state(
                 penalty_spot_location,
                 Vector2::zeros(),
                 cycle_start_time,
+                BallSource::Own,
                 last_ball_field_side,
             ))
         }
@@ -200,6 +210,7 @@ fn compose_rule_ball_state(
             Point2::origin(),
             Vector2::zeros(),
             cycle_start_time,
+            BallSource::Own,
             last_ball_field_side,
         )),
         _ => None,
@@ -211,6 +222,7 @@ fn create_ball_state(
     ball_in_field: Point2<Field>,
     ball_in_ground_velocity: Vector2<Ground>,
     last_seen_ball: SystemTime,
+    source: BallSource,
     last_ball_field_side: &mut Side,
 ) -> BallState {
     let was_in_left_half = *last_ball_field_side == Side::Left;
@@ -229,5 +241,6 @@ fn create_ball_state(
         ball_in_ground_velocity,
         last_seen_ball,
         field_side,
+        source,
     }
 }
