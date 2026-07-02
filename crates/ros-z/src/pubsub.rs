@@ -10,14 +10,14 @@ pub use metadata::{PublicationId, Received};
 pub use publisher::{PreparedPublication, Publisher, PublisherBuilder};
 pub use raw::{RawPayload, RawPayloadCodec, RawSubscriber, RawSubscriberBuilder};
 pub(crate) use subscriber::SubscriberOptions;
-pub use subscriber::{Subscriber, SubscriberBuilder};
+pub use subscriber::{QueueOverflowReporting, Subscriber, SubscriberBuilder};
 
 pub(crate) const DEFAULT_TRANSIENT_LOCAL_REPLAY_TIMEOUT: Duration = Duration::from_secs(1);
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use std::{num::NonZeroUsize, sync::Arc};
 
     use crate::dynamic::{DynamicPayload, DynamicStruct};
     use crate::qos::{
@@ -31,14 +31,42 @@ mod tests {
     };
 
     #[test]
-    fn transient_local_subscriber_queue_capacity_matches_qos_depth() {
+    fn subscriber_queue_capacity_matches_qos_depth_without_override() {
         let qos = ros_z_protocol::qos::QosProfile {
             durability: QosDurability::TransientLocal,
             history: QosHistory::KeepLast(3),
             ..Default::default()
         };
 
-        assert_eq!(subscriber::subscriber_queue_capacity(&qos), 3);
+        assert_eq!(subscriber::subscriber_queue_capacity(&qos, None), 3);
+    }
+
+    #[test]
+    fn subscriber_queue_capacity_uses_explicit_override() {
+        let qos = ros_z_protocol::qos::QosProfile {
+            history: QosHistory::KeepLast(3),
+            ..Default::default()
+        };
+        let capacity = NonZeroUsize::new(64).expect("capacity is non-zero");
+
+        assert_eq!(
+            subscriber::subscriber_queue_capacity(&qos, Some(capacity)),
+            64
+        );
+    }
+
+    #[test]
+    fn subscriber_queue_capacity_override_bounds_keep_all_qos() {
+        let qos = ros_z_protocol::qos::QosProfile {
+            history: QosHistory::KeepAll,
+            ..Default::default()
+        };
+        let capacity = NonZeroUsize::new(2).expect("capacity is non-zero");
+
+        assert_eq!(
+            subscriber::subscriber_queue_capacity(&qos, Some(capacity)),
+            2
+        );
     }
 
     // -----------------------------------------------------------------------

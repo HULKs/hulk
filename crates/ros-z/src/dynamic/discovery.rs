@@ -9,7 +9,10 @@ use crate::{
     endpoint_builder::{EndpointBuilderContext, MessageEndpointType},
     entity::{EndpointEntity, EndpointKind, SchemaHash, TypeInfo},
     graph::Graph,
-    pubsub::{RawPayload, RawPayloadCodec, RawSubscriber, SubscriberBuilder, SubscriberOptions},
+    pubsub::{
+        QueueOverflowReporting, RawPayload, RawPayloadCodec, RawSubscriber, SubscriberBuilder,
+        SubscriberOptions,
+    },
     qos::QosProfile,
     topic_name::{qualify_remote_private_service_name, qualify_topic_name},
 };
@@ -535,6 +538,16 @@ impl DynamicSubscriberDiscoveryBuilder {
         self
     }
 
+    pub fn queue_capacity(mut self, queue_capacity: std::num::NonZeroUsize) -> Self {
+        self.options = self.options.queue_capacity(queue_capacity);
+        self
+    }
+
+    pub fn queue_overflow_reporting(mut self, reporting: QueueOverflowReporting) -> Self {
+        self.options = self.options.queue_overflow_reporting(reporting);
+        self
+    }
+
     /// Limit accepted samples by their zenoh origin locality.
     ///
     /// The locality filter is applied to the dynamic subscriber created after
@@ -593,6 +606,16 @@ impl DynamicRawSubscriberDiscoveryBuilder {
     /// Set the QoS profile used by the built raw dynamic subscriber.
     pub fn qos(mut self, qos: QosProfile) -> Self {
         self.options = self.options.qos(qos);
+        self
+    }
+
+    pub fn queue_capacity(mut self, queue_capacity: std::num::NonZeroUsize) -> Self {
+        self.options = self.options.queue_capacity(queue_capacity);
+        self
+    }
+
+    pub fn queue_overflow_reporting(mut self, reporting: QueueOverflowReporting) -> Self {
+        self.options = self.options.queue_overflow_reporting(reporting);
         self
     }
 

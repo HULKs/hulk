@@ -6,7 +6,7 @@ use zenoh::sample::Sample;
 
 use crate::Result;
 use crate::message::WireDecoder;
-use crate::pubsub::subscriber::{SubscriberBuilder, SubscriberResources};
+use crate::pubsub::subscriber::{QueueOverflowReporting, SubscriberBuilder, SubscriberResources};
 use crate::qos::QosProfile;
 use crate::queue::BoundedQueue;
 
@@ -76,6 +76,18 @@ where
     pub fn qos(self, qos: QosProfile) -> Self {
         Self {
             inner: self.inner.qos(qos),
+        }
+    }
+
+    pub fn queue_capacity(self, queue_capacity: std::num::NonZeroUsize) -> Self {
+        Self {
+            inner: self.inner.queue_capacity(queue_capacity),
+        }
+    }
+
+    pub fn queue_overflow_reporting(self, reporting: QueueOverflowReporting) -> Self {
+        Self {
+            inner: self.inner.queue_overflow_reporting(reporting),
         }
     }
 
