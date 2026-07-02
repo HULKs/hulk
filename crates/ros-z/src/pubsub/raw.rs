@@ -79,12 +79,20 @@ where
         }
     }
 
+    /// Set the local raw subscriber receive queue capacity.
+    ///
+    /// This does not change advertised endpoint QoS. If unset, capacity is
+    /// derived from the effective QoS history depth.
     pub fn queue_capacity(self, queue_capacity: std::num::NonZeroUsize) -> Self {
         Self {
             inner: self.inner.queue_capacity(queue_capacity),
         }
     }
 
+    /// Set how local raw subscriber queue overflow is reported.
+    ///
+    /// This only controls log output. Overflow still drops the oldest queued
+    /// sample and does not alter advertised endpoint QoS.
     pub fn queue_overflow_reporting(self, reporting: QueueOverflowReporting) -> Self {
         Self {
             inner: self.inner.queue_overflow_reporting(reporting),

@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
@@ -706,7 +707,12 @@ pub(crate) fn transient_local_cache_capacity(
 
 pub(crate) fn transient_local_replay_live_capacity(
     qos: &ros_z_protocol::qos::QosProfile,
+    queue_capacity: Option<NonZeroUsize>,
 ) -> Option<usize> {
+    if let Some(queue_capacity) = queue_capacity {
+        return Some(queue_capacity.get());
+    }
+
     match qos.history {
         QosHistory::KeepLast(depth) => Some(depth),
         QosHistory::KeepAll => None,
@@ -910,6 +916,54 @@ pub(crate) fn spawn_transient_local_replay_task(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn replay_live_capacity_uses_qos_history_without_override() {
+        let qos = ros_z_protocol::qos::QosProfile {
+            history: QosHistory::KeepLast(3),
+            ..Default::default()
+        };
+
+        assert_eq!(transient_local_replay_live_capacity(&qos, None), Some(3));
+    }
+
+    #[test]
+    fn replay_live_capacity_uses_explicit_override_for_keep_last() {
+        let qos = ros_z_protocol::qos::QosProfile {
+            history: QosHistory::KeepLast(3),
+            ..Default::default()
+        };
+        let capacity = std::num::NonZeroUsize::new(64).expect("capacity is non-zero");
+
+        assert_eq!(
+            transient_local_replay_live_capacity(&qos, Some(capacity)),
+            Some(64)
+        );
+    }
+
+    #[test]
+    fn replay_live_capacity_stays_disabled_for_keep_all_without_override() {
+        let qos = ros_z_protocol::qos::QosProfile {
+            history: QosHistory::KeepAll,
+            ..Default::default()
+        };
+
+        assert_eq!(transient_local_replay_live_capacity(&qos, None), None);
+    }
+
+    #[test]
+    fn replay_live_capacity_uses_explicit_override_for_keep_all() {
+        let qos = ros_z_protocol::qos::QosProfile {
+            history: QosHistory::KeepAll,
+            ..Default::default()
+        };
+        let capacity = std::num::NonZeroUsize::new(2).expect("capacity is non-zero");
+
+        assert_eq!(
+            transient_local_replay_live_capacity(&qos, Some(capacity)),
+            Some(2)
+        );
+    }
 
     #[test]
     fn replay_window_drops_duplicate_publication_ids() {

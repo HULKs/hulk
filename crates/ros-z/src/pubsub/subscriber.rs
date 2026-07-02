@@ -201,6 +201,53 @@ fn record_queue_push<T>(
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn queue_drop_context(reporting: QueueOverflowReporting) -> QueueDropContext {
+        QueueDropContext {
+            log_prefix: "TEST_SUB",
+            topic: "/test_topic".to_owned(),
+            node_namespace: "/".to_owned(),
+            node_name: "test_node".to_owned(),
+            type_name: "test_msgs/msg/Test".to_owned(),
+            queue_capacity: 2,
+            queue_overflow_reporting: reporting,
+        }
+    }
+
+    fn assert_record_queue_push_drops_oldest_and_counts(reporting: QueueOverflowReporting) {
+        let queue = BoundedQueue::new(2);
+        let dropped_samples = AtomicU64::new(0);
+        let context = queue_drop_context(reporting);
+
+        record_queue_push(&queue, &dropped_samples, &context, 1);
+        record_queue_push(&queue, &dropped_samples, &context, 2);
+        record_queue_push(&queue, &dropped_samples, &context, 3);
+
+        assert_eq!(queue.try_recv(), Some(2));
+        assert_eq!(queue.try_recv(), Some(3));
+        assert_eq!(queue.try_recv(), None);
+        assert_eq!(dropped_samples.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn record_queue_push_drops_oldest_and_counts_for_silent_reporting() {
+        assert_record_queue_push_drops_oldest_and_counts(QueueOverflowReporting::Silent);
+    }
+
+    #[test]
+    fn record_queue_push_drops_oldest_and_counts_for_debug_reporting() {
+        assert_record_queue_push_drops_oldest_and_counts(QueueOverflowReporting::Debug);
+    }
+
+    #[test]
+    fn record_queue_push_drops_oldest_and_counts_for_warn_reporting() {
+        assert_record_queue_push_drops_oldest_and_counts(QueueOverflowReporting::Warn);
+    }
+}
+
 async fn declare_liveliness(session: &Session, entity: &EndpointEntity) -> Result<LivelinessToken> {
     let liveliness_key_expr = entity.liveliness_key_expr()?.0;
     session
@@ -405,8 +452,10 @@ impl PreparedSubscriberBuild {
                 _replay_guard: None,
             })
         } else {
-            let Some(live_capacity) = replay::transient_local_replay_live_capacity(&entity.qos)
-            else {
+            let Some(live_capacity) = replay::transient_local_replay_live_capacity(
+                &entity.qos,
+                self.options.queue_capacity,
+            ) else {
                 warn!(
                     "[{}] TransientLocal + KeepAll requested; replay coordination is disabled because history is unbounded",
                     log_prefix
