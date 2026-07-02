@@ -48,7 +48,6 @@ lazy_static! {
             ("depp", "tools/depp"),
             ("fanta", "tools/fanta"),
             ("mio", "tools/mio"),
-            ("parameter_tester", "tools/parameter_tester"),
             ("pepsi", "tools/pepsi"),
             ("twix", "tools/twix"),
             ("vista", "tools/vista"),
