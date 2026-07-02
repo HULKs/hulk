@@ -9,7 +9,7 @@ use crate::{
     action,
     behavior_tree::Node,
     condition,
-    conditions::{hulks_is_kicking_team, is_close_to_ball_aligned},
+    conditions::{hulks_is_kicking_team, is_close_to_ball},
     kick::kick_subtree,
     negation,
     node::Blackboard,
@@ -23,7 +23,7 @@ pub fn sub_state_subtree() -> Node<Blackboard> {
             condition!(hulks_is_kicking_team),
             selection!(
                 sequence!(
-                    negation!(condition!(is_close_to_ball_aligned)),
+                    negation!(condition!(is_close_to_ball)),
                     subtree!(walk_to_ball_subtree)
                 ),
                 subtree!(kick_subtree)
