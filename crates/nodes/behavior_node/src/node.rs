@@ -4,7 +4,7 @@ use booster::FallDownState;
 use color_eyre::Result;
 
 use coordinate_systems::{Field, Ground};
-use hsl_network_messages::PlayerNumber;
+use hsl_network_messages::{HulkMessage, PlayerNumber};
 use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
 use ros_z::{prelude::*, qos::QosDurability, time::Time};
 use serde::{Deserialize, Serialize};
@@ -57,6 +57,7 @@ pub struct Blackboard {
     pub last_motion_switch_time: Time,
     pub last_motion_type: Option<MotionType>,
     pub last_sent_game_controller_return_message_time: Option<Time>,
+    pub last_sent_hsl_message: Option<HulkMessage>,
     pub last_sent_hsl_message_time: Option<Time>,
     pub last_closest_to_ball: bool,
     pub closest_to_ball_entered_area_since: Option<Time>,
@@ -268,6 +269,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         last_motion_switch_time: Time::zero(),
         last_motion_type: None,
         last_sent_game_controller_return_message_time: None,
+        last_sent_hsl_message: None,
         last_sent_hsl_message_time: None,
         last_closest_to_ball: false,
         closest_to_ball_entered_area_since: None,
