@@ -10,6 +10,7 @@ use crate::{
         is_fallen, is_goalkeeper, is_last_hulk_standing, is_primary_state, is_remote_controlled,
         is_remote_kick_mode,
     },
+    goalkeeper::goalkeeper_subtree,
     head::{look_around, look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
     kick::{intercept, kick, kick_power_subtree, kick_subtree, set_kick_target_in_front},
     negation,
@@ -94,14 +95,10 @@ fn playing_subtree() -> Node<Blackboard> {
         sequence!(
             action!(calculate_voronoi_grid),
             condition!(is_closest_to_ball),
-            subtree!(striker_subtree)
+            subtree!(striker_subtree),
         ),
         subtree!(supporter_subtree),
     )
-}
-
-fn goalkeeper_subtree() -> Node<Blackboard> {
-    sequence!(subtree!(look_at_ball_subtree), action!(stand))
 }
 
 pub fn search_subtree() -> Node<Blackboard> {
@@ -121,7 +118,7 @@ pub fn search_subtree() -> Node<Blackboard> {
     )
 }
 
-fn striker_subtree() -> Node<Blackboard> {
+pub(crate) fn striker_subtree() -> Node<Blackboard> {
     sequence!(
         subtree!(look_at_ball_subtree),
         selection!(
