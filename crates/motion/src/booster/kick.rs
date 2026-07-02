@@ -1,7 +1,6 @@
 use std::time::SystemTime;
 
-use booster::Kick;
-use booster_sdk::types::RobotMode;
+use booster::{Kick, RobotMode};
 use color_eyre::Result;
 use context_attribute::context;
 use hardware::{HighLevelInterface, MotionRuntimeInterface, VisualKickInterface};

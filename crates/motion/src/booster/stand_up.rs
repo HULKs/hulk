@@ -1,4 +1,4 @@
-use booster_sdk::types::RobotMode;
+use booster::RobotMode;
 use color_eyre::Result;
 use context_attribute::context;
 use hardware::{HighLevelInterface, MotionRuntimeInterface};

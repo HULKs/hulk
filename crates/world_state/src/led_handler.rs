@@ -1,4 +1,4 @@
-use booster_sdk::client::light_control::SetLedLightColorParameter;
+use booster::LedColor;
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
@@ -45,15 +45,15 @@ impl LEDHandler {
         }
 
         let light_control_parameter = match context.primary_state {
-            PrimaryState::Damping => SetLedLightColorParameter::BLUE,
-            PrimaryState::Prepare => SetLedLightColorParameter::MAGENTA,
-            PrimaryState::Stop => SetLedLightColorParameter::LIGHT_BLUE,
-            PrimaryState::Ready => SetLedLightColorParameter::LIGHT_GREEN,
-            PrimaryState::Initial => SetLedLightColorParameter::YELLOW,
-            PrimaryState::Set => SetLedLightColorParameter::ORANGE,
-            PrimaryState::Playing => SetLedLightColorParameter::GREEN,
-            PrimaryState::Penalized => SetLedLightColorParameter::LIGHT_RED,
-            PrimaryState::Finished => SetLedLightColorParameter::PURPLE,
+            PrimaryState::Damping => LedColor::BLUE,
+            PrimaryState::Prepare => LedColor::MAGENTA,
+            PrimaryState::Stop => LedColor::LIGHT_BLUE,
+            PrimaryState::Ready => LedColor::LIGHT_GREEN,
+            PrimaryState::Initial => LedColor::YELLOW,
+            PrimaryState::Set => LedColor::ORANGE,
+            PrimaryState::Playing => LedColor::GREEN,
+            PrimaryState::Penalized => LedColor::LIGHT_RED,
+            PrimaryState::Finished => LedColor::PURPLE,
         };
 
         context
@@ -79,41 +79,41 @@ pub trait DefaultLEDColors {
     const MAGENTA: Self;
 }
 
-impl DefaultLEDColors for SetLedLightColorParameter {
-    const BLUE: Self = SetLedLightColorParameter { r: 0, g: 0, b: 255 };
-    const RED: Self = SetLedLightColorParameter { r: 255, g: 0, b: 0 };
-    const GREEN: Self = SetLedLightColorParameter { r: 0, g: 255, b: 0 };
-    const LIGHT_BLUE: Self = SetLedLightColorParameter {
+impl DefaultLEDColors for LedColor {
+    const BLUE: Self = LedColor { r: 0, g: 0, b: 255 };
+    const RED: Self = LedColor { r: 255, g: 0, b: 0 };
+    const GREEN: Self = LedColor { r: 0, g: 255, b: 0 };
+    const LIGHT_BLUE: Self = LedColor {
         r: 128,
         g: 128,
         b: 255,
     };
-    const LIGHT_RED: Self = SetLedLightColorParameter {
+    const LIGHT_RED: Self = LedColor {
         r: 255,
         g: 128,
         b: 128,
     };
-    const LIGHT_GREEN: Self = SetLedLightColorParameter {
+    const LIGHT_GREEN: Self = LedColor {
         r: 128,
         g: 255,
         b: 128,
     };
-    const ORANGE: Self = SetLedLightColorParameter {
+    const ORANGE: Self = LedColor {
         r: 255,
         g: 128,
         b: 0,
     };
-    const YELLOW: Self = SetLedLightColorParameter {
+    const YELLOW: Self = LedColor {
         r: 255,
         g: 255,
         b: 0,
     };
-    const PURPLE: Self = SetLedLightColorParameter {
+    const PURPLE: Self = LedColor {
         r: 128,
         g: 0,
         b: 255,
     };
-    const MAGENTA: Self = SetLedLightColorParameter {
+    const MAGENTA: Self = LedColor {
         r: 202,
         g: 23,
         b: 123,
