@@ -11,7 +11,7 @@ use hardware::NetworkInterface;
 use hsl_network_messages::{GameControllerReturnMessage, HulkMessage, StateMessage};
 use types::{messages::OutgoingMessage, parameters::HslNetworkParameters, world_state::WorldState};
 
-use crate::behavior::node::Behavior;
+use crate::behavior::{condition::is_goalkeeper, node::Behavior};
 
 impl Behavior {
     pub fn send_game_controller_return_message(
@@ -46,6 +46,7 @@ impl Behavior {
                 *address,
                 GameControllerReturnMessage {
                     player_number: world_state.robot.player_number,
+                    // is_goalkeeper: is_goalkeeper,
                     fallen: world_state
                         .fall_down_state
                         .is_some_and(|state| state.fall_down_state != FallDownStateType::IsReady),

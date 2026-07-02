@@ -1,12 +1,14 @@
 pub mod action;
 pub mod behavior_tree;
 pub mod condition;
+pub mod goalkeeper;
 pub mod head;
 pub mod kick;
 pub mod motion_assembler;
 pub mod node;
 pub mod search;
 pub mod send_message;
+pub mod striker;
 pub mod substates;
 pub mod switch_motion_type;
 pub mod tree;

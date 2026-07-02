@@ -63,6 +63,15 @@ pub struct Behavior {
     pub last_closest_to_ball: bool,
     pub closest_to_ball_entered_area_since: Option<SystemTime>,
     pub closest_to_ball_left_area_since: Option<SystemTime>,
+    #[serde(default)]
+    pub second_closest_to_ball_hysteresis: BooleanHysteresis,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+pub struct BooleanHysteresis {
+    pub last_value: bool,
+    pub entered_since: Option<SystemTime>,
+    pub left_since: Option<SystemTime>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -95,6 +104,7 @@ pub struct Blackboard {
     pub last_closest_to_ball: bool,
     pub closest_to_ball_entered_area_since: Option<SystemTime>,
     pub closest_to_ball_left_area_since: Option<SystemTime>,
+    pub second_closest_to_ball_hysteresis: BooleanHysteresis,
 
     pub is_injected_motion_command: bool,
     pub walk_position: Option<Point2<Ground>>,
@@ -157,6 +167,7 @@ impl Behavior {
             last_closest_to_ball: false,
             closest_to_ball_entered_area_since: None,
             closest_to_ball_left_area_since: None,
+            second_closest_to_ball_hysteresis: BooleanHysteresis::default(),
         })
     }
 
@@ -209,6 +220,7 @@ impl Behavior {
             last_closest_to_ball: self.last_closest_to_ball,
             closest_to_ball_entered_area_since: self.closest_to_ball_entered_area_since,
             closest_to_ball_left_area_since: self.closest_to_ball_left_area_since,
+            second_closest_to_ball_hysteresis: self.second_closest_to_ball_hysteresis,
 
             is_injected_motion_command: false,
             walk_position: None,
@@ -225,6 +237,7 @@ impl Behavior {
         self.last_closest_to_ball = blackboard.last_closest_to_ball;
         self.closest_to_ball_entered_area_since = blackboard.closest_to_ball_entered_area_since;
         self.closest_to_ball_left_area_since = blackboard.closest_to_ball_left_area_since;
+        self.second_closest_to_ball_hysteresis = blackboard.second_closest_to_ball_hysteresis;
         *context.last_motion_command = motion_command.clone();
 
         let motion_type = motion_type_for(&motion_command);
