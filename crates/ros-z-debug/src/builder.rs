@@ -31,7 +31,7 @@ pub struct CachedSubscriptionBuilder {
     node: Arc<Node>,
     topic: TopicReference,
     target_identity: TargetIdentity,
-    retention: RetentionPolicy,
+    policy: ObservationPolicy,
     schema_discovery_timeout: Duration,
 }
 
@@ -42,15 +42,26 @@ impl CachedSubscriptionBuilder {
             node,
             topic: TopicReference::new(topic.into())?,
             target_identity: TargetIdentity::new("/").expect("root namespace is valid"),
-            retention: RetentionPolicy::LatestOnly,
+            policy: ObservationPolicy::default(),
             schema_discovery_timeout: Duration::from_secs(5),
         })
     }
 
     /// Configure how many samples the handle retains.
     pub fn retention(mut self, retention: RetentionPolicy) -> Self {
-        self.retention = retention;
+        self.policy = self.policy.with_retention(retention);
         self
+    }
+
+    /// Configure this cached subscription with a full observation policy.
+    pub fn policy(mut self, policy: ObservationPolicy) -> Self {
+        self.policy = policy;
+        self
+    }
+
+    /// Return the configured observation policy.
+    pub fn observation_policy(&self) -> ObservationPolicy {
+        self.policy
     }
 
     /// Configure the target identity used to resolve topic references.
@@ -90,7 +101,7 @@ impl CachedSubscriptionBuilder {
 
     /// Configured retention policy.
     pub fn retention_policy(&self) -> RetentionPolicy {
-        self.retention
+        self.policy.retention()
     }
 
     /// Build the typed subscription and spawn its receive task.
@@ -103,11 +114,21 @@ impl CachedSubscriptionBuilder {
             node,
             topic,
             target_identity,
-            retention,
+            policy,
             schema_discovery_timeout: _,
         } = self;
         let resolved_topic = topic.resolve(&target_identity)?;
-        let subscriber = node.subscriber::<T>(&resolved_topic).build().await?;
+        let mut subscriber_builder = node.subscriber::<T>(&resolved_topic);
+        if let Some(qos) = policy.subscriber_qos() {
+            subscriber_builder = subscriber_builder.qos(qos);
+        }
+        if let Some(queue_capacity) = policy.subscriber_queue_capacity() {
+            subscriber_builder = subscriber_builder.queue_capacity(queue_capacity);
+        }
+        let subscriber = subscriber_builder
+            .queue_overflow_reporting(policy.queue_overflow_reporting())
+            .build()
+            .await?;
         let type_info = subscriber.entity().type_info.clone();
         let metadata = Arc::new(SampleMetadata {
             topic_reference: topic,
@@ -120,8 +141,8 @@ impl CachedSubscriptionBuilder {
                 resolved_topic,
                 type_info,
             ),
-            retention,
-            ObservationPolicy::default().update_buffer_capacity(),
+            policy.retention(),
+            policy.update_buffer_capacity(),
             move |state, cancellation| {
                 receive_typed_loop(subscriber, state, cancellation, metadata)
             },
@@ -151,12 +172,20 @@ impl CachedSubscriptionBuilder {
             node,
             topic,
             target_identity,
-            retention,
+            policy,
             schema_discovery_timeout,
         } = self;
         let resolved_topic = topic.resolve(&target_identity)?;
-        let subscriber = node
-            .dynamic_subscriber_auto(&resolved_topic, schema_discovery_timeout)
+        let mut subscriber_builder =
+            node.dynamic_subscriber_auto(&resolved_topic, schema_discovery_timeout);
+        if let Some(qos) = policy.subscriber_qos() {
+            subscriber_builder = subscriber_builder.qos(qos);
+        }
+        if let Some(queue_capacity) = policy.subscriber_queue_capacity() {
+            subscriber_builder = subscriber_builder.queue_capacity(queue_capacity);
+        }
+        let subscriber = subscriber_builder
+            .queue_overflow_reporting(policy.queue_overflow_reporting())
             .build()
             .await?;
         let type_info = subscriber.entity().type_info.clone();
@@ -171,8 +200,8 @@ impl CachedSubscriptionBuilder {
                 resolved_topic,
                 type_info,
             ),
-            retention,
-            ObservationPolicy::default().update_buffer_capacity(),
+            policy.retention(),
+            policy.update_buffer_capacity(),
             move |state, cancellation| {
                 receive_dynamic_loop(subscriber, state, cancellation, metadata)
             },
@@ -289,8 +318,11 @@ fn classify_receive_error(error: &ros_z::Error, message: String) -> CachedSubscr
 
 #[cfg(test)]
 mod tests {
-    use super::{classify_receive_error, receive_error_diagnostic};
-    use crate::{CachedSubscriptionStatus, SampleMetadata, TopicReference};
+    use std::{num::NonZeroUsize, sync::Arc, time::Duration};
+
+    use ros_z::context::ContextBuilder;
+
+    use super::*;
 
     fn test_metadata() -> SampleMetadata {
         SampleMetadata {
@@ -335,5 +367,32 @@ mod tests {
         assert!(message.contains("/debug"));
         assert!(message.contains("test_msgs::DebugValue"));
         assert!(message.contains("failed to deserialize cdr payload"));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cached_subscription_builder_policy_can_be_configured() -> Result<()> {
+        let context = ContextBuilder::default()
+            .disable_multicast_scouting()
+            .with_json("connect/endpoints", serde_json::json!([]))
+            .build()
+            .await?;
+        let node = Arc::new(context.create_node("policy_builder").build().await?);
+        let capacity = NonZeroUsize::new(64).unwrap();
+        let policy = ObservationPolicy::latest().with_subscriber_queue_capacity(capacity);
+
+        let builder = CachedSubscriptionBuilder::new(node, "debug_text")?.policy(policy);
+
+        assert_eq!(builder.observation_policy(), policy);
+
+        let builder = builder.retention(RetentionPolicy::time_window(Duration::from_secs(1))?);
+        assert!(matches!(
+            builder.observation_policy().retention(),
+            RetentionPolicy::TimeWindow(_)
+        ));
+        assert_eq!(
+            builder.observation_policy().subscriber_queue_capacity(),
+            Some(capacity)
+        );
+        Ok(())
     }
 }
