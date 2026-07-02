@@ -34,9 +34,6 @@ pub struct Arguments {
 
 #[derive(Args)]
 pub struct PreGameArguments {
-    /// Skip running the parameter tester
-    #[arg(long)]
-    pub skip_parameter_check: bool,
     /// Do not build before uploading
     #[arg(long)]
     pub no_build: bool,
@@ -57,10 +54,6 @@ pub struct PreGameArguments {
 }
 
 pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
-    if !arguments.pre_game.skip_parameter_check {
-        run_parameter_tester(arguments.environment.clone(), repository).await?;
-    }
-
     let config = DeployConfig::read_from_file(repository)
         .await
         .wrap_err("failed to read deploy config from file")?;
@@ -138,26 +131,6 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         .await;
 
     Ok(())
-}
-
-async fn run_parameter_tester(
-    environment: EnvironmentArguments,
-    repository: &Repository,
-) -> Result<()> {
-    let cargo_arguments = cargo::Arguments {
-        manifest: Some(
-            repository
-                .root
-                .join("tools/parameter_tester/Cargo.toml")
-                .into_os_string(),
-        ),
-        environment,
-        cargo: run::Arguments::default(),
-    };
-
-    cargo(cargo_arguments, repository, &[] as &[&str])
-        .await
-        .wrap_err("failed to run parameter tester")
 }
 
 async fn setup_robot(

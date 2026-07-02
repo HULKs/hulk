@@ -3925,18 +3925,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fanta"
-version = "0.1.0"
-dependencies = [
- "clap",
- "color-eyre",
- "communication",
- "fern",
- "log",
- "tokio",
-]
-
-[[package]]
 name = "fastbloom"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7457,41 +7445,6 @@ name = "owo-colors"
 version = "4.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d211803b9b6b570f68772237e415a029d5a50c65d382910b879fb19d3271f94d"
-
-[[package]]
-name = "parameter_tester"
-version = "0.1.0"
-dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "calibration",
- "code_generation",
- "color-eyre",
- "coordinate_systems",
- "energy_optimization",
- "framework",
- "geometry",
- "hsl_network_messages",
- "hula_types",
- "hulk_manifest",
- "kinematics",
- "linear_algebra",
- "motionfile",
- "nalgebra",
- "ndarray",
- "parameters",
- "path_serde",
- "projection",
- "repository",
- "ros2",
- "serde",
- "serde_json",
- "source_analyzer",
- "types",
- "voronoi",
- "walking_inference",
-]
 
 [[package]]
 name = "parameters"
@@ -11606,17 +11559,6 @@ dependencies = [
  "ros2",
  "serde",
  "types",
-]
-
-[[package]]
-name = "vista"
-version = "0.1.0"
-dependencies = [
- "eframe",
- "hulk_manifest",
- "hulk_widgets",
- "repository",
- "source_analyzer",
 ]
 
 [[package]]
