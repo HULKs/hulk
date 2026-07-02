@@ -787,7 +787,7 @@ pub fn initial_robot_to_field_from_field_dimensions(
 ) -> Isometry3<Robot, Field, f64> {
     nalgebra::Isometry3::from_parts(
         nalgebra::Translation3::new(
-            -(field_dimensions.length as f64) / 2.0,
+            (field_dimensions.length as f64) / 2.0,
             -(field_dimensions.width as f64) / 2.0,
             DEFAULT_INITIAL_ROBOT_HEIGHT,
         ),
