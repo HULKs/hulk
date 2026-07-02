@@ -120,7 +120,7 @@ impl SimulatorRobotBehavior {
         game_controller_address: Option<SocketAddr>,
     ) -> Vec<OutgoingMessage> {
         self.blackboard.world_state = world_state;
-        self.blackboard.parameters.hsl_network = hsl_network_parameters;
+        self.blackboard.hsl_network_parameters = hsl_network_parameters;
 
         let mut outgoing_messages = Vec::new();
         if let Some(message) = self
@@ -180,6 +180,7 @@ fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackbo
         body_motion: None,
         head_motion: None,
         voronoi_map: None,
+        hsl_network_parameters: HslNetworkParameters::default(),
     }
 }
 

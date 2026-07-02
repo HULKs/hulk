@@ -5,8 +5,8 @@ use hsl_network_messages::HulkMessage;
 use ros_z::{prelude::*, qos::QosDurability};
 use types::{
     ball_position::BallPosition, filtered_game_controller_state::FilteredGameControllerState,
-    messages::IncomingMessage, players::Players, time_wrapper::TimeWrapper,
-    world_state::PlayerState,
+    messages::IncomingMessage, parameters::HslNetworkParameters, players::Players,
+    time_wrapper::TimeWrapper, world_state::PlayerState,
 };
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -23,6 +23,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<TimeWrapper<IncomingMessage>>("filtered_message")
         .build()
         .await?;
+    let hsl_network_parameters_cache = node
+        .subscriber::<HslNetworkParameters>("hsl_network_parameters")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
     let player_states_pub = node
         .publisher::<Players<Option<TimeWrapper<PlayerState>>>>("player_states")
         .qos(QosProfile {
@@ -36,8 +45,14 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         tokio::select! {
             received_game_controller_state = filtered_game_controller_state_sub.recv() => {
+                let Some(hsl_network_parameters) = hsl_network_parameters_cache.get_latest() else {continue};
+
                 let game_controller_state = received_game_controller_state?;
-                clear_penalized_players(&mut player_states, &game_controller_state);
+                apply_game_controller_state(
+                    &mut player_states,
+                    &game_controller_state,
+                    &hsl_network_parameters,
+                );
                 player_states_pub.publish(&player_states).await?;
             }
             received_message = filtered_message_sub.recv() => {
@@ -45,6 +60,19 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 player_states_pub.publish(&player_states).await?;
             }
         }
+    }
+}
+
+fn apply_game_controller_state(
+    player_states: &mut Players<Option<TimeWrapper<PlayerState>>>,
+    game_controller_state: &FilteredGameControllerState,
+    hsl_network_parameters: &HslNetworkParameters,
+) {
+    clear_penalized_players(player_states, game_controller_state);
+    if game_controller_state.remaining_number_of_messages
+        < hsl_network_parameters.remaining_amount_of_messages_to_stop_sending
+    {
+        clear_all_players(player_states);
     }
 }
 
@@ -80,6 +108,10 @@ fn clear_penalized_players(
             player_states[player_number] = None;
         }
     }
+}
+
+fn clear_all_players(player_states: &mut Players<Option<TimeWrapper<PlayerState>>>) {
+    *player_states = Players::new(None);
 }
 
 #[cfg(test)]
@@ -141,5 +173,26 @@ mod tests {
 
         assert!(states[PlayerNumber::Two].is_none());
         assert!(states[PlayerNumber::Three].is_some());
+    }
+
+    #[test]
+    fn all_players_are_cleared_below_remaining_message_threshold() {
+        let mut states = Players::new(Some(TimeWrapper {
+            time: Time::from_nanos(10),
+            inner: PlayerState::default(),
+        }));
+
+        let game_controller_state = FilteredGameControllerState {
+            remaining_number_of_messages: 2,
+            ..Default::default()
+        };
+        let hsl_network_parameters = HslNetworkParameters {
+            remaining_amount_of_messages_to_stop_sending: 3,
+            ..Default::default()
+        };
+
+        apply_game_controller_state(&mut states, &game_controller_state, &hsl_network_parameters);
+
+        assert!(states.iter().all(|(_, state)| state.is_none()));
     }
 }

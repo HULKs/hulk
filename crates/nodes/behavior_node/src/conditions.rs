@@ -188,3 +188,17 @@ pub fn hulks_is_kicking_team(blackboard: &mut Blackboard) -> bool {
         })
     )
 }
+
+pub fn out_of_messages(blackboard: &mut Blackboard) -> bool {
+    blackboard
+        .world_state
+        .filtered_game_controller_state
+        .as_ref()
+        .map(|state| state.remaining_number_of_messages)
+        .is_none_or(|remaining_amount_of_messages| {
+            remaining_amount_of_messages
+                < blackboard
+                    .hsl_network_parameters
+                    .remaining_amount_of_messages_to_stop_sending
+        })
+}

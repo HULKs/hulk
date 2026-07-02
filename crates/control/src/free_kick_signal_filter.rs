@@ -59,7 +59,7 @@ pub struct CycleContext {
     message_grace_period:
         Parameter<Duration, "free_kick_signal_detection_filter.message_grace_period">,
     message_interval: Parameter<Duration, "free_kick_signal_detection_filter.message_interval">,
-    hsl_network_parameters: Parameter<HslNetworkParameters, "behavior.hsl_network">,
+    hsl_network_parameters: Parameter<HslNetworkParameters, "hsl_network">,
 
     free_kick_detection_times: AdditionalOutput<
         Players<Option<TimeTaggedKickingTeamDetections>>,

@@ -18,7 +18,7 @@ use types::{
     motion_command::{BodyMotion, HeadMotion, MotionCommand},
     motion_type::MotionType,
     obstacles::Obstacle,
-    parameters::BehaviorParameters,
+    parameters::{BehaviorParameters, HslNetworkParameters},
     path_obstacles::PathObstacle,
     players::Players,
     primary_state::PrimaryState,
@@ -42,6 +42,7 @@ pub struct LastBall {
 pub struct Blackboard {
     pub field_dimensions: FieldDimensions,
     pub parameters: BehaviorParameters,
+    pub hsl_network_parameters: HslNetworkParameters,
     pub world_state: WorldState,
 
     pub path_obstacles_output: Vec<PathObstacle>,
@@ -136,9 +137,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-
     let player_number_cache = node
         .subscriber::<PlayerNumber>("player_number")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
+    let hsl_network_parameters_cache = node
+        .subscriber::<HslNetworkParameters>("hsl_network_parameters")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -253,6 +262,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .map(|dimensions| *dimensions)
             .unwrap_or_default(),
         parameters: parameters.snapshot().typed().clone(),
+        hsl_network_parameters: hsl_network_parameters_cache
+            .get_latest()
+            .map(|params| params.as_ref().clone())
+            .unwrap_or_default(),
         world_state: WorldState::default(),
 
         path_obstacles_output: Vec::new(),
@@ -297,6 +310,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .map(|n| *n)
             .unwrap_or_default();
         blackboard.parameters = parameters.snapshot().typed().clone();
+
+        let hsl_network_messages = hsl_network_parameters_cache
+            .get_latest()
+            .map(|params| params.as_ref().clone())
+            .unwrap_or_default();
+        blackboard.hsl_network_parameters = hsl_network_messages;
 
         let player_states = player_states_cache
             .get_latest()

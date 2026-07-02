@@ -8,6 +8,7 @@ use crate::{
     conditions::{
         has_ball_position, is_ball_interception_candidate, is_close_to_ball, is_closest_to_ball,
         is_fallen, is_goalkeeper, is_primary_state, is_remote_controlled, is_remote_kick_mode,
+        out_of_messages,
     },
     head::{look_around, look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
     kick::{intercept, kick, kick_power_subtree, kick_subtree, set_kick_target_in_front},
@@ -83,6 +84,7 @@ fn ready_subtree() -> Node<Blackboard> {
 
 fn playing_subtree() -> Node<Blackboard> {
     selection!(
+        sequence!(condition!(out_of_messages), subtree!(striker_subtree)),
         sequence!(condition!(is_goalkeeper), subtree!(goalkeeper_subtree)),
         sequence!(
             negation!(condition!(has_ball_position)),

@@ -38,7 +38,7 @@ pub struct CycleContext {
     network_message: PerceptionInput<Option<IncomingMessage>, "HslNetwork", "filtered_message?">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
-    hsl_network_parameters: Parameter<HslNetworkParameters, "behavior.hsl_network">,
+    hsl_network_parameters: Parameter<HslNetworkParameters, "hsl_network">,
 
     hardware: HardwareInterface,
 }
