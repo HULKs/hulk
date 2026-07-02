@@ -60,6 +60,7 @@ pub struct BehaviorControlParameters {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct BallBehaviorParameters {
     pub last_ball_timeout: Duration,
+    pub team_ball_timeout: Duration,
     pub interception: InterceptBallParameters,
     pub closest_to_ball: ClosestToBallParameters,
 }
@@ -287,8 +288,16 @@ pub struct SearchSuggestorParameters {
     pub team_ball_weight: f32,
     pub rule_ball_weight: f32,
     pub rule_ball_weight_increment: f32,
+    pub last_ball_priority_minimum: f32,
+    pub last_ball_priority_maximum: f32,
+    pub last_ball_priority_half_distance: f32,
+    pub last_ball_priority_rise_time: Duration,
+    pub turn_preference_priority_margin: f32,
     pub tile_switch_hysteresis: f32,
     pub decay_distance_factor: f32,
+    pub occluded_decay_factor: f32,
+    pub teammate_decay_factor: f32,
+    pub teammate_replay_stride: usize,
     pub heatmap_decay_range: Range<f32>,
 }
 

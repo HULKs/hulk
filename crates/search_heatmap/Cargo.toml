@@ -1,0 +1,19 @@
+[package]
+name = "search_heatmap"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+coordinate_systems = { workspace = true }
+geometry = { workspace = true }
+hsl_network_messages = { workspace = true }
+itertools = { workspace = true }
+linear_algebra = { workspace = true }
+nalgebra = { workspace = true }
+ndarray = { workspace = true }
+ros-z = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+types = { workspace = true }
+voronoi = { workspace = true }
