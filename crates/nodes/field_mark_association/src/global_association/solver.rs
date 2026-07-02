@@ -1,48 +1,33 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, Mutex, OnceLock},
-};
-
-use ::types::field_dimensions::FieldDimensions;
-use coordinate_systems::{Camera, Field, Ground, Pixel, Robot};
-use hungarian_algorithm::AssignmentProblem;
-use linear_algebra::{Isometry3, Point2, point};
-use nalgebra::{Similarity2, Translation3, Vector2};
-use ndarray::Array2;
+use coordinate_systems::{Camera, Field};
+use linear_algebra::Isometry3;
 use ordered_float::NotNan;
 use projection::intrinsic::Intrinsic;
 
-use crate::{DetectedVisualFeature, DetectedVisualFeatures};
-
 use super::{
-    FEATURE_CLASSES, FeatureAssociation, FeatureAssociations, GLOBAL_LOCALIZER_MAX_DETECTIONS,
-    GlobalAssociationConfig, GlobalLocalizationDebugAssociation, GlobalLocalizationDebugDetection,
-    GlobalLocalizationDebugProjection, GlobalLocalizationDetailedDebug,
-    GlobalLocalizationDetailedStatus, GlobalLocalizationScore, PoseHintAssociationConfig,
-    PoseHintAssociationResult, VisualFeatureClass,
-    map::{LandmarkMap, MapTriplet, MapTripletBin, triplet_bin},
+    FEATURE_CLASSES, FeatureAssociation, GlobalAssociationConfig, GlobalLocalizationDetailedDebug,
+    PoseHintAssociationConfig, PoseHintAssociationResult, VisualFeatureClass, map::LandmarkMap,
 };
 
+mod assignment;
 mod bounds;
 mod certification;
 mod cheap;
 mod fitting;
 mod output;
+mod prelude;
 mod problem;
 mod search;
 mod seeding;
 #[cfg(test)]
+mod test_support;
+#[cfg(test)]
 mod tests;
 mod types;
 
-use bounds::*;
-use certification::*;
-use cheap::*;
-use fitting::*;
+use assignment::*;
 use output::*;
 use problem::*;
 use search::*;
-use seeding::*;
 use types::*;
 pub(crate) use types::{GlobalLocalizationInput, GlobalLocalizationResult};
 
@@ -204,38 +189,28 @@ fn pose_hint_assignments_for_class(
     let Ok(missing_assignment) = NotNan::new(-missing_assignment_penalty) else {
         return Vec::new();
     };
-    let mut costs = Array2::from_elem((row_ranges.len(), landmark_ids.len()), missing_assignment);
-    for (row, range) in row_ranges.iter().enumerate() {
-        for option in &options[range.clone()] {
-            let Some(column) = landmark_ids
-                .iter()
-                .position(|landmark_id| *landmark_id == option.landmark_id)
-            else {
-                continue;
-            };
-            let value = pose_hint_assignment_value(config, option);
-            let Ok(cost) = NotNan::new(value) else {
-                continue;
-            };
-            costs[(row, column)] = cost;
-        }
-    }
+    solve_assignment_options(
+        &row_ranges,
+        &options,
+        landmark_ids.len(),
+        missing_assignment,
+        |option| pose_hint_assignment_cost(landmark_ids, config, option),
+    )
+    .into_iter()
+    .copied()
+    .collect()
+}
 
-    AssignmentProblem::from_costs(costs)
-        .solve()
-        .into_iter()
-        .enumerate()
-        .filter_map(|(row, assignment)| {
-            let assignment = assignment?;
-            if assignment.cost <= 0.0 {
-                return None;
-            }
-            options[row_ranges[row].clone()]
-                .iter()
-                .find(|option| option.landmark_id == landmark_ids[assignment.to])
-                .copied()
-        })
-        .collect()
+fn pose_hint_assignment_cost(
+    landmark_ids: &[usize],
+    config: PoseHintAssociationConfig,
+    option: &PoseHintOption,
+) -> Option<(usize, NotNan<f32>)> {
+    let column = landmark_ids
+        .iter()
+        .position(|landmark_id| *landmark_id == option.landmark_id)?;
+    let value = pose_hint_assignment_value(config, option);
+    NotNan::new(value).ok().map(|cost| (column, cost))
 }
 
 fn pose_hint_options_for_detection(

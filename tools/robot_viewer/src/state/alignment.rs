@@ -14,9 +14,7 @@ pub(super) fn monotonic_anchor_time(
     let Some(display_anchor_time) = display_anchor_time else {
         return preferred_anchor_time;
     };
-    let Some(preferred_anchor_time) = preferred_anchor_time else {
-        return None;
-    };
+    let preferred_anchor_time = preferred_anchor_time?;
     if preferred_anchor_time >= display_anchor_time {
         if preferred_anchor_time == display_anchor_time
             && let Some(latest_camera_time) = latest_camera_time
@@ -96,11 +94,11 @@ pub(super) fn nearest_sample<T>(
 #[cfg(test)]
 mod tests {
     use coordinate_systems::{Camera, Robot};
-    use field_mark_association::FieldMarkAssociations;
     use kinematics::robot_kinematics::RobotKinematics;
     use linear_algebra::Isometry3;
     use projection::camera_matrix::CameraMatrix;
     use ros_z::time::Time;
+    use types::visual_localization::VisualLocalizationFrame as FieldMarkAssociations;
 
     use super::*;
     use crate::state::{MAX_NEAREST_SAMPLE_DISTANCE, ViewerState};
@@ -109,6 +107,7 @@ mod tests {
         FieldMarkAssociations {
             robot_to_camera: Isometry3::<Robot, Camera>::identity(),
             associations: Vec::new(),
+            backend_reset: None,
         }
     }
 

@@ -48,62 +48,9 @@ impl LandmarkMap {
     pub fn new(field: &FieldDimensions, min_map_baseline: f32) -> Self {
         let mut landmarks = candidate_landmarks(field);
         fill_symmetric_ids(&mut landmarks);
-
-        let mut landmarks_by_class = FEATURE_CLASSES
-            .into_iter()
-            .map(|class| (class, Vec::new()))
-            .collect::<BTreeMap<_, _>>();
-        for landmark in &landmarks {
-            landmarks_by_class
-                .entry(landmark.class)
-                .or_default()
-                .push(landmark.id);
-        }
-
-        let mut map_triplets_by_bin = HashMap::new();
-        for a in &landmarks {
-            for b in &landmarks {
-                if a.id == b.id {
-                    continue;
-                }
-                let v = (b.xy - a.xy).inner;
-                let pair_dist = v.norm();
-                if pair_dist < min_map_baseline {
-                    continue;
-                }
-                let base_norm_squared = v.norm_squared();
-                for c in &landmarks {
-                    if c.id == a.id || c.id == b.id {
-                        continue;
-                    }
-                    let w = (c.xy - a.xy).inner;
-                    let alpha = w.dot(&v) / base_norm_squared;
-                    let beta = cross(v, w) / base_norm_squared;
-                    if beta.abs() < MIN_MAP_TRIPLET_ABS_BETA {
-                        continue;
-                    }
-                    map_triplets_by_bin
-                        .entry(MapTripletBin::new(a.class, b.class, c.class, alpha, beta))
-                        .or_insert_with(Vec::new)
-                        .push(MapTriplet {
-                            xy_a: a.xy,
-                            pair_dist,
-                            pair_angle: v.y.atan2(v.x),
-                            alpha,
-                            beta,
-                        });
-                }
-            }
-        }
-
-        let class_rarity_weight = FEATURE_CLASSES
-            .into_iter()
-            .map(|class| {
-                let count = landmarks_by_class.get(&class).map_or(0, Vec::len);
-                let weight = if count == 0 { 0.0 } else { 1.0 / count as f32 };
-                (class, weight)
-            })
-            .collect();
+        let landmarks_by_class = landmarks_by_class(&landmarks);
+        let map_triplets_by_bin = map_triplets_by_bin(&landmarks, min_map_baseline);
+        let class_rarity_weight = class_rarity_weights(&landmarks_by_class);
 
         Self {
             landmarks,
@@ -132,6 +79,86 @@ impl LandmarkMap {
     pub fn rarity_weight(&self, class: VisualFeatureClass) -> f32 {
         self.class_rarity_weight.get(&class).copied().unwrap_or(0.0)
     }
+}
+
+fn landmarks_by_class(landmarks: &[Landmark]) -> BTreeMap<VisualFeatureClass, Vec<usize>> {
+    let mut landmarks_by_class = FEATURE_CLASSES
+        .into_iter()
+        .map(|class| (class, Vec::new()))
+        .collect::<BTreeMap<_, _>>();
+    for landmark in landmarks {
+        landmarks_by_class
+            .entry(landmark.class)
+            .or_default()
+            .push(landmark.id);
+    }
+    landmarks_by_class
+}
+
+fn map_triplets_by_bin(
+    landmarks: &[Landmark],
+    min_map_baseline: f32,
+) -> HashMap<MapTripletBin, Vec<MapTriplet>> {
+    let mut map_triplets_by_bin = HashMap::new();
+    for a in landmarks {
+        for b in landmarks {
+            if a.id == b.id {
+                continue;
+            }
+            let v = (b.xy - a.xy).inner;
+            let pair_dist = v.norm();
+            if pair_dist < min_map_baseline {
+                continue;
+            }
+            record_triplets_from_pair(&mut map_triplets_by_bin, landmarks, a, b, v, pair_dist);
+        }
+    }
+    map_triplets_by_bin
+}
+
+fn record_triplets_from_pair(
+    map_triplets_by_bin: &mut HashMap<MapTripletBin, Vec<MapTriplet>>,
+    landmarks: &[Landmark],
+    a: &Landmark,
+    b: &Landmark,
+    v: nalgebra::Vector2<f32>,
+    pair_dist: f32,
+) {
+    let base_norm_squared = v.norm_squared();
+    for c in landmarks {
+        if c.id == a.id || c.id == b.id {
+            continue;
+        }
+        let w = (c.xy - a.xy).inner;
+        let alpha = w.dot(&v) / base_norm_squared;
+        let beta = cross(v, w) / base_norm_squared;
+        if beta.abs() < MIN_MAP_TRIPLET_ABS_BETA {
+            continue;
+        }
+        map_triplets_by_bin
+            .entry(MapTripletBin::new(a.class, b.class, c.class, alpha, beta))
+            .or_default()
+            .push(MapTriplet {
+                xy_a: a.xy,
+                pair_dist,
+                pair_angle: v.y.atan2(v.x),
+                alpha,
+                beta,
+            });
+    }
+}
+
+fn class_rarity_weights(
+    landmarks_by_class: &BTreeMap<VisualFeatureClass, Vec<usize>>,
+) -> BTreeMap<VisualFeatureClass, f32> {
+    FEATURE_CLASSES
+        .into_iter()
+        .map(|class| {
+            let count = landmarks_by_class.get(&class).map_or(0, Vec::len);
+            let weight = if count == 0 { 0.0 } else { 1.0 / count as f32 };
+            (class, weight)
+        })
+        .collect()
 }
 
 impl MapTripletBin {

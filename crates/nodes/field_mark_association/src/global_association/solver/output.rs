@@ -1,4 +1,4 @@
-use super::*;
+use super::prelude::*;
 
 pub(super) fn oriented_candidate(problem: &Problem, candidate: &Candidate) -> Candidate {
     let Some(hint) = problem.pose_hint else {
@@ -202,7 +202,7 @@ pub(super) fn detailed_debug_from_result(
         .collect::<Vec<_>>();
 
     GlobalLocalizationDetailedDebug {
-        status: detailed_status(result),
+        status: GlobalLocalizationDetailedStatus::UniqueModuloSymmetry,
         robot_to_field: associations.robot_to_field,
         score: associations.score,
         detections: problem
@@ -256,15 +256,6 @@ pub(super) fn detailed_debug_from_result(
                 })
             })
             .collect(),
-    }
-}
-
-fn detailed_status(result: &GlobalLocalizationResult) -> GlobalLocalizationDetailedStatus {
-    match result {
-        GlobalLocalizationResult::Ambiguous(_) => GlobalLocalizationDetailedStatus::Ambiguous,
-        GlobalLocalizationResult::UniqueModuloSymmetry(_) => {
-            GlobalLocalizationDetailedStatus::UniqueModuloSymmetry
-        }
     }
 }
 

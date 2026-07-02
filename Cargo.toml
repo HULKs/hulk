@@ -62,6 +62,7 @@ members = [
   "crates/nodes/look_at",
   "crates/nodes/low_state_bridge",
   "crates/nodes/mcap_recorder",
+  "crates/nodes/mcap_recorder",
   "crates/nodes/message_filter",
   "crates/nodes/message_handler",
   "crates/nodes/microphone_recorder",
@@ -250,7 +251,8 @@ log = "0.4.25"
 look_around = { path = "crates/nodes/look_around" }
 look_at = { path = "crates/nodes/look_at" }
 low_state_bridge = { path = "crates/nodes/low_state_bridge" }
-mcap = "0.15.0"
+mcap = "0.25.0"
+mcap_recorder = { path = "crates/nodes/mcap_recorder" }
 message_filter = { path = "crates/nodes/message_filter" }
 message_handler = { path = "crates/nodes/message_handler" }
 microphone_recorder = { path = "crates/nodes/microphone_recorder" }

@@ -1,4 +1,4 @@
-use super::*;
+use super::prelude::*;
 
 pub(super) fn build_fitted_candidate(
     problem: &Problem,
@@ -91,35 +91,25 @@ fn solve_assignment_for_class(
         return Vec::new();
     }
 
-    let Ok(zero) = NotNan::new(0.0) else {
+    let Ok(default_cost) = NotNan::new(0.0) else {
         return Vec::new();
     };
-    let mut costs = Array2::from_elem((row_ranges.len(), landmarks.len()), zero);
-    for (row, range) in row_ranges.iter().enumerate() {
-        for option in &options[range.clone()] {
-            let value = option.value.max(0.0);
-            let Ok(cost) = NotNan::new(value) else {
-                continue;
-            };
-            costs[(row, option.column)] = cost;
-        }
-    }
+    solve_assignment_options(
+        &row_ranges,
+        &options,
+        landmarks.len(),
+        default_cost,
+        assignment_option_cost,
+    )
+    .into_iter()
+    .map(|option| option.accepted)
+    .collect()
+}
 
-    AssignmentProblem::from_costs(costs)
-        .solve()
-        .into_iter()
-        .enumerate()
-        .filter_map(|(row, assignment)| {
-            let assignment = assignment?;
-            if assignment.cost <= 0.0 {
-                return None;
-            }
-            options[row_ranges[row].clone()]
-                .iter()
-                .find(|option| option.column == assignment.to)
-                .map(|option| option.accepted)
-        })
-        .collect()
+fn assignment_option_cost(option: &AssignmentOption) -> Option<(usize, NotNan<f32>)> {
+    NotNan::new(option.value.max(0.0))
+        .ok()
+        .map(|cost| (option.column, cost))
 }
 
 fn append_landmark_options(

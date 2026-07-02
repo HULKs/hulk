@@ -7,11 +7,13 @@ use bevy::{
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
 use coordinate_systems::{Field, Robot};
-use field_mark_association::FieldMarkAssociations;
 use kinematics::robot_kinematics::RobotKinematics;
 use linear_algebra::Isometry3;
 use projection::{Projection, camera_matrix::CameraMatrix};
-use types::field_dimensions::FieldDimensions;
+use types::{
+    field_dimensions::FieldDimensions,
+    visual_localization::VisualLocalizationFrame as FieldMarkAssociations,
+};
 
 use crate::state::{AlignedViewerState, CameraFrame, PoseSource};
 
@@ -20,6 +22,14 @@ const K1_ASSET_DIRECTORY: &str = concat!(
     "/../mujoco-simulator/mujoco-simulator/K1"
 );
 const CAMERA_VIEWPORT_DEPTH: f32 = 1.0;
+
+type CameraViewportComponents = (
+    &'static Mesh3d,
+    &'static mut Transform,
+    &'static mut Visibility,
+);
+type CameraImagePlaneFilter = (With<CameraImagePlane>, Without<CameraFrustum>);
+
 pub(crate) fn configure(app: &mut App) {
     app.insert_resource(ViewerData::default())
         .insert_resource(GlobalAmbientLight {
@@ -512,11 +522,8 @@ fn update_field_markings(
 
 fn update_camera_viewport(
     data: Res<ViewerData>,
-    mut frustum: Single<(&Mesh3d, &mut Transform, &mut Visibility), With<CameraFrustum>>,
-    mut image_plane: Single<
-        (&Mesh3d, &mut Transform, &mut Visibility),
-        (With<CameraImagePlane>, Without<CameraFrustum>),
-    >,
+    mut frustum: Single<CameraViewportComponents, With<CameraFrustum>>,
+    mut image_plane: Single<CameraViewportComponents, CameraImagePlaneFilter>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     let Some(camera_matrix) = &data.camera_matrix else {

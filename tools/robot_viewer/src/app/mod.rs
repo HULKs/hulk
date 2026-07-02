@@ -10,7 +10,6 @@ use eframe::{
     },
 };
 use egui_bevy::BevyWidget;
-use field_mark_association::FieldMarkAssociations;
 use linear_algebra::{Isometry3, Point2, Point3, point};
 use projection::{camera_matrix::CameraMatrix, intrinsic::Intrinsic};
 use ros_z::time::Time;
@@ -18,6 +17,7 @@ use tokio::runtime::Runtime;
 use types::{
     field_dimensions::FieldDimensions,
     object_detection::{Object, RobocupObjectLabel},
+    visual_localization::VisualLocalizationFrame as FieldMarkAssociations,
 };
 
 use crate::{
@@ -62,6 +62,14 @@ const ASSOCIATION_RESIDUAL_STROKE: Stroke = Stroke {
 const PROJECTED_ARC_INITIAL_SEGMENTS: usize = 16;
 const PROJECTED_ARC_MAX_DEPTH: u8 = 10;
 const PROJECTED_ARC_SCREEN_ERROR: f32 = 1.5;
+
+#[derive(Clone, Copy)]
+struct ProjectionContext<'a> {
+    image_rect: Rect,
+    image_size: Vec2,
+    field_to_camera: &'a Isometry3<Field, Camera>,
+    intrinsics: Intrinsic,
+}
 
 impl RobotViewerApp {
     pub(crate) fn new(
@@ -467,29 +475,21 @@ fn draw_projected_field_lines(
         .unwrap_or(camera_matrix.intrinsics);
     let robot_to_camera = robot_to_camera(camera_matrix);
     let field_to_camera = robot_to_camera * field_to_robot;
-    let painter = ui.painter_at(clip_rect);
-
-    draw_projected_field_markings(
-        &painter,
+    let projection = ProjectionContext {
         image_rect,
         image_size,
-        &field_to_camera,
+        field_to_camera: &field_to_camera,
         intrinsics,
-        dimensions,
-    );
+    };
+    let painter = ui.painter_at(clip_rect);
+
+    draw_projected_field_markings(&painter, projection, dimensions);
     if let Some(associations) = state
         .field_mark_associations
         .as_ref()
         .map(|associations| associations.inner.as_ref())
     {
-        draw_projected_field_mark_association_residuals(
-            &painter,
-            image_rect,
-            image_size,
-            &field_to_camera,
-            intrinsics,
-            associations,
-        );
+        draw_projected_field_mark_association_residuals(&painter, projection, associations);
     }
 }
 
@@ -499,10 +499,7 @@ fn robot_to_camera(camera_matrix: &CameraMatrix) -> Isometry3<Robot, Camera> {
 
 fn draw_projected_field_markings(
     painter: &egui::Painter,
-    image_rect: Rect,
-    image_size: Vec2,
-    field_to_camera: &Isometry3<Field, Camera>,
-    intrinsics: Intrinsic,
+    projection: ProjectionContext<'_>,
     dimensions: FieldDimensions,
 ) {
     let half_length = dimensions.length / 2.0;
@@ -510,30 +507,16 @@ fn draw_projected_field_markings(
 
     draw_projected_rect(
         painter,
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
+        projection,
         -half_length,
         -half_width,
         half_length,
         half_width,
     );
-    draw_projected_segment(
-        painter,
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
-        [0.0, -half_width],
-        [0.0, half_width],
-    );
+    draw_projected_segment(painter, projection, [0.0, -half_width], [0.0, half_width]);
     draw_projected_arc(
         painter,
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
+        projection,
         [0.0, 0.0],
         dimensions.center_circle_diameter / 2.0,
         0.0,
@@ -543,10 +526,7 @@ fn draw_projected_field_markings(
     for sign in [-1.0, 1.0] {
         draw_projected_goal_area(
             painter,
-            image_rect,
-            image_size,
-            field_to_camera,
-            intrinsics,
+            projection,
             dimensions,
             sign,
             dimensions.goal_box_area_length,
@@ -554,10 +534,7 @@ fn draw_projected_field_markings(
         );
         draw_projected_goal_area(
             painter,
-            image_rect,
-            image_size,
-            field_to_camera,
-            intrinsics,
+            projection,
             dimensions,
             sign,
             dimensions.penalty_area_length,
@@ -567,54 +544,36 @@ fn draw_projected_field_markings(
         let penalty_x = sign * (half_length - dimensions.penalty_marker_distance);
         draw_projected_marker_cross(
             painter,
-            image_rect,
-            image_size,
-            field_to_camera,
-            intrinsics,
+            projection,
             [penalty_x, 0.0],
             dimensions.penalty_marker_size,
         );
 
         if dimensions.corner_arc_radius > 0.0 {
-            draw_projected_corner_arcs(
-                painter,
-                image_rect,
-                image_size,
-                field_to_camera,
-                intrinsics,
-                dimensions,
-                sign,
-            );
+            draw_projected_corner_arcs(painter, projection, dimensions, sign);
         }
     }
 }
 
 fn draw_projected_field_mark_association_residuals(
     painter: &egui::Painter,
-    image_rect: Rect,
-    image_size: Vec2,
-    field_to_camera: &Isometry3<Field, Camera>,
-    intrinsics: Intrinsic,
+    projection: ProjectionContext<'_>,
     associations: &FieldMarkAssociations,
 ) {
     let scale = vec2(
-        image_rect.width() / image_size.x.max(1.0),
-        image_rect.height() / image_size.y.max(1.0),
+        projection.image_rect.width() / projection.image_size.x.max(1.0),
+        projection.image_rect.height() / projection.image_size.y.max(1.0),
     );
 
     for association in &associations.associations {
-        let detection_position = image_rect.min
+        let detection_position = projection.image_rect.min
             + vec2(
                 association.detection.x() * scale.x,
                 association.detection.y() * scale.y,
             );
-        let Some(projected_position) = project_field_point3_to_image(
-            image_rect,
-            image_size,
-            field_to_camera,
-            intrinsics,
-            association.field_point,
-        ) else {
+        let Some(projected_position) =
+            project_field_point3_to_image(projection, association.field_point)
+        else {
             continue;
         };
 
@@ -628,59 +587,21 @@ fn draw_projected_field_mark_association_residuals(
 
 fn draw_projected_rect(
     painter: &egui::Painter,
-    image_rect: Rect,
-    image_size: Vec2,
-    field_to_camera: &Isometry3<Field, Camera>,
-    intrinsics: Intrinsic,
+    projection: ProjectionContext<'_>,
     min_x: f32,
     min_y: f32,
     max_x: f32,
     max_y: f32,
 ) {
-    draw_projected_segment(
-        painter,
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
-        [min_x, min_y],
-        [max_x, min_y],
-    );
-    draw_projected_segment(
-        painter,
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
-        [max_x, min_y],
-        [max_x, max_y],
-    );
-    draw_projected_segment(
-        painter,
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
-        [max_x, max_y],
-        [min_x, max_y],
-    );
-    draw_projected_segment(
-        painter,
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
-        [min_x, max_y],
-        [min_x, min_y],
-    );
+    draw_projected_segment(painter, projection, [min_x, min_y], [max_x, min_y]);
+    draw_projected_segment(painter, projection, [max_x, min_y], [max_x, max_y]);
+    draw_projected_segment(painter, projection, [max_x, max_y], [min_x, max_y]);
+    draw_projected_segment(painter, projection, [min_x, max_y], [min_x, min_y]);
 }
 
 fn draw_projected_goal_area(
     painter: &egui::Painter,
-    image_rect: Rect,
-    image_size: Vec2,
-    field_to_camera: &Isometry3<Field, Camera>,
-    intrinsics: Intrinsic,
+    projection: ProjectionContext<'_>,
     dimensions: FieldDimensions,
     sign: f32,
     length: f32,
@@ -692,28 +613,19 @@ fn draw_projected_goal_area(
 
     draw_projected_segment(
         painter,
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
+        projection,
         [goal_line_x, -half_width],
         [inner_x, -half_width],
     );
     draw_projected_segment(
         painter,
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
+        projection,
         [inner_x, -half_width],
         [inner_x, half_width],
     );
     draw_projected_segment(
         painter,
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
+        projection,
         [inner_x, half_width],
         [goal_line_x, half_width],
     );
@@ -721,29 +633,20 @@ fn draw_projected_goal_area(
 
 fn draw_projected_marker_cross(
     painter: &egui::Painter,
-    image_rect: Rect,
-    image_size: Vec2,
-    field_to_camera: &Isometry3<Field, Camera>,
-    intrinsics: Intrinsic,
+    projection: ProjectionContext<'_>,
     center: [f32; 2],
     size: f32,
 ) {
     let half_size = size / 2.0;
     draw_projected_segment(
         painter,
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
+        projection,
         [center[0] - half_size, center[1]],
         [center[0] + half_size, center[1]],
     );
     draw_projected_segment(
         painter,
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
+        projection,
         [center[0], center[1] - half_size],
         [center[0], center[1] + half_size],
     );
@@ -751,10 +654,7 @@ fn draw_projected_marker_cross(
 
 fn draw_projected_corner_arcs(
     painter: &egui::Painter,
-    image_rect: Rect,
-    image_size: Vec2,
-    field_to_camera: &Isometry3<Field, Camera>,
-    intrinsics: Intrinsic,
+    projection: ProjectionContext<'_>,
     dimensions: FieldDimensions,
     sign: f32,
 ) {
@@ -766,10 +666,7 @@ fn draw_projected_corner_arcs(
         let start = std::f32::consts::PI * (start + if side > 0.0 { 0.0 } else { 1.0 });
         draw_projected_arc(
             painter,
-            image_rect,
-            image_size,
-            field_to_camera,
-            intrinsics,
+            projection,
             center,
             dimensions.corner_arc_radius,
             start,
@@ -780,10 +677,7 @@ fn draw_projected_corner_arcs(
 
 fn draw_projected_segment(
     painter: &egui::Painter,
-    image_rect: Rect,
-    image_size: Vec2,
-    field_to_camera: &Isometry3<Field, Camera>,
-    intrinsics: Intrinsic,
+    projection: ProjectionContext<'_>,
     start: [f32; 2],
     end: [f32; 2],
 ) {
@@ -795,24 +689,13 @@ fn draw_projected_segment(
     for index in 0..=samples {
         let t = index as f32 / samples as f32;
         let point = [start[0] + delta[0] * t, start[1] + delta[1] * t];
-        draw_projected_point_step(
-            painter,
-            image_rect,
-            image_size,
-            field_to_camera,
-            intrinsics,
-            point,
-            &mut previous,
-        );
+        draw_projected_point_step(painter, projection, point, &mut previous);
     }
 }
 
 fn draw_projected_arc(
     painter: &egui::Painter,
-    image_rect: Rect,
-    image_size: Vec2,
-    field_to_camera: &Isometry3<Field, Camera>,
-    intrinsics: Intrinsic,
+    projection: ProjectionContext<'_>,
     center: [f32; 2],
     radius: f32,
     start: f32,
@@ -832,10 +715,7 @@ fn draw_projected_arc(
         let end_angle = start + (end - start) * (index + 1) as f32 / samples as f32;
         draw_projected_arc_segment(
             painter,
-            image_rect,
-            image_size,
-            field_to_camera,
-            intrinsics,
+            projection,
             center,
             radius,
             start_angle,
@@ -847,10 +727,7 @@ fn draw_projected_arc(
 
 fn draw_projected_arc_segment(
     painter: &egui::Painter,
-    image_rect: Rect,
-    image_size: Vec2,
-    field_to_camera: &Isometry3<Field, Camera>,
-    intrinsics: Intrinsic,
+    projection: ProjectionContext<'_>,
     center: [f32; 2],
     radius: f32,
     start: f32,
@@ -858,33 +735,9 @@ fn draw_projected_arc_segment(
     depth: u8,
 ) {
     let middle = 0.5 * (start + end);
-    let start_position = project_arc_point_to_image(
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
-        center,
-        radius,
-        start,
-    );
-    let middle_position = project_arc_point_to_image(
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
-        center,
-        radius,
-        middle,
-    );
-    let end_position = project_arc_point_to_image(
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
-        center,
-        radius,
-        end,
-    );
+    let start_position = project_arc_point_to_image(projection, center, radius, start);
+    let middle_position = project_arc_point_to_image(projection, center, radius, middle);
+    let end_position = project_arc_point_to_image(projection, center, radius, end);
 
     if let (Some(start_position), Some(middle_position), Some(end_position)) =
         (start_position, middle_position, end_position)
@@ -900,44 +753,24 @@ fn draw_projected_arc_segment(
 
     draw_projected_arc_segment(
         painter,
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
+        projection,
         center,
         radius,
         start,
         middle,
         depth + 1,
     );
-    draw_projected_arc_segment(
-        painter,
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
-        center,
-        radius,
-        middle,
-        end,
-        depth + 1,
-    );
+    draw_projected_arc_segment(painter, projection, center, radius, middle, end, depth + 1);
 }
 
 fn project_arc_point_to_image(
-    image_rect: Rect,
-    image_size: Vec2,
-    field_to_camera: &Isometry3<Field, Camera>,
-    intrinsics: Intrinsic,
+    projection: ProjectionContext<'_>,
     center: [f32; 2],
     radius: f32,
     angle: f32,
 ) -> Option<Pos2> {
     project_field_point_to_image(
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
+        projection,
         [
             center[0] + radius * angle.cos(),
             center[1] + radius * angle.sin(),
@@ -958,14 +791,11 @@ fn distance_to_segment(point: Pos2, start: Pos2, end: Pos2) -> f32 {
 
 fn draw_projected_point_step(
     painter: &egui::Painter,
-    image_rect: Rect,
-    image_size: Vec2,
-    field_to_camera: &Isometry3<Field, Camera>,
-    intrinsics: Intrinsic,
+    projection: ProjectionContext<'_>,
     point: [f32; 2],
     previous: &mut Option<Pos2>,
 ) {
-    match project_field_point_to_image(image_rect, image_size, field_to_camera, intrinsics, point) {
+    match project_field_point_to_image(projection, point) {
         Some(position) => {
             if let Some(previous) = previous {
                 painter.line_segment([*previous, position], PROJECTED_FIELD_LINE_STROKE);
@@ -977,44 +807,32 @@ fn draw_projected_point_step(
 }
 
 fn project_field_point_to_image(
-    image_rect: Rect,
-    image_size: Vec2,
-    field_to_camera: &Isometry3<Field, Camera>,
-    intrinsics: Intrinsic,
+    projection: ProjectionContext<'_>,
     field_point: [f32; 2],
 ) -> Option<Pos2> {
     let point: Point2<Field> = point![<Field>, field_point[0], field_point[1]];
-    project_field_point3_to_image(
-        image_rect,
-        image_size,
-        field_to_camera,
-        intrinsics,
-        point.extend(0.0),
-    )
+    project_field_point3_to_image(projection, point.extend(0.0))
 }
 
 fn project_field_point3_to_image(
-    image_rect: Rect,
-    image_size: Vec2,
-    field_to_camera: &Isometry3<Field, Camera>,
-    intrinsics: Intrinsic,
+    projection: ProjectionContext<'_>,
     field_point: Point3<Field>,
 ) -> Option<Pos2> {
-    let camera_point = field_to_camera * field_point;
+    let camera_point = projection.field_to_camera * field_point;
     if !camera_point.inner.iter().all(|value| value.is_finite()) || camera_point.z() <= 1.0e-4 {
         return None;
     }
 
-    let pixel = intrinsics.project(camera_point.coords());
+    let pixel = projection.intrinsics.project(camera_point.coords());
     if !pixel.inner.iter().all(|value| value.is_finite()) {
         return None;
     }
 
     let scale = vec2(
-        image_rect.width() / image_size.x.max(1.0),
-        image_rect.height() / image_size.y.max(1.0),
+        projection.image_rect.width() / projection.image_size.x.max(1.0),
+        projection.image_rect.height() / projection.image_size.y.max(1.0),
     );
-    Some(image_rect.min + vec2(pixel.x() * scale.x, pixel.y() * scale.y))
+    Some(projection.image_rect.min + vec2(pixel.x() * scale.x, pixel.y() * scale.y))
 }
 
 fn object_label_color(label: RobocupObjectLabel) -> Color32 {

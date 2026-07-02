@@ -4,7 +4,6 @@ use std::{
 };
 
 use coordinate_systems::{Field, Robot};
-use field_mark_association::FieldMarkAssociations;
 use kinematics::robot_kinematics::RobotKinematics;
 use linear_algebra::Isometry3;
 use projection::{camera_matrix::CameraMatrix, intrinsic::Intrinsic};
@@ -13,6 +12,7 @@ use types::{
     field_dimensions::FieldDimensions,
     object_detection::{Object, RobocupObjectLabel},
     time_wrapper::TimeWrapper,
+    visual_localization::VisualLocalizationFrame as FieldMarkAssociations,
 };
 
 mod alignment;

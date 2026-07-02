@@ -1,4 +1,4 @@
-use super::*;
+use super::prelude::*;
 
 pub(super) fn optimistic_seed_score_fast(problem: &Problem, transform: Similarity2<f32>) -> f32 {
     let mut total = -problem.high_confidence_unmatched_penalty;

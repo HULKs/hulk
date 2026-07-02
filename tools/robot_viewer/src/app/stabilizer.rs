@@ -53,9 +53,7 @@ fn stabilize_sample<T>(
             Some(sample)
         }
         (None, Some(anchor_time)) => {
-            let Some(last) = stabilized.as_ref() else {
-                return None;
-            };
+            let last = stabilized.as_ref()?;
             if anchor_time.abs_diff(last.anchor_time) <= RENDER_SAMPLE_GRACE {
                 Some(last.sample.clone())
             } else {

@@ -1,12 +1,10 @@
-use super::*;
+use super::prelude::*;
 
 pub(super) fn cheap_triplet_seeds(problem: &Problem) -> CheapSeedSearch {
     let mut search = CheapSeedSearch {
         candidates: Vec::new(),
         truncated: false,
     };
-    let mut lookup_hits = 0;
-    let mut bin_probes = 0;
     let mut transform_cells: HashMap<TransformCellKey, TransformCell> = HashMap::new();
 
     let DetectionTriplets {
@@ -18,54 +16,11 @@ pub(super) fn cheap_triplet_seeds(problem: &Problem) -> CheapSeedSearch {
     }
     triplets.sort_by(compare_detection_triplet_priority);
 
-    'triplets: for triplet in triplets {
-        let min_distance = problem.cfg.height_min * triplet.distance;
-        let max_distance = problem.cfg.height_max * triplet.distance;
-        let alpha_bin = triplet_bin(triplet.alpha);
-        let beta_bin = triplet_bin(triplet.beta);
-
-        for alpha_offset in -TRIPLET_BIN_RADIUS..=TRIPLET_BIN_RADIUS {
-            for beta_offset in -TRIPLET_BIN_RADIUS..=TRIPLET_BIN_RADIUS {
-                let key = MapTripletBin {
-                    classes: [
-                        problem.detections[triplet.a].class,
-                        problem.detections[triplet.b].class,
-                        problem.detections[triplet.c].class,
-                    ],
-                    alpha_bin: alpha_bin.saturating_add(alpha_offset),
-                    beta_bin: beta_bin.saturating_add(beta_offset),
-                };
-                bin_probes += 1;
-                if bin_probes > MAX_TRIPLET_BIN_PROBES {
-                    search.truncated = true;
-                    break 'triplets;
-                }
-                let Some(map_triplets) = problem.map.map_triplets_by_bin.get(&key) else {
-                    continue;
-                };
-                for map_triplet in map_triplets {
-                    if map_triplet.pair_dist < min_distance
-                        || map_triplet.pair_dist > max_distance
-                        || (map_triplet.alpha - triplet.alpha).abs() > TRIPLET_DESCRIPTOR_TOLERANCE
-                        || (map_triplet.beta - triplet.beta).abs() > TRIPLET_DESCRIPTOR_TOLERANCE
-                    {
-                        continue;
-                    }
-                    lookup_hits += 1;
-                    if lookup_hits > MAX_TRIPLET_LOOKUP_HITS {
-                        search.truncated = true;
-                        break 'triplets;
-                    }
-                    let transform = similarity_from_triplet(problem, &triplet, map_triplet);
-                    record_transform_cell(
-                        &mut transform_cells,
-                        transform,
-                        triplet.priority
-                            - (map_triplet.alpha - triplet.alpha).abs()
-                            - (map_triplet.beta - triplet.beta).abs(),
-                    );
-                }
-            }
+    let mut limits = TripletSeedLimits::default();
+    for triplet in triplets {
+        if !probe_triplet_seed_bins(problem, &triplet, &mut transform_cells, &mut limits) {
+            search.truncated = true;
+            break;
         }
     }
 
@@ -84,6 +39,111 @@ pub(super) fn cheap_triplet_seeds(problem: &Problem) -> CheapSeedSearch {
     retain_best_cheap_candidates(&mut search, &problem.map);
 
     search
+}
+
+#[derive(Default)]
+struct TripletSeedLimits {
+    lookup_hits: usize,
+    bin_probes: usize,
+}
+
+impl TripletSeedLimits {
+    fn record_bin_probe(&mut self) -> bool {
+        self.bin_probes += 1;
+        self.bin_probes <= MAX_TRIPLET_BIN_PROBES
+    }
+
+    fn record_lookup_hit(&mut self) -> bool {
+        self.lookup_hits += 1;
+        self.lookup_hits <= MAX_TRIPLET_LOOKUP_HITS
+    }
+}
+
+fn probe_triplet_seed_bins(
+    problem: &Problem,
+    triplet: &DetectionTriplet,
+    transform_cells: &mut HashMap<TransformCellKey, TransformCell>,
+    limits: &mut TripletSeedLimits,
+) -> bool {
+    let min_distance = problem.cfg.height_min * triplet.distance;
+    let max_distance = problem.cfg.height_max * triplet.distance;
+    let alpha_bin = triplet_bin(triplet.alpha);
+    let beta_bin = triplet_bin(triplet.beta);
+
+    for alpha_offset in -TRIPLET_BIN_RADIUS..=TRIPLET_BIN_RADIUS {
+        for beta_offset in -TRIPLET_BIN_RADIUS..=TRIPLET_BIN_RADIUS {
+            if !limits.record_bin_probe() {
+                return false;
+            }
+            let key = MapTripletBin {
+                classes: [
+                    problem.detections[triplet.a].class,
+                    problem.detections[triplet.b].class,
+                    problem.detections[triplet.c].class,
+                ],
+                alpha_bin: alpha_bin.saturating_add(alpha_offset),
+                beta_bin: beta_bin.saturating_add(beta_offset),
+            };
+            let Some(map_triplets) = problem.map.map_triplets_by_bin.get(&key) else {
+                continue;
+            };
+            if !record_matching_map_triplets(
+                problem,
+                triplet,
+                map_triplets,
+                min_distance,
+                max_distance,
+                transform_cells,
+                limits,
+            ) {
+                return false;
+            }
+        }
+    }
+
+    true
+}
+
+fn record_matching_map_triplets(
+    problem: &Problem,
+    triplet: &DetectionTriplet,
+    map_triplets: &[MapTriplet],
+    min_distance: f32,
+    max_distance: f32,
+    transform_cells: &mut HashMap<TransformCellKey, TransformCell>,
+    limits: &mut TripletSeedLimits,
+) -> bool {
+    for map_triplet in map_triplets {
+        if !map_triplet_matches_detection_triplet(map_triplet, triplet, min_distance, max_distance)
+        {
+            continue;
+        }
+        if !limits.record_lookup_hit() {
+            return false;
+        }
+        let transform = similarity_from_triplet(problem, triplet, map_triplet);
+        record_transform_cell(
+            transform_cells,
+            transform,
+            triplet.priority
+                - (map_triplet.alpha - triplet.alpha).abs()
+                - (map_triplet.beta - triplet.beta).abs(),
+        );
+    }
+
+    true
+}
+
+fn map_triplet_matches_detection_triplet(
+    map_triplet: &MapTriplet,
+    triplet: &DetectionTriplet,
+    min_distance: f32,
+    max_distance: f32,
+) -> bool {
+    map_triplet.pair_dist >= min_distance
+        && map_triplet.pair_dist <= max_distance
+        && (map_triplet.alpha - triplet.alpha).abs() <= TRIPLET_DESCRIPTOR_TOLERANCE
+        && (map_triplet.beta - triplet.beta).abs() <= TRIPLET_DESCRIPTOR_TOLERANCE
 }
 
 fn detection_triplets(problem: &Problem) -> DetectionTriplets {

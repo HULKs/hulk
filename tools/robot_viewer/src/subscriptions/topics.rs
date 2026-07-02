@@ -12,7 +12,8 @@ pub(super) const CALIBRATED_INTRINSICS_TOPIC: &str = "debug/calibrated_intrinsic
 // Detections are an announced stream: replays/simulators must provide both this base topic and
 // `{DETECTED_OBJECTS_TOPIC}/announce` so the viewer can recover the original image timestamp.
 pub(super) const DETECTED_OBJECTS_TOPIC: &str = "detected_objects";
-pub(super) const FIELD_MARK_ASSOCIATIONS_TOPIC: &str = "field_mark_association/associations";
+pub(super) const FIELD_MARK_ASSOCIATIONS_TOPIC: &str =
+    types::visual_localization::VISUAL_LOCALIZATION_TOPIC;
 
 pub(super) const DETECTED_OBJECTS_SAFETY_LAG: Duration = Duration::from_millis(50);
 pub(super) const DEBUG_REFRESH_INTERVAL: Duration = Duration::from_millis(33);

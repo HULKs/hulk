@@ -6,7 +6,6 @@ use std::{
 
 use color_eyre::Result;
 use coordinate_systems::{Field, Robot};
-use field_mark_association::FieldMarkAssociations;
 use kinematics::robot_kinematics::RobotKinematics;
 use linear_algebra::Isometry3;
 use projection::{camera_matrix::CameraMatrix, intrinsic::Intrinsic};
@@ -16,7 +15,9 @@ use ros_z_debug::{
     TopicObservationStatus, TopicObserver,
 };
 use types::{
-    field_dimensions::FieldDimensions, time_wrapper::TimeWrapper, visual_odometry::VisualOdometer,
+    field_dimensions::FieldDimensions, time_wrapper::TimeWrapper,
+    visual_localization::VisualLocalizationFrame as FieldMarkAssociations,
+    visual_odometry::VisualOdometer,
 };
 
 use crate::state::{StreamStatus, ViewerState};
@@ -87,7 +88,7 @@ impl DebugSubscriptions {
 
     pub(super) fn refresh(&mut self, state: &mut ViewerState) {
         if let Some(record) = self.field_dimensions.latest() {
-            state.field_dimensions = Some(record.value.clone());
+            state.field_dimensions = Some(record.value);
         }
         update_debug_status(
             &mut state.field_status,
@@ -96,7 +97,7 @@ impl DebugSubscriptions {
         );
 
         if let Some(record) = self.localization.latest() {
-            state.localization = record.value.clone();
+            state.localization = record.value;
         }
         update_debug_status(
             &mut state.localization_status,
@@ -132,7 +133,7 @@ impl DebugSubscriptions {
         );
 
         if let Some(record) = self.calibrated_intrinsics.latest() {
-            state.calibrated_intrinsics = Some(record.value.clone());
+            state.calibrated_intrinsics = Some(record.value);
         }
         update_debug_status(
             &mut state.calibrated_intrinsics_status,

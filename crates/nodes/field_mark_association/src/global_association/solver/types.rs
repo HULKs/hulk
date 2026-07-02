@@ -1,4 +1,4 @@
-use super::*;
+use super::prelude::*;
 
 pub(super) const HORIZON_EPSILON: f32 = 1.0e-4;
 pub(super) const MAX_DETECTIONS: usize = GLOBAL_LOCALIZER_MAX_DETECTIONS;
@@ -46,9 +46,6 @@ pub(crate) struct GlobalLocalizationInput<'a> {
 #[derive(Clone, Debug)]
 /// Association result for one global localization frame.
 pub(crate) enum GlobalLocalizationResult {
-    /// Reserved for plausible associations whose uniqueness was not certified.
-    #[allow(dead_code)]
-    Ambiguous(FeatureAssociations),
     /// The returned stable association set is unique after quotienting the unavoidable 180 degree
     /// field symmetry.
     UniqueModuloSymmetry(FeatureAssociations),
