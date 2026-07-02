@@ -128,6 +128,15 @@ impl Time {
     pub fn duration_since(self, earlier: Time) -> Duration {
         self.since_origin.saturating_sub(earlier.since_origin)
     }
+
+    /// Absolute duration between two clock-relative instants.
+    pub fn abs_diff(self, other: Time) -> Duration {
+        if self >= other {
+            self.duration_since(other)
+        } else {
+            other.duration_since(self)
+        }
+    }
 }
 
 impl From<SystemTime> for Time {
