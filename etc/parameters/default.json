@@ -552,9 +552,19 @@
         "secs": 1
       },
       "remaining_amount_of_messages_to_stop_sending": 20,
-      "silence_interval_between_messages": {
+      "message_budget": 1200,
+      "half_duration": {
         "nanos": 0,
-        "secs": 1
+        "secs": 600
+      },
+      "max_time_since_last_message": {
+        "nanos": 0,
+        "secs": 2
+      },
+      "max_message_difference_scale": 0.3,
+      "silence_interval_between_messages": {
+        "nanos": 500000000,
+        "secs": 0
       },
       "hsl_striker_message_receive_timeout": {
         "nanos": 0,
@@ -562,7 +572,7 @@
       },
       "hsl_state_message_send_interval": {
         "nanos": 0,
-        "secs": 2
+        "secs": 1
       }
     }
   },

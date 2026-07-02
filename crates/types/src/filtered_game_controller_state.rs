@@ -1,6 +1,6 @@
 use std::{collections::HashMap, time::Duration};
 
-use hsl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
+use hsl_network_messages::{GamePhase, Half, Penalty, PlayerNumber, SubState, Team};
 use path_serde::{PathIntrospect, PathSerialize};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
@@ -15,6 +15,7 @@ use crate::{
 pub struct FilteredGameControllerState {
     pub game_state: FilteredGameState,
     pub opponent_game_state: FilteredGameState,
+    pub half: Half,
     pub remaining_time_in_half: Duration,
     pub game_phase: GamePhase,
     pub kicking_team: Option<Team>,
@@ -32,6 +33,7 @@ impl Default for FilteredGameControllerState {
         Self {
             game_state: Default::default(),
             opponent_game_state: Default::default(),
+            half: Half::Second,
             remaining_time_in_half: Duration::ZERO,
             game_phase: Default::default(),
             kicking_team: Default::default(),

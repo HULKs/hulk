@@ -111,7 +111,9 @@ impl Default for BehaviorTreeSimulatorPlugin {
             config: SimulationConfig::default(),
             auto_referee_config: AutoRefereeConfig::default(),
             field_dimensions: FieldDimensions::SPL_2025,
-            hsl_network_parameters: HslNetworkParameters::default(),
+            hsl_network_parameters: default_behavior_parameters()
+                .expect("failed to load default behavior parameters")
+                .hsl_network,
             tick_duration: DEFAULT_TICK_DURATION,
             enable_default_ball_physics: true,
             enable_default_kinematics: true,
@@ -479,6 +481,20 @@ mod tests {
                 .expect("filtered game state should exist")
                 .remaining_number_of_messages,
             7
+        );
+
+        let default_parameters =
+            default_behavior_parameters().expect("failed to load behavior parameters");
+        let hsl_network_parameters = app.world().resource::<SimulatorHslNetworkParameters>();
+        assert_eq!(
+            hsl_network_parameters.0.hsl_state_message_send_interval,
+            default_parameters
+                .hsl_network
+                .hsl_state_message_send_interval
+        );
+        assert_eq!(
+            hsl_network_parameters.0.message_budget,
+            default_parameters.hsl_network.message_budget
         );
     }
 
