@@ -165,13 +165,16 @@ impl Panel for ImagePanel {
                             size,
                         };
                         let response = ui.add(eframe::egui::Image::new(texture).shrink_to_fit());
-                        if let Some(dimensions) = observed.render_cache.dimensions() {
+                        if let (Some(dimensions), Some(image_time)) = (
+                            observed.render_cache.dimensions(),
+                            observed.render_cache.image_time(),
+                        ) {
                             let painter = ImageOverlayPainter::new(
                                 ui.painter_at(response.rect),
                                 response.rect,
                                 dimensions,
                             );
-                            self.overlays.paint(&painter);
+                            self.overlays.paint(&painter, image_time);
                         }
                     }
                 }
@@ -328,6 +331,10 @@ impl RenderedImageCache {
 
     fn dimensions(&self) -> Option<[usize; 2]> {
         self.dimensions
+    }
+
+    fn image_time(&self) -> Option<Time> {
+        self.sample.as_ref().map(|record| record.value.time)
     }
 
     fn error(&self) -> Option<&str> {

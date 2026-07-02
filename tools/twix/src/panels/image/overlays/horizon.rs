@@ -2,6 +2,7 @@ use color_eyre::Report;
 use eframe::egui::{Color32, Stroke};
 use linear_algebra::point;
 use projection::camera_matrix::CameraMatrix;
+use ros_z::time::Time;
 use types::time_wrapper::TimeWrapper;
 
 use crate::repaint::ObservationContext;
@@ -25,8 +26,8 @@ impl ImageOverlay for HorizonOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter) {
-        let Some(camera_matrix) = self.camera_matrix.latest() else {
+    fn paint(&self, painter: &ImageOverlayPainter, image_time: Time) {
+        let Some(camera_matrix) = self.camera_matrix.at_time(image_time) else {
             return;
         };
         let Some(horizon) = camera_matrix.value.inner.horizon else {

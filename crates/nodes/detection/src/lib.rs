@@ -18,6 +18,7 @@ use types::{
     object_detection::{NUMBER_OF_VALUES_PER_OBJECT, Object, RobocupObjectLabel, YOLOObjectLabel},
     parameters::DetectionParameters,
     pose_detection::{NUMBER_OF_VALUES_PER_POSE, Pose},
+    time_wrapper::TimeWrapper,
 };
 
 pub const NUMBER_OF_DETECTIONS: usize = 300;
@@ -85,10 +86,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let detected_objects_pub = node
-        .announcing_publisher::<Vec<Object<RobocupObjectLabel>>>("detected_objects")
+        .announcing_publisher::<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>("detected_objects")
         .await?;
     let detected_poses_pub = node
-        .announcing_publisher::<Vec<Pose<YOLOObjectLabel>>>("detected_poses")
+        .announcing_publisher::<TimeWrapper<Vec<Pose<YOLOObjectLabel>>>>("detected_poses")
         .await?;
 
     let initial_parameters_snapshot = node_parameters.snapshot();
@@ -126,12 +127,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         }
 
-        let detected_objects_pending = detected_objects_pub
-            .announce(image.header.stamp.into())
-            .await?;
-        let detected_poses_pending = detected_poses_pub
-            .announce(image.header.stamp.into())
-            .await?;
+        let image_time = image.header.stamp.into();
+        let detected_objects_pending = detected_objects_pub.announce(image_time).await?;
+        let detected_poses_pending = detected_poses_pub.announce(image_time).await?;
 
         check_image(&image)?;
 
@@ -198,10 +196,16 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .await?;
 
         detected_objects_pending
-            .publish(&output.detected_objects)
+            .publish(&TimeWrapper {
+                time: image_time,
+                inner: output.detected_objects,
+            })
             .await?;
         detected_poses_pending
-            .publish(&output.detected_poses)
+            .publish(&TimeWrapper {
+                time: image_time,
+                inner: output.detected_poses,
+            })
             .await?;
     }
 }

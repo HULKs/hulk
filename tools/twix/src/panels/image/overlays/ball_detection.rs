@@ -2,6 +2,7 @@ use color_eyre::Report;
 use coordinate_systems::Pixel;
 use eframe::egui::{Color32, Stroke};
 use geometry::circle::Circle;
+use ros_z::time::Time;
 
 use crate::repaint::ObservationContext;
 
@@ -27,7 +28,7 @@ impl ImageOverlay for BallDetectionOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter) {
+    fn paint(&self, painter: &ImageOverlayPainter, _image_time: Time) {
         let Some(filtered_balls) = self.filtered_balls.latest() else {
             return;
         };

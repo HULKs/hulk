@@ -124,12 +124,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let mut detections = node
         .create_future_map_builder()
-        .create_future_subscriber::<Vec<Object<RobocupObjectLabel>>>(
+        .create_future_subscriber::<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>(
             "detected_objects",
             Duration::from_millis(50),
         )
         .await?
-        .create_future_subscriber::<Vec<Pose<YOLOObjectLabel>>>(
+        .create_future_subscriber::<TimeWrapper<Vec<Pose<YOLOObjectLabel>>>>(
             "detected_poses",
             Duration::from_millis(50),
         )
@@ -157,8 +157,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     };
                     let mut outputs = Vec::new();
                     for (detection_time, (detected_objects, detected_poses)) in item.persistent {
-                        let detected_objects = detected_objects.unwrap_or_default();
-                        let detected_poses = detected_poses.unwrap_or_default();
+                        let detected_objects = detected_objects
+                            .map(|detected_objects| detected_objects.inner)
+                            .unwrap_or_default();
+                        let detected_poses = detected_poses
+                            .map(|detected_poses| detected_poses.inner)
+                            .unwrap_or_default();
                         let camera_matrix = camera_matrix_cache.get_nearest(detection_time);
                         let current_odometry_to_last_odometry =
                             current_odometry_to_last_odometry_cache.get_nearest(detection_time);

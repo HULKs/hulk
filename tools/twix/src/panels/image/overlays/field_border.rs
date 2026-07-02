@@ -2,6 +2,7 @@ use color_eyre::Report;
 use coordinate_systems::Pixel;
 use eframe::egui::{Color32, Stroke};
 use linear_algebra::Point2;
+use ros_z::time::Time;
 use types::{field_border::FieldBorder as FieldBorderData, time_wrapper::TimeWrapper};
 
 use crate::repaint::ObservationContext;
@@ -27,7 +28,7 @@ impl ImageOverlay for FieldBorderOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter) {
+    fn paint(&self, painter: &ImageOverlayPainter, _image_time: Time) {
         let Some(candidates) = self.candidates.latest() else {
             return;
         };
