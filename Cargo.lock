@@ -9942,6 +9942,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "search_heatmap"
+version = "0.1.0"
+dependencies = [
+ "coordinate_systems",
+ "geometry",
+ "hsl_network_messages",
+ "itertools 0.14.0",
+ "linear_algebra",
+ "nalgebra",
+ "ndarray",
+ "ros-z",
+ "serde",
+ "types",
+ "voronoi",
+]
+
+[[package]]
 name = "search_suggestor"
 version = "0.1.0"
 dependencies = [
