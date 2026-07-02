@@ -12,7 +12,8 @@
     is_simple: false,
   },
   ball: {
-    last_ball_timeout: { nanos: 250000000, secs: 0 },
+    last_ball_timeout: { nanos: 500000000, secs: 0 },
+    team_ball_timeout: { nanos: 0, secs: 1 },
     interception: {
       maximum_ball_distance: 4.0,
       minimum_ball_velocity: 1.0,
