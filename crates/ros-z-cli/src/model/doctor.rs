@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use ros_z::{
     entity::{EndpointEntity, EndpointKind},
-    graph::{Graph, GraphData, GraphRevision},
+    graph::{Graph, GraphRevision, GraphView},
     qos::{QosCompatibility, QosProfile},
 };
 use serde::Serialize;
@@ -95,22 +95,11 @@ impl DoctorReport {
     }
 
     pub fn from_graph(graph: &Graph) -> Self {
-        let data = graph.lock().clone();
-        Self::from_graph_data(&data)
-    }
+        let (revision, endpoints) = {
+            let view = graph.view();
+            doctor_endpoint_snapshot(&view)
+        };
 
-    pub fn from_graph_data(data: &GraphData) -> Self {
-        let revision = data.revision();
-        let endpoints = data
-            .endpoints()
-            .filter(|endpoint| {
-                matches!(
-                    endpoint.kind,
-                    EndpointKind::Publisher | EndpointKind::Subscription
-                )
-            })
-            .cloned()
-            .collect();
         Self::from_endpoints(revision, endpoints)
     }
 
@@ -144,6 +133,22 @@ impl DoctorReport {
 struct TopicEndpoints {
     publishers: Vec<EndpointEntity>,
     subscribers: Vec<EndpointEntity>,
+}
+
+fn doctor_endpoint_snapshot(view: &GraphView<'_>) -> (GraphRevision, Vec<EndpointEntity>) {
+    let revision = view.revision();
+    let endpoints = view
+        .endpoints()
+        .filter(|endpoint| {
+            matches!(
+                endpoint.kind,
+                EndpointKind::Publisher | EndpointKind::Subscription
+            )
+        })
+        .cloned()
+        .collect();
+
+    (revision, endpoints)
 }
 
 fn collect_dangling_topic_findings(

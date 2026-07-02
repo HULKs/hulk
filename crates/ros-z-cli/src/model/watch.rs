@@ -1,13 +1,11 @@
-use ros_z::graph::GraphRevision;
+use ros_z::graph::{GraphRevision, GraphSnapshot};
 use serde::Serialize;
-
-use crate::model::graph::GraphSummary;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum WatchEvent {
     InitialState {
-        snapshot: GraphSummary,
+        snapshot: GraphSnapshot,
     },
     TopicDiscovered {
         revision: GraphRevision,

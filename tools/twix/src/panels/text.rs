@@ -8,7 +8,6 @@ use ros_z_debug::{DynamicTopicObservation, SampleRecord, TopicObservationStatus}
 use serde_json::{Value, json};
 
 use crate::{
-    graph::publisher_topic_completions,
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
     status::format_topic_observation_status,
@@ -81,11 +80,7 @@ impl Panel for TextPanel {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 ui.label("Topic");
-                let namespace = context.backend.namespace();
-                let completions = {
-                    let graph = context.backend.graph().lock();
-                    publisher_topic_completions(graph.publishers(), &namespace, &self.topic_editor)
-                };
+                let completions = Vec::<String>::new();
                 let response = ui.add(CompletionEdit::new(
                     ui.id().with("topic"),
                     &completions,
@@ -321,7 +316,7 @@ fn format_publication_id(publication_id: PublicationId) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{sync::Arc, time::Duration};
 
     use eframe::egui::Context;
     use ros_z::{EndpointGlobalId, pubsub::Received, time::Time};
@@ -403,15 +398,18 @@ mod tests {
             .enable_all()
             .build()
             .expect("runtime should build");
-        let backend = Arc::new(
-            runtime
-                .block_on(RobotBackend::new(
-                    runtime.handle().clone(),
-                    None,
-                    "/".to_string(),
-                ))
-                .expect("backend should build"),
-        );
+        let backend = {
+            let _runtime_guard = runtime.enter();
+            Arc::new(
+                runtime
+                    .block_on(tokio::time::timeout(
+                        Duration::from_secs(5),
+                        RobotBackend::new(runtime.handle().clone(), Vec::new(), "/".to_string()),
+                    ))
+                    .expect("backend startup should not time out")
+                    .expect("backend should build"),
+            )
+        };
         let saved = json!({
             "topic": "/output/text",
             "pretty": true,

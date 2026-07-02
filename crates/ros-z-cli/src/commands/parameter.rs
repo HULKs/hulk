@@ -217,11 +217,10 @@ async fn resolve_client(
     selector: &str,
 ) -> Result<(String, RemoteParameterClient)> {
     app.wait_for_graph_settle().await;
-    app.wait_for_graph_condition(|data| can_resolve_parameter_node_fqn(data, selector))
+    app.wait_for_graph_condition(|graph| can_resolve_parameter_node_fqn(graph, selector))
         .await;
-    let data = app.graph_data();
-    let node_fqn = resolve_parameter_node_fqn(&data, selector)?;
-    verify_parameter_capability(&data, &node_fqn)?;
+    let node_fqn = resolve_parameter_node_fqn(app.graph(), selector)?;
+    verify_parameter_capability(app.graph(), &node_fqn)?;
     let client = app.parameter_client(&node_fqn)?;
     Ok((node_fqn, client))
 }
