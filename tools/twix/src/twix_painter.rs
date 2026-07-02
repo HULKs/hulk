@@ -46,6 +46,10 @@ impl Orientation {
     }
 }
 
+// TODO(rmburg):
+// there are some unused methods in here that I didn't want to delete
+// since they might be useful in the future.
+#[expect(unused)]
 impl<World> TwixPainter<World> {
     pub fn allocate(
         ui: &mut Ui,

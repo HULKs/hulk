@@ -11,6 +11,10 @@ pub struct ZoomAndPanTransform {
     pub transformation: Transform<Screen, Screen, Similarity2<f32>>,
 }
 
+// TODO(rmburg):
+// there are some unused methods in here that I didn't want to delete
+// since they might be useful in the future.
+#[expect(unused)]
 impl ZoomAndPanTransform {
     pub fn centering_transform(
         &self,

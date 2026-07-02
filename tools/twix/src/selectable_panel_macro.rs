@@ -1,6 +1,7 @@
 #[macro_export]
 macro_rules! impl_selectable_panel {
     ($($name:ident),* $(,)?) => {
+        #[allow(clippy::large_enum_variant)]
         pub enum SelectablePanel {
             $(
                 $name($name),
