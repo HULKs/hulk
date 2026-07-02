@@ -50,7 +50,7 @@ pub enum QueueOverflowReporting {
     Silent,
     /// Emit a debug log message for each local queue overflow.
     Debug,
-    /// Emit a warning log message for each local queue overflow.
+    /// Emit a warning log message for each local queue overflow. This is the default reporting mode.
     #[default]
     Warn,
 }
