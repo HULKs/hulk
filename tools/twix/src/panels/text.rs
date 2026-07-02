@@ -3,12 +3,13 @@ use std::sync::Arc;
 use color_eyre::{Report, eyre::Context as _};
 use eframe::egui::{TextEdit, Ui};
 use hulk_widgets::CompletionEdit;
+use ros_z::entity::EndpointKind;
 use ros_z::{dynamic::DynamicPayload, pubsub::PublicationId, time::Time};
 use ros_z_debug::{DynamicTopicObservation, SampleRecord, TopicObservationStatus};
 use serde_json::{Value, json};
 
 use crate::{
-    graph::publisher_topic_completions,
+    graph::TopicCompletionQuery,
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
     status::format_topic_observation_status,
@@ -84,7 +85,9 @@ impl Panel for TextPanel {
                 let namespace = context.backend.namespace();
                 let completions = {
                     let graph = context.backend.graph().lock();
-                    publisher_topic_completions(graph.publishers(), &namespace, &self.topic_editor)
+                    TopicCompletionQuery::new(&namespace, &self.topic_editor)
+                        .endpoint_kind(EndpointKind::Publisher)
+                        .complete(graph.publishers())
                 };
                 let response = ui.add(CompletionEdit::new(
                     ui.id().with("topic"),

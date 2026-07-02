@@ -4,7 +4,7 @@ use color_eyre::{Report, eyre::Context as _};
 use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui, load::SizedTexture};
 use hulk_widgets::CompletionEdit;
 use image::RgbImage;
-use ros_z::{pubsub::PublicationId, time::Time};
+use ros_z::{Message, entity::EndpointKind, pubsub::PublicationId, time::Time};
 use ros_z_debug::{SampleRecord, TopicObservation, TopicObservationStatus};
 use ros2::sensor_msgs::image::Image as RosImage;
 use serde_json::{Value, json};
@@ -13,7 +13,7 @@ use types::time_wrapper::TimeWrapper;
 use uuid::Uuid;
 
 use crate::{
-    graph::publisher_topic_completions,
+    graph::TopicCompletionQuery,
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
     status::format_topic_observation_status,
@@ -110,7 +110,10 @@ impl Panel for ImagePanel {
                 let namespace = context.backend.namespace();
                 let completions = {
                     let graph = context.backend.graph().lock();
-                    publisher_topic_completions(graph.publishers(), &namespace, &self.topic_editor)
+                    TopicCompletionQuery::new(&namespace, &self.topic_editor)
+                        .endpoint_kind(EndpointKind::Publisher)
+                        .type_name(TimeWrapper::<RosImage>::type_name())
+                        .complete(graph.publishers())
                 };
                 let response = ui.add(CompletionEdit::new(
                     ui.id().with("image_topic"),
