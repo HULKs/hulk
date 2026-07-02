@@ -13,7 +13,7 @@ use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     primary_state::PrimaryState,
-    world_state::{BallState, LastBallState},
+    world_state::{BallSource, BallState, LastBallState},
 };
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -99,6 +99,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     ground_to_field * ball_position.position,
                     ball_position.velocity,
                     ball_position.last_seen.to_wallclock(),
+                    BallSource::Own,
                     &mut last_ball_field_side,
                 );
                 ball_state_pub.publish(&Some(ball)).await?;
@@ -120,6 +121,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     team_ball.position,
                     ground_to_field.inverse() * team_ball.velocity,
                     team_ball.last_seen.to_wallclock(),
+                    BallSource::Team,
                     &mut last_ball_field_side,
                 );
                 ball_state_pub.publish(&Some(ball)).await?;
@@ -195,6 +197,7 @@ fn compose_rule_ball_state(
                 penalty_spot_location,
                 Vector2::zeros(),
                 cycle_start_time,
+                BallSource::Own,
                 last_ball_field_side,
             ))
         }
@@ -203,6 +206,7 @@ fn compose_rule_ball_state(
             Point2::origin(),
             Vector2::zeros(),
             cycle_start_time,
+            BallSource::Own,
             last_ball_field_side,
         )),
         _ => None,
@@ -214,6 +218,7 @@ fn create_ball_state(
     ball_in_field: Point2<Field>,
     ball_in_ground_velocity: Vector2<Ground>,
     last_seen_ball: SystemTime,
+    source: BallSource,
     last_ball_field_side: &mut Side,
 ) -> BallState {
     let was_in_left_half = *last_ball_field_side == Side::Left;
@@ -232,5 +237,6 @@ fn create_ball_state(
         ball_in_ground_velocity,
         last_seen_ball,
         field_side,
+        source,
     }
 }

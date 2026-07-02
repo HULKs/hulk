@@ -404,8 +404,12 @@
       }
     },
     "last_ball_timeout": {
-      "nanos": 250000000,
+      "nanos": 500000000,
       "secs": 0
+    },
+    "team_ball_timeout": {
+      "nanos": 0,
+      "secs": 1
     },
     "walk_with_velocity": {
       "max_velocity": 1.0,
@@ -1086,7 +1090,7 @@
       "start": 0.0,
       "end": 3.0
     },
-    "tile_switch_hysteresis": 0.5
+    "tile_switch_hysteresis": 0.4
   },
   "rule_obstacles": {
     "center_circle_obstacle_radius_increase": 0.2,

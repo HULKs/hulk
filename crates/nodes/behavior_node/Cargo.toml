@@ -13,6 +13,7 @@ coordinate_systems = { workspace = true }
 filtering = { workspace = true }
 geometry = { workspace = true }
 hsl_network_messages = { workspace = true }
+kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
