@@ -188,3 +188,15 @@ pub fn hulks_is_kicking_team(blackboard: &mut Blackboard) -> bool {
         })
     )
 }
+
+pub fn is_alone(blackboard: &mut Blackboard) -> bool {
+    let own_player_number = blackboard.world_state.robot.player_number;
+
+    blackboard
+        .world_state
+        .player_states
+        .iter()
+        .all(|(player_number, player_state)| {
+            player_number == own_player_number || player_state.is_none()
+        })
+}
