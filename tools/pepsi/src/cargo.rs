@@ -46,12 +46,9 @@ lazy_static! {
             ("power-panic", "services/power-panic"),
             ("annotato", "tools/annotato"),
             ("depp", "tools/depp"),
-            ("fanta", "tools/fanta"),
             ("mio", "tools/mio"),
-            ("parameter_tester", "tools/parameter_tester"),
             ("pepsi", "tools/pepsi"),
             ("twix", "tools/twix"),
-            ("vista", "tools/vista"),
             ("widget_gallery", "tools/widget_gallery"),
             ("zenoh_bridge", "crates/zenoh_bridge"),
         ])
