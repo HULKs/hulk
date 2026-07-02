@@ -1049,9 +1049,22 @@ impl VinsBackend {
         &mut self,
         mut new_measurements: IntervalMeasurements,
     ) -> Result<(), VinsBackendError> {
-        if let Some(global_pose) = new_measurements.latest_global_pose().cloned() {
-            self.reset_to_global_pose(global_pose.clone());
-            new_measurements.retain_at_or_after(global_pose.time);
+        let latest_reset = new_measurements.latest_reset().cloned();
+        let latest_global_pose = new_measurements.latest_global_pose().cloned();
+        match (latest_reset, latest_global_pose) {
+            (Some(reset), Some(global_pose)) if reset.time >= global_pose.time => {
+                self.reset_to_initial_state(reset.initial_state, reset.time);
+                new_measurements.retain_at_or_after(reset.time);
+            }
+            (Some(_), Some(global_pose)) | (None, Some(global_pose)) => {
+                self.reset_to_global_pose(global_pose.clone());
+                new_measurements.retain_at_or_after(global_pose.time);
+            }
+            (Some(reset), None) => {
+                self.reset_to_initial_state(reset.initial_state, reset.time);
+                new_measurements.retain_at_or_after(reset.time);
+            }
+            (None, None) => {}
         }
 
         self.ingest_imu(new_measurements.imu);
@@ -1070,20 +1083,22 @@ impl VinsBackend {
             .cloned()
             .unwrap_or_else(|| self.initial_state.camera_intrinsics.clone());
         self.initial_state = InitialState::new(
-            SE23::from_rot_vel_trans(
-                global_pose.robot_to_field.rot().clone(),
-                Vector3::zeros(),
-                global_pose.robot_to_field.xyz().into_owned(),
-            ),
+            zero_velocity_pose(&global_pose.robot_to_field),
             camera_intrinsics,
         );
+
+        self.reset_to_initial_state(self.initial_state.clone(), global_pose.time);
+    }
+
+    fn reset_to_initial_state(&mut self, initial_state: InitialState, time: SystemTime) {
+        self.initial_state = initial_state;
 
         let (graph, values) = initialize_graph(&self.initial_state, &self.config);
         self.optimizer = optimizer_from_graph(&self.config, graph);
         self.values = values;
         self.interval_assigner = IntervalAssigner::new(self.config.knot_spacing);
-        let _ = self.interval_assigner.assign_interval(global_pose.time);
-        self.last_knot_time = Some(global_pose.time);
+        let _ = self.interval_assigner.assign_interval(time);
+        self.last_knot_time = Some(time);
         self.highest_initialized_interval = None;
         self.last_imu_attitude_measurement = None;
         self.latest_imu_attitude_measurement = None;
@@ -1498,7 +1513,18 @@ mod tests {
     fn global_pose(time: SystemTime, x: f64, y: f64, z: f64) -> SensorMeasurement {
         SensorMeasurement::GlobalPose(GlobalPoseMeasurement {
             time,
-            robot_to_field: SE3::from_rot_trans(SO3::identity(), Vector3::new(x, y, z)),
+            robot_to_field: SE23::from_rot_vel_trans(
+                SO3::identity(),
+                Vector3::zeros(),
+                Vector3::new(x, y, z),
+            ),
+        })
+    }
+
+    fn reset(time: SystemTime, initial_state: InitialState) -> SensorMeasurement {
+        SensorMeasurement::Reset(crate::measurements::ResetMeasurement {
+            time,
+            initial_state,
         })
     }
 
@@ -1615,8 +1641,8 @@ mod tests {
     fn foot_heights(time: SystemTime) -> SensorMeasurement {
         SensorMeasurement::FootHeights(FootHeightMeasurement {
             time,
-            left_sole_in_robot: nalgebra::Point3::new(0.0, 0.05, -0.2),
-            right_sole_in_robot: nalgebra::Point3::new(0.0, -0.05, -0.2),
+            left_sole_in_robot: linear_algebra::point![<coordinate_systems::Robot>, 0.0, 0.05, -0.2],
+            right_sole_in_robot: linear_algebra::point![<coordinate_systems::Robot>, 0.0, -0.05, -0.2],
         })
     }
 
@@ -2003,6 +2029,49 @@ mod tests {
         assert_eq!(result.time, reset_time);
         assert!((result.latest_pose.xyz() - Vector3::new(1.0, 2.0, 0.45)).norm() < 1.0e-9);
         assert!(result.latest_pose.uvw().norm() < 1.0e-9);
+        assert_eq!(visual_odometry_factor_count(&mut backend, State(0)), 0);
+    }
+
+    #[test]
+    fn reset_measurement_resets_backend_to_initial_state() {
+        let (measurement_sender, measurement_receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (result_sender, _result_receiver) = tokio::sync::watch::channel(None);
+        let mut backend = VinsBackend::new(
+            backend_configuration(),
+            InitialState::default(),
+            measurement_receiver,
+            result_sender,
+        );
+        let start = SystemTime::UNIX_EPOCH;
+        measurement_sender
+            .send(visual_odometry(
+                start,
+                start + Duration::from_millis(100),
+                3.0,
+            ))
+            .expect("visual odometry should send");
+        let _ = backend.solve_once().expect("initial solve should succeed");
+
+        let reset_time = start + Duration::from_secs(1);
+        let initial_state = InitialState::new(
+            SE23::from_rot_vel_trans(
+                SO3::identity(),
+                Vector3::zeros(),
+                Vector3::new(1.0, 2.0, 0.45),
+            ),
+            backend.initial_state.camera_intrinsics.clone(),
+        );
+        measurement_sender
+            .send(reset(reset_time, initial_state))
+            .expect("reset should send");
+
+        let result = backend
+            .solve_once()
+            .expect("reset solve should succeed")
+            .expect("reset should produce a result");
+
+        assert_eq!(result.time, reset_time);
+        assert!((result.latest_pose.xyz() - Vector3::new(1.0, 2.0, 0.45)).norm() < 1.0e-9);
         assert_eq!(visual_odometry_factor_count(&mut backend, State(0)), 0);
     }
 

@@ -24,6 +24,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     field_dimensions::FieldDimensions,
     object_detection::{Object, RobocupObjectLabel},
+    primary_state::PrimaryState,
     time_wrapper::TimeWrapper,
 };
 
@@ -191,6 +192,25 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
+    let primary_state_cache = node
+        .subscriber::<PrimaryState>("primary_state")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
+
+    let primary_state_subscriber = node
+        .subscriber::<PrimaryState>("primary_state")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await?;
+
     let mut detected_objects = node
         .create_future_map_builder()
         .create_future_subscriber::<Vec<Object<RobocupObjectLabel>>>(
@@ -217,88 +237,113 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut association_state = FieldMarkAssociationState::default();
 
     loop {
-        let item = detected_objects.recv().await?;
-        for (image_time, (objects,)) in item.persistent {
-            let Some(camera_matrix) = camera_matrix_cache.get_nearest(image_time) else {
-                continue;
-            };
-            if !camera_matrix_is_fresh(&camera_matrix, image_time) {
-                continue;
-            }
-            let Some(field_dimensions) = field_dimensions_cache.get_nearest(image_time) else {
-                continue;
-            };
-
-            let parameters = parameters.snapshot().typed().clone();
-            let objects = objects.unwrap_or_default();
-            let camera_matrix = camera_matrix.inner.clone();
-            let robot_to_camera = robot_to_camera(&camera_matrix);
-            let field_dimensions = *field_dimensions.as_ref();
-            let pose_hint = localization_cache
-                .get_nearest_with_stamp(image_time)
-                .and_then(|(stamp, localization)| {
-                    (time_distance(stamp, image_time) <= parameters.pose_hint.max_pose_age)
-                        .then(|| {
-                            localization
-                                .inner
-                                .as_ref()
-                                .map(|pose| pose.clone().inverse())
-                        })
-                        .flatten()
-                });
-            let include_debug = global_localization_publisher.has_subscribers();
-
-            let mut state = std::mem::take(&mut association_state);
-            let (state, localization) = tokio::task::spawn_blocking(move || {
-                let visual_features = find_detected_visual_features(&objects);
-                if visual_features.supported_feature_count() == 0 {
-                    return (
-                        state,
-                        GlobalVisualLocalization {
-                            debug: None,
-                            accepted_global_pose: None,
-                            associations: Vec::new(),
-                        },
-                    );
+        tokio::select! {
+            primary_state = primary_state_subscriber.recv() => {
+                if primary_state? == PrimaryState::Damping {
+                    association_state.reset_for_damping();
                 }
-
-                let localization = state.associate_visual_features_with_debug(
-                    &visual_features,
-                    &camera_matrix,
-                    &field_dimensions,
-                    pose_hint,
-                    &parameters,
-                    include_debug,
-                );
-                (state, localization)
-            })
-            .await
-            .wrap_err("field mark association task failed")?;
-            association_state = state;
-
-            let debug = localization.debug.clone();
-            global_localization_publisher
-                .publish_if_subscribed(|| ready(debug))
-                .await?;
-            if localization.accepted_global_pose.is_some() {
-                global_pose_publisher
-                    .publish(&TimeWrapper {
-                        time: image_time,
-                        inner: localization.accepted_global_pose,
-                    })
-                    .await?;
             }
+            item = detected_objects.recv() => {
+                let item = item?;
+                for (image_time, (objects,)) in item.persistent {
+                    if association_is_damping(&primary_state_cache) {
+                        association_state.reset_for_damping();
+                        continue;
+                    }
 
-            let message = TimeWrapper {
-                time: image_time,
-                inner: FieldMarkAssociations {
-                    robot_to_camera,
-                    associations: localization.associations,
-                },
-            };
-            associations_publisher.publish(&message).await?;
+                    let Some(camera_matrix) = camera_matrix_cache.get_nearest(image_time) else {
+                        continue;
+                    };
+                    if !camera_matrix_is_fresh(&camera_matrix, image_time) {
+                        continue;
+                    }
+                    let Some(field_dimensions) = field_dimensions_cache.get_nearest(image_time) else {
+                        continue;
+                    };
+
+                    let parameters = parameters.snapshot().typed().clone();
+                    let objects = objects.unwrap_or_default();
+                    let camera_matrix = camera_matrix.inner.clone();
+                    let robot_to_camera = robot_to_camera(&camera_matrix);
+                    let field_dimensions = *field_dimensions.as_ref();
+                    let pose_hint = localization_cache
+                        .get_nearest_with_stamp(image_time)
+                        .and_then(|(stamp, localization)| {
+                            (time_distance(stamp, image_time) <= parameters.pose_hint.max_pose_age)
+                                .then(|| {
+                                    localization
+                                        .inner
+                                        .as_ref()
+                                        .map(|pose| pose.clone().inverse())
+                                })
+                                .flatten()
+                        });
+                    let include_debug = global_localization_publisher.has_subscribers();
+
+                    let mut state = std::mem::take(&mut association_state);
+                    let (state, localization) = tokio::task::spawn_blocking(move || {
+                        let visual_features = find_detected_visual_features(&objects);
+                        if visual_features.supported_feature_count() == 0 {
+                            return (
+                                state,
+                                GlobalVisualLocalization {
+                                    debug: None,
+                                    accepted_global_pose: None,
+                                    associations: Vec::new(),
+                                },
+                            );
+                        }
+
+                        let localization = state.associate_visual_features_with_debug(
+                            &visual_features,
+                            &camera_matrix,
+                            &field_dimensions,
+                            pose_hint,
+                            &parameters,
+                            include_debug,
+                        );
+                        (state, localization)
+                    })
+                    .await
+                    .wrap_err("field mark association task failed")?;
+                    association_state = state;
+
+                    if association_is_damping(&primary_state_cache) {
+                        association_state.reset_for_damping();
+                        continue;
+                    }
+
+                    let debug = localization.debug.clone();
+                    global_localization_publisher
+                        .publish_if_subscribed(|| ready(debug))
+                        .await?;
+                    if localization.accepted_global_pose.is_some() {
+                        global_pose_publisher
+                            .publish(&TimeWrapper {
+                                time: image_time,
+                                inner: localization.accepted_global_pose,
+                            })
+                            .await?;
+                    }
+
+                    let message = TimeWrapper {
+                        time: image_time,
+                        inner: FieldMarkAssociations {
+                            robot_to_camera,
+                            associations: localization.associations,
+                        },
+                    };
+                    associations_publisher.publish(&message).await?;
+                }
+            }
         }
     }
+}
+
+fn association_is_damping(primary_state_cache: &ros_z::cache::Cache<PrimaryState>) -> bool {
+    primary_state_cache
+        .get_latest()
+        .is_none_or(|state| *state == PrimaryState::Damping)
 }
 
 fn camera_matrix_is_fresh(
@@ -331,6 +376,11 @@ pub fn associate_visual_features(
 }
 
 impl FieldMarkAssociationState {
+    fn reset_for_damping(&mut self) {
+        self.pending_global_recovery = None;
+        self.has_global_lock = false;
+    }
+
     /// Associates visual field features while preserving pose-hint health and global recovery state.
     pub fn associate_visual_features_with_debug(
         &mut self,
@@ -362,22 +412,22 @@ impl FieldMarkAssociationState {
             };
         }
 
-        let trusted_pose_hint = if self.has_global_lock {
+        let trusted_recovery_pose_hint = if self.has_global_lock {
             pose_hint
         } else {
             None
         };
-        let result = localizer.localize(GlobalLocalizationInput {
-            pose_hint: trusted_pose_hint,
-            ..input
-        });
+        let result = localizer.localize(GlobalLocalizationInput { pose_hint, ..input });
         let debug = if include_debug {
             result.as_ref().map(global_localization_debug_from_result)
         } else {
             None
         };
-        let accepted =
-            self.global_recovery_associations(result.as_ref(), trusted_pose_hint, parameters);
+        let accepted = self.global_recovery_associations(
+            result.as_ref(),
+            trusted_recovery_pose_hint,
+            parameters,
+        );
 
         GlobalVisualLocalization {
             debug,
@@ -860,6 +910,23 @@ mod tests {
         assert!(first.associations.is_empty());
         assert!(second.global_pose.is_none());
         assert!(second.associations.is_empty());
+    }
+
+    #[test]
+    fn damping_reset_clears_lock_and_pending_recovery() {
+        let parameters = recovery_parameters();
+        let result = unique_result(robot_to_field(2.0, 1.0, 0.2));
+        let mut state = globally_locked_state();
+        let _ = state.global_recovery_associations(
+            Some(&result),
+            Some(robot_to_field(-1.5, -1.0, 0.25)),
+            &parameters,
+        );
+
+        state.reset_for_damping();
+
+        assert!(!state.has_global_lock);
+        assert!(state.pending_global_recovery.is_none());
     }
 
     fn feature_pixels(features: &[DetectedVisualFeature]) -> Vec<Point2<Pixel>> {

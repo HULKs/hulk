@@ -1,11 +1,12 @@
 use std::time::SystemTime;
 
+use coordinate_systems::Robot;
 use factrs::{
     linalg::{ForwardProp, Numeric, VectorX},
     traits::Residual,
     variables::{MatrixLieGroup, SE23},
 };
-use nalgebra::Point3;
+use linear_algebra::Point3;
 
 use crate::{
     SE23Spline,
@@ -15,8 +16,8 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct FootHeightMeasurement {
     pub time: SystemTime,
-    pub left_sole_in_robot: Point3<f64>,
-    pub right_sole_in_robot: Point3<f64>,
+    pub left_sole_in_robot: Point3<Robot>,
+    pub right_sole_in_robot: Point3<Robot>,
 }
 
 #[derive(Debug, Clone)]
@@ -105,10 +106,15 @@ impl IntervalFootAboveGroundFactor {
 
 fn foot_residual<T: Numeric>(
     pose: &SE23<T>,
-    sole_in_robot: &Point3<f64>,
+    sole_in_robot: &Point3<Robot>,
     factor: &IntervalFootAboveGroundFactor,
 ) -> T {
-    let sole_in_field = pose.rot().apply(sole_in_robot.coords.cast::<T>().as_view()) + pose.xyz();
+    let sole_in_robot = nalgebra::Vector3::new(
+        T::from(sole_in_robot.x() as f64),
+        T::from(sole_in_robot.y() as f64),
+        T::from(sole_in_robot.z() as f64),
+    );
+    let sole_in_field = pose.rot().apply(sole_in_robot.as_view()) + pose.xyz();
     if sole_in_field.z < T::zero() {
         -sole_in_field.z / T::from(factor.sigma)
     } else {
@@ -125,15 +131,16 @@ mod tests {
         traits::Variable,
         variables::SE23,
     };
-    use nalgebra::{Point3, vector};
+    use linear_algebra::point;
+    use nalgebra::vector;
 
     use super::*;
 
     fn measurement(time: SystemTime, left_z: f64, right_z: f64) -> FootHeightMeasurement {
         FootHeightMeasurement {
             time,
-            left_sole_in_robot: Point3::new(0.0, 0.05, left_z),
-            right_sole_in_robot: Point3::new(0.0, -0.05, right_z),
+            left_sole_in_robot: point![<Robot>, 0.0, 0.05, left_z as f32],
+            right_sole_in_robot: point![<Robot>, 0.0, -0.05, right_z as f32],
         }
     }
 

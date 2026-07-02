@@ -1,5 +1,4 @@
 use std::{
-    f64::consts::FRAC_PI_2,
     future::{Future, ready},
     pin::Pin,
     sync::Arc,
@@ -13,14 +12,16 @@ use color_eyre::{
 };
 use coordinate_systems::{Camera, Field, Ground, Robot};
 use field_mark_association::{FieldMarkAssociationKind, FieldMarkAssociations};
-use kinematics::robot_kinematics::RobotKinematics;
-use linear_algebra::{IntoTransform, Isometry2, Isometry3, point};
+use kinematics::{
+    forward::left_sole_to_robot, joints::leg::LegJoints, robot_kinematics::RobotKinematics,
+};
+use linear_algebra::{IntoTransform, Isometry2, Isometry3, Orientation3, Point3, point};
 use localization_factrs::{
     BackendConfiguration, CameraIntrinsics, FieldContainmentConfiguration, InitialState,
     OptimizationResult, VinsFrontend, VinsFrontendError, VisualReprojectionAssociation,
     VisualReprojectionAssociationKind, initialize,
 };
-use nalgebra::{Matrix2, Matrix3, Point3, SMatrix, Vector3, vector};
+use nalgebra::{Matrix2, Matrix3, SMatrix, Vector3, vector};
 use projection::{camera_matrix::CameraMatrix, intrinsic::Intrinsic};
 use ros_z::{
     Message,
@@ -34,6 +35,7 @@ use serde::{Deserialize, Serialize};
 use tokio::select;
 use types::{
     field_dimensions::FieldDimensions,
+    primary_state::PrimaryState,
     time_wrapper::TimeWrapper,
     visual_odometry::{VisualOdometer, VisualOdometryDelta as VisualOdometryDeltaMessage},
 };
@@ -54,18 +56,6 @@ pub struct Localization3dParameters {
     pub pose_hint_visual_huber_threshold: f64,
     /// Soft field containment sigma in meters outside field plus border strip.
     pub field_containment_sigma: f64,
-}
-
-impl Default for Localization3dParameters {
-    fn default() -> Self {
-        Self {
-            visual_feature_noise_variance: 10_000.0,
-            pose_hint_visual_feature_noise_variance:
-                DEFAULT_POSE_HINT_VISUAL_FEATURE_NOISE_VARIANCE,
-            pose_hint_visual_huber_threshold: DEFAULT_POSE_HINT_VISUAL_HUBER_THRESHOLD,
-            field_containment_sigma: DEFAULT_FIELD_CONTAINMENT_SIGMA,
-        }
-    }
 }
 
 impl Localization3dParameters {
@@ -96,37 +86,10 @@ impl Localization3dParameters {
 
 const MAX_CAMERA_MATRIX_TIME_DISTANCE: Duration = Duration::from_millis(100);
 const VISUAL_ODOMETER_TOPIC: &str = "visual_odometry/current_left_camera_to_visual_odometer";
-const DEFAULT_POSE_HINT_VISUAL_FEATURE_NOISE_VARIANCE: f64 = 100_000.0;
-const DEFAULT_POSE_HINT_VISUAL_HUBER_THRESHOLD: f64 = 2.0;
-const DEFAULT_FIELD_CONTAINMENT_SIGMA: f64 = 1.0;
-const DEFAULT_INITIAL_ROBOT_HEIGHT: f64 = 0.52;
 
 type VisualOdometerCache = Cache<VisualOdometer>;
 
-/// Builds the VINS backend configuration used by the localization node.
-///
-/// `visual_feature_noise_variance` is the pixel-space variance assigned to globally certified
-/// field-feature reprojection factors. Pose-hint fallback factors use conservative defaults here.
-pub fn backend_configuration(visual_feature_noise_variance: f64) -> BackendConfiguration {
-    backend_configuration_with_pose_hint(
-        visual_feature_noise_variance,
-        DEFAULT_POSE_HINT_VISUAL_FEATURE_NOISE_VARIANCE,
-        DEFAULT_POSE_HINT_VISUAL_HUBER_THRESHOLD,
-        DEFAULT_FIELD_CONTAINMENT_SIGMA,
-        &FieldDimensions::SPL_2025,
-    )
-}
-
-pub fn backend_configuration_from_parameters(
-    parameters: &Localization3dParameters,
-) -> BackendConfiguration {
-    backend_configuration_from_parameters_and_field_dimensions(
-        parameters,
-        &FieldDimensions::SPL_2025,
-    )
-}
-
-pub fn backend_configuration_from_parameters_and_field_dimensions(
+fn backend_configuration_from_parameters_and_field_dimensions(
     parameters: &Localization3dParameters,
     field_dimensions: &FieldDimensions,
 ) -> BackendConfiguration {
@@ -248,6 +211,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
+    let primary_state_cache = node
+        .subscriber::<PrimaryState>("primary_state")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
+
     let localization_publisher = node
         .publisher::<Option<Isometry3<Field, Robot>>>("localization")
         .build()
@@ -277,7 +250,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             &localization_parameters,
             &field_dimensions,
         ),
-        initial_state,
+        initial_state.clone(),
     );
     let runtime = tokio::runtime::Handle::current();
     let mut backend_handle = std::pin::pin!(tokio::task::spawn_blocking(move || -> Result<()> {
@@ -303,11 +276,39 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     }));
     let mut live_localization = LiveVisualOdometryLocalization::default();
     let mut global_visual_lock = GlobalVisualLock::Unlocked;
+    let mut damping_reset_interval = tokio::time::interval(Duration::from_millis(100));
 
     loop {
         select! {
+            _ = damping_reset_interval.tick() => {
+                if !localization_is_damping(&primary_state_cache) {
+                    continue;
+                }
+
+                let now = node.clock().now();
+                reset_localization_for_damping(
+                    &mut frontend,
+                    &mut live_localization,
+                    &mut global_visual_lock,
+                    initial_state_for_reset(&camera_matrix_cache, &field_dimensions, &initial_state),
+                    now,
+                )
+                .wrap_err("failed to reset localization while damping")?;
+
+                let localization: Option<Isometry3<Field, Robot>> = None;
+                localization_publisher.publish(&localization).await?;
+                timestamped_localization_publisher
+                    .publish(&TimeWrapper {
+                        time: now,
+                        inner: localization,
+                    })
+                    .await?;
+            }
             field_mark_associations = field_mark_associations_subscriber.recv() => {
                 let field_mark_associations = field_mark_associations?;
+                if localization_is_damping(&primary_state_cache) {
+                    continue;
+                }
                 let has_global_associations = field_mark_associations
                     .inner
                     .associations
@@ -324,6 +325,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             }
             global_pose = global_pose_subscriber.recv() => {
                 let global_pose = global_pose?;
+                if localization_is_damping(&primary_state_cache) {
+                    continue;
+                }
                 if global_pose.inner.is_none() {
                     continue;
                 }
@@ -339,11 +343,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             // IMU payloads have no sensor timestamp; ros-z source time is the aligned clock.
             imu = imu_subscriber.recv_with_metadata() => {
                 let imu = imu?;
+                if localization_is_damping(&primary_state_cache) {
+                    continue;
+                }
                 frontend.ingest_imu(imu.source_time.to_wallclock(), imu.message)
                     .wrap_err("failed to ingest imu measurement into frontend")?;
             }
             visual_odometry = visual_odometry_subscriber.recv() => {
                 let visual_odometry = visual_odometry?;
+                if localization_is_damping(&primary_state_cache) {
+                    continue;
+                }
                 let Some(previous_camera_matrix) = fresh_camera_matrix(&camera_matrix_cache, visual_odometry.previous_time) else {
                     continue;
                 };
@@ -356,6 +366,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             }
             visual_odometer = visual_odometer_subscriber.recv() => {
                 let visual_odometer = visual_odometer?;
+                if localization_is_damping(&primary_state_cache) {
+                    continue;
+                }
                 if !global_visual_lock.has_backend_result() {
                     continue;
                 }
@@ -389,6 +402,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             }
             robot_kinematics = robot_kinematics_subscriber.recv() => {
                 let robot_kinematics = robot_kinematics?;
+                if localization_is_damping(&primary_state_cache) {
+                    continue;
+                }
                 ingest_foot_heights(&mut frontend, robot_kinematics)
                     .wrap_err("failed to ingest foot height measurement into frontend")?;
             }
@@ -398,6 +414,20 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             }
             result = frontend.wait_for_optimization_result() => {
                 result?;
+                if localization_is_damping(&primary_state_cache) {
+                    let _ = frontend.last_optimization_result();
+                    live_localization.clear();
+                    global_visual_lock = GlobalVisualLock::Unlocked;
+                    let localization: Option<Isometry3<Field, Robot>> = None;
+                    localization_publisher.publish(&localization).await?;
+                    timestamped_localization_publisher
+                        .publish(&TimeWrapper {
+                            time: node.clock().now(),
+                            inner: localization,
+                        })
+                        .await?;
+                    continue;
+                }
                 let Some(result) = frontend.last_optimization_result() else { continue };
                 let result_time = Time::from_wallclock(result.time);
                 let camera_matrix = fresh_camera_matrix(&camera_matrix_cache, result_time);
@@ -426,7 +456,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 timestamped_localization_publisher
                     .publish(&TimeWrapper {
                         time: result_time,
-                        inner: global_visual_lock.is_active().then_some(backend_transform),
+                        inner: timestamped_localization_for_branch_hint(backend_transform),
                     })
                     .await?;
 
@@ -455,6 +485,38 @@ impl GlobalVisualLock {
     fn has_backend_result(self) -> bool {
         matches!(self, Self::Locked)
     }
+}
+
+fn localization_is_damping(primary_state_cache: &Cache<PrimaryState>) -> bool {
+    primary_state_cache
+        .get_latest()
+        .is_none_or(|state| *state == PrimaryState::Damping)
+}
+
+fn initial_state_for_reset(
+    camera_matrix_cache: &Cache<TimeWrapper<CameraMatrix>>,
+    field_dimensions: &FieldDimensions,
+    fallback: &InitialState,
+) -> InitialState {
+    camera_matrix_cache
+        .get_latest()
+        .map(|camera_matrix| {
+            initial_state_from_camera_matrix(&camera_matrix.inner, field_dimensions)
+        })
+        .unwrap_or_else(|| fallback.clone())
+}
+
+fn reset_localization_for_damping(
+    frontend: &mut VinsFrontend,
+    live_localization: &mut LiveVisualOdometryLocalization,
+    global_visual_lock: &mut GlobalVisualLock,
+    initial_state: InitialState,
+    time: Time,
+) -> Result<(), VinsFrontendError> {
+    frontend.reset(time.to_wallclock(), initial_state)?;
+    live_localization.clear();
+    *global_visual_lock = GlobalVisualLock::Unlocked;
+    Ok(())
 }
 
 #[derive(Default)]
@@ -622,7 +684,13 @@ fn interpolate_isometry(
 fn localization_transform_from_backend_pose(
     robot_to_field: &nalgebra::Isometry3<f64>,
 ) -> Isometry3<Field, Robot> {
-    robot_to_field.inverse().cast::<f32>().framed_transform()
+    robot_to_field.cast::<f32>().inverse().framed_transform()
+}
+
+fn timestamped_localization_for_branch_hint(
+    backend_transform: Isometry3<Field, Robot>,
+) -> Option<Isometry3<Field, Robot>> {
+    Some(backend_transform)
 }
 
 fn backend_localization_for_result(
@@ -719,7 +787,7 @@ fn ingest_field_mark_associations(
     frontend.ingest_visual_reprojection_associations(
         field_mark_associations.time.to_wallclock(),
         associations,
-        field_mark_associations.inner.robot_to_camera.inner,
+        field_mark_associations.inner.robot_to_camera,
     )
 }
 
@@ -731,10 +799,7 @@ fn ingest_global_pose(
         return Ok(());
     };
 
-    frontend.ingest_global_pose(
-        global_pose.time.to_wallclock(),
-        robot_to_field.inner.cast::<f64>(),
-    )
+    frontend.ingest_global_pose(global_pose.time.to_wallclock(), robot_to_field)
 }
 
 async fn wait_for_initial_state(
@@ -770,11 +835,10 @@ pub fn initial_state_from_camera_matrix(
     camera_matrix: &CameraMatrix,
     field_dimensions: &FieldDimensions,
 ) -> InitialState {
-    let initial_pose = initial_robot_to_field_from_field_dimensions(field_dimensions).inner;
+    let initial_pose = initial_robot_to_field_from_field_dimensions(field_dimensions);
 
-    InitialState::from_isometry_and_intrinsics(
+    InitialState::from_robot_to_field_and_intrinsics(
         initial_pose,
-        Vector3::zeros(),
         camera_intrinsics_from_matrix(camera_matrix),
     )
 }
@@ -784,16 +848,17 @@ pub fn initial_state_from_camera_matrix(
 /// Robots start on the right touchline in their own half, looking into the field.
 pub fn initial_robot_to_field_from_field_dimensions(
     field_dimensions: &FieldDimensions,
-) -> Isometry3<Robot, Field, f64> {
-    nalgebra::Isometry3::from_parts(
-        nalgebra::Translation3::new(
-            -(field_dimensions.length as f64) / 2.0,
-            -(field_dimensions.width as f64) / 2.0,
-            DEFAULT_INITIAL_ROBOT_HEIGHT,
-        ),
-        nalgebra::UnitQuaternion::from_euler_angles(0.0, 0.0, FRAC_PI_2),
-    )
-    .framed_transform()
+) -> Isometry3<Robot, Field> {
+    let translation: linear_algebra::Vector3<Field> =
+        linear_algebra::Vector3::wrap(nalgebra::vector![
+            -field_dimensions.length / 2.0,
+            -field_dimensions.width / 2.0,
+            robot_height(),
+        ]);
+    let orientation: Orientation3<Field> =
+        Orientation3::from_euler_angles(0.0, 0.0, std::f32::consts::FRAC_PI_2);
+
+    Isometry3::from_parts(translation, orientation)
 }
 
 /// Converts ROS-Z camera-matrix intrinsics into the optimizer camera-intrinsics type.
@@ -833,8 +898,8 @@ pub fn ingest_visual_odometry(
     frontend.ingest_visual_odometry_delta(
         delta.previous_time.to_wallclock(),
         delta.current_time.to_wallclock(),
-        robot_to_camera(previous_camera_matrix).inner,
-        robot_to_camera(current_camera_matrix).inner,
+        robot_to_camera(previous_camera_matrix),
+        robot_to_camera(current_camera_matrix),
         delta.current_left_camera_to_previous_left_camera,
     )
 }
@@ -856,20 +921,10 @@ pub fn ingest_foot_heights(
     )
 }
 
-fn foot_height_points(robot_kinematics: &RobotKinematics) -> (Point3<f64>, Point3<f64>) {
+fn foot_height_points(robot_kinematics: &RobotKinematics) -> (Point3<Robot>, Point3<Robot>) {
     (
-        robot_kinematics
-            .left_leg
-            .sole_to_robot
-            .translation()
-            .inner
-            .cast(),
-        robot_kinematics
-            .right_leg
-            .sole_to_robot
-            .translation()
-            .inner
-            .cast(),
+        robot_kinematics.left_leg.sole_to_robot.translation(),
+        robot_kinematics.right_leg.sole_to_robot.translation(),
     )
 }
 
@@ -877,8 +932,14 @@ fn robot_to_camera(camera_matrix: &CameraMatrix) -> Isometry3<Robot, Camera> {
     camera_matrix.head_to_camera * camera_matrix.robot_to_head
 }
 
+fn robot_height() -> f32 {
+    -left_sole_to_robot(&LegJoints::default()).translation().z()
+}
+
 #[cfg(test)]
 mod tests {
+    use std::f64::consts::FRAC_PI_2;
+
     use coordinate_systems::{Camera, Head, LeftSole, RightSole};
 
     use super::*;
@@ -907,7 +968,7 @@ mod tests {
             (initial_state.pose.xyz().y + FieldDimensions::SPL_2025.width as f64 / 2.0).abs()
                 < 1.0e-9
         );
-        assert!((initial_state.pose.xyz().z - DEFAULT_INITIAL_ROBOT_HEIGHT).abs() < 1.0e-9);
+        assert!((initial_state.pose.xyz().z - robot_height() as f64).abs() < 1.0e-9);
         assert!(initial_state.pose.uvw().norm() < 1.0e-9);
         assert_eq!(
             initial_state.camera_intrinsics.focals(),
@@ -920,7 +981,7 @@ mod tests {
         let rotation = initial_state.pose.rot();
         let yaw = (2.0 * (rotation.w() * rotation.z() + rotation.x() * rotation.y()))
             .atan2(1.0 - 2.0 * (rotation.y().powi(2) + rotation.z().powi(2)));
-        assert!((yaw - FRAC_PI_2).abs() < 1.0e-9);
+        assert!((yaw - FRAC_PI_2).abs() < 1.0e-6);
     }
 
     #[test]
@@ -946,6 +1007,31 @@ mod tests {
         let field_to_robot = localization_transform_from_backend_pose(&robot_to_field);
         let roundtrip_robot_to_field = field_to_robot.inverse().inner.cast::<f64>();
 
+        assert!(
+            (roundtrip_robot_to_field.translation.vector - robot_to_field.translation.vector)
+                .norm()
+                < 1.0e-6
+        );
+        assert!(
+            roundtrip_robot_to_field
+                .rotation
+                .angle_to(&robot_to_field.rotation)
+                < 1.0e-6
+        );
+    }
+
+    #[test]
+    fn timestamped_localization_keeps_backend_pose_as_branch_hint() {
+        let robot_to_field = nalgebra::Isometry3::from_parts(
+            nalgebra::Translation3::new(-4.5, -3.0, robot_height() as f64),
+            nalgebra::UnitQuaternion::from_euler_angles(0.0, 0.0, FRAC_PI_2),
+        );
+        let backend_transform = localization_transform_from_backend_pose(&robot_to_field);
+
+        let hint = timestamped_localization_for_branch_hint(backend_transform)
+            .expect("backend pose should be published as initial branch hint");
+
+        let roundtrip_robot_to_field = hint.inverse().inner.cast::<f64>();
         assert!(
             (roundtrip_robot_to_field.translation.vector - robot_to_field.translation.vector)
                 .norm()
@@ -1060,8 +1146,8 @@ mod tests {
 
         let (left, right) = foot_height_points(&robot_kinematics);
 
-        assert!((left - nalgebra::Point3::new(0.1, 0.2, -0.3)).norm() < 1.0e-6);
-        assert!((right - nalgebra::Point3::new(0.4, -0.5, -0.6)).norm() < 1.0e-6);
+        assert!((left - point![<Robot>, 0.1, 0.2, -0.3]).norm() < 1.0e-6);
+        assert!((right - point![<Robot>, 0.4, -0.5, -0.6]).norm() < 1.0e-6);
     }
 
     #[test]
@@ -1109,5 +1195,11 @@ mod tests {
                 .abs()
                 < 1.0e-6
         );
+    }
+
+    #[test]
+    fn robot_height_is_sensible() {
+        assert!(robot_height() > 0.3);
+        assert!(robot_height() < 1.0);
     }
 }

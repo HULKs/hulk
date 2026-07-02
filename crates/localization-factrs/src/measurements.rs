@@ -9,9 +9,11 @@ use nalgebra::{Point2, Point3};
 use crate::factors::{
     foot_above_ground::FootHeightMeasurement, visual_odometry::VisualOdometryMeasurement,
 };
+use crate::initial_state::InitialState;
 
 #[derive(Debug, Clone)]
 pub enum SensorMeasurement {
+    Reset(ResetMeasurement),
     Imu(ImuMeasurement),
     GlobalPose(GlobalPoseMeasurement),
     Visual(Vec<VisualReprojectionMeasurement>),
@@ -23,6 +25,7 @@ pub enum SensorMeasurement {
 impl SensorMeasurement {
     pub fn time(&self) -> SystemTime {
         match self {
+            SensorMeasurement::Reset(reset) => reset.time,
             SensorMeasurement::Imu(imu) => imu.time,
             SensorMeasurement::GlobalPose(global_pose) => global_pose.time,
             SensorMeasurement::Visual(visual) | SensorMeasurement::PoseHintVisual(visual) => {
@@ -38,6 +41,12 @@ impl SensorMeasurement {
 }
 
 #[derive(Debug, Clone)]
+pub struct ResetMeasurement {
+    pub time: SystemTime,
+    pub initial_state: InitialState,
+}
+
+#[derive(Debug, Clone)]
 pub struct ImuMeasurement {
     pub time: SystemTime,
     pub state: ImuState,
@@ -46,7 +55,7 @@ pub struct ImuMeasurement {
 #[derive(Debug, Clone)]
 pub struct GlobalPoseMeasurement {
     pub time: SystemTime,
-    pub robot_to_field: SE3<f64>,
+    pub robot_to_field: factrs::variables::SE23<f64>,
 }
 
 /// A fixed visual feature association in domain frames.

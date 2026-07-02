@@ -5,11 +5,13 @@ use crate::{
         foot_above_ground::FootHeightMeasurement, visual_odometry::VisualOdometryMeasurement,
     },
     measurements::{
-        GlobalPoseMeasurement, ImuMeasurement, SensorMeasurement, VisualReprojectionMeasurement,
+        GlobalPoseMeasurement, ImuMeasurement, ResetMeasurement, SensorMeasurement,
+        VisualReprojectionMeasurement,
     },
 };
 
 pub struct IntervalMeasurements {
+    pub resets: Vec<ResetMeasurement>,
     pub imu: Vec<ImuMeasurement>,
     pub global_poses: Vec<GlobalPoseMeasurement>,
     pub visual: Vec<Vec<VisualReprojectionMeasurement>>,
@@ -21,6 +23,7 @@ pub struct IntervalMeasurements {
 impl IntervalMeasurements {
     pub fn new() -> Self {
         Self {
+            resets: Vec::new(),
             imu: Vec::new(),
             global_poses: Vec::new(),
             visual: Vec::new(),
@@ -36,6 +39,7 @@ impl IntervalMeasurements {
 
     pub fn push(&mut self, measurement: SensorMeasurement) {
         match measurement {
+            SensorMeasurement::Reset(reset) => self.push_reset(reset),
             SensorMeasurement::Imu(imu) => self.push_imu(imu),
             SensorMeasurement::GlobalPose(global_pose) => self.push_global_pose(global_pose),
             SensorMeasurement::Visual(visual) => self.push_visual(visual),
@@ -49,6 +53,10 @@ impl IntervalMeasurements {
 
     pub fn push_visual(&mut self, visual: Vec<VisualReprojectionMeasurement>) {
         insert_visual_frame(&mut self.visual, visual);
+    }
+
+    pub fn push_reset(&mut self, reset: ResetMeasurement) {
+        insert_sorted(&mut self.resets, reset, |measurement| measurement.time);
     }
 
     pub fn push_global_pose(&mut self, global_pose: GlobalPoseMeasurement) {
@@ -77,7 +85,14 @@ impl IntervalMeasurements {
         self.global_poses.last()
     }
 
+    pub fn latest_reset(&self) -> Option<&ResetMeasurement> {
+        self.resets.last()
+    }
+
     pub fn retain_at_or_after(&mut self, time: SystemTime) {
+        self.resets.retain(|measurement| measurement.time >= time);
+        self.global_poses
+            .retain(|measurement| measurement.time >= time);
         self.imu.retain(|measurement| measurement.time >= time);
         self.visual
             .retain(|frame| visual_frame_time(frame).is_some_and(|frame_time| frame_time >= time));

@@ -1,23 +1,27 @@
 use std::time::SystemTime;
 
 use booster::ImuState;
+use coordinate_systems::{Camera, Field, Robot};
 use factrs::{
     core::{SE3, SO3},
     traits::Variable,
     variables::{MatrixLieGroup, SE23},
 };
-use nalgebra::Point3;
+use linear_algebra::{Isometry3, Point3};
 use thiserror::Error;
 use tokio::sync::{mpsc::UnboundedSender, watch};
 
+use crate::InitialState;
 use crate::backend::OptimizationResult as BackendOptimizationResult;
 use crate::camera_intrinsics::CameraIntrinsics;
+use crate::conversions::robot_to_field_to_se23;
 use crate::factors::{
     foot_above_ground::FootHeightMeasurement, visual_odometry::VisualOdometryMeasurement,
 };
 use crate::measurements::{
-    GlobalPoseMeasurement, ImuMeasurement, SensorMeasurement, VisualReprojectionAssociation,
-    VisualReprojectionAssociationKind, VisualReprojectionMeasurement,
+    GlobalPoseMeasurement, ImuMeasurement, ResetMeasurement, SensorMeasurement,
+    VisualReprojectionAssociation, VisualReprojectionAssociationKind,
+    VisualReprojectionMeasurement,
 };
 
 pub struct VinsFrontend {
@@ -83,15 +87,31 @@ impl VinsFrontend {
     pub fn ingest_global_pose(
         &mut self,
         time: SystemTime,
-        robot_to_field: nalgebra::Isometry3<f64>,
+        robot_to_field: Isometry3<Robot, Field>,
     ) -> Result<(), VinsFrontendError> {
         let measurement = GlobalPoseMeasurement {
             time,
-            robot_to_field: isometry3_f64_to_se3(robot_to_field),
+            robot_to_field: robot_to_field_to_se23(robot_to_field),
         };
 
         self.measurement_sender
             .send(SensorMeasurement::GlobalPose(measurement))
+            .map_err(|_| VinsFrontendError::BackendDisconnected)
+    }
+
+    /// Reinitializes the backend to a known startup state.
+    pub fn reset(
+        &mut self,
+        time: SystemTime,
+        initial_state: InitialState,
+    ) -> Result<(), VinsFrontendError> {
+        let measurement = ResetMeasurement {
+            time,
+            initial_state,
+        };
+
+        self.measurement_sender
+            .send(SensorMeasurement::Reset(measurement))
             .map_err(|_| VinsFrontendError::BackendDisconnected)
     }
 
@@ -100,9 +120,9 @@ impl VinsFrontend {
         &mut self,
         time: SystemTime,
         associations: impl IntoIterator<Item = VisualReprojectionAssociation>,
-        robot_to_camera: nalgebra::Isometry3<f32>,
+        robot_to_camera: Isometry3<Robot, Camera>,
     ) -> Result<(), VinsFrontendError> {
-        let robot_to_camera = isometry3_to_se3(robot_to_camera);
+        let robot_to_camera = isometry3_to_se3(robot_to_camera.inner);
         let mut global_measurements = Vec::new();
         let mut pose_hint_measurements = Vec::new();
 
@@ -132,13 +152,13 @@ impl VinsFrontend {
         &mut self,
         previous_time: SystemTime,
         current_time: SystemTime,
-        previous_robot_to_left_camera: nalgebra::Isometry3<f32>,
-        current_robot_to_left_camera: nalgebra::Isometry3<f32>,
+        previous_robot_to_left_camera: Isometry3<Robot, Camera>,
+        current_robot_to_left_camera: Isometry3<Robot, Camera>,
         current_left_camera_to_previous_left_camera: nalgebra::Isometry3<f32>,
     ) -> Result<(), VinsFrontendError> {
-        let current_robot_to_previous_robot = previous_robot_to_left_camera.inverse()
+        let current_robot_to_previous_robot = previous_robot_to_left_camera.inner.inverse()
             * current_left_camera_to_previous_left_camera
-            * current_robot_to_left_camera;
+            * current_robot_to_left_camera.inner;
         let measurement = VisualOdometryMeasurement {
             previous_time,
             current_time,
@@ -154,8 +174,8 @@ impl VinsFrontend {
     pub fn ingest_foot_heights(
         &mut self,
         time: SystemTime,
-        left_sole_in_robot: Point3<f64>,
-        right_sole_in_robot: Point3<f64>,
+        left_sole_in_robot: Point3<Robot>,
+        right_sole_in_robot: Point3<Robot>,
     ) -> Result<(), VinsFrontendError> {
         let measurement = FootHeightMeasurement {
             time,
@@ -242,8 +262,8 @@ mod tests {
 
     use super::*;
 
-    fn translation(x: f32, y: f32, z: f32) -> nalgebra::Isometry3<f32> {
-        nalgebra::Isometry3::translation(x, y, z)
+    fn translation(x: f32, y: f32, z: f32) -> Isometry3<Robot, Camera> {
+        Isometry3::from_translation(x, y, z)
     }
 
     #[test]
@@ -260,7 +280,7 @@ mod tests {
                 current_time,
                 translation(1.0, 0.0, 0.0),
                 translation(2.0, 0.0, 0.0),
-                translation(0.5, 0.0, 0.0),
+                nalgebra::Isometry3::translation(0.5, 0.0, 0.0),
             )
             .expect("visual odometry should ingest");
 

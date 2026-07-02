@@ -102,6 +102,43 @@ fn oriented_candidate_prefers_yaw_branch_under_drifted_pose_hint() -> Result<(),
 }
 
 #[test]
+fn pose_hint_selects_symmetry_branch_before_lock() -> Result<(), String> {
+    let field = FieldDimensions::SPL_2025;
+    let config = GlobalAssociationConfig::default();
+    let map = LandmarkMap::new(&field, config.min_map_baseline);
+    let startup_branch_pose = robot_to_field(
+        -field.length * 0.5 + 1.3,
+        -field.width * 0.5 + 0.7,
+        FRAC_PI_2,
+    );
+    let visible = projected_landmarks(&map, startup_branch_pose);
+    let mut rng = DeterministicRng::new(0x494e_4954_4252_414e);
+    let selected = random_non_collinear_subsample(&visible, config.min_inliers, &map, &mut rng)
+        .ok_or_else(|| {
+            "startup-side pose should have visible non-collinear landmarks".to_string()
+        })?;
+    let frame = synthetic_frame(&selected);
+    let localizer = GlobalAssociator::new(config);
+
+    let result = localizer
+        .localize(synthetic_input(
+            &frame.features,
+            &field,
+            Some(startup_branch_pose),
+        ))
+        .ok_or_else(|| "startup pose should produce a symmetry-resolved result".to_string())?;
+
+    assert_feature_associations_have_truth(
+        &result.associations().features,
+        &frame,
+        &map,
+        0,
+        "startup",
+    )?;
+    Ok(())
+}
+
+#[test]
 fn center_goal_side_projected_features_never_return_wrong_associations() -> Result<(), String> {
     let field = FieldDimensions::SPL_2025;
     let map = LandmarkMap::new(&field, GlobalAssociationConfig::default().min_map_baseline);
