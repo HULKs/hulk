@@ -72,7 +72,6 @@ pub struct MapPanel {
     obstacles: EnabledLayer<layers::Obstacles, Ground>,
     path: EnabledLayer<layers::Path, Ground>,
     robot_pose: EnabledLayer<layers::RobotPose, Ground>,
-    // referee_position: EnabledLayer<layers::RefereePosition, Field>,
     ball_percept: EnabledLayer<layers::BallPercepts, Ground>,
     ball_position: EnabledLayer<layers::BallPosition, Field>,
     ball_filter: EnabledLayer<layers::BallFilter, Ground>,
@@ -93,7 +92,6 @@ impl Panel for MapPanel {
         let path_obstacles = EnabledLayer::new(context.backend.clone(), context.value, false);
         let obstacles = EnabledLayer::new(context.backend.clone(), context.value, false);
         let path = EnabledLayer::new(context.backend.clone(), context.value, false);
-        // let referee_position = EnabledLayer::new(context.backend.clone(), context.value, false);
         let robot_pose = EnabledLayer::new(context.backend.clone(), context.value, true);
         let ball_percept = EnabledLayer::new(context.backend.clone(), context.value, false);
         let ball_position = EnabledLayer::new(context.backend.clone(), context.value, true);
@@ -141,7 +139,6 @@ impl Panel for MapPanel {
             obstacles,
             path,
             robot_pose,
-            // referee_position,
             ball_percept,
             ball_position,
             ball_filter,
@@ -164,7 +161,6 @@ impl Panel for MapPanel {
             "obstacles": self.obstacles.save(),
             "path": self.path.save(),
             "robot_pose": self.robot_pose.save(),
-            // "referee_position": self.referee_position.save(),
             "ball_percept": self.ball_percept.save(),
             "ball_position": self.ball_position.save(),
             "ball_filter": self.ball_filter.save(),
@@ -185,7 +181,6 @@ impl Panel for MapPanel {
                 self.obstacles.checkbox(ui);
                 self.path.checkbox(ui);
                 self.robot_pose.checkbox(ui);
-                // self.referee_position.checkbox(ui);
                 self.ball_percept.checkbox(ui);
                 self.ball_position.checkbox(ui);
                 self.ball_filter.checkbox(ui);
