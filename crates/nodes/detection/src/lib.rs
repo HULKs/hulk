@@ -18,7 +18,6 @@ use types::{
     object_detection::{NUMBER_OF_VALUES_PER_OBJECT, Object, RobocupObjectLabel, YOLOObjectLabel},
     parameters::DetectionParameters,
     pose_detection::{NUMBER_OF_VALUES_PER_POSE, Pose},
-    time_wrapper::TimeWrapper,
 };
 
 pub const NUMBER_OF_DETECTIONS: usize = 300;
@@ -61,7 +60,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node_parameters = node.bind_parameter_as::<DetectionParameters>("detection")?;
 
     let image_sub = node
-        .subscriber::<TimeWrapper<Image>>("inputs/left_image")
+        .subscriber::<Image>("inputs/left_image")
         .build()
         .await?;
     let inference_duration_pub = node
@@ -111,13 +110,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         }
 
-        let timed_image = image_sub.recv().await?;
-        let image_time = timed_image.time;
+        let image = image_sub.recv().await?;
 
-        let detected_objects_pending = detected_objects_pub.announce(image_time).await?;
-        let detected_poses_pending = detected_poses_pub.announce(image_time).await?;
+        let detected_objects_pending = detected_objects_pub
+            .announce(image.header.stamp.into())
+            .await?;
+        let detected_poses_pending = detected_poses_pub
+            .announce(image.header.stamp.into())
+            .await?;
 
-        let image = timed_image.inner;
         check_image(&image)?;
 
         let inference_start = Instant::now();

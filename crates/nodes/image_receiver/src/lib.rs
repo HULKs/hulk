@@ -14,7 +14,6 @@ use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::ycbcr422_image::YCbCr422Image;
 use types::{stereo_image_pair::StereoImagePair, time_wrapper::TimeWrapper};
 use x5_receiver::receiver::{Side, X5Receiver};
-use x5_receiver::types::X5CameraFrame;
 
 const X5_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 127, 10)), 7654);
 
@@ -25,12 +24,9 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("image_receiver").build().await?;
 
-    let left_image_pub = node
-        .publisher::<TimeWrapper<Image>>("inputs/left_image")
-        .build()
-        .await?;
+    let left_image_pub = node.publisher::<Image>("inputs/left_image").build().await?;
     let right_image_pub = node
-        .publisher::<TimeWrapper<Image>>("inputs/right_image")
+        .publisher::<Image>("inputs/right_image")
         .build()
         .await?;
     let camera_info_pub = node
@@ -46,7 +42,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let stereo_image_pair_pub = node
-        .publisher::<TimeWrapper<StereoImagePair>>("inputs/stereo_image_pair")
+        .publisher::<StereoImagePair>("inputs/stereo_image_pair")
         .build()
         .await?;
 
@@ -59,138 +55,53 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut right_frame_receiver = x5_receiver.subscribe_image(Side::Right);
 
     loop {
-        tokio::select! {
+        let stereo_image_pair = tokio::select! {
             left_image = left_frame_receiver.recv() => {
-                let now = node.clock().now();
-                let received = ReceivedImage::new(now, left_image);
-                handle_left_image(
-                    &left_image_pub,
-                    &ycbcr422_image_pub,
-                    &stereo_image_pair_pub,
-                    &mut stereo_image_pairer,
-                    received,
-                )
-                .await?;
+                let frame_identifier = left_image.header.frame_identifier;
+                let image: Image = left_image.clone().into();
+                left_image_pub.publish(&image).await?;
+                publish_ycbcr422_image(&ycbcr422_image_pub, image.header.stamp.into(), image.clone()).await?;
+                stereo_image_pairer.insert(CameraSide::Left, frame_identifier, image)
             }
             right_image = right_frame_receiver.recv() => {
-                let now = node.clock().now();
-                let received = ReceivedImage::new(now, right_image);
-                handle_right_image(
-                    &right_image_pub,
-                    &stereo_image_pair_pub,
-                    &mut stereo_image_pairer,
-                    received,
-                )
-                .await?;
+                let frame_identifier = right_image.header.frame_identifier;
+                let image: Image = right_image.clone().into();
+                right_image_pub.publish(&image).await?;
+                stereo_image_pairer.insert(CameraSide::Right, frame_identifier, image)
             }
             _ = camera_info_timer.tick() => {
                 camera_info_pub
                     .publish(&camera_info.left_camera_info())
                     .await?;
+                continue
             }
+        };
+
+        if !stereo_image_pair_pub.has_subscribers() {
+            stereo_image_pairer.clear();
+            continue;
         }
+
+        let Some(stereo_image_pair) = stereo_image_pair else {
+            continue;
+        };
+        stereo_image_pair_pub.publish(&stereo_image_pair).await?;
     }
-}
-
-#[derive(Debug, Clone)]
-struct ReceivedImage {
-    frame_identifier: u32,
-    image_time: Time,
-    image: Image,
-}
-
-impl ReceivedImage {
-    fn new(image_time: Time, frame: X5CameraFrame) -> Self {
-        Self {
-            frame_identifier: frame.header.frame_identifier,
-            image_time,
-            image: frame.into(),
-        }
-    }
-}
-
-async fn handle_left_image(
-    left_image_pub: &Publisher<TimeWrapper<Image>>,
-    ycbcr422_image_pub: &Publisher<TimeWrapper<YCbCr422Image>>,
-    stereo_image_pair_pub: &Publisher<TimeWrapper<StereoImagePair>>,
-    stereo_image_pairer: &mut StereoImagePairer,
-    received_image: ReceivedImage,
-) -> Result<()> {
-    left_image_pub
-        .publish(&TimeWrapper {
-            time: received_image.image_time,
-            inner: received_image.image.clone(),
-        })
-        .await?;
-
-    publish_ycbcr422_image(ycbcr422_image_pub, received_image.clone()).await?;
-
-    maybe_publish_stereo_image_pair(
-        stereo_image_pair_pub,
-        stereo_image_pairer,
-        CameraSide::Left,
-        received_image,
-    )
-    .await
-}
-
-async fn handle_right_image(
-    right_image_pub: &Publisher<TimeWrapper<Image>>,
-    stereo_image_pair_pub: &Publisher<TimeWrapper<StereoImagePair>>,
-    stereo_image_pairer: &mut StereoImagePairer,
-    received_image: ReceivedImage,
-) -> Result<()> {
-    right_image_pub
-        .publish(&TimeWrapper {
-            time: received_image.image_time,
-            inner: received_image.image.clone(),
-        })
-        .await?;
-
-    maybe_publish_stereo_image_pair(
-        stereo_image_pair_pub,
-        stereo_image_pairer,
-        CameraSide::Right,
-        received_image,
-    )
-    .await
 }
 
 async fn publish_ycbcr422_image(
-    ycbcr422_image_pub: &Publisher<TimeWrapper<YCbCr422Image>>,
-    image: ReceivedImage,
+    publisher: &Publisher<TimeWrapper<YCbCr422Image>>,
+    time: Time,
+    image: Image,
 ) -> Result<()> {
-    let rgb_image: RgbImage = image.image.try_into()?;
-    ycbcr422_image_pub
+    let rgb_image: RgbImage = image.try_into()?;
+    let ycbcr422_image = (&rgb_image).into();
+    publisher
         .publish(&TimeWrapper {
-            time: image.image_time,
-            inner: (&rgb_image).into(),
+            time,
+            inner: ycbcr422_image,
         })
         .await?;
-    Ok(())
-}
-
-async fn maybe_publish_stereo_image_pair(
-    stereo_image_pair_pub: &Publisher<TimeWrapper<StereoImagePair>>,
-    stereo_image_pairer: &mut StereoImagePairer,
-    side: CameraSide,
-    image: ReceivedImage,
-) -> Result<()> {
-    if !stereo_image_pair_pub.has_subscribers() {
-        stereo_image_pairer.clear();
-        return Ok(());
-    }
-
-    let time = image.image_time;
-    if let Some(stereo_image_pair) = stereo_image_pairer.insert(side, image) {
-        stereo_image_pair_pub
-            .publish(&TimeWrapper {
-                time,
-                inner: stereo_image_pair,
-            })
-            .await?;
-    }
-
     Ok(())
 }
 
@@ -210,16 +121,21 @@ struct StereoImagePairer {
 impl StereoImagePairer {
     const MAX_UNMATCHED_FRAME_AGE: u32 = 8;
 
-    fn insert(&mut self, side: CameraSide, image: ReceivedImage) -> Option<StereoImagePair> {
-        self.update_latest_frame_identifier(image.frame_identifier);
+    fn insert(
+        &mut self,
+        side: CameraSide,
+        frame_identifier: u32,
+        image: Image,
+    ) -> Option<StereoImagePair> {
+        self.update_latest_frame_identifier(frame_identifier);
 
         let (remove_from, insert_in) = match side {
             CameraSide::Left => (&mut self.pending_right, &mut self.pending_left),
             CameraSide::Right => (&mut self.pending_left, &mut self.pending_right),
         };
 
-        let Some(other) = remove_from.remove(&image.frame_identifier) else {
-            insert_in.insert(image.frame_identifier, image.image);
+        let Some(other) = remove_from.remove(&frame_identifier) else {
+            insert_in.insert(frame_identifier, image);
             self.expire_old_frames();
             return None;
         };
@@ -227,12 +143,12 @@ impl StereoImagePairer {
         self.expire_old_frames();
 
         let (left, right) = match side {
-            CameraSide::Left => (image.image, other),
-            CameraSide::Right => (other, image.image),
+            CameraSide::Left => (image, other),
+            CameraSide::Right => (other, image),
         };
 
         Some(StereoImagePair {
-            frame_identifier: image.frame_identifier,
+            frame_identifier,
             left,
             right,
         })

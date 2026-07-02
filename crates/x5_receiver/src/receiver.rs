@@ -10,6 +10,7 @@ use crate::types::{
 };
 
 pub const MAX_ALLOCATION_SIZE: usize = 4 * 1024 * 1024;
+pub const EXPOSURE_TIME: Duration = Duration::from_millis(12);
 
 pub struct X5Receiver {
     _task: AbortOnDropHandle<()>,
@@ -168,13 +169,14 @@ impl X5ReceiverTask {
         let mut header_bytes = [0u8; size_of::<X5CameraFrameHeader>()];
         self.connection.read_exact(&mut header_bytes).await?;
 
-        let header: X5CameraFrameHeader = unsafe { std::mem::transmute(header_bytes) };
+        let mut header: X5CameraFrameHeader = unsafe { std::mem::transmute(header_bytes) };
         if header.payload_size as usize > MAX_ALLOCATION_SIZE {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "payload size exceeds maximum allocation size",
             ));
         }
+        header.timestamp_nanoseconds += EXPOSURE_TIME.as_nanos() as u64 / 2;
 
         let nv12_data = Arc::<[u8]>::new_zeroed_slice(header.payload_size as usize);
         let mut nv12_data = unsafe { nv12_data.assume_init() };
