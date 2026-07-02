@@ -1,6 +1,6 @@
 use std::time::{Duration, SystemTime};
 
-use hsl_network_messages::{GamePhase, GameState, Penalty, SubState, Team, TeamState};
+use hsl_network_messages::{GamePhase, GameState, Half, Penalty, SubState, Team, TeamState};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
@@ -14,6 +14,7 @@ pub struct GameControllerState {
     pub game_state: GameState,
     pub stopped: bool,
     pub game_phase: GamePhase,
+    pub half: Half,
     pub remaining_time_in_half: Duration,
     pub kicking_team: Option<Team>,
     pub last_game_state_change: SystemTime,
