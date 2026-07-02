@@ -173,8 +173,19 @@ impl FieldDimensions {
         point![unsigned_x * half.sign(), unsigned_y * side.sign()]
     }
 
+    pub fn goal_post(&self, half: Half, side: Side) -> Point2<Field> {
+        let unsigned_x = self.length / 2.0;
+        let unsigned_y = (self.goal_inner_width + self.goal_post_diameter) / 2.0;
+        point![unsigned_x * half.sign(), unsigned_y * side.sign()]
+    }
+
     pub fn t_crossing(&self, side: Side) -> Point2<Field> {
         let unsigned_y = self.width / 2.0;
+        point![0.0, unsigned_y * side.sign()]
+    }
+
+    pub fn x_crossing(&self, side: Side) -> Point2<Field> {
+        let unsigned_y = self.center_circle_diameter / 2.0;
         point![0.0, unsigned_y * side.sign()]
     }
 

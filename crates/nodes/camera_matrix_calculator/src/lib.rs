@@ -5,7 +5,7 @@ use color_eyre::Result;
 
 use coordinate_systems::{Camera, Ground, Head, Robot};
 use kinematics::{robot_dimensions::RobotDimensions, robot_kinematics::RobotKinematics};
-use linear_algebra::{IntoTransform, Isometry3, Vector3, vector};
+use linear_algebra::{IntoTransform, Isometry3, Rotation3, Vector3, vector};
 use projection::camera_matrix::CameraMatrix;
 use ros_z::prelude::*;
 use ros2::sensor_msgs::camera_info::CameraInfo;
@@ -84,13 +84,26 @@ fn compute_camera_matrix(
         RobotDimensions::HEAD_TO_CAMERA,
     );
 
-    CameraMatrix::from_camera_info(
+    let uncorrected_camera_matrix = CameraMatrix::from_camera_info(
         camera_info,
         image_size,
         robot_to_ground.inverse(),
         robot_kinematics.head.head_to_robot.inverse(),
         head_to_camera,
-    )
+    );
+
+    let correction_in_robot = Rotation3::from_euler_angles(
+        parameters.correction_in_robot.x(),
+        parameters.correction_in_robot.y(),
+        parameters.correction_in_robot.z(),
+    );
+    let correction_in_camera = Rotation3::from_euler_angles(
+        parameters.correction_in_camera.x(),
+        parameters.correction_in_camera.y(),
+        parameters.correction_in_camera.z(),
+    );
+
+    uncorrected_camera_matrix.to_corrected(correction_in_robot, correction_in_camera)
 }
 
 fn head_to_camera(camera_pitch: f32, head_to_camera: Vector3<Head>) -> Isometry3<Head, Camera> {
@@ -99,4 +112,71 @@ fn head_to_camera(camera_pitch: f32, head_to_camera: Vector3<Head>) -> Isometry3
         * nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * FRAC_PI_2)
         * nalgebra::Isometry3::from(-head_to_camera.inner))
     .framed_transform()
+}
+
+#[cfg(test)]
+mod tests {
+    use linear_algebra::vector;
+    use ros2::sensor_msgs::camera_info::CameraInfo;
+    use types::parameters::CameraMatrixParameters;
+
+    use super::*;
+
+    #[test]
+    fn compute_camera_matrix_applies_configured_corrections() {
+        let parameters = CameraMatrixParameters {
+            camera_to_head_pitch: 0.0,
+            correction_in_robot: vector![0.1, -0.2, 0.3],
+            correction_in_camera: vector![-0.4, 0.5, -0.6],
+        };
+        let robot_kinematics = RobotKinematics::default();
+        let robot_to_ground = Isometry3::identity();
+        let camera_info = camera_info();
+
+        let camera_matrix = compute_camera_matrix(
+            &parameters,
+            &robot_kinematics,
+            &robot_to_ground,
+            &camera_info,
+        );
+
+        let zero_parameters = CameraMatrixParameters {
+            correction_in_robot: vector![0.0, 0.0, 0.0],
+            correction_in_camera: vector![0.0, 0.0, 0.0],
+            ..parameters
+        };
+        let uncorrected_camera_matrix = compute_camera_matrix(
+            &zero_parameters,
+            &robot_kinematics,
+            &robot_to_ground,
+            &camera_info,
+        );
+        let expected = uncorrected_camera_matrix.to_corrected(
+            Rotation3::from_euler_angles(0.1, -0.2, 0.3),
+            Rotation3::from_euler_angles(-0.4, 0.5, -0.6),
+        );
+
+        assert_isometry_near(camera_matrix.ground_to_robot, expected.ground_to_robot);
+        assert_isometry_near(camera_matrix.robot_to_head, expected.robot_to_head);
+        assert_isometry_near(camera_matrix.head_to_camera, expected.head_to_camera);
+        assert_isometry_near(camera_matrix.ground_to_camera, expected.ground_to_camera);
+    }
+
+    fn camera_info() -> CameraInfo {
+        CameraInfo {
+            width: 544,
+            height: 448,
+            p: [
+                210.0, 0.0, 251.0, 0.0, 0.0, 210.0, 232.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+            ],
+            ..Default::default()
+        }
+    }
+
+    fn assert_isometry_near<From, To>(actual: Isometry3<From, To>, expected: Isometry3<From, To>) {
+        assert!(
+            (actual.inner.translation.vector - expected.inner.translation.vector).norm() < 1e-6
+        );
+        assert!(actual.inner.rotation.angle_to(&expected.inner.rotation) < 1e-6);
+    }
 }
