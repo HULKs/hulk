@@ -548,15 +548,18 @@ mod tests {
             .enable_all()
             .build()
             .expect("runtime should build");
-        let backend = Arc::new(
-            runtime
-                .block_on(RobotBackend::new(
-                    runtime.handle().clone(),
-                    None,
-                    "/".to_string(),
-                ))
-                .expect("backend should build"),
-        );
+        let backend = {
+            let _runtime_guard = runtime.enter();
+            Arc::new(
+                runtime
+                    .block_on(tokio::time::timeout(
+                        Duration::from_secs(5),
+                        RobotBackend::new(runtime.handle().clone(), Vec::new(), "/".to_string()),
+                    ))
+                    .expect("backend startup should not time out")
+                    .expect("backend should build"),
+            )
+        };
 
         let panel = ImagePanel::new(PanelCreationContext {
             backend,

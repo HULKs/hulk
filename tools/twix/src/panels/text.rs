@@ -321,7 +321,7 @@ fn format_publication_id(publication_id: PublicationId) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{sync::Arc, time::Duration};
 
     use eframe::egui::Context;
     use ros_z::{EndpointGlobalId, pubsub::Received, time::Time};
@@ -403,15 +403,18 @@ mod tests {
             .enable_all()
             .build()
             .expect("runtime should build");
-        let backend = Arc::new(
-            runtime
-                .block_on(RobotBackend::new(
-                    runtime.handle().clone(),
-                    None,
-                    "/".to_string(),
-                ))
-                .expect("backend should build"),
-        );
+        let backend = {
+            let _runtime_guard = runtime.enter();
+            Arc::new(
+                runtime
+                    .block_on(tokio::time::timeout(
+                        Duration::from_secs(5),
+                        RobotBackend::new(runtime.handle().clone(), Vec::new(), "/".to_string()),
+                    ))
+                    .expect("backend startup should not time out")
+                    .expect("backend should build"),
+            )
+        };
         let saved = json!({
             "topic": "/output/text",
             "pretty": true,

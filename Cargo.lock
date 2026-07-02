@@ -11181,6 +11181,7 @@ dependencies = [
  "tracing-subscriber",
  "types",
  "uuid",
+ "zenoh",
 ]
 
 [[package]]
