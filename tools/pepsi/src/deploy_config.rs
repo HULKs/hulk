@@ -4,7 +4,7 @@ use std::{
     str::FromStr,
 };
 
-use chrono::Utc;
+use chrono::Local;
 use color_eyre::{Result, eyre::WrapErr};
 use serde::{Deserialize, Deserializer, de::Error as DeserializeError};
 use tokio::fs::read_to_string;
@@ -44,7 +44,7 @@ impl DeployConfig {
     }
 
     pub fn log_directory_name(&self) -> String {
-        let date = Utc::now().date_naive();
+        let date = Local::now().date_naive();
 
         if let Some(opponent) = &self.opponent {
             format!("{date}-HULKs-vs-{opponent}")
