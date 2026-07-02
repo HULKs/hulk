@@ -3925,18 +3925,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fanta"
-version = "0.1.0"
-dependencies = [
- "clap",
- "color-eyre",
- "communication",
- "fern",
- "log",
- "tokio",
-]
-
-[[package]]
 name = "fastbloom"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11571,17 +11559,6 @@ dependencies = [
  "ros2",
  "serde",
  "types",
-]
-
-[[package]]
-name = "vista"
-version = "0.1.0"
-dependencies = [
- "eframe",
- "hulk_manifest",
- "hulk_widgets",
- "repository",
- "source_analyzer",
 ]
 
 [[package]]
