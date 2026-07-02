@@ -73,7 +73,6 @@ pub struct MapPanel {
     path: EnabledLayer<layers::Path, Ground>,
     robot_pose: EnabledLayer<layers::RobotPose, Ground>,
     // referee_position: EnabledLayer<layers::RefereePosition, Field>,
-    // pose_detection: EnabledLayer<layers::PoseDetection, Field>,
     ball_percept: EnabledLayer<layers::BallPercepts, Ground>,
     ball_position: EnabledLayer<layers::BallPosition, Field>,
     ball_filter: EnabledLayer<layers::BallFilter, Ground>,
@@ -97,7 +96,6 @@ impl Panel for MapPanel {
         // let referee_position = EnabledLayer::new(context.backend.clone(), context.value, false);
         let robot_pose = EnabledLayer::new(context.backend.clone(), context.value, true);
         let ball_percept = EnabledLayer::new(context.backend.clone(), context.value, false);
-        // let pose_detection = EnabledLayer::new(context.backend.clone(), context.value, false);
         let ball_position = EnabledLayer::new(context.backend.clone(), context.value, true);
         let ball_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
         let obstacle_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
@@ -143,7 +141,6 @@ impl Panel for MapPanel {
             obstacles,
             path,
             robot_pose,
-            // pose_detection,
             // referee_position,
             ball_percept,
             ball_position,
@@ -166,7 +163,6 @@ impl Panel for MapPanel {
             "path_obstacles": self.path_obstacles.save(),
             "obstacles": self.obstacles.save(),
             "path": self.path.save(),
-            // "pose_detection": self.referee_position.save(),
             "robot_pose": self.robot_pose.save(),
             // "referee_position": self.referee_position.save(),
             "ball_percept": self.ball_percept.save(),
@@ -188,7 +184,6 @@ impl Panel for MapPanel {
                 self.path_obstacles.checkbox(ui);
                 self.obstacles.checkbox(ui);
                 self.path.checkbox(ui);
-                // self.pose_detection.checkbox(ui);
                 self.robot_pose.checkbox(ui);
                 // self.referee_position.checkbox(ui);
                 self.ball_percept.checkbox(ui);
