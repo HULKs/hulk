@@ -43,7 +43,7 @@ pub struct Arguments {
     old: bool,
 }
 
-static PACKAGES: [&str; 2] = ["zenohd", "zenoh-bridge-dds"];
+static PACKAGES: [&str; 3] = ["zenohd", "zenoh-bridge-dds", "ufw"];
 
 const WIFI_PASSWORD: &str = "HSL?!HSL?!";
 
@@ -157,6 +157,14 @@ async fn gammaray_robot(
         .args(PACKAGES)
         .arg(")")
         .ssh_with_log("installing packages", &progress_bar)
+        .await?;
+
+    robot
+        .ssh_to_robot()?
+        .arg("sudo ufw default allow &&")
+        .arg("sudo ufw deny out proto udp to any port 9000 &&")
+        .arg("yes | sudo ufw enable")
+        .ssh_with_log("adding firewall rules", &progress_bar)
         .await?;
 
     robot
