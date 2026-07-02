@@ -248,12 +248,16 @@ impl VoronoiGrid {
         let mut seed_queue = BinaryHeap::new();
 
         for (robot_index, (robot_pose, player_number)) in robots.iter().enumerate() {
-            if let Some(seed_cell) = self.nearest_matching_cell(
-                robot_pose.position(),
-                |ownership| ownership == Ownership::Free,
-                &mut seed_distance,
-                &mut seed_queue,
-            ) && seed_cell.cost < distance[seed_cell.index]
+            if let Some(seed_cell) = self
+                .n_nearest_matching_cells(
+                    robot_pose.position(),
+                    |ownership| ownership == Ownership::Free,
+                    &mut seed_distance,
+                    &mut seed_queue,
+                    1,
+                )
+                .and_then(|mut seed_cells| seed_cells.pop())
+                && seed_cell.cost < distance[seed_cell.index]
             {
                 distance[seed_cell.index] = seed_cell.cost;
                 self.tiles[seed_cell.index] = Ownership::Robot(*player_number);
@@ -266,33 +270,43 @@ impl VoronoiGrid {
         }
     }
 
-    pub fn nearest_non_blocked_ownership(&self, point: Point2<Field>) -> Option<Ownership> {
+    pub fn n_nearest_non_blocked_ownerships(
+        &self,
+        point: Point2<Field>,
+        n_nearest: usize,
+    ) -> Option<Vec<Ownership>> {
         let mut distance = vec![f32::INFINITY; self.tiles.len()];
         let mut queue = BinaryHeap::new();
 
-        self.nearest_matching_cell(
+        self.n_nearest_matching_cells(
             point,
             |ownership| matches!(ownership, Ownership::Robot(_)),
             &mut distance,
             &mut queue,
+            n_nearest,
         )
-        .map(|nearest_cell| self.tiles[nearest_cell.index])
+        .map(|nearest_cells| {
+            nearest_cells
+                .into_iter()
+                .map(|nearest_cell| self.tiles[nearest_cell.index])
+                .collect()
+        })
     }
 
-    fn nearest_matching_cell(
+    fn n_nearest_matching_cells(
         &self,
         point: Point2<Field>,
         matches_ownership: impl Fn(Ownership) -> bool,
         distance: &mut [f32],
         queue: &mut BinaryHeap<Reverse<(NotNan<f32>, usize)>>,
-    ) -> Option<NearestCell> {
+        n_nearest: usize,
+    ) -> Option<Vec<NearestCell>> {
         let start_index = self.point_to_index(point)?;
-        if matches_ownership(self.tiles[start_index]) {
-            return Some(NearestCell {
-                index: start_index,
-                cost: 0.0,
-            });
+        if n_nearest == 0 {
+            return Some(Vec::new());
         }
+
+        let mut nearest_cells = Vec::with_capacity(n_nearest);
 
         let mut touched = Vec::new();
         queue.clear();
@@ -307,13 +321,16 @@ impl VoronoiGrid {
                 continue;
             }
             if matches_ownership(self.tiles[current_index]) {
-                for index in touched {
-                    distance[index] = f32::INFINITY;
-                }
-                return Some(NearestCell {
+                nearest_cells.push(NearestCell {
                     index: current_index,
                     cost: current_cost,
                 });
+                if nearest_cells.len() == n_nearest {
+                    for index in touched {
+                        distance[index] = f32::INFINITY;
+                    }
+                    return Some(nearest_cells);
+                }
             }
             for (neighbor_index, neighbor) in self.neighbor_indices(current_index) {
                 let new_cost = current_cost + neighbor.step_cost;
@@ -327,7 +344,7 @@ impl VoronoiGrid {
         for index in touched {
             distance[index] = f32::INFINITY;
         }
-        None
+        Some(nearest_cells)
     }
 
     fn point_to_index(&self, p: Point2<Field>) -> Option<usize> {

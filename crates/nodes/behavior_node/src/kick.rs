@@ -1,6 +1,5 @@
 use coordinate_systems::Field;
-use geometry::line::Line;
-use linear_algebra::{Orientation2, Point, Point2, Rotation2, point};
+use linear_algebra::{Orientation2, Point2, Rotation2, point};
 use types::{
     behavior_tree::Status,
     motion_command::{BodyMotion, KickPower, MotionCommand},
@@ -63,15 +62,23 @@ pub fn kick(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn select_kick_target(blackboard: &mut Blackboard) -> Status {
+    let goal_position: Point2<Field> = point!(blackboard.field_dimensions.length / 2.0, 0.0);
+    let target_offset_angle = blackboard.parameters.kicking.kick_target_offset_angle;
+
+    apply_visual_kick_target(blackboard, goal_position, target_offset_angle)
+}
+
+pub(super) fn apply_visual_kick_target(
+    blackboard: &mut Blackboard,
+    target_position_in_field: Point2<Field>,
+    target_offset_angle: f32,
+) -> Status {
     if let (Some(ground_to_field), Some(ball)) = (
         blackboard.world_state.robot.ground_to_field,
         &blackboard.ball,
     ) {
-        let goal_position: Point2<Field> = point!(blackboard.field_dimensions.length / 2.0, 0.0);
         let field_to_ground = ground_to_field.inverse();
-
-        let target_position = field_to_ground * goal_position;
-
+        let target_position = field_to_ground * target_position_in_field;
         let ball_in_ground = field_to_ground * ball.position;
         let kick_direction = Orientation2::from_vector(target_position - ball_in_ground);
 
@@ -81,14 +88,13 @@ pub fn select_kick_target(blackboard: &mut Blackboard) -> Status {
             ..
         }) = blackboard.body_motion.as_mut()
         {
-            *motion_target_position =
-                Rotation2::new(blackboard.parameters.kicking.kick_target_offset_angle)
-                    * target_position;
+            *motion_target_position = Rotation2::new(target_offset_angle) * target_position;
             *motion_kick_direction = kick_direction;
 
             return Status::Success;
         }
     }
+
     Status::Failure
 }
 
@@ -166,11 +172,16 @@ pub fn intercept(blackboard: &mut Blackboard) -> Status {
         if velocity.norm() < f32::EPSILON {
             return Status::Failure;
         }
-        let ball_line = Line {
-            point: ball_in_ground,
-            direction: velocity,
-        };
-        let interception_point = ball_line.closest_point(Point::origin());
+        let time_to_closest_approach =
+            -ball_in_ground.coords().dot(&velocity) / velocity.norm_squared();
+        if time_to_closest_approach < 0.0 {
+            return Status::Failure;
+        }
+
+        let interception_point = ball_in_ground + velocity * time_to_closest_approach;
+        if interception_point.x() < blackboard.parameters.kicking.kick_position_ball_distance {
+            return Status::Failure;
+        }
 
         if interception_point.coords().norm()
             > blackboard
