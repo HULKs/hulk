@@ -26,7 +26,6 @@ use ros_z::qos::QosDurability;
 use types::{
     stereo_camera_info::StereoCameraInfo,
     stereo_image_pair::StereoImagePair,
-    time_wrapper::TimeWrapper,
     visual_odometry::{VisualOdometer, VisualOdometryDelta},
 };
 
@@ -53,7 +52,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let stereo_image_pair_sub = node
-        .subscriber::<TimeWrapper<StereoImagePair>>("inputs/stereo_image_pair")
+        .subscriber::<StereoImagePair>("inputs/stereo_image_pair")
         .build()
         .await?;
 
@@ -100,8 +99,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .await?;
 
         let stereo_image_pair = stereo_image_pair_sub.recv().await?;
-        let current_image_time = stereo_image_pair.time;
-        let stereo_image_pair = stereo_image_pair.inner;
+        let current_image_time = stereo_image_pair.left.header.stamp.into();
         let parameters = node_parameters.snapshot();
         let parameters = parameters.typed();
 

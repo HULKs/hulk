@@ -7,10 +7,7 @@ use ros_z_debug::{TopicObserver, TopicObserverOptions};
 use ros_z_streams::{CreateFutureQueue, QueueEvent};
 use ros2::sensor_msgs::image::Image as RosImage;
 use tokio::runtime::Runtime;
-use types::{
-    object_detection::{Object, RobocupObjectLabel},
-    time_wrapper::TimeWrapper,
-};
+use types::object_detection::{Object, RobocupObjectLabel};
 
 use crate::{
     cli::Arguments,
@@ -74,7 +71,7 @@ async fn run(arguments: Arguments, state: SharedState, egui_context: EguiContext
     let mut debug_subscriptions = DebugSubscriptions::build(&debug_observer)?;
 
     let camera = node
-        .subscriber::<TimeWrapper<RosImage>>(CAMERA_IMAGE_TOPIC)
+        .subscriber::<RosImage>(CAMERA_IMAGE_TOPIC)
         .build()
         .await?;
     let mut objects = node
@@ -102,8 +99,8 @@ async fn run(arguments: Arguments, state: SharedState, egui_context: EguiContext
             }
             message = camera.recv() => match message {
                 Ok(image) => {
-                    let time = image.time;
-                    match decode_camera_frame(image.inner) {
+                    let time = image.header.stamp.into();
+                    match decode_camera_frame(image) {
                         Ok(frame) => update_state(&state, &egui_context, |state| {
                             state.camera_sequence += 1;
                             state.push_camera_frame(time, CameraFrame {
