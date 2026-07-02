@@ -56,6 +56,7 @@ members = [
   "crates/nodes/kinematics_provider",
   "crates/nodes/led_handler",
   "crates/nodes/line_detection",
+  "crates/nodes/localization-2d",
   "crates/nodes/localization-3d",
   "crates/nodes/look_around",
   "crates/nodes/look_at",
@@ -243,6 +244,7 @@ libc = "0.2.169"
 line_detection = { path = "crates/nodes/line_detection" }
 linear_algebra = { path = "crates/linear_algebra" }
 localization-3d = { path = "crates/nodes/localization-3d" }
+localization-2d = { path = "crates/nodes/localization-2d" }
 localization-factrs = { path = "crates/localization-factrs" }
 log = "0.4.25"
 look_around = { path = "crates/nodes/look_around" }

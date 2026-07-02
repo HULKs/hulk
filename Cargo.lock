@@ -5696,6 +5696,7 @@ dependencies = [
  "kinematics_provider",
  "led_handler",
  "line_detection",
+ "localization-2d",
  "localization-3d",
  "look_around",
  "look_at",
@@ -6696,6 +6697,19 @@ dependencies = [
  "libc",
  "neli",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "localization-2d"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "coordinate_systems",
+ "linear_algebra",
+ "nalgebra 0.34.2",
+ "ros-z",
+ "tokio",
+ "types",
 ]
 
 [[package]]

@@ -34,6 +34,7 @@ image_segmenter = { workspace = true }
 kinematics_provider = { workspace = true }
 led_handler = { workspace = true }
 line_detection = { workspace = true }
+localization-2d = { workspace = true }
 localization-3d = { workspace = true }
 look_around = { workspace = true }
 look_at = { workspace = true }

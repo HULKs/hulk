@@ -2,8 +2,8 @@ use nalgebra::{Matrix3, vector};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{Field, Ground};
-use linear_algebra::{Isometry2, Point2, Pose2};
+use coordinate_systems::{Field, Ground, Robot};
+use linear_algebra::{Isometry2, Isometry3, Point2, Pose2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::multivariate_normal_distribution::MultivariateNormalDistribution;
@@ -58,4 +58,20 @@ impl ScoredPose {
             score,
         }
     }
+}
+
+pub fn ground_to_field_from_field_to_robot(
+    field_to_robot: Isometry3<Field, Robot>,
+    robot_to_ground: Isometry3<Robot, Ground>,
+) -> Isometry2<Ground, Field> {
+    let robot_to_field = field_to_robot.inverse();
+    let ground_to_field = robot_to_field * robot_to_ground.inverse();
+    let (_, _, field_to_robot_yaw) = field_to_robot.inner.rotation.euler_angles();
+    let yaw = -field_to_robot_yaw;
+    let translation = ground_to_field.inner.translation.vector;
+
+    Isometry2::wrap(nalgebra::Isometry2::new(
+        nalgebra::vector![translation.x, translation.y],
+        yaw,
+    ))
 }

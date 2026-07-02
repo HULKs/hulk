@@ -15,7 +15,7 @@ use field_mark_association::{FieldMarkAssociationKind, FieldMarkAssociations};
 use kinematics::{
     forward::left_sole_to_robot, joints::leg::LegJoints, robot_kinematics::RobotKinematics,
 };
-use linear_algebra::{IntoTransform, Isometry2, Isometry3, Orientation3, Point3, point};
+use linear_algebra::{IntoTransform, Isometry3, Orientation3, Point3, point};
 use localization_factrs::{
     BackendConfiguration, CameraIntrinsics, FieldContainmentConfiguration, InitialState,
     OptimizationResult, VinsFrontend, VinsFrontendError, VisualReprojectionAssociation,
@@ -225,10 +225,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .publisher::<Option<Isometry3<Field, Robot>>>("localization")
         .build()
         .await?;
-    let ground_to_field_publisher = node
-        .publisher::<Isometry2<Ground, Field>>("ground_to_field")
-        .build()
-        .await?;
     let timestamped_localization_publisher = node
         .publisher::<TimeWrapper<Option<Isometry3<Field, Robot>>>>("localization/timestamped")
         .build()
@@ -382,14 +378,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     &visual_odometer,
                     &camera_matrix_cache,
                 ) {
-                    if let Some(camera_matrix) = fresh_camera_matrix(&camera_matrix_cache, visual_odometer.time) {
-                        ground_to_field_publisher
-                            .publish(&ground_to_field_from_field_to_robot(
-                                transform,
-                                &camera_matrix.inner.ground_to_robot,
-                            ))
-                            .await?;
-                    }
                     let localization = Some(transform);
                     localization_publisher.publish(&localization).await?;
                     timestamped_localization_publisher
@@ -445,14 +433,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     None
                 };
 
-                if let (Some(transform), Some(camera_matrix)) = (transform, camera_matrix.as_deref()) {
-                    ground_to_field_publisher
-                        .publish(&ground_to_field_from_field_to_robot(
-                            transform,
-                            &camera_matrix.inner.ground_to_robot,
-                        ))
-                        .await?;
-                }
                 localization_publisher.publish(&transform).await?;
                 timestamped_localization_publisher
                     .publish(&TimeWrapper {
@@ -722,22 +702,6 @@ fn localization_transform_constrained_to_ground(
     let localization = localization_transform_from_backend_pose(robot_to_field);
 
     constrain_localization_to_ground(localization, ground_to_robot)
-}
-
-fn ground_to_field_from_field_to_robot(
-    field_to_robot: Isometry3<Field, Robot>,
-    ground_to_robot: &Isometry3<Ground, Robot>,
-) -> Isometry2<Ground, Field> {
-    let robot_to_field = field_to_robot.inverse();
-    let ground_to_field = robot_to_field * *ground_to_robot;
-    let (_, _, field_to_robot_yaw) = field_to_robot.inner.rotation.euler_angles();
-    let yaw = -field_to_robot_yaw;
-    let translation = ground_to_field.inner.translation.vector;
-
-    Isometry2::wrap(nalgebra::Isometry2::new(
-        nalgebra::vector![translation.x, translation.y],
-        yaw,
-    ))
 }
 
 fn constrain_localization_to_ground(
@@ -1105,7 +1069,10 @@ mod tests {
         let field_to_robot: Isometry3<Field, Robot> = robot_to_field.inverse().framed_transform();
         let ground_to_robot = Isometry3::identity();
 
-        let ground_to_field = ground_to_field_from_field_to_robot(field_to_robot, &ground_to_robot);
+        let ground_to_field = types::localization::ground_to_field_from_field_to_robot(
+            field_to_robot,
+            ground_to_robot.inverse(),
+        );
 
         assert!((ground_to_field.translation().x() - 1.5).abs() < 1.0e-6);
         assert!((ground_to_field.translation().y() + 2.0).abs() < 1.0e-6);
@@ -1128,8 +1095,10 @@ mod tests {
         let constrained_localization =
             constrain_localization_to_ground(unconstrained_localization, &ground_to_robot);
 
-        let ground_to_field =
-            ground_to_field_from_field_to_robot(constrained_localization, &ground_to_robot);
+        let ground_to_field = types::localization::ground_to_field_from_field_to_robot(
+            constrained_localization,
+            ground_to_robot.inverse(),
+        );
 
         assert!((ground_to_field.orientation().angle() - 0.7).abs() < 1.0e-6);
     }
