@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 #[repr(C)]
 #[derive(
     Clone,
+    Copy,
     Debug,
     Default,
     Serialize,
@@ -28,6 +29,13 @@ pub struct Time {
     /// The time -1.7 seconds is represented as {sec: -2, nanosec: 3e8}
     /// The time 1.7 seconds is represented as {sec: 1, nanosec: 7e8}
     pub nanosec: u32,
+}
+
+impl From<Time> for ros_z::time::Time {
+    fn from(value: Time) -> Self {
+        let nanos = value.sec as i64 * 1_000_000_000 + value.nanosec as i64;
+        ros_z::time::Time::from_nanos(nanos)
+    }
 }
 
 impl From<Time> for SystemTime {

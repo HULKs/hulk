@@ -9,7 +9,6 @@ use ros_z_debug::{SampleRecord, TopicObservation, TopicObservationStatus};
 use ros2::sensor_msgs::image::Image as RosImage;
 use serde_json::{Value, json};
 use thiserror::Error;
-use types::time_wrapper::TimeWrapper;
 use uuid::Uuid;
 
 use crate::{
@@ -63,7 +62,7 @@ enum ObservationState {
 }
 
 struct ObservedImage {
-    observation: TopicObservation<TimeWrapper<RosImage>>,
+    observation: TopicObservation<RosImage>,
     _repaint: ObservationRepaint,
     render_cache: RenderedImageCache,
 }
@@ -253,7 +252,7 @@ impl ImagePanel {
 }
 
 struct RenderedImageCache {
-    sample: Option<Arc<SampleRecord<TimeWrapper<RosImage>>>>,
+    sample: Option<Arc<SampleRecord<RosImage>>>,
     metadata: Option<RenderedMetadata>,
     texture: Option<TextureHandle>,
     dimensions: Option<[usize; 2]>,
@@ -277,18 +276,14 @@ impl RenderedImageCache {
         }
     }
 
-    fn refresh(
-        &mut self,
-        egui_context: &Context,
-        observation: &TopicObservation<TimeWrapper<RosImage>>,
-    ) {
+    fn refresh(&mut self, egui_context: &Context, observation: &TopicObservation<RosImage>) {
         self.refresh_sample(egui_context, observation.latest());
     }
 
     fn refresh_sample(
         &mut self,
         egui_context: &Context,
-        sample: Option<Arc<SampleRecord<TimeWrapper<RosImage>>>>,
+        sample: Option<Arc<SampleRecord<RosImage>>>,
     ) {
         if same_sample(self.sample.as_ref(), sample.as_ref()) {
             return;
@@ -305,7 +300,7 @@ impl RenderedImageCache {
         };
 
         self.metadata = Some(RenderedMetadata::from(record.as_ref()));
-        match decode_color_image(&record.value.inner) {
+        match decode_color_image(&record.value) {
             Ok(image) => {
                 self.dimensions = Some(image.size);
                 self.texture = Some(egui_context.load_texture(
@@ -338,8 +333,8 @@ impl RenderedImageCache {
 }
 
 fn same_sample(
-    current: Option<&Arc<SampleRecord<TimeWrapper<RosImage>>>>,
-    next: Option<&Arc<SampleRecord<TimeWrapper<RosImage>>>>,
+    current: Option<&Arc<SampleRecord<RosImage>>>,
+    next: Option<&Arc<SampleRecord<RosImage>>>,
 ) -> bool {
     match (current, next) {
         (Some(current), Some(next)) => Arc::ptr_eq(current, next),
@@ -348,8 +343,8 @@ fn same_sample(
     }
 }
 
-impl From<&SampleRecord<TimeWrapper<RosImage>>> for RenderedMetadata {
-    fn from(record: &SampleRecord<TimeWrapper<RosImage>>) -> Self {
+impl From<&SampleRecord<RosImage>> for RenderedMetadata {
+    fn from(record: &SampleRecord<RosImage>) -> Self {
         Self {
             resolved_topic: record.metadata.resolved_topic.clone(),
             type_name: record.metadata.type_info.name.to_string(),
@@ -359,7 +354,7 @@ impl From<&SampleRecord<TimeWrapper<RosImage>>> for RenderedMetadata {
                 .map(format_time)
                 .unwrap_or_else(|| "none".to_string()),
             publication_id: format_publication_id(record.publication_id),
-            image_time: format_time(record.value.time),
+            image_time: format_time(record.value.header.stamp.into()),
         }
     }
 }
@@ -367,14 +362,14 @@ impl From<&SampleRecord<TimeWrapper<RosImage>>> for RenderedMetadata {
 fn create_observation(
     context: &impl ObservationContext,
     topic: &str,
-) -> Result<(TopicObservation<TimeWrapper<RosImage>>, ObservationRepaint), Report> {
+) -> Result<(TopicObservation<RosImage>, ObservationRepaint), Report> {
     let runtime_handle = context.backend().runtime_handle().clone();
     // ros_z_debug spawns observation tasks internally and needs a current runtime.
     let _runtime_context = runtime_handle.enter();
     let observation = context
         .backend()
         .observer()
-        .observe_typed::<TimeWrapper<RosImage>>(topic)
+        .observe_typed::<RosImage>(topic)
         .wrap_err("failed to create image topic observation")?
         .spawn();
     let repaint = observation.repaint_on_updates(context);
@@ -399,7 +394,6 @@ mod tests {
     use ros_z_debug::{TopicObserver, TopicObserverOptions};
     use ros2::{sensor_msgs::image::Image as RosImage, std_msgs::header::Header};
     use serde_json::json;
-    use types::time_wrapper::TimeWrapper;
 
     use crate::{backend::RobotBackend, panel::PanelCreationContext};
 
@@ -431,13 +425,6 @@ mod tests {
             is_bigendian: 0,
             step: width * 3,
             data: data.into(),
-        }
-    }
-
-    fn wrapped_image(image: RosImage) -> TimeWrapper<RosImage> {
-        TimeWrapper {
-            time: Time::from_nanos(123),
-            inner: image,
         }
     }
 
@@ -490,16 +477,16 @@ mod tests {
             TopicObserverOptions::with_namespace("/").unwrap(),
         );
         let publisher = node
-            .publisher::<TimeWrapper<RosImage>>("/inputs/left_image")
+            .publisher::<RosImage>("/inputs/left_image")
             .build()
             .await
             .unwrap();
         let observation = observer
-            .observe_typed::<TimeWrapper<RosImage>>("inputs/left_image")
+            .observe_typed::<RosImage>("inputs/left_image")
             .unwrap()
             .spawn();
         let mut cache = RenderedImageCache::new("test-image-cache");
-        let image = wrapped_image(rgb8_image(2, 1, vec![255, 0, 0, 0, 255, 0]));
+        let image = rgb8_image(2, 1, vec![255, 0, 0, 0, 255, 0]);
 
         tokio::time::timeout(Duration::from_secs(3), async {
             while observation.latest().is_none() {
