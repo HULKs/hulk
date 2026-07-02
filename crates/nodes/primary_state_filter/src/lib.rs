@@ -259,8 +259,8 @@ mod tests {
         };
         let buttons = Buttons {
             f1: None,
-            stand: Some(ButtonPressType::Long),
-            walking: None,
+            stand: None,
+            walking: Some(ButtonPressType::Long),
         };
 
         primary_state_filter.update_with_buttons(&buttons, true);
