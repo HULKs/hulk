@@ -6,7 +6,7 @@ use tokio::io::{AsyncBufReadExt, BufReader, stdin};
 
 use crate::{
     deploy_config::DeployConfig,
-    git::{create_and_switch_to_branch, create_commit, merge_squash, reset_to_head},
+    git::{add_all, create_and_switch_to_branch, create_commit, merge_squash, reset_to_head},
     player_number::{Arguments as PlayerNumberArguments, player_number},
 };
 
@@ -66,6 +66,7 @@ pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Resul
     }
 
     configure_repository(repository, config).await?;
+    add_all().await?;
     create_commit("Add player number assigments and framework config")
         .await
         .wrap_err("failed to create commit")?;
@@ -75,19 +76,9 @@ pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Resul
 
 async fn configure_repository(repository: &Repository, config: DeployConfig) -> Result<()> {
     repository
-        .configure_recording_intervals(config.recording_intervals)
-        .await
-        .wrap_err("failed to apply recording settings")?;
-
-    repository
         .set_location(LocationTarget::Default, &config.location)
         .await
         .wrap_err_with(|| format!("failed to set location to {}", config.location))?;
-
-    repository
-        .configure_communication(config.with_communication)
-        .await
-        .wrap_err("failed to set communication")?;
 
     player_number(
         PlayerNumberArguments {

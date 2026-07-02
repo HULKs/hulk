@@ -6,7 +6,6 @@
 use std::path::PathBuf;
 
 pub mod cargo;
-pub mod communication;
 pub mod configuration;
 pub mod data_home;
 pub mod download;
@@ -17,7 +16,6 @@ pub mod location;
 pub mod modify_json;
 pub mod paths;
 pub mod player_number;
-pub mod recording;
 pub mod sdk;
 pub mod symlink;
 pub mod team;

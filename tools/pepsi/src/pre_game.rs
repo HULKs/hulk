@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 
 use clap::Args;
 use color_eyre::{
@@ -16,7 +16,6 @@ use crate::{
     cargo::{self, CargoCommand, build, cargo, environment::EnvironmentArguments, run},
     deploy_config::DeployConfig,
     progress_indicator::ProgressIndicator,
-    recording::parse_key_value,
 };
 
 #[derive(Args)]
@@ -50,17 +49,6 @@ pub struct PreGameArguments {
     /// Skip the OS version check
     #[arg(long)]
     pub skip_os_check: bool,
-    /// Enable communication, communication is disabled by default
-    #[arg(long)]
-    pub with_communication: bool,
-    /// Intervals between cycle recordings, e.g. Control=1,Vision=30 to record every cycle in Control
-    /// and one out of every 30 in Vision. Set to 0 or don't specify to disable recording for a cycler.
-    #[arg(
-        long,
-        value_delimiter=',',
-        value_parser = parse_key_value::<String, usize>,
-    )]
-    pub recording_intervals: Option<Vec<(String, usize)>>,
     /// Prepare everything for the upload without performing the actual one
     #[arg(long)]
     pub prepare: bool,
@@ -73,14 +61,9 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         run_parameter_tester(arguments.environment.clone(), repository).await?;
     }
 
-    let mut config = DeployConfig::read_from_file(repository)
+    let config = DeployConfig::read_from_file(repository)
         .await
         .wrap_err("failed to read deploy config from file")?;
-
-    config.with_communication |= arguments.pre_game.with_communication;
-    if let Some(recording_intervals) = &arguments.pre_game.recording_intervals {
-        config.recording_intervals = HashMap::from_iter(recording_intervals.iter().cloned());
-    }
 
     let playing_robots = config.playing_robots()?;
     let robots = if let Some(robots) = &arguments.pre_game.robots {
