@@ -105,13 +105,13 @@ impl Panel for MapPanel {
         let field_dimensions = context
             .backend
             .observer()
-            .observe_typed::<FieldDimensions>("field_dimensions")
+            .observe_typed("field_dimensions")
             .expect("failed to construct field_dimensions observer")
             .spawn();
         let ground_to_field = context
             .backend
             .observer()
-            .observe_typed::<Isometry2<Ground, Field>>("ground_to_field")
+            .observe_typed("ground_to_field")
             .expect("failed to construct ground_to_field observer")
             .spawn();
 
