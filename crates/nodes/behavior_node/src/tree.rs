@@ -84,18 +84,16 @@ fn ready_subtree() -> Node<Blackboard> {
 
 fn playing_subtree() -> Node<Blackboard> {
     selection!(
+        sequence!(condition!(is_alone), subtree!(striker_subtree)),
         sequence!(condition!(is_goalkeeper), subtree!(goalkeeper_subtree)),
         sequence!(
             negation!(condition!(has_ball_position)),
             subtree!(search_subtree)
         ),
         sequence!(
-            selection!(
-                condition!(is_alone),
-                sequence!(
-                    action!(calculate_voronoi_grid),
-                    condition!(is_closest_to_ball)
-                ),
+            sequence!(
+                action!(calculate_voronoi_grid),
+                condition!(is_closest_to_ball)
             ),
             subtree!(striker_subtree)
         ),
