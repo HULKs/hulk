@@ -26,7 +26,9 @@ pub use crate::node::Node;
 pub use crate::parameter::NodeParametersExt;
 
 /// Core pub/sub handles and builders.
-pub use crate::pubsub::{Publisher, PublisherBuilder, Subscriber, SubscriberBuilder};
+pub use crate::pubsub::{
+    Publisher, PublisherBuilder, QueueOverflowReporting, Subscriber, SubscriberBuilder,
+};
 
 /// Static schema construction traits and helpers.
 pub use crate::schema::{
@@ -44,3 +46,15 @@ pub use crate::{Message, SerdeCdrCodec, Service};
 
 /// Type metadata traits for custom message and service definitions.
 pub use crate::{SchemaHash, ServiceTypeInfo, TypeInfo};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prelude_exports_queue_overflow_reporting() {
+        let reporting = QueueOverflowReporting::Silent;
+
+        assert_eq!(reporting, QueueOverflowReporting::Silent);
+    }
+}

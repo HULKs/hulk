@@ -9,7 +9,10 @@ use crate::{
     endpoint_builder::{EndpointBuilderContext, MessageEndpointType},
     entity::{EndpointEntity, EndpointKind, SchemaHash, TypeInfo},
     graph::Graph,
-    pubsub::{RawPayload, RawPayloadCodec, RawSubscriber, SubscriberBuilder, SubscriberOptions},
+    pubsub::{
+        QueueOverflowReporting, RawPayload, RawPayloadCodec, RawSubscriber, SubscriberBuilder,
+        SubscriberOptions,
+    },
     qos::QosProfile,
     topic_name::{qualify_remote_private_service_name, qualify_topic_name},
 };
@@ -538,6 +541,24 @@ impl DynamicSubscriberDiscoveryBuilder {
         self
     }
 
+    /// Set the local dynamic subscriber receive queue capacity.
+    ///
+    /// This does not change advertised endpoint QoS. If unset, capacity is
+    /// derived from the effective QoS history depth after discovery succeeds.
+    pub fn queue_capacity(mut self, queue_capacity: std::num::NonZeroUsize) -> Self {
+        self.options = self.options.queue_capacity(queue_capacity);
+        self
+    }
+
+    /// Set how local dynamic subscriber queue overflow is reported.
+    ///
+    /// This only controls log output. Overflow still drops the oldest queued
+    /// sample and does not alter advertised endpoint QoS.
+    pub fn queue_overflow_reporting(mut self, reporting: QueueOverflowReporting) -> Self {
+        self.options = self.options.queue_overflow_reporting(reporting);
+        self
+    }
+
     /// Limit accepted samples by their zenoh origin locality.
     ///
     /// The locality filter is applied to the dynamic subscriber created after
@@ -596,6 +617,24 @@ impl DynamicRawSubscriberDiscoveryBuilder {
     /// Set the QoS profile used by the built raw dynamic subscriber.
     pub fn qos(mut self, qos: QosProfile) -> Self {
         self.options = self.options.qos(qos);
+        self
+    }
+
+    /// Set the local raw dynamic subscriber receive queue capacity.
+    ///
+    /// This does not change advertised endpoint QoS. If unset, capacity is
+    /// derived from the effective QoS history depth after discovery succeeds.
+    pub fn queue_capacity(mut self, queue_capacity: std::num::NonZeroUsize) -> Self {
+        self.options = self.options.queue_capacity(queue_capacity);
+        self
+    }
+
+    /// Set how local raw dynamic subscriber queue overflow is reported.
+    ///
+    /// This only controls log output. Overflow still drops the oldest queued
+    /// sample and does not alter advertised endpoint QoS.
+    pub fn queue_overflow_reporting(mut self, reporting: QueueOverflowReporting) -> Self {
+        self.options = self.options.queue_overflow_reporting(reporting);
         self
     }
 

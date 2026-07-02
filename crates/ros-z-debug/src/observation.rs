@@ -19,17 +19,18 @@ use tokio::sync::{broadcast, watch};
 
 use crate::{
     CachedSubscription, CachedSubscriptionBuilder, CachedSubscriptionStatusSnapshot,
-    CachedSubscriptionUpdate, CachedSubscriptionUpdateReceiver, Error, JsonRenderPolicy, Result,
-    RetentionPolicy, TargetIdentity, TopicReference,
+    CachedSubscriptionUpdate, CachedSubscriptionUpdateReceiver, Error, JsonRenderPolicy,
+    ObservationPolicy, Result, RetentionPolicy, TargetIdentity, TopicReference,
     sample::{dynamic_record_json_value, dynamic_record_to_json_sample},
 };
 
+#[cfg(test)]
 const UPDATE_BUFFER_CAPACITY: usize = 256;
 
 /// Lifecycle state for a topic observation.
 ///
 /// Observations rebuild their underlying cached subscription when the requested
-/// topic, target identity, retention policy, explicit reconnect revision, or
+/// topic, target identity, observation policy, explicit reconnect revision, or
 /// relevant graph state changes. Status snapshots retain frozen previous cache
 /// metadata while rebuilding, retrying, or blocked so callers can keep displaying
 /// the last readable data without keeping the old subscription live.
@@ -322,7 +323,7 @@ pub struct TopicObservationBuilder<T> {
     topic: TopicReference,
     namespace: Option<String>,
     node_name: DesiredNodeName,
-    retention: RetentionPolicy,
+    policy: ObservationPolicy,
     _value: PhantomData<T>,
 }
 
@@ -333,7 +334,7 @@ impl<T> TopicObservationBuilder<T> {
             topic,
             namespace: None,
             node_name: DesiredNodeName::Inherit,
-            retention: RetentionPolicy::LatestOnly,
+            policy: ObservationPolicy::default(),
             _value: PhantomData,
         }
     }
@@ -376,8 +377,19 @@ impl<T> TopicObservationBuilder<T> {
 
     /// Set how much data the observation retains.
     pub fn retention(mut self, retention: RetentionPolicy) -> Self {
-        self.retention = retention;
+        self.policy = self.policy.with_retention(retention);
         self
+    }
+
+    /// Configure this observation with a full observation policy.
+    pub fn policy(mut self, policy: ObservationPolicy) -> Self {
+        self.policy = policy;
+        self
+    }
+
+    /// Return the configured observation policy.
+    pub fn observation_policy(&self) -> ObservationPolicy {
+        self.policy
     }
 
     /// Return the topic reference requested for this observation.
@@ -387,7 +399,7 @@ impl<T> TopicObservationBuilder<T> {
 
     /// Return the configured retention policy.
     pub fn retention_policy(&self) -> RetentionPolicy {
-        self.retention
+        self.policy.retention()
     }
 }
 
@@ -402,10 +414,10 @@ where
             topic: self.topic,
             namespace: self.namespace,
             node_name: self.node_name,
-            retention: self.retention,
+            policy: self.policy,
             reconnect_revision: 0,
         });
-        let (updates, _) = broadcast::channel(UPDATE_BUFFER_CAPACITY);
+        let (updates, _) = broadcast::channel(self.policy.update_buffer_capacity().get());
         let state = Arc::new(Mutex::new(TopicObservationState {
             status: TopicObservationStatus::Building,
             display_cache: None,
@@ -430,10 +442,10 @@ impl TopicObservationBuilder<DynamicPayload> {
             topic: self.topic,
             namespace: self.namespace,
             node_name: self.node_name,
-            retention: self.retention,
+            policy: self.policy,
             reconnect_revision: 0,
         });
-        let (updates, _) = broadcast::channel(UPDATE_BUFFER_CAPACITY);
+        let (updates, _) = broadcast::channel(self.policy.update_buffer_capacity().get());
         let state = Arc::new(Mutex::new(TopicObservationState {
             status: TopicObservationStatus::Building,
             display_cache: None,
@@ -451,7 +463,6 @@ impl TopicObservationBuilder<DynamicPayload> {
         }
     }
 }
-
 /// Builder for a dynamic topic observation.
 pub struct DynamicTopicObservationBuilder {
     inner: TopicObservationBuilder<DynamicPayload>,
@@ -470,6 +481,17 @@ impl DynamicTopicObservationBuilder {
     pub fn retention(mut self, retention: RetentionPolicy) -> Self {
         self.inner = self.inner.retention(retention);
         self
+    }
+
+    /// Configure this observation with a full observation policy.
+    pub fn policy(mut self, policy: ObservationPolicy) -> Self {
+        self.inner = self.inner.policy(policy);
+        self
+    }
+
+    /// Return the configured observation policy.
+    pub fn observation_policy(&self) -> ObservationPolicy {
+        self.inner.observation_policy()
     }
 
     /// Override the namespace used to resolve this observation's relative topic before spawning.
@@ -537,7 +559,13 @@ impl<T> TopicObservation<T> {
     #[cfg(test)]
     fn new(desired: DesiredObservation) -> Self {
         let (desired_sender, _) = watch::channel(desired);
-        let (updates, _) = broadcast::channel(UPDATE_BUFFER_CAPACITY);
+        let (updates, _) = broadcast::channel(
+            desired_sender
+                .borrow()
+                .policy
+                .update_buffer_capacity()
+                .get(),
+        );
 
         Self {
             state: Arc::new(Mutex::new(TopicObservationState {
@@ -603,7 +631,7 @@ impl<T> TopicObservation<T> {
     /// Change the retention policy used on the next rebuild.
     pub fn set_retention(&self, retention: RetentionPolicy) {
         self.controls.desired_sender.send_modify(|desired| {
-            desired.retention = retention;
+            desired.policy = desired.policy.with_retention(retention);
         });
     }
 
@@ -794,7 +822,7 @@ struct DesiredObservation {
     topic: TopicReference,
     namespace: Option<String>,
     node_name: DesiredNodeName,
-    retention: RetentionPolicy,
+    policy: ObservationPolicy,
     reconnect_revision: u64,
 }
 
@@ -812,7 +840,7 @@ impl DesiredObservation {
             topic,
             namespace: None,
             node_name: DesiredNodeName::Inherit,
-            retention,
+            policy: ObservationPolicy::default().with_retention(retention),
             reconnect_revision: 0,
         }
     }
@@ -841,7 +869,7 @@ struct DynamicGraphFingerprint {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ObservationBuildKey {
     resolved_topic: String,
-    retention: RetentionPolicy,
+    policy: ObservationPolicy,
     reconnect_revision: u64,
 }
 
@@ -1042,7 +1070,7 @@ where
     CachedSubscriptionBuilder::new(node, desired.topic.as_str())?
         .target_identity(identity)
         .schema_discovery_timeout(schema_discovery_timeout)
-        .retention(desired.retention)
+        .policy(desired.policy)
         .build_typed::<T>()
         .await
 }
@@ -1056,7 +1084,7 @@ async fn build_dynamic_cache(
     CachedSubscriptionBuilder::new(node, desired.topic.as_str())?
         .target_identity(identity)
         .schema_discovery_timeout(schema_discovery_timeout)
-        .retention(desired.retention)
+        .policy(desired.policy)
         .build_dynamic()
         .await
 }
@@ -1178,7 +1206,7 @@ fn observation_build_key(
     let resolved_topic = desired.topic.resolve(&identity).ok()?;
     Some(ObservationBuildKey {
         resolved_topic,
-        retention: desired.retention,
+        policy: desired.policy,
         reconnect_revision: desired.reconnect_revision,
     })
 }
@@ -1522,7 +1550,7 @@ fn resolve_build_target(
     let resolved_topic = desired.topic.resolve(&identity)?;
     let build_key = ObservationBuildKey {
         resolved_topic: resolved_topic.clone(),
-        retention: desired.retention,
+        policy: desired.policy,
         reconnect_revision: desired.reconnect_revision,
     };
     let graph_fingerprint = topic_graph_fingerprint(node, &resolved_topic);
@@ -1871,7 +1899,7 @@ fn send_observation_update<T>(
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, time::Duration};
+    use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
     use parking_lot::Mutex;
     use ros_z::{prelude::*, time::Time};
@@ -1884,8 +1912,8 @@ mod tests {
     };
     use crate::{
         CachedSubscriptionStatus, CachedSubscriptionStatusSnapshot, CachedSubscriptionUpdate,
-        CachedSubscriptionUpdateReceiver, RetentionPolicy, SampleMetadata, SampleRecord,
-        TargetIdentity, TopicReference, cache::CachedSubscriptionState,
+        CachedSubscriptionUpdateReceiver, ObservationPolicy, RetentionPolicy, SampleMetadata,
+        SampleRecord, TargetIdentity, TopicReference, cache::CachedSubscriptionState,
     };
 
     fn test_type_info() -> ros_z::TypeInfo {
@@ -1965,7 +1993,7 @@ mod tests {
             topic: TopicReference::new("~trace").unwrap(),
             namespace: None,
             node_name: DesiredNodeName::Inherit,
-            retention: RetentionPolicy::LatestOnly,
+            policy: ObservationPolicy::default().with_retention(RetentionPolicy::LatestOnly),
             reconnect_revision: 0,
         };
 
@@ -1985,7 +2013,7 @@ mod tests {
             topic: TopicReference::new("~trace").unwrap(),
             namespace: Some("/99".to_string()),
             node_name: DesiredNodeName::Name("vision".to_string()),
-            retention: RetentionPolicy::LatestOnly,
+            policy: ObservationPolicy::default().with_retention(RetentionPolicy::LatestOnly),
             reconnect_revision: 0,
         };
 
@@ -2246,6 +2274,7 @@ mod tests {
         let cache_state = Arc::new(CachedSubscriptionState::<String>::new(
             fresh_cache,
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let (observation_update_sender, observation_update_receiver) =
             broadcast::channel(super::UPDATE_BUFFER_CAPACITY);
@@ -2312,6 +2341,7 @@ mod tests {
         let cache_state = Arc::new(CachedSubscriptionState::<String>::new(
             stale_cache.clone(),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let cache = cache_state.handle();
         let (observation_update_sender, observation_update_receiver) =
@@ -2358,6 +2388,7 @@ mod tests {
         let cache_state = Arc::new(CachedSubscriptionState::<String>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         cache_state.store_latest(string_sample_record("ready before install"));
         let cache = cache_state.handle();
@@ -2405,6 +2436,7 @@ mod tests {
         let cache_state = Arc::new(CachedSubscriptionState::<String>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let cache = cache_state.handle();
         let built_cache = cache.clone();
@@ -2492,6 +2524,7 @@ mod tests {
         let cache_state = Arc::new(CachedSubscriptionState::<String>::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
         ));
         let built_cache = cache_state.handle();
         let (observation_update_sender, _observation_update_receiver) =
