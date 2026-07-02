@@ -276,7 +276,11 @@ impl PathPlanner {
         if let Some(circle) = closest_circle {
             let to_start = start - circle.center;
             let safety_radius = circle.radius * 1.1;
-            start += to_start.normalize() * (safety_radius - to_start.norm());
+            let escape_direction = to_start
+                .try_normalize(f32::EPSILON)
+                .or_else(|| (start - destination).try_normalize(f32::EPSILON))
+                .unwrap_or_else(|| vector![1.0, 0.0]);
+            start += escape_direction * (safety_radius - to_start.norm());
         }
 
         let closest_circle = self
@@ -853,6 +857,35 @@ mod tests {
                 .expect("Path error")
                 .is_none()
         );
+    }
+
+    #[test]
+    fn path_start_at_obstacle_center() {
+        let mut map = PathPlanner::default();
+        map.with_obstacles(&[Obstacle::ball(Point2::origin(), 1.0)], 0.0);
+
+        let path = map
+            .plan(Point2::origin(), point![2.0, 0.0])
+            .expect("Path error")
+            .expect("Path was none");
+
+        assert!(path.segments.iter().all(|segment| {
+            match segment {
+                PathSegment::LineSegment(line_segment) => {
+                    line_segment.0.x().is_finite()
+                        && line_segment.0.y().is_finite()
+                        && line_segment.1.x().is_finite()
+                        && line_segment.1.y().is_finite()
+                }
+                PathSegment::Arc(arc) => {
+                    arc.circle.center.x().is_finite()
+                        && arc.circle.center.y().is_finite()
+                        && arc.circle.radius.is_finite()
+                        && arc.start.angle().is_finite()
+                        && arc.end.angle().is_finite()
+                }
+            }
+        }));
     }
 
     #[test]
