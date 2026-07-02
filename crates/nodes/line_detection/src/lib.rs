@@ -67,7 +67,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let line_data_pub = node
-        .publisher::<TimeWrapper<Option<LineData>>>("line_detection/lines_in_image")
+        .publisher::<TimeWrapper<Option<LineData>>>("line_detection/line_data")
         .build()
         .await?;
 
