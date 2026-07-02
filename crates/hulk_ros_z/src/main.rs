@@ -8,7 +8,7 @@ use color_eyre::{
 use repository::{Repository, team::Team};
 use ros_z::prelude::*;
 use tokio::task::JoinSet;
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 
@@ -30,8 +30,13 @@ struct RunningStack {
 
 fn main() -> Result<()> {
     color_eyre::install()?;
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
+
+    let console_layer = console_subscriber::spawn();
+
+    tracing_subscriber::registry()
+        .with(EnvFilter::from_default_env())
+        .with(tracing_subscriber::fmt::layer())
+        .with(console_layer)
         .init();
 
     run_with_shutdown_timeout(run(), RUNTIME_SHUTDOWN_TIMEOUT)?
