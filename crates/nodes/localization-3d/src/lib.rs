@@ -300,7 +300,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 timestamped_localization_publisher
                     .publish(&TimeWrapper {
                         time: now,
-                        inner: localization,
+                        inner: initial_localization_for_branch_hint(&field_dimensions),
                     })
                     .await?;
             }
@@ -418,12 +418,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     let _ = frontend.last_optimization_result();
                     live_localization.clear();
                     global_visual_lock = GlobalVisualLock::Unlocked;
+                    let now = node.clock().now();
                     let localization: Option<Isometry3<Field, Robot>> = None;
                     localization_publisher.publish(&localization).await?;
                     timestamped_localization_publisher
                         .publish(&TimeWrapper {
-                            time: node.clock().now(),
-                            inner: localization,
+                            time: now,
+                            inner: initial_localization_for_branch_hint(&field_dimensions),
                         })
                         .await?;
                     continue;
@@ -691,6 +692,12 @@ fn timestamped_localization_for_branch_hint(
     backend_transform: Isometry3<Field, Robot>,
 ) -> Option<Isometry3<Field, Robot>> {
     Some(backend_transform)
+}
+
+fn initial_localization_for_branch_hint(
+    field_dimensions: &FieldDimensions,
+) -> Option<Isometry3<Field, Robot>> {
+    Some(initial_robot_to_field_from_field_dimensions(field_dimensions).inverse())
 }
 
 fn backend_localization_for_result(
@@ -1041,6 +1048,26 @@ mod tests {
             roundtrip_robot_to_field
                 .rotation
                 .angle_to(&robot_to_field.rotation)
+                < 1.0e-6
+        );
+    }
+
+    #[test]
+    fn initial_localization_branch_hint_uses_startup_prior() {
+        let hint = initial_localization_for_branch_hint(&FieldDimensions::SPL_2025)
+            .expect("initial branch hint should be available");
+        let robot_to_field = hint.inverse();
+        let expected = initial_robot_to_field_from_field_dimensions(&FieldDimensions::SPL_2025);
+
+        assert!(
+            (robot_to_field.inner.translation.vector - expected.inner.translation.vector).norm()
+                < 1.0e-6
+        );
+        assert!(
+            robot_to_field
+                .inner
+                .rotation
+                .angle_to(&expected.inner.rotation)
                 < 1.0e-6
         );
     }
