@@ -245,7 +245,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     additional_behavior_tree_layout_pub
         .publish_if_subscribed(|| async { static_layout })
         .await?;
-    let mut timer = node.create_timer(Duration::from_millis(100));
+    let mut timer = node.create_timer(Duration::from_millis(20));
 
     let mut blackboard = Blackboard {
         field_dimensions: field_dimensions_cache
