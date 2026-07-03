@@ -103,9 +103,12 @@ fn goalkeeper_sub_state_subtree() -> Node<Blackboard> {
         sequence!(
             condition!(hulks_is_kicking_team),
             sequence!(
-                action!(calculate_voronoi_grid),
                 condition!(is_sub_state, SubState::GoalKick),
-                sequence!(condition!(is_closest_to_ball), subtree!(striker_subtree),)
+                sequence!(
+                    action!(calculate_voronoi_grid),
+                    condition!(is_closest_to_ball),
+                    subtree!(striker_subtree),
+                )
             ),
         ),
         subtree!(goalkeeper_default_position_subtree),
