@@ -39,7 +39,7 @@ use parking_lot::RwLock;
 use std::collections::{BTreeMap, VecDeque};
 use std::marker::PhantomData;
 use std::sync::Arc;
-use tracing::{debug, warn};
+use tracing::{Instrument, debug, warn};
 
 use crate::Result;
 use crate::message::{SerdeCdrCodec, WireDecoder};
@@ -478,43 +478,55 @@ where
         } = self;
         let inner = Arc::new(RwLock::new(CacheInner::<T>::new(capacity)));
         let inner_cb = inner.clone();
+        let node = sub_builder.context.node.fully_qualified_name();
+        let topic = sub_builder.topic.clone();
 
         let raw_subscriber = sub_builder.raw().build().await?;
         let mut raw_subscriber_task = raw_subscriber;
-        let task = tokio::spawn(async move {
-            loop {
-                let sample = match raw_subscriber_task.recv().await {
-                    Ok(sample) => sample,
-                    Err(error) => {
-                        tracing::error!("[CACHE] Failed to receive raw sample: {}", error);
-                        break;
-                    }
-                };
-                let payload = sample.payload().to_bytes();
-                match S::deserialize(&payload) {
-                    Ok(message) => {
-                        let stamp = match sample.timestamp() {
-                            Some(ts) => Time::from_wallclock(ts.get_time().to_system_time()),
-                            None => {
-                                let mut guard = inner_cb.write();
-                                if !guard.warned_no_ts {
-                                    warn!(
-                                        "[CACHE] Incoming sample has no Zenoh timestamp; \
-                                         falling back to current wallclock time. \
-                                         Enable timestamping in the Zenoh config to avoid this."
-                                    );
-                                    guard.warned_no_ts = true;
+        let span = tracing::info_span!(
+            target: "runtime::ros_z",
+            "ros_z_cache",
+            node = %node,
+            topic = %topic,
+            stamp = "zenoh"
+        );
+        let task = tokio::spawn(
+            async move {
+                loop {
+                    let sample = match raw_subscriber_task.recv().await {
+                        Ok(sample) => sample,
+                        Err(error) => {
+                            tracing::error!("[CACHE] Failed to receive raw sample: {}", error);
+                            break;
+                        }
+                    };
+                    let payload = sample.payload().to_bytes();
+                    match S::deserialize(&payload) {
+                        Ok(message) => {
+                            let stamp = match sample.timestamp() {
+                                Some(ts) => Time::from_wallclock(ts.get_time().to_system_time()),
+                                None => {
+                                    let mut guard = inner_cb.write();
+                                    if !guard.warned_no_ts {
+                                        warn!(
+                                            "[CACHE] Incoming sample has no Zenoh timestamp; \
+                                             falling back to current wallclock time. \
+                                             Enable timestamping in the Zenoh config to avoid this."
+                                        );
+                                        guard.warned_no_ts = true;
+                                    }
+                                    drop(guard);
+                                    Time::from_wallclock(std::time::SystemTime::now())
                                 }
-                                drop(guard);
-                                Time::from_wallclock(std::time::SystemTime::now())
-                            }
-                        };
-                        inner_cb.write().insert(stamp, message);
+                            };
+                            inner_cb.write().insert(stamp, message);
+                        }
+                        Err(e) => tracing::error!("[CACHE] Failed to deserialize message: {}", e),
                     }
-                    Err(e) => tracing::error!("[CACHE] Failed to deserialize message: {}", e),
                 }
             }
-        });
+            .instrument(span),
+        );
 
         debug!("[CACHE] ZenohStamp cache ready");
         Ok(Cache {
@@ -556,28 +568,40 @@ where
         } = self;
         let inner = Arc::new(RwLock::new(CacheInner::<T>::new(capacity)));
         let inner_cb = inner.clone();
+        let node = sub_builder.context.node.fully_qualified_name();
+        let topic = sub_builder.topic.clone();
 
         let raw_subscriber = sub_builder.raw().build().await?;
         let mut raw_subscriber_task = raw_subscriber;
-        let task = tokio::spawn(async move {
-            loop {
-                let sample = match raw_subscriber_task.recv().await {
-                    Ok(sample) => sample,
-                    Err(error) => {
-                        tracing::error!("[CACHE] Failed to receive raw sample: {}", error);
-                        break;
+        let span = tracing::info_span!(
+            target: "runtime::ros_z",
+            "ros_z_cache",
+            node = %node,
+            topic = %topic,
+            stamp = "extractor"
+        );
+        let task = tokio::spawn(
+            async move {
+                loop {
+                    let sample = match raw_subscriber_task.recv().await {
+                        Ok(sample) => sample,
+                        Err(error) => {
+                            tracing::error!("[CACHE] Failed to receive raw sample: {}", error);
+                            break;
+                        }
+                    };
+                    let payload = sample.payload().to_bytes();
+                    match S::deserialize(&payload) {
+                        Ok(message) => {
+                            let stamp = extractor(&message).into();
+                            inner_cb.write().insert(stamp, message);
+                        }
+                        Err(e) => tracing::error!("[CACHE] Failed to deserialize message: {}", e),
                     }
-                };
-                let payload = sample.payload().to_bytes();
-                match S::deserialize(&payload) {
-                    Ok(message) => {
-                        let stamp = extractor(&message).into();
-                        inner_cb.write().insert(stamp, message);
-                    }
-                    Err(e) => tracing::error!("[CACHE] Failed to deserialize message: {}", e),
                 }
             }
-        });
+            .instrument(span),
+        );
 
         debug!("[CACHE] ExtractorStamp cache ready");
         Ok(Cache {

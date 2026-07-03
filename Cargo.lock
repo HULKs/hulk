@@ -5428,7 +5428,7 @@ dependencies = [
  "base64 0.21.7",
  "byteorder",
  "flate2",
- "nom 7.1.3",
+ "nom",
  "num-traits",
 ]
 
@@ -5665,6 +5665,7 @@ dependencies = [
  "team_ball_receiver",
  "time_to_reach_kick_position",
  "tokio",
+ "tracing",
  "tracing-subscriber",
  "trigger",
  "visual_kick_ball_selector",

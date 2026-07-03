@@ -8,6 +8,7 @@ use color_eyre::{
 use repository::{Repository, team::Team};
 use ros_z::prelude::*;
 use tokio::task::JoinSet;
+use tracing::Instrument;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
@@ -145,57 +146,75 @@ fn derive_namespace(robot: &str) -> String {
 async fn spawn_all(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<RunningStack> {
     let mut join_set = JoinSet::new();
 
-    join_set.spawn(active_vision::run_boxed(ctx.clone()));
-    join_set.spawn(ball_filter::run_boxed(ctx.clone()));
-    join_set.spawn(ball_state_composer::run_boxed(ctx.clone()));
-    join_set.spawn(behavior_node::run_boxed(ctx.clone()));
-    join_set.spawn(booster_sdk_interface::run_boxed(ctx.clone()));
-    join_set.spawn(button_event_bridge::run_boxed(ctx.clone()));
-    join_set.spawn(button_event_handler::run_boxed(ctx.clone()));
-    join_set.spawn(camera_matrix_calculator::run_boxed(ctx.clone()));
-    join_set.spawn(detection::run_boxed(ctx.clone()));
-    join_set.spawn(fake_odometry::run_boxed(ctx.clone()));
-    join_set.spawn(fall_down_state_receiver::run_boxed(ctx.clone()));
-    join_set.spawn(field_mark_association::run_boxed(ctx.clone()));
-    join_set.spawn(game_controller_filter::run_boxed(ctx.clone()));
-    join_set.spawn(game_controller_state_filter::run_boxed(ctx.clone()));
-    join_set.spawn(global_parameter_provider::run_boxed(ctx.clone()));
-    join_set.spawn(ground_provider::run_boxed(ctx.clone()));
-    join_set.spawn(head_motion::run_boxed(ctx.clone()));
-    join_set.spawn(image_receiver::run_boxed(ctx.clone()));
-    join_set.spawn(kinematics_provider::run_boxed(ctx.clone()));
-    join_set.spawn(led_handler::run_boxed(ctx.clone()));
-    join_set.spawn(localization_2d::run_boxed(ctx.clone()));
-    join_set.spawn(localization_3d::run_boxed(ctx.clone()));
-    join_set.spawn(look_around::run_boxed(ctx.clone()));
-    join_set.spawn(look_at::run_boxed(ctx.clone()));
-    join_set.spawn(low_state_bridge::run_boxed(ctx.clone()));
-    join_set.spawn(mcap_recorder::run_boxed(ctx.clone(), log_path));
-    join_set.spawn(message_filter::run_boxed(ctx.clone()));
-    join_set.spawn(message_handler::run_boxed(ctx.clone()));
-    join_set.spawn(microphone_recorder::run_boxed(ctx.clone()));
-    join_set.spawn(motor_commands_collector::run_boxed(ctx.clone()));
-    join_set.spawn(obstacle_filter::run_boxed(ctx.clone()));
-    join_set.spawn(odometer_bridge::run_boxed(ctx.clone()));
-    join_set.spawn(odometry::run_boxed(ctx.clone()));
-    join_set.spawn(player_states_receiver::run_boxed(ctx.clone()));
-    join_set.spawn(primary_state_filter::run_boxed(ctx.clone()));
-    join_set.spawn(visual_kick_ball_selector::run_boxed(ctx.clone()));
-    join_set.spawn(rule_obstacle_composer::run_boxed(ctx.clone()));
-    join_set.spawn(safe_pose_checker::run_boxed(ctx.clone()));
-    join_set.spawn(search_suggestor::run_boxed(ctx.clone()));
-    join_set.spawn(segment_filter::run_boxed(ctx.clone()));
-    join_set.spawn(stereo_visual_odometry::run_boxed(ctx.clone()));
-    join_set.spawn(support_foot_estimator::run_boxed(ctx.clone()));
-    join_set.spawn(team_ball_receiver::run_boxed(ctx.clone()));
-    join_set.spawn(time_to_reach_kick_position::run_boxed(ctx.clone()));
-    join_set.spawn(trigger::run_boxed(ctx.clone()));
-    join_set.spawn(whistle_detection::run_boxed(ctx.clone()));
-    join_set.spawn(whistle_filter::run_boxed(ctx.clone()));
-    join_set.spawn(world_state_composer::run_boxed(ctx.clone()));
-    join_set.spawn(world_to_field_provider::run_boxed(ctx.clone()));
+    macro_rules! spawn_node {
+        ($node:ident $(, $arg:expr)?) => {
+            spawn_node_task(
+                &mut join_set,
+                stringify!($node),
+                $node::run_boxed(ctx.clone() $(, $arg)?),
+            );
+        };
+    }
+
+    spawn_node!(active_vision);
+    spawn_node!(ball_filter);
+    spawn_node!(ball_state_composer);
+    spawn_node!(behavior_node);
+    spawn_node!(booster_sdk_interface);
+    spawn_node!(button_event_bridge);
+    spawn_node!(button_event_handler);
+    spawn_node!(camera_matrix_calculator);
+    spawn_node!(detection);
+    spawn_node!(fake_odometry);
+    spawn_node!(fall_down_state_receiver);
+    spawn_node!(field_mark_association);
+    spawn_node!(game_controller_filter);
+    spawn_node!(game_controller_state_filter);
+    spawn_node!(global_parameter_provider);
+    spawn_node!(ground_provider);
+    spawn_node!(head_motion);
+    spawn_node!(image_receiver);
+    spawn_node!(kinematics_provider);
+    spawn_node!(led_handler);
+    spawn_node!(localization_2d);
+    spawn_node!(localization_3d);
+    spawn_node!(look_around);
+    spawn_node!(look_at);
+    spawn_node!(low_state_bridge);
+    spawn_node!(mcap_recorder, log_path);
+    spawn_node!(message_filter);
+    spawn_node!(message_handler);
+    spawn_node!(microphone_recorder);
+    spawn_node!(motor_commands_collector);
+    spawn_node!(obstacle_filter);
+    spawn_node!(odometer_bridge);
+    spawn_node!(odometry);
+    spawn_node!(player_states_receiver);
+    spawn_node!(primary_state_filter);
+    spawn_node!(visual_kick_ball_selector);
+    spawn_node!(rule_obstacle_composer);
+    spawn_node!(safe_pose_checker);
+    spawn_node!(search_suggestor);
+    spawn_node!(segment_filter);
+    spawn_node!(stereo_visual_odometry);
+    spawn_node!(support_foot_estimator);
+    spawn_node!(team_ball_receiver);
+    spawn_node!(time_to_reach_kick_position);
+    spawn_node!(trigger);
+    spawn_node!(whistle_detection);
+    spawn_node!(whistle_filter);
+    spawn_node!(world_state_composer);
+    spawn_node!(world_to_field_provider);
 
     Ok(RunningStack { join_set })
+}
+
+fn spawn_node_task<F>(join_set: &mut JoinSet<Result<()>>, node: &'static str, future: F)
+where
+    F: Future<Output = Result<()>> + Send + 'static,
+{
+    let span = tracing::info_span!(target: "runtime::hulk_ros_z", "hulk_ros_z_node", node);
+    join_set.spawn(future.instrument(span));
 }
 
 async fn monitor(join_set: &mut JoinSet<Result<()>>) -> Result<()> {
