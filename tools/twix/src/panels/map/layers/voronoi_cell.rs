@@ -83,23 +83,6 @@ impl Layer<Field> for VoronoiCell {
             painter.circle_stroke(point, 0.035, Stroke::new(0.01, Color32::BLACK));
         }
 
-        for player_number in [
-            PlayerNumber::One,
-            PlayerNumber::Two,
-            PlayerNumber::Three,
-            PlayerNumber::Four,
-            PlayerNumber::Five,
-        ] {
-            if let Some(centroid) = grid.centroid_for_player(player_number) {
-                painter.target(
-                    centroid,
-                    0.06,
-                    Stroke::new(0.01, Color32::GREEN),
-                    Color32::RED,
-                );
-            }
-        }
-
         for voronoi_input in &blackboard.voronoi_inputs {
             painter.pose(
                 *voronoi_input,
