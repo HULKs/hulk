@@ -409,7 +409,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             outgoing_message_pub.publish(&message).await?;
         }
 
-        if let Some(message) = blackboard.state_message() {
+        if let Some(message) = blackboard.try_sending_state_message() {
             outgoing_message_pub.publish(&message).await?;
         }
 

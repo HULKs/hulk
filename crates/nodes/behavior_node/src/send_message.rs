@@ -3,7 +3,9 @@ use std::{net::SocketAddr, time::Duration};
 use booster::FallDownStateType;
 use hsl_network_messages::{GameControllerReturnMessage, HulkMessage, StateMessage};
 use ros_z::time::Time;
-use types::{messages::OutgoingMessage, parameters::HslNetworkParameters};
+use types::{
+    messages::OutgoingMessage, parameters::HslNetworkParameters, primary_state::PrimaryState,
+};
 
 use crate::node::Blackboard;
 
@@ -60,7 +62,10 @@ impl Blackboard {
         )
     }
 
-    pub fn state_message(&mut self) -> Option<OutgoingMessage> {
+    pub fn try_sending_state_message(&mut self) -> Option<OutgoingMessage> {
+        if self.world_state.robot.primary_state != PrimaryState::Playing {
+            return None;
+        }
         let now = self.world_state.now;
         let remaining_amount_of_messages = self
             .world_state
@@ -80,31 +85,32 @@ impl Blackboard {
         }) {
             return None;
         }
+        if let Some(ground_to_field) = self.world_state.robot.ground_to_field {
+            let pose = ground_to_field.as_pose();
 
-        let ground_to_field = self.world_state.robot.ground_to_field.unwrap_or_default();
+            let ball_position =
+                self.world_state
+                    .ball
+                    .map(|ball| hsl_network_messages::BallPosition {
+                        age: now
+                            .to_wallclock()
+                            .duration_since(ball.last_seen_ball)
+                            .unwrap(),
+                        position: ball.ball_in_field,
+                    });
 
-        let pose = ground_to_field.as_pose();
-
-        let ball_position = self
-            .world_state
-            .ball
-            .map(|ball| hsl_network_messages::BallPosition {
-                age: now
-                    .to_wallclock()
-                    .duration_since(ball.last_seen_ball)
-                    .unwrap(),
-                position: ball.ball_in_field,
+            let message = HulkMessage::State(StateMessage {
+                player_number: self.world_state.robot.player_number,
+                pose,
+                ball_position,
             });
 
-        let message = HulkMessage::State(StateMessage {
-            player_number: self.world_state.robot.player_number,
-            pose,
-            ball_position,
-        });
+            self.last_sent_hsl_message_time = Some(now);
 
-        self.last_sent_hsl_message_time = Some(now);
-
-        Some(OutgoingMessage::Hsl(message))
+            Some(OutgoingMessage::Hsl(message))
+        } else {
+            None
+        }
     }
 
     fn is_state_message_cooldown_elapsed(
