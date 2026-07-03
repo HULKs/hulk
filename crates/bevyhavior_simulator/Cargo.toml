@@ -19,10 +19,10 @@ hsl_network_messages = { workspace = true }
 json5 = { workspace = true }
 linear_algebra = { workspace = true }
 motion = { workspace = true }
+nalgebra = { workspace = true }
 ros-z = { workspace = true }
 scenario = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-twix-legacy = { workspace = true }
 types = { workspace = true }
 voronoi = { workspace = true }

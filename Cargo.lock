@@ -2022,11 +2022,11 @@ dependencies = [
  "json5",
  "linear_algebra",
  "motion",
+ "nalgebra 0.34.2",
  "ros-z",
  "scenario",
  "serde",
  "serde_json",
- "twix-legacy",
  "types",
  "voronoi",
 ]

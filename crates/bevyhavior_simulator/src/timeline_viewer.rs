@@ -1,5 +1,10 @@
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use crate::{
+    behavior_tree::BehaviorTreeVisualizer,
+    twix_painter::{Orientation, TwixPainter},
+    zoom_and_pan::ZoomAndPanTransform,
+};
 use color_eyre::{
     Result,
     eyre::{Report, WrapErr},
@@ -19,11 +24,6 @@ use egui_dock::{DockArea, DockState, Node, Split, TabViewer};
 use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{Orientation2, Pose2, point, vector};
 use serde_json::{Value, json};
-use twix_legacy::{
-    behavior_tree::BehaviorTreeVisualizer,
-    twix_painter::{Orientation, TwixPainter},
-    zoom_and_pan::ZoomAndPanTransform,
-};
 use types::{
     field_dimensions::FieldDimensions, filtered_game_state::FilteredGameState,
     motion_command::MotionCommand, obstacles::ObstacleKind, path::traits::EndPoints,

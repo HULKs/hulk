@@ -3,6 +3,7 @@
 mod auto_referee;
 mod ball;
 mod behavior_runtime;
+mod behavior_tree;
 pub mod behavior_tree_simulator;
 mod communication;
 mod config;
@@ -13,4 +14,6 @@ mod kinematics;
 mod robot;
 mod timeline;
 pub mod timeline_viewer;
+mod twix_painter;
 mod world_states;
+mod zoom_and_pan;
