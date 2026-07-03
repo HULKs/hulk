@@ -65,6 +65,16 @@ impl ImageOverlays {
         self.pose_detection.paint(painter, image_time);
     }
 
+    pub(super) fn preferred_image_time(&self) -> Option<Time> {
+        [
+            self.object_detection.latest_time(),
+            self.pose_detection.latest_time(),
+        ]
+        .into_iter()
+        .flatten()
+        .min()
+    }
+
     pub(super) fn save(&self) -> Value {
         json!({
             LineDetectionOverlay::STORAGE_KEY: self.line_detection.save(),
@@ -164,6 +174,10 @@ where
         }
     }
 
+    fn latest_time(&self) -> Option<Time> {
+        self.overlay.as_ref().and_then(ImageOverlay::latest_time)
+    }
+
     fn save(&self) -> Value {
         json!({"active": self.active})
     }
@@ -178,6 +192,10 @@ pub(super) trait ImageOverlay: Sized {
         C: ObservationContext;
 
     fn paint(&self, painter: &ImageOverlayPainter, image_time: Time);
+
+    fn latest_time(&self) -> Option<Time> {
+        None
+    }
 }
 
 pub(super) struct OverlayObservation<T> {
@@ -227,6 +245,28 @@ where
             .rev()
             .find(|record| record.value.time == time)
     }
+
+    pub(super) fn latest_time(&self) -> Option<Time> {
+        self.latest().map(|record| record.value.time)
+    }
+
+    pub(super) fn nearest_to_time(
+        &self,
+        time: Time,
+        tolerance: Duration,
+    ) -> Option<Arc<SampleRecord<TimeWrapper<T>>>> {
+        let nearest = self
+            .recent()
+            .into_iter()
+            .min_by_key(|record| time_distance(record.value.time, time))?;
+        (time_distance(nearest.value.time, time) <= tolerance).then_some(nearest)
+    }
+}
+
+fn time_distance(first: Time, second: Time) -> Duration {
+    first
+        .duration_since(second)
+        .max(second.duration_since(first))
 }
 
 fn create_typed_observation<T>(

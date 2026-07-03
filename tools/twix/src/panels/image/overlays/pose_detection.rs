@@ -55,6 +55,10 @@ impl ImageOverlay for PoseDetectionOverlay {
         };
         paint_poses(painter, &poses.value.inner);
     }
+
+    fn latest_time(&self) -> Option<Time> {
+        self.poses.latest_time()
+    }
 }
 
 fn paint_poses(painter: &ImageOverlayPainter, poses: &[Pose<YOLOObjectLabel>]) {

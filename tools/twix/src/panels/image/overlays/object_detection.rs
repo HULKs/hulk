@@ -33,6 +33,10 @@ impl ImageOverlay for ObjectDetectionOverlay {
         };
         paint_bounding_boxes(painter, &object_detections.value.inner, Color32::LIGHT_RED);
     }
+
+    fn latest_time(&self) -> Option<Time> {
+        self.object_detections.latest_time()
+    }
 }
 
 fn paint_bounding_boxes(
