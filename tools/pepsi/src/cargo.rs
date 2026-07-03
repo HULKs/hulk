@@ -38,16 +38,12 @@ mod heading {
 lazy_static! {
     pub static ref MANIFEST_PATHS: HashMap<&'static str, &'static str> = {
         HashMap::from([
-            ("imagine", "crates/hulk_imagine"),
-            ("replayer", "crates/hulk_replayer"),
-            ("mujoco", "crates/hulk_mujoco"),
-            ("booster", "crates/hulk_booster"),
             ("aliveness", "services/aliveness"),
-            ("power-panic", "services/power-panic"),
             ("annotato", "tools/annotato"),
             ("depp", "tools/depp"),
             ("mio", "tools/mio"),
             ("pepsi", "tools/pepsi"),
+            ("ros-z-cli", "crates/ros-z-cli"),
             ("twix", "tools/twix"),
             ("widget_gallery", "tools/widget_gallery"),
             ("zenoh_bridge", "crates/zenoh_bridge"),
