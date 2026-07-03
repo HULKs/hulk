@@ -8429,6 +8429,7 @@ dependencies = [
  "hsl_network_messages",
  "linear_algebra",
  "ros-z",
+ "serde",
  "tokio",
  "types",
 ]

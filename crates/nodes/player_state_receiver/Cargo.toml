@@ -10,5 +10,6 @@ color-eyre = { workspace = true }
 hsl_network_messages = { workspace = true }
 linear_algebra = { workspace = true }
 ros-z = { workspace = true }
+serde = { workspace = true }
 tokio = { workspace = true }
 types = { workspace = true }
