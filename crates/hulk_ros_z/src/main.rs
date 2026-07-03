@@ -165,6 +165,7 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(odometer_bridge::run_boxed(ctx.clone()));
     join_set.spawn(player_states_receiver::run_boxed(ctx.clone()));
     join_set.spawn(primary_state_filter::run_boxed(ctx.clone()));
+    join_set.spawn(projected_ball_percept::run_boxed(ctx.clone()));
     join_set.spawn(rule_obstacle_composer::run_boxed(ctx.clone()));
     join_set.spawn(safe_pose_checker::run_boxed(ctx.clone()));
     join_set.spawn(search_suggestor::run_boxed(ctx.clone()));

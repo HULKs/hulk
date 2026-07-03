@@ -12,13 +12,14 @@ use std::{
 
 use booster::{LedColor, RobotMode};
 use color_eyre::{Result, eyre::WrapErr};
+use coordinate_systems::Ground;
 use kinematics::joints::head::HeadJoints;
 use retry_worker::{RetryCommand, run_retrying_rpc_worker};
 use ros_z::prelude::*;
 use serde::{Deserialize, Serialize};
 use tokio::sync::watch;
 use tracing::{error, info};
-use types::motion_command::MotionCommand;
+use types::{ball_position::BallPosition, motion_command::MotionCommand};
 
 mod control;
 mod kick_transport;
@@ -281,6 +282,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await
         .wrap_err("failed to build head_joints_command cache")?;
+    let projected_ball_cache = node
+        .subscriber::<Option<BallPosition<Ground>>>("projected_ball_percept/ball_position")
+        .cache(1)
+        .build()
+        .await
+        .wrap_err("failed to build projected ball cache")?;
     let led_command_sub = node
         .subscriber::<LedCommand>("commands/led_command")
         .build()
@@ -374,40 +381,62 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 if motion_kind == MotionCommandKind::VisualKick
                     && state.assumed_mode == control::DesiredMode::Soccer
                 {
-                    let entering_visual_kick = !state.visual_kick_active;
-                    if entering_visual_kick
-                        || due(state.last_kick, now, parameters.kicking.kick_message_interval)
-                    {
-                        if let Some(kick) = control::kick_from_motion_command(
-                            motion_command,
-                            node.clock().now(),
-                            &parameters.kicking,
-                        ) {
-                            let attempt = rpc_diagnostics.begin(RpcActionKind::KickPublish);
-                            info!(
-                                target: "booster_interface::rpc",
-                                sequence = attempt.sequence,
-                                action = "kick_publish",
-                                in_flight = attempt.in_flight_at_start,
-                                "booster rpc scheduled"
-                            );
-                            let kick_ball_publisher = kick_ball_publisher.clone();
-                            tokio::spawn(async move {
-                                let _ = await_rpc_call_with_timeout(
-                                    kick_ball_publisher.publish(&kick),
-                                    timeout,
-                                    "publish visual kick command",
-                                    attempt,
-                                )
-                                .await;
-                            });
-                        }
-                        state.last_kick = now;
-                    }
+                    let projected_ball = projected_ball_cache
+                        .get_latest()
+                        .and_then(|projected_ball| *projected_ball);
 
-                    if entering_visual_kick {
-                        send_retry_command(&visual_kick_command_sender, true, timeout, "visual_kick");
-                        state.visual_kick_active = true;
+                    if let Some(projected_ball) = projected_ball {
+                        let entering_visual_kick = !state.visual_kick_active;
+                        if entering_visual_kick
+                            || due(state.last_kick, now, parameters.kicking.kick_message_interval)
+                        {
+                            if let Some(kick) = control::kick_from_motion_command(
+                                motion_command,
+                                projected_ball,
+                                node.clock().now(),
+                                &parameters.kicking,
+                            ) {
+                                let attempt = rpc_diagnostics.begin(RpcActionKind::KickPublish);
+                                info!(
+                                    target: "booster_interface::rpc",
+                                    sequence = attempt.sequence,
+                                    action = "kick_publish",
+                                    in_flight = attempt.in_flight_at_start,
+                                    "booster rpc scheduled"
+                                );
+                                let kick_ball_publisher = kick_ball_publisher.clone();
+                                tokio::spawn(async move {
+                                    let _ = await_rpc_call_with_timeout(
+                                        kick_ball_publisher.publish(&kick),
+                                        timeout,
+                                        "publish visual kick command",
+                                        attempt,
+                                    )
+                                    .await;
+                                });
+                            }
+                            state.last_kick = now;
+                        }
+
+                        if entering_visual_kick {
+                            send_retry_command(
+                                &visual_kick_command_sender,
+                                true,
+                                timeout,
+                                "visual_kick",
+                            );
+                            state.visual_kick_active = true;
+                        }
+                    } else {
+                        if state.visual_kick_active {
+                            send_retry_command(
+                                &visual_kick_command_sender,
+                                false,
+                                timeout,
+                                "visual_kick",
+                            );
+                            state.visual_kick_active = false;
+                        }
                     }
                 }
 

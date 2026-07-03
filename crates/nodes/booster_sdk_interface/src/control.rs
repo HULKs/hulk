@@ -1,10 +1,12 @@
 use std::f32::consts::PI;
 
 use booster::Kick;
+use coordinate_systems::Ground;
 use linear_algebra::{Orientation2, Point2};
 use ros_z::time::Time;
 use ros2::std_msgs::header::Header;
 use types::{
+    ball_position::BallPosition,
     motion_command::{KickPower, MotionCommand, OrientationMode},
     parameters::BoosterKickingParameters,
     path::traits::{Length, PathProgress},
@@ -108,12 +110,11 @@ pub fn step_from_motion_command(command: &MotionCommand, parameters: &WalkingPar
 
 pub fn kick_from_motion_command(
     command: &MotionCommand,
+    projected_ball: BallPosition<Ground>,
     stamp: Time,
     parameters: &BoosterKickingParameters,
 ) -> Option<Kick> {
     let MotionCommand::VisualKick {
-        ball_position,
-        kick_direction,
         target_position,
         robot_theta_to_field,
         kick_power,
@@ -127,14 +128,16 @@ pub fn kick_from_motion_command(
         KickPower::Rumpelstilzchen => parameters.kick_power.rumpelstilzchen,
         KickPower::Schlong => parameters.kick_power.schlong,
     };
+    let kick_direction =
+        Orientation2::from_vector(target_position.coords() - projected_ball.position.coords());
 
     Some(Kick {
         header: Header {
             stamp: stamp.to_wallclock().into(),
             frame_id: String::new(),
         },
-        ball_position_x: ball_position.x() as f64,
-        ball_position_y: ball_position.y() as f64,
+        ball_position_x: projected_ball.position.x() as f64,
+        ball_position_y: projected_ball.position.y() as f64,
         kick_direction_angle: kick_direction.angle() as f64,
         target_position_x: target_position.x() as f64,
         target_position_y: target_position.y() as f64,
@@ -178,10 +181,17 @@ mod tests {
             },
         };
 
-        let kick = kick_from_motion_command(&command, Time::zero(), &parameters).unwrap();
+        let projected_ball = BallPosition {
+            position: point![1.2, -0.7],
+            velocity: vector![0.0, 0.0],
+            last_seen: Time::zero(),
+        };
 
-        assert_eq!(kick.ball_position_x, 1.0);
-        assert_eq!(kick.ball_position_y, -0.5);
+        let kick =
+            kick_from_motion_command(&command, projected_ball, Time::zero(), &parameters).unwrap();
+
+        assert_eq!(kick.ball_position_x, 1.2);
+        assert_eq!(kick.ball_position_y, -0.7);
         assert_eq!(kick.target_position_x, 4.0);
         assert_eq!(kick.target_position_y, 0.5);
         assert_eq!(kick.kick_power, 6.0);
