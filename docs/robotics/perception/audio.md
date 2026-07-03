@@ -7,7 +7,7 @@ The audio cycler contains only two nodes, the microphone recorder and the whistl
 
 ## Microphone Recorder
 
-Reads the audio samples from the `MicrophoneInterface` and stores them in the audio cycler [database](../../framework/databases_and_types.md).
+Reads the audio samples from the microphone interface and stores them for whistle detection.
 
 ## Whistle Detection
 

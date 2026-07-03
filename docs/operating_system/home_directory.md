@@ -29,4 +29,4 @@ When flashing the robot and uploading the hulk binary, the home directory struct
 ```
 
 The `./robocup.conf` file is required to start the LoLA service in robocupper mode.
-All files related to the hulk service and binaries are stored in the subdirectory `hulk` and mirrors the files of the directory structure of the development repository ([Directory Structure](../framework/directory_structure.md)).
+All files related to the hulk service and binaries are stored in the subdirectory `hulk`, mirroring the relevant deployed files from the development repository.

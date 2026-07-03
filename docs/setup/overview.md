@@ -4,7 +4,7 @@
 
     High-Level visualization of the Software Architecture: NAO, SDK, HULKs-Robotics code, Pepsi, etc.
 
-This section describes the steps required to set up and get started with our framework.
+This section describes the steps required to set up and get started with the HULKs robotics software.
 The following pages include documentation to
 
 -   setup the [Development Environment](./development_environment.md),

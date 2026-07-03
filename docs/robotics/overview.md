@@ -1,6 +1,6 @@
 # Overview
 
-Currently there are 6 different [threads](<https://en.wikipedia.org/wiki/Thread_(computing)>), called [cyclers](../framework/cyclers.md) in HULKs terminology, which are:
+The robot software is organized into several concurrent processing areas:
 
 ## Control
 

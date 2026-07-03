@@ -66,7 +66,7 @@ pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Resul
 
     configure_repository(repository, config).await?;
     add_all().await?;
-    create_commit("Add player number assigments and framework config")
+    create_commit("Add player number assigments and deployment config")
         .await
         .wrap_err("failed to create commit")?;
 

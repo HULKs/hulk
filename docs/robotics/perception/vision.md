@@ -12,7 +12,7 @@ Each cycler starts by waiting for the hardware interface to deliver it's respect
 !!! note
 
     Some less important nodes are not mentioned here.
-    To see the complete list, have a look in the vision crate in the source code or in the `hulk_manifest`, where all cyclers are defined and configured.
+    To see the complete list, have a look at the active perception node crates in the source code.
 
 ## Image Segmenter
 
