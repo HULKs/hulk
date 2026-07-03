@@ -2233,7 +2233,6 @@ dependencies = [
  "booster",
  "cdr",
  "color-eyre",
- "coordinate_systems",
  "kinematics",
  "linear_algebra",
  "ros-z",
