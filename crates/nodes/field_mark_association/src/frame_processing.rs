@@ -1,6 +1,6 @@
 use std::{future::ready, time::Duration};
 
-use color_eyre::{Result, eyre::Context as _};
+use color_eyre::Result;
 use coordinate_systems::{Camera, Field, Robot};
 use linear_algebra::Isometry3;
 use projection::camera_matrix::CameraMatrix;
@@ -43,38 +43,53 @@ struct PreparedDetectionFrame {
     include_debug: bool,
 }
 
+struct ProcessedDetectionFrame {
+    image_time: Time,
+    robot_to_camera: Isometry3<Robot, Camera>,
+    localization: GlobalVisualLocalization,
+}
+
 pub(crate) async fn process_detected_objects(
     item: FutureItem<'_, (Option<Vec<Object<RobocupObjectLabel>>>,)>,
     ctx: DetectionProcessingContext<'_>,
 ) -> Result<()> {
     for (image_time, (objects,)) in item.persistent {
-        if association_is_damping(ctx.primary_state_cache) {
-            ctx.association_state.reset_for_damping();
-            continue;
-        }
+        let Some(processed_frame) =
+            tokio::task::block_in_place(|| -> Result<Option<ProcessedDetectionFrame>> {
+                if association_is_damping(ctx.primary_state_cache) {
+                    ctx.association_state.reset_for_damping();
+                    return Ok(None);
+                }
 
-        let Some(frame) = prepare_detection_frame(image_time, objects, &ctx) else {
+                let Some(frame) = prepare_detection_frame(image_time, objects, &ctx) else {
+                    return Ok(None);
+                };
+                let image_time = frame.image_time;
+                let robot_to_camera = frame.robot_to_camera;
+
+                let state = std::mem::take(ctx.association_state);
+                let (next_state, localization) = associate_detection_frame(state, frame)?;
+                *ctx.association_state = next_state;
+
+                if association_is_damping(ctx.primary_state_cache) {
+                    ctx.association_state.reset_for_damping();
+                    return Ok(None);
+                }
+
+                Ok(Some(ProcessedDetectionFrame {
+                    image_time,
+                    robot_to_camera,
+                    localization,
+                }))
+            })?
+        else {
             continue;
         };
-        let image_time = frame.image_time;
-        let robot_to_camera = frame.robot_to_camera;
-
-        let mut state = std::mem::take(ctx.association_state);
-        let (next_state, localization) = associate_detection_frame(state, frame).await?;
-        state = next_state;
-        *ctx.association_state = state;
-
-        if association_is_damping(ctx.primary_state_cache) {
-            ctx.association_state.reset_for_damping();
-            continue;
-        }
 
         publish_localization_frame(
             ctx.associations_publisher,
             ctx.global_localization_publisher,
-            image_time,
-            robot_to_camera,
-            localization,
+            processed_frame,
         )
         .await?;
     }
@@ -123,55 +138,49 @@ fn pose_hint_at(
         })
 }
 
-async fn associate_detection_frame(
+fn associate_detection_frame(
     mut state: FieldMarkAssociationState,
     frame: PreparedDetectionFrame,
 ) -> Result<(FieldMarkAssociationState, GlobalVisualLocalization)> {
-    tokio::task::spawn_blocking(move || {
-        let visual_features = crate::find_detected_visual_features(&frame.objects);
-        if visual_features.supported_feature_count() == 0 {
-            return (
-                state,
-                GlobalVisualLocalization {
-                    debug: None,
-                    accepted_global_pose: None,
-                    associations: Vec::new(),
-                },
-            );
-        }
+    let visual_features = crate::find_detected_visual_features(&frame.objects);
+    if visual_features.supported_feature_count() == 0 {
+        return Ok((
+            state,
+            GlobalVisualLocalization {
+                debug: None,
+                accepted_global_pose: None,
+                associations: Vec::new(),
+            },
+        ));
+    }
 
-        let localization = state.associate_visual_features_with_debug(
-            &visual_features,
-            &frame.camera_matrix,
-            &frame.field_dimensions,
-            frame.pose_hint,
-            &frame.parameters,
-            frame.include_debug,
-        );
-        (state, localization)
-    })
-    .await
-    .wrap_err("field mark association task failed")
+    let localization = state.associate_visual_features_with_debug(
+        &visual_features,
+        &frame.camera_matrix,
+        &frame.field_dimensions,
+        frame.pose_hint,
+        &frame.parameters,
+        frame.include_debug,
+    );
+    Ok((state, localization))
 }
 
 async fn publish_localization_frame(
     associations_publisher: &Publisher<TimeWrapper<VisualLocalizationFrame>>,
     global_localization_publisher: &Publisher<Option<GlobalLocalizationDebug>>,
-    image_time: Time,
-    robot_to_camera: Isometry3<Robot, Camera>,
-    localization: GlobalVisualLocalization,
+    processed_frame: ProcessedDetectionFrame,
 ) -> Result<()> {
-    let debug = localization.debug.clone();
+    let debug = processed_frame.localization.debug.clone();
     global_localization_publisher
         .publish_if_subscribed(|| ready(debug))
         .await?;
     associations_publisher
         .publish(&TimeWrapper {
-            time: image_time,
+            time: processed_frame.image_time,
             inner: VisualLocalizationFrame {
-                robot_to_camera,
-                associations: localization.associations,
-                backend_reset: localization.accepted_global_pose,
+                robot_to_camera: processed_frame.robot_to_camera,
+                associations: processed_frame.localization.associations,
+                backend_reset: processed_frame.localization.accepted_global_pose,
             },
         })
         .await?;

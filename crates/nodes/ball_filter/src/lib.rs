@@ -14,6 +14,7 @@ use geometry::circle::Circle;
 use projection::{Projection, camera_matrix::CameraMatrix};
 use ros_z::{context::Context, prelude::*, time::Time};
 use ros_z_streams::CreateFutureMapBuilder;
+use tokio::task::block_in_place;
 use types::{
     ball_detection::BallPercept,
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -31,6 +32,15 @@ pub use crate::{
 
 mod filter;
 mod hypothesis;
+
+struct BallFilterOutput {
+    ball_percepts: Vec<BallPercept>,
+    filter_state: BallFilter,
+    best_hypothesis: Option<BallHypothesis>,
+    filtered_ball: Option<BallPosition<Ground>>,
+    filtered_balls_in_image: Vec<Circle<Pixel>>,
+    hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
+}
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -106,108 +116,120 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         };
 
-        let output_time = future_map_item
-            .persistent
-            .last_key_value()
-            .map(|(time, _)| *time);
-        let mut ball_percepts = Vec::new();
+        let output = block_in_place(|| {
+            let output_time = future_map_item
+                .persistent
+                .last_key_value()
+                .map(|(time, _)| *time);
+            let projection_time = output_time.or_else(|| {
+                future_map_item
+                    .temporary
+                    .first_key_value()
+                    .map(|(time, _)| *time)
+            });
+            let mut ball_percepts = Vec::new();
 
-        for (time, (odometer, detected_objects)) in future_map_item.persistent {
-            if let Some(odometer) = odometer {
-                predict_hypotheses_from_odometry(
-                    &mut ball_filter,
-                    time,
-                    odometer,
-                    &mut last_odometer,
-                    &mut last_prediction_time,
-                    parameters,
-                );
+            for (time, (odometer, detected_objects)) in future_map_item.persistent {
+                if let Some(odometer) = odometer {
+                    predict_hypotheses_from_odometry(
+                        &mut ball_filter,
+                        time,
+                        odometer,
+                        &mut last_odometer,
+                        &mut last_prediction_time,
+                        parameters,
+                    );
+                }
+
+                if let Some(detected_objects) = detected_objects {
+                    let timed_camera_matrix = camera_matrix_cache.get_nearest(time);
+                    let camera_matrix = timed_camera_matrix
+                        .as_ref()
+                        .map(|camera_matrix| &camera_matrix.inner);
+                    let Some(projected_balls) = project_detected_balls(
+                        Some(&detected_objects),
+                        camera_matrix,
+                        parameters,
+                        field_dimensions.ball_radius,
+                    ) else {
+                        continue;
+                    };
+
+                    ball_percepts.extend_from_slice(&projected_balls);
+
+                    advance_all_hypotheses(
+                        &mut ball_filter,
+                        time,
+                        &projected_balls,
+                        camera_matrix,
+                        parameters,
+                        &field_dimensions,
+                    );
+                }
             }
 
-            if let Some(detected_objects) = detected_objects {
-                let timed_camera_matrix = camera_matrix_cache.get_nearest(time);
-                let camera_matrix = timed_camera_matrix
-                    .as_ref()
-                    .map(|camera_matrix| &camera_matrix.inner);
-                let Some(projected_balls) = project_detected_balls(
-                    Some(&detected_objects),
-                    camera_matrix,
-                    parameters,
-                    field_dimensions.ball_radius,
-                ) else {
-                    continue;
-                };
-
-                ball_percepts.extend_from_slice(&projected_balls);
-
-                advance_all_hypotheses(
+            if let Some(output_time) = output_time {
+                remove_invalid_and_merge_hypotheses(
                     &mut ball_filter,
-                    time,
-                    &projected_balls,
-                    camera_matrix,
+                    output_time,
                     parameters,
                     &field_dimensions,
                 );
             }
-        }
 
-        if let Some(output_time) = output_time {
-            remove_invalid_and_merge_hypotheses(
-                &mut ball_filter,
-                output_time,
-                parameters,
-                &field_dimensions,
-            );
-        }
+            let filter_state = ball_filter.clone();
+            let best_hypothesis = ball_filter
+                .best_hypothesis(parameters.validity_output_threshold)
+                .cloned();
+            let filtered_ball = best_hypothesis
+                .as_ref()
+                .map(|hypothesis| hypothesis.position());
 
-        ball_percepts_pub.publish(&ball_percepts).await?;
-        filter_state_pub.publish(&ball_filter.clone()).await?;
+            let output_balls: Vec<_> = ball_filter
+                .hypotheses
+                .iter()
+                .filter_map(|hypothesis| {
+                    if hypothesis.validity >= parameters.validity_output_threshold {
+                        Some(hypothesis.position())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
 
-        let best_hypothesis = ball_filter.best_hypothesis(parameters.validity_output_threshold);
+            let ball_radius = field_dimensions.ball_radius;
+            let filtered_balls_in_image = if let Some(time) = projection_time
+                && let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time)
+            {
+                project_to_image(&output_balls, &timed_camera_matrix.inner, ball_radius)
+            } else {
+                vec![]
+            };
+            let hypothetical_ball_positions =
+                hypothetical_ball_positions(&ball_filter, parameters.validity_output_threshold);
 
-        best_ball_hypothesis_pub
-            .publish(&best_hypothesis.cloned())
-            .await?;
-
-        let filtered_ball = best_hypothesis.map(|hypothesis| hypothesis.position());
-
-        let output_balls: Vec<_> = ball_filter
-            .hypotheses
-            .iter()
-            .filter_map(|hypothesis| {
-                if hypothesis.validity >= parameters.validity_output_threshold {
-                    Some(hypothesis.position())
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        let ball_radius = field_dimensions.ball_radius;
-
-        let projection_time = output_time.or_else(|| {
-            future_map_item
-                .temporary
-                .first_key_value()
-                .map(|(time, _)| *time)
+            BallFilterOutput {
+                ball_percepts,
+                filter_state,
+                best_hypothesis,
+                filtered_ball,
+                filtered_balls_in_image,
+                hypothetical_ball_positions,
+            }
         });
 
-        let filtered_balls_in_image = if let Some(time) = projection_time
-            && let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time)
-        {
-            project_to_image(&output_balls, &timed_camera_matrix.inner, ball_radius)
-        } else {
-            vec![]
-        };
+        ball_percepts_pub.publish(&output.ball_percepts).await?;
+        filter_state_pub.publish(&output.filter_state).await?;
+        best_ball_hypothesis_pub
+            .publish(&output.best_hypothesis)
+            .await?;
         filtered_balls_in_image_pub
-            .publish(&filtered_balls_in_image)
+            .publish(&output.filtered_balls_in_image)
             .await?;
 
-        ball_position_pub.publish(&filtered_ball).await?;
-        let hypothetical_ball_positions =
-            hypothetical_ball_positions(&ball_filter, parameters.validity_output_threshold);
+        ball_position_pub.publish(&output.filtered_ball).await?;
         hypothetical_ball_positions_pub
-            .publish(&hypothetical_ball_positions)
+            .publish(&output.hypothetical_ball_positions)
             .await?;
     }
 }

@@ -16,7 +16,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use color_eyre::{Result, eyre::WrapErr};
+use color_eyre::Result;
 use coordinate_systems::Camera;
 use linear_algebra::Point3;
 use nalgebra as na;
@@ -105,15 +105,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let had_previous_image = previous_image_time.is_some();
         let pose_estimation_parameters = parameters.pose_estimation_parameters.clone();
-        let (returned_pipeline, odometry_result, duration) =
-            tokio::task::spawn_blocking(move || {
-                let start_time = Instant::now();
-                let odometry = pipeline.process(&stereo_image_pair, &pose_estimation_parameters);
-                (pipeline, odometry, start_time.elapsed())
-            })
-            .await
-            .wrap_err("visual odometry task failed")?;
-        pipeline = returned_pipeline;
+        let (odometry_result, duration) = tokio::task::block_in_place(|| {
+            let start_time = Instant::now();
+            let odometry = pipeline.process(&stereo_image_pair, &pose_estimation_parameters);
+            (odometry, start_time.elapsed())
+        });
 
         let mut process_failed = false;
         let odometry = match odometry_result {
