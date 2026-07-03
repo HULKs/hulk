@@ -77,7 +77,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let filtered_game_controller_state = received_filtered_game_controller_state?;
 
                 let previous_primary_state = primary_state_filter.primary_state;
-                primary_state_filter.update_with_filtered_game_contoller_state(
+                primary_state_filter.update_with_filtered_game_controller_state(
                     &filtered_game_controller_state,
                     *player_number,
                 );
@@ -148,7 +148,7 @@ struct PrimaryStateFilter {
 }
 
 impl PrimaryStateFilter {
-    fn update_with_filtered_game_contoller_state(
+    fn update_with_filtered_game_controller_state(
         &mut self,
         filtered_game_controller_state: &FilteredGameControllerState,
         player_number: PlayerNumber,
@@ -158,8 +158,8 @@ impl PrimaryStateFilter {
 
         self.primary_state = match (self.primary_state, filtered_game_state) {
             (PrimaryState::Damping, _) => PrimaryState::Damping,
-            (PrimaryState::Initial, FilteredGameState::Ready) if !is_penalized => {
-                PrimaryState::Ready
+            (PrimaryState::Initial, game_state) => {
+                game_state_to_primary_state(game_state, is_penalized)
             }
             (PrimaryState::Ready, FilteredGameState::Set) if !is_penalized => PrimaryState::Set,
             (PrimaryState::Set, FilteredGameState::Playing { .. }) if !is_penalized => {
