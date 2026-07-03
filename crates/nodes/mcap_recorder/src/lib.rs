@@ -3,7 +3,10 @@ use std::{
     path::PathBuf, pin::Pin, sync::Arc, time::Duration,
 };
 
-use color_eyre::{Result, eyre::WrapErr};
+use color_eyre::{
+    Result,
+    eyre::{WrapErr, eyre},
+};
 use futures_util::{FutureExt, StreamExt, future::BoxFuture, stream::FuturesUnordered};
 use mcap::{Compression, WriteOptions, Writer, records::MessageHeader};
 use ros_z::{
@@ -16,6 +19,7 @@ use ros_z::{
     time::Time,
 };
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
 use zenoh::sample::Sample;
 
 type ChannelId = u16;
@@ -65,13 +69,15 @@ async fn run(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<()> {
             )
         })?;
 
-    let file = File::create(&mcap_path).wrap_err_with(|| {
-        format!(
-            "failed to create localization recording {}",
-            mcap_path.display()
-        )
-    })?;
-    let mut writer = McapWriter::new(BufWriter::new(file), parameters.raw_image_min_interval)?;
+    let write_queue_depth = NonZeroUsize::new(parameters.queue_depth)
+        .unwrap_or(NonZeroUsize::MIN)
+        .get();
+    let (write_sender, write_receiver) = mpsc::channel(write_queue_depth);
+    let writer_task = spawn_writer_task(
+        mcap_path.clone(),
+        parameters.raw_image_min_interval,
+        write_receiver,
+    );
 
     let mut recorders = RecorderTasks::new();
     for topic in &parameters.topics {
@@ -106,25 +112,59 @@ async fn run(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<()> {
         "localization recording started"
     );
 
-    let mut samples_written = 0;
-    let recorder_result = record_samples(
-        &mut recorders,
-        &mut writer,
-        parameters.max_duration,
-        &mut samples_written,
-    )
-    .await;
-    let finish_result = writer.finish();
+    let recorder_result =
+        record_samples(&mut recorders, parameters.max_duration, &write_sender).await;
+    drop(write_sender);
+
+    let writer_result = writer_task
+        .await
+        .wrap_err("localization recording writer task failed to join")?;
+    let samples_written = writer_result.as_ref().copied().unwrap_or_default();
     tracing::info!(
         path = %mcap_path.display(),
         samples_written,
         "localization recording finished"
     );
 
+    writer_result?;
     recorder_result?;
-    finish_result?;
 
     Ok(())
+}
+
+fn spawn_writer_task(
+    mcap_path: PathBuf,
+    raw_image_min_interval: Option<Duration>,
+    write_receiver: mpsc::Receiver<WriteRequest>,
+) -> tokio::task::JoinHandle<Result<usize>> {
+    tokio::task::spawn_blocking(move || {
+        write_samples(mcap_path, raw_image_min_interval, write_receiver)
+    })
+}
+
+fn write_samples(
+    mcap_path: PathBuf,
+    raw_image_min_interval: Option<Duration>,
+    mut write_receiver: mpsc::Receiver<WriteRequest>,
+) -> Result<usize> {
+    let file = File::create(&mcap_path).wrap_err_with(|| {
+        format!(
+            "failed to create localization recording {}",
+            mcap_path.display()
+        )
+    })?;
+    let mut writer = McapWriter::new(BufWriter::new(file), raw_image_min_interval)?;
+    let mut samples_written = 0;
+
+    while let Some(WriteRequest { channel, sample }) = write_receiver.blocking_recv() {
+        if writer.write(&channel, &sample)? {
+            samples_written += 1;
+        }
+    }
+
+    writer.finish()?;
+
+    Ok(samples_written)
 }
 
 async fn subscribe_topic(
@@ -146,7 +186,7 @@ async fn subscribe_topic(
         .wrap_err_with(|| format!("failed to subscribe to {topic}"))?;
     let recorder = TopicRecorder {
         subscriber,
-        channel: RecordedChannel::for_discovered(topic, &discovered)?,
+        channel: Arc::new(RecordedChannel::for_discovered(topic, &discovered)?),
     };
     tracing::info!(
         topic,
@@ -185,9 +225,8 @@ fn receive_sample(mut recorder: TopicRecorder) -> BoxFuture<'static, Result<Reco
 
 async fn record_samples(
     recorders: &mut RecorderTasks,
-    writer: &mut McapWriter<BufWriter<File>>,
     max_duration: Option<Duration>,
-    samples_written: &mut usize,
+    write_sender: &mpsc::Sender<WriteRequest>,
 ) -> Result<()> {
     if let Some(max_duration) = max_duration {
         let timer = tokio::time::sleep(max_duration);
@@ -197,7 +236,7 @@ async fn record_samples(
             tokio::select! {
                 _ = &mut timer => return Ok(()),
                 result = recorders.next() => {
-                    if !handle_recorded_sample(result, recorders, writer, samples_written)? {
+                    if !handle_recorded_sample(result, recorders, write_sender).await? {
                         return Ok(());
                     }
                 }
@@ -206,26 +245,29 @@ async fn record_samples(
     }
 
     while let Some(result) = recorders.next().await {
-        handle_recorded_sample(Some(result), recorders, writer, samples_written)?;
+        handle_recorded_sample(Some(result), recorders, write_sender).await?;
     }
 
     Ok(())
 }
 
-fn handle_recorded_sample(
+async fn handle_recorded_sample(
     result: Option<Result<RecordedSample>>,
     recorders: &mut RecorderTasks,
-    writer: &mut McapWriter<BufWriter<File>>,
-    samples_written: &mut usize,
+    write_sender: &mpsc::Sender<WriteRequest>,
 ) -> Result<bool> {
     let Some(result) = result else {
         return Ok(false);
     };
     let RecordedSample { recorder, sample } = result?;
 
-    if writer.write(&recorder.channel, &sample)? {
-        *samples_written += 1;
-    }
+    write_sender
+        .send(WriteRequest {
+            channel: Arc::clone(&recorder.channel),
+            sample,
+        })
+        .await
+        .map_err(|_| eyre!("localization recording writer task stopped before receiving sample"))?;
     recorders.push(receive_sample(recorder));
 
     Ok(true)
@@ -261,11 +303,16 @@ impl RecordedChannel {
 
 struct TopicRecorder {
     subscriber: RawSubscriber,
-    channel: RecordedChannel,
+    channel: Arc<RecordedChannel>,
 }
 
 struct RecordedSample {
     recorder: TopicRecorder,
+    sample: Sample,
+}
+
+struct WriteRequest {
+    channel: Arc<RecordedChannel>,
     sample: Sample,
 }
 
