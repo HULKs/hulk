@@ -1,6 +1,5 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use booster::FallDownState;
 use hsl_network_messages::PlayerNumber;
 use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
@@ -11,6 +10,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     ball_position::{BallPosition, HypotheticalBallPosition},
+    fall_down_state::FallDownState,
     field_dimensions::Side,
     filtered_game_controller_state::FilteredGameControllerState,
     obstacles::Obstacle,

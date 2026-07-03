@@ -7,6 +7,13 @@ use ros_z::Message;
 use ros2::{geometry_msgs::transform_stamped::TransformStamped, std_msgs::header::Header};
 use serde::{Deserialize, Serialize};
 
+pub mod walking;
+
+pub use types::{
+    buttons::ButtonEventType,
+    fall_down_state::{FallDownState, FallDownStateType},
+};
+
 #[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
 
@@ -450,83 +457,6 @@ impl MotorCommand {
             weight,
         }
     }
-}
-
-#[repr(u32)]
-#[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
-pub enum FallDownStateType {
-    IsReady = 0,
-    IsFalling = 1,
-    HasFallen = 2,
-    IsGettingUp = 3,
-}
-
-#[repr(C)]
-#[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
-pub struct FallDownState {
-    pub fall_down_state: FallDownStateType,
-    /// Whether recovery (getting up) action is available
-    pub is_recovery_available: bool,
-}
-
-#[cfg(feature = "pyo3")]
-#[pymethods]
-impl FallDownState {
-    #[new]
-    pub fn new(fall_down_state: FallDownStateType, is_recovery_available: bool) -> Self {
-        Self {
-            fall_down_state,
-            is_recovery_available,
-        }
-    }
-}
-
-#[repr(i8)]
-#[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
-pub enum ButtonEventType {
-    PressDown,
-    PressUp,
-    SingleClick,
-    DoubleClick,
-    TripleClick,
-    LongPressStart,
-    LongPressHold,
-    LongPressEnd,
 }
 
 #[repr(C)]

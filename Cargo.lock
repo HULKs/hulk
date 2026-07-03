@@ -2223,6 +2223,7 @@ dependencies = [
  "ros-z",
  "ros2",
  "serde",
+ "types",
 ]
 
 [[package]]
@@ -11815,7 +11816,6 @@ name = "types"
 version = "0.1.0"
 dependencies = [
  "approx",
- "booster",
  "color-eyre",
  "coordinate_systems",
  "enum-iterator",
@@ -11828,6 +11828,7 @@ dependencies = [
  "num-traits",
  "ordered-float 4.6.0",
  "path_serde",
+ "pyo3",
  "ros-z",
  "ros-z-schema",
  "ros2",
