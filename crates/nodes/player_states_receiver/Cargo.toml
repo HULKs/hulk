@@ -1,5 +1,5 @@
 [package]
-name = "player_state_receiver"
+name = "player_states_receiver"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

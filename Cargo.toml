@@ -67,7 +67,7 @@ members = [
   "crates/nodes/motor_commands_collector",
   "crates/nodes/obstacle_filter",
   "crates/nodes/odometer_bridge",
-  "crates/nodes/player_state_receiver",
+  "crates/nodes/player_states_receiver",
   "crates/nodes/primary_state_filter",
   "crates/nodes/rule_obstacle_composer",
   "crates/nodes/safe_pose_checker",
@@ -287,7 +287,7 @@ path_serde = { path = "crates/path_serde" }
 path_serde_derive = { path = "crates/path_serde_derive" }
 pathdiff = "0.2.3"
 pathfinding = "<=4.10.0"
-player_state_receiver = { path = "crates/nodes/player_state_receiver" }
+player_states_receiver = { path = "crates/nodes/player_states_receiver" }
 png = "0.18.1"
 prettyplease = "0.2.29"
 primary_state_filter = { path = "crates/nodes/primary_state_filter" }
