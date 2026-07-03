@@ -6,12 +6,9 @@ use color_eyre::{
 };
 use eframe::egui::{ScrollArea, TextEdit, Ui};
 use hulk_widgets::CompletionEdit;
-use ros_z::{
-    graph::Graph,
-    parameter::{
-        GetNodeParameterValueResponse, GetNodeParametersSnapshotResponse, RemoteParameterClient,
-        SetNodeParameterResponse,
-    },
+use ros_z::parameter::{
+    GetNodeParameterValueResponse, GetNodeParametersSnapshotResponse, NodeParameterEvent,
+    RemoteParameterClient, SetNodeParameterResponse,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -31,6 +28,8 @@ pub struct ParameterPanel {
     layer: String,
     snapshot: Option<SnapshotState>,
     value_revision: Option<u64>,
+    clean_value_editor: String,
+    latest_snapshot_revision: Option<u64>,
     effective_source_layer: String,
     value_editor: String,
     status: Status,
@@ -97,6 +96,10 @@ enum RemoteOperationResult {
         request: SnapshotRequest,
         result: Result<GetNodeParametersSnapshotResponse, String>,
     },
+    SnapshotMetadata {
+        request: SnapshotRequest,
+        result: Result<GetNodeParametersSnapshotResponse, String>,
+    },
     Value {
         request: ValueRequest,
         result: Result<GetNodeParameterValueResponse, String>,
@@ -105,6 +108,15 @@ enum RemoteOperationResult {
         request: SetRequest,
         result: Result<SetNodeParameterResponse, String>,
     },
+    Event {
+        generation: u64,
+        node: String,
+        revision: u64,
+    },
+    EventSubscriptionFailed {
+        generation: u64,
+        node: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,12 +124,25 @@ enum RemoteFollowUp {
     None,
     FetchValue,
     RefreshAfterSet,
+    RefreshSnapshot,
+    RefreshSnapshotMetadata,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NodeRemoteAction {
+    Current,
+    Changed,
+    Invalid,
 }
 
 struct RemoteState {
     sender: UnboundedSender<RemoteOperationResult>,
     receiver: UnboundedReceiver<RemoteOperationResult>,
     pending_count: usize,
+    event_subscription_node: Option<String>,
+    event_subscription_generation: u64,
+    refresh_snapshot_after_pending: bool,
+    refresh_snapshot_metadata_after_pending: bool,
 }
 
 impl Default for RemoteState {
@@ -127,6 +152,10 @@ impl Default for RemoteState {
             sender,
             receiver,
             pending_count: 0,
+            event_subscription_node: None,
+            event_subscription_generation: 0,
+            refresh_snapshot_after_pending: false,
+            refresh_snapshot_metadata_after_pending: false,
         }
     }
 }
@@ -142,6 +171,8 @@ impl Default for ParameterPanel {
             layer: String::new(),
             snapshot: None,
             value_revision: None,
+            clean_value_editor: String::new(),
+            latest_snapshot_revision: None,
             effective_source_layer: String::new(),
             value_editor: String::new(),
             status: Status::Idle,
@@ -173,8 +204,17 @@ impl Panel for ParameterPanel {
 
     fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
         self.drain_remote_results(&context);
+        self.ensure_event_subscription(&context);
 
-        let nodes = parameter_nodes_from_graph(context.backend.graph());
+        let namespace = context.backend.namespace();
+        let service_names = {
+            let graph = context.backend.graph().lock();
+            graph
+                .services()
+                .map(|service| service.topic.clone())
+                .collect::<Vec<_>>()
+        };
+        let nodes = parameter_node_completions(&service_names, &namespace, &self.node_editor);
         let (layers, path_completions) = self
             .snapshot
             .as_ref()
@@ -190,7 +230,8 @@ impl Panel for ParameterPanel {
                         &nodes,
                         &mut self.node_editor,
                     ));
-                    if (node_response.changed() || node_response.lost_focus()) && self.commit_node()
+                    if (node_response.changed() || node_response.lost_focus())
+                        && self.commit_node(&service_names, &namespace)
                     {
                         self.spawn_snapshot_fetch(&context, SnapshotRequestKind::Auto);
                     }
@@ -223,10 +264,14 @@ impl Panel for ParameterPanel {
             ui.horizontal(|ui| {
                 ui.add_enabled_ui(self.can_start_remote_operation(), |ui| {
                     if ui.button("Refresh").clicked() {
-                        self.commit_node();
-                        self.commit_path();
-                        self.commit_layer();
-                        self.spawn_snapshot_fetch(&context, SnapshotRequestKind::Manual);
+                        match self.validate_node_for_remote_action(&service_names, &namespace) {
+                            NodeRemoteAction::Current | NodeRemoteAction::Changed => {
+                                self.commit_path();
+                                self.commit_layer();
+                                self.spawn_snapshot_fetch(&context, SnapshotRequestKind::Manual);
+                            }
+                            NodeRemoteAction::Invalid => {}
+                        }
                     }
                 });
 
@@ -237,7 +282,13 @@ impl Panel for ParameterPanel {
                     && !self.value_editor.trim().is_empty();
                 ui.add_enabled_ui(can_set, |ui| {
                     if ui.button("Set").clicked() {
-                        self.spawn_set_value(&context);
+                        match self.validate_node_for_remote_action(&service_names, &namespace) {
+                            NodeRemoteAction::Current => self.spawn_set_value(&context),
+                            NodeRemoteAction::Changed => {
+                                self.spawn_snapshot_fetch(&context, SnapshotRequestKind::Auto)
+                            }
+                            NodeRemoteAction::Invalid => {}
+                        }
                     }
                 });
             });
@@ -273,16 +324,53 @@ impl Panel for ParameterPanel {
 }
 
 impl ParameterPanel {
-    fn commit_node(&mut self) -> bool {
-        let next = self.node_editor.trim().to_string();
+    fn commit_node(&mut self, service_names: &[String], namespace: &str) -> bool {
+        let next = match resolve_parameter_node(service_names, namespace, &self.node_editor) {
+            Ok(node) => node,
+            Err(error) => {
+                self.status = Status::Error(format!("{error:#}"));
+                return false;
+            }
+        };
         if next == self.node {
             return false;
         }
+        self.apply_node_change(next);
+        true
+    }
+
+    fn validate_node_for_remote_action(
+        &mut self,
+        service_names: &[String],
+        namespace: &str,
+    ) -> NodeRemoteAction {
+        let next = match resolve_parameter_node(service_names, namespace, &self.node_editor) {
+            Ok(node) => node,
+            Err(error) => {
+                self.status = Status::Error(format!("{error:#}"));
+                return NodeRemoteAction::Invalid;
+            }
+        };
+
+        if next == self.node {
+            NodeRemoteAction::Current
+        } else {
+            self.apply_node_change(next);
+            NodeRemoteAction::Changed
+        }
+    }
+
+    fn apply_node_change(&mut self, next: String) {
         self.node = next;
         self.snapshot = None;
+        self.path_editor.clear();
+        self.path.clear();
         self.clear_value_state();
+        self.remote.event_subscription_node = None;
+        self.remote.event_subscription_generation += 1;
+        self.remote.refresh_snapshot_after_pending = false;
+        self.remote.refresh_snapshot_metadata_after_pending = false;
         self.status = Status::Idle;
-        true
     }
 
     fn commit_path(&mut self) -> bool {
@@ -305,7 +393,7 @@ impl ParameterPanel {
     }
 
     fn can_edit_value(&self) -> bool {
-        self.can_start_remote_operation()
+        self.can_start_remote_operation() && !self.path.is_empty()
     }
 
     fn can_start_remote_operation(&self) -> bool {
@@ -314,13 +402,35 @@ impl ParameterPanel {
 
     fn drain_remote_results(&mut self, context: &PanelUiContext<'_>) {
         while let Ok(result) = self.remote.receiver.try_recv() {
-            self.remote.pending_count = self.remote.pending_count.saturating_sub(1);
+            if !matches!(
+                result,
+                RemoteOperationResult::Event { .. }
+                    | RemoteOperationResult::EventSubscriptionFailed { .. }
+            ) {
+                self.remote.pending_count = self.remote.pending_count.saturating_sub(1);
+            }
             match self.handle_remote_result(result) {
                 RemoteFollowUp::None => {}
                 RemoteFollowUp::FetchValue => self.spawn_value_fetch(context),
                 RemoteFollowUp::RefreshAfterSet => {
                     self.spawn_snapshot_fetch(context, SnapshotRequestKind::AfterSet)
                 }
+                RemoteFollowUp::RefreshSnapshot => {
+                    self.spawn_snapshot_fetch(context, SnapshotRequestKind::Manual)
+                }
+                RemoteFollowUp::RefreshSnapshotMetadata => {
+                    self.spawn_snapshot_metadata_fetch(context)
+                }
+            }
+        }
+
+        if self.remote.pending_count == 0 {
+            if self.remote.refresh_snapshot_after_pending {
+                self.remote.refresh_snapshot_after_pending = false;
+                self.spawn_snapshot_fetch(context, SnapshotRequestKind::Manual);
+            } else if self.remote.refresh_snapshot_metadata_after_pending {
+                self.remote.refresh_snapshot_metadata_after_pending = false;
+                self.spawn_snapshot_metadata_fetch(context);
             }
         }
     }
@@ -353,6 +463,79 @@ impl ParameterPanel {
             })
             .await;
             let _ = sender.send(RemoteOperationResult::Snapshot { request, result });
+            egui_context.request_repaint();
+        });
+    }
+
+    fn spawn_snapshot_metadata_fetch(&mut self, context: &PanelUiContext<'_>) {
+        if self.node.is_empty() {
+            return;
+        }
+        let request = SnapshotRequest {
+            node: self.node.clone(),
+            kind: SnapshotRequestKind::Manual,
+        };
+        let backend_node = context.backend.node();
+        let sender = self.remote.sender.clone();
+        let egui_context = context.egui_context.clone();
+        self.remote.pending_count += 1;
+
+        context.backend.runtime_handle().spawn(async move {
+            let target_node = request.node.clone();
+            let result = run_remote_operation("fetching parameter snapshot metadata", async move {
+                let client = RemoteParameterClient::new(backend_node, target_node)
+                    .wrap_err("failed to create remote parameter client")?;
+                client
+                    .get_snapshot()
+                    .await
+                    .wrap_err("failed to fetch parameter snapshot")
+            })
+            .await;
+            let _ = sender.send(RemoteOperationResult::SnapshotMetadata { request, result });
+            egui_context.request_repaint();
+        });
+    }
+
+    fn ensure_event_subscription(&mut self, context: &PanelUiContext<'_>) {
+        if self.node.is_empty()
+            || self.remote.event_subscription_node.as_deref() == Some(self.node.as_str())
+        {
+            return;
+        }
+        self.remote.event_subscription_node = Some(self.node.clone());
+        self.remote.event_subscription_generation += 1;
+        let generation = self.remote.event_subscription_generation;
+        let node = self.node.clone();
+        let backend_node = context.backend.node();
+        let sender = self.remote.sender.clone();
+        let egui_context = context.egui_context.clone();
+
+        context.backend.runtime_handle().spawn(async move {
+            let Ok(client) = RemoteParameterClient::new(backend_node, node.clone()) else {
+                let _ = sender
+                    .send(RemoteOperationResult::EventSubscriptionFailed { generation, node });
+                egui_context.request_repaint();
+                return;
+            };
+            let Ok(subscriber) = client.subscribe_events().await else {
+                let _ = sender
+                    .send(RemoteOperationResult::EventSubscriptionFailed { generation, node });
+                egui_context.request_repaint();
+                return;
+            };
+            while let Ok(event) = subscriber.recv().await {
+                let NodeParameterEvent {
+                    node_fqn, revision, ..
+                } = event;
+                let _ = sender.send(RemoteOperationResult::Event {
+                    generation,
+                    node: node_fqn,
+                    revision,
+                });
+                egui_context.request_repaint();
+            }
+            let _ =
+                sender.send(RemoteOperationResult::EventSubscriptionFailed { generation, node });
             egui_context.request_repaint();
         });
     }
@@ -398,14 +581,16 @@ impl ParameterPanel {
         }
 
         let path_completions = parse_snapshot_path_completions(&response.value_json)?;
+        let rendered_snapshot = render_json_for_editor(&response.value_json)?;
         let default_layer = response.layers.last().cloned();
         let selected_layer = self.layer.clone();
         let selected_layer_missing =
             !selected_layer.is_empty() && !response.layers.contains(&selected_layer);
+        let revision = response.revision;
 
         self.snapshot = Some(SnapshotState {
             parameter_key: response.parameter_key,
-            revision: response.revision,
+            revision,
             layers: response.layers,
             path_completions,
         });
@@ -424,6 +609,14 @@ impl ParameterPanel {
             self.layer_editor = layer;
         }
 
+        self.latest_snapshot_revision = Some(revision);
+        if self.path.is_empty() {
+            self.value_editor = rendered_snapshot;
+            self.clean_value_editor = self.value_editor.clone();
+            self.value_revision = Some(revision);
+            self.effective_source_layer.clear();
+        }
+
         self.status = Status::Info("Fetched parameter snapshot.".to_string());
         Ok(())
     }
@@ -437,14 +630,15 @@ impl ParameterPanel {
         }
 
         self.value_editor = render_json_for_editor(&response.value_json)?;
+        self.clean_value_editor = self.value_editor.clone();
         self.value_revision = Some(response.revision);
+        self.latest_snapshot_revision = Some(response.revision);
         self.effective_source_layer = response.effective_source_layer;
         self.status = Status::Info("Fetched parameter value.".to_string());
         Ok(())
     }
 
     fn spawn_set_value(&mut self, context: &PanelUiContext<'_>) {
-        self.commit_node();
         self.commit_path();
         self.commit_layer();
 
@@ -503,6 +697,11 @@ impl ParameterPanel {
                 self.layer
             ));
         }
+        if self.is_value_dirty() && self.is_stale_against_latest_revision() {
+            return Err(eyre!(
+                "parameter changed externally; refresh before setting to discard local edits"
+            ));
+        }
 
         Ok(SetRequest {
             node: self.node.clone(),
@@ -523,11 +722,22 @@ impl ParameterPanel {
             RemoteOperationResult::Snapshot { request, result } => {
                 self.handle_snapshot_result(request, result)
             }
+            RemoteOperationResult::SnapshotMetadata { request, result } => {
+                self.handle_snapshot_metadata_result(request, result)
+            }
             RemoteOperationResult::Value { request, result } => {
                 self.handle_value_result(request, result)
             }
             RemoteOperationResult::Set { request, result } => {
                 self.handle_set_result(request, result)
+            }
+            RemoteOperationResult::Event {
+                generation,
+                node,
+                revision,
+            } => self.handle_event_result(generation, node, revision),
+            RemoteOperationResult::EventSubscriptionFailed { generation, node } => {
+                self.handle_event_subscription_failed(generation, node)
             }
         }
     }
@@ -567,6 +777,74 @@ impl ParameterPanel {
                 RemoteFollowUp::None
             }
         }
+    }
+
+    fn handle_snapshot_metadata_result(
+        &mut self,
+        request: SnapshotRequest,
+        result: Result<GetNodeParametersSnapshotResponse, String>,
+    ) -> RemoteFollowUp {
+        if request.node != self.node {
+            return RemoteFollowUp::None;
+        }
+        let Ok(response) = result else {
+            return RemoteFollowUp::None;
+        };
+        let Ok(path_completions) = parse_snapshot_path_completions(&response.value_json) else {
+            return RemoteFollowUp::None;
+        };
+        self.latest_snapshot_revision = Some(response.revision);
+        self.snapshot = Some(SnapshotState {
+            parameter_key: response.parameter_key,
+            revision: response.revision,
+            layers: response.layers,
+            path_completions,
+        });
+        if let Some(latest_revision) = self.latest_snapshot_revision {
+            self.mark_dirty_editor_stale(latest_revision);
+        }
+        RemoteFollowUp::None
+    }
+
+    fn handle_event_result(
+        &mut self,
+        generation: u64,
+        node: String,
+        revision: u64,
+    ) -> RemoteFollowUp {
+        if generation != self.remote.event_subscription_generation || node != self.node {
+            return RemoteFollowUp::None;
+        }
+        if self.remote.pending_count > 0 {
+            self.latest_snapshot_revision = Some(revision);
+            if self.is_value_dirty() {
+                self.remote.refresh_snapshot_metadata_after_pending = true;
+                self.mark_dirty_editor_stale(revision);
+            } else {
+                self.remote.refresh_snapshot_after_pending = true;
+            }
+            return RemoteFollowUp::None;
+        }
+        if self.is_value_dirty() {
+            self.mark_dirty_editor_stale(revision);
+            RemoteFollowUp::RefreshSnapshotMetadata
+        } else {
+            self.latest_snapshot_revision = Some(revision);
+            RemoteFollowUp::RefreshSnapshot
+        }
+    }
+
+    fn handle_event_subscription_failed(
+        &mut self,
+        generation: u64,
+        node: String,
+    ) -> RemoteFollowUp {
+        if generation == self.remote.event_subscription_generation
+            && self.remote.event_subscription_node.as_deref() == Some(node.as_str())
+        {
+            self.remote.event_subscription_node = None;
+        }
+        RemoteFollowUp::None
     }
 
     fn handle_value_result(
@@ -629,8 +907,35 @@ impl ParameterPanel {
 
     fn clear_value_state(&mut self) {
         self.value_revision = None;
+        self.latest_snapshot_revision = None;
         self.effective_source_layer.clear();
         self.value_editor.clear();
+        self.clean_value_editor.clear();
+    }
+
+    fn is_value_dirty(&self) -> bool {
+        self.value_editor != self.clean_value_editor
+    }
+
+    fn is_stale_against_latest_revision(&self) -> bool {
+        matches!(
+            (self.value_revision, self.latest_snapshot_revision),
+            (Some(base), Some(latest)) if latest > base
+        ) || matches!(
+            (self.value_revision, self.latest_snapshot_revision),
+            (None, Some(_))
+        )
+    }
+
+    fn mark_dirty_editor_stale(&mut self, latest_revision: u64) {
+        self.latest_snapshot_revision = Some(latest_revision);
+        let base = self
+            .value_revision
+            .map(|revision| revision.to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+        self.status = Status::Error(format!(
+            "Parameter changed externally: editing revision {base}, latest revision is {latest_revision}. Refresh to discard local edits."
+        ));
     }
 
     fn render_metadata(&self, ui: &mut Ui) {
@@ -706,10 +1011,63 @@ where
     nodes
 }
 
-fn parameter_nodes_from_graph(graph: &Graph) -> Vec<String> {
-    let graph = graph.lock();
-    let services = graph.services().map(|service| service.topic.as_str());
-    parameter_nodes_from_service_names(services)
+fn parameter_node_completions<I, S>(services: I, active_namespace: &str, input: &str) -> Vec<String>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let nodes = parameter_nodes_from_service_names(services);
+    let absolute = input.starts_with('/');
+    let namespace_prefix = completion_namespace_prefix(active_namespace);
+
+    nodes
+        .into_iter()
+        .filter_map(|node| {
+            if absolute {
+                Some(node)
+            } else {
+                node.strip_prefix(&namespace_prefix)
+                    .map(ToString::to_string)
+            }
+        })
+        .collect()
+}
+
+fn resolve_parameter_node<I, S>(
+    services: I,
+    active_namespace: &str,
+    input: &str,
+) -> Result<String, Report>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let input = input.trim();
+    if input.is_empty() {
+        return Err(eyre!("select a parameter node"));
+    }
+
+    let candidate = if input.starts_with('/') {
+        input.to_string()
+    } else {
+        format!("{}{}", completion_namespace_prefix(active_namespace), input)
+    };
+
+    let nodes = parameter_nodes_from_service_names(services);
+    if nodes.iter().any(|node| node == &candidate) {
+        Ok(candidate)
+    } else {
+        Err(eyre!("parameter node not found: {input}"))
+    }
+}
+
+fn completion_namespace_prefix(namespace: &str) -> String {
+    let namespace = namespace.trim_matches('/');
+    if namespace.is_empty() {
+        "/".to_string()
+    } else {
+        format!("/{namespace}/")
+    }
 }
 
 fn parse_snapshot_path_completions(value_json: &str) -> Result<Vec<String>, Report> {
@@ -772,9 +1130,11 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        Panel, ParameterPanel, RemoteFollowUp, RemoteOperationResult, SetRequest, SnapshotRequest,
-        SnapshotRequestKind, SnapshotState, Status, ValueRequest, collect_parameter_paths,
+        NodeRemoteAction, Panel, ParameterPanel, RemoteFollowUp, RemoteOperationResult,
+        RemoteState, SetRequest, SnapshotRequest, SnapshotRequestKind, SnapshotState, Status,
+        ValueRequest, collect_parameter_paths, parameter_node_completions,
         parameter_nodes_from_service_names, parse_editor_json, parse_snapshot_path_completions,
+        resolve_parameter_node,
     };
 
     fn snapshot_response(layers: &[&str]) -> ros_z::parameter::GetNodeParametersSnapshotResponse {
@@ -814,6 +1174,68 @@ mod tests {
                 "/vision/ball_detector".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn relative_parameter_node_completion_uses_active_namespace() {
+        let completions = parameter_node_completions(
+            [
+                "/42/motion/walk/parameter/get_snapshot",
+                "/42/vision/ball/parameter/get_snapshot",
+                "/43/motion/walk/parameter/get_snapshot",
+            ],
+            "/42",
+            "motion",
+        );
+
+        assert_eq!(
+            completions,
+            vec!["motion/walk".to_string(), "vision/ball".to_string()]
+        );
+    }
+
+    #[test]
+    fn absolute_parameter_node_completion_lists_all_namespaces() {
+        let completions = parameter_node_completions(
+            [
+                "/42/motion/walk/parameter/get_snapshot",
+                "/43/motion/walk/parameter/get_snapshot",
+            ],
+            "/42",
+            "/",
+        );
+
+        assert_eq!(
+            completions,
+            vec!["/42/motion/walk".to_string(), "/43/motion/walk".to_string()]
+        );
+    }
+
+    #[test]
+    fn relative_parameter_node_selection_resolves_to_absolute_fqn() {
+        let resolved = resolve_parameter_node(
+            [
+                "/42/motion/walk/parameter/get_snapshot",
+                "/43/motion/walk/parameter/get_snapshot",
+            ],
+            "/42",
+            "motion/walk",
+        )
+        .unwrap();
+
+        assert_eq!(resolved, "/42/motion/walk");
+    }
+
+    #[test]
+    fn invalid_parameter_node_selection_is_rejected_before_remote_call() {
+        let error = resolve_parameter_node(
+            ["/42/motion/walk/parameter/get_snapshot"],
+            "/42",
+            "vision/ball",
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("parameter node not found"));
     }
 
     #[test]
@@ -937,6 +1359,43 @@ mod tests {
     }
 
     #[test]
+    fn empty_path_snapshot_renders_full_effective_snapshot() {
+        let mut panel = ParameterPanel::default();
+
+        panel
+            .apply_snapshot_response(snapshot_response_with_value_json(
+                &["base", "robot"],
+                r#"{"walk":{"speed":0.7},"enabled":true}"#,
+            ))
+            .unwrap();
+
+        assert_eq!(
+            panel.value_editor,
+            "{\n  \"enabled\": true,\n  \"walk\": {\n    \"speed\": 0.7\n  }\n}"
+        );
+        assert_eq!(panel.clean_value_editor, panel.value_editor);
+        assert_eq!(panel.value_revision, Some(7));
+        assert_eq!(panel.latest_snapshot_revision, Some(7));
+        assert!(panel.effective_source_layer.is_empty());
+    }
+
+    #[test]
+    fn empty_path_set_remains_rejected() {
+        let panel = ParameterPanel {
+            node: "/motion/walk".to_string(),
+            path: String::new(),
+            layer: "robot".to_string(),
+            value_revision: Some(7),
+            value_editor: "{}".to_string(),
+            ..Default::default()
+        };
+
+        let error = panel.set_request().unwrap_err();
+
+        assert!(error.to_string().contains("enter a parameter path"));
+    }
+
+    #[test]
     fn snapshot_response_rejects_invalid_value_json_without_replacing_snapshot() {
         let mut panel = ParameterPanel {
             snapshot: Some(SnapshotState {
@@ -965,6 +1424,8 @@ mod tests {
         let mut panel = ParameterPanel {
             node_editor: "/motion/walk".to_string(),
             node: "/vision/ball".to_string(),
+            path_editor: "walk.speed".to_string(),
+            path: "walk.speed".to_string(),
             snapshot: Some(SnapshotState {
                 parameter_key: "ball".to_string(),
                 revision: 4,
@@ -977,12 +1438,84 @@ mod tests {
             ..Default::default()
         };
 
-        assert!(panel.commit_node());
+        assert!(panel.commit_node(&["/motion/walk/parameter/get_snapshot".to_string()], "/"));
         assert_eq!(panel.node, "/motion/walk");
+        assert!(panel.path.is_empty());
+        assert!(panel.path_editor.is_empty());
         assert!(panel.snapshot.is_none());
         assert_eq!(panel.value_revision, None);
         assert!(panel.effective_source_layer.is_empty());
         assert!(panel.value_editor.is_empty());
+    }
+
+    #[test]
+    fn remote_action_node_validation_rejects_invalid_editor_without_using_committed_node() {
+        let mut panel = ParameterPanel {
+            node_editor: "/vision/ball".to_string(),
+            node: "/motion/walk".to_string(),
+            ..Default::default()
+        };
+
+        let result = panel.validate_node_for_remote_action(
+            &["/motion/walk/parameter/get_snapshot".to_string()],
+            "/",
+        );
+
+        assert_eq!(result, NodeRemoteAction::Invalid);
+        assert_eq!(panel.node, "/motion/walk");
+        assert!(matches!(panel.status, Status::Error(_)));
+    }
+
+    #[test]
+    fn remote_action_node_validation_commits_changed_editor_without_using_old_node() {
+        let mut panel = ParameterPanel {
+            node_editor: "/vision/ball".to_string(),
+            node: "/motion/walk".to_string(),
+            path_editor: "walk.speed".to_string(),
+            path: "walk.speed".to_string(),
+            snapshot: Some(SnapshotState {
+                parameter_key: "walk".to_string(),
+                revision: 7,
+                layers: vec!["robot".to_string()],
+                path_completions: vec!["walk.speed".to_string()],
+            }),
+            value_revision: Some(7),
+            value_editor: "0.7".to_string(),
+            ..Default::default()
+        };
+
+        let result = panel.validate_node_for_remote_action(
+            &[
+                "/motion/walk/parameter/get_snapshot".to_string(),
+                "/vision/ball/parameter/get_snapshot".to_string(),
+            ],
+            "/",
+        );
+
+        assert_eq!(result, NodeRemoteAction::Changed);
+        assert_eq!(panel.node, "/vision/ball");
+        assert!(panel.path.is_empty());
+        assert!(panel.path_editor.is_empty());
+        assert!(panel.snapshot.is_none());
+        assert_eq!(panel.value_revision, None);
+        assert!(panel.value_editor.is_empty());
+    }
+
+    #[test]
+    fn remote_action_node_validation_accepts_current_editor() {
+        let mut panel = ParameterPanel {
+            node_editor: "motion/walk".to_string(),
+            node: "/42/motion/walk".to_string(),
+            ..Default::default()
+        };
+
+        let result = panel.validate_node_for_remote_action(
+            &["/42/motion/walk/parameter/get_snapshot".to_string()],
+            "/42",
+        );
+
+        assert_eq!(result, NodeRemoteAction::Current);
+        assert_eq!(panel.node, "/42/motion/walk");
     }
 
     #[test]
@@ -1063,6 +1596,206 @@ mod tests {
     }
 
     #[test]
+    fn clean_editor_event_schedules_snapshot_refresh() {
+        let mut panel = ParameterPanel {
+            node: "/motion/walk".to_string(),
+            remote: RemoteState {
+                event_subscription_generation: 1,
+                ..Default::default()
+            },
+            value_editor: "0.7".to_string(),
+            clean_value_editor: "0.7".to_string(),
+            value_revision: Some(7),
+            ..Default::default()
+        };
+
+        let follow_up = panel.handle_remote_result(RemoteOperationResult::Event {
+            generation: 1,
+            node: "/motion/walk".to_string(),
+            revision: 8,
+        });
+
+        assert_eq!(follow_up, RemoteFollowUp::RefreshSnapshot);
+    }
+
+    #[test]
+    fn old_node_event_is_ignored() {
+        let mut panel = ParameterPanel {
+            node: "/motion/walk".to_string(),
+            remote: RemoteState {
+                event_subscription_generation: 1,
+                ..Default::default()
+            },
+            value_editor: "0.7".to_string(),
+            clean_value_editor: "0.7".to_string(),
+            value_revision: Some(7),
+            ..Default::default()
+        };
+
+        let follow_up = panel.handle_remote_result(RemoteOperationResult::Event {
+            generation: 1,
+            node: "/vision/ball".to_string(),
+            revision: 8,
+        });
+
+        assert_eq!(follow_up, RemoteFollowUp::None);
+        assert_eq!(panel.latest_snapshot_revision, None);
+    }
+
+    #[test]
+    fn dirty_editor_event_marks_stale_without_overwriting_text() {
+        let mut panel = ParameterPanel {
+            node: "/motion/walk".to_string(),
+            remote: RemoteState {
+                event_subscription_generation: 1,
+                ..Default::default()
+            },
+            value_editor: "0.8".to_string(),
+            clean_value_editor: "0.7".to_string(),
+            value_revision: Some(7),
+            ..Default::default()
+        };
+
+        let follow_up = panel.handle_remote_result(RemoteOperationResult::Event {
+            generation: 1,
+            node: "/motion/walk".to_string(),
+            revision: 9,
+        });
+
+        assert_eq!(follow_up, RemoteFollowUp::RefreshSnapshotMetadata);
+        assert_eq!(panel.value_editor, "0.8");
+        assert_eq!(panel.value_revision, Some(7));
+        assert_eq!(panel.latest_snapshot_revision, Some(9));
+        assert!(matches!(panel.status, Status::Error(_)));
+    }
+
+    #[test]
+    fn dirty_editor_without_base_revision_is_stale_after_known_latest_revision() {
+        let panel = ParameterPanel {
+            node: "/motion/walk".to_string(),
+            path: "walk.speed".to_string(),
+            layer: "robot".to_string(),
+            snapshot: Some(SnapshotState {
+                parameter_key: "walk".to_string(),
+                revision: 7,
+                layers: vec!["robot".to_string()],
+                path_completions: Vec::new(),
+            }),
+            value_editor: "0.8".to_string(),
+            clean_value_editor: "0.7".to_string(),
+            value_revision: None,
+            latest_snapshot_revision: Some(9),
+            ..Default::default()
+        };
+
+        let error = panel.set_request().unwrap_err();
+
+        assert!(error.to_string().contains("changed externally"));
+    }
+
+    #[test]
+    fn current_event_subscription_failure_clears_latched_node_for_retry() {
+        let mut panel = ParameterPanel {
+            node: "/motion/walk".to_string(),
+            remote: RemoteState {
+                event_subscription_node: Some("/motion/walk".to_string()),
+                event_subscription_generation: 3,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let follow_up =
+            panel.handle_remote_result(RemoteOperationResult::EventSubscriptionFailed {
+                generation: 3,
+                node: "/motion/walk".to_string(),
+            });
+
+        assert_eq!(follow_up, RemoteFollowUp::None);
+        assert_eq!(panel.remote.event_subscription_node, None);
+        assert_eq!(panel.remote.event_subscription_generation, 3);
+    }
+
+    #[test]
+    fn stale_event_subscription_failure_keeps_current_latched_node() {
+        let mut panel = ParameterPanel {
+            node: "/motion/walk".to_string(),
+            remote: RemoteState {
+                event_subscription_node: Some("/motion/walk".to_string()),
+                event_subscription_generation: 4,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let follow_up =
+            panel.handle_remote_result(RemoteOperationResult::EventSubscriptionFailed {
+                generation: 3,
+                node: "/motion/walk".to_string(),
+            });
+
+        assert_eq!(follow_up, RemoteFollowUp::None);
+        assert_eq!(
+            panel.remote.event_subscription_node,
+            Some("/motion/walk".to_string())
+        );
+        assert_eq!(panel.remote.event_subscription_generation, 4);
+    }
+
+    #[test]
+    fn manual_snapshot_then_value_refresh_can_replace_dirty_editor() {
+        let mut panel = ParameterPanel {
+            node: "/motion/walk".to_string(),
+            path: "walk.speed".to_string(),
+            value_editor: "0.8".to_string(),
+            clean_value_editor: "0.7".to_string(),
+            value_revision: Some(7),
+            latest_snapshot_revision: Some(9),
+            ..Default::default()
+        };
+
+        panel
+            .apply_value_response(ros_z::parameter::GetNodeParameterValueResponse {
+                success: true,
+                message: String::new(),
+                revision: 9,
+                path: "walk.speed".to_string(),
+                effective_source_layer: "robot".to_string(),
+                value_json: "0.9".to_string(),
+            })
+            .unwrap();
+
+        assert_eq!(panel.value_editor, "0.9");
+        assert_eq!(panel.clean_value_editor, "0.9");
+        assert_eq!(panel.value_revision, Some(9));
+    }
+
+    #[test]
+    fn event_during_pending_operation_defers_refresh_until_pending_drains() {
+        let mut panel = ParameterPanel {
+            node: "/motion/walk".to_string(),
+            remote: RemoteState {
+                pending_count: 1,
+                event_subscription_generation: 1,
+                ..Default::default()
+            },
+            value_editor: "0.7".to_string(),
+            clean_value_editor: "0.7".to_string(),
+            value_revision: Some(7),
+            ..Default::default()
+        };
+
+        let follow_up = panel.handle_remote_result(RemoteOperationResult::Event {
+            generation: 1,
+            node: "/motion/walk".to_string(),
+            revision: 8,
+        });
+
+        assert_eq!(follow_up, RemoteFollowUp::None);
+        assert!(panel.remote.refresh_snapshot_after_pending);
+    }
+
+    #[test]
     fn set_error_keeps_editor_contents() {
         let mut panel = ParameterPanel {
             node: "/motion/walk".to_string(),
@@ -1095,11 +1828,21 @@ mod tests {
 
     #[test]
     fn value_editor_can_only_be_edited_without_pending_remote_operations() {
-        let mut panel = ParameterPanel::default();
+        let mut panel = ParameterPanel {
+            path: "walk.speed".to_string(),
+            ..Default::default()
+        };
 
         assert!(panel.can_edit_value());
 
         panel.remote.pending_count = 1;
+
+        assert!(!panel.can_edit_value());
+    }
+
+    #[test]
+    fn empty_path_value_editor_is_read_only() {
+        let panel = ParameterPanel::default();
 
         assert!(!panel.can_edit_value());
     }
@@ -1215,6 +1958,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(panel.value_editor, "0.9");
+        assert_eq!(panel.clean_value_editor, panel.value_editor);
         assert_eq!(panel.value_revision, Some(9));
         assert_eq!(panel.effective_source_layer, "robot");
     }
