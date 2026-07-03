@@ -5542,7 +5542,7 @@ dependencies = [
  "motor_commands_collector",
  "obstacle_filter",
  "odometer_bridge",
- "player_state_receiver",
+ "player_states_receiver",
  "primary_state_filter",
  "ros-z",
  "rule_obstacle_composer",
@@ -8422,7 +8422,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
-name = "player_state_receiver"
+name = "player_states_receiver"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
