@@ -1,4 +1,3 @@
-use color_eyre::Result;
 use geometry::rectangle::Rectangle;
 use linear_algebra::point;
 use serde::{Deserialize, Serialize};

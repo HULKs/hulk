@@ -1,6 +1,5 @@
 use std::ops::{Index, IndexMut};
 
-use color_eyre::Result;
 use hsl_network_messages::{Penalty, PlayerNumber, TeamState};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};

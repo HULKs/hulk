@@ -1,6 +1,5 @@
 use std::{ops::Index, time::SystemTime};
 
-use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;

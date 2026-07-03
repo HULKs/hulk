@@ -15,10 +15,7 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::Pixel;
 use linear_algebra::{Point2, vector};
 
-use crate::{
-    color::{Rgb, YCbCr422, YCbCr444},
-    jpeg::JpegImage,
-};
+use crate::color::{Rgb, YCbCr422, YCbCr444};
 use ros2::sensor_msgs::image::Image as Ros2Image;
 
 pub const SAMPLE_SIZE: usize = 32;

@@ -1,4 +1,3 @@
-use color_eyre::Result;
 use ros_z::Message;
 use std::time::{Duration, SystemTime};
 

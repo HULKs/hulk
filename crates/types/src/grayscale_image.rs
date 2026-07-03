@@ -2,8 +2,6 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::jpeg::JpegImage;
-
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct GrayscaleImage {
     width: u32,
