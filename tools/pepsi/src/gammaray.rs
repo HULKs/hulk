@@ -311,23 +311,23 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_robot()?
-        .arg("sudo systemctl enable --now")
-        .arg("zenohd")
-        .ssh_with_log("enabling zenohd services", &progress_bar)
+        .arg("sudo systemctl enable zenohd && sudo systemctl restart zenohd")
+        .ssh_with_log("enabling and restarting zenohd services", &progress_bar)
         .await?;
 
     robot
         .ssh_to_robot()?
-        .arg("sudo systemctl enable --now")
-        .arg("zenoh-bridge-dds")
-        .ssh_with_log("enabling zenoh-bridge-dds services", &progress_bar)
+        .arg("sudo systemctl enable zenoh-bridge-dds && sudo systemctl restart zenoh-bridge-dds")
+        .ssh_with_log(
+            "enabling and restarting zenoh-bridge-dds services",
+            &progress_bar,
+        )
         .await?;
 
     robot
         .ssh_to_robot()?
-        .arg("sudo systemctl enable --now")
-        .arg("hulk")
-        .ssh_with_log("enabling hulk", &progress_bar)
+        .arg("sudo systemctl enable hulk && sudo systemctl restart hulk")
+        .ssh_with_log("enabling and restarting hulk", &progress_bar)
         .await?;
 
     robot
