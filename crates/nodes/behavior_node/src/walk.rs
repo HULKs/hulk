@@ -302,6 +302,10 @@ fn target_player_position(
         }
 
         let point = map.index_to_point(index);
+        if !is_in_bounds(map, point) {
+            continue;
+        }
+
         candidates.push(point);
 
         if map.cell_overlaps_centroid_bounds(index) {
@@ -369,4 +373,9 @@ fn target_player_position(
     }
 
     best_target.map(|(_, point)| point)
+}
+
+fn is_in_bounds(map: &VoronoiGrid, point: Point2<Field>) -> bool {
+    (map.bounds.centroid_min.x()..=map.bounds.centroid_max.x()).contains(&point.x())
+        && (map.bounds.centroid_min.y()..=map.bounds.centroid_max.y()).contains(&point.y())
 }
