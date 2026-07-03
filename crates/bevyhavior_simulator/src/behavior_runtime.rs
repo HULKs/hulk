@@ -129,7 +129,7 @@ impl SimulatorRobotBehavior {
         {
             outgoing_messages.push(message);
         }
-        if let Some(message) = self.blackboard.state_message() {
+        if let Some(message) = self.blackboard.try_sending_state_message() {
             outgoing_messages.push(message);
         }
         outgoing_messages

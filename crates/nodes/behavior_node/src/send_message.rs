@@ -3,7 +3,9 @@ use std::{net::SocketAddr, time::Duration};
 use booster::FallDownStateType;
 use hsl_network_messages::{GameControllerReturnMessage, HulkMessage, StateMessage};
 use ros_z::time::Time;
-use types::{messages::OutgoingMessage, parameters::HslNetworkParameters};
+use types::{
+    messages::OutgoingMessage, parameters::HslNetworkParameters, primary_state::PrimaryState,
+};
 
 use crate::node::Blackboard;
 
@@ -60,7 +62,10 @@ impl Blackboard {
         )
     }
 
-    pub fn state_message(&mut self) -> Option<OutgoingMessage> {
+    pub fn try_sending_state_message(&mut self) -> Option<OutgoingMessage> {
+        if self.world_state.robot.primary_state != PrimaryState::Playing {
+            return None;
+        }
         let now = self.world_state.now;
         let remaining_amount_of_messages = self
             .world_state
