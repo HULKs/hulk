@@ -30,7 +30,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("whistle_detection").build().await?;
 
     let parameters = node.bind_parameter_as::<WhistleDetectionParameters>("whistle_detection")?;
-    let samples_sub = node.subscriber::<Samples>("samples").build().await?;
+    let samples_sub = node.subscriber::<Samples>("inputs/microphones_samples").build().await?;
     // let audio_spectrums_pub = node
     //     .publisher::<Vec<AudioSpectrum>>("audio_spectrums")
     //     .build()
