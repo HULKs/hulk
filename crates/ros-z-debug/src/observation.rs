@@ -463,6 +463,7 @@ impl TopicObservationBuilder<DynamicPayload> {
         }
     }
 }
+
 /// Builder for a dynamic topic observation.
 pub struct DynamicTopicObservationBuilder {
     inner: TopicObservationBuilder<DynamicPayload>,

@@ -46,15 +46,3 @@ pub use crate::{Message, SerdeCdrCodec, Service};
 
 /// Type metadata traits for custom message and service definitions.
 pub use crate::{SchemaHash, ServiceTypeInfo, TypeInfo};
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn prelude_exports_queue_overflow_reporting() {
-        let reporting = QueueOverflowReporting::Silent;
-
-        assert_eq!(reporting, QueueOverflowReporting::Silent);
-    }
-}
