@@ -1,7 +1,8 @@
 use coordinate_systems::{Field, Ground};
 use eframe::egui::{ComboBox, Ui};
 use linear_algebra::{Isometry2, point, vector};
-use ros_z_debug::TopicObservation;
+use ros_z::qos::{QosDurability, QosProfile};
+use ros_z_debug::{ObservationPolicy, TopicObservation};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use types::field_dimensions::FieldDimensions;
@@ -107,6 +108,12 @@ impl Panel for MapPanel {
             .observer()
             .observe_typed("field_dimensions")
             .expect("failed to construct field_dimensions observer")
+            .policy(
+                ObservationPolicy::default().with_subscriber_qos(QosProfile {
+                    durability: QosDurability::TransientLocal,
+                    ..Default::default()
+                }),
+            )
             .spawn();
         let ground_to_field = context
             .backend
