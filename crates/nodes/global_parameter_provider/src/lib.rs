@@ -8,6 +8,7 @@ use ros_z::{prelude::*, qos::QosDurability};
 use types::{
     field_dimensions::FieldDimensions,
     joint_limits::JointLimits,
+    parameters::HslNetworkParameters,
     walking_velocity_limits::{WALKING_VELOCITY_LIMITS_TOPIC, WalkingVelocityLimits},
 };
 
@@ -17,6 +18,7 @@ pub struct Parameters {
     pub joint_limits: JointLimits,
     pub player_number: PlayerNumber,
     pub field_dimensions: FieldDimensions,
+    pub hsl_network: HslNetworkParameters,
     pub walking_velocity_limits: WalkingVelocityLimits,
 }
 
@@ -70,6 +72,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
+    let hsl_network_pub = node
+        .publisher::<HslNetworkParameters>("hsl_network")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await?;
+
     let mut parameters_receiver = node_parameters.subscribe();
 
     loop {
@@ -84,6 +95,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .publish(&parameters.walking_velocity_limits)
             .await?;
 
+        hsl_network_pub.publish(&parameters.hsl_network).await?;
         parameters_receiver.changed().await?;
     }
 }
