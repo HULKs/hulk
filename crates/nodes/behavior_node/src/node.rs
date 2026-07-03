@@ -408,7 +408,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             outgoing_message_pub.publish(&message).await?;
         }
 
-        if let Some(message) = blackboard.state_message() {
+        if blackboard.world_state.robot.primary_state == PrimaryState::Playing
+            && let Some(message) = blackboard.state_message()
+        {
             outgoing_message_pub.publish(&message).await?;
         }
 
