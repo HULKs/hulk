@@ -48,7 +48,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .create_future_map_builder()
         .create_future_subscriber::<Vec<Object<RobocupObjectLabel>>>(
             "detected_objects",
-            Duration::from_millis(25),
+            Duration::from_millis(1),
         )
         .await?
         .build();
