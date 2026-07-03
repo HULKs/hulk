@@ -3,6 +3,8 @@ use std::time::Duration;
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
+use super::types::VisualFeatureClass;
+
 pub(crate) const GLOBAL_LOCALIZER_MAX_DETECTIONS: usize = 32;
 
 /// Configuration for global field-feature association and pose recovery.
@@ -14,8 +16,16 @@ pub(crate) const GLOBAL_LOCALIZER_MAX_DETECTIONS: usize = 32;
 pub struct GlobalAssociationConfig {
     /// Minimum accepted fixed associations for any published result.
     pub min_inliers: usize,
-    /// Minimum detector confidence for a field-feature detection.
-    pub min_confidence: f32,
+    /// Minimum detector confidence for goalpost detections.
+    pub goal_post_confidence_threshold: f32,
+    /// Minimum detector confidence for L-spot detections.
+    pub l_spot_confidence_threshold: f32,
+    /// Minimum detector confidence for T-spot detections.
+    pub t_spot_confidence_threshold: f32,
+    /// Minimum detector confidence for X-spot detections.
+    pub x_spot_confidence_threshold: f32,
+    /// Minimum detector confidence for penalty-spot detections.
+    pub penalty_spot_confidence_threshold: f32,
     /// Minimum normalized-ray baseline between two detections.
     pub min_detection_baseline: f32,
     /// Minimum metric baseline between two map landmarks.
@@ -40,7 +50,11 @@ impl Default for GlobalAssociationConfig {
     fn default() -> Self {
         Self {
             min_inliers: 5,
-            min_confidence: 0.3,
+            goal_post_confidence_threshold: 0.3,
+            l_spot_confidence_threshold: 0.3,
+            t_spot_confidence_threshold: 0.3,
+            x_spot_confidence_threshold: 0.3,
+            penalty_spot_confidence_threshold: 0.3,
             min_detection_baseline: 0.1,
             min_map_baseline: 0.25,
             height_min: 0.2,
@@ -67,12 +81,26 @@ impl GlobalAssociationConfig {
                      because the solver caps detections"
             ));
         }
-        if !self.min_confidence.is_finite()
-            || self.min_confidence < 0.0
-            || self.min_confidence > 1.0
-        {
-            return Err("global_localizer.min_confidence must be finite and in [0, 1]".to_string());
-        }
+        validate_confidence_threshold(
+            self.goal_post_confidence_threshold,
+            "global_localizer.goal_post_confidence_threshold must be finite and in [0, 1]",
+        )?;
+        validate_confidence_threshold(
+            self.l_spot_confidence_threshold,
+            "global_localizer.l_spot_confidence_threshold must be finite and in [0, 1]",
+        )?;
+        validate_confidence_threshold(
+            self.t_spot_confidence_threshold,
+            "global_localizer.t_spot_confidence_threshold must be finite and in [0, 1]",
+        )?;
+        validate_confidence_threshold(
+            self.x_spot_confidence_threshold,
+            "global_localizer.x_spot_confidence_threshold must be finite and in [0, 1]",
+        )?;
+        validate_confidence_threshold(
+            self.penalty_spot_confidence_threshold,
+            "global_localizer.penalty_spot_confidence_threshold must be finite and in [0, 1]",
+        )?;
         validate_positive_f32(
             self.min_detection_baseline,
             "global_localizer.min_detection_baseline must be finite and > 0",
@@ -110,6 +138,16 @@ impl GlobalAssociationConfig {
             return Err("global_localizer.residual_weight must be finite and >= 0".to_string());
         }
         Ok(())
+    }
+
+    pub(crate) fn confidence_threshold_for_class(self, class: VisualFeatureClass) -> f32 {
+        match class {
+            VisualFeatureClass::GoalPost => self.goal_post_confidence_threshold,
+            VisualFeatureClass::LSpot => self.l_spot_confidence_threshold,
+            VisualFeatureClass::TSpot => self.t_spot_confidence_threshold,
+            VisualFeatureClass::XSpot => self.x_spot_confidence_threshold,
+            VisualFeatureClass::PenaltySpot => self.penalty_spot_confidence_threshold,
+        }
     }
 }
 
@@ -206,6 +244,14 @@ impl PoseHintAssociationConfig {
 
 fn validate_positive_f32(value: f32, message: &str) -> Result<(), String> {
     if value.is_finite() && value > 0.0 {
+        Ok(())
+    } else {
+        Err(message.to_string())
+    }
+}
+
+fn validate_confidence_threshold(value: f32, message: &str) -> Result<(), String> {
+    if value.is_finite() && (0.0..=1.0).contains(&value) {
         Ok(())
     } else {
         Err(message.to_string())
