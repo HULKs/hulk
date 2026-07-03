@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
@@ -21,11 +22,37 @@ use crate::queue::BoundedQueue;
 use crate::topic_name::qualify_topic_name;
 use ros_z_protocol::qos::{QosDurability, QosHistory};
 
-pub(super) fn subscriber_queue_capacity(qos: &ros_z_protocol::qos::QosProfile) -> usize {
+pub(super) fn subscriber_queue_capacity(
+    qos: &ros_z_protocol::qos::QosProfile,
+    queue_capacity: Option<NonZeroUsize>,
+) -> usize {
+    if let Some(queue_capacity) = queue_capacity {
+        return queue_capacity.get();
+    }
+
     match qos.history {
         QosHistory::KeepLast(depth) => depth,
         QosHistory::KeepAll => usize::MAX,
     }
+}
+
+/// Controls how local subscriber queue overflow is reported.
+///
+/// This setting only affects reporting. It does not change advertised QoS,
+/// queue capacity, or the queue drop policy. When the local receive queue is
+/// full, the oldest queued sample is still dropped to make room for the newest
+/// sample.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum QueueOverflowReporting {
+    /// Do not emit a log message when the local queue overflows.
+    ///
+    /// Dropped samples are still accounted internally.
+    Silent,
+    /// Emit a debug log message for each local queue overflow.
+    Debug,
+    /// Emit a warning log message for each local queue overflow. This is the default reporting mode.
+    #[default]
+    Warn,
 }
 
 #[derive(Debug, Clone)]
@@ -33,6 +60,8 @@ pub(crate) struct SubscriberOptions {
     pub(crate) qos: ros_z_protocol::qos::QosProfile,
     pub(crate) locality: Option<zenoh::sample::Locality>,
     pub(crate) transient_local_replay_timeout: Duration,
+    pub(crate) queue_capacity: Option<NonZeroUsize>,
+    pub(crate) queue_overflow_reporting: QueueOverflowReporting,
 }
 
 impl Default for SubscriberOptions {
@@ -41,6 +70,8 @@ impl Default for SubscriberOptions {
             qos: crate::endpoint_builder::default_protocol_qos(),
             locality: None,
             transient_local_replay_timeout: crate::pubsub::DEFAULT_TRANSIENT_LOCAL_REPLAY_TIMEOUT,
+            queue_capacity: None,
+            queue_overflow_reporting: QueueOverflowReporting::Warn,
         }
     }
 }
@@ -58,6 +89,16 @@ impl SubscriberOptions {
 
     pub(crate) fn transient_local_replay_timeout(mut self, timeout: Duration) -> Self {
         self.transient_local_replay_timeout = timeout;
+        self
+    }
+
+    pub(crate) fn queue_capacity(mut self, queue_capacity: NonZeroUsize) -> Self {
+        self.queue_capacity = Some(queue_capacity);
+        self
+    }
+
+    pub(crate) fn queue_overflow_reporting(mut self, reporting: QueueOverflowReporting) -> Self {
+        self.queue_overflow_reporting = reporting;
         self
     }
 }
@@ -91,6 +132,7 @@ struct QueueDropContext {
     node_name: String,
     type_name: String,
     queue_capacity: usize,
+    queue_overflow_reporting: QueueOverflowReporting,
 }
 
 impl QueueDropContext {
@@ -98,6 +140,7 @@ impl QueueDropContext {
         log_prefix: &'static str,
         entity: &EndpointEntity,
         queue_capacity: usize,
+        queue_overflow_reporting: QueueOverflowReporting,
     ) -> Result<Self> {
         let topic = qualify_topic_name(&entity.topic, &entity.node.namespace, &entity.node.name)
             .map_err(|source| crate::Error::topic_name(entity.topic.clone(), source))?;
@@ -109,6 +152,7 @@ impl QueueDropContext {
             node_name: entity.node.name.clone(),
             type_name: entity.type_info.name.clone(),
             queue_capacity,
+            queue_overflow_reporting,
         })
     }
 }
@@ -119,19 +163,88 @@ fn record_queue_push<T>(
     context: &QueueDropContext,
     sample: T,
 ) {
-    if queue.push(sample) {
-        let total_dropped_samples = dropped_samples.fetch_add(1, Ordering::Relaxed) + 1;
-        warn!(
-            subscriber = context.log_prefix,
-            topic = %context.topic,
-            node_namespace = %context.node_namespace,
-            node_name = %context.node_name,
-            type_name = %context.type_name,
-            queue_capacity = context.queue_capacity,
-            drop_policy = "oldest",
-            total_dropped_samples,
-            "subscriber queue full; dropped oldest sample"
-        );
+    if !queue.push(sample) {
+        return;
+    }
+
+    let total_dropped_samples = dropped_samples.fetch_add(1, Ordering::Relaxed) + 1;
+    match context.queue_overflow_reporting {
+        QueueOverflowReporting::Silent => {}
+        QueueOverflowReporting::Debug => {
+            debug!(
+                subscriber = context.log_prefix,
+                topic = %context.topic,
+                node_namespace = %context.node_namespace,
+                node_name = %context.node_name,
+                type_name = %context.type_name,
+                queue_capacity = context.queue_capacity,
+                queue_overflow_reporting = ?context.queue_overflow_reporting,
+                drop_policy = "oldest",
+                total_dropped_samples,
+                "subscriber queue full; dropped oldest sample"
+            );
+        }
+        QueueOverflowReporting::Warn => {
+            warn!(
+                subscriber = context.log_prefix,
+                topic = %context.topic,
+                node_namespace = %context.node_namespace,
+                node_name = %context.node_name,
+                type_name = %context.type_name,
+                queue_capacity = context.queue_capacity,
+                queue_overflow_reporting = ?context.queue_overflow_reporting,
+                drop_policy = "oldest",
+                total_dropped_samples,
+                "subscriber queue full; dropped oldest sample"
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn queue_drop_context(reporting: QueueOverflowReporting) -> QueueDropContext {
+        QueueDropContext {
+            log_prefix: "TEST_SUB",
+            topic: "/test_topic".to_owned(),
+            node_namespace: "/".to_owned(),
+            node_name: "test_node".to_owned(),
+            type_name: "test_msgs/msg/Test".to_owned(),
+            queue_capacity: 2,
+            queue_overflow_reporting: reporting,
+        }
+    }
+
+    fn assert_record_queue_push_drops_oldest_and_counts(reporting: QueueOverflowReporting) {
+        let queue = BoundedQueue::new(2);
+        let dropped_samples = AtomicU64::new(0);
+        let context = queue_drop_context(reporting);
+
+        record_queue_push(&queue, &dropped_samples, &context, 1);
+        record_queue_push(&queue, &dropped_samples, &context, 2);
+        record_queue_push(&queue, &dropped_samples, &context, 3);
+
+        assert_eq!(queue.try_recv(), Some(2));
+        assert_eq!(queue.try_recv(), Some(3));
+        assert_eq!(queue.try_recv(), None);
+        assert_eq!(dropped_samples.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn record_queue_push_drops_oldest_and_counts_for_silent_reporting() {
+        assert_record_queue_push_drops_oldest_and_counts(QueueOverflowReporting::Silent);
+    }
+
+    #[test]
+    fn record_queue_push_drops_oldest_and_counts_for_debug_reporting() {
+        assert_record_queue_push_drops_oldest_and_counts(QueueOverflowReporting::Debug);
+    }
+
+    #[test]
+    fn record_queue_push_drops_oldest_and_counts_for_warn_reporting() {
+        assert_record_queue_push_drops_oldest_and_counts(QueueOverflowReporting::Warn);
     }
 }
 
@@ -166,6 +279,24 @@ impl<T, C> SubscriberBuilder<T, C> {
 
     pub fn qos(mut self, qos: QosProfile) -> Self {
         self.options = self.options.qos(qos);
+        self
+    }
+
+    /// Set the local subscriber receive queue capacity.
+    ///
+    /// This does not change advertised endpoint QoS. If unset, capacity is
+    /// derived from the effective QoS history depth.
+    pub fn queue_capacity(mut self, queue_capacity: NonZeroUsize) -> Self {
+        self.options = self.options.queue_capacity(queue_capacity);
+        self
+    }
+
+    /// Set how local subscriber queue overflow is reported.
+    ///
+    /// This only controls log output. Overflow still drops the oldest queued
+    /// sample and does not alter advertised endpoint QoS.
+    pub fn queue_overflow_reporting(mut self, reporting: QueueOverflowReporting) -> Self {
+        self.options = self.options.queue_overflow_reporting(reporting);
         self
     }
 
@@ -233,12 +364,17 @@ impl<T, C> SubscriberBuilder<T, C> {
     pub(crate) async fn build_raw_queue_async(self) -> Result<raw::RawSubscriber> {
         let prepared = self.prepare_build("RAW_SUB")?;
         let entity = &prepared.entity;
-        let queue_size = subscriber_queue_capacity(&entity.qos);
+        let queue_size = subscriber_queue_capacity(&entity.qos, prepared.options.queue_capacity);
         let queue = Arc::new(BoundedQueue::new(queue_size));
         let raw_queue = queue.clone();
         let dropped_samples = Arc::new(AtomicU64::new(0));
         let raw_dropped_samples = dropped_samples.clone();
-        let drop_context = QueueDropContext::from_entity("RAW_SUB", entity, queue_size)?;
+        let drop_context = QueueDropContext::from_entity(
+            "RAW_SUB",
+            entity,
+            queue_size,
+            prepared.options.queue_overflow_reporting,
+        )?;
         let resources = prepared
             .build_subscriber_resources(
                 entity,
@@ -316,8 +452,10 @@ impl PreparedSubscriberBuild {
                 _replay_guard: None,
             })
         } else {
-            let Some(live_capacity) = replay::transient_local_replay_live_capacity(&entity.qos)
-            else {
+            let Some(live_capacity) = replay::transient_local_replay_live_capacity(
+                &entity.qos,
+                self.options.queue_capacity,
+            ) else {
                 warn!(
                     "[{}] TransientLocal + KeepAll requested; replay coordination is disabled because history is unbounded",
                     log_prefix
@@ -413,12 +551,17 @@ where
     {
         let prepared = self.prepare_build("SUB")?;
         let entity = &prepared.entity;
-        let queue_size = subscriber_queue_capacity(&entity.qos);
+        let queue_size = subscriber_queue_capacity(&entity.qos, prepared.options.queue_capacity);
         let queue = Arc::new(BoundedQueue::new(queue_size));
         let subscriber_queue = queue.clone();
         let dropped_samples = Arc::new(AtomicU64::new(0));
         let subscriber_dropped_samples = dropped_samples.clone();
-        let drop_context = QueueDropContext::from_entity("SUB", entity, queue_size)?;
+        let drop_context = QueueDropContext::from_entity(
+            "SUB",
+            entity,
+            queue_size,
+            prepared.options.queue_overflow_reporting,
+        )?;
         let resources = prepared
             .build_subscriber_resources(
                 entity,

@@ -26,7 +26,9 @@ pub use crate::node::Node;
 pub use crate::parameter::NodeParametersExt;
 
 /// Core pub/sub handles and builders.
-pub use crate::pubsub::{Publisher, PublisherBuilder, Subscriber, SubscriberBuilder};
+pub use crate::pubsub::{
+    Publisher, PublisherBuilder, QueueOverflowReporting, Subscriber, SubscriberBuilder,
+};
 
 /// Static schema construction traits and helpers.
 pub use crate::schema::{

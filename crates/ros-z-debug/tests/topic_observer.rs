@@ -20,6 +20,38 @@ struct FloatDebugValue {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn topic_observation_builder_policy_preserves_overrides_when_retention_changes()
+-> ros_z_debug::Result<()> {
+    let context = ContextBuilder::default().build().await?;
+    let observer_node = Arc::new(context.create_node("policy_observer").build().await?);
+    let observer = TopicObserver::new(observer_node, TopicObserverOptions::with_namespace("/42")?);
+    let queue_capacity = std::num::NonZeroUsize::new(9).unwrap();
+    let policy =
+        ros_z_debug::ObservationPolicy::latest().with_subscriber_queue_capacity(queue_capacity);
+
+    let builder = observer
+        .observe_typed::<String>("state")?
+        .policy(policy)
+        .retention(RetentionPolicy::time_window(
+            std::time::Duration::from_secs(1),
+        )?);
+
+    assert!(matches!(
+        builder.observation_policy().retention(),
+        RetentionPolicy::TimeWindow(_)
+    ));
+    assert_eq!(
+        builder.observation_policy().subscriber_queue_capacity(),
+        Some(queue_capacity)
+    );
+
+    let dynamic_builder = observer.observe_dynamic("state")?.policy(policy);
+    assert_eq!(dynamic_builder.observation_policy(), policy);
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn typed_observation_rebuilds_when_inherited_namespace_changes() -> ros_z_debug::Result<()> {
     let context = ContextBuilder::default().build().await?;
     let publisher_node = context.create_node("typed_retarget_pub").build().await?;

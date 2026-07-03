@@ -26,6 +26,31 @@
 //! # }
 //! ```
 //!
+//! A full [`ObservationPolicy`] exposes observer-side buffering knobs when the
+//! default retention shortcut is not enough:
+//!
+//! ```rust,ignore
+//! use std::{num::NonZeroUsize, sync::Arc};
+//!
+//! use ros_z::context::ContextBuilder;
+//! use ros_z_debug::{CachedSubscriptionNodeExt, ObservationPolicy};
+//!
+//! # async fn demo() -> ros_z_debug::Result<()> {
+//! let context = ContextBuilder::default().build().await?;
+//! let node = Arc::new(context.create_node("debug").build().await?);
+//! let cache = node
+//!     .cached_subscription("status")?
+//!     .policy(
+//!         ObservationPolicy::latest()
+//!             .with_subscriber_queue_capacity(NonZeroUsize::new(128).unwrap()),
+//!     )
+//!     .build_typed::<String>()
+//!     .await?;
+//! # let _ = cache;
+//! # Ok(())
+//! # }
+//! ```
+//!
 //! `TopicObserver` spawns observations that keep running after the observer handle
 //! is dropped. Drop the returned observation handle to stop its background task.
 //!
@@ -55,6 +80,7 @@ mod error;
 mod event;
 mod history;
 mod observation;
+mod policy;
 mod retention;
 mod sample;
 mod status;
@@ -72,6 +98,7 @@ pub use observation::{
     TopicObservationUpdate, TopicObservationUpdateClosed, TopicObservationUpdateReceiver,
     TopicObserver, TopicObserverOptions,
 };
+pub use policy::ObservationPolicy;
 pub use retention::{DEFAULT_TIME_WINDOW_MAX_SAMPLES, RetentionPolicy, RetentionWindow};
 pub use ros_z::dynamic::{
     ByteRenderPolicy, DynamicJsonRenderPolicy as JsonRenderPolicy, NonFiniteFloatRenderPolicy,
