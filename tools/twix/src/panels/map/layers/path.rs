@@ -23,7 +23,7 @@ impl Layer<Ground> for Path {
 
         let motion_command = backend
             .observer()
-            .observe_typed("motion_command")
+            .observe_typed("behavior/motion_command")
             .expect("failed to construct motion command observer")
             .spawn();
 
