@@ -1,0 +1,7 @@
+[Unit]
+Description=Re-apply Jetson clocks
+After=nvpmodel.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/jetson_clocks

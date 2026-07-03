@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically re-apply Jetson clocks
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Unit=jetson-clocks-refresh.service
+
+[Install]
+WantedBy=timers.target
