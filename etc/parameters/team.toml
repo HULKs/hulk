@@ -16,6 +16,11 @@ hostname = "Anton"
 id = "1421625075264"
 
 [[robots]]
+number = 45
+hostname = "Bertram"
+id = "1422025074257"
+
+[[robots]]
 number = 99
 hostname = "PeterFox"
 id = "1421625071398"
