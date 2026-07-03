@@ -15,7 +15,7 @@ use crate::{
     kick::{intercept, kick, kick_power_subtree, kick_subtree, set_kick_target_in_front},
     negation,
     node::Blackboard,
-    search::{has_suggested_search_position, leuchtturm, walk_to_search_position},
+    search::leuchtturm,
     selection, sequence,
     substates::{is_in_sub_state, sub_state_subtree},
     subtree,
@@ -116,13 +116,11 @@ pub fn search_subtree() -> Node<Blackboard> {
         subtree!(search_for_lost_ball_subtree),
         switch_motion_type(
             MotionType::Walk,
-            selection!(
-                sequence!(
-                    condition!(has_suggested_search_position),
-                    action!(walk_to_search_position)
-                ),
-                action!(leuchtturm)
-            ),
+            // selection!(
+            // condition!(has_suggested_search_position),
+            // action!(walk_to_search_position),
+            action!(leuchtturm),
+            // ),
             subtree!(walk_alternatives_subtree),
         )
     )
