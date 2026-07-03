@@ -61,6 +61,11 @@ impl<T> BelongToExt for Received<T> {
 }
 
 impl<T: Message> FutureQueueSubscriber<T> {
+    /// Number of publishers currently matched for the data topic.
+    pub fn publisher_count(&self) -> usize {
+        self.data_subscriber.publisher_count()
+    }
+
     /// Returns the earliest announced safe time for this stream.
     pub(crate) fn safe_time(&self, now: Time) -> Time {
         let transit_boundary = now - self.transit_lag;

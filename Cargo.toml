@@ -29,6 +29,7 @@ members = [
   "crates/hydra",
   "crates/kinematics",
   "crates/linear_algebra",
+  "crates/localization-factrs",
   "crates/microphones",
   "crates/motion",
   "crates/motionfile",
@@ -44,6 +45,7 @@ members = [
   "crates/nodes/fake_odometry",
   "crates/nodes/fall_down_state_receiver",
   "crates/nodes/field_border_detection",
+  "crates/nodes/field_mark_association",
   "crates/nodes/game_controller_filter",
   "crates/nodes/game_controller_state_filter",
   "crates/nodes/global_parameter_provider",
@@ -54,7 +56,8 @@ members = [
   "crates/nodes/kinematics_provider",
   "crates/nodes/led_handler",
   "crates/nodes/line_detection",
-  "crates/nodes/localization",
+  "crates/nodes/localization-2d",
+  "crates/nodes/localization-3d",
   "crates/nodes/look_around",
   "crates/nodes/look_at",
   "crates/nodes/low_state_bridge",
@@ -70,6 +73,7 @@ members = [
   "crates/nodes/safe_pose_checker",
   "crates/nodes/search_suggestor",
   "crates/nodes/segment_filter",
+  "crates/nodes/stereo_visual_odometry",
   "crates/nodes/support_foot_estimator",
   "crates/nodes/team_ball_receiver",
   "crates/nodes/time_to_reach_kick_position",
@@ -109,6 +113,7 @@ members = [
   "tools/hydra-bench",
   "tools/mujoco-simulator/mujoco-rust-server",
   "tools/pepsi",
+  "tools/robot_viewer",
   "tools/tensorrt-compile",
   "tools/twix",
   "tools/twix-legacy",
@@ -188,12 +193,14 @@ egui_plot = "0.34.0"
 energy_optimization = { path = "crates/energy_optimization" }
 enum-iterator = "2.1.0"
 enum_dispatch = "0.3.13"
+enumset = "1.1.10"
 env_logger = "0.11.8"
 event-listener = "5"
 fake_odometry = { path = "crates/nodes/fake_odometry" }
 fall_down_state_receiver = { path = "crates/nodes/fall_down_state_receiver" }
 fern = { version = "0.7.1", features = ["colored"] }
 field_border_detection = { path = "crates/nodes/field_border_detection" }
+field_mark_association = { path = "crates/nodes/field_mark_association" }
 filtering = { path = "crates/filtering" }
 flume = "0.11.1"
 framework = { path = "crates/framework" }
@@ -227,18 +234,22 @@ ittapi = "0.4.0"
 json5 = "0.4.1"
 kinematics = { path = "crates/kinematics" }
 kinematics_provider = { path = "crates/nodes/kinematics_provider" }
+kornia-3d = { git = "https://github.com/oleflb/kornia-rs", rev = "7659356f10fbafcf75bd82bd7f41fe786b4ec34e" }
+kornia-algebra = { git = "https://github.com/oleflb/kornia-rs", rev = "7659356f10fbafcf75bd82bd7f41fe786b4ec34e" }
 lazy_static = "1.5.0"
 led_handler = { path = "crates/nodes/led_handler" }
 levenberg-marquardt = "0.15.0"
 libc = "0.2.169"
 line_detection = { path = "crates/nodes/line_detection" }
 linear_algebra = { path = "crates/linear_algebra" }
-localization = { path = "crates/nodes/localization" }
+localization-2d = { path = "crates/nodes/localization-2d" }
+localization-3d = { path = "crates/nodes/localization-3d" }
+localization-factrs = { path = "crates/localization-factrs" }
 log = "0.4.25"
 look_around = { path = "crates/nodes/look_around" }
 look_at = { path = "crates/nodes/look_at" }
 low_state_bridge = { path = "crates/nodes/low_state_bridge" }
-mcap = "0.15.0"
+mcap = "0.25.0"
 message_filter = { path = "crates/nodes/message_filter" }
 message_handler = { path = "crates/nodes/message_handler" }
 microphone_recorder = { path = "crates/nodes/microphone_recorder" }
@@ -279,6 +290,7 @@ path_serde_derive = { path = "crates/path_serde_derive" }
 pathdiff = "0.2.3"
 pathfinding = "<=4.10.0"
 player_state_receiver = { path = "crates/nodes/player_state_receiver" }
+png = "0.18.1"
 prettyplease = "0.2.29"
 primary_state_filter = { path = "crates/nodes/primary_state_filter" }
 proc-macro-error = "1.0.4"
@@ -326,6 +338,7 @@ simulation_message = { path = "crates/simulation_message" }
 smallvec = "1.14.0"
 source_analyzer = { path = "crates/source_analyzer" }
 splines = { version = "=4.2.0", features = ["serde"] }
+stereo_visual_odometry = { path = "crates/nodes/stereo_visual_odometry" }
 support_foot_estimator = { path = "crates/nodes/support_foot_estimator" }
 syn = { version = "2.0.98", features = ["extra-traits", "full"] }
 systemd = "0.10.0"
@@ -362,6 +375,10 @@ zed = { path = "crates/zed" }
 zenoh = "1.9.0"
 zenoh-buffers = "1.9.0"
 zenoh-ext = "1.9.0"
+zip = { version = "2.4.2", default-features = false, features = [
+  "deflate-flate2",
+  "flate2",
+] }
 
 [patch.crates-io]
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
