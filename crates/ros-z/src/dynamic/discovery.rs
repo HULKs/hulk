@@ -557,6 +557,21 @@ impl DynamicSubscriberDiscoveryBuilder {
         self
     }
 
+    /// Configure how long receive waits before warning that no publishers are visible.
+    ///
+    /// The warning is emitted only when no sample arrives before `timeout` and the graph has no
+    /// visible publishers for the subscriber topic. Receiving continues waiting after the warning.
+    pub fn publisher_warning_timeout(mut self, timeout: Duration) -> Self {
+        self.options = self.options.publisher_warning_timeout(timeout);
+        self
+    }
+
+    /// Disable warnings when receive waits without any visible publishers.
+    pub fn without_publisher_warning(mut self) -> Self {
+        self.options = self.options.without_publisher_warning();
+        self
+    }
+
     /// Switch this discovery builder to raw sample delivery.
     ///
     /// Publisher type discovery still runs at build time so the subscriber
@@ -611,7 +626,22 @@ impl DynamicRawSubscriberDiscoveryBuilder {
         self
     }
 
-    /// Discover topic type metadata and build a raw dynamic subscriber.
+    /// Configure how long receive waits before warning that no publishers are visible.
+    ///
+    /// The warning is emitted only when no sample arrives before `timeout` and the graph has no
+    /// visible publishers for the subscriber topic. Receiving continues waiting after the warning.
+    pub fn publisher_warning_timeout(mut self, timeout: Duration) -> Self {
+        self.options = self.options.publisher_warning_timeout(timeout);
+        self
+    }
+
+    /// Disable warnings when receive waits without any visible publishers.
+    pub fn without_publisher_warning(mut self) -> Self {
+        self.options = self.options.without_publisher_warning();
+        self
+    }
+
+    /// Discover the topic schema and build a raw dynamic subscriber.
     pub async fn build(self) -> crate::Result<RawSubscriber> {
         let Self {
             context,

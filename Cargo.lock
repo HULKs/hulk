@@ -9483,6 +9483,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+ "tracing-subscriber",
  "trybuild",
  "zenoh",
  "zenoh-buffers",
