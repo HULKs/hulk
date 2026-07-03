@@ -1,0 +1,4 @@
+{
+  confidence_threshold: 0.5,
+  sample_timeout: { secs: 0, nanos: 250000000 },
+}

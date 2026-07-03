@@ -1,0 +1,17 @@
+[package]
+name = "projected_ball_percept"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+color-eyre = { workspace = true }
+coordinate_systems = { workspace = true }
+linear_algebra = { workspace = true }
+projection = { workspace = true }
+ros-z = { workspace = true }
+ros-z-streams = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true }
+types = { workspace = true }

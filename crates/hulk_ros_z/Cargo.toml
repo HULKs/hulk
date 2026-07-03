@@ -44,6 +44,7 @@ obstacle_filter = { workspace = true }
 odometer_bridge = { workspace = true }
 player_state_receiver = { workspace = true }
 primary_state_filter = { workspace = true }
+projected_ball_percept = { workspace = true }
 ros-z = { workspace = true }
 rule_obstacle_composer = { workspace = true }
 safe_pose_checker = { workspace = true }

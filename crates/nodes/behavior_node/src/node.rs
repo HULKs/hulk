@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use tokio::task::block_in_place;
 use tracing::info;
 use types::{
-    ball_position::HypotheticalBallPosition,
+    ball_position::{BallPosition, HypotheticalBallPosition},
     behavior_tree::NodeTrace,
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
@@ -51,6 +51,7 @@ pub struct Blackboard {
     pub voronoi_inputs: Vec<Pose2<Field>>,
 
     pub ball: Option<LastBall>,
+    pub projected_ball: Option<BallPosition<Ground>>,
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
     pub last_kick_target: Option<Point2<Field>>,
@@ -162,6 +163,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
+    let projected_ball_cache = node
+        .subscriber::<Option<BallPosition<Ground>>>("projected_ball_percept/ball_position")
+        .cache(1)
+        .build()
+        .await?;
     let filtered_game_controller_state_cache = node
         .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
         .cache(1)
@@ -262,6 +268,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         voronoi_inputs: Vec::new(),
 
         ball: None,
+        projected_ball: None,
         last_ball: None,
         last_close_enough_to_kick: false,
         last_kick_target: None,
@@ -323,6 +330,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         };
 
         blackboard.world_state.ball = ball_state_cache.get_latest().and_then(|ball| *ball);
+        blackboard.projected_ball = projected_ball_cache
+            .get_latest()
+            .and_then(|projected_ball| *projected_ball);
         blackboard.world_state.fall_down_state = fall_down_state_cache
             .get_latest()
             .map(|fall_down_state| *fall_down_state.as_ref());

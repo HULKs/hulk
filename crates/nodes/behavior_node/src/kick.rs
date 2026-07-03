@@ -2,7 +2,7 @@ use coordinate_systems::Field;
 use linear_algebra::{Orientation2, Point2, Rotation2, point};
 use types::{
     behavior_tree::Status,
-    motion_command::{BodyMotion, KickPower, MotionCommand},
+    motion_command::{BodyMotion, HeadMotion, ImageRegion, KickPower, MotionCommand},
     motion_type::MotionType,
 };
 
@@ -41,10 +41,10 @@ pub fn kick_alternatives_subtree() -> Node<Blackboard> {
 
 pub fn kick(blackboard: &mut Blackboard) -> Status {
     if let (Some(ball), Some(ground_to_field)) = (
-        &blackboard.ball,
+        &blackboard.projected_ball,
         &blackboard.world_state.robot.ground_to_field,
     ) {
-        let ball_in_ground = ground_to_field.inverse() * ball.position;
+        let ball_in_ground = ball.position;
         let robot_theta_to_field: Orientation2<Field> = ground_to_field.orientation();
 
         blackboard.body_motion = Some(BodyMotion::VisualKick {
@@ -53,6 +53,10 @@ pub fn kick(blackboard: &mut Blackboard) -> Status {
             target_position: Default::default(),
             robot_theta_to_field,
             kick_power: Default::default(),
+        });
+        blackboard.head_motion = Some(HeadMotion::LookAt {
+            target: ball_in_ground,
+            image_region_target: ImageRegion::Center,
         });
 
         Status::Success
@@ -75,11 +79,11 @@ pub(super) fn apply_visual_kick_target(
 ) -> Status {
     if let (Some(ground_to_field), Some(ball)) = (
         blackboard.world_state.robot.ground_to_field,
-        &blackboard.ball,
+        &blackboard.projected_ball,
     ) {
         let field_to_ground = ground_to_field.inverse();
         let target_position = field_to_ground * target_position_in_field;
-        let ball_in_ground = field_to_ground * ball.position;
+        let ball_in_ground = ball.position;
         let kick_direction = Orientation2::from_vector(target_position - ball_in_ground);
 
         if let Some(BodyMotion::VisualKick {
@@ -162,58 +166,14 @@ pub fn use_kick_power(blackboard: &mut Blackboard, kick_power: KickPower) -> Sta
     Status::Failure
 }
 
-pub fn intercept(blackboard: &mut Blackboard) -> Status {
-    if let (Some(ball), Some(ground_to_field)) = (
-        &blackboard.ball,
-        &blackboard.world_state.robot.ground_to_field,
-    ) {
-        let ball_in_ground = ground_to_field.inverse() * ball.position;
-        let velocity = ball.velocity;
-        if velocity.norm() < f32::EPSILON {
-            return Status::Failure;
-        }
-        let time_to_closest_approach =
-            -ball_in_ground.coords().dot(&velocity) / velocity.norm_squared();
-        if time_to_closest_approach < 0.0 {
-            return Status::Failure;
-        }
-
-        let interception_point = ball_in_ground + velocity * time_to_closest_approach;
-        if interception_point.x() < blackboard.parameters.kicking.kick_position_ball_distance {
-            return Status::Failure;
-        }
-
-        if interception_point.coords().norm()
-            > blackboard
-                .parameters
-                .intercept_ball
-                .maximum_intercept_distance
-        {
-            return Status::Failure;
-        }
-
-        let kick_direction = Orientation2::from_vector(ball_in_ground - interception_point);
-
-        if let Some(BodyMotion::VisualKick {
-            ball_position: motion_ball_position,
-            target_position: motion_target_position,
-            kick_direction: motion_kick_direction,
-            ..
-        }) = blackboard.body_motion.as_mut()
-        {
-            *motion_ball_position = interception_point;
-            *motion_target_position = ball_in_ground;
-            *motion_kick_direction = kick_direction;
-            return Status::Success;
-        }
-    }
+pub fn intercept(_blackboard: &mut Blackboard) -> Status {
     Status::Failure
 }
 
 pub fn set_kick_target_in_front(blackboard: &mut Blackboard) -> Status {
     if let (Some(ground_to_field), Some(ball)) = (
         blackboard.world_state.robot.ground_to_field,
-        &blackboard.ball,
+        &blackboard.projected_ball,
     ) {
         if blackboard.last_motion_type != Some(MotionType::Kick) {
             let kick_target = ground_to_field * point!(3.0, 0.0);
@@ -228,7 +188,7 @@ pub fn set_kick_target_in_front(blackboard: &mut Blackboard) -> Status {
             && let Some(target_in_field) = blackboard.last_kick_target
         {
             let field_to_ground = ground_to_field.inverse();
-            let ball_in_ground = field_to_ground * ball.position;
+            let ball_in_ground = ball.position;
             let target_position = field_to_ground * target_in_field;
             let kick_direction = Orientation2::from_vector(target_position - ball_in_ground);
 

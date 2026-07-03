@@ -5544,6 +5544,7 @@ dependencies = [
  "odometer_bridge",
  "player_state_receiver",
  "primary_state_filter",
+ "projected_ball_percept",
  "ros-z",
  "rule_obstacle_composer",
  "safe_pose_checker",
@@ -8697,6 +8698,21 @@ name = "profiling"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d595e54a326bc53c1c197b32d295e14b169e3cfeaa8dc82b529f947fba6bcf5"
+
+[[package]]
+name = "projected_ball_percept"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "coordinate_systems",
+ "linear_algebra",
+ "projection",
+ "ros-z",
+ "ros-z-streams",
+ "serde",
+ "tokio",
+ "types",
+]
 
 [[package]]
 name = "projection"
