@@ -231,6 +231,8 @@ async fn gammaray_robot(
         .arg("--rsync-path=sudo rsync")
         .arg("--info=progress2")
         .arg(setup.join("hulk.service"))
+        .arg(setup.join("jetson-clocks-refresh.service"))
+        .arg(setup.join("jetson-clocks-refresh.timer"))
         .arg(format!("{}:/etc/systemd/system/", robot.address))
         .rsync_with_log("uploading service files", &progress_bar)
         .await?;
@@ -322,6 +324,12 @@ async fn gammaray_robot(
             "enabling and restarting zenoh-bridge-dds services",
             &progress_bar,
         )
+        .await?;
+
+    robot
+        .ssh_to_robot()?
+        .arg("sudo systemctl enable --now jetson-clocks-refresh.timer")
+        .ssh_with_log("enabling jetson clocks refresh timer", &progress_bar)
         .await?;
 
     robot
