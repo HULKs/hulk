@@ -61,7 +61,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let camera_matrix_cache = node
         .subscriber::<TimeWrapper<CameraMatrix>>("camera_matrix")
-        .cache(10)
+        .cache(200)
         .with_stamp(|wrapper: &TimeWrapper<CameraMatrix>| wrapper.time)
         .build()
         .await?;
