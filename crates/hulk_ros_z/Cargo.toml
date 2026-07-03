@@ -22,7 +22,6 @@ color-eyre = { workspace = true }
 detection = { workspace = true, features = ["ort-dynamic"] }
 fake_odometry = { workspace = true }
 fall_down_state_receiver = { workspace = true }
-field_border_detection = { workspace = true }
 field_mark_association = { workspace = true }
 game_controller_filter = { workspace = true }
 game_controller_state_filter = { workspace = true }
@@ -30,10 +29,8 @@ global_parameter_provider = { workspace = true }
 ground_provider = { workspace = true }
 head_motion = { workspace = true }
 image_receiver = { workspace = true }
-image_segmenter = { workspace = true }
 kinematics_provider = { workspace = true }
 led_handler = { workspace = true }
-line_detection = { workspace = true }
 localization-2d = { workspace = true }
 localization-3d = { workspace = true }
 look_around = { workspace = true }
