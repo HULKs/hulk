@@ -51,7 +51,7 @@
   },
   walk_speed: {
     defend: 1.0,
-    kicking: 1.0,
+    kicking: 0.5,
     intercept_ball: 1.0,
     lost_ball: 1.0,
     search: 0.5,
