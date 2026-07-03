@@ -131,7 +131,6 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(detection::run_boxed(ctx.clone()));
     join_set.spawn(fake_odometry::run_boxed(ctx.clone()));
     join_set.spawn(fall_down_state_receiver::run_boxed(ctx.clone()));
-    join_set.spawn(field_border_detection::run_boxed(ctx.clone()));
     join_set.spawn(field_mark_association::run_boxed(ctx.clone()));
     join_set.spawn(game_controller_filter::run_boxed(ctx.clone()));
     join_set.spawn(game_controller_state_filter::run_boxed(ctx.clone()));
@@ -139,10 +138,8 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(ground_provider::run_boxed(ctx.clone()));
     join_set.spawn(head_motion::run_boxed(ctx.clone()));
     join_set.spawn(image_receiver::run_boxed(ctx.clone()));
-    join_set.spawn(image_segmenter::run_boxed(ctx.clone()));
     join_set.spawn(kinematics_provider::run_boxed(ctx.clone()));
     join_set.spawn(led_handler::run_boxed(ctx.clone()));
-    join_set.spawn(line_detection::run_boxed(ctx.clone()));
     join_set.spawn(localization_2d::run_boxed(ctx.clone()));
     join_set.spawn(localization_3d::run_boxed(ctx.clone()));
     join_set.spawn(look_around::run_boxed(ctx.clone()));

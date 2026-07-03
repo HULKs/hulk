@@ -5,17 +5,11 @@ use std::time::Duration;
 use std::{boxed::Box, future::Future, pin::Pin};
 
 use color_eyre::Result;
-use image::RgbImage;
 
 use ros_z::prelude::*;
 use ros_z::qos::QosDurability;
-use ros_z::time::Time;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
-use types::ycbcr422_image::YCbCr422Image;
-use types::{
-    stereo_camera_info::StereoCameraInfo, stereo_image_pair::StereoImagePair,
-    time_wrapper::TimeWrapper,
-};
+use types::{stereo_camera_info::StereoCameraInfo, stereo_image_pair::StereoImagePair};
 use x5_receiver::receiver::{Side, X5Receiver};
 
 const X5_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 127, 10)), 7654);
@@ -48,10 +42,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
-    let ycbcr422_image_pub = node
-        .publisher::<TimeWrapper<YCbCr422Image>>("inputs/ycbcr422_image")
-        .build()
-        .await?;
     let stereo_image_pair_pub = node
         .publisher::<StereoImagePair>("inputs/stereo_image_pair")
         .build()
@@ -75,7 +65,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let frame_identifier = left_image.header.frame_identifier;
                 let image: Image = left_image.clone().into();
                 left_image_pub.publish(&image).await?;
-                publish_ycbcr422_image(&ycbcr422_image_pub, image.header.stamp.into(), image.clone()).await?;
                 stereo_image_pairer.insert(CameraSide::Left, frame_identifier, image)
             }
             right_image = right_frame_receiver.recv() => {
@@ -105,22 +94,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         };
         stereo_image_pair_pub.publish(&stereo_image_pair).await?;
     }
-}
-
-async fn publish_ycbcr422_image(
-    publisher: &Publisher<TimeWrapper<YCbCr422Image>>,
-    time: Time,
-    image: Image,
-) -> Result<()> {
-    let rgb_image: RgbImage = image.try_into()?;
-    let ycbcr422_image = (&rgb_image).into();
-    publisher
-        .publish(&TimeWrapper {
-            time,
-            inner: ycbcr422_image,
-        })
-        .await?;
-    Ok(())
 }
 
 #[derive(Clone, Copy)]
