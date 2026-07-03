@@ -18,19 +18,7 @@ use pyo3::prelude::*;
 
 #[repr(i32)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    Hash,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, ros_z::Message,
 )]
 pub enum RobotMode {
     #[default]
@@ -64,20 +52,7 @@ impl TryFrom<i32> for RobotMode {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, ros_z::Message)]
 pub struct LedColor {
     pub r: u8,
     pub g: u8,
