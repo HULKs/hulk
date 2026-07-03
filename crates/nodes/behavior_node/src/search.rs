@@ -1,4 +1,6 @@
-use linear_algebra::{Pose2, vector};
+use coordinate_systems::Field;
+use linear_algebra::{Orientation2, Point2, Pose2, distance, point, vector};
+use types::field_dimensions::FieldDimensions;
 use types::{
     behavior_tree::Status,
     motion_command::{BodyMotion, MotionCommand, OrientationMode},
@@ -43,18 +45,55 @@ fn get_leuchtturm_direction(blackboard: &Blackboard) -> f32 {
     1.0
 }
 
+fn search_cell_target_pose(
+    cell_center: Point2<Field>,
+    robot_position: Point2<Field>,
+    field_dimensions: FieldDimensions,
+) -> Pose2<Field> {
+    let min_x = (cell_center.x() - 0.5).max(-field_dimensions.length / 2.0);
+    let max_x = (cell_center.x() + 0.5).min(field_dimensions.length / 2.0);
+    let min_y = (cell_center.y() - 0.5).max(-field_dimensions.width / 2.0);
+    let max_y = (cell_center.y() + 0.5).min(field_dimensions.width / 2.0);
+
+    let corners = [
+        point![min_x, min_y],
+        point![min_x, max_y],
+        point![max_x, min_y],
+        point![max_x, max_y],
+    ];
+    let nearest_corner = corners
+        .into_iter()
+        .min_by(|a, b| distance(*a, robot_position).total_cmp(&distance(*b, robot_position)))
+        .unwrap_or(cell_center);
+    let direction_into_cell = cell_center.coords() - nearest_corner.coords();
+    let orientation = if direction_into_cell.norm() > f32::EPSILON {
+        Orientation2::from_vector(direction_into_cell)
+    } else {
+        Orientation2::new(0.0)
+    };
+
+    Pose2::from_parts(nearest_corner, orientation)
+}
+
 pub fn walk_to_search_position(blackboard: &mut Blackboard) -> Status {
     if let (Some(search_position), Some(ground_to_field)) = (
         blackboard.world_state.suggested_search_position,
         blackboard.world_state.robot.ground_to_field,
     ) {
-        let search_position_in_ground = ground_to_field.inverse() * search_position;
+        let field_to_ground = ground_to_field.inverse();
+        let robot_position = ground_to_field.as_pose().position();
+        let target_pose_in_field =
+            search_cell_target_pose(search_position, robot_position, blackboard.field_dimensions);
+        let search_position_in_ground = field_to_ground * search_position;
 
         return walk_to(
             blackboard,
-            Pose2::from(search_position_in_ground),
+            field_to_ground * target_pose_in_field,
             blackboard.parameters.walk_speed.search,
-            OrientationMode::AlignWithPath,
+            OrientationMode::LookAt {
+                target: search_position_in_ground,
+                tolerance: blackboard.parameters.walk_and_stand.orientation_tolerance,
+            },
             blackboard
                 .parameters
                 .walk_and_stand

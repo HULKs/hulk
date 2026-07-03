@@ -68,6 +68,7 @@ impl SimulatorRobotBehavior {
                 velocity: ball.ball_in_ground_velocity,
                 age: self.blackboard.world_state.now,
                 field_side: ball.field_side,
+                source: ball.source,
             });
             self.blackboard.last_ball.clone_from(&self.blackboard.ball);
         } else if let Some(last_ball) = &self.blackboard.ball
@@ -118,6 +119,7 @@ impl SimulatorRobotBehavior {
         world_state: WorldState,
         hsl_network_parameters: HslNetworkParameters,
         game_controller_address: Option<SocketAddr>,
+        head_yaw: f32,
     ) -> Vec<OutgoingMessage> {
         self.blackboard.world_state = world_state;
         self.blackboard.parameters.hsl_network = hsl_network_parameters;
@@ -129,7 +131,7 @@ impl SimulatorRobotBehavior {
         {
             outgoing_messages.push(message);
         }
-        if let Some(message) = self.blackboard.try_sending_state_message() {
+        if let Some(message) = self.blackboard.try_sending_state_message(head_yaw) {
             outgoing_messages.push(message);
         }
         outgoing_messages

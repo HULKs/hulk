@@ -9,7 +9,8 @@
     stand_up: { nanos: 500000000, secs: 0 },
     walk: { nanos: 500000000, secs: 0 },
   },
-  last_ball_timeout: { nanos: 250000000, secs: 0 },
+  last_ball_timeout: { nanos: 500000000, secs: 0 },
+  team_ball_timeout: { nanos: 0, secs: 1 },
   optional_roles: ["Defender", "Midfielder", "StrikerSupporter"],
   walk_with_velocity: {
     max_velocity: 1.0,

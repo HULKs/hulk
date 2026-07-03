@@ -74,7 +74,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let _suggested_search_position_sub = node
-        .subscriber::<Point2<Field>>("suggested_search_position")
+        .subscriber::<Option<Point2<Field>>>("suggested_search_position")
         .build()
         .await?;
     let _world_state_pub = node.publisher::<WorldState>("world_state").build().await?;

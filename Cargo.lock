@@ -883,6 +883,7 @@ dependencies = [
  "filtering",
  "geometry",
  "hsl_network_messages",
+ "kinematics",
  "linear_algebra",
  "log",
  "nalgebra 0.34.2",
@@ -7184,33 +7185,7 @@ dependencies = [
  "portable-atomic",
  "portable-atomic-util",
  "rawpointer",
- "rayon",
  "serde",
-]
-
-[[package]]
-name = "ndarray-conv"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61a04cd712622c289a7b523d3195e4fb5e2bf30c44de12355463fe58aa12213b"
-dependencies = [
- "ndarray",
- "ndarray-rand",
- "num",
- "realfft",
- "rustfft",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "ndarray-rand"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f093b3db6fd194718dcdeea6bd8c829417deae904e3fcc7732dabcd4416d25d8"
-dependencies = [
- "ndarray",
- "rand 0.8.6",
- "rand_distr 0.4.3",
 ]
 
 [[package]]
@@ -7332,20 +7307,6 @@ checksum = "bf33f538733d1a5a3494b836ba913207f14d9d4a1d3cd67030c5061bdd2cac85"
 dependencies = [
  "memchr",
  "unicode-segmentation",
-]
-
-[[package]]
-name = "num"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35bd024e8b2ff75562e5f34e7f4905839deb4b22955ef5e73d2fea1b9813cb23"
-dependencies = [
- "num-bigint",
- "num-complex",
- "num-integer",
- "num-iter",
- "num-rational",
- "num-traits",
 ]
 
 [[package]]
@@ -9193,15 +9154,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "realfft"
-version = "3.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f821338fddb99d089116342c46e9f1fbf3828dba077674613e734e01d6ea8677"
-dependencies = [
- "rustfft",
-]
-
-[[package]]
 name = "reborrow"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9944,6 +9896,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "search_heatmap"
+version = "0.1.0"
+dependencies = [
+ "coordinate_systems",
+ "geometry",
+ "hsl_network_messages",
+ "itertools 0.14.0",
+ "linear_algebra",
+ "nalgebra 0.34.2",
+ "ndarray",
+ "ros-z",
+ "serde",
+ "types",
+ "voronoi",
+]
+
+[[package]]
 name = "search_suggestor"
 version = "0.1.0"
 dependencies = [
@@ -9955,8 +9924,8 @@ dependencies = [
  "linear_algebra",
  "nalgebra 0.34.2",
  "ndarray",
- "ndarray-conv",
  "ros-z",
+ "search_heatmap",
  "serde",
  "tokio",
  "types",
