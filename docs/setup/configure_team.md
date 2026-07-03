@@ -18,11 +18,10 @@ In the HULKs code release, the SPL team number is hardcoded in a few places. Cha
 -   `tools/pepsi` contains a bunch of `24`s, however most of them are in comments or CLI command help text.
     -   `tools/pepsi/src/parsers.rs` has a default and a check value that use 24 literals.
 -   `tools/twix-legacy/src/main.rs` still packages the legacy Twix address suggestions with team number `24` hardcoded.
--   `etc/parameters/hardware.json` has an attribute called spl for team communication hardcoded to 10024 (10000 + team number).
 
 ### Set up Hardware IDs
 
-The tooling around our framework expects each NAO robot to have a number associated with it's hardware IDs.
+The deployment tooling expects each NAO robot to have a number associated with its hardware IDs.
 This number also determines the last octet of a robot's IP addresses.
 For example robot number `21` will always have the IPv4 addresses `10.0.X.21` (wireless) and `10.1.X.21` (ethernet) where X is the team number.
 

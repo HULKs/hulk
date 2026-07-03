@@ -25,7 +25,7 @@ Useful prompts:
 | Commit range | `Use agent-review to review commits abc123..def456.` |
 | Staged changes | `Use agent-review to review staged changes only.` |
 | Unstaged changes | `Use agent-review to review unstaged changes only.` |
-| File subset | `Use agent-review to review only crates/ros-z-streams and docs/framework.` |
+| File subset | `Use agent-review to review only crates/ros-z-streams and docs/workflow.` |
 | Targeted criteria | `Use agent-review with rust-ownership and api-surface-consistency against main.` |
 
 If the scope is ambiguous, the agent should ask one short clarification. If the base is unavailable, the agent should state the limitation and ask for a base or review only the safe subset.

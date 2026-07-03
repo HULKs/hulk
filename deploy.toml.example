@@ -12,14 +12,3 @@ assignments = [
 substitutions = [
   # "34:1",
 ]
-with_communication = false
-
-[recording_intervals]
-WorldState = 1
-HslNetwork = 1
-FallDownState = 1
-ButtonEvent = 1
-Odometry = 1
-Motion = 10
-Hydra = 2
-Vision = 2
