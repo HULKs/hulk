@@ -223,13 +223,14 @@ pub fn set_goalkeeper_active_defense_position(blackboard: &mut Blackboard) -> St
         let own_goal_line_x = -field_dimensions.length / 2.0;
         let own_goal_center = point!(own_goal_line_x, 0.0);
         let goal_to_ball = ball.position - own_goal_center;
-        let defense_radius = (field_dimensions.goal_inner_width / 2.0 - 0.2).max(0.0);
+        let defense_radius =
+            (field_dimensions.goal_inner_width / 2.0 - parameters.distance_to_goalpost).max(0.0);
         let unclamped_defense_position_in_field = if goal_to_ball.norm() < f32::EPSILON {
             point!(own_goal_line_x + defense_radius, 0.0)
         } else {
             own_goal_center + goal_to_ball.normalize() * defense_radius
         };
-        let minimum_defense_x = own_goal_line_x + 0.1;
+        let minimum_defense_x = own_goal_line_x + parameters.distance_to_goalpost;
         let defense_position_in_field = point!(
             unclamped_defense_position_in_field
                 .x()

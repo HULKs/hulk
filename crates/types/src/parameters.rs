@@ -146,12 +146,14 @@ pub struct LookActionParameters {
 pub struct KeeperParameters {
     pub x_offset: f32,
     pub passive_distance: f32,
+    pub striker_distance: f32,
     pub kick_away_ball_maximum_velocity: f32,
     pub kick_away_ball_maximum_robot_distance: f32,
     pub active_defense_x_offset: f32,
     pub active_defense_center_forward_offset: f32,
     pub active_defense_line_width_half: f32,
     pub active_defense_maximum_robot_distance: f32,
+    pub distance_to_goalpost: f32,
 }
 
 #[derive(
