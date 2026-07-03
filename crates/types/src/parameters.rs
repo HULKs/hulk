@@ -48,7 +48,6 @@ pub struct BehaviorParameters {
     pub kickoff: KickoffParameters,
     pub voronoi: VoronoiParameters,
     pub network: HslNetworkParameters,
-    pub search_suggestor: SearchSuggestorParameters,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
@@ -285,7 +284,6 @@ pub struct SearchSuggestorParameters {
     pub minimum_validity: f32,
     pub own_ball_weight: f32,
     pub team_ball_weight: f32,
-    pub rule_ball_weight: f32,
     pub rule_ball_weight_increment: f32,
     pub last_ball_priority_minimum: f32,
     pub last_ball_priority_maximum: f32,
