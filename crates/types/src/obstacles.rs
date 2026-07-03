@@ -1,24 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::Point2;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use coordinate_systems::Ground;
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Eq,
-    PartialEq,
-    PathDeserialize,
-    PathIntrospect,
-    PathSerialize,
-    Serialize,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, ros_z::Message)]
 pub enum ObstacleKind {
     Ball,
     GoalPost,
@@ -28,17 +14,7 @@ pub enum ObstacleKind {
     Unknown,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, ros_z::Message)]
 pub struct Obstacle {
     pub kind: ObstacleKind,
     pub position: Point2<Ground>,

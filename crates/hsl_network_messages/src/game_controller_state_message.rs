@@ -7,7 +7,6 @@ use std::{
 };
 
 use color_eyre::{Report, Result, eyre::bail};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
@@ -29,7 +28,7 @@ use crate::{
     },
 };
 
-#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathIntrospect, Message)]
+#[derive(Clone, Debug, Deserialize, Serialize, Message)]
 pub struct GameControllerStateMessage {
     pub competition_type: CompetitionType,
     pub stopped: bool,
@@ -206,17 +205,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, Message)]
 pub enum CompetitionType {
     Small,
     Middle,
@@ -234,19 +223,7 @@ impl CompetitionType {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    PartialEq,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Message)]
 pub enum GamePhase {
     #[default]
     Normal,
@@ -274,19 +251,7 @@ impl GamePhase {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, Message)]
 pub enum GameState {
     Initial,
     Ready,
@@ -308,19 +273,7 @@ impl GameState {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, Message)]
 pub enum Team {
     Hulks,
     Opponent,
@@ -341,19 +294,7 @@ impl TryFrom<u8> for Team {
     }
 }
 
-#[derive(
-    Default,
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    PartialEq,
-    Message,
-)]
+#[derive(Default, Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Message)]
 pub enum SubState {
     #[default]
     DirectFreeKick,
@@ -379,19 +320,7 @@ impl SubState {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, Message)]
 pub enum Half {
     First,
     Second,
@@ -409,9 +338,7 @@ impl TryFrom<u8> for Half {
     }
 }
 
-#[derive(
-    Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect, Message,
-)]
+#[derive(Clone, Debug, Deserialize, Serialize, Message)]
 pub struct TeamState {
     pub team_number: u8,
     pub field_player_color: TeamColor,
@@ -424,9 +351,7 @@ pub struct TeamState {
     pub players: Vec<Player>,
 }
 
-#[derive(
-    Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect, Message,
-)]
+#[derive(Clone, Debug, Deserialize, Serialize, Message)]
 pub enum TeamColor {
     Blue,
     Red,
@@ -484,18 +409,7 @@ impl TryFrom<RobotInfo> for Player {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    PartialEq,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Message)]
 pub enum Penalty {
     IllegalPosition { remaining: Duration },
     MotionInSet { remaining: Duration },

@@ -8,7 +8,6 @@ use crate::{
 };
 use color_eyre::{Report, Result};
 use itertools::Itertools;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use splines::Interpolate;
 use types::condition_input::ConditionInput;
@@ -26,9 +25,7 @@ pub struct MotionInterpolator<T> {
     frames: Vec<ConditionedSpline<T>>,
 }
 
-#[derive(
-    Clone, Copy, Debug, Deserialize, Serialize, PathIntrospect, PathSerialize, PathDeserialize,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum InterpolatorState<T> {
     CheckEntry {
         current_frame_index: usize,

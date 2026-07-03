@@ -1,21 +1,9 @@
 use coordinate_systems::{Camera, NormalizedDeviceCoordinates, Pixel};
 use linear_algebra::{Point2, Vector2, Vector3, point, vector};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros2::sensor_msgs::camera_info::CameraInfo;
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, ros_z::Message)]
 pub struct Intrinsic {
     pub focals: nalgebra::Vector2<f32>,
     pub optical_center: Point2<Pixel>,

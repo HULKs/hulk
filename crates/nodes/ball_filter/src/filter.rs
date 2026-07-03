@@ -5,24 +5,13 @@ use filtering::kalman_filter::KalmanFilter;
 use linear_algebra::{IntoFramed, Isometry2, distance};
 use nalgebra::{Matrix2, Matrix2x4, Matrix4};
 use ordered_float::NotNan;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
 use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
 use crate::hypothesis::{BallHypothesis, BallMode};
 
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Message)]
 pub struct BallFilter {
     pub hypotheses: Vec<BallHypothesis>,
 }

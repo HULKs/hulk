@@ -1,37 +1,16 @@
 use coordinate_systems::Pixel;
 use linear_algebra::{Point2, point};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use crate::color::{Intensity, YCbCr444};
 
-#[derive(
-    Default,
-    Clone,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Default, Clone, Debug, Deserialize, Serialize, ros_z::Message)]
 pub struct ImageSegments {
     pub scan_grid: ScanGrid,
 }
 
-#[derive(
-    Default,
-    Clone,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Default, Clone, Debug, Deserialize, Serialize, ros_z::Message)]
 pub struct ScanGrid {
     pub horizontal_scan_lines: Vec<ScanLine>,
     pub vertical_scan_lines: Vec<ScanLine>,
@@ -63,19 +42,7 @@ impl Segment {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ros_z::Message)]
 pub enum EdgeType {
     Rising,
     Falling,
@@ -89,17 +56,7 @@ pub enum Direction {
     Vertical,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, Message)]
 pub struct GenericSegment {
     pub start: Point2<Pixel, u16>,
     pub end: Point2<Pixel, u16>,

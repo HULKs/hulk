@@ -1,22 +1,9 @@
 use std::time::SystemTime;
 
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct FilteredWhistle {
     pub is_detected: bool,
-    #[path_serde(leaf)]
     pub last_detection: Option<SystemTime>,
 }

@@ -1,14 +1,11 @@
 use std::cmp::PartialEq;
 
 use approx::{AbsDiffEq, RelativeEq};
-use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use crate::{line_segment::LineSegment, two_line_segments::TwoLineSegments};
 
-#[derive(
-    Clone, Copy, Debug, Default, Deserialize, PartialEq, PathIntrospect, PathSerialize, Serialize,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct CircleTangents<Frame> {
     pub inner: Option<TwoLineSegments<Frame>>,
     pub outer: TwoLineSegments<Frame>,

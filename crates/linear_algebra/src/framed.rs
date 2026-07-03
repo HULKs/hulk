@@ -1,5 +1,4 @@
 use std::{
-    collections::HashSet,
     hash::{Hash, Hasher},
     iter::Sum,
     marker::PhantomData,
@@ -10,7 +9,6 @@ use approx::{AbsDiffEq, RelativeEq};
 use num_traits::Num;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize, deserialize, serialize};
 use ros_z::{Message, MessageSchema, SchemaBuilder, SerdeCdrCodec};
 
 #[derive(Debug)]
@@ -283,47 +281,6 @@ where
         D: serde::Deserializer<'a>,
     {
         Ok(Self::wrap(Inner::deserialize(deserializer)?))
-    }
-}
-
-impl<Frame, Inner> PathSerialize for Framed<Frame, Inner>
-where
-    Inner: PathSerialize,
-{
-    fn serialize_path<S>(
-        &self,
-        path: &str,
-        serializer: S,
-    ) -> Result<S::Ok, serialize::Error<S::Error>>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize_path(path, serializer)
-    }
-}
-
-impl<Frame, Inner> PathDeserialize for Framed<Frame, Inner>
-where
-    Inner: PathDeserialize,
-{
-    fn deserialize_path<'de, D>(
-        &mut self,
-        path: &str,
-        deserializer: D,
-    ) -> Result<(), deserialize::Error<D::Error>>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        self.inner.deserialize_path(path, deserializer)
-    }
-}
-
-impl<Frame, Inner> PathIntrospect for Framed<Frame, Inner>
-where
-    Inner: PathIntrospect,
-{
-    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
-        Inner::extend_with_fields(fields, prefix)
     }
 }
 

@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use linear_algebra::{
     Orientation2, Point2, Rotation2, Transform, Vector2, center, distance, distance_squared,
 };
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     Distance,
@@ -19,19 +18,7 @@ use crate::{
     direction::{AngleTo, Direction, Rotate90Degrees},
 };
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PartialEq,
-    PathSerialize,
-    PathIntrospect,
-    PathDeserialize,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Message)]
 pub struct LineSegment<Frame>(pub Point2<Frame>, pub Point2<Frame>);
 
 impl<Frame> LineSegment<Frame> {

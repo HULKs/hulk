@@ -3,12 +3,9 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::{Ground, Pixel};
 use geometry::line_segment::LineSegment;
 use linear_algebra::Point2;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use projection::{Projection, camera_matrix::CameraMatrix};
 
-#[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathIntrospect, PathDeserialize,
-)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Lines<Frame> {
     pub border_line: LineSegment<Frame>,
     pub goal_box_line: LineSegment<Frame>,

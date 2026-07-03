@@ -10,7 +10,6 @@ color-eyre = { workspace = true }
 enum_dispatch = { workspace = true }
 itertools = { workspace = true }
 kinematics = { workspace = true }
-path_serde = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 splines = { workspace = true }

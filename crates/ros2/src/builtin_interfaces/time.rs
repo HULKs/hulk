@@ -2,24 +2,12 @@ use color_eyre::Result;
 use ros_z::Message;
 use std::time::{Duration, SystemTime};
 
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 /// This message communicates ROS Time defined here:
 /// https://design.ros2.org/articles/clock_and_time.html
 #[repr(C)]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PathIntrospect,
-    PathSerialize,
-    PathDeserialize,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, Message)]
 pub struct Time {
     /// The seconds component, valid over all int32 values.
     pub sec: i32,

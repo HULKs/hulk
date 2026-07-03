@@ -4,7 +4,6 @@ use coordinate_systems::{Field, Ground};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Point2, Pose2, point};
 use ordered_float::NotNan;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 use types::{obstacles::Obstacle, parameters::VoronoiParameters, rule_obstacles::RuleObstacle};
@@ -51,18 +50,7 @@ const NEIGHBORS: [Neighbor; 8] = [
     Neighbor::new(1, -1, DIAGONAL_COST, INV_SQRT_2),
 ];
 
-#[derive(
-    PartialEq,
-    Clone,
-    Copy,
-    Default,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathIntrospect,
-    PathSerialize,
-    Message,
-)]
+#[derive(PartialEq, Clone, Copy, Default, Debug, Deserialize, Serialize, Message)]
 pub enum Ownership {
     Blocked,
     Robot(PlayerNumber),
@@ -70,18 +58,7 @@ pub enum Ownership {
     Free,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Serialize,
-    Default,
-    PartialEq,
-    PathIntrospect,
-    PathDeserialize,
-    PathSerialize,
-    Message,
-)]
+#[derive(Clone, Debug, Deserialize, Serialize, Default, PartialEq, Message)]
 
 pub struct VoronoiBounds {
     pub grid_min: Point2<Field>,
@@ -90,18 +67,7 @@ pub struct VoronoiBounds {
     pub centroid_max: Point2<Field>,
 }
 
-#[derive(
-    PartialEq,
-    Clone,
-    Debug,
-    Deserialize,
-    Serialize,
-    Default,
-    PathIntrospect,
-    PathDeserialize,
-    PathSerialize,
-    Message,
-)]
+#[derive(PartialEq, Clone, Debug, Deserialize, Serialize, Default, Message)]
 pub struct VoronoiGrid {
     pub tiles: Vec<Ownership>,
     width_tiles: usize,

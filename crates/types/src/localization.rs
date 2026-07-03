@@ -4,21 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground, Robot};
 use linear_algebra::{Isometry2, Isometry3, Point2, Pose2};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::multivariate_normal_distribution::MultivariateNormalDistribution;
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, ros_z::Message)]
 pub struct Update {
     pub ground_to_field: Isometry2<Ground, Field>,
     pub line_center_point: Point2<Field>,
@@ -28,17 +17,7 @@ pub struct Update {
     pub line_length_weight: f32,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Message)]
 pub struct ScoredPose {
     pub state: MultivariateNormalDistribution<3>,
     pub score: f32,

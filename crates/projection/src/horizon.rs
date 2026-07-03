@@ -1,23 +1,10 @@
 use coordinate_systems::{Camera, Ground, Pixel};
 use linear_algebra::{Isometry3, Point2, Vector2, Vector3, point, vector};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use crate::intrinsic::Intrinsic;
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, ros_z::Message)]
 pub struct Horizon {
     pub vanishing_point: Point2<Pixel>,
     pub normal: Vector2<Pixel>,

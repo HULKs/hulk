@@ -2,7 +2,6 @@ use color_eyre::eyre::{Result, bail};
 use coordinate_systems::{Ground, Robot};
 use kinematics::joints::Joints;
 use linear_algebra::{Isometry2, Vector3, vector};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros_z::Message;
 use ros2::{geometry_msgs::transform_stamped::TransformStamped, std_msgs::header::Header};
 use serde::{Deserialize, Serialize};
@@ -101,17 +100,7 @@ pub struct RpcRespMsg {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen))]
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Message)]
 pub struct LowState {
     /// IMU feedback
     pub imu_state: ImuState,
@@ -166,19 +155,7 @@ impl LowState {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen))]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize, ros_z::Message)]
 pub struct ImuState {
     #[serde(rename = "rpy")]
     /// Euler angle information (x -> roll, y -> pitch, z -> yaw)
@@ -218,19 +195,7 @@ impl ImuState {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(
-    Debug,
-    Default,
-    Copy,
-    Clone,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Serialize, Deserialize, ros_z::Message)]
 pub struct MotorState {
     #[serde(rename = "mode")]
     /// Current motor command type used.
@@ -280,17 +245,7 @@ impl MotorState {
     }
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct MotorCommandParameters {
     pub weight: f32,
     pub default_positions: Joints,
@@ -333,20 +288,7 @@ impl JointsMotorState for Joints<MotorState> {
 
 #[repr(i8)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, eq))]
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, ros_z::Message)]
 pub enum CommandType {
     Parallel = 0,
     #[default]
@@ -355,17 +297,7 @@ pub enum CommandType {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, ros_z::Message)]
 pub struct LowCommand {
     #[serde(rename = "cmd_type")]
     pub command_type: CommandType,
@@ -401,18 +333,7 @@ impl LowCommand {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, ros_z::Message)]
 pub struct MotorCommand {
     #[serde(rename = "mode")]
     /// Current motor command type used.
@@ -461,18 +382,7 @@ impl MotorCommand {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ros_z::Message)]
 pub struct ButtonEventMsg {
     pub button: i32,
     pub event: ButtonEventType,
@@ -489,17 +399,7 @@ impl ButtonEventMsg {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(
-    Debug,
-    Clone,
-    Default,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Message)]
 pub struct RemoteControllerState {
     /** This feature can be used in user programs to implement custom gamepad/controller button functionality.
     |type | code | description|
@@ -567,18 +467,14 @@ pub struct RemoteControllerState {
 }
 
 #[repr(C)]
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename = "TFMessage")]
 pub struct TransformMessage {
     pub transforms: Vec<TransformStamped>,
 }
 
 #[repr(C)]
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename = "Kick")]
 pub struct Kick {
     pub header: Header,
@@ -606,18 +502,7 @@ pub struct Kick {
 }
 
 #[repr(C)]
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct Odometer {
     pub x: f32,
     pub y: f32,

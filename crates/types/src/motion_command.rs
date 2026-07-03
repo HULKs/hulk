@@ -3,22 +3,10 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Orientation2, Point2, Vector2};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::path::Path;
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    PartialEq,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Message)]
 pub enum OrientationMode {
     Unspecified,
     AlignWithPath,
@@ -32,18 +20,7 @@ pub enum OrientationMode {
     },
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    PartialEq,
-    Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Message)]
 pub enum MotionCommand {
     #[default]
     Damping,
@@ -135,18 +112,7 @@ impl MotionCommand {
     }
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    PartialEq,
-    Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Message)]
 pub enum BodyMotion {
     #[default]
     Damping,
@@ -173,18 +139,7 @@ pub enum BodyMotion {
     },
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, Message)]
 pub enum HeadMotion {
     ZeroAngles,
     Center {
@@ -202,19 +157,7 @@ pub enum HeadMotion {
     Unstiff,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, Message)]
 pub enum ImageRegion {
     Bottom,
     #[default]
@@ -222,39 +165,14 @@ pub enum ImageRegion {
     Top,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum GlanceDirection {
     #[default]
     LeftOfTarget,
     RightOfTarget,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, Message)]
 pub enum KickPower {
     #[default]
     Rumpelstilzchen,

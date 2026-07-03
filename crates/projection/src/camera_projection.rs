@@ -1,22 +1,10 @@
 use coordinate_systems::{Camera, NormalizedDeviceCoordinates, Pixel};
 use linear_algebra::{Isometry3, Point2, Point3, Transform, Vector3, point};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use crate::intrinsic::Intrinsic;
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, ros_z::Message)]
 pub struct CameraProjection<From> {
     extrinsic: Isometry3<From, Camera>,
     intrinsic: Intrinsic,
@@ -45,18 +33,7 @@ impl<From> CameraProjection<From> {
     }
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, ros_z::Message)]
 pub struct InverseCameraProjection<To> {
     back_project: Transform<Pixel, To, nalgebra::Matrix3<f32>>,
     z: f32,

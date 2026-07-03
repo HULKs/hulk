@@ -5,21 +5,8 @@ use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::{Orientation2, Vector2, vector};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, Message)]
 pub enum Direction {
     Clockwise,
     Counterclockwise,

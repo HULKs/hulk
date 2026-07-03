@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -19,12 +18,11 @@ use crate::{
     rule_obstacles::RuleObstacle,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, Message)]
+#[derive(Clone, Debug, Serialize, Deserialize, Message)]
 pub struct WorldState {
     pub ball: Option<BallState>,
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
     pub hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
-    #[path_serde(leaf)]
     pub now: Time,
     pub obstacles: Vec<Obstacle>,
     pub player_states: Players<Option<PlayerState>>,
@@ -56,18 +54,7 @@ impl Default for WorldState {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    PartialEq,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, ros_z::Message)]
 pub struct BallState {
     pub ball_in_ground: Point2<Ground>,
     pub ball_in_field: Point2<Field>,
@@ -76,18 +63,7 @@ pub struct BallState {
     pub field_side: Side,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    PartialEq,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, ros_z::Message)]
 pub struct LastBallState {
     pub time: SystemTime,
     pub ball: BallState,
@@ -117,35 +93,14 @@ impl BallState {
     }
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Message)]
 pub struct RobotState {
     pub ground_to_field: Option<Isometry2<Ground, Field>>,
     pub player_number: PlayerNumber,
     pub primary_state: PrimaryState,
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize, Message)]
 pub struct PlayerState {
     pub pose: Pose2<Field>,
     pub ball_position: Option<BallPosition<Field>>,

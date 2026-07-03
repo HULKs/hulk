@@ -3,25 +3,11 @@ use serde::{Deserialize, Serialize};
 
 use approx_derive::{AbsDiffEq, RelativeEq};
 use linear_algebra::IntoTransform;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use projection::camera_matrix::CameraMatrix;
 
 pub const AMOUNT_OF_PARAMETERS: usize = 6;
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PathDeserialize,
-    PathSerialize,
-    PathIntrospect,
-    PartialEq,
-    AbsDiffEq,
-    RelativeEq,
-)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, AbsDiffEq, RelativeEq)]
 #[abs_diff_eq(epsilon_type = f32)]
 pub struct Corrections {
     pub correction_in_robot: Rotation3<f32>,

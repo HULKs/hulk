@@ -5,23 +5,11 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::World;
 use linear_algebra::{Isometry2, Point2, Vector2};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PathDeserialize,
-    PathSerialize,
-    PathIntrospect,
-    Serialize,
-    Deserialize,
-    ros_z::Message,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ros_z::Message)]
 pub struct BallPosition<Frame> {
     pub position: Point2<Frame>,
     pub velocity: Vector2<Frame>,
-    #[path_serde(skip)]
     pub last_seen: Time,
 }
 
@@ -58,33 +46,13 @@ impl<From, To> Mul<BallPosition<From>> for Isometry2<From, To> {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    PathDeserialize,
-    PathIntrospect,
-    PathSerialize,
-    Serialize,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct SimulatorBallState {
     pub position: Point2<World>,
     pub velocity: Vector2<World>,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, ros_z::Message)]
 pub struct HypotheticalBallPosition<Frame> {
     pub position: Point2<Frame>,
     pub validity: f32,

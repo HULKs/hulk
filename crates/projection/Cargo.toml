@@ -13,7 +13,6 @@ approx = { workspace = true }
 coordinate_systems = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
-path_serde = { workspace = true }
 ros-z = { workspace = true }
 ros2 = { workspace = true }
 serde = { workspace = true }

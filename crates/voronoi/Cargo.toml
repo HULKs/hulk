@@ -10,7 +10,6 @@ coordinate_systems = { workspace = true }
 hsl_network_messages = { workspace = true }
 linear_algebra = { workspace = true }
 ordered-float = { workspace = true }
-path_serde = { workspace = true }
 ros-z = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }

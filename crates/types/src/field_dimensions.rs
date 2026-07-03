@@ -1,22 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::{Point2, point};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use coordinate_systems::{Field, World};
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct FieldDimensions {
     pub ball_radius: f32,
     pub length: f32,
@@ -36,19 +24,7 @@ pub struct FieldDimensions {
     pub corner_arc_radius: f32,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    PartialEq,
-    Eq,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, ros_z::Message)]
 pub enum GlobalFieldSide {
     Home,
     Away,
@@ -113,19 +89,7 @@ impl Half {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize, ros_z::Message)]
 pub enum Side {
     Left,
     Right,

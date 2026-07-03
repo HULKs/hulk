@@ -1,21 +1,8 @@
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::{Point2, Vector2, point};
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    PartialEq,
-    PathDeserialize,
-    PathIntrospect,
-    PathSerialize,
-    Serialize,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, ros_z::Message)]
 pub struct Rectangle<Frame> {
     pub min: Point2<Frame>,
     pub max: Point2<Frame>,

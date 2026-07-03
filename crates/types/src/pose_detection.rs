@@ -1,7 +1,6 @@
 use std::{ops::Index, time::SystemTime};
 
 use color_eyre::Result;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
@@ -10,17 +9,7 @@ use linear_algebra::{Point2, point};
 
 use crate::object_detection::{LabelIndex, NUMBER_OF_VALUES_PER_OBJECT, Object, YOLOObjectLabel};
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ros_z::Message)]
 pub enum DetectionRegion {
     Narrow,
     Full,
@@ -32,33 +21,13 @@ pub const VISUAL_REFEREE_KEYPOINT_INDEX_MASK: [usize; 8] = [5, 6, 7, 8, 9, 10, 1
 pub const NUMBER_OF_VALUES_PER_POSE: usize = 57;
 pub const POSE_KEYPOINT_OFFSET: usize = NUMBER_OF_VALUES_PER_OBJECT;
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ros_z::Message)]
 pub struct Keypoint {
     pub point: Point2<Pixel>,
     pub confidence: f32,
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ros_z::Message)]
 pub struct Keypoints {
     pub left_eye: Keypoint,
     pub right_eye: Keypoint,
@@ -166,17 +135,7 @@ impl From<Keypoints> for [Keypoint; 17] {
     }
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ros_z::Message)]
 pub struct Pose<T> {
     pub object: Object<T>,
     pub keypoints: Keypoints,
@@ -218,74 +177,31 @@ where
     }
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ros_z::Message)]
 pub struct RefereePoseCandidate {
     pub pose: Pose<YOLOObjectLabel>,
     pub distance_to_referee_position: f32,
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Default,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct ReadySignalDetectionResult {
     pub detected_own_ready_signal: bool,
     pub did_detect_any_ready_pose_this_cycle: bool,
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Default,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct FreeKickSignalDetectionResult {
     pub own_detected_kicking_team: Option<Team>,
     pub did_detect_any_free_kick_pose_this_cycle: bool,
 }
 
-#[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct TimeTaggedKickingTeamDetections {
     pub time: SystemTime,
     pub detected_kicking_team: Option<Team>,
 }
 
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum ReadySignalState {
     #[default]
     WaitingForDetections,

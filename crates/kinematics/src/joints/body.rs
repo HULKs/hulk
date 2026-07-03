@@ -1,6 +1,5 @@
 use std::ops::{Add, Div, Mul, Sub};
 
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -16,20 +15,7 @@ pub enum BodyJointsName {
     RightLeg(LegJoint),
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, ros_z::Message)]
 pub struct BodyJoints<T = f32> {
     pub left_arm: ArmJoints<T>,
     pub right_arm: ArmJoints<T>,
@@ -147,19 +133,7 @@ impl Div<f32> for BodyJoints<f32> {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 pub struct LowerBodyJoints<T = f32> {
     pub left_leg: LegJoints<T>,
     pub right_leg: LegJoints<T>,
@@ -186,19 +160,7 @@ impl<T> From<BodyJoints<T>> for LowerBodyJoints<T> {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 pub struct UpperBodyJoints<T> {
     pub left_arm: ArmJoints<T>,
     pub right_arm: ArmJoints<T>,

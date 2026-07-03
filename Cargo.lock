@@ -796,7 +796,6 @@ dependencies = [
  "nalgebra 0.34.2",
  "ndarray",
  "ordered-float 4.6.0",
- "path_serde",
  "projection",
  "ros-z",
  "ros-z-streams",
@@ -2218,7 +2217,6 @@ dependencies = [
  "coordinate_systems",
  "kinematics",
  "linear_algebra",
- "path_serde",
  "pyo3",
  "ros-z",
  "ros2",
@@ -2366,7 +2364,6 @@ dependencies = [
  "levenberg-marquardt",
  "linear_algebra",
  "nalgebra 0.34.2",
- "path_serde",
  "projection",
  "serde",
  "thiserror 2.0.18",
@@ -2857,7 +2854,6 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "approx_derive",
- "path_serde",
  "ros-z",
  "serde",
 ]
@@ -3720,7 +3716,6 @@ version = "0.1.0"
 dependencies = [
  "filtering",
  "kinematics",
- "path_serde",
  "serde",
  "types",
 ]
@@ -4734,7 +4729,6 @@ dependencies = [
  "num-traits",
  "ordered-float 4.6.0",
  "parry2d",
- "path_serde",
  "ros-z",
  "serde",
 ]
@@ -5445,7 +5439,6 @@ dependencies = [
  "color-eyre",
  "coordinate_systems",
  "linear_algebra",
- "path_serde",
  "ros-z",
  "serde",
 ]
@@ -5493,7 +5486,6 @@ checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
 name = "hula_types"
 version = "0.1.0"
 dependencies = [
- "path_serde",
  "serde",
  "zbus",
 ]
@@ -6224,7 +6216,6 @@ version = "0.1.0"
 dependencies = [
  "coordinate_systems",
  "linear_algebra",
- "path_serde",
  "ros-z",
  "serde",
  "splines",
@@ -6439,7 +6430,6 @@ dependencies = [
  "approx",
  "nalgebra 0.34.2",
  "num-traits",
- "path_serde",
  "ros-z",
  "ros-z-schema",
  "serde",
@@ -6930,7 +6920,6 @@ dependencies = [
  "enum_dispatch",
  "itertools 0.14.0",
  "kinematics",
- "path_serde",
  "serde",
  "serde_json",
  "splines",
@@ -8746,7 +8735,6 @@ dependencies = [
  "coordinate_systems",
  "linear_algebra",
  "nalgebra 0.34.2",
- "path_serde",
  "ros-z",
  "ros2",
  "serde",
@@ -9623,7 +9611,6 @@ dependencies = [
  "color-eyre",
  "image",
  "nalgebra 0.34.2",
- "path_serde",
  "pyo3",
  "ros-z",
  "serde",
@@ -11826,7 +11813,6 @@ dependencies = [
  "nalgebra 0.34.2",
  "num-traits",
  "ordered-float 4.6.0",
- "path_serde",
  "pyo3",
  "ros-z",
  "ros-z-schema",
@@ -12161,7 +12147,6 @@ dependencies = [
  "hsl_network_messages",
  "linear_algebra",
  "ordered-float 4.6.0",
- "path_serde",
  "ros-z",
  "serde",
  "types",

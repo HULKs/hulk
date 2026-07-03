@@ -1,5 +1,4 @@
 use approx_derive::{AbsDiffEq, RelativeEq};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 macro_rules! generate_coordinate_system {
@@ -17,10 +16,7 @@ macro_rules! generate_coordinate_system {
                 Serialize,
                 RelativeEq,
                 AbsDiffEq,
-                PathSerialize,
-                PathDeserialize,
-                PathIntrospect,
-                ros_z::Message,
+                                                    ros_z::Message,
             )]
             #[abs_diff_eq(epsilon_type = f32)]
             $(#[$doc])*

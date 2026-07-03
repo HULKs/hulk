@@ -1,6 +1,5 @@
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use linear_algebra::{IntoFramed, Isometry3, Rotation3, Vector2};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros2::sensor_msgs::camera_info::CameraInfo;
 use serde::{Deserialize, Serialize};
 
@@ -10,18 +9,7 @@ use crate::{
     intrinsic::Intrinsic,
 };
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, ros_z::Message)]
 pub struct CameraMatrix {
     pub ground_to_robot: Isometry3<Ground, Robot>,
     pub robot_to_head: Isometry3<Robot, Head>,
