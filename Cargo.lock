@@ -12751,7 +12751,12 @@ name = "whistle_detection"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "context_attribute",
+ "filtering",
+ "framework",
+ "hardware",
  "ros-z",
+ "rustfft",
  "serde",
  "types",
 ]
