@@ -5701,7 +5701,6 @@ dependencies = [
  "look_around",
  "look_at",
  "low_state_bridge",
- "mcap_recorder",
  "message_filter",
  "message_handler",
  "microphone_recorder",
@@ -6941,21 +6940,6 @@ dependencies = [
  "static_assertions",
  "thiserror 2.0.18",
  "zstd",
-]
-
-[[package]]
-name = "mcap_recorder"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "futures-util",
- "mcap",
- "ros-z",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "zenoh",
 ]
 
 [[package]]

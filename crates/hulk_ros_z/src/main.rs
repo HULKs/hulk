@@ -148,7 +148,6 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(look_around::run_boxed(ctx.clone()));
     join_set.spawn(look_at::run_boxed(ctx.clone()));
     join_set.spawn(low_state_bridge::run_boxed(ctx.clone()));
-    join_set.spawn(mcap_recorder::run_boxed(ctx.clone()));
     join_set.spawn(message_filter::run_boxed(ctx.clone()));
     join_set.spawn(message_handler::run_boxed(ctx.clone()));
     join_set.spawn(microphone_recorder::run_boxed(ctx.clone()));

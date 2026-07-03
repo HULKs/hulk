@@ -39,7 +39,6 @@ localization-3d = { workspace = true }
 look_around = { workspace = true }
 look_at = { workspace = true }
 low_state_bridge = { workspace = true }
-mcap_recorder = { workspace = true }
 message_filter = { workspace = true }
 message_handler = { workspace = true }
 microphone_recorder = { workspace = true }
