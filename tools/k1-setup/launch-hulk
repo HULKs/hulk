@@ -14,7 +14,6 @@ chown -R booster:booster /home/booster/hulk/logs
   --user "$(id -u booster)" \
   hulk \
   /home/booster/hulk/bin/hulk_ros_z \
-  --robot ROBOT_NUMBER \
   --location default-location \
   --parameter-root etc/parameters/ros_z \
   --router tcp/127.0.0.1:7447 \

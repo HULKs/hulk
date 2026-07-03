@@ -5545,6 +5545,7 @@ dependencies = [
  "odometer_bridge",
  "player_state_receiver",
  "primary_state_filter",
+ "repository",
  "ros-z",
  "rule_obstacle_composer",
  "safe_pose_checker",

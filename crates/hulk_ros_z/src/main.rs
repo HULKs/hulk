@@ -3,8 +3,9 @@ use std::{env, future::Future, path::PathBuf, sync::Arc, time::Duration};
 use clap::Parser;
 use color_eyre::{
     Result,
-    eyre::{Context as _, ContextCompat, bail},
+    eyre::{Context as _, ContextCompat, bail, eyre},
 };
+use repository::{Repository, team::Team};
 use ros_z::prelude::*;
 use tokio::task::JoinSet;
 use tracing_subscriber::EnvFilter;
@@ -13,11 +14,6 @@ const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Parser)]
 struct Args {
-    #[arg(
-        long,
-        help = "Robot graph namespace. Bare values like '42' become '/42'; invalid ros-z names are rejected."
-    )]
-    robot: String,
     #[arg(long)]
     location: String,
     #[arg(long, default_value = "parameters/ros_z")]
@@ -54,7 +50,6 @@ where
 
 async fn run() -> Result<()> {
     let args = Args::parse();
-    let namespace = derive_namespace(&args.robot);
 
     let Some(hardware_id) = env::var_os("HARDWARE_ID") else {
         bail!("environment variable HARDWARE_ID not set");
@@ -63,6 +58,8 @@ async fn run() -> Result<()> {
         .into_string()
         .ok()
         .wrap_err("id was not valid UTF-8")?;
+    let robot_number = load_robot_number(&hardware_id).await?;
+    let namespace = derive_namespace(&robot_number.to_string());
 
     let parameter_layers =
         derive_parameter_layers(&args.parameter_root, &args.location, &hardware_id);
@@ -107,6 +104,21 @@ fn derive_parameter_layers(
         parameter_root.join("location").join(location),
         parameter_root.join("robot").join(robot),
     ]
+}
+
+async fn load_robot_number(hardware_id: &str) -> Result<u8> {
+    let repository =
+        Repository::new(env::current_dir().wrap_err("failed to get current directory")?);
+    let team = repository.read_team_configuration().await?;
+    robot_number_for_hardware_id(&team, hardware_id)
+}
+
+fn robot_number_for_hardware_id(team: &Team, hardware_id: &str) -> Result<u8> {
+    team.robots
+        .iter()
+        .find(|robot| robot.id == hardware_id)
+        .map(|robot| robot.number)
+        .ok_or_else(|| eyre!(r#"ID "{hardware_id}" not found in team.toml"#))
 }
 
 fn derive_namespace(robot: &str) -> String {
