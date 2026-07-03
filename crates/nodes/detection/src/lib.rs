@@ -12,7 +12,7 @@ use ros_z_streams::CreateAnnouncingPublisher;
 use ros2::sensor_msgs::image::Image;
 
 use ros_z::prelude::*;
-use tokio::time::Instant;
+use tokio::{task::block_in_place, time::Instant};
 use types::{
     bounding_box::BoundingBox,
     object_detection::{NUMBER_OF_VALUES_PER_OBJECT, Object, RobocupObjectLabel, YOLOObjectLabel},
@@ -26,6 +26,14 @@ pub const NUMBER_OF_DETECTIONS: usize = 300;
 enum TaskHead {
     ObjectDetection,
     PoseDetection,
+}
+
+struct DetectionOutput {
+    inference_duration: Duration,
+    post_processing_duration: Duration,
+    non_maximum_suppression_duration: Duration,
+    detected_objects: Vec<Object<RobocupObjectLabel>>,
+    detected_poses: Vec<Pose<YOLOObjectLabel>>,
 }
 
 impl TaskHead {
@@ -58,6 +66,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("detection").build().await?;
 
     let node_parameters = node.bind_parameter_as::<DetectionParameters>("detection")?;
+    let mut parameter_receiver = node_parameters.subscribe();
 
     let image_sub = node
         .subscriber::<Image>("inputs/left_image")
@@ -84,7 +93,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let initial_parameters_snapshot = node_parameters.snapshot();
     let parameters = initial_parameters_snapshot.typed();
-
     let model_path = parameters
         .neural_networks_folder
         .join(&parameters.model_name);
@@ -97,20 +105,28 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build();
     let cuda = CUDAExecutionProvider::default().build();
 
-    let mut session = Session::builder()?
-        .with_execution_providers([tensor_rt, cuda])?
-        .with_optimization_level(GraphOptimizationLevel::Level3)?
-        .with_intra_threads(2)?
-        .commit_from_file(model_path)?;
+    let mut session = block_in_place(|| {
+        Session::builder()?
+            .with_execution_providers([tensor_rt, cuda])?
+            .with_optimization_level(GraphOptimizationLevel::Level3)?
+            .with_intra_threads(2)?
+            .commit_from_file(model_path)
+    })?;
 
     loop {
-        let parameters_snapshot = node_parameters.snapshot();
-        let parameters = parameters_snapshot.typed();
+        parameter_receiver
+            .wait_for(|parameters| parameters.typed().enable)
+            .await?;
+
+        let image = image_sub.recv().await?;
+
+        let parameter_snapshot = node_parameters.snapshot();
+        let parameters = parameter_snapshot.typed();
         if !parameters.enable {
             continue;
         }
-
-        let image = image_sub.recv().await?;
+        let object_parameters = &parameters.object_detection_parameters;
+        let pose_parameters = &parameters.pose_detection_parameters;
 
         let detected_objects_pending = detected_objects_pub
             .announce(image.header.stamp.into())
@@ -121,54 +137,64 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         check_image(&image)?;
 
-        let inference_start = Instant::now();
+        let output = block_in_place(|| {
+            let inference_start = Instant::now();
 
-        let nv12_data = ArrayView3::from_shape(
-            [image.height as usize / 2, image.width as usize / 2, 6],
-            &image.data,
-        )?;
-        let outputs: SessionOutputs =
-            session.run(inputs!["raw_bytes_input" => TensorRef::from_array_view(nv12_data)?])?;
+            let nv12_data = ArrayView3::from_shape(
+                [image.height as usize / 2, image.width as usize / 2, 6],
+                &image.data,
+            )?;
+            let outputs: SessionOutputs = session
+                .run(inputs!["raw_bytes_input" => TensorRef::from_array_view(nv12_data)?])?;
 
-        let inference_duration = inference_start.elapsed();
+            let inference_duration = inference_start.elapsed();
 
-        let post_processing_start = Instant::now();
+            let post_processing_start = Instant::now();
 
-        let outputs = extract_outputs(&outputs)?;
-        let candidate_detections = extract_candidate_object_detections(
-            &outputs,
-            parameters.object_detection_parameters.confidence_threshold,
-        )?;
-        let candidate_human_poses = extract_candidate_pose_detections(
-            &outputs,
-            parameters.pose_detection_parameters.confidence_threshold,
-        )?;
-        let post_processing_duration = post_processing_start.elapsed();
-        let non_maximum_suppression_start = Instant::now();
-        let detected_objects = non_maximum_suppression(
-            candidate_detections,
-            parameters
-                .object_detection_parameters
-                .maximum_intersection_over_union,
-        );
-        let detected_poses = non_maximum_suppression(
-            candidate_human_poses,
-            parameters
-                .pose_detection_parameters
-                .maximum_intersection_over_union,
-        );
-        let non_maximum_suppression_duration = non_maximum_suppression_start.elapsed();
+            let outputs = extract_outputs(&outputs)?;
+            let candidate_detections = extract_candidate_object_detections(
+                &outputs,
+                object_parameters.confidence_threshold,
+            )?;
+            let candidate_human_poses =
+                extract_candidate_pose_detections(&outputs, pose_parameters.confidence_threshold)?;
+            let post_processing_duration = post_processing_start.elapsed();
+            let non_maximum_suppression_start = Instant::now();
+            let detected_objects = non_maximum_suppression(
+                candidate_detections,
+                object_parameters.maximum_intersection_over_union,
+            );
+            let detected_poses = non_maximum_suppression(
+                candidate_human_poses,
+                pose_parameters.maximum_intersection_over_union,
+            );
+            let non_maximum_suppression_duration = non_maximum_suppression_start.elapsed();
 
-        inference_duration_pub.publish(&inference_duration).await?;
+            Ok::<_, color_eyre::eyre::Error>(DetectionOutput {
+                inference_duration,
+                post_processing_duration,
+                non_maximum_suppression_duration,
+                detected_objects,
+                detected_poses,
+            })
+        })?;
+
+        inference_duration_pub
+            .publish(&output.inference_duration)
+            .await?;
         post_processing_duration_pub
-            .publish(&post_processing_duration)
+            .publish(&output.post_processing_duration)
             .await?;
         non_maximum_suppression_duration_pub
-            .publish(&non_maximum_suppression_duration)
+            .publish(&output.non_maximum_suppression_duration)
             .await?;
 
-        detected_objects_pending.publish(&detected_objects).await?;
-        detected_poses_pending.publish(&detected_poses).await?;
+        detected_objects_pending
+            .publish(&output.detected_objects)
+            .await?;
+        detected_poses_pending
+            .publish(&output.detected_poses)
+            .await?;
     }
 }
 

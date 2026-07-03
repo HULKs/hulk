@@ -16,6 +16,7 @@ use linear_algebra::{IntoFramed, Isometry2, Point2, center, point};
 use projection::{Projection, camera_matrix::CameraMatrix};
 use ros_z::{prelude::*, qos::QosDurability, time::Time};
 use ros_z_streams::CreateFutureMapBuilder;
+use tokio::task::block_in_place;
 use types::{
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
@@ -43,6 +44,11 @@ impl Default for ObstacleFilter {
             last_primary_state: PrimaryState::Damping,
         }
     }
+}
+
+struct ObstacleFilterOutput {
+    hypotheses: Vec<Hypothesis>,
+    obstacles: Vec<Obstacle>,
 }
 
 #[derive(PartialEq)]
@@ -145,28 +151,95 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let parameters = parameters_snapshot.typed();
                 let item = received_detections?;
 
-                let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
-                    continue;
-                };
-                for (detection_time, (detected_objects, detected_poses)) in item.persistent {
-                    let detected_objects = detected_objects.unwrap_or_default();
-                    let detected_poses = detected_poses.unwrap_or_default();
-                    let camera_matrix = camera_matrix_cache.get_nearest(detection_time);
-                    let current_odometry_to_last_odometry =
-                        current_odometry_to_last_odometry_cache.get_nearest(detection_time);
-                    let ground_to_field = ground_to_field_cache.get_nearest(detection_time);
+                let outputs = block_in_place(|| {
+                    let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
+                        return Vec::new();
+                    };
+                    let mut outputs = Vec::new();
+                    for (detection_time, (detected_objects, detected_poses)) in item.persistent {
+                        let detected_objects = detected_objects.unwrap_or_default();
+                        let detected_poses = detected_poses.unwrap_or_default();
+                        let camera_matrix = camera_matrix_cache.get_nearest(detection_time);
+                        let current_odometry_to_last_odometry =
+                            current_odometry_to_last_odometry_cache.get_nearest(detection_time);
+                        let ground_to_field = ground_to_field_cache.get_nearest(detection_time);
 
-                    obstacle_filter.process_detection(
-                        detection_time,
-                        parameters,
-                        &detected_objects,
-                        &detected_poses,
-                        camera_matrix.as_ref().map(|wrapper| &wrapper.inner),
-                        current_odometry_to_last_odometry
-                            .as_ref()
-                            .map(Arc::as_ref),
+                        obstacle_filter.process_detection(
+                            detection_time,
+                            parameters,
+                            &detected_objects,
+                            &detected_poses,
+                            camera_matrix.as_ref().map(|wrapper| &wrapper.inner),
+                            current_odometry_to_last_odometry.as_ref().map(Arc::as_ref),
+                        );
+
+                        let primary_state = primary_state_cache
+                            .get_latest()
+                            .map(|primary_state| *primary_state)
+                            .unwrap_or_default();
+                        let fall_down_state = fall_down_state_cache.get_latest();
+
+                        let obstacles = obstacle_filter.compose_outputs(
+                            node.clock().now(),
+                            parameters,
+                            field_dimensions.as_ref(),
+                            ground_to_field.as_ref().map(Arc::as_ref),
+                            primary_state,
+                            fall_down_state.as_ref().map(Arc::as_ref),
+                        );
+                        outputs.push(ObstacleFilterOutput {
+                            hypotheses: obstacle_filter.hypotheses.clone(),
+                            obstacles,
+                        });
+                    }
+                    outputs
+                });
+
+                for output in outputs {
+                    obstacle_filter_hypotheses_pub
+                        .publish(&output.hypotheses)
+                        .await?;
+                    obstacles_pub.publish(&output.obstacles).await?;
+                }
+            }
+            received_player_states = player_states_subscriber.recv() => {
+                let parameters_snapshot = parameters.snapshot();
+                let parameters = parameters_snapshot.typed();
+                let player_states = received_player_states?;
+                let output = block_in_place(|| {
+                    let own_player_number = player_number_cache
+                        .get_latest()
+                        .map(|player_number| *player_number);
+                    let network_player_states = new_network_player_states(
+                        &player_states,
+                        own_player_number,
+                        &mut last_processed_player_state_times,
                     );
+                    let mut last_ground_to_field = None;
+                    let mut processed_player_state = false;
 
+                    for (player_state_time, player_state) in network_player_states {
+                        let Some(ground_to_field) =
+                            ground_to_field_cache.get_nearest(player_state_time)
+                        else {
+                            continue;
+                        };
+
+                        obstacle_filter.process_network_player_state(
+                            player_state_time,
+                            parameters,
+                            &player_state,
+                            ground_to_field.as_ref(),
+                        );
+                        last_ground_to_field = Some(ground_to_field);
+                        processed_player_state = true;
+                    }
+
+                    if !processed_player_state {
+                        return None;
+                    }
+
+                    let field_dimensions = field_dimensions_cache.get_latest()?;
                     let primary_state = primary_state_cache
                         .get_latest()
                         .map(|primary_state| *primary_state)
@@ -177,75 +250,23 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         node.clock().now(),
                         parameters,
                         field_dimensions.as_ref(),
-                        ground_to_field.as_ref().map(Arc::as_ref),
+                        last_ground_to_field.as_ref().map(Arc::as_ref),
                         primary_state,
                         fall_down_state.as_ref().map(Arc::as_ref),
                     );
 
+                    Some(ObstacleFilterOutput {
+                        hypotheses: obstacle_filter.hypotheses.clone(),
+                        obstacles,
+                    })
+                });
+
+                if let Some(output) = output {
                     obstacle_filter_hypotheses_pub
-                        .publish(&obstacle_filter.hypotheses)
+                        .publish(&output.hypotheses)
                         .await?;
-                    obstacles_pub.publish(&obstacles).await?;
+                    obstacles_pub.publish(&output.obstacles).await?;
                 }
-            }
-            received_player_states = player_states_subscriber.recv() => {
-                let parameters_snapshot = parameters.snapshot();
-                let parameters = parameters_snapshot.typed();
-                let player_states = received_player_states?;
-                let own_player_number = player_number_cache
-                    .get_latest()
-                    .map(|player_number| *player_number);
-                let network_player_states = new_network_player_states(
-                    &player_states,
-                    own_player_number,
-                    &mut last_processed_player_state_times,
-                );
-                let mut last_ground_to_field = None;
-                let mut processed_player_state = false;
-
-                for (player_state_time, player_state) in network_player_states {
-                    let Some(ground_to_field) =
-                        ground_to_field_cache.get_nearest(player_state_time)
-                    else {
-                        continue;
-                    };
-
-                    obstacle_filter.process_network_player_state(
-                        player_state_time,
-                        parameters,
-                        &player_state,
-                        ground_to_field.as_ref(),
-                    );
-                    last_ground_to_field = Some(ground_to_field);
-                    processed_player_state = true;
-                }
-
-                if !processed_player_state {
-                    continue;
-                }
-
-                let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
-                    continue;
-                };
-                let primary_state = primary_state_cache
-                    .get_latest()
-                    .map(|primary_state| *primary_state)
-                    .unwrap_or_default();
-                let fall_down_state = fall_down_state_cache.get_latest();
-
-                let obstacles = obstacle_filter.compose_outputs(
-                    node.clock().now(),
-                    parameters,
-                    field_dimensions.as_ref(),
-                    last_ground_to_field.as_ref().map(Arc::as_ref),
-                    primary_state,
-                    fall_down_state.as_ref().map(Arc::as_ref),
-                );
-
-                obstacle_filter_hypotheses_pub
-                    .publish(&obstacle_filter.hypotheses)
-                    .await?;
-                obstacles_pub.publish(&obstacles).await?;
             }
         }
     }
