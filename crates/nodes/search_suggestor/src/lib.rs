@@ -4,6 +4,7 @@ use hsl_network_messages::{HulkMessage, PlayerNumber, StateMessage};
 use linear_algebra::{Isometry2, Point2};
 use ros_z::{prelude::*, qos::QosDurability};
 use search_heatmap::{Heatmap, SearchOccluder, SearchVoronoiSelection};
+use serde::{Deserialize, Serialize};
 use std::{boxed::Box, future::Future, pin::Pin, sync::Arc, time::Duration};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -11,12 +12,17 @@ use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     messages::IncomingMessage,
     obstacles::{Obstacle, ObstacleKind},
-    parameters::{BehaviorParameters, HslNetworkParameters, SearchSuggestorParameters},
+    parameters::{HslNetworkParameters, SearchSuggestorParameters},
     players::Players,
     primary_state::PrimaryState,
-    rule_obstacles::RuleObstacle,
     time_wrapper::TimeWrapper,
 };
+
+#[derive(Clone, Debug, Serialize, Deserialize, Message)]
+#[serde(deny_unknown_fields)]
+pub struct Parameters {
+    pub search_suggestor: SearchSuggestorParameters,
+}
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -25,7 +31,7 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("search_suggestor").build().await?;
 
-    let behavior_parameters = node.bind_parameter_as::<BehaviorParameters>("behavior_node")?;
+    let node_parameters = node.bind_parameter_as::<Parameters>("search_suggestor")?;
     let field_dimensions_sub = node
         .subscriber::<FieldDimensions>("field_dimensions")
         .qos(QosProfile {
@@ -40,6 +46,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let player_number_cache = node
         .subscriber::<PlayerNumber>("player_number")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
+    let hsl_network_parameters_cache = node
+        .subscriber::<HslNetworkParameters>("hsl_network")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -76,11 +91,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-    let rule_obstacles_cache = node
-        .subscriber::<Vec<RuleObstacle>>("rule_obstacles")
-        .cache(1)
-        .build()
-        .await?;
     let network_message_sub = node
         .subscriber::<TimeWrapper<IncomingMessage>>("filtered_message")
         .build()
@@ -109,10 +119,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let elapsed_since_last_priority_update = now.duration_since(last_priority_update);
         last_priority_update = now;
 
-        let behavior_parameters_snapshot = behavior_parameters.snapshot();
-        let behavior_parameters = behavior_parameters_snapshot.typed();
-        let parameters = &behavior_parameters.search_suggestor;
-        let hsl_network_parameters = &behavior_parameters.hsl_network;
+        let node_parameters_snapshot = node_parameters.snapshot();
+        let node_parameters = node_parameters_snapshot.typed();
+        let parameters = &node_parameters.search_suggestor;
+        let Some(hsl_network_parameters) = hsl_network_parameters_cache.get_latest() else {
+            continue;
+        };
+        let hsl_network_parameters = hsl_network_parameters.as_ref();
 
         let ground_to_field = ground_to_field_cache
             .get_latest()
@@ -224,16 +237,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         heatmap.clamp_values();
 
-        let obstacle_snapshot = obstacles_cache.get_latest();
-        let obstacles = obstacle_snapshot
-            .as_deref()
-            .map(Vec::as_slice)
-            .unwrap_or(&[]);
-        let rule_obstacle_snapshot = rule_obstacles_cache.get_latest();
-        let rule_obstacles = rule_obstacle_snapshot
-            .as_deref()
-            .map(Vec::as_slice)
-            .unwrap_or(&[]);
         let own_voronoi_site = ground_to_field.zip(
             player_number_cache
                 .get_latest()
@@ -243,8 +246,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             field_dimensions,
             own_voronoi_site,
             &last_teammate_messages,
-            obstacles,
-            rule_obstacles,
             now,
             hsl_network_parameters
                 .hsl_state_message_send_interval
@@ -296,8 +297,6 @@ fn search_voronoi_selection_from_teammates(
     field_dimensions: FieldDimensions,
     own_voronoi_site: Option<(Isometry2<Ground, Field>, PlayerNumber)>,
     last_teammate_messages: &Players<Option<TeammateStateMessage>>,
-    obstacles: &[Obstacle],
-    rule_obstacles: &[RuleObstacle],
     now: ros_z::time::Time,
     freshness_window: Duration,
 ) -> Option<SearchVoronoiSelection> {
@@ -316,13 +315,10 @@ fn search_voronoi_selection_from_teammates(
         }
     }
 
-    Some(SearchVoronoiSelection::new_with_obstacles(
+    Some(SearchVoronoiSelection::new(
         field_dimensions,
         own_player_number,
         sites,
-        obstacles,
-        rule_obstacles,
-        ground_to_field,
     ))
 }
 

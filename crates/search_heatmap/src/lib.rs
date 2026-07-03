@@ -15,10 +15,8 @@ use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     heatmap::Heatmap as HeatmapMessage,
     messages::IncomingMessage,
-    obstacles::Obstacle,
     parameters::{SearchSuggestorParameters, VoronoiParameters},
     primary_state::PrimaryState,
-    rule_obstacles::RuleObstacle,
     time_wrapper::TimeWrapper,
 };
 use voronoi::{Ownership, VoronoiBounds, VoronoiGrid};
@@ -44,16 +42,12 @@ pub struct SearchVoronoiSelection {
 }
 
 impl SearchVoronoiSelection {
-    pub fn new_with_obstacles(
+    pub fn new(
         field_dimensions: FieldDimensions,
         owner: PlayerNumber,
         sites: impl IntoIterator<Item = (Pose2<Field>, PlayerNumber)>,
-        obstacles: &[Obstacle],
-        rule_obstacles: &[RuleObstacle],
-        ground_to_field: Isometry2<Ground, Field>,
     ) -> Self {
         let mut grid = search_voronoi_grid(field_dimensions);
-        grid.initialize_obstacles(obstacles, rule_obstacles, ground_to_field);
         grid.multi_source_dijkstra(&sites.into_iter().collect_vec(), 0.0);
         Self { owner, grid }
     }
