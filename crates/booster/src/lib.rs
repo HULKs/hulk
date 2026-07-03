@@ -10,6 +10,88 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
 
+#[repr(i32)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
+)]
+pub enum RobotMode {
+    #[default]
+    Unknown = -1,
+    Damping = 0,
+    Prepare = 1,
+    Walking = 2,
+    Custom = 3,
+    Soccer = 4,
+}
+
+impl From<RobotMode> for i32 {
+    fn from(mode: RobotMode) -> Self {
+        mode as i32
+    }
+}
+
+impl TryFrom<i32> for RobotMode {
+    type Error = &'static str;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            -1 => Ok(Self::Unknown),
+            0 => Ok(Self::Damping),
+            1 => Ok(Self::Prepare),
+            2 => Ok(Self::Walking),
+            3 => Ok(Self::Custom),
+            4 => Ok(Self::Soccer),
+            _ => Err("invalid robot mode"),
+        }
+    }
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
+)]
+pub struct LedColor {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RpcReqMsg {
+    pub uuid: String,
+    pub header: String,
+    pub body: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RpcRespMsg {
+    pub uuid: String,
+    pub header: String,
+    pub body: String,
+}
+
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[derive(

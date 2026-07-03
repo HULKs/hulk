@@ -3,7 +3,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use booster_sdk::types::RobotMode;
+use booster::RobotMode;
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::Ground;

@@ -46,7 +46,6 @@ lazy_static! {
             ("ros-z-cli", "crates/ros-z-cli"),
             ("twix", "tools/twix"),
             ("widget_gallery", "tools/widget_gallery"),
-            ("zenoh_bridge", "crates/zenoh_bridge"),
         ])
     };
 }
