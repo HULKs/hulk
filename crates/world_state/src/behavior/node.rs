@@ -9,6 +9,7 @@ use framework::{AdditionalOutput, MainOutput};
 use hardware::NetworkInterface;
 use hsl_network_messages::HulkMessage;
 use linear_algebra::{Point2, Pose2, Vector2};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 use types::{
     behavior_tree::NodeTrace,
@@ -65,7 +66,7 @@ pub struct Behavior {
     pub closest_to_ball_left_area_since: Option<SystemTime>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Message)]
 pub struct LastBall {
     pub position: Point2<Field>,
     pub velocity: Vector2<Ground>,
@@ -73,7 +74,7 @@ pub struct LastBall {
     pub field_side: Side,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Message)]
 pub struct Blackboard {
     pub field_dimensions: FieldDimensions,
     pub free_kick_obstacle_radius: f32,

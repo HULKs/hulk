@@ -69,6 +69,8 @@ pub mod graph;
 pub mod message;
 #[cfg(feature = "nalgebra")]
 mod nalgebra_field_type_info;
+#[cfg(feature = "ndarray")]
+mod ndarray_field_type_info;
 /// Node creation and management.
 pub mod node;
 /// Node-local parameter subsystem.
