@@ -58,57 +58,46 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let mut held_ball = None;
-    let mut timer = node.create_timer(Duration::from_millis(20));
 
     loop {
-        tokio::select! {
-            item = detected_objects.recv() => {
-                let item = item?;
-                let parameters_snapshot = parameters.snapshot();
-                let parameters = parameters_snapshot.typed();
+        let item = detected_objects.recv().await?;
+        let parameters_snapshot = parameters.snapshot();
+        let parameters = parameters_snapshot.typed();
+        let output_time = item
+            .persistent
+            .last_key_value()
+            .map(|(time, _)| *time)
+            .unwrap_or_else(|| node.clock().now());
 
-                if let Some(field_dimensions) = field_dimensions_cache.get_latest() {
-                    for (detection_time, (detected_objects,)) in item.persistent {
-                        let Some(detected_objects) = detected_objects else {
-                            continue;
-                        };
-                        let Some(camera_matrix) = camera_matrix_cache.get_nearest(detection_time) else {
-                            continue;
-                        };
+        if let Some(field_dimensions) = field_dimensions_cache.get_latest() {
+            for (detection_time, (detected_objects,)) in item.persistent {
+                let Some(detected_objects) = detected_objects else {
+                    continue;
+                };
+                let Some(camera_matrix) = camera_matrix_cache.get_nearest(detection_time) else {
+                    continue;
+                };
 
-                        if let Some(position) = nearest_projected_ball(
-                            &detected_objects,
-                            &camera_matrix.inner,
-                            field_dimensions.ball_radius,
-                            parameters.confidence_threshold,
-                        ) {
-                            held_ball = Some(BallPosition {
-                                position,
-                                velocity: Vector2::zeros(),
-                                last_seen: detection_time,
-                            });
-                        }
-                    }
+                if let Some(position) = nearest_projected_ball(
+                    &detected_objects,
+                    &camera_matrix.inner,
+                    field_dimensions.ball_radius,
+                    parameters.confidence_threshold,
+                ) {
+                    held_ball = Some(BallPosition {
+                        position,
+                        velocity: Vector2::zeros(),
+                        last_seen: detection_time,
+                    });
                 }
-
-                let now = node.clock().now();
-                let output = held_ball_if_fresh(held_ball, now, parameters.sample_timeout);
-                if output.is_none() {
-                    held_ball = None;
-                }
-                ball_position_pub.publish(&output).await?;
-            }
-            _ = timer.tick() => {
-                let now = node.clock().now();
-                let parameters_snapshot = parameters.snapshot();
-                let parameters = parameters_snapshot.typed();
-                let output = held_ball_if_fresh(held_ball, now, parameters.sample_timeout);
-                if output.is_none() {
-                    held_ball = None;
-                }
-                ball_position_pub.publish(&output).await?;
             }
         }
+
+        let output = held_ball_if_fresh(held_ball, output_time, parameters.sample_timeout);
+        if output.is_none() {
+            held_ball = None;
+        }
+        ball_position_pub.publish(&output).await?;
     }
 }
 
