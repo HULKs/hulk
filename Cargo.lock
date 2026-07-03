@@ -8227,7 +8227,6 @@ dependencies = [
  "indicatif",
  "itertools 0.14.0",
  "lazy_static",
- "parameters",
  "pathdiff",
  "regex",
  "repository",
@@ -9351,11 +9350,11 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 name = "repository"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "color-eyre",
  "futures-util",
  "itertools 0.14.0",
  "json5",
- "parameters",
  "pathdiff",
  "semver",
  "serde",

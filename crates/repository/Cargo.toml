@@ -6,11 +6,11 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+clap = { workspace = true }
 color-eyre = { workspace = true }
 futures-util = { workspace = true }
 itertools = { workspace = true }
 json5 = { workspace = true }
-parameters = { workspace = true }
 pathdiff = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true }

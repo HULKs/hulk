@@ -1,8 +1,7 @@
 use clap::Subcommand;
 use color_eyre::{Result, eyre::WrapErr};
 
-use parameters::directory::LocationTarget;
-use repository::Repository;
+use repository::{Repository, location::LocationTarget};
 
 #[derive(Subcommand)]
 pub enum Arguments {

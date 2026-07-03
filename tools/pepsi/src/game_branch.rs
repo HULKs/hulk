@@ -1,7 +1,6 @@
 use clap::Args;
 use color_eyre::{Result, eyre::WrapErr};
-use parameters::directory::LocationTarget;
-use repository::Repository;
+use repository::{Repository, location::LocationTarget};
 use tokio::io::{AsyncBufReadExt, BufReader, stdin};
 
 use crate::{
