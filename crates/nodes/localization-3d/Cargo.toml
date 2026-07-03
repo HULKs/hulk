@@ -10,15 +10,15 @@ booster.workspace = true
 color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
 field_mark_association = { workspace = true }
+kinematics = { workspace = true }
 linear_algebra = { workspace = true }
+localization-factrs = { workspace = true }
 nalgebra = { workspace = true }
+projection = { workspace = true }
 ros-z = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-types = { workspace = true }
 tokio = { workspace = true }
-kinematics = { workspace = true }
-localization-factrs = { workspace = true }
-projection = { workspace = true }
+types = { workspace = true }
 
 [dev-dependencies]
 mcap = { workspace = true }

@@ -16,7 +16,11 @@ from utils.nv12_to_rgb import NV12ToRgb
 def default_weights_path() -> Path:
     import modules.model
 
-    return Path(modules.model.__file__).resolve().parents[1] / "weights" / "xfeat.pt"
+    return (
+        Path(modules.model.__file__).resolve().parents[1]
+        / "weights"
+        / "xfeat.pt"
+    )
 
 
 class ExportableXFeatModel(XFeatModel):
@@ -45,7 +49,9 @@ class XFeatNv12TopKWrapper(nn.Module):
         self.preprocessor = NV12ToRgb(subsample=False)
         self.xfeat = load_xfeat_model(weights_path)
 
-    def forward(self, raw_bytes_input: ByteTensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+    def forward(
+        self, raw_bytes_input: ByteTensor
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         rgb = self._preprocess(raw_bytes_input)
         return self.forward_rgb(rgb)
 
@@ -57,7 +63,9 @@ class XFeatNv12TopKWrapper(nn.Module):
         score_map = self._score_map(keypoint_heatmap, reliability)
 
         keypoints, scores = self._topk_keypoints(score_map)
-        sampled_descriptors = self._sample_descriptors(descriptors, keypoints, score_map)
+        sampled_descriptors = self._sample_descriptors(
+            descriptors, keypoints, score_map
+        )
         sampled_descriptors = F.normalize(sampled_descriptors, dim=-1)
 
         valid = scores > 0.0
@@ -65,7 +73,9 @@ class XFeatNv12TopKWrapper(nn.Module):
         batch_size = score_map.shape[0]
 
         keypoints = keypoints.reshape(batch_size, self.keypoint_count, 2)
-        sampled_descriptors = sampled_descriptors.reshape(batch_size, self.keypoint_count, 64)
+        sampled_descriptors = sampled_descriptors.reshape(
+            batch_size, self.keypoint_count, 64
+        )
         scores = scores.reshape(batch_size, self.keypoint_count)
         valid = valid.reshape(batch_size, self.keypoint_count)
 
@@ -73,7 +83,11 @@ class XFeatNv12TopKWrapper(nn.Module):
 
     def _preprocess(self, raw_bytes_input: ByteTensor) -> Tensor:
         if raw_bytes_input.dim() == 3:
-            return self.preprocessor(raw_bytes_input).unsqueeze(0).permute(0, 3, 1, 2)
+            return (
+                self.preprocessor(raw_bytes_input)
+                .unsqueeze(0)
+                .permute(0, 3, 1, 2)
+            )
         return self._batched_nv12_to_rgb(raw_bytes_input).permute(0, 3, 1, 2)
 
     def _batched_nv12_to_rgb(self, raw_bytes_input: ByteTensor) -> Tensor:
@@ -81,22 +95,41 @@ class XFeatNv12TopKWrapper(nn.Module):
         batch_size, half_height, half_width, _ = image_data.shape
         height, width = half_height * 2, half_width * 2
         flat = image_data.flatten(start_dim=1)
-        luminance = flat[:, : width * height].reshape(batch_size, height, width, 1)
-        chroma_subsampled = flat[:, width * height :].reshape(batch_size, half_height, half_width, 2)
-        chroma = chroma_subsampled.repeat_interleave(2, dim=1).repeat_interleave(2, dim=2)
+        luminance = flat[:, : width * height].reshape(
+            batch_size, height, width, 1
+        )
+        chroma_subsampled = flat[:, width * height :].reshape(
+            batch_size, half_height, half_width, 2
+        )
+        chroma = chroma_subsampled.repeat_interleave(
+            2, dim=1
+        ).repeat_interleave(2, dim=2)
         yuv = torch.concat([luminance, chroma], dim=-1)
-        return torch.matmul(yuv - self.preprocessor.yuv_to_rgb_offset, self.preprocessor.yuv_to_rgb)
+        return torch.matmul(
+            yuv - self.preprocessor.yuv_to_rgb_offset,
+            self.preprocessor.yuv_to_rgb,
+        )
 
     @staticmethod
     def _keypoint_heatmap(keypoint_logits: Tensor) -> Tensor:
         scores = F.softmax(keypoint_logits, dim=1)[:, :64]
         batch_size, _, height, width = scores.shape
-        heatmap = scores.permute(0, 2, 3, 1).reshape(batch_size, height, width, 8, 8)
-        return heatmap.permute(0, 1, 3, 2, 4).reshape(batch_size, 1, height * 8, width * 8)
+        heatmap = scores.permute(0, 2, 3, 1).reshape(
+            batch_size, height, width, 8, 8
+        )
+        return heatmap.permute(0, 1, 3, 2, 4).reshape(
+            batch_size, 1, height * 8, width * 8
+        )
 
-    def _score_map(self, keypoint_heatmap: Tensor, reliability: Tensor) -> Tensor:
-        local_max = F.max_pool2d(keypoint_heatmap, kernel_size=5, stride=1, padding=2)
-        nms_mask = (keypoint_heatmap == local_max) & (keypoint_heatmap > self.detection_threshold)
+    def _score_map(
+        self, keypoint_heatmap: Tensor, reliability: Tensor
+    ) -> Tensor:
+        local_max = F.max_pool2d(
+            keypoint_heatmap, kernel_size=5, stride=1, padding=2
+        )
+        nms_mask = (keypoint_heatmap == local_max) & (
+            keypoint_heatmap > self.detection_threshold
+        )
         keypoint_scores = keypoint_heatmap
         reliability = F.interpolate(
             reliability,
@@ -109,14 +142,22 @@ class XFeatNv12TopKWrapper(nn.Module):
 
     def _topk_keypoints(self, score_map: Tensor) -> tuple[Tensor, Tensor]:
         _, _, _, width = score_map.shape
-        topk_scores, indices = torch.topk(score_map.flatten(start_dim=1), k=self.keypoint_count, dim=-1)
+        topk_scores, indices = torch.topk(
+            score_map.flatten(start_dim=1), k=self.keypoint_count, dim=-1
+        )
         y = torch.div(indices, width, rounding_mode="floor")
         x = indices - y * width
-        return torch.stack([x, y], dim=-1).to(dtype=score_map.dtype), topk_scores
+        return torch.stack([x, y], dim=-1).to(
+            dtype=score_map.dtype
+        ), topk_scores
 
     @staticmethod
-    def _sample_descriptors(descriptors: Tensor, keypoints: Tensor, score_map: Tensor) -> Tensor:
-        _, descriptor_dimension, descriptor_height, descriptor_width = descriptors.shape
+    def _sample_descriptors(
+        descriptors: Tensor, keypoints: Tensor, score_map: Tensor
+    ) -> Tensor:
+        _, descriptor_dimension, descriptor_height, descriptor_width = (
+            descriptors.shape
+        )
         _, _, image_height, image_width = score_map.shape
 
         scale = keypoints.new_tensor(
@@ -175,7 +216,9 @@ def validate_image_size(height: int, width: int) -> None:
     if height % 2 != 0 or width % 2 != 0:
         raise click.BadParameter("--height and --width must be even for NV12")
     if height % 8 != 0 or width % 8 != 0:
-        raise click.BadParameter("--height and --width must be divisible by 8 for XFeat")
+        raise click.BadParameter(
+            "--height and --width must be divisible by 8 for XFeat"
+        )
 
 
 def dynamic_axes(batch_size: int | None) -> dict[str, dict[int, str]]:
@@ -193,14 +236,54 @@ def dynamic_axes(batch_size: int | None) -> dict[str, dict[int, str]]:
     default=None,
     help="Path to the XFeat .pt weights. Defaults to the accelerated-features package weights.",
 )
-@click.option("--height", default=488, show_default=True, help="Full-resolution dummy image height.")
-@click.option("--width", default=544, show_default=True, help="Full-resolution dummy image width.")
-@click.option("--batch-size", default=None, type=int, help="Static batch size. If omitted, export the legacy unbatched input.")
-@click.option("--keypoints", "keypoint_count", default=512, show_default=True, help="Fixed keypoint count.")
-@click.option("--threshold", "detection_threshold", default=0.05, show_default=True, help="NMS detection threshold.")
-@click.option("--opset", default=20, show_default=True, help="ONNX opset version.")
-@click.option("--device", default="cpu", show_default=True, help="Torch export device, e.g. cpu or cuda:0.")
-@click.option("--dynamic/--static", "use_dynamic_axes", default=True, show_default=True, help="Mark image dimensions dynamic.")
+@click.option(
+    "--height",
+    default=488,
+    show_default=True,
+    help="Full-resolution dummy image height.",
+)
+@click.option(
+    "--width",
+    default=544,
+    show_default=True,
+    help="Full-resolution dummy image width.",
+)
+@click.option(
+    "--batch-size",
+    default=None,
+    type=int,
+    help="Static batch size. If omitted, export the legacy unbatched input.",
+)
+@click.option(
+    "--keypoints",
+    "keypoint_count",
+    default=512,
+    show_default=True,
+    help="Fixed keypoint count.",
+)
+@click.option(
+    "--threshold",
+    "detection_threshold",
+    default=0.05,
+    show_default=True,
+    help="NMS detection threshold.",
+)
+@click.option(
+    "--opset", default=20, show_default=True, help="ONNX opset version."
+)
+@click.option(
+    "--device",
+    default="cpu",
+    show_default=True,
+    help="Torch export device, e.g. cpu or cuda:0.",
+)
+@click.option(
+    "--dynamic/--static",
+    "use_dynamic_axes",
+    default=True,
+    show_default=True,
+    help="Mark image dimensions dynamic.",
+)
 def main(
     export_path: Path,
     *,
@@ -229,7 +312,11 @@ def main(
     ).to(device)
     wrapper.eval()
 
-    input_shape = (height // 2, width // 2, 6) if batch_size is None else (batch_size, height // 2, width // 2, 6)
+    input_shape = (
+        (height // 2, width // 2, 6)
+        if batch_size is None
+        else (batch_size, height // 2, width // 2, 6)
+    )
     dummy_input = torch.zeros(input_shape, dtype=torch.uint8, device=device)
     output_names = ["keypoints", "descriptors", "scores", "valid"]
 

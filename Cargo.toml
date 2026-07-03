@@ -28,8 +28,8 @@ members = [
   "crates/hungarian_algorithm",
   "crates/hydra",
   "crates/kinematics",
-  "crates/localization-factrs",
   "crates/linear_algebra",
+  "crates/localization-factrs",
   "crates/microphones",
   "crates/motion",
   "crates/motionfile",
@@ -192,8 +192,8 @@ egui_extras = { version = "0.33.3", features = ["image"] }
 egui_plot = "0.34.0"
 energy_optimization = { path = "crates/energy_optimization" }
 enum-iterator = "2.1.0"
-enumset = "1.1.10"
 enum_dispatch = "0.3.13"
+enumset = "1.1.10"
 env_logger = "0.11.8"
 event-listener = "5"
 fake_odometry = { path = "crates/nodes/fake_odometry" }
@@ -242,8 +242,8 @@ levenberg-marquardt = "0.15.0"
 libc = "0.2.169"
 line_detection = { path = "crates/nodes/line_detection" }
 linear_algebra = { path = "crates/linear_algebra" }
-localization-3d = { path = "crates/nodes/localization-3d" }
 localization-2d = { path = "crates/nodes/localization-2d" }
+localization-3d = { path = "crates/nodes/localization-3d" }
 localization-factrs = { path = "crates/localization-factrs" }
 log = "0.4.25"
 look_around = { path = "crates/nodes/look_around" }
@@ -290,13 +290,13 @@ path_serde_derive = { path = "crates/path_serde_derive" }
 pathdiff = "0.2.3"
 pathfinding = "<=4.10.0"
 player_state_receiver = { path = "crates/nodes/player_state_receiver" }
+png = "0.18.1"
 prettyplease = "0.2.29"
 primary_state_filter = { path = "crates/nodes/primary_state_filter" }
 proc-macro-error = "1.0.4"
 proc-macro2 = { version = "1.0.93", features = ["span-locations"] }
 projection = { path = "crates/projection" }
 proptest = "1.6.0"
-png = "0.18.1"
 pyo3 = { version = "0.27.1", features = ["abi3-py313", "extension-module"] }
 pyo3-async-runtimes = { version = "0.27.0", features = ["tokio-runtime"] }
 pyo3-log = "0.13.2"

@@ -14,7 +14,11 @@ from modules.lighterglue import LighterGlue
 def default_weights_path() -> Path:
     import modules.model
 
-    return Path(modules.model.__file__).resolve().parents[1] / "weights" / "xfeat-lighterglue.pt"
+    return (
+        Path(modules.model.__file__).resolve().parents[1]
+        / "weights"
+        / "xfeat-lighterglue.pt"
+    )
 
 
 def disable_dynamic_attention(module: nn.Module) -> None:
@@ -27,7 +31,9 @@ def disable_dynamic_attention(module: nn.Module) -> None:
             child.flash = None
 
 
-def filter_matches(scores: Tensor, threshold: float) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+def filter_matches(
+    scores: Tensor, threshold: float
+) -> tuple[Tensor, Tensor, Tensor, Tensor]:
     max0 = scores.max(dim=2)
     max1 = scores.max(dim=1)
 
@@ -42,7 +48,9 @@ def filter_matches(scores: Tensor, threshold: float) -> tuple[Tensor, Tensor, Te
     match_scores0 = max0.values.exp()
     zero = match_scores0.new_tensor(0.0)
     match_scores0 = torch.where(mutual0, match_scores0, zero)
-    match_scores1 = torch.where(mutual1, match_scores0.gather(1, matches1), zero)
+    match_scores1 = torch.where(
+        mutual1, match_scores0.gather(1, matches1), zero
+    )
 
     valid0 = mutual0 & (match_scores0 > threshold)
     valid1 = mutual1 & valid0.gather(1, matches1)
@@ -63,15 +71,23 @@ def apply_rotary_encoding(encoding: Tensor, x: Tensor) -> Tensor:
     return (x * encoding[0]) + (rotate_half(x) * encoding[1])
 
 
-def scaled_attention(query: Tensor, key: Tensor, value: Tensor, mask: Tensor) -> Tensor:
-    similarity = torch.einsum("bhid,bhjd->bhij", query, key) * query.shape[3] ** -0.5
+def scaled_attention(
+    query: Tensor, key: Tensor, value: Tensor, mask: Tensor
+) -> Tensor:
+    similarity = (
+        torch.einsum("bhid,bhjd->bhij", query, key) * query.shape[3] ** -0.5
+    )
     attention = torch.softmax(similarity.masked_fill(~mask, -1.0e9), dim=3)
     return torch.einsum("bhij,bhjd->bhid", attention, value)
 
 
-def exportable_self_attention(block: nn.Module, x: Tensor, encoding: Tensor, valid: Tensor) -> Tensor:
+def exportable_self_attention(
+    block: nn.Module, x: Tensor, encoding: Tensor, valid: Tensor
+) -> Tensor:
     batch_size, keypoint_count, _ = x.shape
-    qkv = block.Wqkv(x).reshape(batch_size, keypoint_count, block.num_heads, block.head_dim, 3)
+    qkv = block.Wqkv(x).reshape(
+        batch_size, keypoint_count, block.num_heads, block.head_dim, 3
+    )
     qkv = qkv.permute(0, 2, 1, 3, 4)
 
     query = apply_rotary_encoding(encoding, qkv[..., 0])
@@ -80,7 +96,9 @@ def exportable_self_attention(block: nn.Module, x: Tensor, encoding: Tensor, val
     mask = valid[:, None, :, None] & valid[:, None, None, :]
 
     context = scaled_attention(query, key, value, mask)
-    context = context.permute(0, 2, 1, 3).reshape(batch_size, keypoint_count, block.num_heads * block.head_dim)
+    context = context.permute(0, 2, 1, 3).reshape(
+        batch_size, keypoint_count, block.num_heads * block.head_dim
+    )
     message = block.out_proj(context)
     return x + block.ffn(torch.cat([x, message], dim=2))
 
@@ -97,10 +115,26 @@ def exportable_cross_attention(
     head_count = block.heads
     head_dim = block.to_qk.out_features // head_count
 
-    qk0 = block.to_qk(x0).reshape(batch_size, keypoint_count0, head_count, head_dim).permute(0, 2, 1, 3)
-    qk1 = block.to_qk(x1).reshape(batch_size, keypoint_count1, head_count, head_dim).permute(0, 2, 1, 3)
-    v0 = block.to_v(x0).reshape(batch_size, keypoint_count0, head_count, head_dim).permute(0, 2, 1, 3)
-    v1 = block.to_v(x1).reshape(batch_size, keypoint_count1, head_count, head_dim).permute(0, 2, 1, 3)
+    qk0 = (
+        block.to_qk(x0)
+        .reshape(batch_size, keypoint_count0, head_count, head_dim)
+        .permute(0, 2, 1, 3)
+    )
+    qk1 = (
+        block.to_qk(x1)
+        .reshape(batch_size, keypoint_count1, head_count, head_dim)
+        .permute(0, 2, 1, 3)
+    )
+    v0 = (
+        block.to_v(x0)
+        .reshape(batch_size, keypoint_count0, head_count, head_dim)
+        .permute(0, 2, 1, 3)
+    )
+    v1 = (
+        block.to_v(x1)
+        .reshape(batch_size, keypoint_count1, head_count, head_dim)
+        .permute(0, 2, 1, 3)
+    )
 
     qk0 = qk0 * block.scale**0.5
     qk1 = qk1 * block.scale**0.5
@@ -111,11 +145,17 @@ def exportable_cross_attention(
     message0 = torch.einsum("bhij,bhjd->bhid", attention01, v1)
 
     mask10 = mask01.permute(0, 1, 3, 2)
-    attention10 = torch.softmax(similarity.permute(0, 1, 3, 2).masked_fill(~mask10, -1.0e9), dim=3)
+    attention10 = torch.softmax(
+        similarity.permute(0, 1, 3, 2).masked_fill(~mask10, -1.0e9), dim=3
+    )
     message1 = torch.einsum("bhij,bhjd->bhid", attention10, v0)
 
-    message0 = message0.permute(0, 2, 1, 3).reshape(batch_size, keypoint_count0, head_count * head_dim)
-    message1 = message1.permute(0, 2, 1, 3).reshape(batch_size, keypoint_count1, head_count * head_dim)
+    message0 = message0.permute(0, 2, 1, 3).reshape(
+        batch_size, keypoint_count0, head_count * head_dim
+    )
+    message1 = message1.permute(0, 2, 1, 3).reshape(
+        batch_size, keypoint_count1, head_count * head_dim
+    )
     message0 = block.to_out(message0)
     message1 = block.to_out(message1)
 
@@ -133,9 +173,15 @@ def exportable_transformer_layer(
     valid0: Tensor,
     valid1: Tensor,
 ) -> tuple[Tensor, Tensor]:
-    desc0 = exportable_self_attention(transformer.self_attn, desc0, encoding0, valid0)
-    desc1 = exportable_self_attention(transformer.self_attn, desc1, encoding1, valid1)
-    return exportable_cross_attention(transformer.cross_attn, desc0, desc1, valid0, valid1)
+    desc0 = exportable_self_attention(
+        transformer.self_attn, desc0, encoding0, valid0
+    )
+    desc1 = exportable_self_attention(
+        transformer.self_attn, desc1, encoding1, valid1
+    )
+    return exportable_cross_attention(
+        transformer.cross_attn, desc0, desc1, valid0, valid1
+    )
 
 
 def exportable_assignment_scores(
@@ -154,14 +200,22 @@ def exportable_assignment_scores(
     similarity = torch.einsum("bmd,bnd->bmn", projected0, projected1)
     matchability0 = assignment.matchability(desc0)
     matchability1 = assignment.matchability(desc1)
-    certainties = F.logsigmoid(matchability0) + F.logsigmoid(matchability1).permute(0, 2, 1)
-    scores0 = F.log_softmax(similarity.masked_fill(~valid1[:, None, :], -1.0e9), dim=2)
+    certainties = F.logsigmoid(matchability0) + F.logsigmoid(
+        matchability1
+    ).permute(0, 2, 1)
+    scores0 = F.log_softmax(
+        similarity.masked_fill(~valid1[:, None, :], -1.0e9), dim=2
+    )
     scores1 = F.log_softmax(
-        similarity.permute(0, 2, 1).contiguous().masked_fill(~valid0[:, None, :], -1.0e9),
+        similarity.permute(0, 2, 1)
+        .contiguous()
+        .masked_fill(~valid0[:, None, :], -1.0e9),
         dim=2,
     ).permute(0, 2, 1)
     scores = scores0 + scores1 + certainties
-    return scores.masked_fill(~(valid0[:, :, None] & valid1[:, None, :]), -1.0e9)
+    return scores.masked_fill(
+        ~(valid0[:, :, None] & valid1[:, None, :]), -1.0e9
+    )
 
 
 class LighterGlueFixedWrapper(nn.Module):
@@ -190,25 +244,49 @@ class LighterGlueFixedWrapper(nn.Module):
         encoding1 = self.matcher.posenc(keypoints1)
 
         for transformer in self.matcher.transformers:
-            desc0, desc1 = exportable_transformer_layer(transformer, desc0, desc1, encoding0, encoding1, valid0, valid1)
+            desc0, desc1 = exportable_transformer_layer(
+                transformer, desc0, desc1, encoding0, encoding1, valid0, valid1
+            )
 
-        scores = exportable_assignment_scores(self.matcher.log_assignment[-1], desc0, desc1, valid0, valid1)
-        matches0, matches1, match_scores0, match_scores1 = filter_matches(scores, self.min_confidence)
-        matches0, match_scores0 = self._mask_matches(matches0, match_scores0, valid0, valid1)
-        matches1, match_scores1 = self._mask_matches(matches1, match_scores1, valid1, valid0)
+        scores = exportable_assignment_scores(
+            self.matcher.log_assignment[-1], desc0, desc1, valid0, valid1
+        )
+        matches0, matches1, match_scores0, match_scores1 = filter_matches(
+            scores, self.min_confidence
+        )
+        matches0, match_scores0 = self._mask_matches(
+            matches0, match_scores0, valid0, valid1
+        )
+        matches1, match_scores1 = self._mask_matches(
+            matches1, match_scores1, valid1, valid0
+        )
 
-        return matches0.to(dtype=torch.int32), matches1.to(dtype=torch.int32), match_scores0, match_scores1
+        return (
+            matches0.to(dtype=torch.int32),
+            matches1.to(dtype=torch.int32),
+            match_scores0,
+            match_scores1,
+        )
 
     @staticmethod
-    def _mask_matches(matches: Tensor, scores: Tensor, valid_source: Tensor, valid_target: Tensor) -> tuple[Tensor, Tensor]:
+    def _mask_matches(
+        matches: Tensor,
+        scores: Tensor,
+        valid_source: Tensor,
+        valid_target: Tensor,
+    ) -> tuple[Tensor, Tensor]:
         safe_matches = matches.clamp(min=0)
         target_valid = valid_target.gather(1, safe_matches)
         valid_match = valid_source & (matches >= 0) & target_valid
         valid_score = valid_source & ((matches < 0) | target_valid)
-        return torch.where(valid_match, matches, matches.new_tensor(-1)), torch.where(valid_score, scores, scores.new_tensor(0.0))
+        return torch.where(
+            valid_match, matches, matches.new_tensor(-1)
+        ), torch.where(valid_score, scores, scores.new_tensor(0.0))
 
 
-def dynamic_batch_axes(input_names: list[str], output_names: list[str]) -> dict[str, dict[int, str]]:
+def dynamic_batch_axes(
+    input_names: list[str], output_names: list[str]
+) -> dict[str, dict[int, str]]:
     return {name: {0: "batch_size"} for name in [*input_names, *output_names]}
 
 
@@ -221,10 +299,28 @@ def dynamic_batch_axes(input_names: list[str], output_names: list[str]) -> dict[
     default=None,
     help="Path to the XFeat LighterGlue .pt weights. Defaults to the accelerated-features package weights.",
 )
-@click.option("--keypoints", "keypoint_count", default=512, show_default=True, help="Fixed keypoint count.")
-@click.option("--min-confidence", default=0.1, show_default=True, help="Minimum match confidence.")
-@click.option("--opset", default=20, show_default=True, help="ONNX opset version.")
-@click.option("--device", default="cpu", show_default=True, help="Torch export device, e.g. cpu or cuda:0.")
+@click.option(
+    "--keypoints",
+    "keypoint_count",
+    default=512,
+    show_default=True,
+    help="Fixed keypoint count.",
+)
+@click.option(
+    "--min-confidence",
+    default=0.1,
+    show_default=True,
+    help="Minimum match confidence.",
+)
+@click.option(
+    "--opset", default=20, show_default=True, help="ONNX opset version."
+)
+@click.option(
+    "--device",
+    default="cpu",
+    show_default=True,
+    help="Torch export device, e.g. cpu or cuda:0.",
+)
 @click.option("--dynamic-batch", is_flag=True, help="Mark batch axes dynamic.")
 def main(
     export_path: Path,
@@ -239,11 +335,17 @@ def main(
     if keypoint_count <= 0:
         raise click.BadParameter("--keypoints must be > 0")
 
-    wrapper = LighterGlueFixedWrapper(weights_path or default_weights_path(), min_confidence=min_confidence).to(device)
+    wrapper = LighterGlueFixedWrapper(
+        weights_path or default_weights_path(), min_confidence=min_confidence
+    ).to(device)
     wrapper.eval()
 
-    keypoints = torch.zeros((1, keypoint_count, 2), dtype=torch.float32, device=device)
-    descriptors = torch.zeros((1, keypoint_count, 64), dtype=torch.float32, device=device)
+    keypoints = torch.zeros(
+        (1, keypoint_count, 2), dtype=torch.float32, device=device
+    )
+    descriptors = torch.zeros(
+        (1, keypoint_count, 64), dtype=torch.float32, device=device
+    )
     valid = torch.ones((1, keypoint_count), dtype=torch.bool, device=device)
 
     input_names = [
@@ -254,7 +356,12 @@ def main(
         "valid0",
         "valid1",
     ]
-    output_names = ["matches0", "matches1", "matching_scores0", "matching_scores1"]
+    output_names = [
+        "matches0",
+        "matches1",
+        "matching_scores0",
+        "matching_scores1",
+    ]
 
     export_path.parent.mkdir(parents=True, exist_ok=True)
     torch.onnx.export(
@@ -263,13 +370,17 @@ def main(
         export_path,
         input_names=input_names,
         output_names=output_names,
-        dynamic_axes=dynamic_batch_axes(input_names, output_names) if dynamic_batch else None,
+        dynamic_axes=dynamic_batch_axes(input_names, output_names)
+        if dynamic_batch
+        else None,
         opset_version=opset,
         external_data=False,
         dynamo=False,
     )
 
-    click.echo(f"Exported LighterGlue ONNX model to: {os.path.abspath(export_path)}")
+    click.echo(
+        f"Exported LighterGlue ONNX model to: {os.path.abspath(export_path)}"
+    )
 
 
 if __name__ == "__main__":

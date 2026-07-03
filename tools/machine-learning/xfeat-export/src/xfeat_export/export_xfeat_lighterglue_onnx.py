@@ -68,9 +68,16 @@ class XFeatLighterGlueWrapper(nn.Module):
         current_left_rgb = self.extractor._preprocess(current_left)
         current_right_rgb = self.extractor._preprocess(current_right)
         rgb_images = torch.cat([current_left_rgb, current_right_rgb], dim=0)
-        keypoints, descriptors, _, valid = self.extractor.forward_rgb(rgb_images)
+        keypoints, descriptors, _, valid = self.extractor.forward_rgb(
+            rgb_images
+        )
 
-        stereo_matches, stereo_reverse_matches, stereo_scores, stereo_reverse_scores = self.matcher(
+        (
+            stereo_matches,
+            stereo_reverse_matches,
+            stereo_scores,
+            stereo_reverse_scores,
+        ) = self.matcher(
             keypoints[0:1],
             keypoints[1:2],
             descriptors[0:1],
@@ -78,7 +85,12 @@ class XFeatLighterGlueWrapper(nn.Module):
             valid[0:1],
             valid[1:2],
         )
-        temporal_matches, temporal_reverse_matches, temporal_scores, temporal_reverse_scores = self.matcher(
+        (
+            temporal_matches,
+            temporal_reverse_matches,
+            temporal_scores,
+            temporal_reverse_scores,
+        ) = self.matcher(
             previous_left_keypoints.unsqueeze(0),
             keypoints[0:1],
             previous_left_descriptors.unsqueeze(0),
@@ -113,7 +125,9 @@ def validate_exported_model(
 ) -> None:
     onnx.checker.check_model(onnx.load(export_path))
 
-    session = ort.InferenceSession(str(export_path), providers=["CPUExecutionProvider"])
+    session = ort.InferenceSession(
+        str(export_path), providers=["CPUExecutionProvider"]
+    )
     image_shape = [height // 2, width // 2, 6]
     expected_inputs = [
         ("current_left", "tensor(uint8)", image_shape),
@@ -122,7 +136,9 @@ def validate_exported_model(
         ("previous_left_descriptors", "tensor(float)", [keypoint_count, 64]),
         ("previous_left_valid", "tensor(bool)", [keypoint_count]),
     ]
-    actual_inputs = [(input.name, input.type, input.shape) for input in session.get_inputs()]
+    actual_inputs = [
+        (input.name, input.type, input.shape) for input in session.get_inputs()
+    ]
     if actual_inputs != expected_inputs:
         raise RuntimeError(f"unexpected ONNX inputs: {actual_inputs}")
 
@@ -200,10 +216,17 @@ def run_validation_inference(
     for name, (dtype, shape) in expected_outputs.items():
         output = outputs[name]
         if output.dtype != dtype or output.shape != shape:
-            raise RuntimeError(f"unexpected {name}: dtype={output.dtype}, shape={output.shape}")
-        if np.issubdtype(output.dtype, np.floating) and not np.isfinite(output).all():
+            raise RuntimeError(
+                f"unexpected {name}: dtype={output.dtype}, shape={output.shape}"
+            )
+        if (
+            np.issubdtype(output.dtype, np.floating)
+            and not np.isfinite(output).all()
+        ):
             raise RuntimeError(f"{name} contains non-finite values")
-        if "matches" in name and not (((output == -1) | ((0 <= output) & (output < keypoint_count))).all()):
+        if "matches" in name and not (
+            ((output == -1) | ((0 <= output) & (output < keypoint_count))).all()
+        ):
             raise RuntimeError(f"{name} contains out-of-range match indices")
 
     return outputs
@@ -223,13 +246,47 @@ def run_validation_inference(
     default=None,
     help="Path to the XFeat LighterGlue .pt weights. Defaults to the accelerated-features package weights.",
 )
-@click.option("--height", default=488, show_default=True, help="Full-resolution dummy image height.")
-@click.option("--width", default=544, show_default=True, help="Full-resolution dummy image width.")
-@click.option("--keypoints", "keypoint_count", default=512, show_default=True, help="Fixed keypoint count.")
-@click.option("--threshold", "detection_threshold", default=0.05, show_default=True, help="NMS detection threshold.")
-@click.option("--min-confidence", default=0.1, show_default=True, help="Minimum match confidence.")
-@click.option("--opset", default=20, show_default=True, help="ONNX opset version.")
-@click.option("--device", default="cpu", show_default=True, help="Torch export device, e.g. cpu or cuda:0.")
+@click.option(
+    "--height",
+    default=488,
+    show_default=True,
+    help="Full-resolution dummy image height.",
+)
+@click.option(
+    "--width",
+    default=544,
+    show_default=True,
+    help="Full-resolution dummy image width.",
+)
+@click.option(
+    "--keypoints",
+    "keypoint_count",
+    default=512,
+    show_default=True,
+    help="Fixed keypoint count.",
+)
+@click.option(
+    "--threshold",
+    "detection_threshold",
+    default=0.05,
+    show_default=True,
+    help="NMS detection threshold.",
+)
+@click.option(
+    "--min-confidence",
+    default=0.1,
+    show_default=True,
+    help="Minimum match confidence.",
+)
+@click.option(
+    "--opset", default=20, show_default=True, help="ONNX opset version."
+)
+@click.option(
+    "--device",
+    default="cpu",
+    show_default=True,
+    help="Torch export device, e.g. cpu or cuda:0.",
+)
 def main(
     export_path: Path,
     *,
@@ -258,9 +315,15 @@ def main(
 
     image_shape = (height // 2, width // 2, 6)
     dummy_image = torch.zeros(image_shape, dtype=torch.uint8, device=device)
-    dummy_keypoints = torch.zeros((keypoint_count, 2), dtype=torch.float32, device=device)
-    dummy_descriptors = torch.zeros((keypoint_count, 64), dtype=torch.float32, device=device)
-    dummy_valid = torch.zeros((keypoint_count,), dtype=torch.bool, device=device)
+    dummy_keypoints = torch.zeros(
+        (keypoint_count, 2), dtype=torch.float32, device=device
+    )
+    dummy_descriptors = torch.zeros(
+        (keypoint_count, 64), dtype=torch.float32, device=device
+    )
+    dummy_valid = torch.zeros(
+        (keypoint_count,), dtype=torch.bool, device=device
+    )
     input_names = [
         "current_left",
         "current_right",
@@ -288,7 +351,13 @@ def main(
     export_path.parent.mkdir(parents=True, exist_ok=True)
     torch.onnx.export(
         wrapper,
-        (dummy_image, dummy_image, dummy_keypoints, dummy_descriptors, dummy_valid),
+        (
+            dummy_image,
+            dummy_image,
+            dummy_keypoints,
+            dummy_descriptors,
+            dummy_valid,
+        ),
         export_path,
         input_names=input_names,
         output_names=output_names,
@@ -299,7 +368,9 @@ def main(
     )
     validate_exported_model(export_path, height, width, keypoint_count)
 
-    click.echo(f"Exported fused XFeat/LighterGlue ONNX model to: {os.path.abspath(export_path)}")
+    click.echo(
+        f"Exported fused XFeat/LighterGlue ONNX model to: {os.path.abspath(export_path)}"
+    )
 
 
 if __name__ == "__main__":

@@ -12,9 +12,9 @@ color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
 eframe = { workspace = true }
 egui_bevy = { workspace = true }
+field_mark_association = { workspace = true }
 image = { workspace = true }
 kinematics = { workspace = true }
-field_mark_association = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 projection = { workspace = true }
