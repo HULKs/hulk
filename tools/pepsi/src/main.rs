@@ -9,7 +9,6 @@ use color_eyre::{
 use repository::{Repository, inspect_version::check_for_update};
 
 use aliveness::aliveness;
-use analyze::analyze;
 use boosterize::boosterize;
 use cargo::{build, cargo, check, clippy, install, nextest, run, test};
 use completions::completions;
@@ -33,7 +32,6 @@ use upload::upload;
 use wifi::wifi;
 
 mod aliveness;
-mod analyze;
 mod boosterize;
 mod cargo;
 mod completions;
@@ -73,10 +71,6 @@ struct Arguments {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Analyze source code
-    #[clap(subcommand)]
-    #[command(visible_alias = "analysier")]
-    Analyze(analyze::Arguments),
     /// Boosterize Robots (enable booster services)
     #[command(visible_alias = "boost")]
     Boosterize(boosterize::Arguments),
@@ -209,9 +203,6 @@ async fn main() -> Result<()> {
     }
 
     match arguments.command {
-        Command::Analyze(arguments) => analyze(arguments, repository)
-            .await
-            .wrap_err("failed to execute analyze command")?,
         Command::Aliveness(arguments) => aliveness(arguments, repository)
             .await
             .wrap_err("failed to execute aliveness command")?,

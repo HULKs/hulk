@@ -25,7 +25,6 @@ repository = { workspace = true }
 robot = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-source_analyzer = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }

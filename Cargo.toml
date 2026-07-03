@@ -3,35 +3,25 @@ members = [
   "crates/aliveness",
   "crates/approx_derive",
   "crates/argument_parsers",
-  "crates/audio",
   "crates/bevy_mujoco",
   "crates/bevyhavior_simulator",
   "crates/booster",
-  "crates/buffered_watch",
   "crates/calibration",
-  "crates/code_generation",
-  "crates/communication",
-  "crates/context_attribute",
   "crates/coordinate_systems",
   "crates/egui_bevy",
   "crates/energy_optimization",
   "crates/filtering",
-  "crates/framework",
   "crates/geometry",
-  "crates/hardware",
   "crates/hsl_network",
   "crates/hsl_network_messages",
   "crates/hula_types",
-  "crates/hulk_manifest",
   "crates/hulk_ros_z",
   "crates/hulk_widgets",
   "crates/hungarian_algorithm",
-  "crates/hydra",
   "crates/kinematics",
   "crates/linear_algebra",
   "crates/localization-factrs",
   "crates/microphones",
-  "crates/motion",
   "crates/motionfile",
   "crates/nodes/active_vision",
   "crates/nodes/ball_filter",
@@ -86,10 +76,7 @@ members = [
   "crates/nodes/world_state_composer",
   "crates/nodes/world_to_field_provider",
   "crates/opn",
-  "crates/parameters",
   "crates/path_planner",
-  "crates/path_serde",
-  "crates/path_serde_derive",
   "crates/projection",
   "crates/ransac",
   "crates/repository",
@@ -101,13 +88,9 @@ members = [
   "crates/ros-z-schema",
   "crates/ros-z-streams",
   "crates/ros2",
-  "crates/sensor_receiver",
   "crates/simulation_message",
-  "crates/source_analyzer",
   "crates/types",
-  "crates/vision",
   "crates/voronoi",
-  "crates/walking_inference",
   "crates/x5_receiver",
   "crates/zed",
   "tools/annotato",
@@ -141,7 +124,6 @@ approx_derive = { path = "crates/approx_derive" }
 arc-swap = "1.7"
 argument_parsers = { path = "crates/argument_parsers" }
 atty = "0.2.14"
-audio = { path = "crates/audio" }
 ball_filter = { path = "crates/nodes/ball_filter" }
 ball_state_composer = { path = "crates/nodes/ball_state_composer" }
 bat = { version = "0.25.0", default-features = false, features = [
@@ -157,7 +139,6 @@ bindgen = "0.71.1"
 blake3 = { version = "1.8.2", features = ["mmap", "serde"] }
 booster = { path = "crates/booster" }
 booster_sdk_interface = { path = "crates/nodes/booster_sdk_interface" }
-buffered_watch = { path = "crates/buffered_watch" }
 button_event_bridge = { path = "crates/nodes/button_event_bridge" }
 button_event_handler = { path = "crates/nodes/button_event_handler" }
 bytemuck = "1"
@@ -169,10 +150,7 @@ cdr = "0.2.4"
 chrono = "0.4.39"
 clap = { version = "4.5.29", features = ["derive", "env"] }
 clap_complete = "4.5.44"
-code_generation = { path = "crates/code_generation" }
 color-eyre = "0.6.3"
-communication = { path = "crates/communication" }
-context_attribute = { path = "crates/context_attribute" }
 convert_case = "0.7.1"
 coordinate_systems = { path = "crates/coordinate_systems" }
 ctrlc = { version = "3.4.5", features = ["termination"] }
@@ -203,7 +181,6 @@ field_border_detection = { path = "crates/nodes/field_border_detection" }
 field_mark_association = { path = "crates/nodes/field_mark_association" }
 filtering = { path = "crates/filtering" }
 flume = "0.11.1"
-framework = { path = "crates/framework" }
 futures-util = "0.3.31"
 game_controller_filter = { path = "crates/nodes/game_controller_filter" }
 game_controller_state_filter = { path = "crates/nodes/game_controller_state_filter" }
@@ -212,18 +189,15 @@ gilrs = "0.11.0"
 glob = "0.3.2"
 global_parameter_provider = { path = "crates/nodes/global_parameter_provider" }
 ground_provider = { path = "crates/nodes/ground_provider" }
-hardware = { path = "crates/hardware" }
 head_motion = { path = "crates/nodes/head_motion" }
 hex = "0.4"
 home = "=0.5.9"
 hsl_network = { path = "crates/hsl_network" }
 hsl_network_messages = { path = "crates/hsl_network_messages" }
 hula_types = { path = "crates/hula_types" }
-hulk_manifest = { path = "crates/hulk_manifest" }
 hulk_widgets = { path = "crates/hulk_widgets" }
 humantime = "2.3.0"
 hungarian_algorithm = { path = "crates/hungarian_algorithm" }
-hydra = { path = "crates/hydra" }
 image = { version = "0.25.5", default-features = false, features = ["jpeg"] }
 image_receiver = { path = "crates/nodes/image_receiver" }
 image_segmenter = { path = "crates/nodes/image_segmenter" }
@@ -256,7 +230,6 @@ message_handler = { path = "crates/nodes/message_handler" }
 microphone_recorder = { path = "crates/nodes/microphone_recorder" }
 microphones = { path = "crates/microphones" }
 mlua = { version = "0.10.3", features = ["luajit", "serialize", "vendored"] }
-motion = { path = "crates/motion" }
 motionfile = { path = "crates/motionfile" }
 motor_commands_collector = { path = "crates/nodes/motor_commands_collector" }
 nalgebra = { version = "0.34.2", features = [
@@ -279,7 +252,6 @@ opn = { path = "crates/opn" }
 optimization_engine = "0.9.1"
 ordered-float = "4.6.0"
 ort = "=2.0.0-rc.10"
-parameters = { path = "crates/parameters" }
 parking_lot = "0.12.3"
 parry2d = { version = "0.26.0", default-features = false, features = [
   "alloc",
@@ -287,8 +259,6 @@ parry2d = { version = "0.26.0", default-features = false, features = [
 ] }
 paste = "1.0"
 path_planner = { path = "crates/path_planner" }
-path_serde = { path = "crates/path_serde" }
-path_serde_derive = { path = "crates/path_serde_derive" }
 pathdiff = "0.2.3"
 pathfinding = "<=4.10.0"
 player_states_receiver = { path = "crates/nodes/player_states_receiver" }
@@ -328,7 +298,6 @@ scenario = { path = "crates/scenario" }
 search_suggestor = { path = "crates/nodes/search_suggestor" }
 segment_filter = { path = "crates/nodes/segment_filter" }
 semver = "1.0.25"
-sensor_receiver = { path = "crates/sensor_receiver" }
 serde = { version = "1.0.228", features = ["derive", "rc"] }
 serde_bytes = "0.11.15"
 serde_ignored = "0.1.10"
@@ -338,7 +307,6 @@ sha2 = "0.10.8"
 simba = "0.9.0"
 simulation_message = { path = "crates/simulation_message" }
 smallvec = "1.14.0"
-source_analyzer = { path = "crates/source_analyzer" }
 splines = { version = "=4.2.0", features = ["serde"] }
 stereo_visual_odometry = { path = "crates/nodes/stereo_visual_odometry" }
 support_foot_estimator = { path = "crates/nodes/support_foot_estimator" }
@@ -360,9 +328,7 @@ trigger = { path = "crates/nodes/trigger" }
 trybuild = "1.0"
 types = { path = "crates/types" }
 uuid = { version = "1.12.1", features = ["v4"] }
-vision = { path = "crates/vision" }
 voronoi = { path = "crates/voronoi" }
-walking_inference = { path = "crates/walking_inference" }
 wgpu = "27.0.0"
 whistle_detection = { path = "crates/nodes/whistle_detection" }
 whistle_filter = { path = "crates/nodes/whistle_filter" }
