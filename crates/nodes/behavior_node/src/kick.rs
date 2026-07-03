@@ -41,7 +41,7 @@ pub fn kick_alternatives_subtree() -> Node<Blackboard> {
 
 pub fn kick(blackboard: &mut Blackboard) -> Status {
     if let (Some(ball), Some(ground_to_field)) = (
-        &blackboard.projected_ball,
+        &blackboard.visual_kick_ball_position,
         &blackboard.world_state.robot.ground_to_field,
     ) {
         let ball_in_ground = ball.position;
@@ -79,7 +79,7 @@ pub(super) fn apply_visual_kick_target(
 ) -> Status {
     if let (Some(ground_to_field), Some(ball)) = (
         blackboard.world_state.robot.ground_to_field,
-        &blackboard.projected_ball,
+        &blackboard.visual_kick_ball_position,
     ) {
         let field_to_ground = ground_to_field.inverse();
         let target_position = field_to_ground * target_position_in_field;
@@ -173,7 +173,7 @@ pub fn intercept(_blackboard: &mut Blackboard) -> Status {
 pub fn set_kick_target_in_front(blackboard: &mut Blackboard) -> Status {
     if let (Some(ground_to_field), Some(ball)) = (
         blackboard.world_state.robot.ground_to_field,
-        &blackboard.projected_ball,
+        &blackboard.visual_kick_ball_position,
     ) {
         if blackboard.last_motion_type != Some(MotionType::Kick) {
             let kick_target = ground_to_field * point!(3.0, 0.0);

@@ -51,7 +51,7 @@ pub struct Blackboard {
     pub voronoi_inputs: Vec<Pose2<Field>>,
 
     pub ball: Option<LastBall>,
-    pub projected_ball: Option<BallPosition<Ground>>,
+    pub visual_kick_ball_position: Option<BallPosition<Ground>>,
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
     pub last_kick_target: Option<Point2<Field>>,
@@ -163,8 +163,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-    let projected_ball_cache = node
-        .subscriber::<Option<BallPosition<Ground>>>("projected_ball_percept/ball_position")
+    let visual_kick_ball_position_cache = node
+        .subscriber::<Option<BallPosition<Ground>>>("visual_kick/ball_position")
         .cache(1)
         .build()
         .await?;
@@ -268,7 +268,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         voronoi_inputs: Vec::new(),
 
         ball: None,
-        projected_ball: None,
+        visual_kick_ball_position: None,
         last_ball: None,
         last_close_enough_to_kick: false,
         last_kick_target: None,
@@ -330,9 +330,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         };
 
         blackboard.world_state.ball = ball_state_cache.get_latest().and_then(|ball| *ball);
-        blackboard.projected_ball = projected_ball_cache
+        blackboard.visual_kick_ball_position = visual_kick_ball_position_cache
             .get_latest()
-            .and_then(|projected_ball| *projected_ball);
+            .and_then(|ball_position| *ball_position);
         blackboard.world_state.fall_down_state = fall_down_state_cache
             .get_latest()
             .map(|fall_down_state| *fall_down_state.as_ref());

@@ -69,7 +69,7 @@ members = [
   "crates/nodes/odometer_bridge",
   "crates/nodes/player_states_receiver",
   "crates/nodes/primary_state_filter",
-  "crates/nodes/projected_ball_percept",
+  "crates/nodes/visual_kick_ball_selector",
   "crates/nodes/rule_obstacle_composer",
   "crates/nodes/safe_pose_checker",
   "crates/nodes/search_suggestor",
@@ -292,7 +292,7 @@ player_states_receiver = { path = "crates/nodes/player_states_receiver" }
 png = "0.18.1"
 prettyplease = "0.2.29"
 primary_state_filter = { path = "crates/nodes/primary_state_filter" }
-projected_ball_percept = { path = "crates/nodes/projected_ball_percept" }
+visual_kick_ball_selector = { path = "crates/nodes/visual_kick_ball_selector" }
 proc-macro-error = "1.0.4"
 proc-macro2 = { version = "1.0.93", features = ["span-locations"] }
 projection = { path = "crates/projection" }
