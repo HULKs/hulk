@@ -169,4 +169,5 @@
       secs: 0,
     },
   },
+  is_simple: false,
 }

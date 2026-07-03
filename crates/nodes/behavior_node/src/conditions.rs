@@ -200,3 +200,7 @@ pub fn is_last_hulk_standing(blackboard: &mut Blackboard) -> bool {
             player_number == own_player_number || player_state.is_none()
         })
 }
+
+pub fn is_simple(blackboard: &mut Blackboard) -> bool {
+    blackboard.parameters.is_simple
+}
