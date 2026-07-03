@@ -11,4 +11,5 @@ log = { workspace = true }
 microphones = { workspace = true }
 ros-z = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true }
 types = { workspace = true }

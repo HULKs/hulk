@@ -8,6 +8,7 @@ use ndarray::{Array2, array};
 use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
 use ros_z::{prelude::*, qos::QosDurability};
 use std::{boxed::Box, f32::consts, future::Future, pin::Pin, sync::Arc, time::Duration};
+use tokio::task::block_in_place;
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::FieldDimensions,
@@ -19,6 +20,11 @@ use types::{
 };
 mod heatmap;
 use heatmap::Heatmap;
+
+struct SearchSuggestorOutput {
+    suggested_search_position: Option<Point2<Field>>,
+    additional_heatmap: Option<types::heatmap::Heatmap>,
+}
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -114,103 +120,135 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .map(|ground_to_field| *ground_to_field);
         let primary_state = primary_state_cache.get_latest();
         let primary_state = primary_state.as_deref();
-        let mut ball_was_seen = false;
+
+        let mut ball_positions = Vec::new();
+        let mut hypothetical_ball_positions = Vec::new();
+        let mut network_messages = Vec::new();
+        let mut filtered_game_controller_states = Vec::new();
 
         while ball_position_sub.is_ready() {
-            let ball_position = ball_position_sub.recv().await?;
-            if let (Some(ball_position), Some(ground_to_field)) = (ball_position, ground_to_field) {
-                ball_was_seen = true;
-                heatmap.update_with_ball_position(field_dimensions, ball_position, ground_to_field);
-            }
+            ball_positions.push(ball_position_sub.recv().await?);
         }
         while hypothetical_ball_positions_sub.is_ready() {
-            if let Some(ground_to_field) = ground_to_field {
-                heatmap.update_with_hypothetical_ball_positions(
-                    field_dimensions,
-                    hypothetical_ball_positions_sub.recv().await?,
-                    ground_to_field,
-                    parameters,
-                );
-            } else {
-                hypothetical_ball_positions_sub.recv().await?;
-            }
+            hypothetical_ball_positions.push(hypothetical_ball_positions_sub.recv().await?);
         }
         while network_message_sub.is_ready() {
-            heatmap.update_with_team_ball(
-                field_dimensions,
-                network_message_sub.recv().await?,
-                parameters,
-            );
+            network_messages.push(network_message_sub.recv().await?);
         }
         while filtered_game_controller_state_sub.is_ready() {
+            filtered_game_controller_states.push(filtered_game_controller_state_sub.recv().await?);
+        }
+
+        let output = block_in_place(|| {
+            let mut ball_was_seen = false;
+
+            for ball_position in ball_positions {
+                if let (Some(ball_position), Some(ground_to_field)) =
+                    (ball_position, ground_to_field)
+                {
+                    ball_was_seen = true;
+                    heatmap.update_with_ball_position(
+                        field_dimensions,
+                        ball_position,
+                        ground_to_field,
+                    );
+                }
+            }
+            if let Some(ground_to_field) = ground_to_field {
+                for hypothetical_ball_positions in hypothetical_ball_positions {
+                    heatmap.update_with_hypothetical_ball_positions(
+                        field_dimensions,
+                        hypothetical_ball_positions,
+                        ground_to_field,
+                        parameters,
+                    );
+                }
+            }
+            for network_message in network_messages {
+                heatmap.update_with_team_ball(field_dimensions, network_message, parameters);
+            }
             if let Some(primary_state) = primary_state {
-                heatmap.update_with_rule_ball(
-                    &filtered_game_controller_state_sub.recv().await?,
-                    &field_dimensions,
-                    primary_state,
-                    parameters,
+                for filtered_game_controller_state in filtered_game_controller_states {
+                    heatmap.update_with_rule_ball(
+                        &filtered_game_controller_state,
+                        &field_dimensions,
+                        primary_state,
+                        parameters,
+                    );
+                }
+            }
+
+            if !ball_was_seen && let Some(ground_to_field) = ground_to_field {
+                let robot_position = ground_to_field.as_pose().position().coords();
+                let body_orientation = ground_to_field.orientation().angle();
+                let fov_angle_offset = 45.0 * consts::PI / 180.0;
+                let left_angle = body_orientation - fov_angle_offset;
+                let right_angle = body_orientation + fov_angle_offset;
+                let left_edge: Vector2<Field> = vector!(left_angle.cos(), left_angle.sin());
+                let right_edge: Vector2<Field> = vector!(right_angle.cos(), right_angle.sin());
+
+                heatmap.decay_tiles_in_fov(
+                    field_dimensions,
+                    robot_position,
+                    left_edge,
+                    right_edge,
+                    parameters.decay_distance_factor,
+                    parameters.heatmap_decay_range.clone(),
                 );
-            } else {
-                filtered_game_controller_state_sub.recv().await?;
             }
-        }
 
-        if !ball_was_seen && let Some(ground_to_field) = ground_to_field {
-            let robot_position = ground_to_field.as_pose().position().coords();
-            let body_orientation = ground_to_field.orientation().angle();
-            let fov_angle_offset = 45.0 * consts::PI / 180.0;
-            let left_angle = body_orientation - fov_angle_offset;
-            let right_angle = body_orientation + fov_angle_offset;
-            let left_edge: Vector2<Field> = vector!(left_angle.cos(), left_angle.sin());
-            let right_edge: Vector2<Field> = vector!(right_angle.cos(), right_angle.sin());
+            let kernel = create_kernel(parameters.heatmap_convolution_kernel_weight);
+            heatmap.map = heatmap
+                .map
+                .conv(&kernel, ConvMode::Same, PaddingMode::Replicate)
+                .wrap_err("heatmap convolution failed")?;
+            heatmap.map /= heatmap.map.sum();
 
-            heatmap.decay_tiles_in_fov(
-                field_dimensions,
-                robot_position,
-                left_edge,
-                right_edge,
-                parameters.decay_distance_factor,
-                parameters.heatmap_decay_range.clone(),
-            );
-        }
+            if !heatmap.has_decided_for_heatmap_tile {
+                let suggested_search_index =
+                    heatmap.get_maximum_position(parameters.minimum_validity);
+                if suggested_search_index.is_some() {
+                    heatmap.has_decided_for_heatmap_tile = true;
+                }
+                heatmap.last_maximum_heatmap_position = suggested_search_index;
+            } else if let Some(last_maximum_heatmap_index) = heatmap.last_maximum_heatmap_position {
+                let global_max_value = heatmap
+                    .get_maximum_position(0.0)
+                    .map_or(0.0, |idx| heatmap.map[idx]);
+                let current_tile_value = heatmap.map[last_maximum_heatmap_index];
 
-        let kernel = create_kernel(parameters.heatmap_convolution_kernel_weight);
-        heatmap.map = heatmap
-            .map
-            .conv(&kernel, ConvMode::Same, PaddingMode::Replicate)
-            .wrap_err("heatmap convolution failed")?;
-        heatmap.map /= heatmap.map.sum();
-
-        if !heatmap.has_decided_for_heatmap_tile {
-            let suggested_search_index = heatmap.get_maximum_position(parameters.minimum_validity);
-            if suggested_search_index.is_some() {
-                heatmap.has_decided_for_heatmap_tile = true;
+                if current_tile_value < global_max_value * parameters.tile_switch_hysteresis {
+                    heatmap.has_decided_for_heatmap_tile = false;
+                }
             }
-            heatmap.last_maximum_heatmap_position = suggested_search_index;
-        } else if let Some(last_maximum_heatmap_index) = heatmap.last_maximum_heatmap_position {
-            let global_max_value = heatmap
-                .get_maximum_position(0.0)
-                .map_or(0.0, |idx| heatmap.map[idx]);
-            let current_tile_value = heatmap.map[last_maximum_heatmap_index];
 
-            if current_tile_value < global_max_value * parameters.tile_switch_hysteresis {
-                heatmap.has_decided_for_heatmap_tile = false;
-            }
-        }
+            let suggested_search_position = heatmap.last_maximum_heatmap_position.map(|(x, y)| {
+                point![
+                    ((x as f32 + 1.0 / 2.0) / heatmap.cells_per_meter
+                        - field_dimensions.length / 2.0),
+                    ((y as f32 + 1.0 / 2.0) / heatmap.cells_per_meter
+                        - field_dimensions.width / 2.0)
+                ]
+            });
+            let additional_heatmap = additional_heatmap_pub
+                .has_subscribers()
+                .then(|| heatmap.to_message());
 
-        if let Some((x, y)) = heatmap.last_maximum_heatmap_position {
-            let suggested_search_position = point![
-                ((x as f32 + 1.0 / 2.0) / heatmap.cells_per_meter - field_dimensions.length / 2.0),
-                ((y as f32 + 1.0 / 2.0) / heatmap.cells_per_meter - field_dimensions.width / 2.0)
-            ];
+            Ok::<_, color_eyre::eyre::Error>(SearchSuggestorOutput {
+                suggested_search_position,
+                additional_heatmap,
+            })
+        })?;
+
+        if let Some(suggested_search_position) = output.suggested_search_position {
             suggested_search_position_pub
                 .publish(&suggested_search_position)
                 .await?;
         }
 
-        additional_heatmap_pub
-            .publish_if_subscribed(|| async { heatmap.to_message() })
-            .await?;
+        if let Some(additional_heatmap) = output.additional_heatmap {
+            additional_heatmap_pub.publish(&additional_heatmap).await?;
+        }
     }
 }
 

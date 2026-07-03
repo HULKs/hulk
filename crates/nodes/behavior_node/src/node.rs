@@ -8,6 +8,7 @@ use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
 use ros_z::{prelude::*, qos::QosDurability, time::Time};
 use serde::{Deserialize, Serialize};
+use tokio::task::block_in_place;
 use tracing::info;
 use types::{
     ball_position::HypotheticalBallPosition,
@@ -367,7 +368,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             blackboard.ball = None;
         }
 
-        let (status, trace) = tree.tick_with_trace(&mut blackboard);
+        let (status, trace) = block_in_place(|| tree.tick_with_trace(&mut blackboard));
         let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
 
         let previous_motion_command = blackboard.last_motion_command.clone();

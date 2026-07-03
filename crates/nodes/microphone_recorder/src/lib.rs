@@ -6,6 +6,7 @@ use log::warn;
 
 use microphones::{parameters::Parameters as MicrophonesParameters, reader::Microphones};
 use ros_z::{context::Context, parameter::NodeParametersExt};
+use tokio::task::block_in_place;
 use types::samples::Samples;
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -24,7 +25,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters_snapshot = parameters.snapshot();
     let parameters = parameters_snapshot.typed();
-    let mut microphones = match Microphones::new(parameters.clone()) {
+    let mut microphones = match block_in_place(|| Microphones::new(parameters.clone())) {
         Ok(microphones) => microphones,
         Err(error) => {
             warn!("failed to create microphones: {error:#?}");
@@ -33,7 +34,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     };
 
     loop {
-        let samples = microphones.retrying_read()?;
+        let samples = block_in_place(|| microphones.retrying_read())?;
         microphones_samples_pub.publish(&samples).await?;
     }
 }
