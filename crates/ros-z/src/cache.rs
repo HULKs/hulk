@@ -37,6 +37,7 @@
 
 use parking_lot::RwLock;
 use std::collections::{BTreeMap, VecDeque};
+use std::future::Future;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tracing::{Instrument, debug, warn};
@@ -480,6 +481,7 @@ where
         let inner_cb = inner.clone();
         let node = sub_builder.context.node.fully_qualified_name();
         let topic = sub_builder.topic.clone();
+        let task_name = cache_task_name(&node, &topic, "zenoh");
 
         let raw_subscriber = sub_builder.raw().build().await?;
         let mut raw_subscriber_task = raw_subscriber;
@@ -490,7 +492,8 @@ where
             topic = %topic,
             stamp = "zenoh"
         );
-        let task = tokio::spawn(
+        let task = spawn_cache_task(
+            &task_name,
             async move {
                 loop {
                     let sample = match raw_subscriber_task.recv().await {
@@ -570,6 +573,7 @@ where
         let inner_cb = inner.clone();
         let node = sub_builder.context.node.fully_qualified_name();
         let topic = sub_builder.topic.clone();
+        let task_name = cache_task_name(&node, &topic, "extractor");
 
         let raw_subscriber = sub_builder.raw().build().await?;
         let mut raw_subscriber_task = raw_subscriber;
@@ -580,7 +584,8 @@ where
             topic = %topic,
             stamp = "extractor"
         );
-        let task = tokio::spawn(
+        let task = spawn_cache_task(
+            &task_name,
             async move {
                 loop {
                     let sample = match raw_subscriber_task.recv().await {
@@ -609,6 +614,32 @@ where
             _raw_subscriber_task: task,
         })
     }
+}
+
+fn cache_task_name(node: &str, topic: &str, stamp: &str) -> String {
+    format!("ros_z_cache:{node}:{topic}:{stamp}")
+}
+
+#[cfg(tokio_unstable)]
+fn spawn_cache_task<F>(name: &str, future: F) -> tokio::task::JoinHandle<F::Output>
+where
+    F: Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    tokio::task::Builder::new()
+        .name(name)
+        .spawn(future)
+        .unwrap_or_else(|error| panic!("failed to spawn {name} task: {error}"))
+}
+
+#[cfg(not(tokio_unstable))]
+fn spawn_cache_task<F>(name: &str, future: F) -> tokio::task::JoinHandle<F::Output>
+where
+    F: Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    let _ = name;
+    tokio::spawn(future)
 }
 
 #[cfg(test)]

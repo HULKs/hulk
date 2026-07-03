@@ -5,6 +5,9 @@ edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 
+[lints]
+workspace = true
+
 [package.metadata.pepsi]
 cross-compile = true
 

@@ -214,7 +214,28 @@ where
     F: Future<Output = Result<()>> + Send + 'static,
 {
     let span = tracing::info_span!(target: "runtime::hulk_ros_z", "hulk_ros_z_node", node);
-    join_set.spawn(future.instrument(span));
+    spawn_join_set_task(join_set, node, future.instrument(span));
+}
+
+#[cfg(tokio_unstable)]
+fn spawn_join_set_task<F>(join_set: &mut JoinSet<Result<()>>, node: &'static str, future: F)
+where
+    F: Future<Output = Result<()>> + Send + 'static,
+{
+    join_set
+        .build_task()
+        .name(node)
+        .spawn(future)
+        .unwrap_or_else(|error| panic!("failed to spawn {node} task: {error}"));
+}
+
+#[cfg(not(tokio_unstable))]
+fn spawn_join_set_task<F>(join_set: &mut JoinSet<Result<()>>, node: &'static str, future: F)
+where
+    F: Future<Output = Result<()>> + Send + 'static,
+{
+    let _ = node;
+    join_set.spawn(future);
 }
 
 async fn monitor(join_set: &mut JoinSet<Result<()>>) -> Result<()> {

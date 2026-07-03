@@ -133,6 +133,9 @@ edition = "2024"
 license = "GPL-3.0-only"
 homepage = "https://github.com/hulks/hulk"
 
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)'] }
+
 [workspace.dependencies]
 active_vision = { path = "crates/nodes/active_vision" }
 aliveness = { path = "crates/aliveness" }
