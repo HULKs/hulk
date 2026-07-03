@@ -74,7 +74,7 @@
     active_defense_maximum_robot_distance: 2.0,
     distance_to_goalpost: 0.15,
   },
-  striker_kickoff_position: [-0.5, 0.0],
+  striker_kickoff_position: [-1.5, 0.0],
   standard_kickoff_positions: {
     one: { position: [-3.5, 0.5], rotation: 0 },
     two: { position: [-3, -0.5], rotation: 0 },
