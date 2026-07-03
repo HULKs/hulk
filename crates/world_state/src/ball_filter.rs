@@ -16,7 +16,7 @@ use coordinate_systems::{Ground, Pixel};
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use geometry::circle::Circle;
 use linear_algebra::{IntoFramed, Isometry2};
-use projection::{Projection, camera_matrix::CameraMatrix};
+use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
     ball_detection::BallPercept,
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -319,7 +319,7 @@ fn mahalanobis_matrix_of_hypotheses_and_percepts(
         let ball = hypothesis.position();
 
         let residual = percept.percept_in_ground.mean - ball.position.inner.coords;
-        let covariance = hypothesis.position_covariance();
+        let covariance = hypothesis.position_covariance() + percept.percept_in_ground.covariance;
 
         let mahalanobis_distance = residual.dot(
             &covariance
@@ -501,5 +501,32 @@ mod tests {
 
         assert_eq!(assignment.len(), 2);
         assert_eq!(assignment.into_iter().flatten().count(), 2);
+    }
+
+    #[test]
+    fn matching_cost_accounts_for_percept_covariance() {
+        let hypothesis = BallHypothesis {
+            mode: BallMode::Moving(MultivariateNormalDistribution {
+                mean: nalgebra::vector![0.0, 0.0, 0.0, 0.0],
+                covariance: Matrix4::from_diagonal(&nalgebra::vector![0.01, 0.01, 1.0, 1.0]),
+            }),
+            last_seen: Time::zero(),
+            validity: 1.0,
+        };
+        let percept = BallPercept {
+            percept_in_ground: MultivariateNormalDistribution {
+                mean: vector![1.0, 0.0],
+                covariance: Matrix2::identity() * 100.0,
+            },
+            image_location: Circle::new(point![0.0, 0.0], 1.0),
+        };
+
+        let costs = mahalanobis_matrix_of_hypotheses_and_percepts(&[hypothesis], &[percept]);
+        let cost = costs[(0, 0)].into_inner();
+
+        assert!(
+            cost > -1.0,
+            "uncertain percept should not be treated as a precise outlier, got cost {cost}"
+        );
     }
 }

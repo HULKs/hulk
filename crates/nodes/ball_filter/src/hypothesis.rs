@@ -89,7 +89,7 @@ impl BallHypothesis {
                     moving_process_noise,
                 );
 
-                let velocity_covariance = moving.covariance.fixed_view::<2, 2>(0, 0);
+                let velocity_covariance = moving.covariance.fixed_view::<2, 2>(2, 2);
                 let velocity = nalgebra::vector![moving.mean.z, moving.mean.w];
 
                 let exponent = -velocity.dot(
@@ -150,5 +150,35 @@ impl BallHypothesis {
             }
             _ => (), // deny merge
         };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn predict_keeps_precise_non_zero_velocity_moving() {
+        let mut hypothesis = BallHypothesis {
+            mode: BallMode::Moving(MultivariateNormalDistribution {
+                mean: nalgebra::vector![0.0, 0.0, 0.1, 0.0],
+                covariance: Matrix4::from_diagonal(&nalgebra::vector![
+                    0.005, 0.005, 0.000_001, 0.000_001
+                ]),
+            }),
+            last_seen: Time::zero(),
+            validity: 1.0,
+        };
+
+        hypothesis.predict(
+            Duration::ZERO,
+            Isometry2::identity(),
+            1.0,
+            Matrix4::zeros(),
+            Matrix2::zeros(),
+            0.5,
+        );
+
+        assert!(matches!(hypothesis.mode, BallMode::Moving(_)));
     }
 }
