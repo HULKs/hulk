@@ -2,14 +2,13 @@ use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use color_eyre::Result;
 use hungarian_algorithm::AssignmentProblem;
-use linear_algebra::{IntoFramed, Isometry2};
+use linear_algebra::{IntoFramed, Isometry2, Pose2};
 use nalgebra::{Matrix2, Matrix4};
 use ndarray::Array2;
 use ordered_float::NotNan;
 use ros_z::qos::QosDurability;
 
-use booster::Odometer;
-use coordinate_systems::{Ground, Pixel};
+use coordinate_systems::{Ground, Odometry, Pixel};
 use geometry::circle::Circle;
 use projection::{Projection, camera_matrix::CameraMatrix};
 use ros_z::{context::Context, prelude::*, time::Time};
@@ -21,6 +20,7 @@ use types::{
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
     object_detection::{Object, RobocupObjectLabel},
+    odometry,
     parameters::BallFilterParameters,
     time_wrapper::TimeWrapper,
 };
@@ -67,7 +67,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let mut future_map = node
         .create_future_map_builder()
-        .create_future_subscriber::<Odometer>("inputs/odometer", Duration::from_millis(1))
+        .create_future_subscriber::<Pose2<Odometry>>("inputs/odometry", Duration::from_millis(1))
         .await?
         .create_future_subscriber::<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>(
             "detected_objects",
@@ -103,7 +103,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let mut ball_filter = BallFilter::default();
-    let mut last_odometer = None;
+    let mut last_odometry = None;
     let mut last_prediction_time = None;
 
     loop {
@@ -129,13 +129,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             });
             let mut ball_percepts = Vec::new();
 
-            for (time, (odometer, detected_objects)) in future_map_item.persistent {
-                if let Some(odometer) = odometer {
+            for (time, (odometry_pose, detected_objects)) in future_map_item.persistent {
+                if let Some(odometry_pose) = odometry_pose {
                     predict_hypotheses_from_odometry(
                         &mut ball_filter,
                         time,
-                        odometer,
-                        &mut last_odometer,
+                        odometry_pose,
+                        &mut last_odometry,
                         &mut last_prediction_time,
                         parameters,
                     );
@@ -237,18 +237,18 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 fn predict_hypotheses_from_odometry(
     ball_filter: &mut BallFilter,
     time: Time,
-    odometer: Odometer,
-    last_odometer: &mut Option<Odometer>,
+    odometry_pose: Pose2<Odometry>,
+    last_odometry: &mut Option<Pose2<Odometry>>,
     last_prediction_time: &mut Option<Time>,
     filter_parameters: &BallFilterParameters,
 ) {
-    let last_to_current = match *last_odometer {
+    let last_to_current = match *last_odometry {
         None => Isometry2::identity(),
-        Some(previous_odometer) => previous_odometer.to(odometer),
+        Some(previous_odometry) => odometry::previous_to_current(previous_odometry, odometry_pose),
     };
     let delta_time =
         last_prediction_time.map_or(Duration::ZERO, |last_time| time.duration_since(last_time));
-    *last_odometer = Some(odometer);
+    *last_odometry = Some(odometry_pose);
     *last_prediction_time = Some(time);
 
     ball_filter
@@ -580,5 +580,44 @@ mod tests {
 
         assert_eq!(assignment.len(), 2);
         assert_eq!(assignment.into_iter().flatten().count(), 2);
+    }
+}
+
+#[cfg(test)]
+mod odometry_pose_tests {
+    use coordinate_systems::Odometry;
+    use linear_algebra::{Pose2, point};
+    use ros_z::time::Time;
+    use types::parameters::BallFilterParameters;
+
+    use super::*;
+
+    #[test]
+    fn odometry_pose_prediction_updates_last_pose() {
+        let mut ball_filter = BallFilter::default();
+        let mut last_odometry = None;
+        let mut last_prediction_time = None;
+        let parameters = BallFilterParameters::default();
+
+        predict_hypotheses_from_odometry(
+            &mut ball_filter,
+            Time::from_nanos(1_000_000_000),
+            Pose2::<Odometry>::new(point![<Odometry>, 0.0, 0.0], 0.0),
+            &mut last_odometry,
+            &mut last_prediction_time,
+            &parameters,
+        );
+
+        predict_hypotheses_from_odometry(
+            &mut ball_filter,
+            Time::from_nanos(1_010_000_000),
+            Pose2::<Odometry>::new(point![<Odometry>, 1.0, 0.0], 0.0),
+            &mut last_odometry,
+            &mut last_prediction_time,
+            &parameters,
+        );
+
+        assert!(last_odometry.is_some());
+        assert_eq!(last_prediction_time, Some(Time::from_nanos(1_010_000_000)));
     }
 }

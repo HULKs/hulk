@@ -66,6 +66,7 @@ members = [
   "crates/nodes/microphone_recorder",
   "crates/nodes/motor_commands_collector",
   "crates/nodes/obstacle_filter",
+  "crates/nodes/odometry",
   "crates/nodes/odometer_bridge",
   "crates/nodes/player_states_receiver",
   "crates/nodes/primary_state_filter",
@@ -269,6 +270,7 @@ num-derive = "0.4.2"
 num-dual = "0.13.2"
 num-traits = "0.2"
 obstacle_filter = { path = "crates/nodes/obstacle_filter" }
+odometry = { path = "crates/nodes/odometry" }
 odometer_bridge = { path = "crates/nodes/odometer_bridge" }
 once_cell = "1.20.3"
 openvino = { version = "0.8.0", features = ["runtime-linking"] }

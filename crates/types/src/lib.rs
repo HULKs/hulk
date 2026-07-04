@@ -40,6 +40,7 @@ pub mod object_detection;
 pub mod obstacle_avoiding_arms;
 pub mod obstacle_filter;
 pub mod obstacles;
+pub mod odometry;
 pub mod parameters;
 pub mod path;
 pub mod path_obstacles;

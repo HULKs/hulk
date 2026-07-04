@@ -41,6 +41,12 @@ generate_coordinate_system!(
     /// Origin: center between [LeftSole] and [RightSole], projected onto the ground.
     /// X axis pointing forward
     Ground,
+    /// 2D odometry frame fixed at the startup pose of one odometry source.
+    ///
+    /// Origin: robot [Ground] frame when the odometry source starts.
+    /// X axis pointing along the startup ground-frame X axis.
+    /// Y axis pointing along the startup ground-frame Y axis.
+    Odometry,
     /// coordinate system used to express feet positions in the walking engine.
     ///
     /// Origin: below the robot's hip

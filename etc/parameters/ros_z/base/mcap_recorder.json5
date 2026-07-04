@@ -8,6 +8,8 @@
   schema_discovery_timeout: { secs: 15, nanos: 0 },
   topics: [
     "inputs/imu_state",
+    "inputs/odometry",
+    "inputs/booster_odometry",
     "visual_odometry/current_left_camera_to_previous_left_camera",
     "robot_kinematics",
     "support_foot",
