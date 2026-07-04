@@ -539,6 +539,7 @@ pub enum Network {
     HslH,
     HslI,
     HslJ,
+    HslL,
     HslHulks,
 }
 
@@ -556,13 +557,14 @@ impl Display for Network {
             Network::HslH => formatter.write_str("HSL_H"),
             Network::HslI => formatter.write_str("HSL_I"),
             Network::HslJ => formatter.write_str("HSL_J"),
+            Network::HslL => formatter.write_str("HSL_L"),
             Network::HslHulks => formatter.write_str("HSL_HULKs"),
         }
     }
 }
 
 impl Network {
-    pub fn all() -> [Network; 11] {
+    pub fn all() -> [Network; 12] {
         [
             Network::HslA,
             Network::HslB,
@@ -574,6 +576,7 @@ impl Network {
             Network::HslH,
             Network::HslI,
             Network::HslJ,
+            Network::HslL,
             Network::HslHulks,
         ]
     }

@@ -40,6 +40,7 @@ pub const NETWORK_POSSIBLE_VALUES: &[&str] = &[
     "HSL_H",
     "HSL_I",
     "HSL_J",
+    "HSL_L",
     "HSL_HULKs",
 ];
 
@@ -56,6 +57,7 @@ pub fn parse_network(network: &str) -> Result<Network> {
         "HSL_H" => Ok(Network::HslH),
         "HSL_I" => Ok(Network::HslI),
         "HSL_J" => Ok(Network::HslJ),
+        "HSL_L" => Ok(Network::HslL),
         "HSL_HULKs" => Ok(Network::HslHulks),
         _ => bail!("unexpected network"),
     }
