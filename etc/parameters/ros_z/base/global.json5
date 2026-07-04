@@ -1,10 +1,10 @@
 {
   field_dimensions: {
-    ball_radius: 0.095,
+    ball_radius: 0.105,
     length: 8.95,
     width: 5.95,
     goal_depth: 0.5,
-    goal_inner_width: 2.5,
+    goal_inner_width: 2.4,
     goal_box_area_length: 0.96,
     goal_box_area_width: 2.97,
     penalty_area_length: 1.95,
