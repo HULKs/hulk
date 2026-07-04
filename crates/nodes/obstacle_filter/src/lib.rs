@@ -577,6 +577,10 @@ fn measured_pose_positions(
     camera_matrix: &CameraMatrix,
 ) -> impl Iterator<Item = (ObstacleKind, Point2<Ground>, na::Vector2<f32>)> {
     detected_poses.iter().filter_map(|detected_pose| {
+        if !parameters.use_detected_person_obstacles {
+            return None;
+        }
+
         let Object {
             label,
             bounding_box,

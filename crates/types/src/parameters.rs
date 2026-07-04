@@ -489,6 +489,7 @@ pub struct BallFilterParameters {
 )]
 pub struct ObstacleFilterParameters {
     pub use_detected_objects: bool,
+    pub use_detected_person_obstacles: bool,
     pub hypothesis_timeout: Duration,
     pub network_robot_measurement_matching_distance: f32,
     pub object_detection_measurement_matching_distance: f32,
