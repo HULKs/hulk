@@ -373,12 +373,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 .world_state
                 .filtered_game_controller_state
                 .is_some()
-            && (ball.ball_in_field.x().abs()
-                < (blackboard.field_dimensions.length / 2.0
-                    + blackboard.parameters.believe_ball_border_width))
-            && (ball.ball_in_field.y().abs()
-                < (blackboard.field_dimensions.width / 2.0
-                    + blackboard.parameters.believe_ball_border_width))
+            && is_inside_field(ball, &blackboard)
         {
             blackboard.ball = Some(LastBall {
                 position: ball.ball_in_field,
@@ -447,4 +442,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .await?;
         motion_command_pub.publish(&motion_command).await?;
     }
+}
+
+fn is_inside_field(ball: BallState, blackboard: &Blackboard) -> bool {
+    (ball.ball_in_field.x().abs()
+        < (blackboard.field_dimensions.length / 2.0
+            + blackboard.parameters.believe_ball_border_width))
+        && (ball.ball_in_field.y().abs()
+            < (blackboard.field_dimensions.width / 2.0
+                + blackboard.parameters.believe_ball_border_width))
 }
