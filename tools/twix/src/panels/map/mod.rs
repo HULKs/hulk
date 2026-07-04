@@ -71,6 +71,7 @@ pub struct MapPanel {
     obstacles: EnabledLayer<layers::Obstacles, Ground>,
     path: EnabledLayer<layers::Path, Ground>,
     robot_pose: EnabledLayer<layers::RobotPose, Ground>,
+    odometry: EnabledLayer<layers::Odometry, Field>,
     ball_percept: EnabledLayer<layers::BallPercepts, Ground>,
     ball_position: EnabledLayer<layers::BallPosition, Field>,
     ball_filter: EnabledLayer<layers::BallFilter, Ground>,
@@ -90,6 +91,7 @@ impl Panel for MapPanel {
         let obstacles = EnabledLayer::new(context.backend.clone(), context.value, false);
         let path = EnabledLayer::new(context.backend.clone(), context.value, false);
         let robot_pose = EnabledLayer::new(context.backend.clone(), context.value, true);
+        let odometry = EnabledLayer::new(context.backend.clone(), context.value, false);
         let ball_percept = EnabledLayer::new(context.backend.clone(), context.value, false);
         let ball_position = EnabledLayer::new(context.backend.clone(), context.value, true);
         let ball_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
@@ -140,6 +142,7 @@ impl Panel for MapPanel {
             obstacles,
             path,
             robot_pose,
+            odometry,
             ball_percept,
             ball_position,
             ball_filter,
@@ -160,6 +163,7 @@ impl Panel for MapPanel {
             "obstacles": self.obstacles.save(),
             "path": self.path.save(),
             "robot_pose": self.robot_pose.save(),
+            "odometry": self.odometry.save(),
             "ball_percept": self.ball_percept.save(),
             "ball_position": self.ball_position.save(),
             "ball_filter": self.ball_filter.save(),
@@ -178,6 +182,7 @@ impl Panel for MapPanel {
                 self.obstacles.checkbox(ui);
                 self.path.checkbox(ui);
                 self.robot_pose.checkbox(ui);
+                self.odometry.checkbox(ui);
                 self.ball_percept.checkbox(ui);
                 self.ball_position.checkbox(ui);
                 self.ball_filter.checkbox(ui);
@@ -247,6 +252,8 @@ impl Panel for MapPanel {
         self.path
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.robot_pose
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.odometry
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.ball_percept
             .generic_paint(&painter, ground_to_field, &field_dimensions);

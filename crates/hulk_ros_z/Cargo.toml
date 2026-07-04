@@ -42,6 +42,7 @@ message_handler = { workspace = true }
 microphone_recorder = { workspace = true }
 motor_commands_collector = { workspace = true }
 obstacle_filter = { workspace = true }
+odometry = { workspace = true }
 odometer_bridge = { workspace = true }
 player_states_receiver = { workspace = true }
 primary_state_filter = { workspace = true }

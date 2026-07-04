@@ -2,12 +2,16 @@ use std::{boxed::Box, future::Future, pin::Pin, sync::Arc};
 
 use booster::{FallDownState, FallDownStateType, ImuState};
 use color_eyre::Result;
-use coordinate_systems::Robot;
-use linear_algebra::{Isometry3, Orientation3};
+use coordinate_systems::{LeftSole, RightSole};
+use kinematics::{
+    robot_kinematics::RobotKinematics,
+    sole_contact::{
+        SoleSide, SupportSelectionParameters, estimate_sole_contact, select_support_side,
+    },
+};
+use linear_algebra::Point3;
 use serde::{Deserialize, Serialize};
 
-use filtering::hysteresis::less_than_with_hysteresis;
-use kinematics::robot_kinematics::RobotKinematics;
 use ros_z::{prelude::*, qos::QosDurability};
 use types::{support_foot::Side, time_wrapper::TimeWrapper};
 
@@ -17,7 +21,11 @@ pub const ACTUAL_IMAGE_WIDTH: f32 = 544.0;
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
 pub struct Parameters {
-    pub switch_hysteresis: f32,
+    pub contact_height_epsilon: f32,
+    pub double_support_deadband: f32,
+    pub support_switch_hysteresis: f32,
+    pub left_sole_contact_vertices: Vec<Point3<LeftSole>>,
+    pub right_sole_contact_vertices: Vec<Point3<RightSole>>,
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -53,7 +61,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    let mut last_support_foot = Side::default();
+    let mut last_support_foot = SoleSide::Left;
     let mut last_maybe_support_side = None;
 
     loop {
@@ -74,15 +82,18 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let current_support_foot = estimate_support_foot(
             &parameters,
-            &imu_state,
+            imu_state.roll_pitch_yaw.x(),
+            imu_state.roll_pitch_yaw.y(),
             &robot_kinematics_wrapper.inner,
             last_support_foot,
         );
 
         let support_foot = if matches!(fall_down_state.fall_down_state, FallDownStateType::IsReady)
         {
-            last_support_foot = current_support_foot;
-            Some(current_support_foot)
+            if let Some(current_support_foot) = current_support_foot {
+                last_support_foot = current_support_foot;
+            }
+            current_support_foot.map(side_from_sole_side)
         } else {
             None
         };
@@ -102,51 +113,113 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
 fn estimate_support_foot(
     parameters: &Parameters,
-    imu_state: &ImuState,
+    roll: f32,
+    pitch: f32,
     robot_kinematics: &RobotKinematics,
-    last_support_foot: Side,
-) -> Side {
-    struct Horizontal;
-
-    let imu_orientation = Orientation3::from_euler_angles(
-        imu_state.roll_pitch_yaw.x(),
-        imu_state.roll_pitch_yaw.y(),
-        imu_state.roll_pitch_yaw.z(),
-    )
-    .mirror();
-    let horizontal_to_robot = Isometry3::<Horizontal, Robot>::from(imu_orientation);
-    let robot_to_horizontal = horizontal_to_robot.inverse();
-
-    let left_sole_in_horizontal =
-        robot_to_horizontal * robot_kinematics.left_leg.sole_to_robot.translation();
-    let right_sole_in_horizontal =
-        robot_to_horizontal * robot_kinematics.right_leg.sole_to_robot.translation();
-    let height_difference = left_sole_in_horizontal.z() - right_sole_in_horizontal.z();
+    last_support_foot: SoleSide,
+) -> Option<SoleSide> {
+    let left_contact = estimate_sole_contact(
+        robot_kinematics.left_leg.sole_to_robot,
+        roll,
+        pitch,
+        &parameters.left_sole_contact_vertices,
+        parameters.contact_height_epsilon,
+    )?;
+    let right_contact = estimate_sole_contact(
+        robot_kinematics.right_leg.sole_to_robot,
+        roll,
+        pitch,
+        &parameters.right_sole_contact_vertices,
+        parameters.contact_height_epsilon,
+    )?;
 
     select_support_side(
-        height_difference,
-        last_support_foot,
-        parameters.switch_hysteresis,
+        left_contact,
+        right_contact,
+        Some(last_support_foot),
+        SupportSelectionParameters {
+            double_support_deadband: parameters.double_support_deadband,
+            support_switch_hysteresis: parameters.support_switch_hysteresis,
+        },
     )
 }
 
-fn select_support_side(
-    height_difference: f32,
-    last_support_side: Side,
-    switch_hysteresis: f32,
-) -> Side {
-    let left_was_lower_last_time = last_support_side == Side::Left;
+fn side_from_sole_side(side: SoleSide) -> Side {
+    match side {
+        SoleSide::Left => Side::Left,
+        SoleSide::Right => Side::Right,
+    }
+}
 
-    let left_sole_is_lower_than_right_sole = less_than_with_hysteresis(
-        left_was_lower_last_time,
-        height_difference,
-        0.0,
-        switch_hysteresis,
-    );
+#[cfg(test)]
+mod tests {
+    use coordinate_systems::{LeftSole, RightSole};
+    use kinematics::robot_kinematics::{
+        RobotKinematics, RobotLeftLegKinematics, RobotRightLegKinematics,
+    };
+    use linear_algebra::{IntoTransform, nalgebra, point};
 
-    if left_sole_is_lower_than_right_sole {
-        Side::Left
-    } else {
-        Side::Right
+    use super::*;
+
+    fn parameters() -> Parameters {
+        Parameters {
+            contact_height_epsilon: 0.001,
+            double_support_deadband: 0.001,
+            support_switch_hysteresis: 0.002,
+            left_sole_contact_vertices: vec![
+                point![<LeftSole>, 0.1, 0.05, 0.0],
+                point![<LeftSole>, 0.1, -0.05, 0.0],
+                point![<LeftSole>, -0.1, 0.05, 0.0],
+                point![<LeftSole>, -0.1, -0.05, 0.0],
+            ],
+            right_sole_contact_vertices: vec![
+                point![<RightSole>, 0.1, 0.05, 0.0],
+                point![<RightSole>, 0.1, -0.05, 0.0],
+                point![<RightSole>, -0.1, 0.05, 0.0],
+                point![<RightSole>, -0.1, -0.05, 0.0],
+            ],
+        }
+    }
+
+    #[test]
+    fn lower_contact_vertices_choose_left_support() {
+        let robot_kinematics = RobotKinematics {
+            left_leg: RobotLeftLegKinematics {
+                sole_to_robot: nalgebra::Isometry3::translation(0.0, 0.05, -0.02)
+                    .framed_transform(),
+                ..Default::default()
+            },
+            right_leg: RobotRightLegKinematics {
+                sole_to_robot: nalgebra::Isometry3::translation(0.0, -0.05, 0.0).framed_transform(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let support =
+            estimate_support_foot(&parameters(), 0.0, 0.0, &robot_kinematics, SoleSide::Right);
+
+        assert_eq!(support, Some(SoleSide::Left));
+    }
+
+    #[test]
+    fn double_support_deadband_returns_none() {
+        let robot_kinematics = RobotKinematics {
+            left_leg: RobotLeftLegKinematics {
+                sole_to_robot: nalgebra::Isometry3::translation(0.0, 0.05, 0.0).framed_transform(),
+                ..Default::default()
+            },
+            right_leg: RobotRightLegKinematics {
+                sole_to_robot: nalgebra::Isometry3::translation(0.0, -0.05, -0.0005)
+                    .framed_transform(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let support =
+            estimate_support_foot(&parameters(), 0.0, 0.0, &robot_kinematics, SoleSide::Left);
+
+        assert_eq!(support, None);
     }
 }

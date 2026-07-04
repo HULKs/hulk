@@ -1,5 +1,5 @@
 [package]
-name = "odometer_bridge"
+name = "odometry"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,13 +7,13 @@ homepage.workspace = true
 
 [dependencies]
 booster.workspace = true
-cdr = { workspace = true }
 color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
+kinematics = { workspace = true }
 linear_algebra = { workspace = true }
+nalgebra = { workspace = true }
 ros-z = { workspace = true }
 ros-z-streams = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
-
-[dev-dependencies]
-approx = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+types = { workspace = true }
