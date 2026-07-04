@@ -75,6 +75,7 @@ members = [
   "crates/nodes/rule_obstacle_composer",
   "crates/nodes/safe_pose_checker",
   "crates/nodes/search_suggestor",
+  "crates/search_heatmap",
   "crates/nodes/segment_filter",
   "crates/nodes/stereo_visual_odometry",
   "crates/nodes/support_foot_estimator",
@@ -326,6 +327,7 @@ rule_obstacle_composer = { path = "crates/nodes/rule_obstacle_composer" }
 rustfft = "6.2.0"
 safe_pose_checker = { path = "crates/nodes/safe_pose_checker" }
 scenario = { path = "crates/scenario" }
+search_heatmap = { path = "crates/search_heatmap" }
 search_suggestor = { path = "crates/nodes/search_suggestor" }
 segment_filter = { path = "crates/nodes/segment_filter" }
 semver = "1.0.25"

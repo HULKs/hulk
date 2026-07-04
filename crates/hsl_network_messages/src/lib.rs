@@ -63,6 +63,7 @@ pub struct StrikerMessage {
 pub struct StateMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,
+    pub head_yaw: f32,
     pub ball_position: Option<BallPosition<Field>>,
 }
 
@@ -134,6 +135,7 @@ mod tests {
         let test_message = HulkMessage::State(StateMessage {
             player_number: PlayerNumber::Five,
             pose: Pose2::default(),
+            head_yaw: 0.0,
             ball_position: Some(BallPosition {
                 position: Point2::origin(),
                 age: Duration::MAX,

@@ -150,6 +150,7 @@ mod tests {
                 inner: IncomingMessage::Hsl(HulkMessage::State(StateMessage {
                     player_number: PlayerNumber::Two,
                     pose,
+                    head_yaw: 0.0,
                     ball_position: None,
                 })),
             },

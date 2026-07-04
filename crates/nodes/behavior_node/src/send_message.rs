@@ -62,10 +62,11 @@ impl Blackboard {
         )
     }
 
-    pub fn try_sending_state_message(&mut self) -> Option<OutgoingMessage> {
+    pub fn try_sending_state_message(&mut self, head_yaw: f32) -> Option<OutgoingMessage> {
         if self.world_state.robot.primary_state != PrimaryState::Playing {
             return None;
         }
+
         let now = self.world_state.now;
         let remaining_amount_of_messages = self
             .world_state
@@ -102,11 +103,11 @@ impl Blackboard {
             let message = HulkMessage::State(StateMessage {
                 player_number: self.world_state.robot.player_number,
                 pose,
+                head_yaw,
                 ball_position,
             });
 
             self.last_sent_hsl_message_time = Some(now);
-
             Some(OutgoingMessage::Hsl(message))
         } else {
             None

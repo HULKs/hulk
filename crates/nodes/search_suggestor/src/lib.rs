@@ -1,29 +1,27 @@
-use color_eyre::{
-    Result,
-    eyre::{WrapErr as _, ensure},
-};
+use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
-use linear_algebra::{Isometry2, Point2, Vector2, point, vector};
-use ndarray::{Array2, array};
-use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
+use hsl_network_messages::{HulkMessage, PlayerNumber, StateMessage};
+use linear_algebra::{Isometry2, Point2};
 use ros_z::{prelude::*, qos::QosDurability};
-use std::{boxed::Box, f32::consts, future::Future, pin::Pin, sync::Arc, time::Duration};
-use tokio::task::block_in_place;
+use search_heatmap::{Heatmap, SearchOccluder, SearchVoronoiSelection};
+use serde::{Deserialize, Serialize};
+use std::{boxed::Box, future::Future, pin::Pin, sync::Arc, time::Duration};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
     messages::IncomingMessage,
-    parameters::SearchSuggestorParameters,
+    obstacles::{Obstacle, ObstacleKind},
+    parameters::{HslNetworkParameters, SearchSuggestorParameters},
+    players::Players,
     primary_state::PrimaryState,
     time_wrapper::TimeWrapper,
 };
-mod heatmap;
-use heatmap::Heatmap;
 
-struct SearchSuggestorOutput {
-    suggested_search_position: Option<Point2<Field>>,
-    additional_heatmap: Option<types::heatmap::Heatmap>,
+#[derive(Clone, Debug, Serialize, Deserialize, Message)]
+#[serde(deny_unknown_fields)]
+pub struct Parameters {
+    pub search_suggestor: SearchSuggestorParameters,
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -33,7 +31,7 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("search_suggestor").build().await?;
 
-    let parameters = node.bind_parameter_as::<SearchSuggestorParameters>("search_suggestor")?;
+    let node_parameters = node.bind_parameter_as::<Parameters>("search_suggestor")?;
     let field_dimensions_sub = node
         .subscriber::<FieldDimensions>("field_dimensions")
         .qos(QosProfile {
@@ -44,6 +42,24 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let ball_position_sub = node
         .subscriber::<Option<BallPosition<Ground>>>("ball_filter/ball_position")
+        .build()
+        .await?;
+    let player_number_cache = node
+        .subscriber::<PlayerNumber>("player_number")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
+    let hsl_network_parameters_cache = node
+        .subscriber::<HslNetworkParameters>("hsl_network")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
         .build()
         .await?;
     let hypothetical_ball_positions_sub = node
@@ -70,6 +86,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
         .build()
         .await?;
+    let obstacles_cache = node
+        .subscriber::<Vec<Obstacle>>("obstacles")
+        .cache(1)
+        .build()
+        .await?;
     let network_message_sub = node
         .subscriber::<TimeWrapper<IncomingMessage>>("filtered_message")
         .build()
@@ -79,183 +100,272 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let suggested_search_position_pub = node
-        .publisher::<Point2<Field>>("suggested_search_position")
+        .publisher::<Option<Point2<Field>>>("suggested_search_position")
         .build()
         .await?;
 
-    let mut timer = node.create_timer(Duration::from_millis(100));
-
     let field_dimensions = field_dimensions_sub.recv().await?;
-    let initial_parameters_snapshot = parameters.snapshot();
-    let initial_parameters = initial_parameters_snapshot.typed();
-    let (heatmap_length, heatmap_width) = (
-        (field_dimensions.length * initial_parameters.cells_per_meter).round() as usize,
-        (field_dimensions.width * initial_parameters.cells_per_meter).round() as usize,
-    );
-
-    ensure!(
-        heatmap_length > 0,
-        "heatmap_length must at least be 1 - current value is {heatmap_length}"
-    );
-    ensure!(
-        heatmap_width > 0,
-        format!("heatmap_width must at least be 1 - current value is {heatmap_width}")
-    );
-
-    let mut heatmap = Heatmap {
-        map: Array2::ones((heatmap_length, heatmap_width))
-            / (heatmap_length * heatmap_width) as f32,
-        cells_per_meter: initial_parameters.cells_per_meter,
-        last_maximum_heatmap_position: None,
-        has_decided_for_heatmap_tile: false,
-    };
+    let mut heatmap = Heatmap::new(field_dimensions);
+    let mut last_ball_position = None;
+    let mut current_ball_position = None;
+    let mut latest_filtered_game_controller_state = None;
+    let mut last_teammate_messages = Players::new(None);
+    let mut last_priority_update = node.clock().now();
+    let mut tick = node.create_timer(Duration::from_millis(20));
 
     loop {
-        timer.tick().await;
-        let parameters_snapshot = parameters.snapshot();
-        let parameters = parameters_snapshot.typed();
+        tick.tick().await;
+        let now = node.clock().now();
+        let elapsed_since_last_priority_update = now.duration_since(last_priority_update);
+        last_priority_update = now;
+
+        let node_parameters_snapshot = node_parameters.snapshot();
+        let node_parameters = node_parameters_snapshot.typed();
+        let parameters = &node_parameters.search_suggestor;
+        let Some(hsl_network_parameters) = hsl_network_parameters_cache.get_latest() else {
+            continue;
+        };
+        let hsl_network_parameters = hsl_network_parameters.as_ref();
 
         let ground_to_field = ground_to_field_cache
             .get_latest()
             .map(|ground_to_field| *ground_to_field);
         let primary_state = primary_state_cache.get_latest();
         let primary_state = primary_state.as_deref();
-
-        let mut ball_positions = Vec::new();
-        let mut hypothetical_ball_positions = Vec::new();
-        let mut network_messages = Vec::new();
-        let mut filtered_game_controller_states = Vec::new();
+        let mut ball_was_seen = false;
+        let mut received_filtered_game_controller_state = None;
 
         while ball_position_sub.is_ready() {
-            ball_positions.push(ball_position_sub.recv().await?);
+            match (ball_position_sub.recv().await?, ground_to_field) {
+                (Some(ball_position), Some(ground_to_field)) => {
+                    ball_was_seen = true;
+                    let ball_position = ground_to_field * ball_position.position;
+                    last_ball_position = Some(ball_position);
+                    current_ball_position = Some(ball_position);
+                }
+                (None, _) | (Some(_), None) => {
+                    current_ball_position = None;
+                }
+            }
         }
         while hypothetical_ball_positions_sub.is_ready() {
-            hypothetical_ball_positions.push(hypothetical_ball_positions_sub.recv().await?);
+            if let Some(ground_to_field) = ground_to_field {
+                let hypothetical_ball_positions = hypothetical_ball_positions_sub.recv().await?;
+                heatmap.update_with_hypothetical_ball_positions(
+                    field_dimensions,
+                    &hypothetical_ball_positions,
+                    ground_to_field,
+                    parameters,
+                );
+            } else {
+                hypothetical_ball_positions_sub.recv().await?;
+            }
         }
         while network_message_sub.is_ready() {
-            network_messages.push(network_message_sub.recv().await?);
+            let network_message = network_message_sub.recv().await?;
+            heatmap.update_with_team_ball(field_dimensions, network_message.clone(), parameters);
+            decay_with_teammate_message(
+                &mut heatmap,
+                field_dimensions,
+                network_message,
+                &mut last_teammate_messages,
+                parameters,
+                hsl_network_parameters,
+                elapsed_since_last_priority_update,
+            );
         }
         while filtered_game_controller_state_sub.is_ready() {
-            filtered_game_controller_states.push(filtered_game_controller_state_sub.recv().await?);
+            let filtered_game_controller_state = filtered_game_controller_state_sub.recv().await?;
+            received_filtered_game_controller_state = Some(filtered_game_controller_state.clone());
+            latest_filtered_game_controller_state = Some(filtered_game_controller_state);
         }
 
-        let output = block_in_place(|| {
-            let mut ball_was_seen = false;
-
-            for ball_position in ball_positions {
-                if let (Some(ball_position), Some(ground_to_field)) =
-                    (ball_position, ground_to_field)
-                {
-                    ball_was_seen = true;
-                    heatmap.update_with_ball_position(
-                        field_dimensions,
-                        ball_position,
-                        ground_to_field,
-                    );
-                }
-            }
-            if let Some(ground_to_field) = ground_to_field {
-                for hypothetical_ball_positions in hypothetical_ball_positions {
-                    heatmap.update_with_hypothetical_ball_positions(
-                        field_dimensions,
-                        hypothetical_ball_positions,
-                        ground_to_field,
-                        parameters,
-                    );
-                }
-            }
-            for network_message in network_messages {
-                heatmap.update_with_team_ball(field_dimensions, network_message, parameters);
-            }
-            if let Some(primary_state) = primary_state {
-                for filtered_game_controller_state in filtered_game_controller_states {
-                    heatmap.update_with_rule_ball(
-                        &filtered_game_controller_state,
-                        &field_dimensions,
-                        primary_state,
-                        parameters,
-                    );
-                }
-            }
-
-            if !ball_was_seen && let Some(ground_to_field) = ground_to_field {
-                let robot_position = ground_to_field.as_pose().position().coords();
-                let body_orientation = ground_to_field.orientation().angle();
-                let fov_angle_offset = 45.0 * consts::PI / 180.0;
-                let left_angle = body_orientation - fov_angle_offset;
-                let right_angle = body_orientation + fov_angle_offset;
-                let left_edge: Vector2<Field> = vector!(left_angle.cos(), left_angle.sin());
-                let right_edge: Vector2<Field> = vector!(right_angle.cos(), right_angle.sin());
-
-                heatmap.decay_tiles_in_fov(
+        let restart_regenerated = latest_filtered_game_controller_state.as_ref().is_some_and(
+            |filtered_game_controller_state| {
+                heatmap.regenerate_restart_hypotheses(
+                    filtered_game_controller_state,
                     field_dimensions,
-                    robot_position,
-                    left_edge,
-                    right_edge,
-                    parameters.decay_distance_factor,
-                    parameters.heatmap_decay_range.clone(),
-                );
-            }
-
-            let kernel = create_kernel(parameters.heatmap_convolution_kernel_weight);
-            heatmap.map = heatmap
-                .map
-                .conv(&kernel, ConvMode::Same, PaddingMode::Replicate)
-                .wrap_err("heatmap convolution failed")?;
-            heatmap.map /= heatmap.map.sum();
-
-            if !heatmap.has_decided_for_heatmap_tile {
-                let suggested_search_index =
-                    heatmap.get_maximum_position(parameters.minimum_validity);
-                if suggested_search_index.is_some() {
-                    heatmap.has_decided_for_heatmap_tile = true;
-                }
-                heatmap.last_maximum_heatmap_position = suggested_search_index;
-            } else if let Some(last_maximum_heatmap_index) = heatmap.last_maximum_heatmap_position {
-                let global_max_value = heatmap
-                    .get_maximum_position(0.0)
-                    .map_or(0.0, |idx| heatmap.map[idx]);
-                let current_tile_value = heatmap.map[last_maximum_heatmap_index];
-
-                if current_tile_value < global_max_value * parameters.tile_switch_hysteresis {
-                    heatmap.has_decided_for_heatmap_tile = false;
-                }
-            }
-
-            let suggested_search_position = heatmap.last_maximum_heatmap_position.map(|(x, y)| {
-                point![
-                    ((x as f32 + 1.0 / 2.0) / heatmap.cells_per_meter
-                        - field_dimensions.length / 2.0),
-                    ((y as f32 + 1.0 / 2.0) / heatmap.cells_per_meter
-                        - field_dimensions.width / 2.0)
-                ]
-            });
-            let additional_heatmap = additional_heatmap_pub
-                .has_subscribers()
-                .then(|| heatmap.to_message());
-
-            Ok::<_, color_eyre::eyre::Error>(SearchSuggestorOutput {
-                suggested_search_position,
-                additional_heatmap,
-            })
-        })?;
-
-        if let Some(suggested_search_position) = output.suggested_search_position {
-            suggested_search_position_pub
-                .publish(&suggested_search_position)
-                .await?;
+                    parameters.rule_ball_weight_increment,
+                )
+            },
+        );
+        if !restart_regenerated
+            && let (Some(filtered_game_controller_state), Some(primary_state)) =
+                (&received_filtered_game_controller_state, primary_state)
+        {
+            heatmap.update_with_rule_ball(
+                filtered_game_controller_state,
+                field_dimensions,
+                *primary_state,
+                parameters,
+            );
         }
 
-        if let Some(additional_heatmap) = output.additional_heatmap {
-            additional_heatmap_pub.publish(&additional_heatmap).await?;
+        if !restart_regenerated
+            && current_ball_position.is_none()
+            && let Some(last_ball_position) = last_ball_position
+        {
+            heatmap.increase_around_last_ball(
+                field_dimensions,
+                last_ball_position,
+                elapsed_since_last_priority_update,
+                parameters,
+            );
         }
+
+        if current_ball_position.is_none()
+            && !ball_was_seen
+            && let Some(ground_to_field) = ground_to_field
+        {
+            let occluders = obstacles_cache
+                .get_latest()
+                .map(|obstacles| {
+                    search_occluders_from_obstacles(obstacles.as_ref(), ground_to_field)
+                })
+                .unwrap_or_default();
+            heatmap.decay_tiles_in_robot_fov_with_occluders(
+                field_dimensions,
+                ground_to_field,
+                parameters,
+                &occluders,
+            );
+        }
+
+        if let Some(current_ball_position) = current_ball_position {
+            heatmap.set_known_ball_position(field_dimensions, current_ball_position);
+        }
+
+        heatmap.clamp_values();
+
+        let own_voronoi_site = ground_to_field.zip(
+            player_number_cache
+                .get_latest()
+                .map(|player_number| *player_number),
+        );
+        if let Some(voronoi_selection) = search_voronoi_selection_from_teammates(
+            field_dimensions,
+            own_voronoi_site,
+            &last_teammate_messages,
+            now,
+            hsl_network_parameters
+                .hsl_state_message_send_interval
+                .mul_f32(1.2),
+        ) {
+            heatmap.update_suggested_search_position_with_voronoi(
+                field_dimensions,
+                parameters,
+                ground_to_field,
+                &voronoi_selection,
+            );
+        } else {
+            heatmap.clear_suggested_search_position();
+        }
+
+        suggested_search_position_pub
+            .publish(&heatmap.selected_position(field_dimensions))
+            .await?;
+
+        additional_heatmap_pub
+            .publish_if_subscribed(|| async { heatmap.to_message() })
+            .await?;
     }
 }
 
-fn create_kernel(alpha: f32) -> Array2<f32> {
-    array![
-        [alpha, alpha, alpha],
-        [alpha, 1.0 - alpha, alpha],
-        [alpha, alpha, alpha]
-    ] / (1.0 + 7.0 * alpha)
+fn search_occluders_from_obstacles(
+    obstacles: &[Obstacle],
+    ground_to_field: Isometry2<Ground, Field>,
+) -> Vec<SearchOccluder> {
+    obstacles
+        .iter()
+        .filter(|obstacle| obstacle.kind != ObstacleKind::Ball)
+        .map(|obstacle| SearchOccluder {
+            center: ground_to_field * obstacle.position,
+            radius: obstacle
+                .radius_at_foot_height
+                .max(obstacle.radius_at_hip_height),
+        })
+        .collect()
+}
+
+#[derive(Clone, Copy, Debug)]
+struct TeammateStateMessage {
+    received_at: ros_z::time::Time,
+    state: StateMessage,
+}
+
+fn search_voronoi_selection_from_teammates(
+    field_dimensions: FieldDimensions,
+    own_voronoi_site: Option<(Isometry2<Ground, Field>, PlayerNumber)>,
+    last_teammate_messages: &Players<Option<TeammateStateMessage>>,
+    now: ros_z::time::Time,
+    freshness_window: Duration,
+) -> Option<SearchVoronoiSelection> {
+    let (ground_to_field, own_player_number) = own_voronoi_site?;
+    let mut sites = vec![(ground_to_field.as_pose(), own_player_number)];
+
+    for (player_number, teammate_message) in last_teammate_messages.iter() {
+        let Some(teammate_message) = teammate_message else {
+            continue;
+        };
+        if player_number == own_player_number || now < teammate_message.received_at {
+            continue;
+        }
+        if now.duration_since(teammate_message.received_at) <= freshness_window {
+            sites.push((teammate_message.state.pose, player_number));
+        }
+    }
+
+    Some(SearchVoronoiSelection::new(
+        field_dimensions,
+        own_player_number,
+        sites,
+    ))
+}
+
+fn decay_with_teammate_message(
+    heatmap: &mut Heatmap,
+    field_dimensions: FieldDimensions,
+    message: TimeWrapper<IncomingMessage>,
+    last_teammate_messages: &mut Players<Option<TeammateStateMessage>>,
+    parameters: &SearchSuggestorParameters,
+    hsl_network_parameters: &HslNetworkParameters,
+    local_tick_duration: Duration,
+) {
+    let TimeWrapper {
+        time,
+        inner: IncomingMessage::Hsl(HulkMessage::State(state)),
+    } = message
+    else {
+        return;
+    };
+
+    if let Some(previous) = last_teammate_messages[state.player_number]
+        && time >= previous.received_at
+        && let elapsed_since_previous_message = time.duration_since(previous.received_at)
+        && elapsed_since_previous_message
+            <= hsl_network_parameters
+                .hsl_state_message_send_interval
+                .mul_f32(1.2)
+    {
+        let tick_count = replay_tick_count(elapsed_since_previous_message, local_tick_duration);
+        heatmap.decay_tiles_from_teammate_motion(
+            field_dimensions,
+            &previous.state,
+            &state,
+            tick_count,
+            parameters,
+        );
+    }
+
+    last_teammate_messages[state.player_number] = Some(TeammateStateMessage {
+        received_at: time,
+        state,
+    });
+}
+
+fn replay_tick_count(message_elapsed: Duration, local_tick_duration: Duration) -> usize {
+    let local_tick_duration = local_tick_duration.max(Duration::from_millis(1));
+    (message_elapsed.as_secs_f32() / local_tick_duration.as_secs_f32())
+        .ceil()
+        .max(1.0) as usize
 }

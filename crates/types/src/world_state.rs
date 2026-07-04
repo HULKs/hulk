@@ -60,6 +60,25 @@ impl Default for WorldState {
     Clone,
     Copy,
     Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    PartialEq,
+    ros_z::Message,
+)]
+pub enum BallSource {
+    #[default]
+    Own,
+    Team,
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
     Serialize,
     Deserialize,
     PathSerialize,
@@ -74,6 +93,7 @@ pub struct BallState {
     pub ball_in_ground_velocity: Vector2<Ground>,
     pub last_seen_ball: SystemTime,
     pub field_side: Side,
+    pub source: BallSource,
 }
 
 #[derive(
@@ -101,6 +121,7 @@ impl Default for BallState {
             ball_in_ground_velocity: Vector2::zeros(),
             last_seen_ball: UNIX_EPOCH,
             field_side: Side::Left,
+            source: BallSource::Own,
         }
     }
 }
@@ -113,6 +134,7 @@ impl BallState {
             ball_in_ground_velocity: Vector2::zeros(),
             last_seen_ball: UNIX_EPOCH,
             field_side: Side::Left,
+            source: BallSource::Own,
         }
     }
 }
