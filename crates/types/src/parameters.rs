@@ -719,6 +719,7 @@ pub struct WalkSpeedParameters {
     pub blocking: f32,
     pub minimum_speed: f32,
     pub velocity_fade_distance: f32,
+    pub walk_to_kickoff: f32,
 }
 
 impl Default for WalkSpeedParameters {
@@ -729,6 +730,7 @@ impl Default for WalkSpeedParameters {
             blocking: 1.0,
             minimum_speed: 0.2,
             velocity_fade_distance: 1.0,
+            walk_to_kickoff: 0.5,
         }
     }
 }
