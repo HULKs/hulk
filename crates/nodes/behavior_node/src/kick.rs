@@ -166,10 +166,53 @@ pub fn use_kick_power(blackboard: &mut Blackboard, kick_power: KickPower) -> Sta
     Status::Failure
 }
 
-pub fn intercept(_blackboard: &mut Blackboard) -> Status {
+pub fn intercept(blackboard: &mut Blackboard) -> Status {
+    if let (Some(ball), Some(ground_to_field)) = (
+        &blackboard.ball,
+        &blackboard.world_state.robot.ground_to_field,
+    ) {
+        let ball_in_ground = ground_to_field.inverse() * ball.position;
+        let velocity = ball.velocity;
+        if velocity.norm() < f32::EPSILON {
+            return Status::Failure;
+        }
+        let time_to_closest_approach =
+            -ball_in_ground.coords().dot(&velocity) / velocity.norm_squared();
+        if time_to_closest_approach < 0.0 {
+            return Status::Failure;
+        }
+
+        let interception_point = ball_in_ground + velocity * time_to_closest_approach;
+        if interception_point.x() < blackboard.parameters.kicking.kick_position_ball_distance {
+            return Status::Failure;
+        }
+
+        if interception_point.coords().norm()
+            > blackboard
+                .parameters
+                .intercept_ball
+                .maximum_intercept_distance
+        {
+            return Status::Failure;
+        }
+
+        let kick_direction = Orientation2::from_vector(ball_in_ground - interception_point);
+
+        if let Some(BodyMotion::VisualKick {
+            ball_position: motion_ball_position,
+            target_position: motion_target_position,
+            kick_direction: motion_kick_direction,
+            ..
+        }) = blackboard.body_motion.as_mut()
+        {
+            *motion_ball_position = interception_point;
+            *motion_target_position = ball_in_ground;
+            *motion_kick_direction = kick_direction;
+            return Status::Success;
+        }
+    }
     Status::Failure
 }
-
 pub fn set_kick_target_in_front(blackboard: &mut Blackboard) -> Status {
     if let (Some(ground_to_field), Some(ball)) = (
         blackboard.world_state.robot.ground_to_field,
