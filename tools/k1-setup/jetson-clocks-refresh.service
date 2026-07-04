@@ -7,4 +7,5 @@ Type=oneshot
 StandardOutput=journal
 StandardError=journal
 ExecStartPre=/usr/bin/jetson_clocks --show
+ExecStartPre=bash -c 'for z in /sys/class/thermal/thermal_zone*; do printf "%%s: %%s C\n" "$(cat "$z/type")" "$(( $(<"$z/temp") / 1000 ))"; done'
 ExecStart=/usr/bin/jetson_clocks
