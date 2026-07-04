@@ -56,6 +56,7 @@ pub struct Tracker {
     global_hypotheses: Vec<GlobalHypothesis>,
     next_track_id: TrackId,
     previous_primary_track_id: Option<TrackId>,
+    output_birth_existence_probability: f32,
     last_debug: TrackerDebugState,
 }
 
@@ -68,6 +69,8 @@ impl Tracker {
             }],
             next_track_id: 1,
             previous_primary_track_id: None,
+            output_birth_existence_probability: TrackerParameters::default()
+                .birth_existence_probability,
             last_debug: TrackerDebugState {
                 global_hypothesis_count: 1,
                 best_hypothesis_weight_log: Some(0.0),
@@ -152,6 +155,7 @@ impl Tracker {
         field_bounds: FieldBounds,
         is_visible: impl Fn(Point2<Ground>) -> bool,
     ) -> TrackerOutput {
+        self.output_birth_existence_probability = parameters.birth_existence_probability;
         let previous_hypothesis_count = self.global_hypotheses.len();
         let hypotheses = self.global_hypotheses.clone();
         let mut next_hypotheses = Vec::new();
@@ -249,6 +253,8 @@ impl Tracker {
                     if !used_measurements.contains(&measurement_index) {
                         if field_bounds.contains(measurement.position) {
                             tracks.push(self.create_birth(measurement, parameters));
+                            // Include the birth prior so nearby measurements prefer continuing an
+                            // existing tentative track over spawning a replacement birth.
                             weight_log += parameters.birth_log_likelihood
                                 + parameters
                                     .birth_existence_probability
@@ -305,7 +311,8 @@ impl Tracker {
                     .iter()
                     .filter(|track| {
                         track.status != TrackStatus::Tentative
-                            || track.existence_probability >= 0.01
+                            || track.existence_probability
+                                >= self.output_birth_existence_probability
                     })
                     .map(Self::track_snapshot)
                     .collect::<Vec<_>>()
@@ -518,15 +525,30 @@ mod tests {
     fn hidden_miss_preserves_track_better_than_visible_miss() {
         let mut visible_tracker = Tracker::new();
         let mut hidden_tracker = Tracker::new();
+        let parameters = TrackerParameters {
+            minimum_confirming_hits: 4,
+            confirm_existence_threshold: 1.0,
+            ..Default::default()
+        };
 
-        update_visible(&mut visible_tracker, &[test_measurement(1.0, 0.0)]);
-        update_visible(&mut hidden_tracker, &[test_measurement(1.0, 0.0)]);
+        for tracker in [&mut visible_tracker, &mut hidden_tracker] {
+            for _ in 0..3 {
+                tracker.update(
+                    Duration::from_millis(100),
+                    Isometry2::identity(),
+                    &[test_measurement(1.0, 0.0)],
+                    &parameters,
+                    test_field(),
+                    |_| true,
+                );
+            }
+        }
 
         let visible = visible_tracker.update(
             Duration::from_millis(100),
             Isometry2::identity(),
             &[],
-            &TrackerParameters::default(),
+            &parameters,
             test_field(),
             |_| true,
         );
@@ -534,12 +556,23 @@ mod tests {
             Duration::from_millis(100),
             Isometry2::identity(),
             &[],
-            &TrackerParameters::default(),
+            &parameters,
             test_field(),
             |_| false,
         );
 
         assert!(hidden.tracks[0].existence_probability > visible.tracks[0].existence_probability);
+    }
+
+    #[test]
+    fn output_excludes_tentative_tracks_below_birth_threshold() {
+        let mut tracker = Tracker::new();
+
+        update_visible(&mut tracker, &[test_measurement(1.0, 0.0)]);
+        let output = update_visible(&mut tracker, &[]);
+
+        assert!(output.tracks.is_empty());
+        assert!(output.primary_track.is_none());
     }
 
     #[test]
