@@ -110,6 +110,7 @@ pub struct BehaviorParameters {
     pub closest_to_ball_enter_duration: Duration,
     pub closest_to_ball_exit_duration: Duration,
     pub is_simple: bool,
+    pub believe_ball_border_width: f32,
 }
 
 #[derive(

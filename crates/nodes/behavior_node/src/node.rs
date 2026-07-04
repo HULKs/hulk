@@ -363,7 +363,18 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .get_latest()
             .map(|position| *position);
 
-        if let Some(ball) = blackboard.world_state.ball {
+        if let Some(ball) = blackboard.world_state.ball
+            && blackboard
+                .world_state
+                .filtered_game_controller_state
+                .is_some()
+            && (ball.ball_in_field.x().abs()
+                < (blackboard.field_dimensions.length / 2.0
+                    + blackboard.parameters.believe_ball_border_width))
+            && (ball.ball_in_field.y().abs()
+                < (blackboard.field_dimensions.width / 2.0
+                    + blackboard.parameters.believe_ball_border_width))
+        {
             blackboard.ball = Some(LastBall {
                 position: ball.ball_in_field,
                 velocity: ball.ball_in_ground_velocity,
