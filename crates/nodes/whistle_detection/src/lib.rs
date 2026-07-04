@@ -1,6 +1,5 @@
 use std::{boxed::Box, future::Future, pin::Pin};
 use std::{f32::consts::PI, sync::Arc};
-use tokio;
 
 use color_eyre::Result;
 use filtering::statistics::{mean, standard_deviation};
@@ -57,12 +56,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let (is_detected, detection_infos): (Vec<bool>, Vec<DetectionInfo>) =
             tokio::task::block_in_place(|| {
-                samples.channels_of_samples.iter().map(|buffer| {
-                    whistle_detection.is_whistle_detected_in_buffer(buffer, parameters)
-                })
-                .unzip()
-            }
-            );
+                samples
+                    .channels_of_samples
+                    .iter()
+                    .map(|buffer| {
+                        whistle_detection.is_whistle_detected_in_buffer(buffer, parameters)
+                    })
+                    .unzip()
+            });
         detected_whistle_pub
             .publish(&Whistle { is_detected })
             .await?;
