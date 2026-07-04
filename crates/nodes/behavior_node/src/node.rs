@@ -368,14 +368,27 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .get_latest()
             .map(|position| *position);
 
-        if let Some(ball) = blackboard.world_state.ball {
-            blackboard.ball = Some(LastBall {
-                position: ball.ball_in_field,
-                velocity: ball.ball_in_ground_velocity,
-                age: blackboard.world_state.now,
-                field_side: ball.field_side,
-            });
-            blackboard.last_ball.clone_from(&blackboard.ball);
+        if let Some(ball) = blackboard.world_state.ball
+            && blackboard
+                .world_state
+                .filtered_game_controller_state
+                .is_some()
+        {
+            let length = blackboard.field_dimensions.length;
+            let width = blackboard.field_dimensions.width;
+            let border = blackboard.field_dimensions.border_strip_width;
+
+            if (ball.ball_in_field.x().abs() < (length / 2.0 + border))
+                && (ball.ball_in_field.y().abs() < (width / 2.0 + border))
+            {
+                blackboard.ball = Some(LastBall {
+                    position: ball.ball_in_field,
+                    velocity: ball.ball_in_ground_velocity,
+                    age: blackboard.world_state.now,
+                    field_side: ball.field_side,
+                });
+                blackboard.last_ball.clone_from(&blackboard.ball);
+            }
         } else if let Some(last_ball) = &blackboard.ball
             && blackboard.world_state.now.duration_since(last_ball.age)
                 >= blackboard.parameters.last_ball_timeout
