@@ -1,3 +1,3 @@
 {
-  sample_timeout: { secs: 0, nanos: 250000000 },
+  percept_timeout: { secs: 0, nanos: 250000000 },
 }

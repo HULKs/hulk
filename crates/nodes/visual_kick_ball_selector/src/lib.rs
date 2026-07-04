@@ -10,10 +10,8 @@ use types::{ball_detection::BallPercept, ball_position::BallPosition};
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
 pub struct Parameters {
-    pub sample_timeout: Duration,
+    pub percept_timeout: Duration,
 }
-
-type HeldBallPosition = BallPosition<Ground>;
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -48,7 +46,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             });
         }
 
-        let output = held_ball_if_fresh(held_ball, output_time, parameters.sample_timeout);
+        let output = held_ball_if_fresh(held_ball, output_time, parameters.percept_timeout);
         if output.is_none() {
             held_ball = None;
         }
@@ -69,7 +67,7 @@ fn nearest_visual_kick_ball_position(ball_percepts: &[BallPercept]) -> Option<Po
 }
 
 fn held_ball_if_fresh(
-    held_ball: Option<HeldBallPosition>,
+    held_ball: Option<BallPosition<Ground>>,
     now: Time,
     sample_timeout: Duration,
 ) -> Option<BallPosition<Ground>> {
