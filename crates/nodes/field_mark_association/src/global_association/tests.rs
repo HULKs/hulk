@@ -38,6 +38,13 @@ fn project_point(point: Point2<Field>) -> DetectedVisualFeature {
     }
 }
 
+fn feature_with_confidence(point: Point2<Field>, confidence: f32) -> DetectedVisualFeature {
+    DetectedVisualFeature {
+        confidence,
+        ..project_point(point)
+    }
+}
+
 fn synthetic_features(field: &FieldDimensions) -> DetectedVisualFeatures {
     DetectedVisualFeatures {
         goalposts: vec![
@@ -60,6 +67,35 @@ fn pose_hint_fallback_associates_single_feature() {
         ..Default::default()
     };
     let localizer = GlobalAssociator::default();
+
+    let associations = localizer.associate_with_pose_hint(
+        input(
+            &features,
+            &field,
+            Some(Isometry3::<Robot, Field>::identity()),
+        ),
+        PoseHintAssociationConfig::default(),
+    );
+
+    assert_eq!(associations.associations.len(), 1);
+    assert_eq!(associations.associations[0].field_point, penalty_spot);
+}
+
+#[test]
+fn pose_hint_fallback_uses_class_specific_confidence_thresholds() {
+    let field = FieldDimensions::SPL_2025;
+    let l_spot = field.corner(Half::Opponent, Side::Left);
+    let penalty_spot = field.penalty_spot(Half::Opponent);
+    let features = DetectedVisualFeatures {
+        l_spots: vec![feature_with_confidence(l_spot, 0.2)],
+        penalty_spots: vec![feature_with_confidence(penalty_spot, 0.2)],
+        ..Default::default()
+    };
+    let localizer = GlobalAssociator::new(GlobalAssociationConfig {
+        l_spot_confidence_threshold: 0.5,
+        penalty_spot_confidence_threshold: 0.1,
+        ..Default::default()
+    });
 
     let associations = localizer.associate_with_pose_hint(
         input(
@@ -231,5 +267,20 @@ fn rejects_low_confidence_detections() {
                 Some(Isometry3::<Robot, Field>::identity())
             ))
             .is_none()
+    );
+}
+
+#[test]
+fn rejects_invalid_class_confidence_threshold() {
+    let parameters = GlobalAssociationConfig {
+        x_spot_confidence_threshold: 1.1,
+        ..Default::default()
+    };
+
+    assert_eq!(
+        parameters.validate(),
+        Err(
+            "global_localizer.x_spot_confidence_threshold must be finite and in [0, 1]".to_string()
+        )
     );
 }

@@ -143,14 +143,14 @@ impl ObjectDetection {
             context
                 .parameters
                 .object_detection_parameters
-                .confidence_threshold,
+                .minimum_candidate_confidence,
         )?;
         let candidate_human_poses = extract_candidate_pose_detections(
             &outputs,
             context
                 .parameters
                 .pose_detection_parameters
-                .confidence_threshold,
+                .minimum_candidate_confidence,
         )?;
 
         let post_processing_duration = post_processing_start.elapsed();

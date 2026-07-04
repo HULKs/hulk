@@ -1,7 +1,11 @@
 {
   global_localizer: {
     min_inliers: 5,
-    min_confidence: 0.3,
+    goal_post_confidence_threshold: 0.35,
+    l_spot_confidence_threshold: 0.35,
+    t_spot_confidence_threshold: 0.35,
+    x_spot_confidence_threshold: 0.35,
+    penalty_spot_confidence_threshold: 0.35,
     min_detection_baseline: 0.1,
     min_map_baseline: 0.25,
     height_min: 0.2,

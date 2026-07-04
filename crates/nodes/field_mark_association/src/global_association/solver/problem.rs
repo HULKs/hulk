@@ -140,7 +140,12 @@ pub(super) fn detection_points(
     let mut detections = Vec::new();
 
     for (id, (class, feature)) in raw_detections(features).enumerate() {
-        if !map.has_class(class) || !usable_confidence(feature.confidence, cfg.min_confidence) {
+        if !map.has_class(class)
+            || !usable_confidence(
+                feature.confidence,
+                cfg.confidence_threshold_for_class(class),
+            )
+        {
             continue;
         }
 
@@ -214,6 +219,6 @@ pub(super) fn detection_priority(detection: &DetectionPoint, map: &LandmarkMap) 
     detection.confidence * map.rarity_weight(detection.class)
 }
 
-fn usable_confidence(confidence: f32, min_confidence: f32) -> bool {
-    confidence.is_finite() && confidence >= min_confidence && confidence <= 1.0
+fn usable_confidence(confidence: f32, confidence_threshold: f32) -> bool {
+    confidence.is_finite() && confidence >= confidence_threshold && confidence <= 1.0
 }
