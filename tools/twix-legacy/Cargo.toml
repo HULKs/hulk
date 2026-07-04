@@ -8,7 +8,6 @@ homepage.workspace = true
 [dependencies]
 aliveness = { workspace = true }
 argument_parsers = { workspace = true }
-ball_filter = { workspace = true }
 bevy = { workspace = true, features = ["3d_bevy_render"] }
 bevy_mujoco = { workspace = true }
 bincode = { workspace = true }

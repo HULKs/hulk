@@ -11696,7 +11696,6 @@ dependencies = [
 name = "twix"
 version = "0.14.0"
 dependencies = [
- "ball_filter",
  "behavior_node",
  "clap",
  "color-eyre",
@@ -11737,7 +11736,6 @@ version = "0.12.16"
 dependencies = [
  "aliveness",
  "argument_parsers",
- "ball_filter",
  "bevy",
  "bevy_mujoco",
  "bincode 1.3.3",
