@@ -40,6 +40,12 @@ struct TrackerPredictionUpdate {
     last_to_current: Isometry2<Ground, Ground>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TrackerStep {
+    DetectionUpdate,
+    PredictionOnly,
+}
+
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
 }
@@ -118,9 +124,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             let mut latest_output = None;
 
             for (time, (odometry_pose, detected_objects)) in future_map_item.persistent {
-                if !has_detection_frame(detected_objects.as_ref()) {
+                let Some(tracker_step) =
+                    tracker_step(odometry_pose.as_ref(), detected_objects.as_ref())
+                else {
                     continue;
-                }
+                };
 
                 let Some(prediction_update) = tracker_prediction_update(
                     time,
@@ -130,6 +138,22 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 ) else {
                     continue;
                 };
+
+                if tracker_step == TrackerStep::PredictionOnly {
+                    latest_output = Some((
+                        time,
+                        tracker.predict(
+                            prediction_update.delta_time,
+                            prediction_update.last_to_current,
+                            &tracker_parameters_from_ros(parameters),
+                            FieldBounds {
+                                x_limit: field_dimensions.length / 2.0,
+                                y_limit: field_dimensions.width / 2.0,
+                            },
+                        ),
+                    ));
+                    continue;
+                }
 
                 let timed_camera_matrix = camera_matrix_cache.get_nearest(time);
                 let camera_matrix = timed_camera_matrix
@@ -226,8 +250,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     }
 }
 
-fn has_detection_frame<T>(detected_objects: Option<&TimeWrapper<T>>) -> bool {
-    detected_objects.is_some()
+fn tracker_step<T>(
+    odometry_pose: Option<&Pose2<Odometry>>,
+    detected_objects: Option<&TimeWrapper<T>>,
+) -> Option<TrackerStep> {
+    if detected_objects.is_some() {
+        Some(TrackerStep::DetectionUpdate)
+    } else if odometry_pose.is_some() {
+        Some(TrackerStep::PredictionOnly)
+    } else {
+        None
+    }
 }
 
 fn ball_filter_output_from_parts(
@@ -582,6 +615,15 @@ mod odometry_pose_tests {
         assert_eq!(second_update.delta_time, Duration::from_millis(10));
         assert!(last_odometry.is_some());
         assert_eq!(last_prediction_time, Some(Time::from_nanos(1_010_000_000)));
+    }
+
+    #[test]
+    fn odometry_only_rows_are_prediction_updates() {
+        let odometry_pose = Pose2::<Odometry>::new(point![<Odometry>, 0.0, 0.0], 0.0);
+
+        let step = tracker_step(Some(&odometry_pose), Option::<&TimeWrapper<()>>::None);
+
+        assert_eq!(step, Some(TrackerStep::PredictionOnly));
     }
 
     #[test]

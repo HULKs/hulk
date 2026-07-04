@@ -146,6 +146,48 @@ impl Tracker {
         }
     }
 
+    pub fn predict(
+        &mut self,
+        dt: Duration,
+        odometry_delta: Isometry2<Ground, Ground>,
+        parameters: &TrackerParameters,
+        field_bounds: FieldBounds,
+    ) -> TrackerOutput {
+        let previous_hypothesis_count = self.global_hypotheses.len();
+        for hypothesis in &mut self.global_hypotheses {
+            for track in &mut hypothesis.tracks {
+                track.state.predict(dt, odometry_delta, parameters);
+                track.age += dt;
+                track.last_seen_age += dt;
+            }
+        }
+
+        let pruned_track_count =
+            prune_tracks(&mut self.global_hypotheses, parameters, field_bounds);
+        let pruned_hypothesis_count = prune_hypotheses(
+            &mut self.global_hypotheses,
+            parameters,
+            previous_hypothesis_count,
+        );
+
+        let mut output = self.output();
+        self.previous_primary_track_id = output.primary_track.as_ref().map(|track| track.id);
+        output.debug.primary_track_id = self.previous_primary_track_id;
+        self.last_debug = TrackerDebugState {
+            global_hypothesis_count: self.global_hypotheses.len(),
+            best_hypothesis_weight_log: self
+                .best_hypothesis()
+                .map(|hypothesis| hypothesis.weight_log),
+            track_count: output.tracks.len(),
+            primary_track_id: self.previous_primary_track_id,
+            assignment_count: 0,
+            pruned_hypothesis_count,
+            pruned_track_count,
+        };
+        output.debug = self.last_debug;
+        output
+    }
+
     pub fn update(
         &mut self,
         dt: Duration,
@@ -188,7 +230,7 @@ impl Tracker {
                         let mahalanobis = residual.dot(&cholesky.solve(&residual));
                         if mahalanobis <= parameters.gating_chi_square {
                             let assigned_weight = detection_probability.ln()
-                                + track.existence_probability.clamp(0.01, 0.99).ln()
+                                + association_existence_probability(track, parameters).ln()
                                 + track.state.measurement_log_likelihood(measurement)
                                 + measurement.confidence_likelihood();
                             choices.push(AssociationChoice::assign(
@@ -408,6 +450,20 @@ fn track_timeout(track: &BernoulliTrack, parameters: &TrackerParameters) -> Dura
     }
 }
 
+fn association_existence_probability(
+    track: &BernoulliTrack,
+    parameters: &TrackerParameters,
+) -> f32 {
+    if track.status == TrackStatus::Stale {
+        track
+            .existence_probability
+            .max(parameters.birth_existence_probability)
+            .clamp(0.01, 0.99)
+    } else {
+        track.existence_probability.clamp(0.01, 0.99)
+    }
+}
+
 fn prune_hypotheses(
     hypotheses: &mut Vec<GlobalHypothesis>,
     parameters: &TrackerParameters,
@@ -528,6 +584,50 @@ mod tests {
 
         assert_eq!(output.tracks.len(), 1, "{output:#?}");
         assert_eq!(output.tracks[0].status, TrackStatus::Stale);
+    }
+
+    #[test]
+    fn prediction_only_update_preserves_track_existence() {
+        let mut tracker = Tracker::new();
+
+        update_visible(&mut tracker, &[test_measurement(1.0, 0.0)]);
+        let output = update_visible(&mut tracker, &[test_measurement(1.0, 0.0)]);
+        let track = output.primary_track.expect("track should be confirmed");
+
+        let output = tracker.predict(
+            Duration::from_millis(100),
+            Isometry2::rotation(std::f32::consts::FRAC_PI_2),
+            &TrackerParameters::default(),
+            test_field(),
+        );
+        let predicted_track = output.primary_track.expect("track should stay exposed");
+
+        assert_eq!(predicted_track.id, track.id);
+        assert_eq!(
+            predicted_track.existence_probability,
+            track.existence_probability
+        );
+        assert!(predicted_track.position.x().abs() < 1.0e-5);
+        assert!((predicted_track.position.y() - 1.0).abs() < 1.0e-5);
+    }
+
+    #[test]
+    fn recent_stale_track_reassociates_with_same_position_measurement() {
+        let mut tracker = Tracker::new();
+
+        update_visible(&mut tracker, &[test_measurement(1.0, 0.0)]);
+        let output = update_visible(&mut tracker, &[test_measurement(1.0, 0.0)]);
+        let original_track_id = output.primary_track.expect("track should be confirmed").id;
+
+        for _ in 0..10 {
+            update_visible(&mut tracker, &[]);
+        }
+
+        let output = update_visible(&mut tracker, &[test_measurement(1.0, 0.0)]);
+
+        assert_eq!(output.primary_track.as_ref().unwrap().id, original_track_id);
+        assert_eq!(output.tracks.len(), 1, "{output:#?}");
+        assert_eq!(output.tracks[0].last_seen_age, Duration::ZERO);
     }
 
     #[test]

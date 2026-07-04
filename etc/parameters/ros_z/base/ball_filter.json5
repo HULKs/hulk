@@ -10,7 +10,7 @@
   probability_of_detection_hidden: 0.05,
   survival_probability: 0.995,
   clutter_log_likelihood: -5.0,
-  birth_log_likelihood: -2.0,
+  birth_log_likelihood: -5.0,
   max_assignments_per_hypothesis: 8,
   birth_existence_probability: 0.35,
   confirm_existence_threshold: 0.7,
@@ -26,7 +26,7 @@
   },
   stale_timeout: {
     nanos: 0,
-    secs: 15,
+    secs: 2,
   },
   max_global_hypotheses: 16,
   max_tracks_per_hypothesis: 15,
