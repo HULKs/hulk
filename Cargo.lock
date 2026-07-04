@@ -802,6 +802,7 @@ dependencies = [
  "ros-z-streams",
  "serde",
  "tokio",
+ "tracing",
  "types",
 ]
 

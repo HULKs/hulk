@@ -42,6 +42,21 @@ struct BallFilterOutput {
     hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CameraMatrixCacheQueryPosition {
+    Before,
+    Within,
+    After,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct CameraMatrixCacheDiagnostics {
+    query_position: CameraMatrixCacheQueryPosition,
+    selected_delta_ns: i64,
+    retained_window: Duration,
+    estimated_required_capacity: Option<usize>,
+}
+
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
 }
@@ -142,10 +157,19 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 }
 
                 if let Some(detected_objects) = detected_objects {
-                    let timed_camera_matrix = camera_matrix_cache.get_nearest(time);
+                    let timed_camera_matrix = camera_matrix_cache.get_nearest_with_stamp(time);
                     let camera_matrix = timed_camera_matrix
                         .as_ref()
-                        .map(|camera_matrix| &camera_matrix.inner);
+                        .map(|(_, camera_matrix)| &camera_matrix.inner);
+                    log_camera_matrix_cache_lookup(
+                        "detected_objects",
+                        time,
+                        timed_camera_matrix.as_ref().map(|(stamp, _)| *stamp),
+                        camera_matrix,
+                        camera_matrix_cache.earliest_stamp(),
+                        camera_matrix_cache.latest_stamp(),
+                        camera_matrix_cache.len(),
+                    );
                     let Some(projected_balls) = project_detected_balls(
                         Some(&detected_objects.inner),
                         camera_matrix,
@@ -154,6 +178,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     ) else {
                         continue;
                     };
+                    log_projected_ball_percepts("detected_objects", time, &projected_balls);
 
                     ball_percepts.extend_from_slice(&projected_balls);
 
@@ -198,10 +223,25 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 .collect();
 
             let ball_radius = field_dimensions.ball_radius;
-            let filtered_balls_in_image = if let Some(time) = projection_time
-                && let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time)
-            {
-                project_to_image(&output_balls, &timed_camera_matrix.inner, ball_radius)
+            let filtered_balls_in_image = if let Some(time) = projection_time {
+                let timed_camera_matrix = camera_matrix_cache.get_nearest_with_stamp(time);
+                let camera_matrix = timed_camera_matrix
+                    .as_ref()
+                    .map(|(_, camera_matrix)| &camera_matrix.inner);
+                log_camera_matrix_cache_lookup(
+                    "filtered_balls_in_image",
+                    time,
+                    timed_camera_matrix.as_ref().map(|(stamp, _)| *stamp),
+                    camera_matrix,
+                    camera_matrix_cache.earliest_stamp(),
+                    camera_matrix_cache.latest_stamp(),
+                    camera_matrix_cache.len(),
+                );
+                camera_matrix
+                    .map(|camera_matrix| {
+                        project_to_image(&output_balls, camera_matrix, ball_radius)
+                    })
+                    .unwrap_or_default()
             } else {
                 vec![]
             };
@@ -231,6 +271,153 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         hypothetical_ball_positions_pub
             .publish(&output.hypothetical_ball_positions)
             .await?;
+    }
+}
+
+fn log_camera_matrix_cache_lookup(
+    context: &str,
+    query_time: Time,
+    selected_stamp: Option<Time>,
+    selected_camera_matrix: Option<&CameraMatrix>,
+    earliest_stamp: Option<Time>,
+    latest_stamp: Option<Time>,
+    cache_len: usize,
+) {
+    let Some(selected_stamp) = selected_stamp else {
+        tracing::debug!(
+            target: "ball_filter::camera_matrix_cache",
+            context,
+            query_time_ns = query_time.as_nanos(),
+            cache_earliest_ns = ?earliest_stamp.map(Time::as_nanos),
+            cache_latest_ns = ?latest_stamp.map(Time::as_nanos),
+            cache_len,
+            "camera matrix cache lookup returned no sample"
+        );
+        return;
+    };
+    let (Some(earliest_stamp), Some(latest_stamp)) = (earliest_stamp, latest_stamp) else {
+        tracing::debug!(
+            target: "ball_filter::camera_matrix_cache",
+            context,
+            query_time_ns = query_time.as_nanos(),
+            selected_stamp_ns = selected_stamp.as_nanos(),
+            selected_delta_ms = selected_stamp
+                .as_nanos()
+                .saturating_sub(query_time.as_nanos()) as f64
+                / 1_000_000.0,
+            cache_len,
+            "camera matrix cache lookup has selected sample but incomplete cache window"
+        );
+        return;
+    };
+
+    let diagnostics = camera_matrix_cache_diagnostics(
+        query_time,
+        selected_stamp,
+        earliest_stamp,
+        latest_stamp,
+        cache_len,
+    );
+    let (head_roll, head_pitch, head_yaw) = selected_camera_matrix
+        .map(camera_matrix_head_euler_angles)
+        .map_or((None, None, None), |(roll, pitch, yaw)| {
+            (Some(roll), Some(pitch), Some(yaw))
+        });
+
+    tracing::debug!(
+        target: "ball_filter::camera_matrix_cache",
+        context,
+        query_time_ns = query_time.as_nanos(),
+        selected_stamp_ns = selected_stamp.as_nanos(),
+        selected_delta_ms = diagnostics.selected_delta_ns as f64 / 1_000_000.0,
+        cache_earliest_ns = earliest_stamp.as_nanos(),
+        cache_latest_ns = latest_stamp.as_nanos(),
+        retained_window_ms = diagnostics.retained_window.as_secs_f64() * 1000.0,
+        cache_len,
+        query_position = ?diagnostics.query_position,
+        estimated_required_capacity = ?diagnostics.estimated_required_capacity,
+        head_roll = ?head_roll,
+        head_pitch = ?head_pitch,
+        head_yaw = ?head_yaw,
+        "camera matrix cache nearest lookup"
+    );
+}
+
+fn camera_matrix_cache_diagnostics(
+    query_time: Time,
+    selected_stamp: Time,
+    earliest_stamp: Time,
+    latest_stamp: Time,
+    cache_len: usize,
+) -> CameraMatrixCacheDiagnostics {
+    let query_position = if query_time < earliest_stamp {
+        CameraMatrixCacheQueryPosition::Before
+    } else if query_time > latest_stamp {
+        CameraMatrixCacheQueryPosition::After
+    } else {
+        CameraMatrixCacheQueryPosition::Within
+    };
+
+    CameraMatrixCacheDiagnostics {
+        query_position,
+        selected_delta_ns: selected_stamp
+            .as_nanos()
+            .saturating_sub(query_time.as_nanos()),
+        retained_window: latest_stamp.duration_since(earliest_stamp),
+        estimated_required_capacity: estimate_required_camera_matrix_cache_capacity(
+            query_time,
+            earliest_stamp,
+            latest_stamp,
+            cache_len,
+        ),
+    }
+}
+
+fn estimate_required_camera_matrix_cache_capacity(
+    query_time: Time,
+    earliest_stamp: Time,
+    latest_stamp: Time,
+    cache_len: usize,
+) -> Option<usize> {
+    if query_time >= earliest_stamp || cache_len < 2 {
+        return None;
+    }
+
+    let retained_window_ns = latest_stamp.duration_since(earliest_stamp).as_nanos();
+    if retained_window_ns == 0 {
+        return None;
+    }
+
+    let required_window_ns = latest_stamp.duration_since(query_time).as_nanos();
+    let retained_intervals = (cache_len - 1) as u128;
+    let required_intervals = required_window_ns
+        .checked_mul(retained_intervals)?
+        .div_ceil(retained_window_ns);
+
+    usize::try_from(required_intervals.checked_add(1)?).ok()
+}
+
+fn camera_matrix_head_euler_angles(camera_matrix: &CameraMatrix) -> (f32, f32, f32) {
+    camera_matrix
+        .robot_to_head
+        .rotation()
+        .as_orientation()
+        .euler_angles()
+}
+
+fn log_projected_ball_percepts(context: &str, time: Time, ball_percepts: &[BallPercept]) {
+    for ball_percept in ball_percepts {
+        tracing::debug!(
+            target: "ball_filter::projection",
+            context,
+            time_ns = time.as_nanos(),
+            ground_x = ball_percept.percept_in_ground.mean[0],
+            ground_y = ball_percept.percept_in_ground.mean[1],
+            image_x = ball_percept.image_location.center.x(),
+            image_y = ball_percept.image_location.center.y(),
+            image_radius = ball_percept.image_location.radius,
+            "projected ball percept"
+        );
     }
 }
 
@@ -398,7 +585,7 @@ fn mahalanobis_matrix_of_hypotheses_and_percepts(
         let ball = hypothesis.position();
 
         let residual = percept.percept_in_ground.mean - ball.position.inner.coords;
-        let covariance = hypothesis.position_covariance();
+        let covariance = hypothesis.position_covariance() + percept.percept_in_ground.covariance;
 
         let mahalanobis_distance = residual.dot(
             &covariance
@@ -580,6 +767,71 @@ mod tests {
 
         assert_eq!(assignment.len(), 2);
         assert_eq!(assignment.into_iter().flatten().count(), 2);
+    }
+
+    #[test]
+    fn matching_cost_accounts_for_percept_covariance() {
+        let hypothesis = BallHypothesis {
+            mode: BallMode::Moving(MultivariateNormalDistribution {
+                mean: nalgebra::vector![0.0, 0.0, 0.0, 0.0],
+                covariance: Matrix4::from_diagonal(&nalgebra::vector![0.01, 0.01, 1.0, 1.0]),
+            }),
+            last_seen: Time::zero(),
+            validity: 1.0,
+        };
+        let percept = BallPercept {
+            percept_in_ground: MultivariateNormalDistribution {
+                mean: vector![1.0, 0.0],
+                covariance: Matrix2::identity() * 100.0,
+            },
+            image_location: Circle::new(point![0.0, 0.0], 1.0),
+        };
+
+        let costs = mahalanobis_matrix_of_hypotheses_and_percepts(&[hypothesis], &[percept]);
+        let cost = costs[(0, 0)].into_inner();
+
+        assert!(
+            cost > -1.0,
+            "uncertain percept should not be treated as a precise outlier, got cost {cost}"
+        );
+    }
+
+    #[test]
+    fn camera_matrix_cache_diagnostics_recommends_capacity_for_query_before_cache_window() {
+        let diagnostics = camera_matrix_cache_diagnostics(
+            Time::from_nanos(1_000_000_000),
+            Time::from_nanos(1_100_000_000),
+            Time::from_nanos(1_100_000_000),
+            Time::from_nanos(1_400_000_000),
+            4,
+        );
+
+        assert_eq!(
+            diagnostics.query_position,
+            CameraMatrixCacheQueryPosition::Before
+        );
+        assert_eq!(diagnostics.selected_delta_ns, 100_000_000);
+        assert_eq!(diagnostics.retained_window, Duration::from_millis(300));
+        assert_eq!(diagnostics.estimated_required_capacity, Some(5));
+    }
+
+    #[test]
+    fn camera_matrix_cache_diagnostics_reports_future_query_without_capacity_estimate() {
+        let diagnostics = camera_matrix_cache_diagnostics(
+            Time::from_nanos(1_500_000_000),
+            Time::from_nanos(1_400_000_000),
+            Time::from_nanos(1_100_000_000),
+            Time::from_nanos(1_400_000_000),
+            4,
+        );
+
+        assert_eq!(
+            diagnostics.query_position,
+            CameraMatrixCacheQueryPosition::After
+        );
+        assert_eq!(diagnostics.selected_delta_ns, -100_000_000);
+        assert_eq!(diagnostics.retained_window, Duration::from_millis(300));
+        assert_eq!(diagnostics.estimated_required_capacity, None);
     }
 }
 

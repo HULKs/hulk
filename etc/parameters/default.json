@@ -632,7 +632,7 @@
     },
     "ball_confidence_threshold": 0.5,
     "log_likelihood_of_zero_velocity_threshold": 0.5,
-    "maximum_matching_cost": 0.25,
+    "maximum_matching_cost": 5.9914646,
     "maximum_matching_cost_validity_penalty_factor": 0.14,
     "maximum_number_of_hypotheses": 15,
     "noise": {
