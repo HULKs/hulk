@@ -17,5 +17,6 @@ chown -R booster:booster /home/booster/hulk
   --location default-location \
   --parameter-root etc/parameters/ros_z \
   --router tcp/127.0.0.1:7447 \
+  --log-path "${INTERNAL_LOG_PATH}" \
   > >(tee "${INTERNAL_LOG_PATH}/hulk.out") \
   2> >(tee "${INTERNAL_LOG_PATH}/hulk.err")
