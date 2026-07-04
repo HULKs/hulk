@@ -21,7 +21,7 @@ use crate::pubsub::metadata::PublicationId;
 use crate::pubsub::replay::{self, RetainedSample, TransientLocalCache};
 use crate::qos::QosProfile;
 use crate::shm::ShmConfig;
-use crate::time::Clock;
+use crate::time::{Clock, Time};
 use crate::topic_name;
 use ros_z_protocol::qos::{QosDurability, QosHistory, QosReliability};
 use ros_z_schema::SchemaBundle;
@@ -179,6 +179,12 @@ where
     pub async fn publish(self, message: &T) -> Result<()> {
         self.publisher
             .publish_with_reserved_id(message, self.publication_id)
+            .await
+    }
+
+    pub async fn publish_with_source_time(self, message: &T, source_time: Time) -> Result<()> {
+        self.publisher
+            .publish_with_reserved_id_and_source_time(message, self.publication_id, source_time)
             .await
     }
 }
@@ -491,16 +497,20 @@ where
         PublicationId::new(self.endpoint_global_id, sequence_number)
     }
 
-    fn new_attachment_for_publication(&self, publication_id: PublicationId) -> Attachment {
+    fn new_attachment_for_publication_with_source_time(
+        &self,
+        publication_id: PublicationId,
+        source_time: Time,
+    ) -> Attachment {
         trace!(
             "[PUB] Creating attachment: sequence_number={}, endpoint_global_id={:02x?}",
             publication_id.sequence_number(),
             &publication_id.endpoint_global_id().as_bytes()[..4]
         );
-        Attachment::with_clock(
+        Attachment::with_source_time(
             publication_id.sequence_number(),
             publication_id.endpoint_global_id(),
-            &self.clock,
+            source_time,
         )
     }
 
@@ -516,12 +526,45 @@ where
         self.prepare().publish(message).await
     }
 
+    /// Serialize and publish `message` while using `source_time` in the ROS-Z attachment.
+    #[tracing::instrument(name = "publish_with_source_time", skip(self, message), fields(
+        topic = %self.entity.topic,
+        sequence_number = self.sequence_number.load(Ordering::Acquire),
+        endpoint_global_id = tracing::field::Empty,
+        payload_len = tracing::field::Empty,
+        used_shm = tracing::field::Empty
+    ))]
+    pub async fn publish_with_source_time(&self, message: &T, source_time: Time) -> Result<()> {
+        let publication_id = self.next_publication_id();
+        self.publish_with_reserved_id_and_source_time(message, publication_id, source_time)
+            .await
+    }
+
     async fn publish_with_reserved_id(
         &self,
         message: &T,
         publication_id: PublicationId,
     ) -> Result<()> {
         let (zbytes, attachment) = self.prepare_publish_payload(message, publication_id)?;
+        self.publish_payload(zbytes, attachment).await
+    }
+
+    async fn publish_with_reserved_id_and_source_time(
+        &self,
+        message: &T,
+        publication_id: PublicationId,
+        source_time: Time,
+    ) -> Result<()> {
+        let (zbytes, attachment) =
+            self.prepare_publish_payload_with_source_time(message, publication_id, source_time)?;
+        self.publish_payload(zbytes, attachment).await
+    }
+
+    async fn publish_payload(
+        &self,
+        zbytes: zenoh::bytes::ZBytes,
+        attachment: Attachment,
+    ) -> Result<()> {
         // Keep cache-before-publish semantics so replay queries can observe the retained
         // sample as soon as publish() returns, avoiding a race where a replay query arrives before
         // the sample is cached.
@@ -541,6 +584,16 @@ where
         &self,
         message: &T,
         publication_id: PublicationId,
+    ) -> Result<(zenoh::bytes::ZBytes, Attachment)> {
+        let source_time = self.clock.now();
+        self.prepare_publish_payload_with_source_time(message, publication_id, source_time)
+    }
+
+    fn prepare_publish_payload_with_source_time(
+        &self,
+        message: &T,
+        publication_id: PublicationId,
+        source_time: Time,
     ) -> Result<(zenoh::bytes::ZBytes, Attachment)> {
         tracing::Span::current().record(
             "endpoint_global_id",
@@ -591,7 +644,8 @@ where
         tracing::Span::current().record("payload_len", actual_size);
 
         let zbytes = zenoh::bytes::ZBytes::from(zbuf);
-        let attachment = self.new_attachment_for_publication(publication_id);
+        let attachment =
+            self.new_attachment_for_publication_with_source_time(publication_id, source_time);
 
         Ok((zbytes, attachment))
     }
