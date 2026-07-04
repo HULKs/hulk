@@ -24,6 +24,10 @@ use types::{
 
 struct BallFilterOutput {
     ball_percepts: Vec<BallPercept>,
+    tracker_output: Option<TrackerDerivedOutput>,
+}
+
+struct TrackerDerivedOutput {
     tracks: Vec<BallTrack<Ground>>,
     primary_ball: Option<BallTrack<Ground>>,
     ball_position: Option<BallPosition<Ground>>,
@@ -188,39 +192,40 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 ));
             }
 
-            let tracker_output = latest_output?;
-            let Some(output_time) = output_time else {
-                return None;
-            };
+            let tracker_output = if let Some(tracker_output) = latest_output {
+                let output_time = output_time?;
+                let tracks: Vec<_> = tracker_output
+                    .tracks
+                    .iter()
+                    .map(|track| track_to_message(track, output_time))
+                    .collect();
+                let primary_ball = tracker_output
+                    .primary_track
+                    .as_ref()
+                    .map(|track| track_to_message(track, output_time));
+                let ball_position = primary_ball.as_ref().map(track_to_ball_position);
 
-            let tracks: Vec<_> = tracker_output
-                .tracks
-                .iter()
-                .map(|track| track_to_message(track, output_time))
-                .collect();
-            let primary_ball = tracker_output
-                .primary_track
-                .as_ref()
-                .map(|track| track_to_message(track, output_time));
-            let ball_position = primary_ball.as_ref().map(track_to_ball_position);
+                let ball_radius = field_dimensions.ball_radius;
+                let filtered_balls_in_image = if let Some(time) = projection_time
+                    && let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time)
+                {
+                    project_to_image(&tracks, &timed_camera_matrix.inner, ball_radius)
+                } else {
+                    Vec::new()
+                };
 
-            let ball_radius = field_dimensions.ball_radius;
-            let filtered_balls_in_image = if let Some(time) = projection_time
-                && let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time)
-            {
-                project_to_image(&tracks, &timed_camera_matrix.inner, ball_radius)
+                Some(TrackerDerivedOutput {
+                    tracks,
+                    primary_ball,
+                    ball_position,
+                    debug_state: tracker_output.debug,
+                    filtered_balls_in_image,
+                })
             } else {
-                Vec::new()
+                None
             };
 
-            Some(BallFilterOutput {
-                ball_percepts,
-                tracks,
-                primary_ball,
-                ball_position,
-                debug_state: tracker_output.debug,
-                filtered_balls_in_image,
-            })
+            ball_filter_output_from_parts(ball_percepts, tracker_output)
         });
 
         let Some(output) = output else {
@@ -228,18 +233,38 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         };
 
         ball_percepts_pub.publish(&output.ball_percepts).await?;
-        tracks_pub.publish(&output.tracks).await?;
-        primary_ball_pub.publish(&output.primary_ball).await?;
-        debug_state_pub.publish(&output.debug_state).await?;
-        filtered_balls_in_image_pub
-            .publish(&output.filtered_balls_in_image)
-            .await?;
-        ball_position_pub.publish(&output.ball_position).await?;
+        if let Some(tracker_output) = output.tracker_output {
+            tracks_pub.publish(&tracker_output.tracks).await?;
+            primary_ball_pub
+                .publish(&tracker_output.primary_ball)
+                .await?;
+            debug_state_pub.publish(&tracker_output.debug_state).await?;
+            filtered_balls_in_image_pub
+                .publish(&tracker_output.filtered_balls_in_image)
+                .await?;
+            ball_position_pub
+                .publish(&tracker_output.ball_position)
+                .await?;
+        }
     }
 }
 
 fn has_detection_frame<T>(detected_objects: Option<&TimeWrapper<T>>) -> bool {
     detected_objects.is_some()
+}
+
+fn ball_filter_output_from_parts(
+    ball_percepts: Vec<BallPercept>,
+    tracker_output: Option<TrackerDerivedOutput>,
+) -> Option<BallFilterOutput> {
+    if ball_percepts.is_empty() && tracker_output.is_none() {
+        return None;
+    }
+
+    Some(BallFilterOutput {
+        ball_percepts,
+        tracker_output,
+    })
 }
 
 fn tracker_prediction_update(
@@ -523,37 +548,54 @@ mod tests {
 mod odometry_pose_tests {
     use coordinate_systems::Odometry;
     use linear_algebra::{Pose2, point};
-    use ros_z::time::Time;
-    use types::parameters::BallFilterParameters;
 
     use super::*;
 
     #[test]
-    fn odometry_pose_prediction_updates_last_pose() {
-        let mut ball_filter = BallFilter::default();
+    fn tracker_prediction_update_advances_last_odometry_pose() {
         let mut last_odometry = None;
         let mut last_prediction_time = None;
-        let parameters = BallFilterParameters::default();
 
-        predict_hypotheses_from_odometry(
-            &mut ball_filter,
+        let first_update = tracker_prediction_update(
             Time::from_nanos(1_000_000_000),
-            Pose2::<Odometry>::new(point![<Odometry>, 0.0, 0.0], 0.0),
+            Some(Pose2::<Odometry>::new(point![<Odometry>, 0.0, 0.0], 0.0)),
             &mut last_odometry,
             &mut last_prediction_time,
-            &parameters,
-        );
+        )
+        .expect("first odometry pose should produce an update");
 
-        predict_hypotheses_from_odometry(
-            &mut ball_filter,
+        let second_update = tracker_prediction_update(
             Time::from_nanos(1_010_000_000),
-            Pose2::<Odometry>::new(point![<Odometry>, 1.0, 0.0], 0.0),
+            Some(Pose2::<Odometry>::new(point![<Odometry>, 1.0, 0.0], 0.0)),
             &mut last_odometry,
             &mut last_prediction_time,
-            &parameters,
-        );
+        )
+        .expect("second odometry pose should produce an update");
 
+        assert_eq!(first_update.delta_time, Duration::ZERO);
+        assert_eq!(second_update.delta_time, Duration::from_millis(10));
         assert!(last_odometry.is_some());
         assert_eq!(last_prediction_time, Some(Time::from_nanos(1_010_000_000)));
+    }
+
+    #[test]
+    fn output_keeps_percepts_without_tracker_update() {
+        let percept = BallPercept {
+            percept_in_ground: MultivariateNormalDistribution {
+                mean: nalgebra::vector![1.0, 2.0],
+                covariance: Matrix2::identity(),
+            },
+            image_location: Circle::new(point![10.0, 20.0], 3.0),
+        };
+
+        let output = ball_filter_output_from_parts(vec![percept], None)
+            .expect("percept-only output should still be published");
+
+        assert_eq!(output.ball_percepts.len(), 1);
+        assert_eq!(
+            output.ball_percepts[0].percept_in_ground.mean,
+            nalgebra::vector![1.0, 2.0]
+        );
+        assert!(output.tracker_output.is_none());
     }
 }
