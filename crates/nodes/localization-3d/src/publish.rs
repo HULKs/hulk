@@ -3,14 +3,11 @@ use coordinate_systems::{Field, Robot};
 use linear_algebra::Isometry3;
 use ros_z::{pubsub::Publisher, time::Time};
 use types::{
-    field_dimensions::FieldDimensions,
     time_wrapper::TimeWrapper,
     visual_localization::{AssociationPoseHint, AssociationPoseHintSource},
 };
 
-use crate::{
-    pose::initial_localization_for_branch_hint, visual_localization::association_pose_hint,
-};
+use crate::visual_localization::association_pose_hint;
 
 #[derive(Clone, Copy)]
 pub(crate) struct LocalizationPublishers<'a> {
@@ -52,17 +49,14 @@ impl<'a> LocalizationPublishers<'a> {
         Ok(())
     }
 
-    pub(crate) async fn publish_startup_prior(
-        self,
-        time: Time,
-        field_dimensions: &FieldDimensions,
-    ) -> Result<()> {
-        self.publish_outputs(
-            time,
-            None,
-            initial_localization_for_branch_hint(field_dimensions),
-            AssociationPoseHintSource::StartupPrior,
-        )
-        .await
+    pub(crate) async fn publish_unlocalized(self, time: Time) -> Result<()> {
+        self.localization.publish(&None).await?;
+        self.pose_3d
+            .publish(&TimeWrapper { time, inner: None })
+            .await?;
+        self.association_pose_hint
+            .publish(&TimeWrapper { time, inner: None })
+            .await?;
+        Ok(())
     }
 }

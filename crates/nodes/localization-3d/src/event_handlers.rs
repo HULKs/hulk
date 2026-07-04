@@ -87,22 +87,25 @@ pub(crate) async fn handle_optimization_result(
     let result_time = Time::from_wallclock(result.time);
     let camera_matrix = fresh_camera_matrix(camera_matrix_cache, result_time);
     let backend_transform = backend_localization_for_result(&result, camera_matrix.as_deref());
-    let transform = if global_visual_lock.mark_backend_result() {
+    let (transform, pose_3d) = if global_visual_lock.mark_backend_result() {
         live_localization.reset(&result, visual_odometer_cache, camera_matrix_cache);
-        Some(
-            live_localization
-                .field_to_robot_latest(visual_odometer_cache, camera_matrix_cache)
-                .unwrap_or(backend_transform),
+        (
+            Some(
+                live_localization
+                    .field_to_robot_latest(visual_odometer_cache, camera_matrix_cache)
+                    .unwrap_or(backend_transform),
+            ),
+            Some(backend_transform),
         )
     } else {
-        None
+        (None, None)
     };
 
     publishers
         .publish_outputs(
             result_time,
             transform,
-            Some(backend_transform),
+            pose_3d,
             AssociationPoseHintSource::BackendBranch,
         )
         .await?;

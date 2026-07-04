@@ -31,7 +31,7 @@ use crate::{
     backend_task::spawn_backend_task,
     damping::{
         initial_state_for_reset, localization_is_damping, publish_damping_optimization_result,
-        reset_and_publish_startup_prior,
+        reset_and_publish_unlocalized,
     },
     diagnostics::SolveDiagnostics,
     event_handlers::{handle_optimization_result, handle_visual_odometer, handle_visual_odometry},
@@ -146,7 +146,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let field_dimensions = wait_for_field_dimensions(&field_dimensions_cache).await;
-    let initial_state = wait_for_initial_state(&camera_matrix_cache, &field_dimensions).await;
+    let initial_state = wait_for_initial_state(&camera_matrix_cache).await;
     let localization_parameters = parameters.snapshot().typed().clone();
     let (mut frontend, backend) = initialize(
         backend_configuration_from_parameters_and_field_dimensions(
@@ -174,13 +174,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 }
 
                 let now = node.clock().now();
-                reset_and_publish_startup_prior(
+                reset_and_publish_unlocalized(
                     &mut frontend,
                     &mut live_localization,
                     &mut global_visual_lock,
-                    initial_state_for_reset(&camera_matrix_cache, &field_dimensions, &initial_state),
+                    initial_state_for_reset(&camera_matrix_cache, &initial_state),
                     now,
-                    &field_dimensions,
                     publishers,
                 )
                 .await
@@ -250,7 +249,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                         &mut live_localization,
                         &mut global_visual_lock,
                         node.clock().now(),
-                        &field_dimensions,
                         publishers,
                     ).await?;
                     continue;
@@ -275,12 +273,11 @@ fn should_drop_input_while_damping(primary_state_cache: &Cache<PrimaryState>) ->
 
 async fn wait_for_initial_state(
     camera_matrix_cache: &Cache<TimeWrapper<CameraMatrix>>,
-    field_dimensions: &FieldDimensions,
 ) -> InitialState {
     let mut interval = tokio::time::interval(Duration::from_millis(10));
     loop {
         if let Some(camera_matrix) = camera_matrix_cache.get_latest() {
-            return initial_state_from_camera_matrix(&camera_matrix.inner, field_dimensions);
+            return initial_state_from_camera_matrix(&camera_matrix.inner);
         }
         interval.tick().await;
     }

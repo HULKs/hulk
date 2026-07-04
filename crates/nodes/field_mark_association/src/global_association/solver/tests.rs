@@ -163,6 +163,56 @@ fn pose_hint_selects_symmetry_branch_before_lock() -> Result<(), String> {
 }
 
 #[test]
+fn no_pose_hint_selects_own_half_negative_y_startup_branch() -> Result<(), String> {
+    let field = FieldDimensions::SPL_2025;
+    let pose_on_symmetric_branch = robot_to_field(
+        field.length * 0.5 - 1.3,
+        field.width * 0.5 - 0.7,
+        -FRAC_PI_2,
+    );
+
+    let selected = no_hint_localization_for_pose(pose_on_symmetric_branch, 0x4e45_4759)?;
+    let position = selected.inner.translation.vector;
+    let (_, _, yaw) = selected.inner.rotation.euler_angles();
+
+    assert!(
+        position.x <= 0.0,
+        "selected x should be in own half: {position:?}"
+    );
+    assert!(
+        position.y < 0.0,
+        "selected y should be negative: {position:?}"
+    );
+    assert!(yaw_error(yaw, FRAC_PI_2) < 1.0e-3, "selected yaw: {yaw}");
+    Ok(())
+}
+
+#[test]
+fn no_pose_hint_selects_own_half_positive_y_startup_branch() -> Result<(), String> {
+    let field = FieldDimensions::SPL_2025;
+    let pose_on_symmetric_branch = robot_to_field(
+        field.length * 0.5 - 1.3,
+        -field.width * 0.5 + 0.7,
+        FRAC_PI_2,
+    );
+
+    let selected = no_hint_localization_for_pose(pose_on_symmetric_branch, 0x504f_5359)?;
+    let position = selected.inner.translation.vector;
+    let (_, _, yaw) = selected.inner.rotation.euler_angles();
+
+    assert!(
+        position.x <= 0.0,
+        "selected x should be in own half: {position:?}"
+    );
+    assert!(
+        position.y > 0.0,
+        "selected y should be positive: {position:?}"
+    );
+    assert!(yaw_error(yaw, -FRAC_PI_2) < 1.0e-3, "selected yaw: {yaw}");
+    Ok(())
+}
+
+#[test]
 fn center_goal_side_projected_features_never_return_wrong_associations() -> Result<(), String> {
     let field = FieldDimensions::SPL_2025;
     let map = LandmarkMap::new(&field, GlobalAssociationConfig::default().min_map_baseline);
@@ -203,6 +253,37 @@ fn projected_noisy_subsamples_never_return_wrong_associations() -> Result<(), St
         "solver produced too few results for valid projected cases: {stats:?}"
     );
     Ok(())
+}
+
+fn no_hint_localization_for_pose(
+    pose: Isometry3<Robot, Field>,
+    seed: u64,
+) -> Result<Isometry3<Robot, Field>, String> {
+    let field = FieldDimensions::SPL_2025;
+    let config = GlobalAssociationConfig::default();
+    let map = LandmarkMap::new(&field, config.min_map_baseline);
+    let visible = projected_landmarks(&map, pose);
+    let mut rng = DeterministicRng::new(seed);
+    let selected = random_non_collinear_subsample(&visible, config.min_inliers, &map, &mut rng)
+        .ok_or_else(|| "startup branch pose should have enough visible landmarks".to_string())?;
+    let frame = synthetic_frame(&selected);
+    let localizer = GlobalAssociator::new(config);
+    let result = localizer
+        .localize(synthetic_input(&frame.features, &field, None))
+        .ok_or_else(|| "startup branch frame should localize without a pose hint".to_string())?;
+
+    Ok(result.associations().robot_to_field)
+}
+
+fn yaw_error(yaw: f32, expected: f32) -> f32 {
+    let mut error = yaw - expected;
+    while error > std::f32::consts::PI {
+        error -= std::f32::consts::TAU;
+    }
+    while error < -std::f32::consts::PI {
+        error += std::f32::consts::TAU;
+    }
+    error.abs()
 }
 
 #[test]
