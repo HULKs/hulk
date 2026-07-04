@@ -11,6 +11,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     ball_position::{BallPosition, HypotheticalBallPosition},
+    ball_tracking::BallTrack,
     field_dimensions::Side,
     filtered_game_controller_state::FilteredGameControllerState,
     obstacles::Obstacle,
@@ -22,6 +23,7 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, Message)]
 pub struct WorldState {
     pub ball: Option<BallState>,
+    pub ball_tracks: Vec<BallTrack<Ground>>,
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
     pub hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
     #[path_serde(leaf)]
@@ -41,6 +43,7 @@ impl Default for WorldState {
     fn default() -> Self {
         Self {
             ball: Default::default(),
+            ball_tracks: Default::default(),
             filtered_game_controller_state: Default::default(),
             hypothetical_ball_positions: Default::default(),
             now: Time::zero(),

@@ -444,9 +444,10 @@ pub struct BallProjectionParameters {
 )]
 pub struct BallFilterNoise {
     pub detection_noise: Vector2<Pixel>,
-    pub process_noise_moving: nalgebra::Vector4<f32>,
-    pub process_noise_resting: nalgebra::Vector2<f32>,
-    pub initial_covariance: nalgebra::Vector4<f32>,
+    pub static_process_noise: nalgebra::Vector2<f32>,
+    pub rolling_process_noise: nalgebra::Vector4<f32>,
+    pub initial_position_covariance: nalgebra::Vector2<f32>,
+    pub initial_velocity_covariance: nalgebra::Vector2<f32>,
 }
 
 #[derive(
@@ -461,19 +462,31 @@ pub struct BallFilterNoise {
     Message,
 )]
 pub struct BallFilterParameters {
-    pub hypothesis_timeout: Duration,
-    pub maximum_number_of_hypotheses: usize,
     pub ball_confidence_threshold: f32,
-    pub log_likelihood_of_zero_velocity_threshold: f32,
-    pub hypothesis_merge_distance: f32,
-    pub visible_validity_exponential_decay_factor: f32,
-    pub hidden_validity_exponential_decay_factor: f32,
-    pub validity_output_threshold: f32,
-    pub validity_discard_threshold: f32,
-    pub velocity_decay_factor: f32,
+    pub duplicate_measurement_distance: f32,
+    pub rolling_velocity_decay: f32,
+    pub mode_transition_static_to_rolling: f32,
+    pub mode_transition_rolling_to_static: f32,
+    pub max_ball_speed: f32,
+    pub gating_chi_square: f32,
+    pub probability_of_detection_visible: f32,
+    pub probability_of_detection_hidden: f32,
+    pub survival_probability: f32,
+    pub clutter_log_likelihood: f32,
+    pub birth_log_likelihood: f32,
+    pub max_assignments_per_hypothesis: usize,
+    pub birth_existence_probability: f32,
+    pub confirm_existence_threshold: f32,
+    pub delete_existence_threshold: f32,
+    pub minimum_confirming_hits: u32,
+    pub tentative_timeout: Duration,
+    pub confirmed_timeout: Duration,
+    pub stale_timeout: Duration,
+    pub max_global_hypotheses: usize,
+    pub max_tracks_per_hypothesis: usize,
+    pub hypothesis_prune_log_weight: f32,
+    pub merge_distance: f32,
     pub noise: BallFilterNoise,
-    pub maximum_matching_cost: f32,
-    pub maximum_matching_cost_validity_penalty_factor: f32,
 }
 
 #[derive(
