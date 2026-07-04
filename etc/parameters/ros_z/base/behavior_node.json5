@@ -159,4 +159,5 @@
     },
   },
   is_simple: false,
+  border_strip_ignore_ball_zone: 0.5
 }
