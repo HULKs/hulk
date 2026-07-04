@@ -227,9 +227,18 @@ impl Robot {
             .status()
             .await
             .wrap_err("failed to write dmesg to kernel.log")?;
-
         if !status.success() {
             bail!("dmesg pipe ssh command exited with {status}");
+        }
+
+        let status = self
+            .ssh_to_robot()?
+            .arg("sudo journalctl --no-pager > hulk/logs/system.log")
+            .status()
+            .await
+            .wrap_err("failed to write journalctl to system.log")?;
+        if !status.success() {
+            bail!("journalctl pipe ssh command exited with {status}");
         }
 
         let rsync = self
