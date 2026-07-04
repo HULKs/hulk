@@ -16,3 +16,4 @@ ros-z = { workspace = true }
 rustfft = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 types = { workspace = true }
+tokio = { workspace = true }
