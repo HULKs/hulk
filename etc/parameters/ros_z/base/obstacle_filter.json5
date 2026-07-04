@@ -1,5 +1,6 @@
 {
   use_detected_objects: true,
+  use_detected_person_obstacles: false,
   hypothesis_timeout: {
     nanos: 500000000,
     secs: 0,
