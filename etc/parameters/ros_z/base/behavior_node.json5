@@ -159,5 +159,5 @@
     },
   },
   is_simple: false,
-  border_strip_ignore_ball_zone: 0.5
+  believe_ball_border_width: 0.3
 }

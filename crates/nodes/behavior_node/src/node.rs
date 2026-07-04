@@ -376,8 +376,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         {
             let length = blackboard.field_dimensions.length;
             let width = blackboard.field_dimensions.width;
-            let border = blackboard.field_dimensions.border_strip_width
-                - blackboard.parameters.border_strip_ignore_ball_zone;
+            let border = blackboard.parameters.believe_ball_border_width;
 
             if (ball.ball_in_field.x().abs() < (length / 2.0 + border))
                 && (ball.ball_in_field.y().abs() < (width / 2.0 + border))
