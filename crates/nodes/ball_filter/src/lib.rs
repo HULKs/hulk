@@ -114,17 +114,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         };
 
         let output = block_in_place(|| {
-            let output_time = future_map_item
-                .persistent
-                .last_key_value()
-                .map(|(time, _)| *time);
-            let projection_time = output_time.or_else(|| {
-                future_map_item
-                    .temporary
-                    .first_key_value()
-                    .map(|(time, _)| *time)
-            });
-
             let mut ball_percepts = Vec::new();
             let mut latest_output = None;
 
@@ -171,56 +160,44 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     })
                     .collect();
 
-                latest_output = Some(tracker.update(
-                    prediction_update.delta_time,
-                    prediction_update.last_to_current,
-                    &measurements,
-                    &tracker_parameters_from_ros(parameters),
-                    FieldBounds {
-                        x_limit: field_dimensions.length / 2.0,
-                        y_limit: field_dimensions.width / 2.0,
-                    },
-                    |position| {
-                        camera_matrix.is_some_and(|camera_matrix| {
-                            is_position_visible_to_camera(
-                                position,
-                                camera_matrix,
-                                field_dimensions.ball_radius,
-                            )
-                        })
-                    },
+                latest_output = Some((
+                    time,
+                    tracker.update(
+                        prediction_update.delta_time,
+                        prediction_update.last_to_current,
+                        &measurements,
+                        &tracker_parameters_from_ros(parameters),
+                        FieldBounds {
+                            x_limit: field_dimensions.length / 2.0,
+                            y_limit: field_dimensions.width / 2.0,
+                        },
+                        |position| {
+                            camera_matrix.is_some_and(|camera_matrix| {
+                                is_position_visible_to_camera(
+                                    position,
+                                    camera_matrix,
+                                    field_dimensions.ball_radius,
+                                )
+                            })
+                        },
+                    ),
                 ));
             }
 
-            let tracker_output = if let Some(tracker_output) = latest_output {
-                let output_time = output_time?;
-                let tracks: Vec<_> = tracker_output
-                    .tracks
-                    .iter()
-                    .map(|track| track_to_message(track, output_time))
-                    .collect();
-                let primary_ball = tracker_output
-                    .primary_track
-                    .as_ref()
-                    .map(|track| track_to_message(track, output_time));
-                let ball_position = primary_ball.as_ref().map(track_to_ball_position);
-
+            let tracker_output = if let Some((tracker_update_time, tracker_output)) = latest_output
+            {
                 let ball_radius = field_dimensions.ball_radius;
-                let filtered_balls_in_image = if let Some(time) = projection_time
-                    && let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time)
-                {
-                    project_to_image(&tracks, &timed_camera_matrix.inner, ball_radius)
-                } else {
-                    Vec::new()
-                };
+                let timed_camera_matrix = camera_matrix_cache.get_nearest(tracker_update_time);
+                let camera_matrix = timed_camera_matrix
+                    .as_ref()
+                    .map(|timed_camera_matrix| &timed_camera_matrix.inner);
 
-                Some(TrackerDerivedOutput {
-                    tracks,
-                    primary_ball,
-                    ball_position,
-                    debug_state: tracker_output.debug,
-                    filtered_balls_in_image,
-                })
+                Some(tracker_derived_output_from_update(
+                    tracker_output,
+                    tracker_update_time,
+                    camera_matrix,
+                    ball_radius,
+                ))
             } else {
                 None
             };
@@ -341,6 +318,35 @@ fn track_to_ball_position(track: &BallTrack<Ground>) -> BallPosition<Ground> {
         position: track.position,
         velocity: track.velocity,
         last_seen: track.last_seen,
+    }
+}
+
+fn tracker_derived_output_from_update(
+    tracker_output: ball_tracker::TrackerOutput,
+    tracker_update_time: Time,
+    camera_matrix: Option<&CameraMatrix>,
+    ball_radius: f32,
+) -> TrackerDerivedOutput {
+    let tracks: Vec<_> = tracker_output
+        .tracks
+        .iter()
+        .map(|track| track_to_message(track, tracker_update_time))
+        .collect();
+    let primary_ball = tracker_output
+        .primary_track
+        .as_ref()
+        .map(|track| track_to_message(track, tracker_update_time));
+    let ball_position = primary_ball.as_ref().map(track_to_ball_position);
+    let filtered_balls_in_image = camera_matrix
+        .map(|camera_matrix| project_to_image(&tracks, camera_matrix, ball_radius))
+        .unwrap_or_default();
+
+    TrackerDerivedOutput {
+        tracks,
+        primary_ball,
+        ball_position,
+        debug_state: tracker_output.debug,
+        filtered_balls_in_image,
     }
 }
 
@@ -597,5 +603,41 @@ mod odometry_pose_tests {
             nalgebra::vector![1.0, 2.0]
         );
         assert!(output.tracker_output.is_none());
+    }
+
+    #[test]
+    fn tracker_derived_output_uses_tracker_update_time() {
+        let tracker_update_time = Time::from_nanos(1_000_000_000);
+        let later_batch_time = Time::from_nanos(1_200_000_000);
+        let track = TrackSnapshot {
+            id: 1,
+            position: point![1.0, 2.0],
+            velocity: linear_algebra::vector![0.1, 0.2],
+            covariance: Matrix2::identity(),
+            existence_probability: 0.8,
+            status: types::ball_tracking::TrackStatus::Confirmed,
+            last_seen_age: Duration::from_millis(100),
+        };
+
+        let output = tracker_derived_output_from_update(
+            ball_tracker::TrackerOutput {
+                tracks: vec![track.clone()],
+                primary_track: Some(track),
+                debug: TrackerDebugState::default(),
+            },
+            tracker_update_time,
+            None,
+            0.05,
+        );
+
+        assert_eq!(output.tracks[0].last_seen, Time::from_nanos(900_000_000));
+        assert_ne!(output.tracks[0].last_seen, later_batch_time);
+        assert_eq!(
+            output
+                .ball_position
+                .expect("primary ball should be converted")
+                .last_seen,
+            Time::from_nanos(900_000_000)
+        );
     }
 }
