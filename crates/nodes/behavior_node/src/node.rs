@@ -291,6 +291,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         timer.tick().await;
 
+        blackboard.field_dimensions = field_dimensions_cache
+            .get_latest()
+            .map(|dimensions| *dimensions)
+            .unwrap_or_default();
+
         blackboard.path_obstacles_output.clear();
         blackboard.time_since_last_switch = Duration::ZERO;
         blackboard.direction_difference = 0.0;
