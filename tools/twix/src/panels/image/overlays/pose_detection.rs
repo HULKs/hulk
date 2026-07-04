@@ -1,9 +1,11 @@
 use color_eyre::Report;
 use eframe::egui::{Align2, Color32, Stroke};
 use linear_algebra::point;
+use ros_z::time::Time;
 use types::{
     object_detection::YOLOObjectLabel,
     pose_detection::{Keypoint, Pose},
+    time_wrapper::TimeWrapper,
 };
 
 use crate::repaint::ObservationContext;
@@ -31,7 +33,7 @@ const POSE_SKELETON_KEYPOINT_LINE_MAPPING: [(usize, usize); 16] = [
 const KEYPOINT_CONFIDENCE_THRESHOLD: f32 = 0.8;
 
 pub(in crate::panels::image) struct PoseDetectionOverlay {
-    poses: OverlayObservation<Vec<Pose<YOLOObjectLabel>>>,
+    poses: OverlayObservation<TimeWrapper<Vec<Pose<YOLOObjectLabel>>>>,
 }
 
 impl ImageOverlay for PoseDetectionOverlay {
@@ -47,11 +49,15 @@ impl ImageOverlay for PoseDetectionOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter) {
-        let Some(poses) = self.poses.latest() else {
+    fn paint(&self, painter: &ImageOverlayPainter, image_time: Time) {
+        let Some(poses) = self.poses.at_time(image_time) else {
             return;
         };
-        paint_poses(painter, &poses.value);
+        paint_poses(painter, &poses.value.inner);
+    }
+
+    fn latest_time(&self) -> Option<Time> {
+        self.poses.latest_time()
     }
 }
 

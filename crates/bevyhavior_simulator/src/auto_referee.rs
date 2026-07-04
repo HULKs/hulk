@@ -804,6 +804,7 @@ mod tests {
         assert!(ball.state.is_none());
     }
 
+    #[test]
     fn auto_referee_config_defaults_match_hsl_timings() {
         let config = AutoRefereeConfig::default();
 

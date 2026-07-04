@@ -1,12 +1,13 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use color_eyre::{Report, eyre::Context as _};
 use coordinate_systems::Pixel;
 use eframe::egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Stroke, Ui, pos2};
 use linear_algebra::{Point2, point};
-use ros_z::Message;
-use ros_z_debug::{SampleRecord, TopicObservation};
+use ros_z::{Message, time::Time};
+use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
 use serde_json::{Value, json};
+use types::time_wrapper::TimeWrapper;
 
 use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
 
@@ -14,6 +15,8 @@ use super::overlays::{
     BallDetectionOverlay, FieldBorderOverlay, HorizonOverlay, LineDetectionOverlay,
     ObjectDetectionOverlay, PoseDetectionOverlay,
 };
+
+const OVERLAY_RETENTION_WINDOW: Duration = Duration::from_secs(2);
 
 pub(super) struct ImageOverlays {
     line_detection: OverlaySlot<LineDetectionOverlay>,
@@ -53,13 +56,23 @@ impl ImageOverlays {
         });
     }
 
-    pub(super) fn paint(&self, painter: &ImageOverlayPainter) {
-        self.line_detection.paint(painter);
-        self.ball_detection.paint(painter);
-        self.horizon.paint(painter);
-        self.field_border.paint(painter);
-        self.object_detection.paint(painter);
-        self.pose_detection.paint(painter);
+    pub(super) fn paint(&self, painter: &ImageOverlayPainter, image_time: Time) {
+        self.line_detection.paint(painter, image_time);
+        self.ball_detection.paint(painter, image_time);
+        self.horizon.paint(painter, image_time);
+        self.field_border.paint(painter, image_time);
+        self.object_detection.paint(painter, image_time);
+        self.pose_detection.paint(painter, image_time);
+    }
+
+    pub(super) fn preferred_image_time(&self) -> Option<Time> {
+        [
+            self.object_detection.latest_time(),
+            self.pose_detection.latest_time(),
+        ]
+        .into_iter()
+        .flatten()
+        .min()
     }
 
     pub(super) fn save(&self) -> Value {
@@ -155,10 +168,14 @@ where
         }
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter) {
+    fn paint(&self, painter: &ImageOverlayPainter, image_time: Time) {
         if let Some(overlay) = &self.overlay {
-            overlay.paint(painter);
+            overlay.paint(painter, image_time);
         }
+    }
+
+    fn latest_time(&self) -> Option<Time> {
+        self.overlay.as_ref().and_then(ImageOverlay::latest_time)
     }
 
     fn save(&self) -> Value {
@@ -174,7 +191,11 @@ pub(super) trait ImageOverlay: Sized {
     where
         C: ObservationContext;
 
-    fn paint(&self, painter: &ImageOverlayPainter);
+    fn paint(&self, painter: &ImageOverlayPainter, image_time: Time);
+
+    fn latest_time(&self) -> Option<Time> {
+        None
+    }
 }
 
 pub(super) struct OverlayObservation<T> {
@@ -201,6 +222,45 @@ where
     pub(super) fn latest(&self) -> Option<Arc<SampleRecord<T>>> {
         self.observation.latest()
     }
+
+    fn get_all(&self) -> Vec<Arc<SampleRecord<T>>> {
+        self.observation.get_all()
+    }
+}
+
+impl<T> OverlayObservation<TimeWrapper<T>>
+where
+    TimeWrapper<T>: Message + Send + Sync + 'static,
+    <TimeWrapper<T> as Message>::Codec: Send + Sync,
+{
+    pub(super) fn latest_time(&self) -> Option<Time> {
+        self.latest().map(|record| record.value.time)
+    }
+
+    pub(super) fn nearest_to_time(
+        &self,
+        time: Time,
+        tolerance: Duration,
+    ) -> Option<Arc<SampleRecord<TimeWrapper<T>>>> {
+        let nearest = self
+            .get_all()
+            .into_iter()
+            .min_by_key(|record| time_distance(record.value.time, time))?;
+        (time_distance(nearest.value.time, time) <= tolerance).then_some(nearest)
+    }
+
+    pub(super) fn at_time(&self, time: Time) -> Option<Arc<SampleRecord<TimeWrapper<T>>>> {
+        self.get_all()
+            .into_iter()
+            .rev()
+            .find(|record| record.value.time == time)
+    }
+}
+
+fn time_distance(first: Time, second: Time) -> Duration {
+    first
+        .duration_since(second)
+        .max(second.duration_since(first))
 }
 
 fn create_typed_observation<T>(
@@ -219,6 +279,7 @@ where
         .observer()
         .observe_typed::<T>(topic)
         .wrap_err_with(|| format!("failed to create typed topic observation for {topic}"))?
+        .retention(RetentionPolicy::time_window(OVERLAY_RETENTION_WINDOW)?)
         .spawn();
     let repaint = observation.repaint_on_updates(context);
     Ok((observation, repaint))

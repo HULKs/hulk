@@ -69,7 +69,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .create_future_map_builder()
         .create_future_subscriber::<Odometer>("inputs/odometer", Duration::from_millis(1))
         .await?
-        .create_future_subscriber::<Vec<Object<RobocupObjectLabel>>>(
+        .create_future_subscriber::<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>(
             "detected_objects",
             Duration::from_millis(25),
         )
@@ -147,7 +147,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                         .as_ref()
                         .map(|camera_matrix| &camera_matrix.inner);
                     let Some(projected_balls) = project_detected_balls(
-                        Some(&detected_objects),
+                        Some(&detected_objects.inner),
                         camera_matrix,
                         parameters,
                         field_dimensions.ball_radius,

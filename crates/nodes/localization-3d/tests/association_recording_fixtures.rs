@@ -197,7 +197,7 @@ fn extract_fixtures(path: &Path) -> Result<Vec<AssociationFixture>, Box<dyn Erro
         }
 
         let expected =
-            expected_associations_from_debug(&detection.value, &camera.value, &debug_value);
+            expected_associations_from_debug(&detection.value, &camera.value, debug_value);
         if expected.len() != debug_value.inliers {
             stats.expected_count_mismatch += 1;
             continue;

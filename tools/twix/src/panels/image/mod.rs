@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use color_eyre::{Report, eyre::Context as _};
 use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui, load::SizedTexture};
 use hulk_widgets::CompletionEdit;
 use image::RgbImage;
 use ros_z::{Message, entity::EndpointKind, pubsub::PublicationId, time::Time};
-use ros_z_debug::{SampleRecord, TopicObservation, TopicObservationStatus};
+use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation, TopicObservationStatus};
 use ros2::sensor_msgs::image::Image as RosImage;
 use serde_json::{Value, json};
 use thiserror::Error;
@@ -24,6 +24,7 @@ mod image_overlay;
 mod overlays;
 
 pub const DEFAULT_IMAGE_TOPIC: &str = "inputs/left_image";
+const IMAGE_RETENTION_WINDOW: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Error)]
 enum ImageDecodeError {
@@ -138,9 +139,12 @@ impl Panel for ImagePanel {
                 }
                 ObservationState::Observing(observed) => {
                     Self::render_status(ui, observed.observation.status());
-                    observed
-                        .render_cache
-                        .refresh(&context.egui_context, &observed.observation);
+                    let preferred_image_time = self.overlays.preferred_image_time();
+                    observed.render_cache.refresh(
+                        &context.egui_context,
+                        &observed.observation,
+                        preferred_image_time,
+                    );
 
                     let Some(metadata) = observed.render_cache.metadata() else {
                         ui.label("Waiting for first sample.");
@@ -165,13 +169,16 @@ impl Panel for ImagePanel {
                             size,
                         };
                         let response = ui.add(eframe::egui::Image::new(texture).shrink_to_fit());
-                        if let Some(dimensions) = observed.render_cache.dimensions() {
+                        if let (Some(dimensions), Some(image_time)) = (
+                            observed.render_cache.dimensions(),
+                            observed.render_cache.image_time(),
+                        ) {
                             let painter = ImageOverlayPainter::new(
                                 ui.painter_at(response.rect),
                                 response.rect,
                                 dimensions,
                             );
-                            self.overlays.paint(&painter);
+                            self.overlays.paint(&painter, image_time);
                         }
                     }
                 }
@@ -279,8 +286,16 @@ impl RenderedImageCache {
         }
     }
 
-    fn refresh(&mut self, egui_context: &Context, observation: &TopicObservation<RosImage>) {
-        self.refresh_sample(egui_context, observation.latest());
+    fn refresh(
+        &mut self,
+        egui_context: &Context,
+        observation: &TopicObservation<RosImage>,
+        preferred_image_time: Option<Time>,
+    ) {
+        let sample = preferred_image_time
+            .and_then(|time| image_sample_at_time(observation, time))
+            .or_else(|| observation.latest());
+        self.refresh_sample(egui_context, sample);
     }
 
     fn refresh_sample(
@@ -330,6 +345,10 @@ impl RenderedImageCache {
         self.dimensions
     }
 
+    fn image_time(&self) -> Option<Time> {
+        self.sample.as_ref().map(|record| image_time(&record.value))
+    }
+
     fn error(&self) -> Option<&str> {
         self.error.as_deref()
     }
@@ -357,9 +376,25 @@ impl From<&SampleRecord<RosImage>> for RenderedMetadata {
                 .map(format_time)
                 .unwrap_or_else(|| "none".to_string()),
             publication_id: format_publication_id(record.publication_id),
-            image_time: format_time(record.value.header.stamp.into()),
+            image_time: format_time(image_time(&record.value)),
         }
     }
+}
+
+fn image_time(image: &RosImage) -> Time {
+    image.header.stamp.into()
+}
+
+fn image_sample_at_time(
+    observation: &TopicObservation<RosImage>,
+    time: Time,
+) -> Option<Arc<SampleRecord<RosImage>>> {
+    observation
+        .get_all()
+        .iter()
+        .rev()
+        .find(|record| image_time(&record.value) == time)
+        .cloned()
 }
 
 fn create_observation(
@@ -374,6 +409,7 @@ fn create_observation(
         .observer()
         .observe_typed::<RosImage>(topic)
         .wrap_err("failed to create image topic observation")?
+        .retention(RetentionPolicy::time_window(IMAGE_RETENTION_WINDOW)?)
         .spawn();
     let repaint = observation.repaint_on_updates(context);
     Ok((observation, repaint))
@@ -500,7 +536,7 @@ mod tests {
         .await
         .expect("observation should receive published image");
 
-        cache.refresh(&context, &observation);
+        cache.refresh(&context, &observation, None);
 
         assert_eq!(cache.dimensions(), Some([2, 1]));
         assert!(cache.texture().is_some());

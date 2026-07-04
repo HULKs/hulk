@@ -1,13 +1,17 @@
 use color_eyre::Report;
 use eframe::egui::{Align2, Color32, Stroke};
-use types::object_detection::{Object, RobocupObjectLabel};
+use ros_z::time::Time;
+use types::{
+    object_detection::{Object, RobocupObjectLabel},
+    time_wrapper::TimeWrapper,
+};
 
 use crate::repaint::ObservationContext;
 
 use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
 
 pub(in crate::panels::image) struct ObjectDetectionOverlay {
-    object_detections: OverlayObservation<Vec<Object<RobocupObjectLabel>>>,
+    object_detections: OverlayObservation<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>,
 }
 
 impl ImageOverlay for ObjectDetectionOverlay {
@@ -23,11 +27,15 @@ impl ImageOverlay for ObjectDetectionOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter) {
-        let Some(object_detections) = self.object_detections.latest() else {
+    fn paint(&self, painter: &ImageOverlayPainter, image_time: Time) {
+        let Some(object_detections) = self.object_detections.at_time(image_time) else {
             return;
         };
-        paint_bounding_boxes(painter, &object_detections.value, Color32::LIGHT_RED);
+        paint_bounding_boxes(painter, &object_detections.value.inner, Color32::LIGHT_RED);
+    }
+
+    fn latest_time(&self) -> Option<Time> {
+        self.object_detections.latest_time()
     }
 }
 

@@ -2,6 +2,7 @@ use color_eyre::Report;
 use coordinate_systems::Pixel;
 use eframe::egui::{Color32, Stroke};
 use geometry::line_segment::LineSegment;
+use ros_z::time::Time;
 use types::{
     image_segments::{EdgeType, GenericSegment},
     line_data::{DiscardedLine, LineDiscardReason},
@@ -35,7 +36,7 @@ impl ImageOverlay for LineDetectionOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter) {
+    fn paint(&self, painter: &ImageOverlayPainter, _image_time: Time) {
         let (Some(lines), Some(discarded_lines), Some(filtered_segments)) = (
             self.lines_in_image.latest(),
             self.discarded_lines.latest(),
