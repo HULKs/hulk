@@ -16,6 +16,12 @@ use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
 use crate::{Measurement, TrackerParameters};
 
+const STATIC_TRACK_STATIC_PROBABILITY: f32 = 0.9;
+const STATIC_TRACK_ROLLING_PROBABILITY: f32 = 0.1;
+// A newly rolling track should keep its velocity-dominated prediction after one mode-mixing step.
+const ROLLING_TRACK_STATIC_PROBABILITY: f32 = 0.01;
+const ROLLING_TRACK_ROLLING_PROBABILITY: f32 = 0.99;
+
 #[derive(Clone, Debug)]
 pub(crate) struct ImmBallState {
     static_mode: MultivariateNormalDistribution<2>,
@@ -42,8 +48,8 @@ impl ImmBallState {
         Self {
             static_mode,
             rolling_mode,
-            static_probability: 0.9,
-            rolling_probability: 0.1,
+            static_probability: STATIC_TRACK_STATIC_PROBABILITY,
+            rolling_probability: STATIC_TRACK_ROLLING_PROBABILITY,
         }
     }
 
@@ -55,8 +61,8 @@ impl ImmBallState {
         let mut state = Self::new_static(position, parameters);
         state.rolling_mode.mean.z = velocity.x;
         state.rolling_mode.mean.w = velocity.y;
-        state.static_probability = 0.01;
-        state.rolling_probability = 0.99;
+        state.static_probability = ROLLING_TRACK_STATIC_PROBABILITY;
+        state.rolling_probability = ROLLING_TRACK_ROLLING_PROBABILITY;
         state
     }
 
@@ -82,18 +88,6 @@ impl ImmBallState {
     }
 
     pub(crate) fn update(&mut self, measurement: &Measurement) {
-        KalmanFilter::update(
-            &mut self.static_mode,
-            Matrix2::identity(),
-            measurement.position.inner.coords,
-            measurement.covariance,
-        );
-        KalmanFilter::update(
-            &mut self.rolling_mode,
-            Matrix2x4::identity(),
-            measurement.position.inner.coords,
-            measurement.covariance,
-        );
         let static_likelihood = gaussian_log_likelihood(
             measurement.position.inner.coords,
             self.static_mode.mean,
@@ -107,6 +101,18 @@ impl ImmBallState {
                 .fixed_view::<2, 2>(0, 0)
                 .into_owned()
                 + measurement.covariance,
+        );
+        KalmanFilter::update(
+            &mut self.static_mode,
+            Matrix2::identity(),
+            measurement.position.inner.coords,
+            measurement.covariance,
+        );
+        KalmanFilter::update(
+            &mut self.rolling_mode,
+            Matrix2x4::identity(),
+            measurement.position.inner.coords,
+            measurement.covariance,
         );
         self.reweight_modes(static_likelihood, rolling_likelihood);
     }
@@ -125,13 +131,19 @@ impl ImmBallState {
     }
 
     pub(crate) fn position_covariance(&self) -> Matrix2<f32> {
-        self.static_probability * self.static_mode.covariance
+        let mean = self.position().inner.coords;
+        let static_offset = self.static_mode.mean - mean;
+        let rolling_mean = self.rolling_mode.mean.xy();
+        let rolling_offset = rolling_mean - mean;
+        self.static_probability
+            * (self.static_mode.covariance + static_offset * static_offset.transpose())
             + self.rolling_probability
-                * self
+                * (self
                     .rolling_mode
                     .covariance
                     .fixed_view::<2, 2>(0, 0)
                     .into_owned()
+                    + rolling_offset * rolling_offset.transpose())
     }
 
     pub(crate) fn measurement_log_likelihood(&self, measurement: &Measurement) -> f32 {
@@ -226,19 +238,20 @@ fn gaussian_log_likelihood(
     let solved = cholesky.solve(&residual);
     let mahalanobis = residual.dot(&solved);
     let determinant = covariance.determinant().max(f32::MIN_POSITIVE);
-    -0.5 * (mahalanobis + (TAU * determinant.sqrt()).ln())
+    -0.5 * (mahalanobis + 2.0 * TAU.ln() + determinant.ln())
 }
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::{f32::consts::TAU, time::Duration};
 
     use linear_algebra::{Isometry2, point};
-    use nalgebra::Matrix2;
+    use nalgebra::{Matrix2, Matrix4, Vector2, Vector4};
+    use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
     use crate::{Measurement, TrackerParameters};
 
-    use super::ImmBallState;
+    use super::{ImmBallState, gaussian_log_likelihood};
 
     fn measurement_at(x: f32, y: f32) -> Measurement {
         Measurement {
@@ -281,5 +294,53 @@ mod tests {
         let far = state.measurement_log_likelihood(&measurement_at(2.0, 0.0));
 
         assert!(near > far);
+    }
+
+    #[test]
+    fn update_reweights_modes_using_predicted_states() {
+        let parameters = TrackerParameters::default();
+        let mut state = ImmBallState::new_static(point![0.0, 0.0], &parameters);
+        state.static_mode.mean = Vector2::new(0.0, 0.0);
+        state.static_mode.covariance = Matrix2::identity() * 100.0;
+        state.rolling_mode.mean = Vector4::new(10.0, 0.0, 0.0, 0.0);
+        state.rolling_mode.covariance = Matrix4::identity() * 0.01;
+        state.static_probability = 0.5;
+        state.rolling_probability = 0.5;
+
+        state.update(&measurement_at(10.0, 0.0));
+
+        assert!(state.rolling_probability > 0.99);
+    }
+
+    #[test]
+    fn position_covariance_includes_between_mode_covariance() {
+        let parameters = TrackerParameters::default();
+        let mut state = ImmBallState::new_static(point![0.0, 0.0], &parameters);
+        state.static_mode = MultivariateNormalDistribution {
+            mean: Vector2::new(0.0, 0.0),
+            covariance: Matrix2::zeros(),
+        };
+        state.rolling_mode = MultivariateNormalDistribution {
+            mean: Vector4::new(2.0, 0.0, 0.0, 0.0),
+            covariance: Matrix4::zeros(),
+        };
+        state.static_probability = 0.5;
+        state.rolling_probability = 0.5;
+
+        let covariance = state.position_covariance();
+
+        assert!((covariance[(0, 0)] - 1.0).abs() < 1e-6);
+        assert_eq!(covariance[(1, 1)], 0.0);
+    }
+
+    #[test]
+    fn gaussian_log_likelihood_uses_two_dimensional_normalization() {
+        let likelihood = gaussian_log_likelihood(
+            Vector2::new(0.0, 0.0),
+            Vector2::new(0.0, 0.0),
+            Matrix2::identity(),
+        );
+
+        assert!((likelihood + TAU.ln()).abs() < 1e-6);
     }
 }
