@@ -621,6 +621,55 @@ async fn publish_with_source_time_sets_metadata_source_time() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn prepared_publish_with_source_time_sets_metadata_source_time() {
+    let context = ContextBuilder::default()
+        .build()
+        .await
+        .expect("Failed to create context");
+    let node = context
+        .create_node("prepared_explicit_source_time_node")
+        .build()
+        .await
+        .expect("Failed to create node");
+
+    let publisher = node
+        .publisher::<TestMessage>("/prepared_explicit_source_time_topic")
+        .build()
+        .await
+        .unwrap();
+
+    let subscriber = node
+        .subscriber::<TestMessage>("/prepared_explicit_source_time_topic")
+        .build()
+        .await
+        .unwrap();
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let message = TestMessage {
+        data: vec![6, 5, 4],
+        counter: 43,
+    };
+    let source_time = Time::from_nanos(987_654_321);
+
+    publisher
+        .prepare()
+        .publish_with_source_time(&message, source_time)
+        .await
+        .unwrap();
+
+    let received = tokio::time::timeout(Duration::from_secs(1), subscriber.recv_with_metadata())
+        .await
+        .expect("receive should not time out")
+        .expect("receive should succeed");
+
+    assert_eq!(received.message, message);
+    assert_eq!(received.source_time, source_time);
+    assert_eq!(received.sequence_number, 0);
+    assert_ne!(received.source_global_id, ros_z::EndpointGlobalId::ZERO);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn typed_subscriber_errors_when_sample_has_no_attachment() {
     let context = ContextBuilder::default()
         .disable_multicast_scouting()

@@ -256,7 +256,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let joint_state_sub = zenoh_session
         .declare_subscriber("rt/joint_states")
         .await
-        .map_err(|error| color_eyre::eyre::eyre!("{error}"))?;
+        .map_err(|error| {
+            color_eyre::eyre::eyre!("failed to declare subscriber for rt/joint_states: {error}")
+        })?;
 
     let low_state_pub = node
         .publisher::<LowState>("inputs/low_state")
@@ -297,7 +299,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 }
             }
             joint_state = joint_state_sub.recv_async() => {
-                let joint_state = joint_state.map_err(|error| color_eyre::eyre::eyre!("{error}"))?;
+                let joint_state = joint_state.map_err(|error| {
+                    color_eyre::eyre::eyre!("failed to receive sample from rt/joint_states: {error}")
+                })?;
 
                 let joint_state: JointState = cdr::deserialize(&joint_state.payload().to_bytes())
                     .wrap_err("joint state deserialization failed")?;

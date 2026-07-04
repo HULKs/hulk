@@ -13,6 +13,11 @@ pepsi upload <NAO>
 Pepsi takes care of downloading and installing the SDK, calling `cargo` to trigger compilation, and uploading the software to the robot.
 When successful, you are presented with a green tick in your shell, and the robot is showing rotating rainbow eyes.
 
+## Runtime Topics
+
+The `low_state_bridge` process publishes low-state-derived inputs only after it can match `rt/low_state` samples with timestamped `rt/joint_states` samples.
+If these inputs stop updating after deployment, verify that both topics are produced and that `joint_states` is allowed through the DDS bridge configuration.
+
 !!! tip
 
     Continue reading [here](../workflow/overview.md) about our workflow and how to contribute to the project.

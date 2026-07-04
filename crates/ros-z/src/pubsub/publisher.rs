@@ -181,6 +181,12 @@ where
             .publish_with_reserved_id(message, self.publication_id)
             .await
     }
+
+    pub async fn publish_with_source_time(self, message: &T, source_time: Time) -> Result<()> {
+        self.publisher
+            .publish_with_reserved_id_and_source_time(message, self.publication_id, source_time)
+            .await
+    }
 }
 
 impl<T, C: WireEncoder> std::fmt::Debug for Publisher<T, C> {
