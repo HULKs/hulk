@@ -207,6 +207,7 @@ pub struct SearchParameters {
 )]
 pub struct WalkAndStandParameters {
     pub hysteresis: nalgebra::Vector2<f32>,
+    pub goalkeeper_hysteresis: nalgebra::Vector2<f32>,
     pub target_reached_thresholds: nalgebra::Vector2<f32>,
     pub hybrid_align_distance: f32,
     pub orientation_tolerance: f32,
