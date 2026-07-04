@@ -8,6 +8,7 @@ Type=simple
 ExecStartPre=/usr/bin/jetson_clocks
 ExecStartPre=/usr/local/bin/podman wait --condition running hulk
 ExecStart=/usr/bin/launch-hulk
+ExecStartPost=/bin/sleep 5
 ExecStop=/usr/local/bin/podman exec hulk pkill -SIGTERM hulk
 KillMode=control-group
 KillSignal=SIGTERM
