@@ -238,7 +238,7 @@ pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
         walk_to(
             blackboard,
             kickoff_pose_in_ground,
-            blackboard.parameters.walk_speed.kicking,
+            blackboard.parameters.walk_speed.walk_to_kickoff,
             OrientationMode::AlignWithPath,
             blackboard
                 .parameters
