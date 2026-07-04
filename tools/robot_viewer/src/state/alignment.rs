@@ -98,7 +98,10 @@ mod tests {
     use linear_algebra::Isometry3;
     use projection::camera_matrix::CameraMatrix;
     use ros_z::time::Time;
-    use types::visual_localization::VisualLocalizationFrame as FieldMarkAssociations;
+    use types::{
+        object_detection::{Object, RobocupObjectLabel},
+        visual_localization::VisualLocalizationFrame as FieldMarkAssociations,
+    };
 
     use super::*;
     use crate::state::{MAX_NEAREST_SAMPLE_DISTANCE, ViewerState};
@@ -108,6 +111,13 @@ mod tests {
             robot_to_camera: Isometry3::<Robot, Camera>::identity(),
             associations: Vec::new(),
             backend_reset: None,
+        }
+    }
+
+    fn empty_detected_objects(time: Time) -> TimeWrapper<Vec<Object<RobocupObjectLabel>>> {
+        TimeWrapper {
+            time,
+            inner: Vec::new(),
         }
     }
 
@@ -149,7 +159,7 @@ mod tests {
         state.push_camera_frame(association_time, CameraFrame::default());
         state.push_camera_frame(detection_time, CameraFrame::default());
         state.push_field_mark_associations(association_time, empty_associations());
-        state.push_detected_objects(detection_time, Vec::new());
+        state.push_detected_objects(empty_detected_objects(detection_time));
 
         let aligned = state.aligned_snapshot();
 
@@ -235,7 +245,7 @@ mod tests {
         state.push_camera_frame(displayed_time, CameraFrame::default());
         assert_eq!(state.aligned_snapshot().anchor_time, Some(displayed_time));
 
-        state.push_detected_objects(displayed_time, Vec::new());
+        state.push_detected_objects(empty_detected_objects(displayed_time));
         state.push_camera_frame(latest_camera_time, CameraFrame::default());
         let aligned = state.aligned_snapshot();
 
@@ -255,7 +265,7 @@ mod tests {
 
         state.objects_status.update_publishers(1);
         state.push_camera_frame(first_time, CameraFrame::default());
-        state.push_detected_objects(first_time, Vec::new());
+        state.push_detected_objects(empty_detected_objects(first_time));
         assert_eq!(state.aligned_snapshot().anchor_time, Some(first_time));
 
         state.push_camera_frame(second_time, CameraFrame::default());
@@ -264,7 +274,7 @@ mod tests {
         assert_eq!(aligned.anchor_time, Some(first_time));
         assert!(aligned.detected_objects.is_some());
 
-        state.push_detected_objects(second_time, Vec::new());
+        state.push_detected_objects(empty_detected_objects(second_time));
         let aligned = state.aligned_snapshot();
 
         assert_eq!(aligned.anchor_time, Some(second_time));

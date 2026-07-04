@@ -83,7 +83,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let mut detected_objects = node
         .create_future_map_builder()
-        .create_future_subscriber::<Vec<Object<RobocupObjectLabel>>>(
+        .create_future_subscriber::<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>(
             "detected_objects",
             DETECTED_OBJECTS_SAFETY_LAG,
         )

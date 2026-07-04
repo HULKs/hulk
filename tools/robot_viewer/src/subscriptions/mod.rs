@@ -7,7 +7,10 @@ use ros_z_debug::{TopicObserver, TopicObserverOptions};
 use ros_z_streams::{CreateFutureQueue, QueueEvent};
 use ros2::sensor_msgs::image::Image as RosImage;
 use tokio::runtime::Runtime;
-use types::object_detection::{Object, RobocupObjectLabel};
+use types::{
+    object_detection::{Object, RobocupObjectLabel},
+    time_wrapper::TimeWrapper,
+};
 
 use crate::{
     cli::Arguments,
@@ -75,7 +78,7 @@ async fn run(arguments: Arguments, state: SharedState, egui_context: EguiContext
         .build()
         .await?;
     let mut objects = node
-        .create_future_subscriber::<Vec<Object<RobocupObjectLabel>>>(
+        .create_future_subscriber::<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>(
             DETECTED_OBJECTS_TOPIC,
             DETECTED_OBJECTS_SAFETY_LAG,
         )
@@ -119,8 +122,8 @@ async fn run(arguments: Arguments, state: SharedState, egui_context: EguiContext
                 }),
             },
             message = objects.recv() => match message {
-                Ok(QueueEvent::Data(time, message)) => update_state(&state, &egui_context, |state| {
-                    state.push_detected_objects(time, message);
+                Ok(QueueEvent::Data(_, message)) => update_state(&state, &egui_context, |state| {
+                    state.push_detected_objects(message);
                     state.objects_status.mark_live(objects.publisher_count());
                 }),
                 Ok(QueueEvent::Announcement) => {}

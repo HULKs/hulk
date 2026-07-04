@@ -101,10 +101,9 @@ impl ViewerState {
 
     pub(crate) fn push_detected_objects(
         &mut self,
-        time: Time,
-        value: Vec<Object<RobocupObjectLabel>>,
+        value: TimeWrapper<Vec<Object<RobocupObjectLabel>>>,
     ) {
-        self.detected_objects.insert(time, value);
+        self.detected_objects.insert(value.time, value.inner);
     }
 
     pub(crate) fn push_field_mark_associations(

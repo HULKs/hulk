@@ -21,6 +21,9 @@ use crate::{
 
 const MAX_CAMERA_MATRIX_TIME_DISTANCE: Duration = Duration::from_millis(100);
 
+type DetectedObjects = TimeWrapper<Vec<Object<RobocupObjectLabel>>>;
+type DetectedObjectsItem<'a> = FutureItem<'a, (Option<DetectedObjects>,)>;
+
 pub(crate) struct DetectionProcessingContext<'a> {
     pub(crate) parameters: &'a NodeParameters<FieldMarkAssociationParameters>,
     pub(crate) camera_matrix_cache: &'a Cache<TimeWrapper<CameraMatrix>>,
@@ -50,7 +53,7 @@ struct ProcessedDetectionFrame {
 }
 
 pub(crate) async fn process_detected_objects(
-    item: FutureItem<'_, (Option<Vec<Object<RobocupObjectLabel>>>,)>,
+    item: DetectedObjectsItem<'_>,
     ctx: DetectionProcessingContext<'_>,
 ) -> Result<()> {
     for (image_time, (objects,)) in item.persistent {
@@ -98,7 +101,7 @@ pub(crate) async fn process_detected_objects(
 
 fn prepare_detection_frame(
     image_time: Time,
-    objects: Option<Vec<Object<RobocupObjectLabel>>>,
+    objects: Option<DetectedObjects>,
     ctx: &DetectionProcessingContext<'_>,
 ) -> Option<PreparedDetectionFrame> {
     let camera_matrix = ctx.camera_matrix_cache.get_nearest(image_time)?;
@@ -113,7 +116,7 @@ fn prepare_detection_frame(
 
     Some(PreparedDetectionFrame {
         image_time,
-        objects: objects.unwrap_or_default(),
+        objects: objects.map(|item| item.inner).unwrap_or_default(),
         robot_to_camera: robot_to_camera(&camera_matrix),
         camera_matrix,
         field_dimensions: *field_dimensions.as_ref(),
