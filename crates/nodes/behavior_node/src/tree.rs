@@ -19,7 +19,7 @@ use crate::{
     selection, sequence,
     substates::{is_in_sub_state, sub_state_subtree},
     subtree,
-    switch_motion_type::switch_motion_type,
+    switch_motion_type::{is_last_motion_type, switch_motion_type},
     voronoi::calculate_voronoi_grid,
     walk::{
         walk_alternatives_subtree, walk_to_ball_subtree, walk_to_kickoff_pose,
@@ -81,7 +81,13 @@ pub fn create_tree() -> Node<Blackboard> {
 }
 
 fn ready_subtree() -> Node<Blackboard> {
-    sequence!(action!(walk_to_kickoff_pose))
+    sequence!(
+        action!(walk_to_kickoff_pose),
+        sequence!(
+            condition!(is_last_motion_type, MotionType::Stand),
+            action!(look_around),
+        ),
+    )
 }
 
 fn playing_subtree() -> Node<Blackboard> {
