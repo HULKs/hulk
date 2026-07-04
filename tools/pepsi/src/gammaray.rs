@@ -286,18 +286,6 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_robot()?
-        .arg("sudo sed")
-        .arg("--in-place")
-        .arg(format!(
-            "'s#--robot ROBOT_NUMBER#--robot {}#'",
-            team_robot.number
-        ))
-        .arg("/usr/bin/launch-hulk")
-        .ssh_with_log("hacking launch-hulk", &progress_bar)
-        .await?;
-
-    robot
-        .ssh_to_robot()?
         .arg("sudo systemctl daemon-reload")
         .ssh_with_log("reloading service daemon", &progress_bar)
         .await?;

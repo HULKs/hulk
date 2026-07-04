@@ -5544,6 +5544,7 @@ dependencies = [
  "odometer_bridge",
  "player_states_receiver",
  "primary_state_filter",
+ "repository",
  "ros-z",
  "rule_obstacle_composer",
  "safe_pose_checker",
@@ -8171,7 +8172,7 @@ dependencies = [
 
 [[package]]
 name = "pepsi"
-version = "7.32.0"
+version = "7.33.0"
 dependencies = [
  "aliveness",
  "argument_parsers",
