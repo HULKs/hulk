@@ -7,8 +7,9 @@ use behavior_node::{
 use bevy::{app::AppExit, prelude::*};
 use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
-use linear_algebra::{Point2, Pose2};
+use linear_algebra::{Point2, Pose2, Vector2};
 use types::{
+    ball_position::BallPosition,
     behavior_tree::NodeTrace,
     field_dimensions::FieldDimensions,
     messages::OutgoingMessage,
@@ -51,6 +52,7 @@ impl SimulatorRobotBehavior {
         self.blackboard.field_dimensions = input.field_dimensions;
         self.blackboard.parameters = input.parameters;
         self.blackboard.world_state = input.world_state.clone();
+        self.blackboard.visual_kick_ball_position = input.visual_kick_ball_position;
 
         self.blackboard.path_obstacles_output.clear();
         self.blackboard.time_since_last_switch = Duration::ZERO;
@@ -138,6 +140,7 @@ impl SimulatorRobotBehavior {
 
 pub struct SimulatorBehaviorTickInput {
     pub world_state: WorldState,
+    pub visual_kick_ball_position: Option<BallPosition<Ground>>,
     pub field_dimensions: FieldDimensions,
     pub parameters: BehaviorParameters,
 }
@@ -164,6 +167,7 @@ fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackbo
         direction_difference: 0.0,
         voronoi_inputs: Vec::new(),
         ball: None,
+        visual_kick_ball_position: None,
         last_ball: None,
         last_close_enough_to_kick: false,
         last_kick_target: None,
@@ -206,6 +210,7 @@ pub fn tick_behavior_trees(
         };
 
         let tick_output = match behavior.tick_behavior_tree(SimulatorBehaviorTickInput {
+            visual_kick_ball_position: visual_kick_ball_position_from_world_state(&world_state),
             world_state: world_state.clone(),
             field_dimensions: field_dimensions.0,
             parameters: parameters.behavior.clone(),
@@ -228,6 +233,16 @@ pub fn tick_behavior_trees(
             RobotFrame::from_outputs(world_state, tick_output, Vec::new()),
         );
     }
+}
+
+fn visual_kick_ball_position_from_world_state(
+    world_state: &WorldState,
+) -> Option<BallPosition<Ground>> {
+    world_state.ball.map(|ball| BallPosition {
+        position: ball.ball_in_ground,
+        velocity: Vector2::zeros(),
+        last_seen: world_state.now,
+    })
 }
 
 fn behavior_tick_failure_message(

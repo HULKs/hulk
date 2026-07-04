@@ -5557,6 +5557,7 @@ dependencies = [
  "tokio",
  "tracing-subscriber",
  "trigger",
+ "visual_kick_ball_selector",
  "whistle_detection",
  "whistle_filter",
  "world_state_composer",
@@ -12098,6 +12099,19 @@ dependencies = [
  "ransac",
  "ros2",
  "serde",
+ "types",
+]
+
+[[package]]
+name = "visual_kick_ball_selector"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "coordinate_systems",
+ "linear_algebra",
+ "ros-z",
+ "serde",
+ "tokio",
  "types",
 ]
 
