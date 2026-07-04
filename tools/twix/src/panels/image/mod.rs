@@ -389,15 +389,12 @@ fn image_sample_at_time(
     observation: &TopicObservation<RosImage>,
     time: Time,
 ) -> Option<Arc<SampleRecord<RosImage>>> {
-    let latest = observation.latest()?;
     observation
-        .window(
-            latest.source_time - IMAGE_RETENTION_WINDOW,
-            latest.source_time,
-        )
-        .into_iter()
+        .get_all()
+        .iter()
         .rev()
         .find(|record| image_time(&record.value) == time)
+        .cloned()
 }
 
 fn create_observation(
@@ -411,10 +408,8 @@ fn create_observation(
         .backend()
         .observer()
         .observe_typed::<RosImage>(topic)
-        .and_then(|builder| {
-            Ok(builder.retention(RetentionPolicy::time_window(IMAGE_RETENTION_WINDOW)?))
-        })
         .wrap_err("failed to create image topic observation")?
+        .retention(RetentionPolicy::time_window(IMAGE_RETENTION_WINDOW)?)
         .spawn();
     let repaint = observation.repaint_on_updates(context);
     Ok((observation, repaint))

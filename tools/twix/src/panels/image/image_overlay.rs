@@ -223,14 +223,8 @@ where
         self.observation.latest()
     }
 
-    fn recent(&self) -> Vec<Arc<SampleRecord<T>>> {
-        let Some(latest) = self.observation.latest() else {
-            return Vec::new();
-        };
-        self.observation.window(
-            latest.source_time - OVERLAY_RETENTION_WINDOW,
-            latest.source_time,
-        )
+    fn get_all(&self) -> Vec<Arc<SampleRecord<T>>> {
+        self.observation.get_all()
     }
 }
 
@@ -239,13 +233,6 @@ where
     TimeWrapper<T>: Message + Send + Sync + 'static,
     <TimeWrapper<T> as Message>::Codec: Send + Sync,
 {
-    pub(super) fn at_time(&self, time: Time) -> Option<Arc<SampleRecord<TimeWrapper<T>>>> {
-        self.recent()
-            .into_iter()
-            .rev()
-            .find(|record| record.value.time == time)
-    }
-
     pub(super) fn latest_time(&self) -> Option<Time> {
         self.latest().map(|record| record.value.time)
     }
@@ -256,10 +243,17 @@ where
         tolerance: Duration,
     ) -> Option<Arc<SampleRecord<TimeWrapper<T>>>> {
         let nearest = self
-            .recent()
+            .get_all()
             .into_iter()
             .min_by_key(|record| time_distance(record.value.time, time))?;
         (time_distance(nearest.value.time, time) <= tolerance).then_some(nearest)
+    }
+
+    pub(super) fn at_time(&self, time: Time) -> Option<Arc<SampleRecord<TimeWrapper<T>>>> {
+        self.get_all()
+            .into_iter()
+            .rev()
+            .find(|record| record.value.time == time)
     }
 }
 
@@ -284,10 +278,8 @@ where
         .backend()
         .observer()
         .observe_typed::<T>(topic)
-        .and_then(|builder| {
-            Ok(builder.retention(RetentionPolicy::time_window(OVERLAY_RETENTION_WINDOW)?))
-        })
         .wrap_err_with(|| format!("failed to create typed topic observation for {topic}"))?
+        .retention(RetentionPolicy::time_window(OVERLAY_RETENTION_WINDOW)?)
         .spawn();
     let repaint = observation.repaint_on_updates(context);
     Ok((observation, repaint))
