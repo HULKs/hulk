@@ -81,17 +81,18 @@ fn constrain_localization_to_ground(
     localization: Isometry3<Field, Robot>,
     ground_to_robot: &Isometry3<Ground, Robot>,
 ) -> Isometry3<Field, Robot> {
-    let (_, _, yaw) = localization.inner.rotation.euler_angles();
-    let (roll, pitch, _) = ground_to_robot.inner.rotation.euler_angles();
+    let robot_to_field = localization.inverse();
+    let ground_to_field = robot_to_field * *ground_to_robot;
+    let (_, _, yaw) = ground_to_field.inner.rotation.euler_angles();
+    let translation = ground_to_field.inner.translation.vector;
 
-    let mut translation = localization.inner.translation;
-    translation.vector.z = ground_to_robot.inner.translation.vector.z;
+    let flattened_ground_to_field = Isometry3::from_parts(
+        linear_algebra::vector![<Field>, translation.x, translation.y, 0.0],
+        Orientation3::from_euler_angles(0.0, 0.0, yaw),
+    );
+    let constrained_robot_to_field = flattened_ground_to_field * ground_to_robot.inverse();
 
-    nalgebra::Isometry3::from_parts(
-        translation,
-        nalgebra::UnitQuaternion::from_euler_angles(roll, pitch, yaw),
-    )
-    .framed_transform()
+    constrained_robot_to_field.inverse()
 }
 
 fn robot_height() -> f32 {
@@ -191,27 +192,49 @@ mod tests {
     }
 
     #[test]
-    fn constrained_localization_preserves_yaw_and_xy_but_uses_ground_tilt_and_height() {
-        let localization: Isometry3<Field, Robot> = nalgebra::Isometry3::from_parts(
-            nalgebra::Translation3::new(1.5, -2.0, -1.7),
-            nalgebra::UnitQuaternion::from_euler_angles(3.0, 0.2, 0.7),
+    fn constrained_localization_preserves_ground_pose_without_height_coupling() {
+        let robot_to_field: Isometry3<Robot, Field> = nalgebra::Isometry3::from_parts(
+            nalgebra::Translation3::new(4.0, -3.0, 0.6),
+            nalgebra::UnitQuaternion::from_euler_angles(0.2, -0.3, 0.7),
         )
         .framed_transform();
+        let localization = robot_to_field.inverse();
         let ground_to_robot: Isometry3<Ground, Robot> = nalgebra::Isometry3::from_parts(
             nalgebra::Translation3::new(0.01, -0.02, -0.523),
-            nalgebra::UnitQuaternion::from_euler_angles(-0.045, -0.047, 0.1),
+            nalgebra::UnitQuaternion::from_euler_angles(-0.045, -0.047, 0.0),
         )
         .framed_transform();
 
         let constrained = constrain_localization_to_ground(localization, &ground_to_robot);
-        let (roll, pitch, yaw) = constrained.inner.rotation.euler_angles();
+        let constrained_robot_to_field = constrained.inverse();
+        let constrained_ground_to_field = constrained_robot_to_field * ground_to_robot;
+        let original_ground_to_field = robot_to_field * ground_to_robot;
+        let (roll, pitch, yaw) = constrained_ground_to_field.inner.rotation.euler_angles();
+        let (_, _, original_yaw) = original_ground_to_field.inner.rotation.euler_angles();
+        let robot_to_ground = ground_to_robot.inverse();
 
-        assert!((constrained.inner.translation.vector.x - 1.5).abs() < 1.0e-6);
-        assert!((constrained.inner.translation.vector.y + 2.0).abs() < 1.0e-6);
-        assert!((constrained.inner.translation.vector.z + 0.523).abs() < 1.0e-6);
-        assert!((roll + 0.045).abs() < 1.0e-6);
-        assert!((pitch + 0.047).abs() < 1.0e-6);
-        assert!((yaw - 0.7).abs() < 1.0e-6);
+        assert!(
+            (constrained_ground_to_field.inner.translation.vector.x
+                - original_ground_to_field.inner.translation.vector.x)
+                .abs()
+                < 1.0e-6
+        );
+        assert!(
+            (constrained_ground_to_field.inner.translation.vector.y
+                - original_ground_to_field.inner.translation.vector.y)
+                .abs()
+                < 1.0e-6
+        );
+        assert!(constrained_ground_to_field.inner.translation.vector.z.abs() < 1.0e-6);
+        assert!(roll.abs() < 1.0e-6);
+        assert!(pitch.abs() < 1.0e-6);
+        assert!((yaw - original_yaw).abs() < 1.0e-6);
+        assert!(
+            (constrained_robot_to_field.inner.translation.vector.z
+                - robot_to_ground.inner.translation.vector.z)
+                .abs()
+                < 1.0e-6
+        );
     }
 
     #[test]

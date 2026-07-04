@@ -116,7 +116,7 @@ impl CameraMatrix {
         correction_in_robot: Rotation3<Robot, Robot>,
         correction_in_camera: Rotation3<Camera, Camera>,
     ) -> Self {
-        let corrected_ground_to_robot = correction_in_robot * self.ground_to_robot;
+        let corrected_ground_to_robot = self.ground_to_robot;
         let corrected_robot_to_head = self.robot_to_head * correction_in_robot;
         let corrected_head_to_camera = correction_in_camera * self.head_to_camera;
 
@@ -146,7 +146,7 @@ impl CameraMatrix {
 #[cfg(test)]
 mod tests {
     use approx::assert_relative_eq;
-    use linear_algebra::vector;
+    use linear_algebra::{Orientation3, vector};
 
     use super::*;
 
@@ -174,5 +174,42 @@ mod tests {
             old_fov(focals),
             Intrinsic::calculate_field_of_view(focals_scaled, image_size_abs)
         );
+    }
+
+    #[test]
+    fn correction_in_robot_is_applied_once_without_changing_ground_to_robot() {
+        let ground_to_robot = Isometry3::from_parts(
+            vector![<Robot>, 0.1, -0.2, -0.5],
+            Orientation3::from_euler_angles(0.03, -0.04, 0.0),
+        );
+        let robot_to_head = Isometry3::from_translation(0.0, 0.0, 0.3);
+        let head_to_camera = Isometry3::from_translation(0.05, 0.0, 0.02);
+        let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
+            nalgebra::vector![0.5, 0.5],
+            nalgebra::point![0.5, 0.5],
+            vector![640.0, 480.0],
+            ground_to_robot,
+            robot_to_head,
+            head_to_camera,
+        );
+        let correction_in_robot = Rotation3::from_euler_angles(0.1, -0.2, 0.3);
+        let correction_in_camera = Rotation3::from_euler_angles(-0.4, 0.5, -0.6);
+
+        let corrected = camera_matrix.to_corrected(correction_in_robot, correction_in_camera);
+        let expected_ground_to_camera = correction_in_camera
+            * head_to_camera
+            * robot_to_head
+            * correction_in_robot
+            * ground_to_robot;
+
+        assert_isometry_near(corrected.ground_to_robot, ground_to_robot);
+        assert_isometry_near(corrected.ground_to_camera, expected_ground_to_camera);
+    }
+
+    fn assert_isometry_near<From, To>(actual: Isometry3<From, To>, expected: Isometry3<From, To>) {
+        assert!(
+            (actual.inner.translation.vector - expected.inner.translation.vector).norm() < 1.0e-6
+        );
+        assert!(actual.inner.rotation.angle_to(&expected.inner.rotation) < 1.0e-6);
     }
 }
