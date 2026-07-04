@@ -39,7 +39,7 @@ pub struct BallTrack<Frame = Ground> {
     pub id: u64,
     pub position: Point2<Frame>,
     pub velocity: Vector2<Frame>,
-    #[path_serde(skip)]
+    #[path_serde(leaf)]
     pub covariance: Matrix2<f32>,
     pub existence_probability: f32,
     pub status: TrackStatus,
