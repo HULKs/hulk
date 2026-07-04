@@ -335,7 +335,7 @@ pub fn walk_to_goalkeeper_penalty_position(blackboard: &mut Blackboard) -> Statu
                 .parameters
                 .walk_and_stand
                 .normal_distance_to_be_aligned,
-            blackboard.parameters.walk_and_stand.hysteresis,
+            blackboard.parameters.walk_and_stand.goalkeeper_hysteresis,
         )
     } else {
         Status::Failure
