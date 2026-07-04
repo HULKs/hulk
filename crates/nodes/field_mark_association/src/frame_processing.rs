@@ -50,7 +50,7 @@ struct ProcessedDetectionFrame {
 }
 
 pub(crate) async fn process_detected_objects(
-    item: FutureItem<'_, (Option<Vec<Object<RobocupObjectLabel>>>,)>,
+    item: FutureItem<'_, (Option<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>,)>,
     ctx: DetectionProcessingContext<'_>,
 ) -> Result<()> {
     for (image_time, (objects,)) in item.persistent {
@@ -98,7 +98,7 @@ pub(crate) async fn process_detected_objects(
 
 fn prepare_detection_frame(
     image_time: Time,
-    objects: Option<Vec<Object<RobocupObjectLabel>>>,
+    objects: Option<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>,
     ctx: &DetectionProcessingContext<'_>,
 ) -> Option<PreparedDetectionFrame> {
     let camera_matrix = ctx.camera_matrix_cache.get_nearest(image_time)?;
@@ -113,7 +113,7 @@ fn prepare_detection_frame(
 
     Some(PreparedDetectionFrame {
         image_time,
-        objects: objects.unwrap_or_default(),
+        objects: objects.map(|item| item.inner).unwrap_or_default(),
         robot_to_camera: robot_to_camera(&camera_matrix),
         camera_matrix,
         field_dimensions: *field_dimensions.as_ref(),
