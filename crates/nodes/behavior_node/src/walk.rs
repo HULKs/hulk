@@ -5,7 +5,7 @@ use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, point};
 use path_planner::path_planner::PathPlanner;
 use types::{
     behavior_tree::Status,
-    motion_command::{BodyMotion, HeadMotion, MotionCommand, OrientationMode},
+    motion_command::{BodyMotion, MotionCommand, OrientationMode},
     motion_type::MotionType,
     path::{Path, direct_path},
 };
@@ -234,7 +234,7 @@ pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
         );
 
         let kickoff_pose_in_ground = field_to_ground * kickoff_pose_in_field;
-        blackboard.head_motion = Some(HeadMotion::LookAround);
+        // blackboard.head_motion = Some(HeadMotion::LookAround);
         walk_to(
             blackboard,
             kickoff_pose_in_ground,
