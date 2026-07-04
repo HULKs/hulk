@@ -158,45 +158,6 @@ fn compose_rule_obstacles(
                 ));
             }
         },
-        (
-            FilteredGameControllerState {
-                game_state: FilteredGameState::Ready,
-                sub_state: None,
-                kicking_team: Some(Team::Hulks),
-                ..
-            },
-            _,
-        ) => {
-            let center_circle_ballspace_free_obstacle = RuleObstacle::Circle(Circle {
-                center: Point::origin(),
-                radius: parameters.center_circle_ballspace_free_obstacle_radius,
-            });
-
-            rule_obstacles.push(center_circle_ballspace_free_obstacle);
-        }
-        (
-            FilteredGameControllerState {
-                game_state: FilteredGameState::Ready,
-                sub_state: None,
-                kicking_team: None,
-                ..
-            }
-            | FilteredGameControllerState {
-                game_state: FilteredGameState::Ready,
-                sub_state: None,
-                kicking_team: Some(Team::Opponent),
-                ..
-            },
-            _,
-        ) => {
-            let center_circle_obstacle = RuleObstacle::Circle(Circle {
-                center: Point::origin(),
-                radius: field_dimensions.center_circle_diameter / 2.0
-                    + parameters.center_circle_obstacle_radius_increase,
-            });
-
-            rule_obstacles.push(center_circle_obstacle);
-        }
         _ => (),
     };
 
