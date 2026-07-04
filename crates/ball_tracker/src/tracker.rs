@@ -333,8 +333,26 @@ impl Tracker {
     fn best_hypothesis(&self) -> Option<&GlobalHypothesis> {
         self.global_hypotheses
             .iter()
-            .max_by(|left, right| left.weight_log.total_cmp(&right.weight_log))
+            .max_by(|left, right| compare_hypotheses_for_output(left, right))
     }
+}
+
+fn compare_hypotheses_for_output(
+    left: &GlobalHypothesis,
+    right: &GlobalHypothesis,
+) -> std::cmp::Ordering {
+    let left_has_mature_track = has_mature_track(left);
+    let right_has_mature_track = has_mature_track(right);
+    left_has_mature_track
+        .cmp(&right_has_mature_track)
+        .then_with(|| left.weight_log.total_cmp(&right.weight_log))
+}
+
+fn has_mature_track(hypothesis: &GlobalHypothesis) -> bool {
+    hypothesis
+        .tracks
+        .iter()
+        .any(|track| track.status != TrackStatus::Tentative)
 }
 
 fn normalize_hypothesis_weights(hypotheses: &mut [GlobalHypothesis]) {
@@ -359,7 +377,8 @@ fn prune_tracks(
     for hypothesis in hypotheses {
         let before_count = hypothesis.tracks.len();
         hypothesis.tracks.retain(|track| {
-            (track.existence_probability >= parameters.delete_existence_threshold
+            (track.status != TrackStatus::Tentative
+                || track.existence_probability >= parameters.delete_existence_threshold
                 || track.missed_count <= 1)
                 && field_bounds.contains(track.state.position())
                 && track.last_seen_age <= track_timeout(track, parameters)
@@ -395,14 +414,18 @@ fn prune_hypotheses(
     previous_hypothesis_count: usize,
 ) -> usize {
     let before_count = hypotheses.len();
+    let best_hypothesis = hypotheses
+        .iter()
+        .max_by(|left, right| left.weight_log.total_cmp(&right.weight_log))
+        .cloned();
     hypotheses.retain(|hypothesis| hypothesis.weight_log >= parameters.hypothesis_prune_log_weight);
     hypotheses.sort_by(|left, right| right.weight_log.total_cmp(&left.weight_log));
     hypotheses.truncate(parameters.max_global_hypotheses.max(1));
     if hypotheses.is_empty() {
-        hypotheses.push(GlobalHypothesis {
+        hypotheses.push(best_hypothesis.unwrap_or(GlobalHypothesis {
             weight_log: 0.0,
             tracks: Vec::new(),
-        });
+        }));
     }
     before_count.saturating_sub(hypotheses.len().min(previous_hypothesis_count.max(1)))
 }
@@ -487,6 +510,24 @@ mod tests {
                 .iter()
                 .any(|track| track.status == TrackStatus::Confirmed)
         );
+    }
+
+    #[test]
+    fn confirmed_track_survives_short_visible_miss_sequence() {
+        let mut tracker = Tracker::new();
+
+        update_visible(&mut tracker, &[test_measurement(1.0, 0.0)]);
+        update_visible(&mut tracker, &[test_measurement(1.02, 0.0)]);
+
+        let mut output = tracker.output();
+        assert_eq!(output.tracks[0].status, TrackStatus::Confirmed);
+
+        for _ in 0..10 {
+            output = update_visible(&mut tracker, &[]);
+        }
+
+        assert_eq!(output.tracks.len(), 1, "{output:#?}");
+        assert_eq!(output.tracks[0].status, TrackStatus::Stale);
     }
 
     #[test]
