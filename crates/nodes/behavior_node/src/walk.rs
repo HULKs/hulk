@@ -234,7 +234,7 @@ pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
         );
 
         let kickoff_pose_in_ground = field_to_ground * kickoff_pose_in_field;
-        // blackboard.head_motion = Some(HeadMotion::LookAround);
+
         walk_to(
             blackboard,
             kickoff_pose_in_ground,
