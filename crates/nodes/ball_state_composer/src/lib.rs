@@ -10,6 +10,7 @@ use linear_algebra::{Isometry2, Point2, Vector2, point};
 use ros_z::{prelude::*, qos::QosDurability};
 use types::{
     ball_position::BallPosition,
+    ball_tracking::BallTrack,
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     primary_state::PrimaryState,
@@ -32,8 +33,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-    let ball_position_sub = node
-        .subscriber::<Option<BallPosition<Ground>>>("ball_filter/ball_position")
+    let primary_ball_sub = node
+        .subscriber::<Option<BallTrack<Ground>>>("ball_filter/primary_ball")
         .build()
         .await?;
     let ground_to_field_cache = node
@@ -82,8 +83,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .await?;
 
         tokio::select! {
-            received_ball_position = ball_position_sub.recv() => {
-                let Some(ball_position) = received_ball_position? else {
+            received_primary_ball = primary_ball_sub.recv() => {
+                let Some(primary_ball) = received_primary_ball? else {
                     ball_state_pub.publish(&None).await?;
                     last_ball_state = None;
                     continue;
@@ -95,10 +96,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let ground_to_field = *ground_to_field;
 
                 let ball = create_ball_state(
-                    ball_position.position,
-                    ground_to_field * ball_position.position,
-                    ball_position.velocity,
-                    ball_position.last_seen.to_wallclock(),
+                    primary_ball.position,
+                    ground_to_field * primary_ball.position,
+                    primary_ball.velocity,
+                    primary_ball.last_seen.to_wallclock(),
                     &mut last_ball_field_side,
                 );
                 ball_state_pub.publish(&Some(ball)).await?;

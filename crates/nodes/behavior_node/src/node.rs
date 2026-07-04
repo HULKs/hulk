@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 use tokio::task::block_in_place;
 use tracing::info;
 use types::{
-    ball_position::{BallPosition, HypotheticalBallPosition},
+    ball_position::BallPosition,
+    ball_tracking::BallTrack,
     behavior_tree::NodeTrace,
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
@@ -183,8 +184,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-    let hypothetical_ball_positions_cache = node
-        .subscriber::<Vec<HypotheticalBallPosition<Ground>>>("hypothetical_ball_positions")
+    let ball_tracks_cache = node
+        .subscriber::<Vec<BallTrack<Ground>>>("ball_filter/tracks")
         .cache(1)
         .build()
         .await?;
@@ -345,9 +346,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             filtered_game_controller_state_cache.get_latest().map(
                 |filtered_game_controller_state| filtered_game_controller_state.as_ref().clone(),
             );
-        blackboard.world_state.hypothetical_ball_positions = hypothetical_ball_positions_cache
+        blackboard.world_state.ball_tracks = ball_tracks_cache
             .get_latest()
-            .map(|positions| positions.as_ref().clone())
+            .map(|tracks| tracks.as_ref().clone())
             .unwrap_or_default();
         blackboard.world_state.now = node.clock().now();
         blackboard.world_state.obstacles = obstacles_cache

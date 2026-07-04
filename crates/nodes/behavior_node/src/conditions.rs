@@ -172,11 +172,12 @@ pub fn has_new_ball_position(blackboard: &mut Blackboard) -> bool {
     blackboard.world_state.ball.is_some()
 }
 
-pub fn has_hypothetical_ball_position(blackboard: &mut Blackboard) -> bool {
-    !blackboard
+pub fn has_candidate_ball_track(blackboard: &mut Blackboard) -> bool {
+    blackboard
         .world_state
-        .hypothetical_ball_positions
-        .is_empty()
+        .ball_tracks
+        .iter()
+        .any(|track| track.status != types::ball_tracking::TrackStatus::Confirmed)
 }
 
 pub fn hulks_is_kicking_team(blackboard: &mut Blackboard) -> bool {
