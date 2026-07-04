@@ -1,50 +1,21 @@
 use coordinate_systems::{Field, Ground, Robot};
 use kinematics::{forward::left_sole_to_robot, joints::leg::LegJoints};
-use linear_algebra::{IntoTransform, Isometry3, Orientation3};
+use linear_algebra::{IntoTransform, Isometry3};
 use localization_factrs::{InitialState, OptimizationResult};
 use projection::camera_matrix::CameraMatrix;
-use types::{field_dimensions::FieldDimensions, time_wrapper::TimeWrapper};
+use types::time_wrapper::TimeWrapper;
 
 use crate::camera::camera_intrinsics_from_matrix;
 
 /// Constructs the backend initial state from the first live camera matrix.
 ///
-/// The initial pose uses a fixed own-half right-touchline prior and the camera intrinsics contained
-/// in `camera_matrix`.
-pub fn initial_state_from_camera_matrix(
-    camera_matrix: &CameraMatrix,
-    field_dimensions: &FieldDimensions,
-) -> InitialState {
-    let initial_pose = initial_robot_to_field_from_field_dimensions(field_dimensions);
-
-    InitialState::from_robot_to_field_and_intrinsics(
-        initial_pose,
+/// Startup localization is intentionally position-agnostic. Global field-mark association selects
+/// the startup symmetry branch before the backend is reset to a visual pose.
+pub fn initial_state_from_camera_matrix(camera_matrix: &CameraMatrix) -> InitialState {
+    InitialState::from_initial_height_and_intrinsics(
+        robot_height() as f64,
         camera_intrinsics_from_matrix(camera_matrix),
     )
-}
-
-/// Estimates the initial robot pose in the field frame from known startup placement.
-///
-/// Robots start on the right touchline in their own half, looking into the field.
-pub fn initial_robot_to_field_from_field_dimensions(
-    field_dimensions: &FieldDimensions,
-) -> Isometry3<Robot, Field> {
-    let translation: linear_algebra::Vector3<Field> =
-        linear_algebra::Vector3::wrap(nalgebra::vector![
-            -field_dimensions.length / 2.0,
-            -field_dimensions.width / 2.0,
-            robot_height(),
-        ]);
-    let orientation: Orientation3<Field> =
-        Orientation3::from_euler_angles(0.0, 0.0, std::f32::consts::FRAC_PI_2);
-
-    Isometry3::from_parts(translation, orientation)
-}
-
-pub(crate) fn initial_localization_for_branch_hint(
-    field_dimensions: &FieldDimensions,
-) -> Option<Isometry3<Field, Robot>> {
-    Some(initial_robot_to_field_from_field_dimensions(field_dimensions).inverse())
 }
 
 pub(crate) fn backend_localization_for_result(
@@ -100,15 +71,13 @@ fn robot_height() -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use std::f64::consts::FRAC_PI_2;
-
     use linear_algebra::point;
     use projection::intrinsic::Intrinsic;
 
     use super::*;
 
     #[test]
-    fn initial_state_from_camera_matrix_uses_startup_prior_and_live_intrinsics() {
+    fn initial_state_from_camera_matrix_uses_height_only_and_live_intrinsics() {
         let robot_to_ground_rotation = nalgebra::UnitQuaternion::from_euler_angles(0.1, -0.2, 0.3);
         let robot_to_ground = nalgebra::Isometry3::from_parts(
             nalgebra::Translation3::new(1.0, 2.0, 0.42),
@@ -120,17 +89,10 @@ mod tests {
             ..Default::default()
         };
 
-        let initial_state =
-            initial_state_from_camera_matrix(&camera_matrix, &FieldDimensions::SPL_2025);
+        let initial_state = initial_state_from_camera_matrix(&camera_matrix);
 
-        assert!(
-            (initial_state.pose.xyz().x + FieldDimensions::SPL_2025.length as f64 / 2.0).abs()
-                < 1.0e-9
-        );
-        assert!(
-            (initial_state.pose.xyz().y + FieldDimensions::SPL_2025.width as f64 / 2.0).abs()
-                < 1.0e-9
-        );
+        assert!(initial_state.pose.xyz().x.abs() < 1.0e-9);
+        assert!(initial_state.pose.xyz().y.abs() < 1.0e-9);
         assert!((initial_state.pose.xyz().z - robot_height() as f64).abs() < 1.0e-9);
         assert!(initial_state.pose.uvw().norm() < 1.0e-9);
         assert_eq!(
@@ -142,9 +104,10 @@ mod tests {
             nalgebra::vector![251.0, 235.0]
         );
         let rotation = initial_state.pose.rot();
-        let yaw = (2.0 * (rotation.w() * rotation.z() + rotation.x() * rotation.y()))
-            .atan2(1.0 - 2.0 * (rotation.y().powi(2) + rotation.z().powi(2)));
-        assert!((yaw - FRAC_PI_2).abs() < 1.0e-6);
+        assert!((rotation.w() - 1.0).abs() < 1.0e-9);
+        assert!(rotation.x().abs() < 1.0e-9);
+        assert!(rotation.y().abs() < 1.0e-9);
+        assert!(rotation.z().abs() < 1.0e-9);
     }
 
     #[test]
@@ -166,26 +129,6 @@ mod tests {
             roundtrip_robot_to_field
                 .rotation
                 .angle_to(&robot_to_field.rotation)
-                < 1.0e-6
-        );
-    }
-
-    #[test]
-    fn initial_localization_branch_hint_uses_startup_prior() {
-        let hint = initial_localization_for_branch_hint(&FieldDimensions::SPL_2025)
-            .expect("initial branch hint should be available");
-        let robot_to_field = hint.inverse();
-        let expected = initial_robot_to_field_from_field_dimensions(&FieldDimensions::SPL_2025);
-
-        assert!(
-            (robot_to_field.inner.translation.vector - expected.inner.translation.vector).norm()
-                < 1.0e-6
-        );
-        assert!(
-            robot_to_field
-                .inner
-                .rotation
-                .angle_to(&expected.inner.rotation)
                 < 1.0e-6
         );
     }

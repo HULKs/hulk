@@ -11,7 +11,10 @@ use types::{
     object_detection::{Object, RobocupObjectLabel},
     primary_state::PrimaryState,
     time_wrapper::TimeWrapper,
-    visual_localization::{AssociationPoseHint, GlobalLocalizationDebug, VisualLocalizationFrame},
+    visual_localization::{
+        AssociationPoseHint, AssociationPoseHintSource, GlobalLocalizationDebug,
+        VisualLocalizationFrame,
+    },
 };
 
 use crate::{
@@ -134,7 +137,14 @@ fn pose_hint_at(
             if time_distance(stamp, image_time) > parameters.pose_hint.max_pose_age {
                 return None;
             }
-            localization.inner.as_ref().map(|hint| hint.robot_to_field)
+            localization
+                .inner
+                .as_ref()
+                .and_then(|hint| match hint.source {
+                    AssociationPoseHintSource::StartupPrior => None,
+                    AssociationPoseHintSource::BackendBranch
+                    | AssociationPoseHintSource::LiveVisualOdometry => Some(hint.robot_to_field),
+                })
         })
 }
 

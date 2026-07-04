@@ -1,15 +1,54 @@
 use super::prelude::*;
 
 pub(super) fn oriented_candidate(problem: &Problem, candidate: &Candidate) -> Candidate {
-    let Some(hint) = problem.pose_hint else {
-        return candidate.clone();
-    };
     let symmetric = symmetric_candidate(candidate, &problem.map);
+    let Some(hint) = problem.pose_hint else {
+        return if startup_branch_is_preferred(problem, &symmetric, candidate) {
+            symmetric
+        } else {
+            candidate.clone()
+        };
+    };
     if yaw_error_to_hint(problem, &symmetric, hint) < yaw_error_to_hint(problem, candidate, hint) {
         symmetric
     } else {
         candidate.clone()
     }
+}
+
+fn startup_branch_is_preferred(problem: &Problem, left: &Candidate, right: &Candidate) -> bool {
+    let left_pose = robot_to_field_for_candidate(problem, left);
+    let right_pose = robot_to_field_for_candidate(problem, right);
+    let left_position = left_pose.inner.translation.vector;
+    let right_position = right_pose.inner.translation.vector;
+    let left_is_own_half = left_position.x <= 0.0;
+    let right_is_own_half = right_position.x <= 0.0;
+    if left_is_own_half != right_is_own_half {
+        return left_is_own_half;
+    }
+
+    let left_yaw_error = startup_yaw_error(left_pose);
+    let right_yaw_error = startup_yaw_error(right_pose);
+    if (left_yaw_error - right_yaw_error).abs() > 1.0e-6 {
+        return left_yaw_error < right_yaw_error;
+    }
+
+    left_position.x < right_position.x
+}
+
+fn startup_yaw_error(robot_to_field: Isometry3<Robot, Field>) -> f32 {
+    let position = robot_to_field.inner.translation.vector;
+    let (_, _, yaw) = robot_to_field.inner.rotation.euler_angles();
+    if position.y < 0.0 {
+        return angle_difference(yaw, std::f32::consts::FRAC_PI_2).abs();
+    }
+    if position.y > 0.0 {
+        return angle_difference(yaw, -std::f32::consts::FRAC_PI_2).abs();
+    }
+
+    angle_difference(yaw, std::f32::consts::FRAC_PI_2)
+        .abs()
+        .min(angle_difference(yaw, -std::f32::consts::FRAC_PI_2).abs())
 }
 
 fn yaw_error_to_hint(
@@ -23,7 +62,11 @@ fn yaw_error_to_hint(
 fn yaw_difference(left: Isometry3<Robot, Field>, right: Isometry3<Robot, Field>) -> f32 {
     let (_, _, left_yaw) = left.inner.rotation.euler_angles();
     let (_, _, right_yaw) = right.inner.rotation.euler_angles();
-    let mut difference = left_yaw - right_yaw;
+    angle_difference(left_yaw, right_yaw)
+}
+
+fn angle_difference(left: f32, right: f32) -> f32 {
+    let mut difference = left - right;
     while difference > std::f32::consts::PI {
         difference -= std::f32::consts::TAU;
     }
