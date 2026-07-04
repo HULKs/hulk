@@ -1,0 +1,14 @@
+[package]
+name = "ball_tracker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+coordinate_systems = { workspace = true }
+filtering = { workspace = true }
+geometry = { workspace = true }
+linear_algebra = { workspace = true }
+nalgebra = { workspace = true }
+types = { workspace = true }

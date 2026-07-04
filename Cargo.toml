@@ -4,6 +4,7 @@ members = [
   "crates/approx_derive",
   "crates/argument_parsers",
   "crates/audio",
+  "crates/ball_tracker",
   "crates/bevy_mujoco",
   "crates/bevyhavior_simulator",
   "crates/booster",
@@ -144,6 +145,7 @@ argument_parsers = { path = "crates/argument_parsers" }
 atty = "0.2.14"
 audio = { path = "crates/audio" }
 ball_filter = { path = "crates/nodes/ball_filter" }
+ball_tracker = { path = "crates/ball_tracker" }
 ball_state_composer = { path = "crates/nodes/ball_state_composer" }
 bat = { version = "0.25.0", default-features = false, features = [
   "paging",
