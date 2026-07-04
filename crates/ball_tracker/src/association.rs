@@ -1,8 +1,3 @@
-#![expect(
-    dead_code,
-    reason = "association API is reserved for tracker update integration"
-)]
-
 use std::collections::BTreeSet;
 
 use crate::tracker::TrackId;
@@ -45,6 +40,7 @@ pub(crate) struct Assignment {
 }
 
 impl Assignment {
+    #[cfg(test)]
     pub(crate) fn measurement_is_used_once(&self) -> bool {
         let mut used = BTreeSet::new();
         for choice in &self.choices {
