@@ -1,5 +1,6 @@
 use std::{boxed::Box, future::Future, pin::Pin};
 use std::{f32::consts::PI, sync::Arc};
+use tokio;
 
 use color_eyre::Result;
 use filtering::statistics::{mean, standard_deviation};
@@ -30,7 +31,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("whistle_detection").build().await?;
 
     let parameters = node.bind_parameter_as::<WhistleDetectionParameters>("whistle_detection")?;
-    let samples_sub = node.subscriber::<Samples>("inputs/microphones_samples").build().await?;
+    let samples_sub = node
+        .subscriber::<Samples>("inputs/microphones_samples")
+        .build()
+        .await?;
     // let audio_spectrums_pub = node
     //     .publisher::<Vec<AudioSpectrum>>("audio_spectrums")
     //     .build()
@@ -51,11 +55,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
 
-        let (is_detected, detection_infos): (Vec<bool>, Vec<DetectionInfo>) = samples
-            .channels_of_samples
-            .iter()
-            .map(|buffer| whistle_detection.is_whistle_detected_in_buffer(buffer, parameters))
-            .unzip();
+        let (is_detected, detection_infos): (Vec<bool>, Vec<DetectionInfo>) =
+            tokio::task::block_in_place(|| {
+                samples.channels_of_samples.iter().map(|buffer| {
+                    whistle_detection.is_whistle_detected_in_buffer(buffer, parameters)
+                })
+                .unzip()
+            }
+            );
         detected_whistle_pub
             .publish(&Whistle { is_detected })
             .await?;
