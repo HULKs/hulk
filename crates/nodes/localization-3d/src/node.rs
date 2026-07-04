@@ -5,8 +5,8 @@ use color_eyre::{
     Result,
     eyre::{Context as _, bail},
 };
-use coordinate_systems::{Field, Robot};
-use linear_algebra::Isometry3;
+use coordinate_systems::{Field, Odometry, Robot};
+use linear_algebra::{Isometry3, Pose2};
 use localization_factrs::{InitialState, initialize};
 use projection::{camera_matrix::CameraMatrix, intrinsic::Intrinsic};
 use ros_z::{
@@ -24,7 +24,7 @@ use types::{
         ASSOCIATION_POSE_HINT_TOPIC, AssociationPoseHint, LOCALIZATION_POSE_3D_TOPIC,
         VISUAL_LOCALIZATION_TOPIC, VisualLocalizationFrame,
     },
-    visual_odometry::{VisualOdometer, VisualOdometryDelta as VisualOdometryDeltaMessage},
+    visual_odometry::VisualOdometryDelta as VisualOdometryDeltaMessage,
 };
 
 use crate::{
@@ -34,9 +34,9 @@ use crate::{
         reset_and_publish_startup_prior,
     },
     diagnostics::SolveDiagnostics,
-    event_handlers::{handle_optimization_result, handle_visual_odometer, handle_visual_odometry},
+    event_handlers::{handle_odometry, handle_optimization_result, handle_visual_odometry},
     ingest::ingest_foot_heights,
-    live_odometry::LiveVisualOdometryLocalization,
+    live_odometry::{LiveOdometryLocalization, TimedOdometry, TimedOdometryHistory},
     parameters::{
         Localization3dParameters, backend_configuration_from_parameters_and_field_dimensions,
     },
@@ -44,8 +44,6 @@ use crate::{
     publish::LocalizationPublishers,
     visual_localization::{GlobalVisualLock, handle_visual_localization_frame},
 };
-
-const VISUAL_ODOMETER_TOPIC: &str = "visual_odometry/current_left_camera_to_visual_odometer";
 
 /// Starts the localization node and erases the concrete future type for node runners.
 ///
@@ -56,8 +54,8 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 
 /// Runs the asynchronous 3D localization node until its input streams terminate or fail.
 ///
-/// The node consumes IMU, camera matrix, field-mark associations, visual odometry, and kinematics
-/// topics, then publishes the optimized robot pose and debug streams.
+/// The node consumes IMU, odometry, camera matrix, field-mark associations, visual odometry, and
+/// kinematics topics, then publishes the optimized robot pose and debug streams.
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("localization3d").build().await?;
     let parameters = node.bind_parameter_as::<Localization3dParameters>("localization3d")?;
@@ -65,6 +63,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let imu_subscriber = node
         .subscriber::<ImuState>("inputs/imu_state")
+        .build()
+        .await?;
+    let imu_cache = node
+        .subscriber::<ImuState>("inputs/imu_state")
+        .cache(128)
+        .build()
+        .await?;
+    let odometry_subscriber = node
+        .subscriber::<Pose2<Odometry>>("inputs/odometry")
         .build()
         .await?;
 
@@ -96,17 +103,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         )
         .build()
         .await?;
-    let visual_odometer_cache = node
-        .subscriber::<VisualOdometer>(VISUAL_ODOMETER_TOPIC)
-        .cache(128)
-        .with_stamp(|message| message.time)
-        .build()
-        .await?;
-    let visual_odometer_subscriber = node
-        .subscriber::<VisualOdometer>(VISUAL_ODOMETER_TOPIC)
-        .build()
-        .await?;
-
     let robot_kinematics_subscriber = node
         .subscriber::<TimeWrapper<kinematics::robot_kinematics::RobotKinematics>>(
             "robot_kinematics",
@@ -157,8 +153,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     );
     let mut backend_handle =
         std::pin::pin!(spawn_backend_task(backend, solve_diagnostics_publisher));
-    let mut live_localization = LiveVisualOdometryLocalization::default();
+    let mut live_localization = LiveOdometryLocalization::default();
     let mut global_visual_lock = GlobalVisualLock::Unlocked;
+    let mut last_odometry: Option<TimedOdometry> = None;
+    let mut odometry_history = TimedOdometryHistory::default();
     let mut damping_reset_interval = tokio::time::interval(Duration::from_millis(100));
     let publishers = LocalizationPublishers::new(
         &localization_publisher,
@@ -185,11 +183,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 )
                 .await
                 .wrap_err("failed to reset localization while damping")?;
+                last_odometry = None;
+                odometry_history.clear();
             }
             visual_localization = visual_localization_subscriber.recv() => {
                 let visual_localization = visual_localization?;
                 if should_drop_input_while_damping(&primary_state_cache) {
                     continue;
+                }
+                if visual_localization.inner.backend_reset.is_some() {
+                    last_odometry = None;
                 }
 
                 handle_visual_localization_frame(
@@ -209,26 +212,31 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 frontend.ingest_imu(imu.source_time.to_wallclock(), imu.message)
                     .wrap_err("failed to ingest imu measurement into frontend")?;
             }
+            odometry = odometry_subscriber.recv_with_metadata() => {
+                let odometry = odometry?;
+                if should_drop_input_while_damping(&primary_state_cache) {
+                    last_odometry = None;
+                    odometry_history.clear();
+                    continue;
+                }
+                handle_odometry(
+                    &mut frontend,
+                    odometry.source_time,
+                    odometry.message,
+                    &mut last_odometry,
+                    &mut odometry_history,
+                    &mut live_localization,
+                    global_visual_lock,
+                    &imu_cache,
+                    publishers,
+                ).await?;
+            }
             visual_odometry = visual_odometry_subscriber.recv() => {
                 let visual_odometry = visual_odometry?;
                 if should_drop_input_while_damping(&primary_state_cache) {
                     continue;
                 }
                 handle_visual_odometry(&mut frontend, visual_odometry, &camera_matrix_cache)?;
-            }
-            visual_odometer = visual_odometer_subscriber.recv() => {
-                let visual_odometer = visual_odometer?;
-                if should_drop_input_while_damping(&primary_state_cache) {
-                    continue;
-                }
-                handle_visual_odometer(
-                    &mut live_localization,
-                    global_visual_lock,
-                    visual_odometer,
-                    &visual_odometer_cache,
-                    &camera_matrix_cache,
-                    publishers,
-                ).await?;
             }
             robot_kinematics = robot_kinematics_subscriber.recv() => {
                 let robot_kinematics = robot_kinematics?;
@@ -253,13 +261,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                         &field_dimensions,
                         publishers,
                     ).await?;
+                    last_odometry = None;
+                    odometry_history.clear();
                     continue;
                 }
                 handle_optimization_result(
                     &mut frontend,
                     &mut live_localization,
                     &mut global_visual_lock,
-                    &visual_odometer_cache,
+                    &odometry_history,
+                    &imu_cache,
                     &camera_matrix_cache,
                     publishers,
                     &calibrated_intrinsics_publisher,

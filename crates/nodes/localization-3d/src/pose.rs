@@ -68,15 +68,6 @@ fn localization_transform_from_backend_pose(
     robot_to_field.cast::<f32>().inverse().framed_transform()
 }
 
-pub(crate) fn localization_transform_constrained_to_ground(
-    robot_to_field: &nalgebra::Isometry3<f64>,
-    ground_to_robot: &Isometry3<Ground, Robot>,
-) -> Isometry3<Field, Robot> {
-    let localization = localization_transform_from_backend_pose(robot_to_field);
-
-    constrain_localization_to_ground(localization, ground_to_robot)
-}
-
 fn constrain_localization_to_ground(
     localization: Isometry3<Field, Robot>,
     ground_to_robot: &Isometry3<Ground, Robot>,

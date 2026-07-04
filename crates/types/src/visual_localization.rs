@@ -17,6 +17,7 @@ pub struct AssociationPoseHint {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Message)]
 pub enum AssociationPoseHintSource {
     BackendBranch,
+    LiveOdometry,
     LiveVisualOdometry,
     StartupPrior,
 }

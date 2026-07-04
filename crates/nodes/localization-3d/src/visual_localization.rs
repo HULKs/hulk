@@ -14,7 +14,7 @@ use types::{
     },
 };
 
-use crate::live_odometry::LiveVisualOdometryLocalization;
+use crate::live_odometry::LiveOdometryLocalization;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum GlobalVisualLock {
@@ -73,7 +73,7 @@ pub(crate) fn association_pose_hint(
 
 pub(crate) fn handle_visual_localization_frame(
     frontend: &mut VinsFrontend,
-    live_localization: &mut LiveVisualOdometryLocalization,
+    live_localization: &mut LiveOdometryLocalization,
     global_visual_lock: &mut GlobalVisualLock,
     frame: TimeWrapper<VisualLocalizationFrame>,
 ) -> Result<(), VinsFrontendError> {

@@ -2,12 +2,13 @@ use std::sync::Arc;
 
 use color_eyre::{Result, eyre::WrapErr as _};
 use eframe::egui::Context as EguiContext;
-use ros_z::prelude::ContextBuilder;
+use ros_z::{prelude::ContextBuilder, qos::QosDurability, qos::QosProfile};
 use ros_z_debug::{TopicObserver, TopicObserverOptions};
 use ros_z_streams::{CreateFutureQueue, QueueEvent};
 use ros2::sensor_msgs::image::Image as RosImage;
 use tokio::runtime::Runtime;
 use types::{
+    field_dimensions::FieldDimensions,
     object_detection::{Object, RobocupObjectLabel},
     time_wrapper::TimeWrapper,
 };
@@ -26,7 +27,10 @@ pub(crate) use topics::CAMERA_IMAGE_TOPIC;
 use self::{
     camera::decode_camera_frame,
     debug::DebugSubscriptions,
-    topics::{DEBUG_REFRESH_INTERVAL, DETECTED_OBJECTS_SAFETY_LAG, DETECTED_OBJECTS_TOPIC},
+    topics::{
+        DEBUG_REFRESH_INTERVAL, DETECTED_OBJECTS_SAFETY_LAG, DETECTED_OBJECTS_TOPIC,
+        FIELD_DIMENSIONS_TOPIC,
+    },
 };
 
 pub(crate) fn spawn(
@@ -73,6 +77,14 @@ async fn run(arguments: Arguments, state: SharedState, egui_context: EguiContext
     );
     let mut debug_subscriptions = DebugSubscriptions::build(&debug_observer)?;
 
+    let field_dimensions = node
+        .subscriber::<FieldDimensions>(FIELD_DIMENSIONS_TOPIC)
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await?;
     let camera = node
         .subscriber::<RosImage>(CAMERA_IMAGE_TOPIC)
         .build()
@@ -86,6 +98,7 @@ async fn run(arguments: Arguments, state: SharedState, egui_context: EguiContext
 
     update_state(&state, &egui_context, |state| {
         state.connection = ConnectionStatus::Subscribed;
+        update_publisher_count(&mut state.field_status, field_dimensions.publisher_count());
         update_publisher_count(&mut state.camera_status, camera.publisher_count());
         update_publisher_count(&mut state.objects_status, objects.publisher_count());
     });
@@ -96,10 +109,20 @@ async fn run(arguments: Arguments, state: SharedState, egui_context: EguiContext
             _ = refresh_interval.tick() => {
                 update_state(&state, &egui_context, |state| {
                     debug_subscriptions.refresh(state);
+                    update_publisher_count(&mut state.field_status, field_dimensions.publisher_count());
                     update_publisher_count(&mut state.camera_status, camera.publisher_count());
                     update_publisher_count(&mut state.objects_status, objects.publisher_count());
                 });
             }
+            message = field_dimensions.recv() => match message {
+                Ok(dimensions) => update_state(&state, &egui_context, |state| {
+                    state.field_dimensions = Some(dimensions);
+                    state.field_status.mark_live(field_dimensions.publisher_count());
+                }),
+                Err(error) => update_state(&state, &egui_context, |state| {
+                    state.field_status.mark_error(field_dimensions.publisher_count(), format!("{error:#}"));
+                }),
+            },
             message = camera.recv() => match message {
                 Ok(image) => {
                     let time = image.header.stamp.into();

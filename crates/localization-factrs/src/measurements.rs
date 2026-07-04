@@ -7,7 +7,8 @@ use linear_algebra::{Point2 as FramedPoint2, Point3 as FramedPoint3};
 use nalgebra::{Point2, Point3};
 
 use crate::factors::{
-    foot_above_ground::FootHeightMeasurement, visual_odometry::VisualOdometryMeasurement,
+    foot_above_ground::FootHeightMeasurement, odometer::OdometerMeasurement,
+    visual_odometry::VisualOdometryMeasurement,
 };
 use crate::initial_state::InitialState;
 
@@ -19,6 +20,7 @@ pub enum SensorMeasurement {
     Visual(Vec<VisualReprojectionMeasurement>),
     PoseHintVisual(Vec<VisualReprojectionMeasurement>),
     VisualOdometry(VisualOdometryMeasurement),
+    Odometer(OdometerMeasurement),
     FootHeights(FootHeightMeasurement),
 }
 
@@ -35,6 +37,7 @@ impl SensorMeasurement {
                     .time
             }
             SensorMeasurement::VisualOdometry(visual_odometry) => visual_odometry.current_time,
+            SensorMeasurement::Odometer(odometer) => odometer.current_time,
             SensorMeasurement::FootHeights(foot_heights) => foot_heights.time,
         }
     }

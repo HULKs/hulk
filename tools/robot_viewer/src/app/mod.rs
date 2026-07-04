@@ -42,7 +42,6 @@ pub(crate) struct RobotViewerApp {
     camera_texture_sequence: u64,
     camera_zoom: f32,
     camera_pan: Vec2,
-    show_projected_field_lines: bool,
     render_samples: RenderSampleStabilizer,
     _runtime: Arc<Runtime>,
 }
@@ -110,7 +109,6 @@ impl RobotViewerApp {
             camera_texture_sequence: 0,
             camera_zoom: 1.0,
             camera_pan: Vec2::ZERO,
-            show_projected_field_lines: false,
             render_samples: RenderSampleStabilizer::default(),
             _runtime: runtime,
         }
@@ -217,9 +215,7 @@ impl RobotViewerApp {
             Color32::WHITE,
         );
 
-        if self.show_projected_field_lines {
-            draw_projected_field_lines(ui, viewport_rect, image_rect, image_size, state);
-        }
+        draw_projected_field_lines(ui, viewport_rect, image_rect, image_size, state);
         let detected_objects = state
             .detected_objects
             .as_ref()
@@ -273,8 +269,6 @@ impl RobotViewerApp {
             }
             ui.separator();
             ui.label(format!("zoom {:.1}x", self.camera_zoom));
-            ui.separator();
-            ui.checkbox(&mut self.show_projected_field_lines, "project field lines");
         });
     }
 

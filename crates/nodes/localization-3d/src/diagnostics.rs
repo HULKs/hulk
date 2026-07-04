@@ -12,6 +12,7 @@ pub struct SolveDiagnostics {
     pub factor_count: usize,
     pub total_error: f64,
     pub visual_odometry: SolveResidualDiagnostics,
+    pub odometer: SolveResidualDiagnostics,
     pub visual_reprojection: SolveResidualDiagnostics,
     pub gaussian_process_prior: SolveResidualDiagnostics,
 }
@@ -40,6 +41,7 @@ impl From<BackendSolveDiagnostics> for SolveDiagnostics {
             factor_count: diagnostics.factor_count,
             total_error: diagnostics.total_error,
             visual_odometry: diagnostics.visual_odometry.into(),
+            odometer: diagnostics.odometer.into(),
             visual_reprojection: diagnostics.visual_reprojection.into(),
             gaussian_process_prior: diagnostics.gaussian_process_prior.into(),
         }
