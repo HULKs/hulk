@@ -787,20 +787,15 @@ dependencies = [
 name = "ball_filter"
 version = "0.1.0"
 dependencies = [
+ "ball_tracker",
  "color-eyre",
  "coordinate_systems",
- "filtering",
  "geometry",
- "hungarian_algorithm",
  "linear_algebra",
  "nalgebra 0.34.2",
- "ndarray",
- "ordered-float 4.6.0",
- "path_serde",
  "projection",
  "ros-z",
  "ros-z-streams",
- "serde",
  "tokio",
  "types",
 ]
