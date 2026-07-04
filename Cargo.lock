@@ -787,7 +787,6 @@ dependencies = [
 name = "ball_filter"
 version = "0.1.0"
 dependencies = [
- "booster",
  "color-eyre",
  "coordinate_systems",
  "filtering",
@@ -5543,6 +5542,7 @@ dependencies = [
  "motor_commands_collector",
  "obstacle_filter",
  "odometer_bridge",
+ "odometry",
  "player_states_receiver",
  "primary_state_filter",
  "repository",
@@ -7831,12 +7831,32 @@ dependencies = [
 name = "odometer_bridge"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "booster",
  "cdr",
  "color-eyre",
+ "coordinate_systems",
+ "linear_algebra",
  "ros-z",
  "ros-z-streams",
  "tokio",
+]
+
+[[package]]
+name = "odometry"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "color-eyre",
+ "coordinate_systems",
+ "kinematics",
+ "linear_algebra",
+ "nalgebra 0.34.2",
+ "ros-z",
+ "ros-z-streams",
+ "serde",
+ "tokio",
+ "types",
 ]
 
 [[package]]

@@ -7,6 +7,8 @@
   schema_discovery_timeout: { secs: 15, nanos: 0 },
   topics: [
     "inputs/low_state",
+    "inputs/odometry",
+    "inputs/booster_odometry",
     "support_foot",
     "ground_to_robot",
     "camera_matrix",
