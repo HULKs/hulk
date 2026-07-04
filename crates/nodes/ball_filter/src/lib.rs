@@ -585,6 +585,25 @@ mod odometry_pose_tests {
     }
 
     #[test]
+    fn detection_frame_without_paired_odometry_still_updates_tracker() {
+        let mut last_odometry = Some(Pose2::<Odometry>::new(point![<Odometry>, 0.0, 0.0], 0.0));
+        let mut last_prediction_time = Some(Time::from_nanos(1_000_000_000));
+
+        let update = tracker_prediction_update(
+            Time::from_nanos(1_100_000_000),
+            None,
+            &mut last_odometry,
+            &mut last_prediction_time,
+        )
+        .expect("detection frame should update tracker even without paired odometry");
+
+        assert_eq!(update.delta_time, Duration::from_millis(100));
+        assert_eq!(update.last_to_current, Isometry2::identity());
+        assert_eq!(last_prediction_time, Some(Time::from_nanos(1_100_000_000)));
+        assert!(last_odometry.is_some());
+    }
+
+    #[test]
     fn output_keeps_percepts_without_tracker_update() {
         let percept = BallPercept {
             percept_in_ground: MultivariateNormalDistribution {
