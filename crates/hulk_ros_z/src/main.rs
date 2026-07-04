@@ -20,6 +20,8 @@ struct Args {
     parameter_root: PathBuf,
     #[arg(long)]
     router: Option<String>,
+    #[arg(long)]
+    log_path: Option<PathBuf>,
 }
 
 struct RunningStack {
@@ -78,7 +80,7 @@ async fn run() -> Result<()> {
     };
 
     let ctx = Arc::new(builder.build().await?);
-    let mut running = spawn_all(ctx.clone()).await?;
+    let mut running = spawn_all(ctx.clone(), args.log_path).await?;
 
     let result = tokio::select! {
         result = monitor(&mut running.join_set) => result,
@@ -129,7 +131,7 @@ fn derive_namespace(robot: &str) -> String {
     }
 }
 
-async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
+async fn spawn_all(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<RunningStack> {
     let mut join_set = JoinSet::new();
 
     join_set.spawn(active_vision::run_boxed(ctx.clone()));
@@ -157,6 +159,7 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(look_around::run_boxed(ctx.clone()));
     join_set.spawn(look_at::run_boxed(ctx.clone()));
     join_set.spawn(low_state_bridge::run_boxed(ctx.clone()));
+    join_set.spawn(mcap_recorder::run_boxed(ctx.clone(), log_path));
     join_set.spawn(message_filter::run_boxed(ctx.clone()));
     join_set.spawn(message_handler::run_boxed(ctx.clone()));
     join_set.spawn(microphone_recorder::run_boxed(ctx.clone()));
