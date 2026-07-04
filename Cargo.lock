@@ -6597,7 +6597,9 @@ dependencies = [
  "color-eyre",
  "kinematics",
  "ros-z",
+ "ros2",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
