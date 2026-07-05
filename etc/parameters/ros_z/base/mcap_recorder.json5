@@ -24,5 +24,11 @@
     "field_mark_association/visual_localization",
     "debug/calibrated_intrinsics",
     "debug/solve_diagnostics",
+    "behavior/blackboard",
+    "behavior/trace",
+    "outputs/message",
+    "visual_kick/ball_position",
+    "ball_state",
+    "filtered_game_controller_state",
   ],
 }
