@@ -42,12 +42,11 @@ message_handler = { workspace = true }
 microphone_recorder = { workspace = true }
 motor_commands_collector = { workspace = true }
 obstacle_filter = { workspace = true }
-odometry = { workspace = true }
 odometer_bridge = { workspace = true }
+odometry = { workspace = true }
 player_states_receiver = { workspace = true }
 primary_state_filter = { workspace = true }
 repository = { workspace = true }
-visual_kick_ball_selector = { workspace = true }
 ros-z = { workspace = true }
 rule_obstacle_composer = { workspace = true }
 safe_pose_checker = { workspace = true }
@@ -60,6 +59,7 @@ time_to_reach_kick_position = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 trigger = { workspace = true }
+visual_kick_ball_selector = { workspace = true }
 whistle_detection = { workspace = true }
 whistle_filter = { workspace = true }
 world_state_composer = { workspace = true }
