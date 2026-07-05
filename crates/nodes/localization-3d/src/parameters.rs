@@ -16,6 +16,10 @@ pub struct Localization3dParameters {
     pub pose_hint_visual_feature_noise_variance: f64,
     /// Huber threshold for pose-hint visual residuals in whitened residual units.
     pub pose_hint_visual_huber_threshold: f64,
+    /// Planar hardware-odometer x/y residual variance in square meters.
+    pub odometer_translation_noise_variance: f64,
+    /// Planar hardware-odometer yaw residual variance in square radians.
+    pub odometer_yaw_noise_variance: f64,
     /// Soft field containment sigma in meters outside field plus border strip.
     pub field_containment_sigma: f64,
 }
@@ -39,6 +43,15 @@ impl Localization3dParameters {
         {
             return Err("pose_hint_visual_huber_threshold must be finite and > 0".to_string());
         }
+        if !self.odometer_translation_noise_variance.is_finite()
+            || self.odometer_translation_noise_variance <= 0.0
+        {
+            return Err("odometer_translation_noise_variance must be finite and > 0".to_string());
+        }
+        if !self.odometer_yaw_noise_variance.is_finite() || self.odometer_yaw_noise_variance <= 0.0
+        {
+            return Err("odometer_yaw_noise_variance must be finite and > 0".to_string());
+        }
         if !self.field_containment_sigma.is_finite() || self.field_containment_sigma <= 0.0 {
             return Err("field_containment_sigma must be finite and > 0".to_string());
         }
@@ -54,6 +67,8 @@ pub(crate) fn backend_configuration_from_parameters_and_field_dimensions(
         parameters.visual_feature_noise_variance,
         parameters.pose_hint_visual_feature_noise_variance,
         parameters.pose_hint_visual_huber_threshold,
+        parameters.odometer_translation_noise_variance,
+        parameters.odometer_yaw_noise_variance,
         parameters.field_containment_sigma,
         field_dimensions,
     )
@@ -63,6 +78,8 @@ fn backend_configuration_with_pose_hint(
     visual_feature_noise_variance: f64,
     pose_hint_visual_feature_noise_variance: f64,
     pose_hint_visual_huber_threshold: f64,
+    odometer_translation_noise_variance: f64,
+    odometer_yaw_noise_variance: f64,
     field_containment_sigma: f64,
     field_dimensions: &FieldDimensions,
 ) -> BackendConfiguration {
@@ -80,15 +97,20 @@ fn backend_configuration_with_pose_hint(
         ]),
         use_accelerometer_measurements: false,
         gyroscope_process_noise: process_noise,
-        roll_pitch_yaw_noise: Matrix3::from_diagonal(&Vector3::new(0.01, 0.01, 0.00001)),
+        roll_pitch_yaw_noise: Matrix3::from_diagonal(&Vector3::new(0.1, 0.1, 0.001)),
         accelerometer_process_noise: process_noise,
         visual_feature_noise: Matrix2::identity() * visual_feature_noise_variance,
         pose_hint_visual_feature_noise: Matrix2::identity()
             * pose_hint_visual_feature_noise_variance,
         pose_hint_visual_huber_threshold,
         // factrs::SE3 tangent order is [rot_x, rot_y, rot_z, trans_x, trans_y, trans_z].
-        visual_odometry_noise: SMatrix::<f64, 6, 6>::identity() * 1.0e-2,
-        foot_ground_sigma: 1e-2,
+        visual_odometry_noise: SMatrix::<f64, 6, 6>::identity() * 0.1,
+        odometer_noise: Matrix3::from_diagonal(&Vector3::new(
+            odometer_translation_noise_variance,
+            odometer_translation_noise_variance,
+            odometer_yaw_noise_variance,
+        )),
+        foot_ground_sigma: 1e-3,
         field_containment: FieldContainmentConfiguration::from_field_dimensions(
             field_dimensions,
             field_containment_sigma,
