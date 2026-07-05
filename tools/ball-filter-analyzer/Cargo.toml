@@ -1,0 +1,20 @@
+[package]
+name = "ball-filter-analyzer"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+arrow = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+color-eyre = { workspace = true }
+coordinate_systems = { workspace = true }
+geometry = { workspace = true }
+linear_algebra = { workspace = true }
+mcap = { workspace = true }
+parquet = { workspace = true }
+projection = { workspace = true }
+ros-z = { workspace = true }
+serde = { workspace = true }
+types = { workspace = true }

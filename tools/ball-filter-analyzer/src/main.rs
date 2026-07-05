@@ -1,0 +1,11 @@
+use clap::Parser;
+use color_eyre::Result;
+
+use ball_filter_analyzer::cli::Args;
+
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let args = Args::parse();
+    std::fs::create_dir_all(&args.out)?;
+    Ok(())
+}
