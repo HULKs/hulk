@@ -93,15 +93,7 @@ pub fn read_recording(path: &Path) -> Result<AnalysisInput> {
     let mut output = AnalysisInput::default();
     let stream = MessageStream::new(&bytes).wrap_err("failed to open MCAP message stream")?;
     for message in stream {
-        let message = match message {
-            Ok(message) => message,
-            Err(error) => {
-                output
-                    .decode_errors
-                    .push(error_row("<mcap>", 0, error.to_string()));
-                break;
-            }
-        };
+        let message = message.wrap_err("failed to read MCAP message")?;
         let topic = message.channel.topic.as_str();
         let Some(relevant_topic) = relevant_topic(topic) else {
             continue;
@@ -195,14 +187,10 @@ fn record_decode_health<T>(
 }
 
 fn decode_error(topic: &str, time_ns: i64, error: ros_z::message::CdrError) -> DecodeErrorRow {
-    error_row(topic, time_ns, error.to_string())
-}
-
-fn error_row(topic: &str, time_ns: i64, message: String) -> DecodeErrorRow {
     DecodeErrorRow {
         topic: topic.to_string(),
         time_ns,
-        message,
+        message: error.to_string(),
     }
 }
 
@@ -226,15 +214,14 @@ mod tests {
     }
 
     #[test]
-    fn read_recording_reports_trailing_truncated_record() {
+    fn read_recording_errors_on_trailing_truncated_record() {
         let path = temp_recording_path();
         fs::write(&path, b"\x89MCAP0\r\n\x01").unwrap();
 
-        let input = read_recording(&path).unwrap();
+        let result = read_recording(&path);
 
         fs::remove_file(path).unwrap();
-        assert_eq!(input.decode_errors.len(), 1);
-        assert_eq!(input.decode_errors[0].topic, "<mcap>");
+        assert!(result.is_err());
     }
 
     fn temp_recording_path() -> PathBuf {
