@@ -1027,6 +1027,7 @@ dependencies = [
  "geometry",
  "linear_algebra",
  "mcap",
+ "nalgebra 0.34.2",
  "parquet",
  "projection",
  "ros-z",
