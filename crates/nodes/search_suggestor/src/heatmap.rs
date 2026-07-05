@@ -11,6 +11,7 @@ use ros_z::time::Time;
 use serde::{Deserialize, Serialize};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
+    ball_tracking::{BallTrack, TrackStatus},
     field_dimensions::{FieldDimensions, Half, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     heatmap::Heatmap as HeatmapMessage,
@@ -49,6 +50,7 @@ impl Heatmap {
         self.map[heatmap_point] = 1.0;
     }
 
+    #[expect(dead_code, reason = "legacy world_state cleanup is handled in Task 8")]
     pub(crate) fn update_with_hypothetical_ball_positions(
         &mut self,
         field_dimensions: FieldDimensions,
@@ -61,6 +63,25 @@ impl Heatmap {
             let heatmap_point = self.field_to_heatmap(field_dimensions, ball_hypothesis_position);
             self.map[heatmap_point] = (self.map[heatmap_point]
                 + ball_hypothesis.validity * parameters.own_ball_weight)
+                / 2.0;
+        }
+    }
+
+    pub(crate) fn update_with_ball_tracks(
+        &mut self,
+        field_dimensions: FieldDimensions,
+        ball_tracks: Vec<BallTrack<Ground>>,
+        ground_to_field: Isometry2<Ground, Field>,
+        parameters: &SearchSuggestorParameters,
+    ) {
+        for track in ball_tracks {
+            if track.status == TrackStatus::Confirmed {
+                continue;
+            }
+            let track_position = ground_to_field * track.position;
+            let heatmap_point = self.field_to_heatmap(field_dimensions, track_position);
+            self.map[heatmap_point] = (self.map[heatmap_point]
+                + track.existence_probability * parameters.own_ball_weight)
                 / 2.0;
         }
     }
@@ -243,5 +264,64 @@ fn get_direction(base_vector: Vector2<Field>, vector_to_test: Vector2<Field>) ->
         f if f > 0.0 => Direction::Clockwise,
         f if f < 0.0 => Direction::Counterclockwise,
         f => panic!("directed cathetus was not a real number: {f}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use coordinate_systems::Ground;
+    use linear_algebra::{Isometry2, point, vector};
+    use nalgebra::Matrix2;
+    use ndarray::Array2;
+    use ros_z::time::Time;
+    use types::{
+        ball_tracking::{BallTrack, TrackStatus},
+        field_dimensions::FieldDimensions,
+        parameters::SearchSuggestorParameters,
+    };
+
+    use super::Heatmap;
+
+    fn ball_track(status: TrackStatus, existence_probability: f32) -> BallTrack<Ground> {
+        BallTrack {
+            id: 1,
+            position: point![0.0, 0.0],
+            velocity: vector![0.0, 0.0],
+            covariance: Matrix2::identity(),
+            existence_probability,
+            status,
+            last_seen: Time::zero(),
+        }
+    }
+
+    #[test]
+    fn update_with_ball_tracks_ignores_confirmed_tracks_and_weights_candidates() {
+        let mut heatmap = Heatmap {
+            map: Array2::from_elem((2, 2), 0.2),
+            cells_per_meter: 1.0,
+            last_maximum_heatmap_position: None,
+            has_decided_for_heatmap_tile: false,
+        };
+        let field_dimensions = FieldDimensions {
+            length: 2.0,
+            width: 2.0,
+            ..Default::default()
+        };
+        let parameters = SearchSuggestorParameters {
+            own_ball_weight: 0.8,
+            ..Default::default()
+        };
+
+        heatmap.update_with_ball_tracks(
+            field_dimensions,
+            vec![
+                ball_track(TrackStatus::Confirmed, 1.0),
+                ball_track(TrackStatus::Tentative, 0.5),
+            ],
+            Isometry2::identity(),
+            &parameters,
+        );
+
+        assert_eq!(heatmap.map[(1, 1)], 0.3);
     }
 }

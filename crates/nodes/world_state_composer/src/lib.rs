@@ -9,7 +9,7 @@ use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Point2};
 use ros_z::{prelude::*, qos::QosDurability};
 use types::{
-    ball_position::HypotheticalBallPosition,
+    ball_tracking::BallTrack,
     filtered_game_controller_state::FilteredGameControllerState,
     obstacles::Obstacle,
     primary_state::PrimaryState,
@@ -45,8 +45,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
         .build()
         .await?;
-    let _hypothetical_ball_position_sub = node
-        .subscriber::<Vec<HypotheticalBallPosition<Ground>>>("hypothetical_ball_positions")
+    let _ball_tracks_sub = node
+        .subscriber::<Vec<BallTrack<Ground>>>("ball_filter/tracks")
         .build()
         .await?;
     let _obstacles_sub = node

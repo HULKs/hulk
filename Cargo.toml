@@ -4,6 +4,7 @@ members = [
   "crates/approx_derive",
   "crates/argument_parsers",
   "crates/audio",
+  "crates/ball_tracker",
   "crates/bevy_mujoco",
   "crates/bevyhavior_simulator",
   "crates/booster",
@@ -111,6 +112,7 @@ members = [
   "crates/x5_receiver",
   "crates/zed",
   "tools/annotato",
+  "tools/ball-filter-analyzer",
   "tools/depp",
   "tools/hydra-bench",
   "tools/mujoco-simulator/mujoco-rust-server",
@@ -141,9 +143,11 @@ approx = "0.5.1"
 approx_derive = { path = "crates/approx_derive" }
 arc-swap = "1.7"
 argument_parsers = { path = "crates/argument_parsers" }
+arrow = "56.2.0"
 atty = "0.2.14"
 audio = { path = "crates/audio" }
 ball_filter = { path = "crates/nodes/ball_filter" }
+ball_tracker = { path = "crates/ball_tracker" }
 ball_state_composer = { path = "crates/nodes/ball_state_composer" }
 bat = { version = "0.25.0", default-features = false, features = [
   "paging",
@@ -282,6 +286,7 @@ ordered-float = "4.6.0"
 ort = "=2.0.0-rc.10"
 parameters = { path = "crates/parameters" }
 parking_lot = "0.12.3"
+parquet = "56.2.0"
 parry2d = { version = "0.26.0", default-features = false, features = [
   "alloc",
   "required-features",

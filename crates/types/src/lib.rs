@@ -2,6 +2,7 @@
 pub mod audio;
 pub mod ball_detection;
 pub mod ball_position;
+pub mod ball_tracking;
 pub mod behavior_tree;
 pub mod bounding_box;
 pub mod buttons;

@@ -1,22 +1,19 @@
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
+use ball_tracker::{FieldBounds, Measurement, TrackSnapshot, Tracker, TrackerParameters};
 use color_eyre::Result;
-use hungarian_algorithm::AssignmentProblem;
-use linear_algebra::{IntoFramed, Isometry2, Pose2};
-use nalgebra::{Matrix2, Matrix4};
-use ndarray::Array2;
-use ordered_float::NotNan;
-use ros_z::qos::QosDurability;
-
 use coordinate_systems::{Ground, Odometry, Pixel};
 use geometry::circle::Circle;
+use linear_algebra::{IntoFramed, Isometry2, Point2, Pose2};
+use nalgebra::{Matrix2, Matrix4};
 use projection::{Projection, camera_matrix::CameraMatrix};
-use ros_z::{context::Context, prelude::*, time::Time};
+use ros_z::{context::Context, prelude::*, qos::QosDurability, time::Time};
 use ros_z_streams::CreateFutureMapBuilder;
 use tokio::task::block_in_place;
 use types::{
     ball_detection::BallPercept,
-    ball_position::{BallPosition, HypotheticalBallPosition},
+    ball_position::BallPosition,
+    ball_tracking::{BallTrack, TrackerDebugState},
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
     object_detection::{Object, RobocupObjectLabel},
@@ -25,21 +22,28 @@ use types::{
     time_wrapper::TimeWrapper,
 };
 
-pub use crate::{
-    filter::BallFilter,
-    hypothesis::{BallHypothesis, BallMode},
-};
-
-mod filter;
-mod hypothesis;
-
 struct BallFilterOutput {
     ball_percepts: Vec<BallPercept>,
-    filter_state: BallFilter,
-    best_hypothesis: Option<BallHypothesis>,
-    filtered_ball: Option<BallPosition<Ground>>,
+    tracker_output: Option<TrackerDerivedOutput>,
+}
+
+struct TrackerDerivedOutput {
+    tracks: Vec<BallTrack<Ground>>,
+    primary_ball: Option<BallTrack<Ground>>,
+    ball_position: Option<BallPosition<Ground>>,
+    debug_state: TrackerDebugState,
     filtered_balls_in_image: Vec<Circle<Pixel>>,
-    hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
+}
+
+struct TrackerPredictionUpdate {
+    delta_time: Duration,
+    last_to_current: Isometry2<Ground, Ground>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TrackerStep {
+    DetectionUpdate,
+    PredictionOnly,
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -75,12 +79,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         )
         .await?
         .build();
-    let filter_state_pub = node
-        .publisher::<BallFilter>("ball_filter/ball_filter_state")
+
+    let tracks_pub = node
+        .publisher::<Vec<BallTrack<Ground>>>("ball_filter/tracks")
         .build()
         .await?;
-    let best_ball_hypothesis_pub = node
-        .publisher::<Option<BallHypothesis>>("ball_filter/best_ball_hypothesis")
+    let primary_ball_pub = node
+        .publisher::<Option<BallTrack<Ground>>>("ball_filter/primary_ball")
+        .build()
+        .await?;
+    let debug_state_pub = node
+        .publisher::<TrackerDebugState>("ball_filter/debug_state")
         .build()
         .await?;
     let filtered_balls_in_image_pub = node
@@ -95,15 +104,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .publisher::<Option<BallPosition<Ground>>>("ball_filter/ball_position")
         .build()
         .await?;
-    let hypothetical_ball_positions_pub = node
-        .publisher::<Vec<HypotheticalBallPosition<Ground>>>(
-            "ball_filter/hypothetical_ball_positions",
-        )
-        .build()
-        .await?;
 
-    let mut ball_filter = BallFilter::default();
-    let mut last_odometry = None;
+    let mut tracker = Tracker::new();
+    let mut last_odometry: Option<Pose2<Odometry>> = None;
     let mut last_prediction_time = None;
 
     loop {
@@ -117,298 +120,284 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         };
 
         let output = block_in_place(|| {
-            let output_time = future_map_item
-                .persistent
-                .last_key_value()
-                .map(|(time, _)| *time);
-            let projection_time = output_time.or_else(|| {
-                future_map_item
-                    .temporary
-                    .first_key_value()
-                    .map(|(time, _)| *time)
-            });
             let mut ball_percepts = Vec::new();
+            let mut latest_output = None;
 
             for (time, (odometry_pose, detected_objects)) in future_map_item.persistent {
-                if let Some(odometry_pose) = odometry_pose {
-                    predict_hypotheses_from_odometry(
-                        &mut ball_filter,
+                let Some(tracker_step) =
+                    tracker_step(odometry_pose.as_ref(), detected_objects.as_ref())
+                else {
+                    continue;
+                };
+
+                let Some(prediction_update) = tracker_prediction_update(
+                    time,
+                    odometry_pose,
+                    &mut last_odometry,
+                    &mut last_prediction_time,
+                ) else {
+                    continue;
+                };
+
+                if tracker_step == TrackerStep::PredictionOnly {
+                    latest_output = Some((
                         time,
-                        odometry_pose,
-                        &mut last_odometry,
-                        &mut last_prediction_time,
-                        parameters,
-                    );
+                        tracker.predict(
+                            prediction_update.delta_time,
+                            prediction_update.last_to_current,
+                            &tracker_parameters_from_ros(parameters),
+                            FieldBounds {
+                                x_limit: field_dimensions.length / 2.0,
+                                y_limit: field_dimensions.width / 2.0,
+                            },
+                        ),
+                    ));
+                    continue;
                 }
 
-                if let Some(detected_objects) = detected_objects {
-                    let timed_camera_matrix = camera_matrix_cache.get_nearest(time);
-                    let camera_matrix = timed_camera_matrix
+                let timed_camera_matrix = camera_matrix_cache.get_nearest(time);
+                let camera_matrix = timed_camera_matrix
+                    .as_ref()
+                    .map(|camera_matrix| &camera_matrix.inner);
+                let projected_balls = project_detected_balls(
+                    detected_objects
                         .as_ref()
-                        .map(|camera_matrix| &camera_matrix.inner);
-                    let Some(projected_balls) = project_detected_balls(
-                        Some(&detected_objects.inner),
-                        camera_matrix,
-                        parameters,
-                        field_dimensions.ball_radius,
-                    ) else {
-                        continue;
-                    };
-
-                    ball_percepts.extend_from_slice(&projected_balls);
-
-                    advance_all_hypotheses(
-                        &mut ball_filter,
-                        time,
-                        &projected_balls,
-                        camera_matrix,
-                        parameters,
-                        &field_dimensions,
-                    );
-                }
-            }
-
-            if let Some(output_time) = output_time {
-                remove_invalid_and_merge_hypotheses(
-                    &mut ball_filter,
-                    output_time,
+                        .map(|detected_objects| detected_objects.inner.as_slice()),
+                    camera_matrix,
                     parameters,
-                    &field_dimensions,
+                    field_dimensions.ball_radius,
+                )
+                .unwrap_or_default();
+                let projected_balls = deduplicate_measurements(
+                    projected_balls,
+                    parameters.duplicate_measurement_distance,
                 );
+
+                ball_percepts.extend(projected_balls.iter().map(|(percept, _)| *percept));
+                let measurements: Vec<_> = projected_balls
+                    .iter()
+                    .map(|(percept, confidence)| Measurement {
+                        position: Point2::from(percept.percept_in_ground.mean),
+                        covariance: percept.percept_in_ground.covariance,
+                        confidence: *confidence,
+                        image_location: Some(percept.image_location),
+                    })
+                    .collect();
+
+                latest_output = Some((
+                    time,
+                    tracker.update(
+                        prediction_update.delta_time,
+                        prediction_update.last_to_current,
+                        &measurements,
+                        &tracker_parameters_from_ros(parameters),
+                        FieldBounds {
+                            x_limit: field_dimensions.length / 2.0,
+                            y_limit: field_dimensions.width / 2.0,
+                        },
+                        |position| {
+                            camera_matrix.is_some_and(|camera_matrix| {
+                                is_position_visible_to_camera(
+                                    position,
+                                    camera_matrix,
+                                    field_dimensions.ball_radius,
+                                )
+                            })
+                        },
+                    ),
+                ));
             }
 
-            let filter_state = ball_filter.clone();
-            let best_hypothesis = ball_filter
-                .best_hypothesis(parameters.validity_output_threshold)
-                .cloned();
-            let filtered_ball = best_hypothesis
-                .as_ref()
-                .map(|hypothesis| hypothesis.position());
-
-            let output_balls: Vec<_> = ball_filter
-                .hypotheses
-                .iter()
-                .filter_map(|hypothesis| {
-                    if hypothesis.validity >= parameters.validity_output_threshold {
-                        Some(hypothesis.position())
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            let ball_radius = field_dimensions.ball_radius;
-            let filtered_balls_in_image = if let Some(time) = projection_time
-                && let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time)
+            let tracker_output = if let Some((tracker_update_time, tracker_output)) = latest_output
             {
-                project_to_image(&output_balls, &timed_camera_matrix.inner, ball_radius)
-            } else {
-                vec![]
-            };
-            let hypothetical_ball_positions =
-                hypothetical_ball_positions(&ball_filter, parameters.validity_output_threshold);
+                let ball_radius = field_dimensions.ball_radius;
+                let timed_camera_matrix = camera_matrix_cache.get_nearest(tracker_update_time);
+                let camera_matrix = timed_camera_matrix
+                    .as_ref()
+                    .map(|timed_camera_matrix| &timed_camera_matrix.inner);
 
-            BallFilterOutput {
-                ball_percepts,
-                filter_state,
-                best_hypothesis,
-                filtered_ball,
-                filtered_balls_in_image,
-                hypothetical_ball_positions,
-            }
+                Some(tracker_derived_output_from_update(
+                    tracker_output,
+                    tracker_update_time,
+                    camera_matrix,
+                    ball_radius,
+                ))
+            } else {
+                None
+            };
+
+            ball_filter_output_from_parts(ball_percepts, tracker_output)
         });
 
-        ball_percepts_pub.publish(&output.ball_percepts).await?;
-        filter_state_pub.publish(&output.filter_state).await?;
-        best_ball_hypothesis_pub
-            .publish(&output.best_hypothesis)
-            .await?;
-        filtered_balls_in_image_pub
-            .publish(&output.filtered_balls_in_image)
-            .await?;
+        let Some(output) = output else {
+            continue;
+        };
 
-        ball_position_pub.publish(&output.filtered_ball).await?;
-        hypothetical_ball_positions_pub
-            .publish(&output.hypothetical_ball_positions)
-            .await?;
+        ball_percepts_pub.publish(&output.ball_percepts).await?;
+        if let Some(tracker_output) = output.tracker_output {
+            tracks_pub.publish(&tracker_output.tracks).await?;
+            primary_ball_pub
+                .publish(&tracker_output.primary_ball)
+                .await?;
+            debug_state_pub.publish(&tracker_output.debug_state).await?;
+            filtered_balls_in_image_pub
+                .publish(&tracker_output.filtered_balls_in_image)
+                .await?;
+            ball_position_pub
+                .publish(&tracker_output.ball_position)
+                .await?;
+        }
     }
 }
 
-fn predict_hypotheses_from_odometry(
-    ball_filter: &mut BallFilter,
+fn tracker_step<T>(
+    odometry_pose: Option<&Pose2<Odometry>>,
+    detected_objects: Option<&TimeWrapper<T>>,
+) -> Option<TrackerStep> {
+    if detected_objects.is_some() {
+        Some(TrackerStep::DetectionUpdate)
+    } else if odometry_pose.is_some() {
+        Some(TrackerStep::PredictionOnly)
+    } else {
+        None
+    }
+}
+
+fn ball_filter_output_from_parts(
+    ball_percepts: Vec<BallPercept>,
+    tracker_output: Option<TrackerDerivedOutput>,
+) -> Option<BallFilterOutput> {
+    if ball_percepts.is_empty() && tracker_output.is_none() {
+        return None;
+    }
+
+    Some(BallFilterOutput {
+        ball_percepts,
+        tracker_output,
+    })
+}
+
+fn tracker_prediction_update(
     time: Time,
-    odometry_pose: Pose2<Odometry>,
+    odometry_pose: Option<Pose2<Odometry>>,
     last_odometry: &mut Option<Pose2<Odometry>>,
     last_prediction_time: &mut Option<Time>,
-    filter_parameters: &BallFilterParameters,
-) {
-    let last_to_current = match *last_odometry {
-        None => Isometry2::identity(),
-        Some(previous_odometry) => odometry::previous_to_current(previous_odometry, odometry_pose),
+) -> Option<TrackerPredictionUpdate> {
+    let last_to_current = match (last_odometry.as_ref(), odometry_pose) {
+        (Some(previous_odometry), Some(current_odometry)) => {
+            odometry::previous_to_current(*previous_odometry, current_odometry)
+        }
+        _ => Isometry2::identity(),
     };
     let delta_time =
         last_prediction_time.map_or(Duration::ZERO, |last_time| time.duration_since(last_time));
-    *last_odometry = Some(odometry_pose);
+
+    if let Some(current_odometry) = odometry_pose {
+        *last_odometry = Some(current_odometry);
+    }
     *last_prediction_time = Some(time);
 
-    ball_filter
-        .hypotheses
-        .retain(|hypothesis| hypothesis.validity > filter_parameters.validity_discard_threshold);
-
-    ball_filter.predict(
+    Some(TrackerPredictionUpdate {
         delta_time,
         last_to_current,
-        filter_parameters.velocity_decay_factor,
-        Matrix4::from_diagonal(&filter_parameters.noise.process_noise_moving),
-        Matrix2::from_diagonal(&filter_parameters.noise.process_noise_resting),
-        filter_parameters.log_likelihood_of_zero_velocity_threshold,
-    );
+    })
 }
 
-fn advance_all_hypotheses(
-    ball_filter: &mut BallFilter,
-    time: Time,
-    ball_percepts: &[BallPercept],
-    camera_matrix: Option<&CameraMatrix>,
-    filter_parameters: &BallFilterParameters,
-    field_dimensions: &FieldDimensions,
-) {
-    ball_filter
-        .hypotheses
-        .retain(|hypothesis| hypothesis.validity > filter_parameters.validity_discard_threshold);
-
-    ball_filter.decay_hypotheses(|hypothesis| {
-        decide_validity_decay_for_hypothesis(
-            hypothesis,
-            camera_matrix,
-            field_dimensions.ball_radius,
-            filter_parameters,
-        )
-    });
-
-    if !ball_percepts.is_empty() {
-        let match_matrix =
-            mahalanobis_matrix_of_hypotheses_and_percepts(&ball_filter.hypotheses, ball_percepts);
-
-        let assignment = AssignmentProblem::from_costs(match_matrix).solve();
-
-        let mut used_percepts = vec![];
-
-        for (hypothesis, assigned_percept) in
-            ball_filter.hypotheses.iter_mut().zip(assignment.iter())
-        {
-            if let Some(assigned_percept) = assigned_percept {
-                let mahalanobis_distance = -assigned_percept.cost;
-                if mahalanobis_distance > filter_parameters.maximum_matching_cost {
-                    hypothesis.validity *=
-                        filter_parameters.maximum_matching_cost_validity_penalty_factor;
-                    continue;
-                }
-                let validity_increase = assigned_percept.cost.exp();
-                let percept = ball_percepts[assigned_percept.to];
-                used_percepts.push(assigned_percept.to);
-                hypothesis.update(time, percept.percept_in_ground, validity_increase);
-            }
-        }
-
-        let unused_percepts = {
-            let mut all_percepts = ball_percepts.to_vec();
-            used_percepts.sort_unstable();
-            for index in used_percepts.into_iter().rev() {
-                all_percepts.remove(index);
-            }
-            all_percepts
-        };
-
-        for percept in unused_percepts {
-            ball_filter.spawn(
-                time,
-                percept.percept_in_ground,
-                Matrix4::from_diagonal(&filter_parameters.noise.initial_covariance),
-            );
-        }
+fn tracker_parameters_from_ros(parameters: &BallFilterParameters) -> TrackerParameters {
+    TrackerParameters {
+        rolling_velocity_decay: parameters.rolling_velocity_decay,
+        mode_transition_static_to_rolling: parameters.mode_transition_static_to_rolling,
+        mode_transition_rolling_to_static: parameters.mode_transition_rolling_to_static,
+        max_ball_speed: parameters.max_ball_speed,
+        gating_chi_square: parameters.gating_chi_square,
+        probability_of_detection_visible: parameters.probability_of_detection_visible,
+        probability_of_detection_hidden: parameters.probability_of_detection_hidden,
+        survival_probability: parameters.survival_probability,
+        clutter_log_likelihood: parameters.clutter_log_likelihood,
+        birth_log_likelihood: parameters.birth_log_likelihood,
+        max_assignments_per_hypothesis: parameters.max_assignments_per_hypothesis,
+        birth_existence_probability: parameters.birth_existence_probability,
+        confirm_existence_threshold: parameters.confirm_existence_threshold,
+        delete_existence_threshold: parameters.delete_existence_threshold,
+        minimum_confirming_hits: parameters.minimum_confirming_hits,
+        tentative_timeout: parameters.tentative_timeout,
+        confirmed_timeout: parameters.confirmed_timeout,
+        stale_timeout: parameters.stale_timeout,
+        max_global_hypotheses: parameters.max_global_hypotheses,
+        max_tracks_per_hypothesis: parameters.max_tracks_per_hypothesis,
+        hypothesis_prune_log_weight: parameters.hypothesis_prune_log_weight,
+        merge_distance: parameters.merge_distance,
+        static_process_noise: Matrix2::from_diagonal(&parameters.noise.static_process_noise),
+        rolling_process_noise: Matrix4::from_diagonal(&parameters.noise.rolling_process_noise),
+        initial_position_covariance: parameters.noise.initial_position_covariance,
+        initial_velocity_covariance: parameters.noise.initial_velocity_covariance,
     }
 }
 
-fn remove_invalid_and_merge_hypotheses(
-    ball_filter: &mut BallFilter,
-    time: Time,
-    filter_parameters: &BallFilterParameters,
-    field_dimensions: &FieldDimensions,
-) {
-    let is_hypothesis_valid = |hypothesis: &BallHypothesis| {
-        let ball = hypothesis.position();
-        let Some(duration_since_last_observation) = ball.age_at(time) else {
-            return false;
-        };
-        let validity_high_enough =
-            hypothesis.validity >= filter_parameters.validity_discard_threshold;
-        is_ball_inside_field(ball, field_dimensions)
-            && validity_high_enough
-            && duration_since_last_observation < filter_parameters.hypothesis_timeout
-    };
-
-    let should_merge_hypotheses =
-        |hypothesis1: &BallHypothesis, hypothesis2: &BallHypothesis| match (
-            &hypothesis1.mode,
-            &hypothesis2.mode,
-        ) {
-            (BallMode::Resting(ball1), BallMode::Resting(ball2)) => {
-                (ball1.mean - ball2.mean).norm() < filter_parameters.hypothesis_merge_distance
-            }
-            _ => false,
-        };
-
-    ball_filter.remove_hypotheses(is_hypothesis_valid, should_merge_hypotheses);
-    ball_filter
-        .hypotheses
-        .sort_unstable_by(|a, b| b.validity.total_cmp(&a.validity));
-    ball_filter
-        .hypotheses
-        .truncate(filter_parameters.maximum_number_of_hypotheses);
+fn track_to_message(track: &TrackSnapshot, now: Time) -> BallTrack<Ground> {
+    BallTrack {
+        id: track.id,
+        position: track.position,
+        velocity: track.velocity,
+        covariance: track.covariance,
+        existence_probability: track.existence_probability,
+        status: track.status,
+        last_seen: now - track.last_seen_age,
+    }
 }
 
-fn hypothetical_ball_positions(
-    ball_filter: &BallFilter,
-    validity_limit: f32,
-) -> Vec<HypotheticalBallPosition<Ground>> {
-    ball_filter
-        .hypotheses
+fn track_to_ball_position(track: &BallTrack<Ground>) -> BallPosition<Ground> {
+    BallPosition {
+        position: track.position,
+        velocity: track.velocity,
+        last_seen: track.last_seen,
+    }
+}
+
+fn tracker_derived_output_from_update(
+    tracker_output: ball_tracker::TrackerOutput,
+    tracker_update_time: Time,
+    camera_matrix: Option<&CameraMatrix>,
+    ball_radius: f32,
+) -> TrackerDerivedOutput {
+    let tracks: Vec<_> = tracker_output
+        .tracks
         .iter()
-        .filter_map(|hypothesis| {
-            if hypothesis.validity < validity_limit {
-                Some(HypotheticalBallPosition {
-                    position: hypothesis.position().position,
-                    validity: hypothesis.validity,
-                })
-            } else {
-                None
-            }
-        })
-        .collect()
+        .map(|track| track_to_message(track, tracker_update_time))
+        .collect();
+    let primary_ball = tracker_output
+        .primary_track
+        .as_ref()
+        .map(|track| track_to_message(track, tracker_update_time));
+    let ball_position = primary_ball.as_ref().map(track_to_ball_position);
+    let filtered_balls_in_image = camera_matrix
+        .map(|camera_matrix| project_to_image(&tracks, camera_matrix, ball_radius))
+        .unwrap_or_default();
+
+    TrackerDerivedOutput {
+        tracks,
+        primary_ball,
+        ball_position,
+        debug_state: tracker_output.debug,
+        filtered_balls_in_image,
+    }
 }
 
-fn mahalanobis_matrix_of_hypotheses_and_percepts(
-    hypotheses: &[BallHypothesis],
-    percepts: &[BallPercept],
-) -> Array2<NotNan<f32>> {
-    Array2::from_shape_fn((hypotheses.len(), percepts.len()), |(i, j)| {
-        let hypothesis = &hypotheses[i];
-        let percept = &percepts[j];
-        let ball = hypothesis.position();
-
-        let residual = percept.percept_in_ground.mean - ball.position.inner.coords;
-        let covariance = hypothesis.position_covariance();
-
-        let mahalanobis_distance = residual.dot(
-            &covariance
-                .cholesky()
-                .expect("covariance not invertible")
-                .solve(&residual),
-        );
-
-        NotNan::new(-mahalanobis_distance).expect("mahalanobis distance is NaN")
-    })
+fn deduplicate_measurements(
+    percepts: Vec<(BallPercept, f32)>,
+    duplicate_distance: f32,
+) -> Vec<(BallPercept, f32)> {
+    let mut deduplicated = Vec::<(BallPercept, f32)>::new();
+    for (percept, confidence) in percepts {
+        if deduplicated.iter().any(|(existing, _)| {
+            (existing.percept_in_ground.mean - percept.percept_in_ground.mean).norm()
+                < duplicate_distance
+        }) {
+            continue;
+        }
+        deduplicated.push((percept, confidence));
+    }
+    deduplicated
 }
 
 fn project_detected_balls(
@@ -416,7 +405,7 @@ fn project_detected_balls(
     camera_matrix: Option<&CameraMatrix>,
     parameters: &BallFilterParameters,
     ball_radius: f32,
-) -> Option<Vec<BallPercept>> {
+) -> Option<Vec<(BallPercept, f32)>> {
     let (Some(detections), Some(camera_matrix)) = (detections, camera_matrix) else {
         return None;
     };
@@ -427,7 +416,8 @@ fn project_detected_balls(
                 if detection.label != RobocupObjectLabel::Ball {
                     return None;
                 }
-                if detection.bounding_box.confidence < parameters.ball_confidence_threshold {
+                let confidence = detection.bounding_box.confidence;
+                if confidence < parameters.ball_confidence_threshold {
                     return None;
                 }
 
@@ -456,42 +446,23 @@ fn project_detected_balls(
                         .ok()?
                 };
 
-                Some(BallPercept {
-                    percept_in_ground: MultivariateNormalDistribution {
-                        mean: position.inner.coords,
-                        covariance: projected_covariance,
+                Some((
+                    BallPercept {
+                        percept_in_ground: MultivariateNormalDistribution {
+                            mean: position.inner.coords,
+                            covariance: projected_covariance,
+                        },
+                        image_location: circle,
                     },
-                    image_location: circle,
-                })
+                    confidence,
+                ))
             })
             .collect(),
     )
 }
 
-fn decide_validity_decay_for_hypothesis(
-    hypothesis: &BallHypothesis,
-    camera_matrix: Option<&CameraMatrix>,
-    ball_radius: f32,
-    configuration: &BallFilterParameters,
-) -> f32 {
-    let is_ball_in_view = camera_matrix.is_some_and(|camera_matrix| {
-        let ball = hypothesis.position();
-        is_visible_to_camera(&ball, camera_matrix, ball_radius)
-    });
-
-    match is_ball_in_view {
-        true => configuration.visible_validity_exponential_decay_factor,
-        false => configuration.hidden_validity_exponential_decay_factor,
-    }
-}
-
-fn is_ball_inside_field(ball: BallPosition<Ground>, field_dimensions: &FieldDimensions) -> bool {
-    ball.position.x().abs() < field_dimensions.length / 2.0
-        && ball.position.y().abs() < field_dimensions.width / 2.0
-}
-
 fn project_to_image(
-    filtered_balls: &[BallPosition<Ground>],
+    filtered_balls: &[BallTrack<Ground>],
     camera_matrix: &CameraMatrix,
     ball_radius: f32,
 ) -> Vec<Circle<Pixel>> {
@@ -512,12 +483,12 @@ fn project_to_image(
         .collect()
 }
 
-fn is_visible_to_camera(
-    ball: &BallPosition<Ground>,
+fn is_position_visible_to_camera(
+    position: linear_algebra::Point2<Ground>,
     camera_matrix: &CameraMatrix,
     ball_radius: f32,
 ) -> bool {
-    let position_in_image = match camera_matrix.ground_with_z_to_pixel(ball.position, ball_radius) {
+    let position_in_image = match camera_matrix.ground_with_z_to_pixel(position, ball_radius) {
         Ok(position_in_image) => position_in_image,
         Err(_) => return false,
     };
@@ -526,60 +497,89 @@ fn is_visible_to_camera(
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use linear_algebra::point;
-    use nalgebra::vector;
-    use types::multivariate_normal_distribution::MultivariateNormalDistribution;
+    use nalgebra::{Vector2, Vector4};
+    use types::parameters::{BallFilterNoise, BallFilterParameters};
 
     use super::*;
 
+    fn parameters() -> BallFilterParameters {
+        BallFilterParameters {
+            ball_confidence_threshold: 0.5,
+            duplicate_measurement_distance: 0.08,
+            rolling_velocity_decay: 0.9,
+            mode_transition_static_to_rolling: 0.1,
+            mode_transition_rolling_to_static: 0.2,
+            max_ball_speed: 6.0,
+            gating_chi_square: 5.991,
+            probability_of_detection_visible: 0.85,
+            probability_of_detection_hidden: 0.05,
+            survival_probability: 0.995,
+            clutter_log_likelihood: -5.0,
+            birth_log_likelihood: -2.0,
+            max_assignments_per_hypothesis: 8,
+            birth_existence_probability: 0.35,
+            confirm_existence_threshold: 0.7,
+            delete_existence_threshold: 0.1,
+            minimum_confirming_hits: 2,
+            tentative_timeout: Duration::from_secs(1),
+            confirmed_timeout: Duration::from_secs(5),
+            stale_timeout: Duration::from_secs(15),
+            max_global_hypotheses: 16,
+            max_tracks_per_hypothesis: 15,
+            hypothesis_prune_log_weight: -8.0,
+            merge_distance: 0.1,
+            noise: BallFilterNoise {
+                detection_noise: linear_algebra::vector![5.0, 5.0],
+                static_process_noise: Vector2::new(0.001, 0.002),
+                rolling_process_noise: Vector4::new(0.003, 0.004, 0.005, 0.006),
+                initial_position_covariance: Vector2::new(0.5, 0.6),
+                initial_velocity_covariance: Vector2::new(40.0, 41.0),
+            },
+        }
+    }
+
     #[test]
-    fn hypothesis_update_matching() {
-        let hypothesis1 = BallHypothesis {
-            mode: BallMode::Moving(MultivariateNormalDistribution {
-                mean: nalgebra::vector![0.0, 1.0, 0.0, 0.0],
-                covariance: Matrix4::identity(),
-            }),
-            last_seen: Time::zero(),
-            validity: 0.0,
-        };
-        let hypothesis2 = BallHypothesis {
-            mode: BallMode::Moving(MultivariateNormalDistribution {
-                mean: nalgebra::vector![0.0, -1.0, 0.0, 0.0],
-                covariance: Matrix4::identity(),
-            }),
-            last_seen: Time::zero(),
-            validity: 0.0,
-        };
+    fn converts_ros_parameters_to_tracker_parameters() {
+        let tracker_parameters = tracker_parameters_from_ros(&parameters());
 
-        let percept1 = BallPercept {
+        assert_eq!(tracker_parameters.rolling_velocity_decay, 0.9);
+        assert_eq!(tracker_parameters.static_process_noise[(0, 0)], 0.001);
+        assert_eq!(tracker_parameters.rolling_process_noise[(3, 3)], 0.006);
+    }
+
+    #[test]
+    fn deduplicate_measurements_keeps_first_nearby_percept() {
+        let first = BallPercept {
             percept_in_ground: MultivariateNormalDistribution {
-                mean: vector![0.0, 0.4],
+                mean: nalgebra::vector![1.0, 2.0],
                 covariance: Matrix2::identity(),
             },
-            image_location: Circle::new(point![0.0, 0.0], 1.0),
+            image_location: Circle::new(point![10.0, 20.0], 3.0),
         };
-        let percept2 = BallPercept {
+        let duplicate = BallPercept {
             percept_in_ground: MultivariateNormalDistribution {
-                mean: vector![0.0, -0.6],
+                mean: nalgebra::vector![1.03, 2.0],
                 covariance: Matrix2::identity(),
             },
-            image_location: Circle::new(point![0.0, 0.0], 1.0),
+            image_location: Circle::new(point![11.0, 20.0], 3.0),
+        };
+        let distant = BallPercept {
+            percept_in_ground: MultivariateNormalDistribution {
+                mean: nalgebra::vector![1.2, 2.0],
+                covariance: Matrix2::identity(),
+            },
+            image_location: Circle::new(point![30.0, 20.0], 3.0),
         };
 
-        let hypotheses = vec![hypothesis1, hypothesis2];
-        let percepts = vec![percept1, percept2];
+        let deduplicated =
+            deduplicate_measurements(vec![(first, 0.7), (duplicate, 0.9), (distant, 0.8)], 0.08);
 
-        let costs = mahalanobis_matrix_of_hypotheses_and_percepts(&hypotheses, &percepts);
-        let assignment = AssignmentProblem::from_costs(costs).solve();
-
-        let percept_of_hypothesis1 = assignment[0].unwrap().to;
-        assert_eq!(percept_of_hypothesis1, 0);
-
-        let percept_of_hypothesis2 = assignment[1].unwrap().to;
-        assert_eq!(percept_of_hypothesis2, 1);
-
-        assert_eq!(assignment.len(), 2);
-        assert_eq!(assignment.into_iter().flatten().count(), 2);
+        assert_eq!(deduplicated.len(), 2);
+        assert_eq!(deduplicated[0].1, 0.7);
+        assert_eq!(deduplicated[1].1, 0.8);
     }
 }
 
@@ -587,37 +587,118 @@ mod tests {
 mod odometry_pose_tests {
     use coordinate_systems::Odometry;
     use linear_algebra::{Pose2, point};
-    use ros_z::time::Time;
-    use types::parameters::BallFilterParameters;
 
     use super::*;
 
     #[test]
-    fn odometry_pose_prediction_updates_last_pose() {
-        let mut ball_filter = BallFilter::default();
+    fn tracker_prediction_update_advances_last_odometry_pose() {
         let mut last_odometry = None;
         let mut last_prediction_time = None;
-        let parameters = BallFilterParameters::default();
 
-        predict_hypotheses_from_odometry(
-            &mut ball_filter,
+        let first_update = tracker_prediction_update(
             Time::from_nanos(1_000_000_000),
-            Pose2::<Odometry>::new(point![<Odometry>, 0.0, 0.0], 0.0),
+            Some(Pose2::<Odometry>::new(point![<Odometry>, 0.0, 0.0], 0.0)),
             &mut last_odometry,
             &mut last_prediction_time,
-            &parameters,
-        );
+        )
+        .expect("first odometry pose should produce an update");
 
-        predict_hypotheses_from_odometry(
-            &mut ball_filter,
+        let second_update = tracker_prediction_update(
             Time::from_nanos(1_010_000_000),
-            Pose2::<Odometry>::new(point![<Odometry>, 1.0, 0.0], 0.0),
+            Some(Pose2::<Odometry>::new(point![<Odometry>, 1.0, 0.0], 0.0)),
             &mut last_odometry,
             &mut last_prediction_time,
-            &parameters,
-        );
+        )
+        .expect("second odometry pose should produce an update");
 
+        assert_eq!(first_update.delta_time, Duration::ZERO);
+        assert_eq!(second_update.delta_time, Duration::from_millis(10));
         assert!(last_odometry.is_some());
         assert_eq!(last_prediction_time, Some(Time::from_nanos(1_010_000_000)));
+    }
+
+    #[test]
+    fn odometry_only_rows_are_prediction_updates() {
+        let odometry_pose = Pose2::<Odometry>::new(point![<Odometry>, 0.0, 0.0], 0.0);
+
+        let step = tracker_step(Some(&odometry_pose), Option::<&TimeWrapper<()>>::None);
+
+        assert_eq!(step, Some(TrackerStep::PredictionOnly));
+    }
+
+    #[test]
+    fn detection_frame_without_paired_odometry_still_updates_tracker() {
+        let mut last_odometry = Some(Pose2::<Odometry>::new(point![<Odometry>, 0.0, 0.0], 0.0));
+        let mut last_prediction_time = Some(Time::from_nanos(1_000_000_000));
+
+        let update = tracker_prediction_update(
+            Time::from_nanos(1_100_000_000),
+            None,
+            &mut last_odometry,
+            &mut last_prediction_time,
+        )
+        .expect("detection frame should update tracker even without paired odometry");
+
+        assert_eq!(update.delta_time, Duration::from_millis(100));
+        assert_eq!(update.last_to_current, Isometry2::identity());
+        assert_eq!(last_prediction_time, Some(Time::from_nanos(1_100_000_000)));
+        assert!(last_odometry.is_some());
+    }
+
+    #[test]
+    fn output_keeps_percepts_without_tracker_update() {
+        let percept = BallPercept {
+            percept_in_ground: MultivariateNormalDistribution {
+                mean: nalgebra::vector![1.0, 2.0],
+                covariance: Matrix2::identity(),
+            },
+            image_location: Circle::new(point![10.0, 20.0], 3.0),
+        };
+
+        let output = ball_filter_output_from_parts(vec![percept], None)
+            .expect("percept-only output should still be published");
+
+        assert_eq!(output.ball_percepts.len(), 1);
+        assert_eq!(
+            output.ball_percepts[0].percept_in_ground.mean,
+            nalgebra::vector![1.0, 2.0]
+        );
+        assert!(output.tracker_output.is_none());
+    }
+
+    #[test]
+    fn tracker_derived_output_uses_tracker_update_time() {
+        let tracker_update_time = Time::from_nanos(1_000_000_000);
+        let later_batch_time = Time::from_nanos(1_200_000_000);
+        let track = TrackSnapshot {
+            id: 1,
+            position: point![1.0, 2.0],
+            velocity: linear_algebra::vector![0.1, 0.2],
+            covariance: Matrix2::identity(),
+            existence_probability: 0.8,
+            status: types::ball_tracking::TrackStatus::Confirmed,
+            last_seen_age: Duration::from_millis(100),
+        };
+
+        let output = tracker_derived_output_from_update(
+            ball_tracker::TrackerOutput {
+                tracks: vec![track.clone()],
+                primary_track: Some(track),
+                debug: TrackerDebugState::default(),
+            },
+            tracker_update_time,
+            None,
+            0.05,
+        );
+
+        assert_eq!(output.tracks[0].last_seen, Time::from_nanos(900_000_000));
+        assert_ne!(output.tracks[0].last_seen, later_batch_time);
+        assert_eq!(
+            output
+                .ball_position
+                .expect("primary ball should be converted")
+                .last_seen,
+            Time::from_nanos(900_000_000)
+        );
     }
 }

@@ -10,13 +10,9 @@ use ros_z::{prelude::*, qos::QosDurability};
 use std::{boxed::Box, f32::consts, future::Future, pin::Pin, sync::Arc, time::Duration};
 use tokio::task::block_in_place;
 use types::{
-    ball_position::{BallPosition, HypotheticalBallPosition},
-    field_dimensions::FieldDimensions,
-    filtered_game_controller_state::FilteredGameControllerState,
-    messages::IncomingMessage,
-    parameters::SearchSuggestorParameters,
-    primary_state::PrimaryState,
-    time_wrapper::TimeWrapper,
+    ball_position::BallPosition, ball_tracking::BallTrack, field_dimensions::FieldDimensions,
+    filtered_game_controller_state::FilteredGameControllerState, messages::IncomingMessage,
+    parameters::SearchSuggestorParameters, primary_state::PrimaryState, time_wrapper::TimeWrapper,
 };
 mod heatmap;
 use heatmap::Heatmap;
@@ -46,10 +42,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<Option<BallPosition<Ground>>>("ball_filter/ball_position")
         .build()
         .await?;
-    let hypothetical_ball_positions_sub = node
-        .subscriber::<Vec<HypotheticalBallPosition<Ground>>>(
-            "ball_filter/hypothetical_ball_positions",
-        )
+    let ball_tracks_sub = node
+        .subscriber::<Vec<BallTrack<Ground>>>("ball_filter/tracks")
         .build()
         .await?;
     let ground_to_field_cache = node
@@ -122,15 +116,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let primary_state = primary_state.as_deref();
 
         let mut ball_positions = Vec::new();
-        let mut hypothetical_ball_positions = Vec::new();
+        let mut ball_tracks = Vec::new();
         let mut network_messages = Vec::new();
         let mut filtered_game_controller_states = Vec::new();
 
         while ball_position_sub.is_ready() {
             ball_positions.push(ball_position_sub.recv().await?);
         }
-        while hypothetical_ball_positions_sub.is_ready() {
-            hypothetical_ball_positions.push(hypothetical_ball_positions_sub.recv().await?);
+        while ball_tracks_sub.is_ready() {
+            ball_tracks.push(ball_tracks_sub.recv().await?);
         }
         while network_message_sub.is_ready() {
             network_messages.push(network_message_sub.recv().await?);
@@ -155,10 +149,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 }
             }
             if let Some(ground_to_field) = ground_to_field {
-                for hypothetical_ball_positions in hypothetical_ball_positions {
-                    heatmap.update_with_hypothetical_ball_positions(
+                for tracks in ball_tracks {
+                    heatmap.update_with_ball_tracks(
                         field_dimensions,
-                        hypothetical_ball_positions,
+                        tracks,
                         ground_to_field,
                         parameters,
                     );
