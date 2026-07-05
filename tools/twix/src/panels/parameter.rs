@@ -12,7 +12,10 @@ use ros_z::parameter::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
+use tokio::{
+    sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
+    task::JoinHandle,
+};
 
 use crate::panel::{Panel, PanelCreationContext, PanelUiContext};
 
@@ -69,7 +72,6 @@ struct SnapshotRequest {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
 enum SnapshotRequestKind {
     Auto,
     Manual,
@@ -141,6 +143,7 @@ struct RemoteState {
     pending_count: usize,
     event_subscription_node: Option<String>,
     event_subscription_generation: u64,
+    event_subscription_task: Option<EventSubscriptionTask>,
     refresh_snapshot_after_pending: bool,
     refresh_snapshot_metadata_after_pending: bool,
 }
@@ -154,6 +157,7 @@ impl Default for RemoteState {
             pending_count: 0,
             event_subscription_node: None,
             event_subscription_generation: 0,
+            event_subscription_task: None,
             refresh_snapshot_after_pending: false,
             refresh_snapshot_metadata_after_pending: false,
         }
@@ -361,6 +365,7 @@ impl ParameterPanel {
     }
 
     fn apply_node_change(&mut self, next: String) {
+        self.abort_event_subscription();
         self.node = next;
         self.snapshot = None;
         self.path_editor.clear();
@@ -371,6 +376,10 @@ impl ParameterPanel {
         self.remote.refresh_snapshot_after_pending = false;
         self.remote.refresh_snapshot_metadata_after_pending = false;
         self.status = Status::Idle;
+    }
+
+    fn abort_event_subscription(&mut self) {
+        self.remote.event_subscription_task = None;
     }
 
     fn commit_path(&mut self) -> bool {
@@ -510,7 +519,7 @@ impl ParameterPanel {
         let sender = self.remote.sender.clone();
         let egui_context = context.egui_context.clone();
 
-        context.backend.runtime_handle().spawn(async move {
+        let task = context.backend.runtime_handle().spawn(async move {
             let Ok(client) = RemoteParameterClient::new(backend_node, node.clone()) else {
                 let _ = sender
                     .send(RemoteOperationResult::EventSubscriptionFailed { generation, node });
@@ -538,6 +547,7 @@ impl ParameterPanel {
                 sender.send(RemoteOperationResult::EventSubscriptionFailed { generation, node });
             egui_context.request_repaint();
         });
+        self.remote.event_subscription_task = Some(EventSubscriptionTask(task));
     }
 
     fn spawn_value_fetch(&mut self, context: &PanelUiContext<'_>) {
@@ -581,7 +591,6 @@ impl ParameterPanel {
         }
 
         let path_completions = parse_snapshot_path_completions(&response.value_json)?;
-        let rendered_snapshot = render_json_for_editor(&response.value_json)?;
         let default_layer = response.layers.last().cloned();
         let selected_layer = self.layer.clone();
         let selected_layer_missing =
@@ -611,6 +620,7 @@ impl ParameterPanel {
 
         self.latest_snapshot_revision = Some(revision);
         if self.path.is_empty() {
+            let rendered_snapshot = render_json_for_editor(&response.value_json)?;
             self.value_editor = rendered_snapshot;
             self.clean_value_editor = self.value_editor.clone();
             self.value_revision = Some(revision);
@@ -800,7 +810,9 @@ impl ParameterPanel {
             layers: response.layers,
             path_completions,
         });
-        if let Some(latest_revision) = self.latest_snapshot_revision {
+        if let Some(latest_revision) = self.latest_snapshot_revision
+            && self.is_revision_newer_than_base(latest_revision)
+        {
             self.mark_dirty_editor_stale(latest_revision);
         }
         RemoteFollowUp::None
@@ -819,15 +831,22 @@ impl ParameterPanel {
             self.latest_snapshot_revision = Some(revision);
             if self.is_value_dirty() {
                 self.remote.refresh_snapshot_metadata_after_pending = true;
-                self.mark_dirty_editor_stale(revision);
+                if self.is_revision_newer_than_base(revision) {
+                    self.mark_dirty_editor_stale(revision);
+                }
             } else {
                 self.remote.refresh_snapshot_after_pending = true;
             }
             return RemoteFollowUp::None;
         }
         if self.is_value_dirty() {
-            self.mark_dirty_editor_stale(revision);
-            RemoteFollowUp::RefreshSnapshotMetadata
+            self.latest_snapshot_revision = Some(revision);
+            if self.is_revision_newer_than_base(revision) {
+                self.mark_dirty_editor_stale(revision);
+                RemoteFollowUp::RefreshSnapshotMetadata
+            } else {
+                RemoteFollowUp::None
+            }
         } else {
             self.latest_snapshot_revision = Some(revision);
             RemoteFollowUp::RefreshSnapshot
@@ -843,6 +862,7 @@ impl ParameterPanel {
             && self.remote.event_subscription_node.as_deref() == Some(node.as_str())
         {
             self.remote.event_subscription_node = None;
+            self.remote.event_subscription_task = None;
         }
         RemoteFollowUp::None
     }
@@ -918,13 +938,14 @@ impl ParameterPanel {
     }
 
     fn is_stale_against_latest_revision(&self) -> bool {
-        matches!(
-            (self.value_revision, self.latest_snapshot_revision),
-            (Some(base), Some(latest)) if latest > base
-        ) || matches!(
-            (self.value_revision, self.latest_snapshot_revision),
-            (None, Some(_))
-        )
+        self.latest_snapshot_revision
+            .is_some_and(|latest_revision| self.is_revision_newer_than_base(latest_revision))
+    }
+
+    fn is_revision_newer_than_base(&self, latest_revision: u64) -> bool {
+        self.value_revision
+            .or_else(|| self.snapshot.as_ref().map(|snapshot| snapshot.revision))
+            .is_none_or(|base_revision| latest_revision > base_revision)
     }
 
     fn mark_dirty_editor_stale(&mut self, latest_revision: u64) {
@@ -988,6 +1009,14 @@ impl ParameterPanel {
                 ui.colored_label(ui.visuals().error_fg_color, message);
             }
         }
+    }
+}
+
+struct EventSubscriptionTask(JoinHandle<()>);
+
+impl Drop for EventSubscriptionTask {
+    fn drop(&mut self) {
+        self.0.abort();
     }
 }
 
@@ -1130,9 +1159,9 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        NodeRemoteAction, Panel, ParameterPanel, RemoteFollowUp, RemoteOperationResult,
-        RemoteState, SetRequest, SnapshotRequest, SnapshotRequestKind, SnapshotState, Status,
-        ValueRequest, collect_parameter_paths, parameter_node_completions,
+        EventSubscriptionTask, NodeRemoteAction, Panel, ParameterPanel, RemoteFollowUp,
+        RemoteOperationResult, RemoteState, SetRequest, SnapshotRequest, SnapshotRequestKind,
+        SnapshotState, Status, ValueRequest, collect_parameter_paths, parameter_node_completions,
         parameter_nodes_from_service_names, parse_editor_json, parse_snapshot_path_completions,
         resolve_parameter_node,
     };
@@ -1449,6 +1478,31 @@ mod tests {
     }
 
     #[test]
+    fn node_change_clears_event_subscription_task() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let task = runtime.spawn(std::future::pending::<()>());
+        let mut panel = ParameterPanel {
+            node: "/motion/walk".to_string(),
+            remote: RemoteState {
+                event_subscription_node: Some("/motion/walk".to_string()),
+                event_subscription_generation: 2,
+                event_subscription_task: Some(EventSubscriptionTask(task)),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        panel.apply_node_change("/vision/ball".to_string());
+
+        assert_eq!(panel.remote.event_subscription_node, None);
+        assert_eq!(panel.remote.event_subscription_generation, 3);
+        assert!(panel.remote.event_subscription_task.is_none());
+    }
+
+    #[test]
     fn remote_action_node_validation_rejects_invalid_editor_without_using_committed_node() {
         let mut panel = ParameterPanel {
             node_editor: "/vision/ball".to_string(),
@@ -1667,6 +1721,67 @@ mod tests {
         assert_eq!(panel.value_revision, Some(7));
         assert_eq!(panel.latest_snapshot_revision, Some(9));
         assert!(matches!(panel.status, Status::Error(_)));
+    }
+
+    #[test]
+    fn dirty_editor_event_at_base_revision_does_not_mark_stale() {
+        let mut panel = ParameterPanel {
+            node: "/motion/walk".to_string(),
+            remote: RemoteState {
+                event_subscription_generation: 1,
+                ..Default::default()
+            },
+            value_editor: "0.8".to_string(),
+            clean_value_editor: "0.7".to_string(),
+            value_revision: Some(7),
+            ..Default::default()
+        };
+
+        let follow_up = panel.handle_remote_result(RemoteOperationResult::Event {
+            generation: 1,
+            node: "/motion/walk".to_string(),
+            revision: 7,
+        });
+
+        assert_eq!(follow_up, RemoteFollowUp::None);
+        assert_eq!(panel.value_editor, "0.8");
+        assert_eq!(panel.value_revision, Some(7));
+        assert_eq!(panel.latest_snapshot_revision, Some(7));
+        assert_eq!(panel.status, Status::Idle);
+    }
+
+    #[test]
+    fn dirty_editor_event_at_snapshot_revision_does_not_block_set() {
+        let mut panel = ParameterPanel {
+            node: "/motion/walk".to_string(),
+            path: "walk.speed".to_string(),
+            layer: "robot".to_string(),
+            remote: RemoteState {
+                event_subscription_generation: 1,
+                ..Default::default()
+            },
+            snapshot: Some(SnapshotState {
+                parameter_key: "walk".to_string(),
+                revision: 7,
+                layers: vec!["robot".to_string()],
+                path_completions: Vec::new(),
+            }),
+            value_editor: "0.8".to_string(),
+            clean_value_editor: "0.7".to_string(),
+            value_revision: None,
+            ..Default::default()
+        };
+
+        let follow_up = panel.handle_remote_result(RemoteOperationResult::Event {
+            generation: 1,
+            node: "/motion/walk".to_string(),
+            revision: 7,
+        });
+
+        assert_eq!(follow_up, RemoteFollowUp::None);
+        assert_eq!(panel.latest_snapshot_revision, Some(7));
+        assert_eq!(panel.set_request().unwrap().expected_revision, 7);
+        assert_eq!(panel.status, Status::Idle);
     }
 
     #[test]
