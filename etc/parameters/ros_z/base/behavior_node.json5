@@ -61,7 +61,7 @@
   keeper: {
     x_offset: 0.1,
     passive_distance: 4.5,
-    striker_distance: 3.5,
+    striker_distance: 9.5,
     kick_away_ball_maximum_velocity: 0.75,
     kick_away_ball_maximum_robot_distance: 1.5,
     active_defense_x_offset: 0.7,
