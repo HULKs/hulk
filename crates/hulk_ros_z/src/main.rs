@@ -148,6 +148,7 @@ async fn spawn_all(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<Runni
     join_set.spawn(field_mark_association::run_boxed(ctx.clone()));
     join_set.spawn(game_controller_filter::run_boxed(ctx.clone()));
     join_set.spawn(game_controller_state_filter::run_boxed(ctx.clone()));
+    join_set.spawn(gamepad::run_boxed(ctx.clone()));
     join_set.spawn(global_parameter_provider::run_boxed(ctx.clone()));
     join_set.spawn(ground_provider::run_boxed(ctx.clone()));
     join_set.spawn(head_motion::run_boxed(ctx.clone()));
