@@ -1,9 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{
-    mcap_input::AnalysisInput,
-    records::{EventRow, TrackRow},
-};
+use crate::{mcap_input::AnalysisInput, records::EventRow};
 
 #[derive(Clone, Debug)]
 pub struct AnalysisConfig {
@@ -66,27 +63,32 @@ fn detect_duplicate_tracks(
     config: &AnalysisConfig,
     events: &mut Vec<EventRow>,
 ) {
-    let mut by_time = BTreeMap::<i64, Vec<&TrackRow>>::new();
-    for track in &input.tracks {
-        by_time.entry(track.time_ns).or_default().push(track);
-    }
-    for (time_ns, tracks) in by_time {
-        for left_index in 0..tracks.len() {
-            for right in tracks.iter().skip(left_index + 1) {
-                let left = tracks[left_index];
-                let distance = ((left.x - right.x).powi(2) + (left.y - right.y).powi(2)).sqrt();
-                if distance <= config.duplicate_distance_m {
-                    events.push(EventRow {
-                        time_ns,
-                        event_kind: "duplicate_tracks".to_string(),
-                        severity: "warning".to_string(),
-                        track_id: Some(left.track_id),
-                        details: format!(
-                            "tracks {} and {} were {distance:.3}m apart",
-                            left.track_id, right.track_id
-                        ),
-                    });
-                }
+    let mut tracks = input.tracks.iter().collect::<Vec<_>>();
+    tracks.sort_by_key(|track| track.time_ns);
+
+    for left_index in 0..tracks.len() {
+        let left = tracks[left_index];
+        for right in tracks.iter().skip(left_index + 1) {
+            let time_delta = right.time_ns.saturating_sub(left.time_ns);
+            if time_delta > config.match_window_ns {
+                break;
+            }
+            if left.track_id == right.track_id {
+                continue;
+            }
+
+            let distance = ((left.x - right.x).powi(2) + (left.y - right.y).powi(2)).sqrt();
+            if distance <= config.duplicate_distance_m {
+                events.push(EventRow {
+                    time_ns: right.time_ns,
+                    event_kind: "duplicate_tracks".to_string(),
+                    severity: "warning".to_string(),
+                    track_id: Some(left.track_id),
+                    details: format!(
+                        "tracks {} and {} were {distance:.3}m apart",
+                        left.track_id, right.track_id
+                    ),
+                });
             }
         }
     }
@@ -221,6 +223,26 @@ mod tests {
                 .iter()
                 .any(|event| event.event_kind == "duplicate_tracks")
         );
+    }
+
+    #[test]
+    fn detect_events_uses_match_window_for_duplicate_tracks() {
+        let input = AnalysisInput {
+            tracks: vec![track_row(1_000, 1, 0.0, 0.0), track_row(1_050, 2, 0.1, 0.0)],
+            ..Default::default()
+        };
+        let config = AnalysisConfig {
+            match_window_ns: 100,
+            ..Default::default()
+        };
+
+        let events = detect_events(&input, &config);
+
+        assert!(events.iter().any(|event| {
+            event.event_kind == "duplicate_tracks"
+                && event.time_ns == 1_050
+                && event.details.contains("tracks 1 and 2")
+        }));
     }
 
     #[test]

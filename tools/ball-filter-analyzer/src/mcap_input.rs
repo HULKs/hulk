@@ -1,10 +1,13 @@
 use std::{collections::BTreeMap, fs, path::Path};
 
 use color_eyre::{Result, eyre::WrapErr};
-use coordinate_systems::Ground;
+use coordinate_systems::{Ground, Odometry, Pixel};
+use geometry::circle::Circle;
+use linear_algebra::Pose2;
 use mcap::MessageStream;
 use projection::camera_matrix::CameraMatrix;
 use ros_z::{SerdeCdrCodec, message::WireDecoder};
+use ros_z_streams::Announcement;
 use serde::de::DeserializeOwned;
 use types::{
     ball_detection::BallPercept,
@@ -49,6 +52,16 @@ pub enum RelevantTopic {
     BallPosition,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DecodeHealthTopic {
+    Odometry,
+    CameraMatrix,
+    DetectedObjects,
+    DetectedObjectsAnnouncement,
+    FilteredBallsInImage,
+    BallPosition,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct DecodeErrorRow {
     pub topic: String,
@@ -79,6 +92,23 @@ pub fn relevant_topic(topic: &str) -> Option<RelevantTopic> {
         "ball_filter/filtered_balls_in_image" => Some(RelevantTopic::FilteredBallsInImage),
         "ball_filter/ball_position" => Some(RelevantTopic::BallPosition),
         _ => None,
+    }
+}
+
+pub fn decode_health_topic(topic: RelevantTopic) -> Option<DecodeHealthTopic> {
+    match topic {
+        RelevantTopic::Odometry => Some(DecodeHealthTopic::Odometry),
+        RelevantTopic::CameraMatrix => Some(DecodeHealthTopic::CameraMatrix),
+        RelevantTopic::DetectedObjects => Some(DecodeHealthTopic::DetectedObjects),
+        RelevantTopic::DetectedObjectsAnnounce => {
+            Some(DecodeHealthTopic::DetectedObjectsAnnouncement)
+        }
+        RelevantTopic::FilteredBallsInImage => Some(DecodeHealthTopic::FilteredBallsInImage),
+        RelevantTopic::BallPosition => Some(DecodeHealthTopic::BallPosition),
+        RelevantTopic::BallPercepts
+        | RelevantTopic::Tracks
+        | RelevantTopic::PrimaryBall
+        | RelevantTopic::DebugState => None,
     }
 }
 
@@ -153,6 +183,13 @@ pub fn read_recording(path: &Path) -> Result<AnalysisInput> {
                     .decode_errors
                     .push(decode_error(topic, time_ns, error)),
             },
+            RelevantTopic::Odometry => record_decode_health::<Pose2<Odometry>>(
+                &message,
+                topic,
+                time_ns,
+                &mut output.decode_errors,
+                &mut decoded_relevant_messages,
+            ),
             RelevantTopic::CameraMatrix => record_decode_health::<TimeWrapper<CameraMatrix>>(
                 &message,
                 topic,
@@ -169,6 +206,20 @@ pub fn read_recording(path: &Path) -> Result<AnalysisInput> {
                     &mut decoded_relevant_messages,
                 )
             }
+            RelevantTopic::DetectedObjectsAnnounce => record_decode_health::<Announcement>(
+                &message,
+                topic,
+                time_ns,
+                &mut output.decode_errors,
+                &mut decoded_relevant_messages,
+            ),
+            RelevantTopic::FilteredBallsInImage => record_decode_health::<Vec<Circle<Pixel>>>(
+                &message,
+                topic,
+                time_ns,
+                &mut output.decode_errors,
+                &mut decoded_relevant_messages,
+            ),
             RelevantTopic::BallPosition => record_decode_health::<Option<BallPosition<Ground>>>(
                 &message,
                 topic,
@@ -176,9 +227,6 @@ pub fn read_recording(path: &Path) -> Result<AnalysisInput> {
                 &mut output.decode_errors,
                 &mut decoded_relevant_messages,
             ),
-            RelevantTopic::Odometry
-            | RelevantTopic::DetectedObjectsAnnounce
-            | RelevantTopic::FilteredBallsInImage => {}
         }
     }
 
@@ -248,7 +296,8 @@ mod tests {
     use crate::records::TrackRow;
 
     use super::{
-        AnalysisInput, RelevantTopic, has_useful_decoded_data, read_recording, relevant_topic,
+        AnalysisInput, DecodeHealthTopic, RelevantTopic, decode_health_topic,
+        has_useful_decoded_data, read_recording, relevant_topic,
     };
 
     #[test]
@@ -262,6 +311,22 @@ mod tests {
     #[test]
     fn relevant_topic_ignores_unrelated_topics() {
         assert_eq!(relevant_topic("behavior/motion_command"), None);
+    }
+
+    #[test]
+    fn decode_health_topics_cover_relevant_context_topics() {
+        assert_eq!(
+            decode_health_topic(RelevantTopic::Odometry),
+            Some(DecodeHealthTopic::Odometry)
+        );
+        assert_eq!(
+            decode_health_topic(RelevantTopic::FilteredBallsInImage),
+            Some(DecodeHealthTopic::FilteredBallsInImage)
+        );
+        assert_eq!(
+            decode_health_topic(RelevantTopic::DetectedObjectsAnnounce),
+            Some(DecodeHealthTopic::DetectedObjectsAnnouncement)
+        );
     }
 
     #[test]

@@ -1031,6 +1031,7 @@ dependencies = [
  "parquet",
  "projection",
  "ros-z",
+ "ros-z-streams",
  "serde",
  "types",
 ]
