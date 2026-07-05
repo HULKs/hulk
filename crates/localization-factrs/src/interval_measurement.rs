@@ -2,7 +2,8 @@ use std::time::SystemTime;
 
 use crate::{
     factors::{
-        foot_above_ground::FootHeightMeasurement, visual_odometry::VisualOdometryMeasurement,
+        foot_above_ground::FootHeightMeasurement, odometer::OdometerMeasurement,
+        visual_odometry::VisualOdometryMeasurement,
     },
     measurements::{
         GlobalPoseMeasurement, ImuMeasurement, ResetMeasurement, SensorMeasurement,
@@ -17,6 +18,7 @@ pub struct IntervalMeasurements {
     pub visual: Vec<Vec<VisualReprojectionMeasurement>>,
     pub pose_hint_visual: Vec<Vec<VisualReprojectionMeasurement>>,
     pub visual_odometry: Vec<VisualOdometryMeasurement>,
+    pub odometer: Vec<OdometerMeasurement>,
     pub foot_heights: Vec<FootHeightMeasurement>,
 }
 
@@ -29,6 +31,7 @@ impl IntervalMeasurements {
             visual: Vec::new(),
             pose_hint_visual: Vec::new(),
             visual_odometry: Vec::new(),
+            odometer: Vec::new(),
             foot_heights: Vec::new(),
         }
     }
@@ -47,6 +50,7 @@ impl IntervalMeasurements {
             SensorMeasurement::VisualOdometry(visual_odometry) => {
                 self.push_visual_odometry(visual_odometry)
             }
+            SensorMeasurement::Odometer(odometer) => self.push_odometer(odometer),
             SensorMeasurement::FootHeights(foot_heights) => self.push_foot_heights(foot_heights),
         }
     }
@@ -75,6 +79,12 @@ impl IntervalMeasurements {
         });
     }
 
+    pub fn push_odometer(&mut self, odometer: OdometerMeasurement) {
+        insert_sorted(&mut self.odometer, odometer, |measurement| {
+            measurement.current_time
+        });
+    }
+
     pub fn push_foot_heights(&mut self, foot_heights: FootHeightMeasurement) {
         insert_sorted(&mut self.foot_heights, foot_heights, |measurement| {
             measurement.time
@@ -99,6 +109,9 @@ impl IntervalMeasurements {
         self.pose_hint_visual
             .retain(|frame| visual_frame_time(frame).is_some_and(|frame_time| frame_time >= time));
         self.visual_odometry.retain(|measurement| {
+            measurement.previous_time >= time && measurement.current_time >= time
+        });
+        self.odometer.retain(|measurement| {
             measurement.previous_time >= time && measurement.current_time >= time
         });
         self.foot_heights

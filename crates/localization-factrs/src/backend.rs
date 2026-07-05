@@ -20,6 +20,7 @@ mod foot_height;
 mod graph;
 mod imu;
 mod interval_assigner;
+mod odometer;
 mod optimization_result;
 mod optimize;
 mod reset;
@@ -193,6 +194,7 @@ impl VinsBackend {
         self.ingest_visual(new_measurements.visual);
         self.ingest_pose_hint_visual(new_measurements.pose_hint_visual);
         self.ingest_visual_odometry(new_measurements.visual_odometry);
+        self.ingest_odometer(new_measurements.odometer);
         self.ingest_foot_heights(new_measurements.foot_heights);
 
         Ok(())

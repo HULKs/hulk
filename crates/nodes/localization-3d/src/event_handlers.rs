@@ -1,19 +1,20 @@
 use std::future::ready;
 
 use color_eyre::{Result, eyre::Context as _};
+use coordinate_systems::Odometry;
+use linear_algebra::Pose2;
 use localization_factrs::VinsFrontend;
 use projection::{camera_matrix::CameraMatrix, intrinsic::Intrinsic};
 use ros_z::{cache::Cache, pubsub::Publisher, time::Time};
 use types::{
-    time_wrapper::TimeWrapper,
-    visual_localization::AssociationPoseHintSource,
-    visual_odometry::{VisualOdometer, VisualOdometryDelta as VisualOdometryDeltaMessage},
+    odometry, time_wrapper::TimeWrapper, visual_localization::AssociationPoseHintSource,
+    visual_odometry::VisualOdometryDelta as VisualOdometryDeltaMessage,
 };
 
 use crate::{
     camera::{fresh_camera_matrix, intrinsic_from_camera_intrinsics},
     ingest::ingest_visual_odometry,
-    live_odometry::LiveVisualOdometryLocalization,
+    live_odometry::{ImuStateCache, LiveOdometryLocalization, TimedOdometry, TimedOdometryHistory},
     pose::backend_localization_for_result,
     publish::LocalizationPublishers,
     visual_localization::GlobalVisualLock,
@@ -44,39 +45,60 @@ pub(crate) fn handle_visual_odometry(
     .wrap_err("failed to ingest visual odometry measurement into frontend")
 }
 
-pub(crate) async fn handle_visual_odometer(
-    live_localization: &mut LiveVisualOdometryLocalization,
+pub(crate) async fn handle_odometry(
+    frontend: &mut VinsFrontend,
+    time: Time,
+    pose: Pose2<Odometry>,
+    last_odometry: &mut Option<TimedOdometry>,
+    odometry_history: &mut TimedOdometryHistory,
+    live_localization: &mut LiveOdometryLocalization,
     global_visual_lock: GlobalVisualLock,
-    visual_odometer: VisualOdometer,
-    visual_odometer_cache: &Cache<VisualOdometer>,
-    camera_matrix_cache: &Cache<TimeWrapper<CameraMatrix>>,
+    imu_cache: &ImuStateCache,
     publishers: LocalizationPublishers<'_>,
 ) -> Result<()> {
+    let current = TimedOdometry { time, pose };
+    if let Some(previous) = *last_odometry {
+        if time <= previous.time {
+            return Ok(());
+        }
+
+        frontend
+            .ingest_odometer_delta(
+                previous.time.to_wallclock(),
+                time.to_wallclock(),
+                odometry::current_to_previous(previous.pose, pose),
+            )
+            .wrap_err("failed to ingest odometer measurement into frontend")?;
+    }
+
+    *last_odometry = Some(current);
+    odometry_history.push(current);
+
     if !global_visual_lock.has_backend_result() {
         return Ok(());
     }
 
-    live_localization.try_reset_pending(visual_odometer_cache, camera_matrix_cache);
-    if let Some(transform) =
-        live_localization.update_from_odometer(&visual_odometer, camera_matrix_cache)
-    {
+    live_localization.try_reset_pending(odometry_history, imu_cache);
+    if let Some(transform) = live_localization.update_from_odometry(current, imu_cache) {
         publishers
             .publish_outputs(
-                visual_odometer.time,
+                time,
                 Some(transform),
                 Some(transform),
-                AssociationPoseHintSource::LiveVisualOdometry,
+                AssociationPoseHintSource::LiveOdometry,
             )
             .await?;
     }
+
     Ok(())
 }
 
 pub(crate) async fn handle_optimization_result(
     frontend: &mut VinsFrontend,
-    live_localization: &mut LiveVisualOdometryLocalization,
+    live_localization: &mut LiveOdometryLocalization,
     global_visual_lock: &mut GlobalVisualLock,
-    visual_odometer_cache: &Cache<VisualOdometer>,
+    odometry_history: &TimedOdometryHistory,
+    imu_cache: &ImuStateCache,
     camera_matrix_cache: &Cache<TimeWrapper<CameraMatrix>>,
     publishers: LocalizationPublishers<'_>,
     calibrated_intrinsics_publisher: &Publisher<Intrinsic>,
@@ -88,10 +110,10 @@ pub(crate) async fn handle_optimization_result(
     let camera_matrix = fresh_camera_matrix(camera_matrix_cache, result_time);
     let backend_transform = backend_localization_for_result(&result, camera_matrix.as_deref());
     let transform = if global_visual_lock.mark_backend_result() {
-        live_localization.reset(&result, visual_odometer_cache, camera_matrix_cache);
+        live_localization.reset(&result, odometry_history, imu_cache);
         Some(
             live_localization
-                .field_to_robot_latest(visual_odometer_cache, camera_matrix_cache)
+                .field_to_robot_latest(odometry_history, imu_cache)
                 .unwrap_or(backend_transform),
         )
     } else {

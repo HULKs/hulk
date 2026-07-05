@@ -7,6 +7,7 @@ use factrs::{
 use crate::{
     factors::{
         gaussian_process_prior::GaussianProcessPriorFactor,
+        odometer::{AdjacentOdometerFactor, OdometerFactor},
         visual_odometry::{AdjacentVisualOdometryFactor, VisualOdometryFactor},
         visual_reprojection::VisualReprojectionFactor,
     },
@@ -104,6 +105,8 @@ impl VinsBackend {
         let graph = self.optimizer.graph();
         let mut visual_odometry = self.residual_diagnostics::<VisualOdometryFactor>();
         visual_odometry.extend(self.residual_diagnostics::<AdjacentVisualOdometryFactor>());
+        let mut odometer = self.residual_diagnostics::<OdometerFactor>();
+        odometer.extend(self.residual_diagnostics::<AdjacentOdometerFactor>());
         let visual_reprojection = self.residual_diagnostics::<VisualReprojectionFactor>();
 
         BackendSolveDiagnostics {
@@ -112,6 +115,7 @@ impl VinsBackend {
             factor_count: graph.len(),
             total_error: graph.error(&self.values),
             visual_odometry: visual_odometry.finish(),
+            odometer: odometer.finish(),
             visual_reprojection: visual_reprojection.finish(),
             gaussian_process_prior: self
                 .residual_diagnostics::<GaussianProcessPriorFactor>()

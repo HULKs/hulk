@@ -7,7 +7,7 @@ use types::{
 };
 
 use crate::{
-    live_odometry::LiveVisualOdometryLocalization, pose::initial_state_from_camera_matrix,
+    live_odometry::LiveOdometryLocalization, pose::initial_state_from_camera_matrix,
     publish::LocalizationPublishers, visual_localization::GlobalVisualLock,
 };
 
@@ -32,7 +32,7 @@ pub(crate) fn initial_state_for_reset(
 
 pub(crate) fn reset_localization_for_damping(
     frontend: &mut VinsFrontend,
-    live_localization: &mut LiveVisualOdometryLocalization,
+    live_localization: &mut LiveOdometryLocalization,
     global_visual_lock: &mut GlobalVisualLock,
     initial_state: InitialState,
     time: Time,
@@ -45,7 +45,7 @@ pub(crate) fn reset_localization_for_damping(
 
 pub(crate) async fn reset_and_publish_startup_prior(
     frontend: &mut VinsFrontend,
-    live_localization: &mut LiveVisualOdometryLocalization,
+    live_localization: &mut LiveOdometryLocalization,
     global_visual_lock: &mut GlobalVisualLock,
     initial_state: InitialState,
     time: Time,
@@ -66,7 +66,7 @@ pub(crate) async fn reset_and_publish_startup_prior(
 
 pub(crate) async fn publish_damping_optimization_result(
     frontend: &mut VinsFrontend,
-    live_localization: &mut LiveVisualOdometryLocalization,
+    live_localization: &mut LiveOdometryLocalization,
     global_visual_lock: &mut GlobalVisualLock,
     time: Time,
     field_dimensions: &FieldDimensions,

@@ -25,6 +25,7 @@ pub struct BackendConfiguration {
     pub pose_hint_visual_feature_noise: Matrix2<f64>,
     pub pose_hint_visual_huber_threshold: f64,
     pub visual_odometry_noise: SMatrix<f64, 6, 6>,
+    pub odometer_noise: Matrix3<f64>,
     pub foot_ground_sigma: f64,
     pub field_containment: FieldContainmentConfiguration,
 }

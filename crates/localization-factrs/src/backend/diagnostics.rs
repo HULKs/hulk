@@ -21,6 +21,7 @@ pub struct BackendSolveDiagnostics {
     pub factor_count: usize,
     pub total_error: f64,
     pub visual_odometry: ResidualDiagnostics,
+    pub odometer: ResidualDiagnostics,
     pub visual_reprojection: ResidualDiagnostics,
     pub gaussian_process_prior: ResidualDiagnostics,
 }

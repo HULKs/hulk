@@ -1,6 +1,8 @@
 {
   visual_feature_noise_variance: 10000.0,
-  pose_hint_visual_feature_noise_variance: 100000.0,
-  pose_hint_visual_huber_threshold: 2.0,
+  pose_hint_visual_feature_noise_variance: 50.0,
+  pose_hint_visual_huber_threshold: 5.0,
+  odometer_translation_noise_variance: 0.003,
+  odometer_yaw_noise_variance: 0.0225,
   field_containment_sigma: 1.0,
 }

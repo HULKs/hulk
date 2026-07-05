@@ -10,7 +10,7 @@ pub use pipeline::VisualOdometryPipeline;
 
 use std::{
     boxed::Box,
-    future::{Future, ready},
+    future::{Future, pending, ready},
     pin::Pin,
     sync::Arc,
     time::{Duration, Instant},
@@ -92,6 +92,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         VisualOdometryPipeline::new(&parameters.typed().neural_network, stereo_camera_info)?;
     let mut previous_image_time: Option<ros_z::time::Time> = None;
     let mut odometer_epoch = 0;
+    pending::<()>().await;
 
     loop {
         parameters_receiver

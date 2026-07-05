@@ -1,13 +1,13 @@
 use std::time::SystemTime;
 
 use booster::ImuState;
-use coordinate_systems::{Camera, Field, Robot};
+use coordinate_systems::{Camera, Field, Ground, Robot};
 use factrs::{
     core::{SE3, SO3},
     traits::Variable,
     variables::{MatrixLieGroup, SE23},
 };
-use linear_algebra::{Isometry3, Point3};
+use linear_algebra::{Isometry2, Isometry3, Point3};
 use thiserror::Error;
 use tokio::sync::{mpsc::UnboundedSender, watch};
 
@@ -16,7 +16,8 @@ use crate::backend::OptimizationResult as BackendOptimizationResult;
 use crate::camera_intrinsics::CameraIntrinsics;
 use crate::conversions::robot_to_field_to_se23;
 use crate::factors::{
-    foot_above_ground::FootHeightMeasurement, visual_odometry::VisualOdometryMeasurement,
+    foot_above_ground::FootHeightMeasurement, odometer::OdometerMeasurement,
+    visual_odometry::VisualOdometryMeasurement,
 };
 use crate::measurements::{
     GlobalPoseMeasurement, ImuMeasurement, ResetMeasurement, SensorMeasurement,
@@ -170,6 +171,24 @@ impl VinsFrontend {
             .map_err(|_| VinsFrontendError::BackendDisconnected)
     }
 
+    /// Adds a planar hardware-odometer delta to the optimization pipeline.
+    pub fn ingest_odometer_delta(
+        &mut self,
+        previous_time: SystemTime,
+        current_time: SystemTime,
+        current_ground_to_previous_ground: Isometry2<Ground, Ground>,
+    ) -> Result<(), VinsFrontendError> {
+        let measurement = OdometerMeasurement {
+            previous_time,
+            current_time,
+            robot_delta: isometry2_to_planar_se3(current_ground_to_previous_ground),
+        };
+
+        self.measurement_sender
+            .send(SensorMeasurement::Odometer(measurement))
+            .map_err(|_| VinsFrontendError::BackendDisconnected)
+    }
+
     /// Adds sole positions to keep the estimated feet above the ground plane.
     pub fn ingest_foot_heights(
         &mut self,
@@ -223,6 +242,19 @@ fn isometry3_f64_to_se3(isometry: nalgebra::Isometry3<f64>) -> SE3 {
     )
 }
 
+fn isometry2_to_planar_se3(isometry: Isometry2<Ground, Ground>) -> SE3 {
+    let yaw = isometry.inner.rotation.angle() as f64;
+    let rotation = nalgebra::UnitQuaternion::from_euler_angles(0.0, 0.0, yaw);
+    SE3::from_rot_trans(
+        SO3::from_xyzw(rotation.i, rotation.j, rotation.k, rotation.w),
+        nalgebra::vector![
+            isometry.inner.translation.vector.x as f64,
+            isometry.inner.translation.vector.y as f64,
+            0.0,
+        ],
+    )
+}
+
 fn optimization_result_from_backend_result(
     backend_result: &BackendOptimizationResult,
 ) -> OptimizationResult {
@@ -259,6 +291,7 @@ mod tests {
     use std::time::{Duration, SystemTime};
 
     use crate::measurements::SensorMeasurement;
+    use linear_algebra::IntoTransform;
 
     use super::*;
 
@@ -294,5 +327,39 @@ mod tests {
         assert_eq!(measurement.previous_time, previous_time);
         assert_eq!(measurement.current_time, current_time);
         assert!((measurement.robot_delta.xyz().x - 1.5).abs() < 1.0e-9);
+    }
+
+    #[test]
+    fn odometer_delta_lifts_planar_motion() {
+        let (measurement_sender, mut measurement_receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_result_sender, result_receiver) = tokio::sync::watch::channel(None);
+        let mut frontend = VinsFrontend::new(measurement_sender, result_receiver);
+        let previous_time = SystemTime::UNIX_EPOCH;
+        let current_time = previous_time + Duration::from_millis(10);
+
+        frontend
+            .ingest_odometer_delta(
+                previous_time,
+                current_time,
+                nalgebra::Isometry2::new(nalgebra::vector![1.0, -0.5], 0.25).framed_transform(),
+            )
+            .expect("odometer should ingest");
+
+        let SensorMeasurement::Odometer(measurement) = measurement_receiver
+            .try_recv()
+            .expect("measurement should be queued")
+        else {
+            panic!("expected odometer measurement");
+        };
+
+        assert_eq!(measurement.previous_time, previous_time);
+        assert_eq!(measurement.current_time, current_time);
+        assert!((measurement.robot_delta.xyz().x - 1.0).abs() < 1.0e-9);
+        assert!((measurement.robot_delta.xyz().y + 0.5).abs() < 1.0e-9);
+        assert!((measurement.robot_delta.xyz().z).abs() < 1.0e-9);
+        let rotation = measurement.robot_delta.rot();
+        let yaw = (2.0 * (rotation.w() * rotation.z() + rotation.x() * rotation.y()))
+            .atan2(1.0 - 2.0 * (rotation.y().powi(2) + rotation.z().powi(2)));
+        assert!((yaw - 0.25).abs() < 1.0e-9);
     }
 }

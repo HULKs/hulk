@@ -9,6 +9,7 @@ use crate::{
     factors::{
         field_containment::FieldContainmentFactor,
         foot_above_ground::{FootHeightMeasurement, IntervalFootAboveGroundFactor},
+        odometer::{AdjacentOdometerFactor, OdometerFactor, OdometerMeasurement},
         visual_odometry::{
             AdjacentVisualOdometryFactor, VisualOdometryFactor, VisualOdometryMeasurement,
         },
@@ -55,7 +56,8 @@ fn backend_configuration() -> BackendConfiguration {
         visual_feature_noise: Matrix2::identity() * 5.0,
         pose_hint_visual_feature_noise: Matrix2::identity() * 100.0,
         pose_hint_visual_huber_threshold: 2.0,
-        visual_odometry_noise: SMatrix::<f64, 6, 6>::identity() * 0.05,
+        visual_odometry_noise: SMatrix::<f64, 6, 6>::identity() * 0.5,
+        odometer_noise: Matrix3::identity() * 0.05,
         foot_ground_sigma: 0.01,
         field_containment: FieldContainmentConfiguration::default(),
         gravity: Vector3::new(0.0, 0.0, 9.81),
@@ -79,6 +81,14 @@ fn visual_odometry(
     x: f64,
 ) -> SensorMeasurement {
     SensorMeasurement::VisualOdometry(VisualOdometryMeasurement {
+        previous_time,
+        current_time,
+        robot_delta: SE3::from_rot_trans(SO3::identity(), Vector3::new(x, 0.0, 0.0)),
+    })
+}
+
+fn odometer(previous_time: SystemTime, current_time: SystemTime, x: f64) -> SensorMeasurement {
+    SensorMeasurement::Odometer(OdometerMeasurement {
         previous_time,
         current_time,
         robot_delta: SE3::from_rot_trans(SO3::identity(), Vector3::new(x, 0.0, 0.0)),
@@ -198,6 +208,56 @@ fn adjacent_visual_odometry_factor_dimensions(backend: &VinsBackend, state: Stat
             factor
                 .try_dim_out(backend.values())
                 .expect("adjacent visual odometry factor should have a dimension")
+        })
+        .collect()
+}
+
+fn odometer_factor_count(backend: &mut VinsBackend, state: State) -> usize {
+    backend
+        .optimizer
+        .graph_mut()
+        .factors_for_residual::<OdometerFactor, _>((state, State(state.0 + 1)))
+        .count()
+}
+
+fn odometer_factor_dimensions(backend: &VinsBackend, state: State) -> Vec<usize> {
+    backend
+        .optimizer
+        .graph()
+        .factors_for_residual::<OdometerFactor, _>((state, State(state.0 + 1)))
+        .map(|factor| {
+            factor
+                .try_dim_out(backend.values())
+                .expect("odometer factor should have a dimension")
+        })
+        .collect()
+}
+
+fn adjacent_odometer_factor_count(backend: &mut VinsBackend, state: State) -> usize {
+    backend
+        .optimizer
+        .graph_mut()
+        .factors_for_residual::<AdjacentOdometerFactor, _>((
+            state,
+            State(state.0 + 1),
+            State(state.0 + 2),
+        ))
+        .count()
+}
+
+fn adjacent_odometer_factor_dimensions(backend: &VinsBackend, state: State) -> Vec<usize> {
+    backend
+        .optimizer
+        .graph()
+        .factors_for_residual::<AdjacentOdometerFactor, _>((
+            state,
+            State(state.0 + 1),
+            State(state.0 + 2),
+        ))
+        .map(|factor| {
+            factor
+                .try_dim_out(backend.values())
+                .expect("adjacent odometer factor should have a dimension")
         })
         .collect()
 }
@@ -566,6 +626,120 @@ fn invalid_visual_odometry_measurement_does_not_create_empty_factor() {
     let _ = backend.solve_once().expect("solve should succeed");
 
     assert_eq!(visual_odometry_factor_count(&mut backend, State(0)), 1);
+}
+
+#[test]
+fn odometer_measurements_create_interval_factor() {
+    let (measurement_sender, measurement_receiver) = tokio::sync::mpsc::unbounded_channel();
+    let (result_sender, _result_receiver) = tokio::sync::watch::channel(None);
+    let mut backend = VinsBackend::new(
+        backend_configuration(),
+        InitialState::default(),
+        measurement_receiver,
+        result_sender,
+    );
+    let start = SystemTime::UNIX_EPOCH;
+
+    measurement_sender
+        .send(odometer(start, start + Duration::from_millis(100), 0.1))
+        .expect("odometer should send");
+
+    let _ = backend.solve_once().expect("solve should succeed");
+
+    assert!(backend.values().get_raw(State(0)).is_some());
+    assert!(backend.values().get_raw(State(1)).is_some());
+    assert_eq!(odometer_factor_count(&mut backend, State(0)), 1);
+}
+
+#[test]
+fn odometer_huber_is_per_delta_residual_block() {
+    let (_measurement_sender, measurement_receiver) = tokio::sync::mpsc::unbounded_channel();
+    let (result_sender, _result_receiver) = tokio::sync::watch::channel(None);
+    let mut backend = VinsBackend::new(
+        backend_configuration(),
+        InitialState::default(),
+        measurement_receiver,
+        result_sender,
+    );
+    let start = SystemTime::UNIX_EPOCH;
+
+    backend
+        .ingest_sensor_measurements([
+            odometer(start, start + Duration::from_millis(50), 0.05),
+            odometer(
+                start + Duration::from_millis(60),
+                start + Duration::from_millis(100),
+                0.04,
+            ),
+        ])
+        .expect("odometer measurements should ingest");
+
+    assert_eq!(odometer_factor_count(&mut backend, State(0)), 2);
+    assert_eq!(odometer_factor_dimensions(&backend, State(0)), vec![3, 3]);
+}
+
+#[test]
+fn odometer_measurements_create_adjacent_interval_factor() {
+    let (measurement_sender, measurement_receiver) = tokio::sync::mpsc::unbounded_channel();
+    let (result_sender, _result_receiver) = tokio::sync::watch::channel(None);
+    let mut backend = VinsBackend::new(
+        backend_configuration(),
+        InitialState::default(),
+        measurement_receiver,
+        result_sender,
+    );
+    let start = SystemTime::UNIX_EPOCH;
+
+    measurement_sender
+        .send(stationary_imu(start))
+        .expect("IMU should send");
+    measurement_sender
+        .send(odometer(
+            start + Duration::from_millis(100),
+            start + Duration::from_millis(200),
+            0.1,
+        ))
+        .expect("odometer should send");
+
+    let _ = backend.solve_once().expect("solve should succeed");
+
+    assert_eq!(odometer_factor_count(&mut backend, State(0)), 0);
+    assert_eq!(adjacent_odometer_factor_count(&mut backend, State(0)), 1);
+}
+
+#[test]
+fn adjacent_odometer_huber_is_per_delta_residual_block() {
+    let (_measurement_sender, measurement_receiver) = tokio::sync::mpsc::unbounded_channel();
+    let (result_sender, _result_receiver) = tokio::sync::watch::channel(None);
+    let mut backend = VinsBackend::new(
+        backend_configuration(),
+        InitialState::default(),
+        measurement_receiver,
+        result_sender,
+    );
+    let start = SystemTime::UNIX_EPOCH;
+
+    backend
+        .ingest_sensor_measurements([
+            stationary_imu(start),
+            odometer(
+                start + Duration::from_millis(100),
+                start + Duration::from_millis(200),
+                0.1,
+            ),
+            odometer(
+                start + Duration::from_millis(120),
+                start + Duration::from_millis(200),
+                0.08,
+            ),
+        ])
+        .expect("adjacent odometer measurements should ingest");
+
+    assert_eq!(adjacent_odometer_factor_count(&mut backend, State(0)), 2);
+    assert_eq!(
+        adjacent_odometer_factor_dimensions(&backend, State(0)),
+        vec![3, 3]
+    );
 }
 
 #[test]

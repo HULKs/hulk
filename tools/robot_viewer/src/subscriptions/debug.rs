@@ -15,7 +15,7 @@ use ros_z_debug::{
     TopicObservationStatus, TopicObserver,
 };
 use types::{
-    field_dimensions::FieldDimensions, time_wrapper::TimeWrapper,
+    time_wrapper::TimeWrapper,
     visual_localization::VisualLocalizationFrame as FieldMarkAssociations,
     visual_odometry::VisualOdometer,
 };
@@ -24,13 +24,12 @@ use crate::state::{StreamStatus, ViewerState};
 
 use super::topics::{
     CALIBRATED_INTRINSICS_TOPIC, CAMERA_MATRIX_TOPIC, DEBUG_HIGH_RATE_HISTORY_CAPACITY,
-    DEBUG_HISTORY_WINDOW, DEBUG_STREAM_HISTORY_CAPACITY, FIELD_DIMENSIONS_TOPIC,
-    FIELD_MARK_ASSOCIATIONS_TOPIC, LOCALIZATION_TOPIC, PROCESSED_PUBLICATION_CAPACITY,
-    ROBOT_KINEMATICS_TOPIC, VISUAL_ODOMETER_TOPIC,
+    DEBUG_HISTORY_WINDOW, DEBUG_STREAM_HISTORY_CAPACITY, FIELD_MARK_ASSOCIATIONS_TOPIC,
+    LOCALIZATION_TOPIC, PROCESSED_PUBLICATION_CAPACITY, ROBOT_KINEMATICS_TOPIC,
+    VISUAL_ODOMETER_TOPIC,
 };
 
 pub(super) struct DebugSubscriptions {
-    field_dimensions: TopicObservation<FieldDimensions>,
     localization: TopicObservation<Option<Isometry3<Field, Robot>>>,
     visual_odometer: TopicObservation<VisualOdometer>,
     robot_kinematics: WindowedDebugStream<RobotKinematics>,
@@ -51,9 +50,6 @@ impl DebugSubscriptions {
         )?;
 
         Ok(Self {
-            field_dimensions: observer
-                .observe_typed::<FieldDimensions>(FIELD_DIMENSIONS_TOPIC)?
-                .spawn(),
             localization: observer
                 .observe_typed::<Option<Isometry3<Field, Robot>>>(LOCALIZATION_TOPIC)?
                 .spawn(),
@@ -87,15 +83,6 @@ impl DebugSubscriptions {
     }
 
     pub(super) fn refresh(&mut self, state: &mut ViewerState) {
-        if let Some(record) = self.field_dimensions.latest() {
-            state.field_dimensions = Some(record.value);
-        }
-        update_debug_status(
-            &mut state.field_status,
-            &self.field_dimensions,
-            state.field_dimensions.is_some(),
-        );
-
         if let Some(record) = self.localization.latest() {
             state.localization = record.value;
         }
