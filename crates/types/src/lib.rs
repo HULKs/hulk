@@ -21,6 +21,7 @@ pub mod filtered_game_state;
 pub mod filtered_segments;
 pub mod filtered_whistle;
 pub mod game_controller_state;
+pub mod gamepad;
 pub mod grayscale_image;
 pub mod heatmap;
 pub mod image_segments;

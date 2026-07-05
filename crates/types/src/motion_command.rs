@@ -2,6 +2,7 @@ use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};
+use kinematics::joints::head::HeadJoints;
 use linear_algebra::{Orientation2, Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
@@ -187,6 +188,9 @@ pub enum BodyMotion {
 )]
 pub enum HeadMotion {
     ZeroAngles,
+    JointAngles {
+        joints: HeadJoints<f32>,
+    },
     Center {
         image_region_target: ImageRegion,
     },
@@ -265,6 +269,8 @@ pub enum KickPower {
 mod tests {
     use super::*;
 
+    use kinematics::joints::head::HeadJoints;
+
     #[test]
     fn damping_has_no_head_motion() {
         assert_eq!(MotionCommand::Damping.head_motion(), None);
@@ -280,5 +286,21 @@ mod tests {
         );
 
         assert_eq!(motion, MotionCommand::Damping);
+    }
+
+    #[test]
+    fn joint_angles_are_head_motion() {
+        let joints = HeadJoints {
+            yaw: 0.25,
+            pitch: -0.1,
+        };
+        let motion = MotionCommand::Stand {
+            head: HeadMotion::JointAngles { joints },
+        };
+
+        assert_eq!(
+            motion.head_motion(),
+            Some(HeadMotion::JointAngles { joints })
+        );
     }
 }

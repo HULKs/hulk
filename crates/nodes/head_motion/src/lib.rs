@@ -170,6 +170,7 @@ fn joints_from_motion(
     motion_command: &MotionCommand,
 ) -> HeadJoints<f32> {
     match motion_command.head_motion() {
+        Some(HeadMotion::JointAngles { joints }) => joints,
         Some(HeadMotion::Center {
             image_region_target: ImageRegion::Top,
         }) => HeadJoints {
@@ -249,6 +250,28 @@ mod tests {
         );
 
         assert_eq!(head_joints, measured_head);
+    }
+
+    #[test]
+    fn joint_angles_use_requested_target() {
+        let requested = HeadJoints {
+            yaw: 0.2,
+            pitch: -0.1,
+        };
+        let mut state = HeadMotionState::new();
+
+        let head_joints = state.update(
+            &test_parameters(),
+            HeadJoints::default(),
+            HeadJoints::default(),
+            &Joints::default(),
+            Duration::from_secs(1),
+            &MotionCommand::Stand {
+                head: HeadMotion::JointAngles { joints: requested },
+            },
+        );
+
+        assert_eq!(head_joints, requested);
     }
 
     #[test]

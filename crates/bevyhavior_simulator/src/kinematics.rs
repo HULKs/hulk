@@ -300,6 +300,7 @@ fn desired_head_yaw(
                 (elapsed * std::f32::consts::TAU / period).sin() * amplitude
             }
         }
+        Some(HeadMotion::JointAngles { joints }) => joints.yaw,
         Some(HeadMotion::ZeroAngles)
         | Some(HeadMotion::Center { .. })
         | Some(HeadMotion::Unstiff)
