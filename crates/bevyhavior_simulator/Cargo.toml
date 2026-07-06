@@ -24,4 +24,5 @@ scenario = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 types = { workspace = true }
+twix_visualization = { workspace = true }
 voronoi = { workspace = true }

@@ -2011,6 +2011,7 @@ dependencies = [
  "scenario",
  "serde",
  "serde_json",
+ "twix_visualization",
  "types",
  "voronoi",
 ]
@@ -11338,6 +11339,19 @@ dependencies = [
  "types",
  "uuid",
  "voronoi",
+]
+
+[[package]]
+name = "twix_visualization"
+version = "0.1.0"
+dependencies = [
+ "coordinate_systems",
+ "eframe",
+ "geometry",
+ "linear_algebra",
+ "nalgebra 0.34.2",
+ "serde",
+ "types",
 ]
 
 [[package]]
