@@ -58,7 +58,7 @@ impl Default for SimulationConfig {
 
 pub fn default_behavior_parameters() -> Result<BehaviorParameters> {
     json5::from_str(include_str!(
-        "../../../etc/parameters/ros_z/base/behavior_node.json5"
+        "../../../etc/parameters/base/behavior_node.json5"
     ))
     .wrap_err("failed to parse behavior parameters")
 }
@@ -77,7 +77,7 @@ struct BoosterWalkingParameters {
 
 pub fn default_walking_parameters() -> Result<WalkingParameters> {
     let file: BoosterInterfaceParametersFile = json5::from_str(include_str!(
-        "../../../etc/parameters/ros_z/base/booster_interface.json5"
+        "../../../etc/parameters/base/booster_interface.json5"
     ))
     .wrap_err("failed to parse walking parameters")?;
     Ok(WalkingParameters {

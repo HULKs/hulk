@@ -16,7 +16,7 @@ const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 struct Args {
     #[arg(long)]
     location: String,
-    #[arg(long, default_value = "parameters/ros_z")]
+    #[arg(long, default_value = "parameters")]
     parameter_root: PathBuf,
     #[arg(long)]
     router: Option<String>,

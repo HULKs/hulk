@@ -43,7 +43,7 @@ impl LocationTarget {
 
 impl Repository {
     pub async fn list_configured_locations(&self) -> Result<Vec<(String, Option<String>)>> {
-        let parameters_root = &self.root.join("etc/parameters/ros_z/location");
+        let parameters_root = &self.root.join("etc/parameters/location");
         let targets: Vec<_> = LocationTarget::all()
             .into_iter()
             .map(|target| async move {
@@ -82,7 +82,7 @@ impl Repository {
     }
 
     pub async fn set_location(&self, target: LocationTarget, location: &str) -> Result<()> {
-        let parameters_root = self.root.join("etc/parameters/ros_z/location");
+        let parameters_root = self.root.join("etc/parameters/location");
         if !try_exists(parameters_root.join(location))
             .await
             .wrap_err_with(|| format!("failed checking if location '{location}' exists"))?
@@ -110,7 +110,7 @@ impl Repository {
     }
 
     pub async fn list_available_locations(&self) -> Result<Vec<String>> {
-        let parameters_root = self.root.join("etc/parameters/ros_z/location");
+        let parameters_root = self.root.join("etc/parameters/location");
         let mut locations = read_dir(parameters_root)
             .await
             .wrap_err("failed to read parameters directory")?;

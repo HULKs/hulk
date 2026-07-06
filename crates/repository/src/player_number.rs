@@ -42,7 +42,7 @@ impl Repository {
         robot_id: &str,
         player_number: PlayerNumber,
     ) -> Result<()> {
-        let robot_parameter_directory = self.root.join("etc/parameters/ros_z/robot").join(robot_id);
+        let robot_parameter_directory = self.root.join("etc/parameters/robot").join(robot_id);
         create_dir_all(&robot_parameter_directory)
             .await
             .wrap_err_with(|| {
