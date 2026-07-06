@@ -743,20 +743,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "audio"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "context_attribute",
- "filtering",
- "framework",
- "hardware",
- "rustfft",
- "serde",
- "types",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -796,7 +782,6 @@ dependencies = [
  "nalgebra 0.34.2",
  "ndarray",
  "ordered-float 4.6.0",
- "path_serde",
  "projection",
  "ros-z",
  "ros-z-streams",
@@ -2021,12 +2006,12 @@ dependencies = [
  "hsl_network_messages",
  "json5",
  "linear_algebra",
- "motion",
+ "nalgebra 0.34.2",
  "ros-z",
  "scenario",
  "serde",
  "serde_json",
- "twix-legacy",
+ "twix_visualization",
  "types",
  "voronoi",
 ]
@@ -2218,11 +2203,11 @@ dependencies = [
  "coordinate_systems",
  "kinematics",
  "linear_algebra",
- "path_serde",
  "pyo3",
  "ros-z",
  "ros2",
  "serde",
+ "types",
 ]
 
 [[package]]
@@ -2273,14 +2258,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7913f22349ffcfc6ca0ca9a656ec26cfbba538ed49c31a273dff2c5d1ea83d9"
 dependencies = [
  "spin 0.9.8",
-]
-
-[[package]]
-name = "buffered_watch"
-version = "0.1.0"
-dependencies = [
- "parking_lot",
- "tokio",
 ]
 
 [[package]]
@@ -2365,7 +2342,6 @@ dependencies = [
  "levenberg-marquardt",
  "linear_algebra",
  "nalgebra 0.34.2",
- "path_serde",
  "projection",
  "serde",
  "thiserror 2.0.18",
@@ -2614,20 +2590,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
 
 [[package]]
-name = "code_generation"
-version = "0.1.0"
-dependencies = [
- "convert_case 0.7.1",
- "itertools 0.14.0",
- "prettyplease",
- "proc-macro2",
- "quote",
- "source_analyzer",
- "syn 2.0.118",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "codespan-reporting"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2685,24 +2647,6 @@ checksum = "ba5a308b75df32fe02788e748662718f03fde005016435c444eea572398219fd"
 dependencies = [
  "bytes",
  "memchr",
-]
-
-[[package]]
-name = "communication"
-version = "0.1.0"
-dependencies = [
- "bincode 1.3.3",
- "buffered_watch",
- "color-eyre",
- "futures-util",
- "log",
- "path_serde",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tokio-tungstenite 0.26.2",
- "tokio-util",
 ]
 
 [[package]]
@@ -2823,16 +2767,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "context_attribute"
-version = "0.1.0"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 2.0.118",
-]
-
-[[package]]
 name = "convert_case"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2856,7 +2790,6 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "approx_derive",
- "path_serde",
  "ros-z",
  "serde",
 ]
@@ -3719,7 +3652,6 @@ version = "0.1.0"
 dependencies = [
  "filtering",
  "kinematics",
- "path_serde",
  "serde",
  "types",
 ]
@@ -3850,12 +3782,6 @@ dependencies = [
  "log",
  "regex",
 ]
-
-[[package]]
-name = "env_home"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7f84e12ccf0a7ddc17a6c41c93326024c42920d7ee630d04950e6926645c0fe"
 
 [[package]]
 name = "env_logger"
@@ -4435,16 +4361,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "framework"
-version = "0.1.0"
-dependencies = [
- "bincode 1.3.3",
- "color-eyre",
- "parking_lot",
- "serde",
-]
-
-[[package]]
 name = "futures"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4733,7 +4649,6 @@ dependencies = [
  "num-traits",
  "ordered-float 4.6.0",
  "parry2d",
- "path_serde",
  "ros-z",
  "serde",
 ]
@@ -4784,40 +4699,6 @@ dependencies = [
  "cfg-if",
  "libc",
  "r-efi 6.0.0",
-]
-
-[[package]]
-name = "gilrs"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "902fb00d3f6398e635be22e5c837b303c501835cca7ac11a47bba138f7aafdd8"
-dependencies = [
- "fnv",
- "gilrs-core",
- "log",
- "uuid",
- "vec_map",
-]
-
-[[package]]
-name = "gilrs-core"
-version = "0.6.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc7f0ce6237abcc0523f2a5502b1e3fe5802daaae47ac14e166fe49551301ea9"
-dependencies = [
- "inotify",
- "js-sys",
- "libc",
- "libudev-sys",
- "log",
- "nix 0.31.3",
- "objc2-core-foundation",
- "objc2-io-kit",
- "uuid",
- "vec_map",
- "wasm-bindgen",
- "web-sys",
- "windows 0.62.2",
 ]
 
 [[package]]
@@ -5253,18 +5134,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hardware"
-version = "0.1.0"
-dependencies = [
- "booster",
- "color-eyre",
- "hula_types",
- "kinematics",
- "ros2",
- "types",
-]
-
-[[package]]
 name = "harfrust"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5422,9 +5291,6 @@ version = "0.1.0"
 dependencies = [
  "bincode 1.3.3",
  "color-eyre",
- "context_attribute",
- "framework",
- "hardware",
  "hsl_network_messages",
  "log",
  "ros-z",
@@ -5444,7 +5310,6 @@ dependencies = [
  "color-eyre",
  "coordinate_systems",
  "linear_algebra",
- "path_serde",
  "ros-z",
  "serde",
 ]
@@ -5492,16 +5357,8 @@ checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
 name = "hula_types"
 version = "0.1.0"
 dependencies = [
- "path_serde",
  "serde",
  "zbus",
-]
-
-[[package]]
-name = "hulk_manifest"
-version = "0.1.0"
-dependencies = [
- "source_analyzer",
 ]
 
 [[package]]
@@ -5569,7 +5426,6 @@ dependencies = [
 name = "hulk_widgets"
 version = "0.1.0"
 dependencies = [
- "communication",
  "egui",
  "nucleo-matcher",
 ]
@@ -5587,23 +5443,6 @@ dependencies = [
  "ndarray",
  "ordered-float 4.6.0",
  "pathfinding",
-]
-
-[[package]]
-name = "hydra"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "context_attribute",
- "framework",
- "hardware",
- "image",
- "ndarray",
- "ort",
- "parameters",
- "ros2",
- "serde",
- "types",
 ]
 
 [[package]]
@@ -5929,26 +5768,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a257582fdcde896fd96463bf2d40eefea0580021c0712a0e2b028b60b47a837a"
 
 [[package]]
-name = "inotify"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "533e68a5842e734946fe159fb03fc9bbbb254f590dd0d8ad321ae5ff7beca2c1"
-dependencies = [
- "bitflags 2.13.0",
- "inotify-sys",
- "libc",
-]
-
-[[package]]
-name = "inotify-sys"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ea94e891b3606826e9c998be69ddca42247dad8ad50b1649a5cb7e1c9ae06fd"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "inout"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6223,7 +6042,6 @@ version = "0.1.0"
 dependencies = [
  "coordinate_systems",
  "linear_algebra",
- "path_serde",
  "ros-z",
  "serde",
  "splines",
@@ -6403,16 +6221,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "libudev-sys"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c8469b4a23b962c1396b9b451dda50ef5b283e8dd309d69033475fa9b334324"
-dependencies = [
- "libc",
- "pkg-config",
-]
-
-[[package]]
 name = "line_detection"
 version = "0.1.0"
 dependencies = [
@@ -6438,7 +6246,6 @@ dependencies = [
  "approx",
  "nalgebra 0.34.2",
  "num-traits",
- "path_serde",
  "ros-z",
  "ros-z-schema",
  "serde",
@@ -6608,25 +6415,6 @@ name = "lru-slab"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
-
-[[package]]
-name = "lua-src"
-version = "547.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1edaf29e3517b49b8b746701e5648ccb5785cde1c119062cbabbc5d5cd115e42"
-dependencies = [
- "cc",
-]
-
-[[package]]
-name = "luajit-src"
-version = "210.5.12+a4f56a4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3a8e7962a5368d5f264d045a5a255e90f9aa3fc1941ae15a8d2940d42cac671"
-dependencies = [
- "cc",
- "which",
-]
 
 [[package]]
 name = "lz4"
@@ -6870,58 +6658,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mlua"
-version = "0.10.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1f5f8fbebc7db5f671671134b9321c4b9aa9adeafccfd9a8c020ae45c6a35d0"
-dependencies = [
- "bstr",
- "either",
- "erased-serde",
- "mlua-sys",
- "num-traits",
- "parking_lot",
- "rustc-hash 2.1.3",
- "rustversion",
- "serde",
- "serde-value",
-]
-
-[[package]]
-name = "mlua-sys"
-version = "0.6.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "380c1f7e2099cafcf40e51d3a9f20a346977587aa4d012eae1f043149a728a93"
-dependencies = [
- "cc",
- "cfg-if",
- "lua-src",
- "luajit-src",
- "pkg-config",
-]
-
-[[package]]
-name = "motion"
-version = "0.1.0"
-dependencies = [
- "booster",
- "color-eyre",
- "context_attribute",
- "coordinate_systems",
- "filtering",
- "framework",
- "hardware",
- "kinematics",
- "linear_algebra",
- "log",
- "projection",
- "ros2",
- "serde",
- "types",
- "walking_inference",
-]
-
-[[package]]
 name = "motionfile"
 version = "0.1.0"
 dependencies = [
@@ -6929,7 +6665,6 @@ dependencies = [
  "enum_dispatch",
  "itertools 0.14.0",
  "kinematics",
- "path_serde",
  "serde",
  "serde_json",
  "splines",
@@ -7686,17 +7421,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "objc2-io-kit"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33fafba39597d6dc1fb709123dfa8289d39406734be322956a69f0931c73bb15"
-dependencies = [
- "bitflags 2.13.0",
- "libc",
- "objc2-core-foundation",
-]
-
-[[package]]
 name = "objc2-io-surface"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7962,15 +7686,6 @@ dependencies = [
 
 [[package]]
 name = "ordered-float"
-version = "2.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68f19d67e5a2795c94e73e0bb1cc1a7edeb2e28efd39e2e1c9b7a40c1108b11c"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
-name = "ordered-float"
 version = "4.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bb71e1b3fa6ca1c61f383464aaf2bb0e2f8e772a1f01d486832464de363b951"
@@ -8043,18 +7758,6 @@ name = "pad-adapter"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56d80efc4b6721e8be2a10a5df21a30fa0b470f1539e53d8b4e6e75faf938b63"
-
-[[package]]
-name = "parameters"
-version = "0.1.0"
-dependencies = [
- "clap",
- "hula_types",
- "serde",
- "serde_ignored",
- "serde_json",
- "thiserror 2.0.18",
-]
 
 [[package]]
 name = "parking"
@@ -8139,29 +7842,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "path_serde"
-version = "0.1.0"
-dependencies = [
- "nalgebra 0.34.2",
- "ndarray",
- "num-traits",
- "path_serde_derive",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "path_serde_derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 2.0.118",
-]
-
-[[package]]
 name = "pathdiff"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8226,14 +7906,12 @@ dependencies = [
  "indicatif",
  "itertools 0.14.0",
  "lazy_static",
- "parameters",
  "pathdiff",
  "regex",
  "repository",
  "robot",
  "serde",
  "serde_json",
- "source_analyzer",
  "tempfile",
  "tokio",
  "toml 0.8.23",
@@ -8746,7 +8424,6 @@ dependencies = [
  "coordinate_systems",
  "linear_algebra",
  "nalgebra 0.34.2",
- "path_serde",
  "ros-z",
  "ros2",
  "serde",
@@ -9350,11 +9027,11 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 name = "repository"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "color-eyre",
  "futures-util",
  "itertools 0.14.0",
  "json5",
- "parameters",
  "pathdiff",
  "semver",
  "serde",
@@ -9623,7 +9300,6 @@ dependencies = [
  "color-eyre",
  "image",
  "nalgebra 0.34.2",
- "path_serde",
  "pyo3",
  "ros-z",
  "serde",
@@ -10064,19 +9740,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd0b0ec5f1c1ca621c432a25813d8d60c88abe6d3e08a3eb9cf37d97a0fe3d73"
 
 [[package]]
-name = "sensor_receiver"
-version = "0.1.0"
-dependencies = [
- "booster",
- "color-eyre",
- "context_attribute",
- "framework",
- "hardware",
- "serde",
- "types",
-]
-
-[[package]]
 name = "seq-macro"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10089,16 +9752,6 @@ source = "git+https://github.com/HULKs/serde.git?rev=ef30eb8fdd0ee12e4e6f3f5615c
 dependencies = [
  "serde_core",
  "serde_derive",
-]
-
-[[package]]
-name = "serde-value"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3a1a3341211875ef120e117ea7fd5228530ae7e7036a779fdc9117be6b3282c"
-dependencies = [
- "ordered-float 2.10.1",
- "serde",
 ]
 
 [[package]]
@@ -10128,16 +9781,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.118",
-]
-
-[[package]]
-name = "serde_ignored"
-version = "0.1.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "115dffd5f3853e06e746965a20dcbae6ee747ae30b543d91b0e089668bb07798"
-dependencies = [
- "serde",
- "serde_core",
 ]
 
 [[package]]
@@ -10577,20 +10220,6 @@ name = "sorted-vec"
 version = "0.8.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19f58d7b0190c7f12df7e8be6b79767a0836059159811b869d5ab55721fe14d0"
-
-[[package]]
-name = "source_analyzer"
-version = "0.1.0"
-dependencies = [
- "convert_case 0.7.1",
- "proc-macro2",
- "quote",
- "serde",
- "syn 2.0.118",
- "thiserror 2.0.18",
- "threadbound",
- "toposort-scc",
-]
 
 [[package]]
 name = "spin"
@@ -11095,12 +10724,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "threadbound"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e33b908415a0f596ac93e6db7f0161822d61b9f84460f73aa896369b82a0339"
-
-[[package]]
 name = "tiff"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11443,12 +11066,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "756daf9b1013ebe47a8776667b466417e2d4c5679d441c26230efd9ef78692db"
 
 [[package]]
-name = "toposort-scc"
-version = "0.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c4db64c78ed1b303e5820f74bae56ff7a94b7f10ba8231d9ddaa484d80118c7"
-
-[[package]]
 name = "tower"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11725,52 +11342,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "twix-legacy"
-version = "0.12.16"
+name = "twix_visualization"
+version = "0.1.0"
 dependencies = [
- "aliveness",
- "argument_parsers",
- "ball_filter",
- "bevy",
- "bevy_mujoco",
- "bincode 1.3.3",
- "chrono",
- "clap",
- "color-eyre",
- "communication",
- "convert_case 0.7.1",
  "coordinate_systems",
- "dirs",
  "eframe",
- "egui_bevy",
- "egui_dock",
- "egui_extras",
- "egui_plot",
  "geometry",
- "gilrs",
- "hsl_network_messages",
- "hula_types",
- "hulk_widgets",
- "image",
- "itertools 0.14.0",
- "kinematics",
  "linear_algebra",
- "log",
- "mlua",
  "nalgebra 0.34.2",
- "ndarray",
- "parameters",
- "projection",
- "repository",
- "ros2",
  "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "toml 0.8.23",
- "tracing-subscriber",
  "types",
- "voronoi",
 ]
 
 [[package]]
@@ -11815,7 +11396,6 @@ name = "types"
 version = "0.1.0"
 dependencies = [
  "approx",
- "booster",
  "color-eyre",
  "coordinate_systems",
  "enum-iterator",
@@ -11827,7 +11407,7 @@ dependencies = [
  "nalgebra 0.34.2",
  "num-traits",
  "ordered-float 4.6.0",
- "path_serde",
+ "pyo3",
  "ros-z",
  "ros-z-schema",
  "ros2",
@@ -12117,30 +11697,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "051eb1abcf10076295e815102942cc58f9d5e3b4560e46e53c21e8ff6f3af7b1"
 
 [[package]]
-name = "vision"
-version = "0.1.0"
-dependencies = [
- "approx",
- "color-eyre",
- "context_attribute",
- "coordinate_systems",
- "framework",
- "geometry",
- "hardware",
- "itertools 0.14.0",
- "linear_algebra",
- "nalgebra 0.34.2",
- "ordered-float 4.6.0",
- "projection",
- "rand 0.9.4",
- "rand_chacha 0.9.0",
- "ransac",
- "ros2",
- "serde",
- "types",
-]
-
-[[package]]
 name = "visual_kick_ball_selector"
 version = "0.1.0"
 dependencies = [
@@ -12161,7 +11717,6 @@ dependencies = [
  "hsl_network_messages",
  "linear_algebra",
  "ordered-float 4.6.0",
- "path_serde",
  "ros-z",
  "serde",
  "types",
@@ -12184,27 +11739,6 @@ checksum = "29790946404f91d9c5d06f9874efddea1dc06c5efe94541a7d6863108e3a5e4b"
 dependencies = [
  "same-file",
  "winapi-util",
-]
-
-[[package]]
-name = "walking_inference"
-version = "0.1.0"
-dependencies = [
- "approx",
- "booster",
- "color-eyre",
- "coordinate_systems",
- "framework",
- "itertools 0.14.0",
- "kinematics",
- "linear_algebra",
- "nalgebra 0.34.2",
- "ndarray",
- "ort",
- "parameters",
- "path_serde",
- "serde",
- "types",
 ]
 
 [[package]]
@@ -12634,18 +12168,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "which"
-version = "7.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24d643ce3fd3e5b54854602a080f34fb10ab75e0b813ee32d00ca2b44fa74762"
-dependencies = [
- "either",
- "env_home",
- "rustix 1.1.4",
- "winsafe",
-]
-
-[[package]]
 name = "whistle_detection"
 version = "0.1.0"
 dependencies = [
@@ -12772,23 +12294,11 @@ version = "0.61.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9babd3a767a4c1aef6900409f85f5d53ce2544ccdfaa86dad48c91782c6d6893"
 dependencies = [
- "windows-collections 0.2.0",
+ "windows-collections",
  "windows-core 0.61.2",
- "windows-future 0.2.1",
+ "windows-future",
  "windows-link 0.1.3",
- "windows-numerics 0.2.0",
-]
-
-[[package]]
-name = "windows"
-version = "0.62.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "527fadee13e0c05939a6a05d5bd6eec6cd2e3dbd648b9f8e447c6518133d8580"
-dependencies = [
- "windows-collections 0.3.2",
- "windows-core 0.62.2",
- "windows-future 0.3.2",
- "windows-numerics 0.3.1",
+ "windows-numerics",
 ]
 
 [[package]]
@@ -12798,15 +12308,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3beeceb5e5cfd9eb1d76b381630e82c4241ccd0d27f1a39ed41b2760b255c5e8"
 dependencies = [
  "windows-core 0.61.2",
-]
-
-[[package]]
-name = "windows-collections"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23b2d95af1a8a14a3c7367e1ed4fc9c20e0a26e79551b1454d72583c97cc6610"
-dependencies = [
- "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -12868,18 +12369,7 @@ checksum = "fc6a41e98427b19fe4b73c550f060b59fa592d7d686537eebf9385621bfbad8e"
 dependencies = [
  "windows-core 0.61.2",
  "windows-link 0.1.3",
- "windows-threading 0.1.0",
-]
-
-[[package]]
-name = "windows-future"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1d6f90251fe18a279739e78025bd6ddc52a7e22f921070ccdc67dde84c605cb"
-dependencies = [
- "windows-core 0.62.2",
- "windows-link 0.2.1",
- "windows-threading 0.2.1",
+ "windows-threading",
 ]
 
 [[package]]
@@ -12968,16 +12458,6 @@ checksum = "9150af68066c4c5c07ddc0ce30421554771e528bde427614c61038bc2c92c2b1"
 dependencies = [
  "windows-core 0.61.2",
  "windows-link 0.1.3",
-]
-
-[[package]]
-name = "windows-numerics"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e2e40844ac143cdb44aead537bbf727de9b044e107a0f1220392177d15b0f26"
-dependencies = [
- "windows-core 0.62.2",
- "windows-link 0.2.1",
 ]
 
 [[package]]
@@ -13170,15 +12650,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b66463ad2e0ea3bbf808b7f1d371311c80e115c0b71d60efc142cafbcfb057a6"
 dependencies = [
  "windows-link 0.1.3",
-]
-
-[[package]]
-name = "windows-threading"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3949bd5b99cafdf1c7ca86b43ca564028dfe27d66958f2470940f73d86d75b37"
-dependencies = [
- "windows-link 0.2.1",
 ]
 
 [[package]]
@@ -13418,12 +12889,6 @@ checksum = "0592e1c9d151f854e6fd382574c3a0855250e1d9b2f99d9281c6e6391af352f1"
 dependencies = [
  "memchr",
 ]
-
-[[package]]
-name = "winsafe"
-version = "0.0.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d135d17ab770252ad95e9a872d365cf3090e3be864a34ab46f48555993efc904"
 
 [[package]]
 name = "wit-bindgen"

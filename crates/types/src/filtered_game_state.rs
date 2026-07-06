@@ -1,21 +1,7 @@
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    PartialEq,
-    Eq,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq, Message)]
 pub enum FilteredGameState {
     #[default]
     Initial,

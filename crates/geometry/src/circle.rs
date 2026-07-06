@@ -1,5 +1,4 @@
 use approx::{AbsDiffEq, RelativeEq};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::{Orientation2, Point2, distance, vector};
@@ -9,19 +8,7 @@ use crate::{
     line_segment::LineSegment, rectangle::Rectangle, two_line_segments::TwoLineSegments,
 };
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    PartialEq,
-    PathDeserialize,
-    PathIntrospect,
-    PathSerialize,
-    Serialize,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, ros_z::Message)]
 pub struct Circle<Frame> {
     pub center: Point2<Frame>,
     pub radius: f32,

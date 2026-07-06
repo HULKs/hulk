@@ -13,7 +13,6 @@ geometry = { workspace = true }
 levenberg-marquardt = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
-path_serde = { workspace = true }
 projection = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }

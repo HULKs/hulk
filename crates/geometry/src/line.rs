@@ -4,7 +4,6 @@ use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::{Point, Point2, Transform, Vector, distance_squared};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     Distance,
@@ -12,9 +11,7 @@ use crate::{
     line_segment::LineSegment,
 };
 
-#[derive(
-    Copy, Clone, Debug, Deserialize, Serialize, PathSerialize, PathIntrospect, PathDeserialize,
-)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub struct Line<Frame, const DIMENSION: usize> {
     pub point: Point<Frame, DIMENSION>,
     pub direction: Vector<Frame, DIMENSION>,

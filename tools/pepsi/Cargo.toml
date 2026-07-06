@@ -19,14 +19,12 @@ glob = { workspace = true }
 indicatif = { workspace = true }
 itertools = { workspace = true }
 lazy_static = { workspace = true }
-parameters = { workspace = true }
 pathdiff = { workspace = true }
 regex = { workspace = true }
 repository = { workspace = true }
 robot = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-source_analyzer = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }

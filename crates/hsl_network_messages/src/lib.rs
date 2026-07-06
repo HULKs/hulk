@@ -9,7 +9,6 @@ use std::{
 
 use coordinate_systems::Field;
 use linear_algebra::{Point2, Pose2};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
@@ -19,17 +18,7 @@ pub use game_controller_state_message::{
     SubState, Team, TeamColor, TeamState,
 };
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathDeserialize,
-    PathIntrospect,
-    PathSerialize,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, Message)]
 pub enum HulkMessage {
     State(StateMessage),
 }
@@ -48,36 +37,14 @@ pub struct StrikerMessage {
     pub time_to_reach_kick_position: Duration,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathDeserialize,
-    PathIntrospect,
-    PathSerialize,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, Message)]
 pub struct StateMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,
     pub ball_position: Option<BallPosition<Field>>,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    PathDeserialize,
-    PathIntrospect,
-    PathSerialize,
-    Serialize,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, Message)]
 pub struct BallPosition<Frame> {
     pub position: Point2<Frame>,
     pub age: Duration,
@@ -97,9 +64,6 @@ pub const NONE_TEAM_NUMBER: u8 = 255;
     Ord,
     PartialEq,
     PartialOrd,
-    PathDeserialize,
-    PathIntrospect,
-    PathSerialize,
     Serialize,
     ros_z::Message,
 )]

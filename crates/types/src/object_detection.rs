@@ -1,24 +1,12 @@
-use color_eyre::Result;
 use geometry::rectangle::Rectangle;
 use linear_algebra::point;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use crate::bounding_box::BoundingBox;
 
 pub const NUMBER_OF_VALUES_PER_OBJECT: usize = 6;
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PathIntrospect,
-    PathSerialize,
-    PathDeserialize,
-    ros_z::Message,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ros_z::Message)]
 pub struct Object<T> {
     pub label: T,
     pub bounding_box: BoundingBox,
@@ -46,18 +34,7 @@ pub trait LabelIndex {
     fn from_index(index: usize) -> Self;
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PathIntrospect,
-    PathSerialize,
-    PathDeserialize,
-    PartialEq,
-    ros_z::Message,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, ros_z::Message)]
 pub enum YOLOObjectLabel {
     Person = 0,
     Bicycle = 1,
@@ -316,18 +293,7 @@ impl From<YOLOObjectLabel> for String {
         .to_string()
     }
 }
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PathIntrospect,
-    PathSerialize,
-    PathDeserialize,
-    PartialEq,
-    ros_z::Message,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, ros_z::Message)]
 pub enum RobocupObjectLabel {
     Ball = 0,
     GoalPost = 1,

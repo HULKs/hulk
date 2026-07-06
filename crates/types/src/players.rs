@@ -1,24 +1,10 @@
 use std::ops::{Index, IndexMut};
 
-use color_eyre::Result;
 use hsl_network_messages::{Penalty, PlayerNumber, TeamState};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Clone,
-    Copy,
-    Default,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathIntrospect,
-    PathDeserialize,
-    PartialEq,
-    Message,
-)]
+#[derive(Clone, Copy, Default, Debug, Deserialize, Serialize, PartialEq, Message)]
 
 pub struct Players<T> {
     pub one: T,

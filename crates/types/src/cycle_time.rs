@@ -1,19 +1,8 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    PartialEq,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 pub struct CycleTime {
     pub start_time: SystemTime,
     pub last_cycle_duration: Duration,

@@ -41,7 +41,6 @@ lazy_static! {
             ("aliveness", "services/aliveness"),
             ("annotato", "tools/annotato"),
             ("depp", "tools/depp"),
-            ("mio", "tools/mio"),
             ("pepsi", "tools/pepsi"),
             ("ros-z-cli", "crates/ros-z-cli"),
             ("twix", "tools/twix"),

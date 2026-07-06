@@ -6,6 +6,5 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-communication = { workspace = true }
 egui = { workspace = true }
 nucleo-matcher = { workspace = true }

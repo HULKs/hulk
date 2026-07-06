@@ -12,7 +12,6 @@ use std::{
 };
 
 use mirror::SwapSides;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use splines::impl_Interpolate;
 
@@ -24,19 +23,7 @@ use self::{
     mirror::Mirror,
 };
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize, ros_z::Message)]
 pub enum JointsName {
     Head(HeadJoint),
     LeftArm(ArmJoint),
@@ -45,20 +32,7 @@ pub enum JointsName {
     RightLeg(LegJoint),
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, ros_z::Message)]
 pub struct Joints<T = f32> {
     pub head: HeadJoints<T>,
     pub left_arm: ArmJoints<T>,

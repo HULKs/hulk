@@ -1,86 +1,33 @@
 use std::time::SystemTime;
 
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum Side {
     Left,
     Right,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum FallingDirection {
     Forward { side: Side },
     Backward { side: Side },
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum FallenKind {
     FacingDown,
     FacingUp,
     Sitting,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Eq,
-    PartialEq,
-    PathDeserialize,
-    PathIntrospect,
-    PathSerialize,
-    Serialize,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum StandUpSpeed {
     Default,
     Slow,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub enum FallState {
     #[default]
     Upright,

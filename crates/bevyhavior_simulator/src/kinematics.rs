@@ -1,10 +1,10 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use bevy::prelude::*;
+use booster::walking::step_from_motion_command;
 use coordinate_systems::{Ground, World};
 use hsl_network_messages::{GameState, Team};
 use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, vector};
-use motion::booster::walking::step_from_motion_command;
 use types::{
     motion_command::{HeadMotion, KickPower, MotionCommand},
     step::Step,
@@ -468,6 +468,7 @@ mod tests {
         time::{Duration, SystemTime},
     };
 
+    use booster::walking::WalkingParameters;
     use coordinate_systems::{Ground, World};
     use hsl_network_messages::{PlayerNumber, Team};
     use linear_algebra::{Isometry2, Orientation2, point, vector};
@@ -475,7 +476,7 @@ mod tests {
         behavior_tree::{NodeTrace, Status},
         field_dimensions::{FieldDimensions, Side},
         motion_command::{HeadMotion, KickPower, MotionCommand, OrientationMode},
-        parameters::{BehaviorParameters, RLWalkingParameters},
+        parameters::BehaviorParameters,
         path::direct_path,
         world_state::WorldState,
     };
@@ -531,11 +532,10 @@ mod tests {
             },
             SimulatorRobotParameters {
                 behavior: BehaviorParameters::default(),
-                walking: RLWalkingParameters {
+                walking: WalkingParameters {
                     hybrid_align_distance: 1.0,
                     max_alignment_rate: 1.0,
                     deceleration_distance: 0.5,
-                    ..Default::default()
                 },
             },
             SimulatorGroundToWorld {

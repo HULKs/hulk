@@ -3,25 +3,13 @@ use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::Orientation2;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     circle::Circle,
     direction::{AngleTo, Direction},
 };
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    PartialEq,
-    PathDeserialize,
-    PathIntrospect,
-    PathSerialize,
-    Serialize,
-    Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, Message)]
 pub struct Arc<Frame> {
     pub circle: Circle<Frame>,
     pub start: Orientation2<Frame>,

@@ -3,7 +3,6 @@ use std::{f32::consts::PI, time::Duration};
 use filtering::kalman_filter::KalmanFilter;
 use moving::{MovingPredict, MovingUpdate};
 use nalgebra::{Matrix2, Matrix4};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use resting::{RestingPredict, RestingUpdate};
 use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
@@ -18,20 +17,15 @@ use types::{
 pub mod moving;
 pub mod resting;
 
-#[derive(
-    Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect, Message,
-)]
+#[derive(Clone, Debug, Serialize, Deserialize, Message)]
 pub enum BallMode {
     Resting(MultivariateNormalDistribution<2>),
     Moving(MultivariateNormalDistribution<4>),
 }
 
-#[derive(
-    Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect, Message,
-)]
+#[derive(Clone, Debug, Serialize, Deserialize, Message)]
 pub struct BallHypothesis {
     pub mode: BallMode,
-    #[path_serde(skip)]
     pub last_seen: Time,
     pub validity: f32,
 }

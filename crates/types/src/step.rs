@@ -6,20 +6,8 @@ use num_traits::Euclid;
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::Pose2;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Default,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, ros_z::Message)]
 pub struct Step<T = f32> {
     pub forward: T,
     pub left: T,

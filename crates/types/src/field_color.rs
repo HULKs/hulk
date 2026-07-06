@@ -1,38 +1,15 @@
 use std::ops::RangeInclusive;
 
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Eq,
-    Serialize,
-    PartialEq,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Serialize, PartialEq, ros_z::Message)]
 pub enum FieldColorFunction {
     #[default]
     GreenChromaticity,
     Hsv,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Deserialize, Serialize, ros_z::Message)]
 pub struct FieldColorParameters {
     pub luminance: RangeInclusive<u8>,
     pub green_luminance: RangeInclusive<u8>,

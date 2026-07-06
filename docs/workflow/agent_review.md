@@ -25,7 +25,7 @@ Useful prompts:
 | Commit range | `Use agent-review to review commits abc123..def456.` |
 | Staged changes | `Use agent-review to review staged changes only.` |
 | Unstaged changes | `Use agent-review to review unstaged changes only.` |
-| File subset | `Use agent-review to review only crates/ros-z-streams and docs/framework.` |
+| File subset | `Use agent-review to review only crates/ros-z-streams and docs/workflow.` |
 | Targeted criteria | `Use agent-review with rust-ownership and api-surface-consistency against main.` |
 
 If the scope is ambiguous, the agent should ask one short clarification. If the base is unavailable, the agent should state the limitation and ask for a base or review only the safe subset.
@@ -43,7 +43,7 @@ If the scope is ambiguous, the agent should ask one short clarification. If the 
 | runtime performance | Obvious or evidenced timing, latency, throughput, memory growth, and determinism risks. |
 | docs and examples | Missing README, docs, examples, PR testing notes, and user-facing updates. |
 | change minimality | Generated churn, unrelated refactors, over-abstraction, and excessive file movement. |
-| architecture fit | Crate placement, dependency direction, node and framework conventions, and migration consistency. |
+| architecture fit | Crate placement, dependency direction, node architecture conventions, and migration consistency. |
 | config and deployment | `etc/`, `etc/parameters`, TOML and JSON defaults, deployment files, and runtime compatibility. |
 | semantic usefulness | Vacuous changes, incomplete behavior, unused features, and non-useful mechanical edits. |
 | atomicity and splitting | Changes that should be split into smaller commits or PRs with clearer review boundaries. |

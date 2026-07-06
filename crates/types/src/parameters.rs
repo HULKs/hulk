@@ -7,40 +7,19 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
 use linear_algebra::{Framed, Point2, Vector2, Vector3};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     field_color::FieldColorParameters, motion_command::MotionCommand, players::Players, step::Step,
 };
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct RemoteControlParameters {
     pub walk: Step,
     pub kick_mode_toggle: bool,
     pub enable: bool,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct WhistleDetectionParameters {
     pub detection_band: Range<f32>,
     pub background_noise_scaling: f32,
@@ -48,18 +27,7 @@ pub struct WhistleDetectionParameters {
     pub number_of_chunks: usize,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PartialEq,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Message)]
 pub struct VoronoiParameters {
     pub orientation_bias: f32,
     pub grid_resolution: f32,
@@ -74,17 +42,7 @@ pub struct VoronoiParameters {
     pub minimum_centroid_margin_from_own_side: f32,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
 pub struct BehaviorParameters {
     pub allow_switch: AllowSwitchParameters,
     pub injected_motion_command: Option<MotionCommand>,
@@ -112,18 +70,7 @@ pub struct BehaviorParameters {
     pub is_simple: bool,
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct LookActionParameters {
     pub angle_threshold: f32,
     pub distance_threshold: f32,
@@ -131,18 +78,7 @@ pub struct LookActionParameters {
     pub position_of_interest_switch_interval: Duration,
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct KeeperParameters {
     pub x_offset: f32,
     pub passive_distance: f32,
@@ -156,35 +92,13 @@ pub struct KeeperParameters {
     pub distance_to_goalpost: f32,
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct KickOffPose {
     pub position: Point2<Field>,
     pub rotation: f32,
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct SearchParameters {
     pub position_reached_distance: f32,
     pub rotation_per_step: f32,
@@ -193,18 +107,7 @@ pub struct SearchParameters {
     pub estimated_ball_speed: f32,
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct WalkAndStandParameters {
     pub hysteresis: nalgebra::Vector2<f32>,
     pub goalkeeper_hysteresis: nalgebra::Vector2<f32>,
@@ -217,34 +120,12 @@ pub struct WalkAndStandParameters {
     pub supporter_hysteresis: nalgebra::Vector2<f32>,
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct LostBallParameters {
     pub offset_to_last_ball_location: Vector2<Field>,
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct InterceptBallParameters {
     pub maximum_ball_distance: f32,
     pub minimum_ball_velocity: f32,
@@ -253,17 +134,7 @@ pub struct InterceptBallParameters {
     pub maximum_intercept_distance: f32,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct PathPlanningParameters {
     pub arc_walking_speed: f32,
     pub ball_obstacle_radius: f32,
@@ -276,17 +147,7 @@ pub struct PathPlanningParameters {
     pub half_rotation: Duration,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct GameStateFilterParameters {
     pub game_controller_controller_delay: Duration,
     pub playing_message_delay: Duration,
@@ -299,35 +160,14 @@ pub struct GameStateFilterParameters {
     pub duration_to_keep_new_penalties: Duration,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct ImageRegionParameters {
     pub bottom: Point2<NormalizedPixel>,
     pub center: Point2<NormalizedPixel>,
     pub top: Point2<NormalizedPixel>,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct LookAroundParameters {
     pub look_around_timeout: Duration,
     pub quick_search_timeout: Duration,
@@ -340,17 +180,7 @@ pub struct LookAroundParameters {
     pub initial_right_positions: HeadJoints<f32>,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct HeadMotionParameters {
     pub maximum_pitch: f32,
     pub minimum_pitch: f32,
@@ -361,17 +191,7 @@ pub struct HeadMotionParameters {
     pub injected_head_joints: Option<HeadJoints<f32>>,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct HslNetworkParameters {
     pub game_controller_return_message_interval: Duration,
     pub remaining_amount_of_messages_to_stop_sending: u16,
@@ -380,18 +200,7 @@ pub struct HslNetworkParameters {
     pub hsl_state_message_send_interval: Duration,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub enum MedianModeParameters {
     #[default]
     Disabled,
@@ -399,50 +208,19 @@ pub enum MedianModeParameters {
     FivePixels,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub enum EdgeDetectionSourceParameters {
     #[default]
     Luminance,
     GreenChromaticity,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct BallProjectionParameters {
     pub detection_noise: Vector2<Pixel>,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
 pub struct BallFilterNoise {
     pub detection_noise: Vector2<Pixel>,
     pub process_noise_moving: nalgebra::Vector4<f32>,
@@ -450,17 +228,7 @@ pub struct BallFilterNoise {
     pub initial_covariance: nalgebra::Vector4<f32>,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
 pub struct BallFilterParameters {
     pub hypothesis_timeout: Duration,
     pub maximum_number_of_hypotheses: usize,
@@ -477,17 +245,7 @@ pub struct BallFilterParameters {
     pub maximum_matching_cost_validity_penalty_factor: f32,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct ObstacleFilterParameters {
     pub use_detected_objects: bool,
     pub use_detected_person_obstacles: bool,
@@ -513,34 +271,14 @@ pub struct ObstacleFilterParameters {
     pub goal_post_obstacle_radius: f32,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct CameraMatrixParameters {
     pub camera_to_head_pitch: f32,
     pub correction_in_robot: Vector3<Robot>,
     pub correction_in_camera: Vector3<Camera>,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct SearchSuggestorParameters {
     pub cells_per_meter: f32,
     pub heatmap_convolution_kernel_weight: f32,
@@ -554,34 +292,14 @@ pub struct SearchSuggestorParameters {
     pub heatmap_decay_range: Range<f32>,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct PenaltyShotDirectionParameters {
     pub moving_distance_threshold: f32,
     pub minimum_velocity: f32,
     pub center_jump_trigger_radius: f32,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct RLWalkingParameters {
     pub gait_frequency: f32,
     pub stabilizing_interval_compression_factor: f32,
@@ -600,34 +318,14 @@ pub struct RLWalkingParameters {
     pub deceleration_distance: f32,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct WalkWithVelocityParameters {
     pub max_velocity: f32,
     pub max_angular_velocity: f32,
     pub angular_velocity_scaling_factor: f32,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct NormalizationParameters {
     pub gravity: f32,
     pub linear_velocity: f32,
@@ -637,34 +335,14 @@ pub struct NormalizationParameters {
     pub clip_actions: f32,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct ControlParameters {
     pub dt: f32,
     pub action_scale: f32,
     pub decimation: f32,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct DetectionParameters {
     pub enable: bool,
     pub neural_networks_folder: PathBuf,
@@ -673,48 +351,19 @@ pub struct DetectionParameters {
     pub pose_detection_parameters: PoseDetectionParameters,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct ObjectDetectionParameters {
     pub maximum_intersection_over_union: f32,
     pub minimum_candidate_confidence: f32,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct PoseDetectionParameters {
     pub maximum_intersection_over_union: f32,
     pub minimum_candidate_confidence: f32,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Deserialize, Serialize, ros_z::Message)]
 pub struct WalkSpeedParameters {
     pub kicking: f32,
     pub search: f32,
@@ -737,17 +386,7 @@ impl Default for WalkSpeedParameters {
     }
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct KickingParameters {
     pub allow_schlong: bool,
     pub distance_for_kick: f32,
@@ -758,49 +397,19 @@ pub struct KickingParameters {
     pub kick_position_ball_distance: f32,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct BoosterKickingParameters {
     pub kick_message_interval: Duration,
     pub kick_power: KickPowerParameters,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct KickPowerParameters {
     pub rumpelstilzchen: f64,
     pub schlong: f64,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct AllowSwitchParameters {
     pub kick: Duration,
     pub prepare: Duration,
@@ -810,17 +419,7 @@ pub struct AllowSwitchParameters {
     pub damping: Duration,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
 pub struct SubstatesParameters {
     pub distance_for_kick: f32,
     pub distance_for_kick_hysteresis: f32,
@@ -829,17 +428,7 @@ pub struct SubstatesParameters {
     pub corner_kick_blocking_angle: f32,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
 pub struct ImageSegmenterParameters {
     pub horizontal_edge_threshold: u8,
     pub horizontal_median_mode: MedianModeParameters,
@@ -851,17 +440,7 @@ pub struct ImageSegmenterParameters {
     pub field_color_detection: FieldColorParameters,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
 pub struct FieldBorderDetectionParameters {
     pub enable: bool,
     pub angle_threshold: f32,
@@ -870,17 +449,7 @@ pub struct FieldBorderDetectionParameters {
     pub second_line_association_distance: f32,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
 pub struct LineDetectionParameters {
     pub use_horizontal_segments: bool,
     pub use_vertical_segments: bool,

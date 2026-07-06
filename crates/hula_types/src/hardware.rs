@@ -2,9 +2,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-
-#[derive(Clone, Debug, Serialize, PathSerialize, Deserialize, PathDeserialize, PathIntrospect)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Ids {
     pub robot_id: String,
 }

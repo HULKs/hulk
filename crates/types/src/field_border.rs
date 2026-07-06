@@ -4,19 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
 use linear_algebra::Point2;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
 pub struct FieldBorder {
     pub border_lines: Vec<LineSegment<Pixel>>,
 }

@@ -1,22 +1,11 @@
 use filtering::hysteresis::less_than_with_absolute_hysteresis;
 use kinematics::joints::Joints;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::cycle_time::CycleTime;
 
 use crate::parameters::CurrentMinimizerParameters;
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct CurrentMinimizer {
     minimum_reached: bool,
     position_offset: Joints<f32>,

@@ -10,7 +10,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use booster::{LedColor, RobotMode};
+use booster::{
+    LedColor, RobotMode,
+    walking::{WalkingParameters, step_from_motion_command},
+};
 use color_eyre::{Result, eyre::WrapErr};
 use kinematics::joints::head::HeadJoints;
 use retry_worker::{RetryCommand, run_retrying_rpc_worker};
@@ -32,14 +35,6 @@ pub use loco_client::LocoClient;
 pub use rpc_transport::ZenohRpcClient;
 
 const MOTION_COMMAND_TOPIC: &str = "behavior/motion_command";
-
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct WalkingParameters {
-    pub hybrid_align_distance: f32,
-    pub max_alignment_rate: f32,
-    pub deceleration_distance: f32,
-}
 
 #[derive(Debug, Serialize, Deserialize, Message)]
 pub enum LedCommand {
@@ -415,7 +410,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     && state.assumed_mode == control::DesiredMode::Soccer
                     && due(state.last_move_robot, now, parameters.move_robot_message_interval)
                 {
-                    let step = control::step_from_motion_command(motion_command, &parameters.walking);
+                    let step = step_from_motion_command(motion_command, &parameters.walking);
                     let attempt = rpc_diagnostics.begin(RpcActionKind::MoveRobot);
                     info!(
                         target: "booster_interface::rpc",

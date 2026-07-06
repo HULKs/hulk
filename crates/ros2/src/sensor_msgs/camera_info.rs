@@ -36,7 +36,6 @@
 ///
 /// The image dimensions with which the camera was calibrated.
 /// Normally this will be the full camera resolution in pixels.
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
@@ -47,17 +46,7 @@ use pyo3::{pyclass, pymethods};
 
 #[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[repr(C)]
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PathIntrospect,
-    PathSerialize,
-    PathDeserialize,
-    Message,
-)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Message)]
 pub struct CameraInfo {
     /// Time of image acquisition, camera coordinate frame ID
     /// Header timestamp should be acquisition time of image

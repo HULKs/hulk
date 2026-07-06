@@ -1,7 +1,6 @@
-use std::{collections::HashSet, marker::PhantomData, ops::Mul};
+use std::{marker::PhantomData, ops::Mul};
 
 use approx::{AbsDiffEq, RelativeEq};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize, deserialize, serialize};
 use ros_z::{Message, MessageSchema, SchemaBuilder, SerdeCdrCodec};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
@@ -195,46 +194,5 @@ where
         D: serde::Deserializer<'a>,
     {
         Ok(Self::wrap(Inner::deserialize(deserializer)?))
-    }
-}
-
-impl<From, To, Inner> PathSerialize for Transform<From, To, Inner>
-where
-    Inner: PathSerialize,
-{
-    fn serialize_path<S>(
-        &self,
-        path: &str,
-        serializer: S,
-    ) -> Result<S::Ok, serialize::Error<S::Error>>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize_path(path, serializer)
-    }
-}
-
-impl<From, To, Inner> PathDeserialize for Transform<From, To, Inner>
-where
-    Inner: PathDeserialize,
-{
-    fn deserialize_path<'de, D>(
-        &mut self,
-        path: &str,
-        deserializer: D,
-    ) -> Result<(), deserialize::Error<D::Error>>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        self.inner.deserialize_path(path, deserializer)
-    }
-}
-
-impl<From, To, Inner> PathIntrospect for Transform<From, To, Inner>
-where
-    Inner: PathIntrospect,
-{
-    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
-        Inner::extend_with_fields(fields, prefix)
     }
 }

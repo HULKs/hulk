@@ -1,7 +1,6 @@
 use clap::Args;
 use color_eyre::{Result, eyre::WrapErr};
-use parameters::directory::LocationTarget;
-use repository::Repository;
+use repository::{Repository, location::LocationTarget};
 use tokio::io::{AsyncBufReadExt, BufReader, stdin};
 
 use crate::{
@@ -67,7 +66,7 @@ pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Resul
 
     configure_repository(repository, config).await?;
     add_all().await?;
-    create_commit("Add player number assigments and framework config")
+    create_commit("Add player number assigments and deployment config")
         .await
         .wrap_err("failed to create commit")?;
 

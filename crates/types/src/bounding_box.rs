@@ -1,20 +1,9 @@
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
 use geometry::rectangle::Rectangle;
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ros_z::Message)]
 pub struct BoundingBox {
     pub area: Rectangle<Pixel>,
     pub confidence: f32,

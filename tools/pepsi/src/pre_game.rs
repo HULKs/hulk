@@ -27,9 +27,6 @@ pub struct Arguments {
     pub environment: EnvironmentArguments,
     #[command(flatten, next_help_heading = "Cargo Options")]
     pub build: build::Arguments,
-    /// Use old booster binary
-    #[arg(long)]
-    pub old: bool,
 }
 
 #[derive(Args)]
@@ -77,17 +74,14 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         .wrap_err("failed to configure repository")?;
 
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
-    let binary_name = match arguments.old {
-        true => "hulk_booster",
-        false => "hulk_ros_z",
-    };
-    let hulk_binary = get_binary(arguments.build.profile(), binary_name);
+    const BINARY_NAME: &str = "hulk_ros_z";
+    let hulk_binary = get_binary(arguments.build.profile(), BINARY_NAME);
 
     let cargo_arguments = cargo::Arguments {
         manifest: Some(
             repository
                 .root
-                .join(format!("crates/{binary_name}/Cargo.toml"))
+                .join(format!("crates/{BINARY_NAME}/Cargo.toml"))
                 .into_os_string(),
         ),
         environment: arguments.environment,

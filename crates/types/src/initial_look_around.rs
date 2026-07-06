@@ -1,20 +1,8 @@
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use crate::support_foot::Side;
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, ros_z::Message)]
 pub enum BallSearchLookAround {
     Center { moving_towards: Side },
     Left,
@@ -31,54 +19,19 @@ impl Default for BallSearchLookAround {
     }
 }
 
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, ros_z::Message)]
 pub struct QuickLookAround {
     pub mode: BallSearchLookAround,
 }
 
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, ros_z::Message)]
 pub enum InitialLookAround {
     #[default]
     Left,
     Right,
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, ros_z::Message)]
 pub enum LookAroundMode {
     Center,
     BallSearch(BallSearchLookAround),

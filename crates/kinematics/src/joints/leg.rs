@@ -3,24 +3,11 @@ use std::{
     time::Duration,
 };
 
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use super::mirror::Mirror;
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize, ros_z::Message)]
 pub enum LegJoint {
     HipPitch,
     HipRoll,
@@ -30,20 +17,7 @@ pub enum LegJoint {
     AnkleDown,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, ros_z::Message)]
 pub struct LegJoints<T = f32> {
     pub hip_pitch: T,
     pub hip_roll: T,

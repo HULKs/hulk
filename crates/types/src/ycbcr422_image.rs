@@ -14,32 +14,16 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
 use linear_algebra::{Point2, vector};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::{
-    color::{Rgb, YCbCr422, YCbCr444},
-    jpeg::JpegImage,
-};
+use crate::color::{Rgb, YCbCr422, YCbCr444};
 use ros2::sensor_msgs::image::Image as Ros2Image;
 
 pub const SAMPLE_SIZE: usize = 32;
 
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathIntrospect,
-    PathDeserialize,
-    Message,
-)]
-#[path_serde(add_leaf(jpeg: JpegImage))]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
 pub struct YCbCr422Image {
     width_422: u32,
     height: u32,
-    #[path_serde(leaf)]
     buffer: Arc<Vec<YCbCr422>>,
 }
 

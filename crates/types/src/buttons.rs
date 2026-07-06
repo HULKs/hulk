@@ -1,20 +1,22 @@
 use std::ops::{Index, IndexMut};
 
-use booster::ButtonEventType;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Debug,
-    ros_z::Message,
-)]
+#[repr(i8)]
+#[cfg_attr(feature = "pyo3", pyo3::pyclass(frozen, get_all))]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ros_z::Message)]
+pub enum ButtonEventType {
+    PressDown,
+    PressUp,
+    SingleClick,
+    DoubleClick,
+    TripleClick,
+    LongPressStart,
+    LongPressHold,
+    LongPressEnd,
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, ros_z::Message)]
 pub enum ButtonPressType {
     Short,
     Long,
@@ -36,18 +38,7 @@ impl ButtonPressType {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Default,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Debug,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Default, Serialize, Deserialize, Debug, ros_z::Message)]
 pub struct Buttons<T> {
     pub f1: T,
     pub stand: T,

@@ -1,23 +1,49 @@
-use std::io::ErrorKind;
+use std::{
+    fmt::{self, Display, Formatter},
+    io::ErrorKind,
+};
 
+use clap::ValueEnum;
 use color_eyre::{
     Result,
     eyre::{Context, bail, eyre},
 };
 use futures_util::{StreamExt, stream::FuturesUnordered};
 use itertools::intersperse;
+use serde::{Deserialize, Serialize};
 use tokio::{
     fs::{read_dir, read_link, remove_file, symlink, try_exists},
     io,
 };
 
-use parameters::directory::LocationTarget;
-
 use crate::Repository;
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
+pub enum LocationTarget {
+    Default,
+}
+
+impl Display for LocationTarget {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        formatter.write_str(match self {
+            LocationTarget::Default => "default",
+        })
+    }
+}
+
+impl LocationTarget {
+    pub fn all() -> [Self; 1] {
+        [Self::Default]
+    }
+
+    pub fn file_name(&self) -> String {
+        format!("{self}_location")
+    }
+}
 
 impl Repository {
     pub async fn list_configured_locations(&self) -> Result<Vec<(String, Option<String>)>> {
-        let parameters_root = &self.root.join("etc/parameters/ros_z/location");
+        let parameters_root = &self.root.join("etc/parameters/location");
         let targets: Vec<_> = LocationTarget::all()
             .into_iter()
             .map(|target| async move {
@@ -56,7 +82,7 @@ impl Repository {
     }
 
     pub async fn set_location(&self, target: LocationTarget, location: &str) -> Result<()> {
-        let parameters_root = self.root.join("etc/parameters/ros_z/location");
+        let parameters_root = self.root.join("etc/parameters/location");
         if !try_exists(parameters_root.join(location))
             .await
             .wrap_err_with(|| format!("failed checking if location '{location}' exists"))?
@@ -84,7 +110,7 @@ impl Repository {
     }
 
     pub async fn list_available_locations(&self) -> Result<Vec<String>> {
-        let parameters_root = self.root.join("etc/parameters/ros_z/location");
+        let parameters_root = self.root.join("etc/parameters/location");
         let mut locations = read_dir(parameters_root)
             .await
             .wrap_err("failed to read parameters directory")?;

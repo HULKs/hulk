@@ -7,35 +7,14 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::Ground;
 use geometry::{arc::Arc, line_segment::LineSegment};
 use linear_algebra::Point2;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-#[derive(
-    Clone,
-    Debug,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Message)]
 pub enum PathSegment {
     LineSegment(LineSegment<Ground>),
     Arc(Arc<Ground>),
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
-)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Message)]
 pub struct Path {
     pub segments: Vec<PathSegment>,
 }

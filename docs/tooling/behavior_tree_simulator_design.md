@@ -85,12 +85,12 @@ impl SimulatorRobotBehavior {
 
 The production behavior node remains the ROS adapter:
 
-- Read framework inputs.
+- Read ROS node inputs.
 - Fill the production `Blackboard`.
 - Tick `behavior_node::tree::create_tree()`.
 - Plan outgoing communication through `Blackboard` methods.
 - Send planned network messages through the production hardware interface.
-- Fill framework outputs.
+- Publish ROS node outputs.
 - Store `last_motion_command` on the `Blackboard`.
 
 The simulator should call its adapter directly and avoid ROS node/cache construction.

@@ -2,15 +2,13 @@ use std::time::SystemTime;
 
 use bevy::prelude::*;
 use booster::FallDownState;
+use booster::walking::WalkingParameters;
 use color_eyre::Result;
 use coordinate_systems::{Field, Ground, World};
 use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{Isometry2, Orientation2, Point2};
 use serde::Serializer;
-use types::{
-    parameters::{BehaviorParameters, RLWalkingParameters},
-    primary_state::PrimaryState,
-};
+use types::{parameters::BehaviorParameters, primary_state::PrimaryState};
 
 use crate::behavior_tree_simulator::{SimulatorRobotBehavior, default_walking_parameters};
 
@@ -106,7 +104,7 @@ pub struct SimulatorPrimaryState {
 #[derive(Component, Clone, Debug)]
 pub struct SimulatorRobotParameters {
     pub behavior: BehaviorParameters,
-    pub walking: RLWalkingParameters,
+    pub walking: WalkingParameters,
 }
 
 #[derive(Component, Clone, Copy, Debug, Default)]
