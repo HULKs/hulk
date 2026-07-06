@@ -12,10 +12,8 @@ use ros_z::parameter::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use tokio::{
-    sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
-    task::JoinHandle,
-};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
+use tokio_util::task::AbortOnDropHandle;
 
 use crate::panel::{Panel, PanelCreationContext, PanelUiContext};
 
@@ -143,7 +141,7 @@ struct RemoteState {
     pending_count: usize,
     event_subscription_node: Option<String>,
     event_subscription_generation: u64,
-    event_subscription_task: Option<EventSubscriptionTask>,
+    event_subscription_task: Option<AbortOnDropHandle<()>>,
     refresh_snapshot_after_pending: bool,
     refresh_snapshot_metadata_after_pending: bool,
 }
@@ -547,7 +545,7 @@ impl ParameterPanel {
                 sender.send(RemoteOperationResult::EventSubscriptionFailed { generation, node });
             egui_context.request_repaint();
         });
-        self.remote.event_subscription_task = Some(EventSubscriptionTask(task));
+        self.remote.event_subscription_task = Some(AbortOnDropHandle::new(task));
     }
 
     fn spawn_value_fetch(&mut self, context: &PanelUiContext<'_>) {
@@ -1012,14 +1010,6 @@ impl ParameterPanel {
     }
 }
 
-struct EventSubscriptionTask(JoinHandle<()>);
-
-impl Drop for EventSubscriptionTask {
-    fn drop(&mut self) {
-        self.0.abort();
-    }
-}
-
 fn parameter_nodes_from_service_names<I, S>(services: I) -> Vec<String>
 where
     I: IntoIterator<Item = S>,
@@ -1159,7 +1149,7 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        EventSubscriptionTask, NodeRemoteAction, Panel, ParameterPanel, RemoteFollowUp,
+        AbortOnDropHandle, NodeRemoteAction, Panel, ParameterPanel, RemoteFollowUp,
         RemoteOperationResult, RemoteState, SetRequest, SnapshotRequest, SnapshotRequestKind,
         SnapshotState, Status, ValueRequest, collect_parameter_paths, parameter_node_completions,
         parameter_nodes_from_service_names, parse_editor_json, parse_snapshot_path_completions,
@@ -1489,7 +1479,7 @@ mod tests {
             remote: RemoteState {
                 event_subscription_node: Some("/motion/walk".to_string()),
                 event_subscription_generation: 2,
-                event_subscription_task: Some(EventSubscriptionTask(task)),
+                event_subscription_task: Some(AbortOnDropHandle::new(task)),
                 ..Default::default()
             },
             ..Default::default()
