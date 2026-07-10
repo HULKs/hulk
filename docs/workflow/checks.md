@@ -12,7 +12,5 @@ These are the most important checks:
 | Lint Rust code        | `./pepsi clippy`                                         |
 | Format Rust code      | `cargo fmt`                                              |
 | Format TOML files     | Install [Taplo](https://taplo.tamasfe.dev/); `taplo fmt` |
-| Check parameter files | `./pepsi run parameter_tester`                           |
 
 The checks performed in our CI workflow are defined in `.github/workflows/pull-request.yml`.
-
