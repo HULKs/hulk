@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use argument_parsers::RobotAddress;
-use clap::{Args, CommandFactory};
+use clap::Args;
 use color_eyre::{
     Result,
     eyre::{WrapErr, bail},
@@ -46,6 +46,7 @@ pub struct UploadArguments {
     #[arg(long)]
     pub prepare: bool,
     /// The Robots to upload to e.g. 20w or 10.1.24.22
+    #[arg(required_unless_present("prepare"))]
     pub robots: Vec<RobotAddress>,
 }
 
@@ -119,15 +120,6 @@ async fn upload_with_progress(
 }
 
 pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()> {
-    if !arguments.upload.prepare && arguments.upload.robots.is_empty() {
-        crate::Arguments::command()
-            .error(
-                clap::error::ErrorKind::ArgumentConflict,
-                "Specify at least one robot to upload to, or use --prepare to build without uploading",
-            )
-            .exit();
-    }
-
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
     const BINARY_NAME: &str = "hulk_ros_z";
     let hulk_binary = get_binary(arguments.build.profile(), BINARY_NAME);
