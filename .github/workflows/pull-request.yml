@@ -158,6 +158,29 @@ jobs:
       - name: Build
         run: ./pepsi build --locked --release ${{ matrix.tool }}
 
+  build_pepsi_android:
+    name: Build pepsi for Android
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.92.0
+      options: --user=1000:1000
+    env:
+      TARGET: aarch64-linux-android
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust target
+        run: rustup target add ${{ env.TARGET }}
+      - uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27d
+      - name: Build
+        env:
+          CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang
+        run: ./pepsi build --locked --release --target ${{ env.TARGET }} pepsi
+
   # build_mkdocs:
   #   name: Build mkdocs
   #   runs-on: ubuntu-latest
