@@ -42,7 +42,7 @@ pub struct UploadArguments {
     /// Skip the OS version check
     #[arg(long)]
     pub skip_os_check: bool,
-    /// Do not build before uploading
+    /// Build, don't upload
     #[arg(long)]
     pub prepare: bool,
     /// The Robots to upload to e.g. 20w or 10.1.24.22
