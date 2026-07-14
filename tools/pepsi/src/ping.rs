@@ -12,10 +12,10 @@ use crate::progress_indicator::ProgressIndicator;
 #[derive(Args)]
 pub struct Arguments {
     /// Timeout in seconds after which ping is aborted
-    #[arg(long, short, default_value = "1")]
+    #[arg(long, short, default_value = "1", visible_alias = "auszeit")]
     pub timeout: f64,
     /// Repeat ping indefinitely
-    #[arg(long, short)]
+    #[arg(long, short, visible_alias = "beobachte", visible_alias = "armbanduhr")]
     pub watch: bool,
     /// Interval in seconds between ping attempts when watching
     #[arg(long, short, default_value = "1")]

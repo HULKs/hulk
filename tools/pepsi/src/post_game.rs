@@ -18,10 +18,14 @@ use crate::{deploy_config::DeployConfig, progress_indicator::ProgressIndicator};
 #[derive(Args)]
 pub struct Arguments {
     /// Do not disconnect from the WiFi network
-    #[arg(long)]
+    #[arg(long, visible_alias = "nich-trennen")]
     pub no_disconnect: bool,
     /// Directory where to store the downloaded logs (will be created if not existing)
-    #[arg(long)]
+    #[arg(
+        long,
+        visible_alias = "baumstammverzeichnis",
+        visible_alias = "tagebuchverzeichnis"
+    )]
     pub log_directory: Option<PathBuf>,
     /// Current game phase
     #[arg(value_enum)]

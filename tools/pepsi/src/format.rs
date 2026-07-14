@@ -14,7 +14,7 @@ use crate::progress_indicator::ProgressIndicator;
 #[derive(Args)]
 pub struct Arguments {
     /// Run only in check mode and do not make changes in the filesystem
-    #[arg(long)]
+    #[arg(long, visible_alias = "prüf")]
     check: bool,
 }
 

@@ -31,19 +31,19 @@ pub struct Arguments {
 #[derive(Args)]
 pub struct UploadArguments {
     /// Do not build before uploading
-    #[arg(long)]
+    #[arg(long, visible_alias = "nich-bauen")]
     pub no_build: bool,
     /// Do not restart HULK nor HULA service after uploading
-    #[arg(long)]
+    #[arg(long, visible_alias = "nich-neustarten")]
     pub no_restart: bool,
     /// Do not remove existing remote files during uploading
-    #[arg(long)]
+    #[arg(long, visible_alias = "nich-säubern")]
     pub no_clean: bool,
     /// Skip the OS version check
-    #[arg(long)]
+    #[arg(long, visible_alias = "überspringe-bs-prüfung")]
     pub skip_os_check: bool,
     /// Build, don't upload
-    #[arg(long)]
+    #[arg(long, visible_alias = "vorbereit")]
     pub prepare: bool,
     /// The Robots to upload to e.g. 20w or 10.1.24.22
     #[arg(required_unless_present("prepare"))]

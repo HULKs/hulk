@@ -61,11 +61,11 @@ mod wifi;
 #[clap(version, name = "pepsi")]
 struct Arguments {
     /// Alternative repository root
-    #[arg(long)]
+    #[arg(long, visible_alias = "lagerstättenwurzel")]
     repository_root: Option<PathBuf>,
     #[command(subcommand)]
     command: Command,
-    #[arg(long)]
+    #[arg(long, visible_alias = "gesprächig")]
     verbose: bool,
 }
 

@@ -16,14 +16,14 @@ pub enum Arguments {
     #[command(visible_alias = "installier")]
     Install {
         /// SDK version e.g. `1.0.0`. If not provided, version specified by `hulk.toml` is used.
-        #[arg(long)]
+        #[arg(long, visible_alias = "abbild", visible_alias = "bild")]
         image: Option<String>,
     },
     /// Builds the SDK image
     #[command(visible_alias = "bau")]
     Build {
         /// SDK version e.g. `3.3.1`. If not provided, version specified by `hulk.toml` is used.
-        #[arg(long)]
+        #[arg(long, visible_alias = "abbild", visible_alias = "bild")]
         image: Option<String>,
     },
     #[command(visible_alias = "aufzähl")]
