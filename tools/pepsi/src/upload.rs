@@ -42,8 +42,11 @@ pub struct UploadArguments {
     /// Skip the OS version check
     #[arg(long)]
     pub skip_os_check: bool,
+    /// Build, don't upload
+    #[arg(long)]
+    pub prepare: bool,
     /// The Robots to upload to e.g. 20w or 10.1.24.22
-    #[arg(required = true)]
+    #[arg(required_unless_present("prepare"))]
     pub robots: Vec<RobotAddress>,
 }
 
@@ -136,6 +139,10 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         cargo(cargo_arguments, repository, &[&hulk_binary])
             .await
             .wrap_err("failed to build")?;
+    }
+
+    if arguments.upload.prepare {
+        return Ok(());
     }
 
     repository
