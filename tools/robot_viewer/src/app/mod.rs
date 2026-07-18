@@ -4,9 +4,9 @@ use coordinate_systems::{Camera, Field, Robot};
 use eframe::{
     App, CreationContext, Frame,
     egui::{
-        self, CentralPanel, Color32, ColorImage, Context, FontId, PointerButton, Pos2, Rect,
-        RichText, Sense, SidePanel, Stroke, StrokeKind, TextureHandle, TextureOptions, Ui, Vec2,
-        Widget, pos2, vec2,
+        self, CentralPanel, Color32, ColorImage, Context, FontId, Panel, PointerButton, Pos2, Rect,
+        RichText, Sense, Stroke, StrokeKind, TextureHandle, TextureOptions, Ui, Vec2, Widget, pos2,
+        vec2,
     },
 };
 use egui_bevy::BevyWidget;
@@ -118,7 +118,7 @@ impl RobotViewerApp {
 }
 
 impl App for RobotViewerApp {
-    fn update(&mut self, context: &Context, _frame: &mut Frame) {
+    fn ui(&mut self, ui: &mut Ui, _frame: &mut Frame) {
         let (status, mut aligned) = {
             let mut state = self
                 .state
@@ -129,19 +129,19 @@ impl App for RobotViewerApp {
         self.render_samples.stabilize(&mut aligned);
 
         self.update_camera_texture(
-            context,
+            ui.ctx(),
             aligned
                 .camera_frame
                 .as_ref()
                 .map(|camera_frame| camera_frame.inner.as_ref()),
         );
-        self.header(context, &status);
-        self.camera_panel(context, &aligned);
+        self.header(ui, &status);
+        self.camera_panel(ui, &aligned);
         self.widget
             .bevy_app
             .world_mut()
             .insert_resource(ViewerData::from_aligned_state(aligned, self.pose_source));
-        self.viewport(context);
+        self.viewport(ui);
     }
 }
 
@@ -167,12 +167,12 @@ impl RobotViewerApp {
         self.camera_texture_sequence = frame.sequence;
     }
 
-    fn camera_panel(&mut self, context: &Context, state: &AlignedViewerState) {
-        SidePanel::right("camera_panel")
+    fn camera_panel(&mut self, ui: &mut Ui, state: &AlignedViewerState) {
+        Panel::right("camera_panel")
             .resizable(true)
-            .default_width(440.0)
-            .width_range(300.0..=900.0)
-            .show(context, |ui| {
+            .default_size(440.0)
+            .size_range(300.0..=900.0)
+            .show(ui, |ui| {
                 ui.vertical(|ui| {
                     ui.heading("Camera");
                     ui.label(
@@ -334,10 +334,10 @@ impl RobotViewerApp {
         camera_image_rect(viewport_rect, image_size, self.camera_zoom, self.camera_pan)
     }
 
-    fn viewport(&mut self, context: &Context) {
+    fn viewport(&mut self, ui: &mut Ui) {
         CentralPanel::default()
-            .frame(egui::Frame::central_panel(&context.style()).fill(Color32::from_rgb(16, 18, 22)))
-            .show(context, |ui| {
+            .frame(egui::Frame::central_panel(ui.style()).fill(Color32::from_rgb(16, 18, 22)))
+            .show(ui, |ui| {
                 ui.vertical(|ui| {
                     ui.horizontal(|ui| {
                         ui.heading("3D Field");

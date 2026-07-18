@@ -132,9 +132,9 @@ bat = { version = "0.25.0", default-features = false, features = [
   "regex-fancy",
 ] }
 behavior_node = { path = "crates/nodes/behavior_node" }
-bevy = { version = "0.18.0", default-features = false }
+bevy = { version = "0.19.0", default-features = false }
 bevy_mujoco = { path = "crates/bevy_mujoco" }
-bevy_panorbit_camera = { version = "0.34.0", features = ["bevy_egui"] }
+bevy_panorbit_camera = "0.35.0"
 bincode = "1.3.3"
 bindgen = "0.71.1"
 blake3 = { version = "1.8.2", features = ["mmap", "serde"] }
@@ -163,12 +163,12 @@ derive_more = { version = "2.0.1", features = [
 ] }
 detection = { path = "crates/nodes/detection" }
 dirs = "6.0.0"
-eframe = { version = "0.33.3", features = ["persistence", "wgpu"] }
-egui = { version = "0.33.3", features = ["persistence"] }
+eframe = { version = "0.35.0", features = ["persistence", "wgpu"] }
+egui = { version = "0.35.0", features = ["persistence"] }
 egui_bevy = { path = "crates/egui_bevy" }
-egui_dock = { version = "0.18.0", features = ["serde"] }
-egui_extras = { version = "0.33.3", features = ["image"] }
-egui_plot = "0.34.0"
+egui_dock = { version = "0.20.1", features = ["serde"] }
+egui_extras = { version = "0.35.0", features = ["image"] }
+egui_plot = "0.36.0"
 energy_optimization = { path = "crates/energy_optimization" }
 enum-iterator = "2.1.0"
 enum_dispatch = "0.3.13"
@@ -331,7 +331,7 @@ types = { path = "crates/types" }
 twix_visualization = { path = "crates/twix_visualization" }
 uuid = { version = "1.12.1", features = ["v4"] }
 voronoi = { path = "crates/voronoi" }
-wgpu = "27.0.0"
+wgpu = "29.0.3"
 whistle_detection = { path = "crates/nodes/whistle_detection" }
 whistle_filter = { path = "crates/nodes/whistle_filter" }
 world_state_composer = { path = "crates/nodes/world_state_composer" }
@@ -356,9 +356,9 @@ serde = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6
 serde_derive = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
 serde_core = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
-egui = { git = "https://github.com/HULKs/egui/", rev = "c310aad9c54618e8845b6707899e2678fec8b842" }
-egui-wgpu = { git = "https://github.com/HULKs/egui/", rev = "c310aad9c54618e8845b6707899e2678fec8b842" }
-emath = { git = "https://github.com/HULKs/egui/", rev = "c310aad9c54618e8845b6707899e2678fec8b842" }
+egui = { git = "https://github.com/HULKs/egui/", rev = "3db83369ad8ca00b215768b6f4e886d697abcb82" }
+egui-wgpu = { git = "https://github.com/HULKs/egui/", rev = "3db83369ad8ca00b215768b6f4e886d697abcb82" }
+emath = { git = "https://github.com/HULKs/egui/", rev = "3db83369ad8ca00b215768b6f4e886d697abcb82" }
 
 [profile.dev]
 opt-level = 3
