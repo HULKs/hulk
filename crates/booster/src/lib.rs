@@ -111,7 +111,7 @@ impl LowState {
                 .copied()
                 .collect::<Joints<MotorState>>())
         } else {
-            bail!("failed to construct motor states")
+            bail!("failed to construct motor states");
         }
     }
 
@@ -123,7 +123,7 @@ impl LowState {
                 .copied()
                 .collect::<Joints<MotorState>>())
         } else {
-            bail!("failed to construct motor states")
+            bail!("failed to construct motor states");
         }
     }
 }

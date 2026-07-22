@@ -30,7 +30,9 @@ async fn receive_connection_info(
                 return bincode::deserialize(&data).wrap_err("failed to deserialize");
             }
             Message::Ping(_) | Message::Pong(_) | Message::Frame(_) => continue,
-            Message::Close(_) => bail!("close requested"),
+            Message::Close(_) => {
+                bail!("close requested");
+            }
         }
     }
 }

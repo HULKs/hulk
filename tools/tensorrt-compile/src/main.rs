@@ -138,12 +138,14 @@ fn resolve_input_shapes(
         let dynamic = model_shape.iter().any(|dimension| *dimension < 0);
         let shape = match overrides.get(&input.name) {
             Some(shape) => validate_shape(&input.name, model_shape, shape)?,
-            None if dynamic => bail!(
-                "input '{}' has dynamic shape {}; pass --{} dim1,dim2,...",
-                input.name,
-                format_shape(model_shape),
-                input.name
-            ),
+            None if dynamic => {
+                bail!(
+                    "input '{}' has dynamic shape {}; pass --{} dim1,dim2,...",
+                    input.name,
+                    format_shape(model_shape),
+                    input.name
+                );
+            }
             None => model_shape.to_vec(),
         };
         resolved.push(InputShape {

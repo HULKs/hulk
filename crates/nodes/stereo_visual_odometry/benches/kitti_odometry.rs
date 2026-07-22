@@ -241,7 +241,9 @@ fn decode_gray_png(
             .chunks_exact(4)
             .map(|pixel| rgb_to_luma(pixel[0], pixel[1], pixel[2]))
             .collect(),
-        unsupported => bail!("unsupported PNG format for {path}: {unsupported:?}"),
+        unsupported => {
+            bail!("unsupported PNG format for {path}: {unsupported:?}");
+        }
     };
 
     Ok(GrayImage {
