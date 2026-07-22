@@ -492,10 +492,14 @@ impl CommandExt for Command {
 
         match process.wait().await?.code() {
             Some(0) => Ok(()),
-            Some(code) => bail!(
-                "{name}: process exited with error code {code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
-            ),
-            None => bail!("process was killed"),
+            Some(code) => {
+                bail!(
+                    "{name}: process exited with error code {code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+                );
+            }
+            None => {
+                bail!("process was killed");
+            }
         }
     }
 }
@@ -506,7 +510,9 @@ async fn fail_on_non_zero_exit_code(
     let maybe_code = process.wait().await?.code();
     match maybe_code {
         Some(0) => Ok(()),
-        None => bail!("process was killed"),
+        None => {
+            bail!("process was killed");
+        }
         Some(code) => {
             let mut stderr = String::new();
             process

@@ -21,7 +21,9 @@ macro_rules! impl_selectable_panel {
                     $(
                         <$name as $crate::panel::Panel>::STORAGE_ID => Ok(Self::$name),
                     )*
-                    _ => color_eyre::eyre::bail!("unknown panel storage id: {storage_id}"),
+                    _ => {
+                        color_eyre::eyre::bail!("unknown panel storage id: {storage_id}");
+                    }
                 }
             }
 

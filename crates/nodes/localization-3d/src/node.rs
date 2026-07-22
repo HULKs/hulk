@@ -240,7 +240,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             }
             result = &mut backend_handle => {
                 result.wrap_err("failed to join")?.wrap_err("solver failed")?;
-                bail!("solver stopped unexpectedly")
+                bail!("solver stopped unexpectedly");
             }
             result = frontend.wait_for_optimization_result() => {
                 result?;

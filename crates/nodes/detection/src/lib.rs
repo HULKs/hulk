@@ -232,7 +232,7 @@ fn extract_outputs<'a>(outputs: &'a SessionOutputs<'_>) -> Result<ModelOutputs<'
             "object detection output not of expected shape. Expected: {:?}, got: {:?}",
             TaskHead::ObjectDetection.expected_shape(),
             objects_output.shape()
-        )
+        );
     }
     let reshaped_objects_output = objects_output.squeeze().into_dimensionality()?;
 
@@ -242,7 +242,7 @@ fn extract_outputs<'a>(outputs: &'a SessionOutputs<'_>) -> Result<ModelOutputs<'
             "pose detection output not of expected shape. Expected: {:?}, got: {:?}",
             TaskHead::PoseDetection.expected_shape(),
             poses_output.shape()
-        )
+        );
     }
     let reshaped_pose_output = poses_output.squeeze().into_dimensionality()?;
 
