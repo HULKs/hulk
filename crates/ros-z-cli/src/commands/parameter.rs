@@ -234,7 +234,7 @@ where
         return Ok(());
     }
 
-    bail!("{action} failed for {node_fqn}: {}", response.message())
+    bail!("{action} failed for {node_fqn}: {}", response.message());
 }
 
 trait ParameterServiceResponse {

@@ -86,7 +86,9 @@ impl Robot {
             .await
         {
             Ok(output) if output.status.success() => Ok(Self::new(host)),
-            _ => bail!("No route to {host}"),
+            _ => {
+                bail!("No route to {host}");
+            }
         }
     }
 
@@ -507,7 +509,7 @@ async fn monitor_rsync_progress_with(
             result = process.wait() => {
                 if let Ok(status) = result
                     && !status.success() {
-                        bail!("rsync failed")
+                        bail!("rsync failed");
                     }
             }
         }

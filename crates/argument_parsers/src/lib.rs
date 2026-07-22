@@ -24,7 +24,9 @@ pub fn parse_systemctl_action(systemctl_action: &str) -> Result<SystemctlAction>
         "start" => Ok(SystemctlAction::Start),
         "status" => Ok(SystemctlAction::Status),
         "stop" => Ok(SystemctlAction::Stop),
-        _ => bail!("unexpected systemctl action"),
+        _ => {
+            bail!("unexpected systemctl action");
+        }
     }
 }
 
@@ -57,7 +59,9 @@ pub fn parse_network(network: &str) -> Result<Network> {
         "HSL_I" => Ok(Network::HslI),
         "HSL_J" => Ok(Network::HslJ),
         "HSL_HULKs" => Ok(Network::HslHulks),
-        _ => bail!("unexpected network"),
+        _ => {
+            bail!("unexpected network");
+        }
     }
 }
 
@@ -209,7 +213,9 @@ fn parse_assignment(input: &str) -> Result<(&str, PlayerNumber)> {
         "3" => PlayerNumber::Three,
         "4" => PlayerNumber::Four,
         "5" => PlayerNumber::Five,
-        _ => bail!("unexpected player number {player_number}"),
+        _ => {
+            bail!("unexpected player number {player_number}");
+        }
     };
     Ok((prefix, player_number))
 }

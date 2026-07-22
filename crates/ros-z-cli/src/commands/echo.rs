@@ -82,7 +82,9 @@ async fn receive_message(
     match deadline {
         Some(deadline) => match tokio::time::timeout_at(deadline, receive).await {
             Ok(result) => result.wrap_err_with(|| format!("subscriber receive failed for {topic}")),
-            Err(_) => bail!("timed out waiting for messages on {topic}"),
+            Err(_) => {
+                bail!("timed out waiting for messages on {topic}");
+            }
         },
         None => receive
             .await

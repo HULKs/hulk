@@ -100,7 +100,7 @@ fn main() -> Result<()> {
             let annotation_json = PathBuf::from_iter(["current", &dataset_name, "data.json"]);
             if !image_folder.exists() {
                 if offline {
-                    bail!("dataset {dataset_name} not present, but offline flag was set")
+                    bail!("dataset {dataset_name} not present, but offline flag was set");
                 }
                 println!("dataset {dataset_name} not present, downloading...");
                 rsync::rsync_to_local("current", &dataset_name)?;
