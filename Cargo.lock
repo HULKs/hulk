@@ -2559,9 +2559,10 @@ checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
 name = "cfg_aliases"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
+version = "0.1.2"
+dependencies = [
+ "cfg_aliases 0.2.2",
+]
 
 [[package]]
 name = "cfg_aliases"
@@ -10703,7 +10704,7 @@ version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1389c88ddd739ec6d3f8f83343764a0e944cd23cfbf126a9796a714b0b6edd6f"
 dependencies = [
- "cfg_aliases 0.1.1",
+ "cfg_aliases 0.1.2",
  "memchr",
  "proc-macro2",
  "quote",

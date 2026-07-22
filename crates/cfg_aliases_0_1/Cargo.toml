@@ -1,0 +1,8 @@
+[package]
+name = "cfg_aliases"
+version = "0.1.2"
+edition = "2018"
+publish = false
+
+[dependencies]
+cfg_aliases_0_2 = { package = "cfg_aliases", version = "0.2.2" }
