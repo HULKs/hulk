@@ -48,17 +48,18 @@ pub fn penalty_kick_striker_subtree() -> Node<Blackboard> {
 
 pub fn set_penalty_kick_target(blackboard: &mut Blackboard) -> Status {
     let field_dimensions = blackboard.field_dimensions;
-    let penalty_kick_target_y_offset = blackboard.parameters.substates.penalty_kick_target_y_offset;
-    let goal_post_y = field_dimensions.goal_inner_width / 2.0;
+    let penalty_kick_target_y_scale = blackboard.parameters.substates.penalty_kick_target_y_scale;
+    let target_goal_area_half =
+        field_dimensions.goal_inner_width / 2.0 * penalty_kick_target_y_scale;
 
     let target = match (blackboard.last_motion_type, blackboard.last_kick_target) {
         (Some(MotionType::Kick), Some(kick_target)) => kick_target,
         _ => {
             let mut rng = StdRng::seed_from_u64(blackboard.world_state.now.as_nanos() as u64);
             let target_y = if rng.random() {
-                goal_post_y - penalty_kick_target_y_offset
+                target_goal_area_half
             } else {
-                -goal_post_y + penalty_kick_target_y_offset
+                -target_goal_area_half
             };
 
             let target = point!(field_dimensions.length / 2.0, target_y);
