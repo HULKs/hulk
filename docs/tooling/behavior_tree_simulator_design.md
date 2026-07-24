@@ -742,7 +742,7 @@ Multi-robot support is required from the start.
 The core should simulate robots together instead of running independent single-robot worlds because behavior depends on team context:
 
 - `player_states` should contain every teammate state received over simulated HSL.
-- `is_goalkeeper` depends on `BehaviorParameters::goal_keeper_number`.
+- `is_goalkeeper` depends on `BehaviorParameters::goalkeeper.player_number`.
 - Search/support behavior can use teammate positions and Voronoi inputs.
 - Closest-to-ball behavior currently returns `true`; the simulator should still provide correct inputs so a future implementation can be tested without simulator changes.
 

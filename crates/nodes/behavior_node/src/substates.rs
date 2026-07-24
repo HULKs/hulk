@@ -89,7 +89,7 @@ pub fn set_block_position_field(blackboard: &mut Blackboard) -> Status {
             + blackboard.parameters.substates.blocking_distance_offset)
             .max(
                 blackboard.field_dimensions.center_circle_diameter / 2.0
-                    + blackboard.parameters.path_planning.robot_radius,
+                    + blackboard.parameters.walking.path_planning.robot_radius,
             );
 
         blackboard.walk_position = Some(ball_in_ground + (direction * distance_to_ball));
@@ -119,10 +119,10 @@ pub fn set_block_position_corner(blackboard: &mut Blackboard) -> Status {
             * (goal_position - ball_position).normalize();
 
         let distance_to_ball = (blackboard.field_dimensions.center_circle_diameter / 2.0
-            + blackboard.parameters.substates.blocking_distance_offset)
+            + parameters.blocking_distance_offset)
             .max(
                 blackboard.field_dimensions.center_circle_diameter / 2.0
-                    + blackboard.parameters.path_planning.robot_radius,
+                    + blackboard.parameters.walking.path_planning.robot_radius,
             );
 
         blackboard.walk_position = Some(ball_position + direction * distance_to_ball);

@@ -44,27 +44,44 @@ pub struct VoronoiParameters {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
 pub struct BehaviorParameters {
+    pub control: BehaviorControlParameters,
+    pub ball: BallBehaviorParameters,
+    pub walking: WalkingBehaviorParameters,
+    pub kicking: KickingParameters,
+    pub goalkeeper: GoalkeeperParameters,
+    pub search: SearchParameters,
+    pub substates: SubstatesParameters,
+    pub kickoff: KickoffParameters,
+    pub voronoi: VoronoiParameters,
+    pub network: HslNetworkParameters,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+pub struct BehaviorControlParameters {
     pub allow_switch: AllowSwitchParameters,
     pub injected_motion_command: Option<MotionCommand>,
-    pub goal_keeper_number: PlayerNumber,
-    pub keeper: KeeperParameters,
-    pub last_ball_timeout: Duration,
-    pub path_planning: PathPlanningParameters,
     pub remote_control: RemoteControlParameters,
-    pub striker_kickoff_position: Point2<Field>,
-    pub standard_kickoff_positions: Players<KickOffPose>,
-    pub search: SearchParameters,
-    pub look_action: LookActionParameters,
-    pub walk_and_stand: WalkAndStandParameters,
-    pub kicking: KickingParameters,
-    pub walk_speed: WalkSpeedParameters,
-    pub intercept_ball: InterceptBallParameters,
-    pub substates: SubstatesParameters,
-    pub voronoi: VoronoiParameters,
-    pub hsl_network: HslNetworkParameters,
-    pub closest_to_ball_enter_duration: Duration,
-    pub closest_to_ball_exit_duration: Duration,
     pub is_simple: bool,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+pub struct BallBehaviorParameters {
+    pub last_ball_timeout: Duration,
+    pub interception: InterceptBallParameters,
+    pub closest_to_ball: ClosestToBallParameters,
+}
+
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+pub struct ClosestToBallParameters {
+    pub enter_duration: Duration,
+    pub exit_duration: Duration,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+pub struct WalkingBehaviorParameters {
+    pub path_planning: PathPlanningParameters,
+    pub walk_and_stand: WalkAndStandParameters,
+    pub speed: WalkSpeedParameters,
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
@@ -76,7 +93,8 @@ pub struct LookActionParameters {
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub struct KeeperParameters {
+pub struct GoalkeeperParameters {
+    pub player_number: PlayerNumber,
     pub x_offset: f32,
     pub passive_distance: f32,
     pub striker_distance: f32,
@@ -89,6 +107,12 @@ pub struct KeeperParameters {
 pub struct KickOffPose {
     pub position: Point2<Field>,
     pub rotation: f32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+pub struct KickoffParameters {
+    pub striker_position: Point2<Field>,
+    pub standard_positions: Players<KickOffPose>,
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
@@ -301,28 +325,7 @@ pub struct RLWalkingParameters {
     pub deceleration_distance: f32,
 }
 
-<<<<<<< HEAD
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub struct WalkWithVelocityParameters {
-    pub max_velocity: f32,
-    pub max_angular_velocity: f32,
-    pub angular_velocity_scaling_factor: f32,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-=======
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    ros_z::Message,
-)]
->>>>>>> d8492c2a9 (chore: remove unused parameters)
 pub struct NormalizationParameters {
     pub gravity: f32,
     pub linear_velocity: f32,

@@ -49,17 +49,16 @@ pub fn walk_to_search_position(blackboard: &mut Blackboard) -> Status {
         blackboard.world_state.robot.ground_to_field,
     ) {
         let search_position_in_ground = ground_to_field.inverse() * search_position;
+        let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
+        let search_speed = blackboard.parameters.walking.speed.search;
 
         return walk_to(
             blackboard,
             Pose2::from(search_position_in_ground),
-            blackboard.parameters.walk_speed.search,
+            search_speed,
             OrientationMode::AlignWithPath,
-            blackboard
-                .parameters
-                .walk_and_stand
-                .normal_distance_to_be_aligned,
-            blackboard.parameters.walk_and_stand.hysteresis,
+            walk_and_stand.normal_distance_to_be_aligned,
+            walk_and_stand.hysteresis,
         );
     }
 

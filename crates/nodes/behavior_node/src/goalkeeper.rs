@@ -150,7 +150,7 @@ fn is_goalkeeper_interception_candidate(blackboard: &mut Blackboard) -> bool {
         };
 
         let own_goal_x = -field_dimensions.length / 2.0;
-        let interception_line_x = own_goal_x + blackboard.parameters.keeper.x_offset;
+        let interception_line_x = own_goal_x + blackboard.parameters.goalkeeper.x_offset;
         let time_to_interception_line =
             (interception_line_x - ball.position.x()) / ball_velocity.x();
 
@@ -181,7 +181,8 @@ fn is_goalkeeper_interception_candidate(blackboard: &mut Blackboard) -> bool {
             && interception_point.coords().norm()
                 <= blackboard
                     .parameters
-                    .intercept_ball
+                    .ball
+                    .interception
                     .maximum_intercept_distance
     } else {
         false
@@ -197,11 +198,14 @@ fn is_goalkeeper_kick_away_needed(blackboard: &mut Blackboard) -> bool {
         &blackboard.ball,
         blackboard.world_state.robot.ground_to_field,
     ) {
-        let parameters = &blackboard.parameters.keeper;
         let ball_in_ground = ground_to_field.inverse() * ball.position;
 
         ball_in_ground.x() > 0.0
-            && ball_in_ground.coords().norm() < parameters.kick_away_ball_maximum_robot_distance
+            && ball_in_ground.coords().norm()
+                < blackboard
+                    .parameters
+                    .goalkeeper
+                    .kick_away_ball_maximum_robot_distance
     } else {
         false
     }
@@ -221,7 +225,7 @@ fn is_ball_in_own_penalty_area(blackboard: &mut Blackboard) -> bool {
 fn is_ball_close_enough_to_goal_to_become_striker(blackboard: &mut Blackboard) -> bool {
     blackboard.ball.as_ref().is_some_and(|ball| {
         let own_goal_x = -blackboard.field_dimensions.length / 2.0;
-        let maximum_ball_x = own_goal_x + blackboard.parameters.keeper.striker_distance;
+        let maximum_ball_x = own_goal_x + blackboard.parameters.goalkeeper.striker_distance;
 
         ball.position.x() < maximum_ball_x
     })
@@ -230,7 +234,7 @@ fn is_ball_close_enough_to_goal_to_become_striker(blackboard: &mut Blackboard) -
 fn is_ball_near_own_goal(blackboard: &mut Blackboard) -> bool {
     blackboard.ball.as_ref().is_some_and(|ball| {
         let own_goal_x = blackboard.field_dimensions.length / 2.0;
-        let maximum_ball_x = own_goal_x + blackboard.parameters.keeper.passive_distance;
+        let maximum_ball_x = own_goal_x + blackboard.parameters.goalkeeper.passive_distance;
 
         ball.position.x() < maximum_ball_x
     })
@@ -241,7 +245,7 @@ pub fn set_goalkeeper_active_defense_position(blackboard: &mut Blackboard) -> St
         blackboard.world_state.robot.ground_to_field,
     ) {
         let field_dimensions = blackboard.field_dimensions;
-        let parameters = &blackboard.parameters.keeper;
+        let parameters = &blackboard.parameters.goalkeeper;
 
         let own_goal_line_x = -field_dimensions.length / 2.0;
         let own_goal_center = point!(own_goal_line_x, 0.0);
@@ -279,16 +283,20 @@ pub fn set_goalkeeper_active_defense_position(blackboard: &mut Blackboard) -> St
 pub fn walk_to_goalkeeper_default_position(blackboard: &mut Blackboard) -> Status {
     if let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field {
         let field_dimensions = blackboard.field_dimensions;
-        let parameters = &blackboard.parameters.keeper;
         let own_goal_line_x = -field_dimensions.length / 2.0;
-        let default_position_in_field = point!(own_goal_line_x + parameters.x_offset, 0.0);
+        let default_position_in_field = point!(
+            own_goal_line_x + blackboard.parameters.goalkeeper.x_offset,
+            0.0
+        );
         let default_pose_in_field =
             Pose2::from_parts(default_position_in_field, Orientation2::new(0.0));
         let default_pose_in_ground = ground_to_field.inverse() * default_pose_in_field;
+        let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
+        let blocking_speed = blackboard.parameters.walking.speed.blocking;
         let orientation_mode = if let Some(ball) = &blackboard.world_state.ball {
             OrientationMode::LookAt {
                 target: ball.ball_in_ground,
-                tolerance: blackboard.parameters.walk_and_stand.orientation_tolerance,
+                tolerance: walk_and_stand.orientation_tolerance,
             }
         } else if blackboard
             .ball
@@ -297,7 +305,7 @@ pub fn walk_to_goalkeeper_default_position(blackboard: &mut Blackboard) -> Statu
         {
             OrientationMode::LookAt {
                 target: ground_to_field.inverse() * point!(own_goal_line_x, 0.0),
-                tolerance: blackboard.parameters.walk_and_stand.orientation_tolerance,
+                tolerance: walk_and_stand.orientation_tolerance,
             }
         } else {
             OrientationMode::AlignWithPath
@@ -306,13 +314,10 @@ pub fn walk_to_goalkeeper_default_position(blackboard: &mut Blackboard) -> Statu
         walk_to(
             blackboard,
             default_pose_in_ground,
-            blackboard.parameters.walk_speed.blocking,
+            blocking_speed,
             orientation_mode,
-            blackboard
-                .parameters
-                .walk_and_stand
-                .normal_distance_to_be_aligned,
-            blackboard.parameters.walk_and_stand.goalkeeper_hysteresis,
+            walk_and_stand.normal_distance_to_be_aligned,
+            walk_and_stand.goalkeeper_hysteresis,
         )
     } else {
         Status::Failure
@@ -325,17 +330,16 @@ pub fn walk_to_goalkeeper_penalty_position(blackboard: &mut Blackboard) -> Statu
         let penalty_pose_in_field =
             Pose2::from_parts(penalty_position_in_field, Orientation2::new(0.0));
         let penalty_pose_in_ground = ground_to_field.inverse() * penalty_pose_in_field;
+        let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
+        let blocking_speed = blackboard.parameters.walking.speed.blocking;
 
         walk_to(
             blackboard,
             penalty_pose_in_ground,
-            blackboard.parameters.walk_speed.blocking,
+            blocking_speed,
             OrientationMode::AlignWithPath,
-            blackboard
-                .parameters
-                .walk_and_stand
-                .normal_distance_to_be_aligned,
-            blackboard.parameters.walk_and_stand.goalkeeper_hysteresis,
+            walk_and_stand.normal_distance_to_be_aligned,
+            walk_and_stand.goalkeeper_hysteresis,
         )
     } else {
         Status::Failure
@@ -367,7 +371,7 @@ fn is_interception_velocity_towards_own_half(
     blackboard: &Blackboard,
     ball_velocity: Vector2<Field>,
 ) -> bool {
-    let parameters = &blackboard.parameters.intercept_ball;
+    let parameters = &blackboard.parameters.ball.interception;
 
     ball_velocity.norm() > parameters.minimum_ball_velocity
         && ball_velocity.x() < -parameters.minimum_ball_velocity_towards_own_half
