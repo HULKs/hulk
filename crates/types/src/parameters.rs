@@ -49,7 +49,6 @@ pub struct BehaviorParameters {
     pub goal_keeper_number: PlayerNumber,
     pub keeper: KeeperParameters,
     pub last_ball_timeout: Duration,
-    pub lost_ball: LostBallParameters,
     pub path_planning: PathPlanningParameters,
     pub remote_control: RemoteControlParameters,
     pub striker_kickoff_position: Point2<Field>,
@@ -57,8 +56,6 @@ pub struct BehaviorParameters {
     pub search: SearchParameters,
     pub look_action: LookActionParameters,
     pub walk_and_stand: WalkAndStandParameters,
-    pub walk_with_velocity: WalkWithVelocityParameters,
-    pub maximum_lookaround_duration: Duration,
     pub kicking: KickingParameters,
     pub walk_speed: WalkSpeedParameters,
     pub intercept_ball: InterceptBallParameters,
@@ -83,11 +80,7 @@ pub struct KeeperParameters {
     pub x_offset: f32,
     pub passive_distance: f32,
     pub striker_distance: f32,
-    pub kick_away_ball_maximum_velocity: f32,
     pub kick_away_ball_maximum_robot_distance: f32,
-    pub active_defense_x_offset: f32,
-    pub active_defense_center_forward_offset: f32,
-    pub active_defense_line_width_half: f32,
     pub active_defense_maximum_robot_distance: f32,
     pub distance_to_goalpost: f32,
 }
@@ -112,17 +105,8 @@ pub struct WalkAndStandParameters {
     pub hysteresis: nalgebra::Vector2<f32>,
     pub goalkeeper_hysteresis: nalgebra::Vector2<f32>,
     pub target_reached_thresholds: nalgebra::Vector2<f32>,
-    pub hybrid_align_distance: f32,
     pub orientation_tolerance: f32,
     pub normal_distance_to_be_aligned: f32,
-    pub defender_distance_to_be_aligned: f32,
-    pub defender_hysteresis: nalgebra::Vector2<f32>,
-    pub supporter_hysteresis: nalgebra::Vector2<f32>,
-}
-
-#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub struct LostBallParameters {
-    pub offset_to_last_ball_location: Vector2<Field>,
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
@@ -142,7 +126,6 @@ pub struct PathPlanningParameters {
     pub line_walking_speed: f32,
     pub obstacle_escape_spline_segments: u32,
     pub rotation_penalty_factor: f32,
-    pub minimum_robot_radius_at_foot_height: f32,
     pub robot_radius: f32,
     pub half_rotation: Duration,
 }
@@ -318,6 +301,7 @@ pub struct RLWalkingParameters {
     pub deceleration_distance: f32,
 }
 
+<<<<<<< HEAD
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct WalkWithVelocityParameters {
     pub max_velocity: f32,
@@ -326,6 +310,19 @@ pub struct WalkWithVelocityParameters {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+=======
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
+)]
+>>>>>>> d8492c2a9 (chore: remove unused parameters)
 pub struct NormalizationParameters {
     pub gravity: f32,
     pub linear_velocity: f32,
@@ -391,7 +388,6 @@ pub struct KickingParameters {
     pub allow_schlong: bool,
     pub distance_for_kick: f32,
     pub distance_for_kick_hysteresis: f32,
-    pub distance_to_look_directly_at_the_ball: f32,
     pub kick_target_offset_angle: f32,
     pub target_distance_kick_power_threshold: f32,
     pub kick_position_ball_distance: f32,

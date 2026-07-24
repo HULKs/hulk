@@ -10,12 +10,6 @@
     walk: { nanos: 500000000, secs: 0 },
   },
   last_ball_timeout: { nanos: 250000000, secs: 0 },
-  optional_roles: ["Defender", "Midfielder", "StrikerSupporter"],
-  walk_with_velocity: {
-    max_velocity: 1.0,
-    max_angular_velocity: 1.0,
-    angular_velocity_scaling_factor: 2.0,
-  },
   remote_control: {
     walk: {
       forward: 0.0,
@@ -27,11 +21,7 @@
   },
   path_planning: {
     robot_radius: 0.4,
-    robot_radius_at_hip_height: 0.3,
-    robot_radius_at_foot_height: 0.4,
-    minimum_robot_radius_at_foot_height: 0.11,
     ball_obstacle_radius: 0.05,
-    ball_obstacle_radius_factor: 1.0,
     field_border_weight: 0.15,
     line_walking_speed: 0.25,
     arc_walking_speed: 0.2,
@@ -43,12 +33,8 @@
     hysteresis: [0.3, 0.3],
     goalkeeper_hysteresis: [0.1, 0.1],
     target_reached_thresholds: [0.05, 0.1],
-    hybrid_align_distance: 0.95,
     orientation_tolerance: 0.05,
     normal_distance_to_be_aligned: 0.05,
-    defender_distance_to_be_aligned: 1.05,
-    defender_hysteresis: [0.5, 0.5],
-    supporter_hysteresis: [0.5, 0.5],
   },
   walk_speed: {
     kicking: 1.0,
@@ -62,11 +48,7 @@
     x_offset: 0.1,
     passive_distance: 4.5,
     striker_distance: 3.5,
-    kick_away_ball_maximum_velocity: 0.75,
     kick_away_ball_maximum_robot_distance: 1.5,
-    active_defense_x_offset: 0.7,
-    active_defense_center_forward_offset: 0.4,
-    active_defense_line_width_half: 1.5,
     active_defense_maximum_robot_distance: 2.0,
     distance_to_goalpost: 0.15,
   },
@@ -77,9 +59,6 @@
     three: { position: [-2, 0], rotation: 0 },
     four: { position: [-2.5, -1.5], rotation: 0.4 },
     five: { position: [-2.5, 1.5], rotation: -0.4 },
-  },
-  lost_ball: {
-    offset_to_last_ball_location: [1.0, 0.0],
   },
   search: {
     position_reached_distance: 0.4,
@@ -99,7 +78,6 @@
     allow_schlong: false,
     distance_for_kick: 2.0,
     distance_for_kick_hysteresis: 0.5,
-    distance_to_look_directly_at_the_ball: 4.0,
     kick_target_offset_angle: 0.1,
     target_distance_kick_power_threshold: 6.0,
     kick_position_ball_distance: 0.3,
@@ -111,7 +89,6 @@
     blocking_distance_offset: 0.2,
     corner_kick_blocking_angle: 0.78,
   },
-  maximum_lookaround_duration: { nanos: 0, secs: 50 },
   look_action: {
     angle_threshold: 0.95,
     distance_threshold: 3.0,
