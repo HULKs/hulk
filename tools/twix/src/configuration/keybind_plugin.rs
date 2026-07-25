@@ -1,16 +1,18 @@
 use std::sync::Arc;
 
-use eframe::egui::{Context, Event, Id, InputState};
+use eframe::egui::{Context, Event, Id, InputState, Ui};
 
 use super::keys::{KeybindAction, Keybinds};
 
 type ActionList = Arc<Vec<KeybindAction>>;
 
 pub fn register(ctx: &Context) {
-    ctx.on_begin_pass("keybinds", Arc::new(|ui| begin_frame(ui.ctx())))
+    ctx.on_begin_pass("keybinds", Arc::new(begin_frame))
 }
 
-fn begin_frame(ctx: &Context) {
+fn begin_frame(ui: &Ui) {
+    let ctx = ui.ctx();
+
     if let Some(keybinds) = ctx.data(|data| data.get_temp::<Arc<Keybinds>>(Id::NULL)) {
         let actions = ctx.input_mut(|input| consume_actions(keybinds, input));
 
