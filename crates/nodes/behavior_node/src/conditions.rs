@@ -13,7 +13,7 @@ pub fn is_ball_interception_candidate(blackboard: &mut Blackboard) -> bool {
         &blackboard.ball,
         &blackboard.world_state.robot.ground_to_field,
     ) {
-        let parameters = &blackboard.parameters.intercept_ball;
+        let parameters = &blackboard.parameters.ball.interception;
 
         let ball_in_ground = ground_to_field.inverse() * ball.position;
         let ball_is_in_front_of_robot = ball_in_ground.coords().norm()
@@ -120,21 +120,17 @@ pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
         blackboard.closest_to_ball_entered_area_since = None;
     }
 
+    let parameters = blackboard.parameters.ball.closest_to_ball;
     let is_closest = if blackboard.last_closest_to_ball {
         raw_is_closest
             || blackboard
                 .closest_to_ball_left_area_since
-                .is_some_and(|since| {
-                    now.duration_since(since) < blackboard.parameters.closest_to_ball_exit_duration
-                })
+                .is_some_and(|since| now.duration_since(since) < parameters.exit_duration)
     } else {
         raw_is_closest
             && blackboard
                 .closest_to_ball_entered_area_since
-                .is_some_and(|since| {
-                    now.duration_since(since)
-                        >= blackboard.parameters.closest_to_ball_enter_duration
-                })
+                .is_some_and(|since| now.duration_since(since) >= parameters.enter_duration)
     };
 
     blackboard.last_closest_to_ball = is_closest;
@@ -149,7 +145,7 @@ pub fn is_fallen(blackboard: &mut Blackboard) -> bool {
 }
 
 pub fn is_goalkeeper(blackboard: &mut Blackboard) -> bool {
-    blackboard.world_state.robot.player_number == blackboard.parameters.goal_keeper_number
+    blackboard.world_state.robot.player_number == blackboard.parameters.goalkeeper.player_number
 }
 
 pub fn is_primary_state(blackboard: &mut Blackboard, primary_state: PrimaryState) -> bool {
@@ -157,11 +153,15 @@ pub fn is_primary_state(blackboard: &mut Blackboard, primary_state: PrimaryState
 }
 
 pub fn is_remote_controlled(blackboard: &mut Blackboard) -> bool {
-    blackboard.parameters.remote_control.enable
+    blackboard.parameters.control.remote_control.enable
 }
 
 pub fn is_remote_kick_mode(blackboard: &mut Blackboard) -> bool {
-    blackboard.parameters.remote_control.kick_mode_toggle
+    blackboard
+        .parameters
+        .control
+        .remote_control
+        .kick_mode_toggle
 }
 
 pub fn has_ball_position(blackboard: &mut Blackboard) -> bool {
@@ -202,5 +202,5 @@ pub fn is_last_hulk_standing(blackboard: &mut Blackboard) -> bool {
 }
 
 pub fn is_simple(blackboard: &mut Blackboard) -> bool {
-    blackboard.parameters.is_simple
+    blackboard.parameters.control.is_simple
 }

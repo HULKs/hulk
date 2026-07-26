@@ -11,7 +11,7 @@ pub fn assemble_motion_command(blackboard: &Blackboard, status: Status) -> Resul
         Status::Success => {
             if blackboard.is_injected_motion_command
                 && let Some(injected_motion_command) =
-                    &blackboard.parameters.injected_motion_command
+                    &blackboard.parameters.control.injected_motion_command
             {
                 return Ok(injected_motion_command.clone());
             }

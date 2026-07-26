@@ -29,7 +29,7 @@ pub fn plan(
     ground_to_field: Isometry2<Ground, Field>,
 ) -> Path {
     let parameters: &types::parameters::PathPlanningParameters =
-        &blackboard.parameters.path_planning;
+        &blackboard.parameters.walking.path_planning;
     let field_dimensions = blackboard.field_dimensions;
 
     let mut planner = PathPlanner {
@@ -89,7 +89,7 @@ pub fn walk_to(
     hysteresis: nalgebra::Vector2<f32>,
 ) -> Status {
     if let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field {
-        let parameters = &blackboard.parameters.walk_and_stand;
+        let parameters = &blackboard.parameters.walking.walk_and_stand;
         let distance_to_walk = target_pose.position().coords().norm();
         let angle_to_walk = target_pose.orientation().angle();
         let was_standing_last_cycle =
@@ -106,8 +106,8 @@ pub fn walk_to(
             0.0..=hysteresis.y,
         );
 
-        let minimal_walk_speed = blackboard.parameters.walk_speed.minimum_speed;
-        let velocity_fade_distance = blackboard.parameters.walk_speed.velocity_fade_distance;
+        let minimal_walk_speed = blackboard.parameters.walking.speed.minimum_speed;
+        let velocity_fade_distance = blackboard.parameters.walking.speed.velocity_fade_distance;
 
         // Desmos: https://www.desmos.com/calculator/ss94dje2ke
         let walk_speed = maximal_walk_speed
@@ -142,6 +142,8 @@ pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
         let ball_in_ground = field_to_ground * ball.position;
         let goal_position = field_to_ground * point!(blackboard.field_dimensions.length / 2.0, 0.0);
         let orientation = Orientation2::from_vector(goal_position - ball_in_ground);
+        let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
+        let kicking_speed = blackboard.parameters.walking.speed.kicking;
 
         let target_position = ball_in_ground
             - (goal_position - ball_in_ground).normalize()
@@ -149,13 +151,10 @@ pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
         walk_to(
             blackboard,
             Pose2::from_parts(target_position, orientation),
-            blackboard.parameters.walk_speed.kicking,
+            kicking_speed,
             OrientationMode::AlignWithPath,
-            blackboard
-                .parameters
-                .walk_and_stand
-                .normal_distance_to_be_aligned,
-            blackboard.parameters.walk_and_stand.hysteresis,
+            walk_and_stand.normal_distance_to_be_aligned,
+            walk_and_stand.hysteresis,
         )
     } else {
         Status::Failure
@@ -192,20 +191,19 @@ pub fn walk_to_block_position(blackboard: &mut Blackboard) -> Status {
     ) {
         let ball_position = ground_to_field.inverse() * ball.position;
         let orientation = Orientation2::from_vector(ball_position - *block_position);
+        let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
+        let blocking_speed = blackboard.parameters.walking.speed.blocking;
 
         walk_to(
             blackboard,
             Pose2::from_parts(*block_position, orientation),
-            blackboard.parameters.walk_speed.blocking,
+            blocking_speed,
             OrientationMode::LookAt {
                 target: ball_position,
-                tolerance: blackboard.parameters.walk_and_stand.orientation_tolerance,
+                tolerance: walk_and_stand.orientation_tolerance,
             },
-            blackboard
-                .parameters
-                .walk_and_stand
-                .normal_distance_to_be_aligned,
-            blackboard.parameters.walk_and_stand.goalkeeper_hysteresis,
+            walk_and_stand.normal_distance_to_be_aligned,
+            walk_and_stand.goalkeeper_hysteresis,
         )
     } else {
         Status::Failure
@@ -218,33 +216,30 @@ pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
         blackboard.world_state.robot.player_number,
     ) {
         let field_to_ground = ground_to_field.inverse();
+        let kickoff = &blackboard.parameters.kickoff;
+        let standard_pose = kickoff.standard_positions[player_number];
+        let striker_position = kickoff.striker_position;
+        let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
+        let walk_to_kickoff_speed = blackboard.parameters.walking.speed.walk_to_kickoff;
 
-        let mut target_position =
-            blackboard.parameters.standard_kickoff_positions[player_number].position;
+        let mut target_position = standard_pose.position;
 
         if hulks_is_kicking_team(blackboard) && player_number == PlayerNumber::Three {
-            target_position = blackboard.parameters.striker_kickoff_position;
+            target_position = striker_position;
         }
 
-        let kickoff_pose_in_field = Pose2::from_parts(
-            target_position,
-            Orientation2::new(
-                blackboard.parameters.standard_kickoff_positions[player_number].rotation,
-            ),
-        );
+        let kickoff_pose_in_field =
+            Pose2::from_parts(target_position, Orientation2::new(standard_pose.rotation));
 
         let kickoff_pose_in_ground = field_to_ground * kickoff_pose_in_field;
 
         walk_to(
             blackboard,
             kickoff_pose_in_ground,
-            blackboard.parameters.walk_speed.walk_to_kickoff,
+            walk_to_kickoff_speed,
             OrientationMode::AlignWithPath,
-            blackboard
-                .parameters
-                .walk_and_stand
-                .normal_distance_to_be_aligned,
-            blackboard.parameters.walk_and_stand.hysteresis,
+            walk_and_stand.normal_distance_to_be_aligned,
+            walk_and_stand.hysteresis,
         );
         Status::Success
     } else {
@@ -261,10 +256,12 @@ pub fn walk_to_voronoi_position(blackboard: &mut Blackboard) -> Status {
         blackboard.world_state.robot.player_number,
         blackboard.ball.as_ref().map(|ball| ball.position),
     ) {
+        let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
+        let kicking_speed = blackboard.parameters.walking.speed.kicking;
         let orientation_mode = if let Some(ball) = &blackboard.ball {
             OrientationMode::LookAt {
                 target: ground_to_field.inverse() * ball.position,
-                tolerance: blackboard.parameters.walk_and_stand.orientation_tolerance,
+                tolerance: walk_and_stand.orientation_tolerance,
             }
         } else {
             OrientationMode::AlignWithPath
@@ -273,13 +270,10 @@ pub fn walk_to_voronoi_position(blackboard: &mut Blackboard) -> Status {
         walk_to(
             blackboard,
             Pose2::from(ground_to_field.inverse() * target_position),
-            blackboard.parameters.walk_speed.kicking,
+            kicking_speed,
             orientation_mode,
-            blackboard
-                .parameters
-                .walk_and_stand
-                .normal_distance_to_be_aligned,
-            blackboard.parameters.walk_and_stand.hysteresis,
+            walk_and_stand.normal_distance_to_be_aligned,
+            walk_and_stand.hysteresis,
         )
     } else {
         Status::Failure

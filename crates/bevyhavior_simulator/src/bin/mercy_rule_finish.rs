@@ -21,8 +21,8 @@ fn mercy_rule_finish(app: &mut App) {
 fn startup(mut commands: Commands, mut ball: ResMut<SimulatorBall>) {
     let mut parameters =
         default_behavior_parameters().expect("failed to load default behavior parameters");
-    parameters.goal_keeper_number = PlayerNumber::One;
-    parameters.last_ball_timeout = Duration::from_secs(2);
+    parameters.goalkeeper.player_number = PlayerNumber::One;
+    parameters.ball.last_ball_timeout = Duration::from_secs(2);
 
     for (player_number, pose) in [
         (

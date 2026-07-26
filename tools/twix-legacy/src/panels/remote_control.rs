@@ -36,7 +36,7 @@ impl<'a> Panel<'a> for RemotePanel {
         let (sender, receiver) = channel((Step::<f32>::default(), f64::default()));
 
         let enabled = Arc::new(AtomicBool::new(false));
-        let latest_step = robot.subscribe_value("parameters.behavior.remote_control.walk");
+        let latest_step = robot.subscribe_value("parameters.behavior.control.remote_control.walk");
         let gait_parameter_value = robot.subscribe_json("parameters.rl_walking.gait_frequency");
         let remote_stop_toggle: BufferHandle<bool> =
             robot.subscribe_value("parameters.remote_stop_toggle");
@@ -228,14 +228,14 @@ fn reset(robot: &Arc<Robot>) {
 
 fn set_kick_mode_toggle(robot: &Arc<Robot>, value: bool) {
     robot.write(
-        "parameters.behavior.remote_control.kick_mode_toggle",
+        "parameters.behavior.control.remote_control.kick_mode_toggle",
         TextOrBinary::Text(value.into()),
     );
 }
 
 fn update_step(robot: &Arc<Robot>, step: Step, gait_frequency: f64) {
     robot.write(
-        "parameters.behavior.remote_control.walk",
+        "parameters.behavior.control.remote_control.walk",
         TextOrBinary::Text(serde_json::to_value(step).unwrap()),
     );
     robot.write(

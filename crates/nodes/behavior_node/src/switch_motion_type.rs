@@ -26,7 +26,7 @@ pub fn switch_motion_type(
 }
 
 pub fn is_allowed_to_switch(blackboard: &mut Blackboard) -> bool {
-    let parameters = &blackboard.parameters.allow_switch;
+    let parameters = &blackboard.parameters.control.allow_switch;
     let time_since_last_switch = blackboard
         .world_state
         .now

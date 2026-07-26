@@ -190,7 +190,8 @@ pub fn intercept(blackboard: &mut Blackboard) -> Status {
         if interception_point.coords().norm()
             > blackboard
                 .parameters
-                .intercept_ball
+                .ball
+                .interception
                 .maximum_intercept_distance
         {
             return Status::Failure;

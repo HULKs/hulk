@@ -35,7 +35,7 @@ pub struct LookAtPanel {
     motion_command_buffer: BufferHandle<MotionCommand>,
 }
 
-const INJECTED_MOTION_COMMAND: &str = "parameters.behavior.injected_motion_command";
+const INJECTED_MOTION_COMMAND: &str = "parameters.behavior.control.injected_motion_command";
 const DEFAULT_TARGET: Point2<Ground, f32> = point![1.0, 0.0];
 const FALLBACK_MAX_FIELD_DIMENSION: f32 = 10.0;
 

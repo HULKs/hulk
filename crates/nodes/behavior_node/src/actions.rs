@@ -9,7 +9,12 @@ pub fn damping(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn injected_motion_command(blackboard: &mut Blackboard) -> Status {
-    if blackboard.parameters.injected_motion_command.is_some() {
+    if blackboard
+        .parameters
+        .control
+        .injected_motion_command
+        .is_some()
+    {
         blackboard.is_injected_motion_command = true;
         Status::Success
     } else {
@@ -23,7 +28,7 @@ pub fn prepare(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn remote_control(blackboard: &mut Blackboard) -> Status {
-    let parameters = &blackboard.parameters.remote_control;
+    let parameters = &blackboard.parameters.control.remote_control;
     let remote_control_motion_command = BodyMotion::WalkWithVelocity {
         velocity: vector![parameters.walk.forward, parameters.walk.left,],
         angular_velocity: parameters.walk.turn,
