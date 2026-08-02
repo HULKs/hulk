@@ -14,14 +14,17 @@ pub struct PanelCreationContext<'a> {
 
 pub struct PanelUiContext<'a> {
     pub backend: &'a Arc<RobotBackend>,
-    pub egui_context: Context,
+    pub egui_context: &'a Context,
 }
 
 pub trait Panel {
     const STORAGE_ID: &'static str;
     const DISPLAY_NAME: &'static str;
+    const ICON: &'static str;
 
     fn new(context: PanelCreationContext<'_>) -> Self;
+
+    fn header_ui(&mut self, _ui: &mut Ui, _context: PanelUiContext<'_>) {}
 
     fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>);
 

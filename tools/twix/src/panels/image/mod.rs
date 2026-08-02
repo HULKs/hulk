@@ -80,6 +80,7 @@ struct RenderedMetadata {
 impl Panel for ImagePanel {
     const STORAGE_ID: &'static str = "image";
     const DISPLAY_NAME: &'static str = "Image";
+    const ICON: &'static str = egui_phosphor::regular::IMAGE;
 
     fn new(context: PanelCreationContext<'_>) -> Self {
         let topic = context
@@ -141,7 +142,7 @@ impl Panel for ImagePanel {
                     Self::render_status(ui, observed.observation.status());
                     let preferred_image_time = self.overlays.preferred_image_time();
                     observed.render_cache.refresh(
-                        &context.egui_context,
+                        context.egui_context,
                         &observed.observation,
                         preferred_image_time,
                     );

@@ -83,6 +83,7 @@ pub struct MapPanel {
 impl Panel for MapPanel {
     const STORAGE_ID: &'static str = "map";
     const DISPLAY_NAME: &'static str = "Map";
+    const ICON: &'static str = egui_phosphor::regular::MAP_TRIFOLD;
 
     fn new(context: PanelCreationContext) -> Self {
         let field = EnabledLayer::new(context.backend.clone(), context.value, true);
