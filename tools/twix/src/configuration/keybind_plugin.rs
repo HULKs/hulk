@@ -10,7 +10,7 @@ pub fn register(ctx: &Context) {
     ctx.on_begin_pass("keybinds", Arc::new(begin_frame))
 }
 
-fn begin_frame(ui: &Ui) {
+fn begin_frame(ui: &mut Ui) {
     let ctx = ui.ctx();
 
     if let Some(keybinds) = ctx.data(|data| data.get_temp::<Arc<Keybinds>>(Id::NULL)) {
