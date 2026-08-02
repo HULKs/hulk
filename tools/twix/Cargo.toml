@@ -1,6 +1,6 @@
 [package]
 name = "twix"
-version = "0.14.0"
+version = "0.15.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -16,7 +16,6 @@ coordinate_systems = { workspace = true }
 dirs = { workspace = true }
 eframe = { workspace = true }
 egui-phosphor = { workspace = true }
-egui_dock = { workspace = true }
 egui_extras = { workspace = true }
 egui_tiles = { workspace = true }
 geometry = { workspace = true }

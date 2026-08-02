@@ -116,26 +116,6 @@ macro_rules! impl_selectable_panel {
                 }
             }
 
-            pub fn registered() -> Vec<&'static str> {
-                vec![$(<$name as $crate::panel::Panel>::DISPLAY_NAME),*]
-            }
-
-            pub fn try_from_display_name(
-                display_name: &str,
-                context: $crate::panel::PanelCreationContext<'_>,
-            ) -> color_eyre::Result<Self> {
-                match display_name {
-                    $(
-                        <$name as $crate::panel::Panel>::DISPLAY_NAME => {
-                            Ok(Self::$name(<$name as $crate::panel::Panel>::new(context)))
-                        },
-                    )*
-                    _ => color_eyre::eyre::bail!(
-                        "unknown panel display name: {display_name}"
-                    ),
-                }
-            }
-
             pub fn save(&self) -> serde_json::Value {
                 let saved = match self {
                     $(

@@ -103,88 +103,86 @@ impl Panel for ImagePanel {
         panel
     }
 
+    fn header_ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
+        self.overlays.ui(ui, &context);
+        ui.label("Topic");
+        let namespace = context.backend.namespace();
+        let completions = {
+            let graph = context.backend.graph().lock();
+            TopicCompletionQuery::new(&namespace, &self.topic_editor)
+                .endpoint_kind(EndpointKind::Publisher)
+                .type_name(RosImage::type_name())
+                .complete(graph.publishers())
+        };
+        let response = ui.add(CompletionEdit::new(
+            ui.id().with("image_topic"),
+            &completions,
+            &mut self.topic_editor,
+        ));
+        if response.changed() {
+            self.commit_topic(&context);
+        }
+    }
+
     fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
-        ui.vertical(|ui| {
-            ui.horizontal(|ui| {
-                self.overlays.ui(ui, &context);
-                ui.label("Topic");
-                let namespace = context.backend.namespace();
-                let completions = {
-                    let graph = context.backend.graph().lock();
-                    TopicCompletionQuery::new(&namespace, &self.topic_editor)
-                        .endpoint_kind(EndpointKind::Publisher)
-                        .type_name(RosImage::type_name())
-                        .complete(graph.publishers())
-                };
-                let response = ui.add(CompletionEdit::new(
-                    ui.id().with("image_topic"),
-                    &completions,
-                    &mut self.topic_editor,
-                ));
-                if response.changed() {
-                    self.commit_topic(&context);
-                }
-            });
+        if self.topic.is_empty() {
+            ui.label("Enter an image topic.");
+            return;
+        }
 
-            if self.topic.is_empty() {
-                ui.label("Enter an image topic.");
-                return;
+        match &mut self.observation {
+            ObservationState::Idle => {
+                ui.label("No observation.");
             }
+            ObservationState::Error(error) => {
+                ui.colored_label(ui.visuals().error_fg_color, error);
+            }
+            ObservationState::Observing(observed) => {
+                Self::render_status(ui, observed.observation.status());
+                let preferred_image_time = self.overlays.preferred_image_time();
+                observed.render_cache.refresh(
+                    context.egui_context,
+                    &observed.observation,
+                    preferred_image_time,
+                );
 
-            match &mut self.observation {
-                ObservationState::Idle => {
-                    ui.label("No observation.");
-                }
-                ObservationState::Error(error) => {
+                let Some(metadata) = observed.render_cache.metadata() else {
+                    ui.label("Waiting for first sample.");
+                    return;
+                };
+                Self::render_metadata(ui, metadata);
+                ui.separator();
+
+                if let Some(error) = observed.render_cache.error() {
                     ui.colored_label(ui.visuals().error_fg_color, error);
+                    return;
                 }
-                ObservationState::Observing(observed) => {
-                    Self::render_status(ui, observed.observation.status());
-                    let preferred_image_time = self.overlays.preferred_image_time();
-                    observed.render_cache.refresh(
-                        context.egui_context,
-                        &observed.observation,
-                        preferred_image_time,
-                    );
 
-                    let Some(metadata) = observed.render_cache.metadata() else {
-                        ui.label("Waiting for first sample.");
-                        return;
+                if let Some(texture) = observed.render_cache.texture() {
+                    let size = observed
+                        .render_cache
+                        .dimensions()
+                        .map(|[width, height]| eframe::egui::vec2(width as f32, height as f32))
+                        .unwrap_or_else(|| texture.size_vec2());
+                    let texture = SizedTexture {
+                        id: texture.id(),
+                        size,
                     };
-                    Self::render_metadata(ui, metadata);
-                    ui.separator();
-
-                    if let Some(error) = observed.render_cache.error() {
-                        ui.colored_label(ui.visuals().error_fg_color, error);
-                        return;
-                    }
-
-                    if let Some(texture) = observed.render_cache.texture() {
-                        let size = observed
-                            .render_cache
-                            .dimensions()
-                            .map(|[width, height]| eframe::egui::vec2(width as f32, height as f32))
-                            .unwrap_or_else(|| texture.size_vec2());
-                        let texture = SizedTexture {
-                            id: texture.id(),
-                            size,
-                        };
-                        let response = ui.add(eframe::egui::Image::new(texture).shrink_to_fit());
-                        if let (Some(dimensions), Some(image_time)) = (
-                            observed.render_cache.dimensions(),
-                            observed.render_cache.image_time(),
-                        ) {
-                            let painter = ImageOverlayPainter::new(
-                                ui.painter_at(response.rect),
-                                response.rect,
-                                dimensions,
-                            );
-                            self.overlays.paint(&painter, image_time);
-                        }
+                    let response = ui.add(eframe::egui::Image::new(texture).shrink_to_fit());
+                    if let (Some(dimensions), Some(image_time)) = (
+                        observed.render_cache.dimensions(),
+                        observed.render_cache.image_time(),
+                    ) {
+                        let painter = ImageOverlayPainter::new(
+                            ui.painter_at(response.rect),
+                            response.rect,
+                            dimensions,
+                        );
+                        self.overlays.paint(&painter, image_time);
                     }
                 }
-            };
-        });
+            }
+        };
     }
 
     fn save(&self) -> Value {

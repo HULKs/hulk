@@ -12,19 +12,14 @@ use configuration::{
 };
 use eframe::{
     App, CreationContext, Frame, NativeOptions, Storage,
-    egui::{CentralPanel, Context, CornerRadius, Id, Layout, Panel as EguiPanel, StrokeKind, Ui},
+    egui::{CentralPanel, Layout, Panel as EguiPanel, Ui},
     emath::Align,
     run_native,
 };
-use egui_dock::{
-    DockArea, DockState, LeafNode, Node, NodeIndex, NodePath, Split, TabAddAlign, TabIndex,
-};
-use hulk_widgets::CompletionEdit;
+use layout::{FocusDirection, TwixLayout};
 use log::{error, warn};
-use panel::{Panel, PanelCreationContext, PanelUiContext};
 use panels::{ImagePanel, MapPanel, TextPanel};
 use repository::{Repository, inspect_version::check_for_update};
-use serde_json::{Value, from_str, to_string};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use visuals::Visuals;
 
@@ -33,8 +28,6 @@ use crate::backend::RobotBackend;
 mod backend;
 mod configuration;
 mod graph;
-#[cfg(test)]
-#[allow(dead_code)]
 mod layout;
 mod panel;
 mod panels;
@@ -46,24 +39,6 @@ mod visuals;
 mod zoom_and_pan;
 
 impl_selectable_panel!(TextPanel, ImagePanel, MapPanel);
-
-fn panel_creation_context<'a>(
-    backend: &Arc<RobotBackend>,
-    value: Option<&'a Value>,
-    egui_context: &Context,
-) -> PanelCreationContext<'a> {
-    PanelCreationContext {
-        backend: backend.clone(),
-        value,
-        egui_context: egui_context.clone(),
-    }
-}
-
-fn default_dock_state(backend: &Arc<RobotBackend>, egui_context: &Context) -> DockState<Tab> {
-    DockState::new(vec![Tab::from_panel(SelectablePanel::TextPanel(
-        TextPanel::new(panel_creation_context(backend, None, egui_context)),
-    ))])
-}
 
 #[derive(Debug, Clone, clap::Parser)]
 struct Arguments {
@@ -84,10 +59,8 @@ struct Arguments {
 }
 
 struct TwixApp {
-    dock_state: DockState<Tab>,
+    layout: TwixLayout,
     namespace_editor: String,
-    panel_selection: String,
-    last_focused_tab: (NodeIndex, TabIndex),
     visual: Visuals,
     backend: Arc<RobotBackend>,
     runtime: tokio::runtime::Runtime,
@@ -103,42 +76,10 @@ impl TwixApp {
     ) -> Self {
         let namespace_editor = backend.namespace();
 
-        let egui_context = creation_context.egui_ctx.clone();
-        let dock_state = if arguments.clear {
-            None
-        } else {
-            creation_context
-                .storage
-                .and_then(|storage| storage.get_string("dock_state"))
-                .and_then(|string| match from_str::<DockState<Value>>(&string) {
-                    Ok(dock_state) => {
-                        let mut load_error = None;
-                        let dock_state = dock_state.map_tabs(|value| {
-                            let tab = Tab::new(panel_creation_context(
-                                &backend,
-                                Some(value),
-                                &egui_context,
-                            ));
-                            if let Err(error) = &tab.panel {
-                                load_error.get_or_insert_with(|| format!("{error:#}"));
-                            }
-                            tab
-                        });
-
-                        if let Some(error) = load_error {
-                            error!("failed to load dock tabs: {error}");
-                            None
-                        } else {
-                            Some(dock_state)
-                        }
-                    }
-                    Err(error) => {
-                        error!("failed to load dock state: {error:#}");
-                        None
-                    }
-                })
-        }
-        .unwrap_or_else(|| default_dock_state(&backend, &egui_context));
+        let layout = match arguments.clear {
+            true => TwixLayout::new(&creation_context.egui_ctx, &backend),
+            false => TwixLayout::load(creation_context, &backend),
+        };
 
         keybind_plugin::register(&creation_context.egui_ctx);
         creation_context
@@ -153,157 +94,11 @@ impl TwixApp {
         visual.set_visual(&creation_context.egui_ctx);
 
         Self {
-            dock_state,
+            layout,
             namespace_editor,
-            panel_selection: SelectablePanel::registered()
-                .first()
-                .copied()
-                .unwrap_or_default()
-                .to_string(),
-            last_focused_tab: (0.into(), 0.into()),
             visual,
             backend,
             runtime,
-        }
-    }
-
-    fn panel_context<'a>(
-        &self,
-        value: Option<&'a Value>,
-        egui_context: &Context,
-    ) -> PanelCreationContext<'a> {
-        panel_creation_context(&self.backend, value, egui_context)
-    }
-
-    fn new_text_tab(&self, egui_context: &Context) -> Tab {
-        Tab::from_panel(SelectablePanel::TextPanel(TextPanel::new(
-            self.panel_context(None, egui_context),
-        )))
-    }
-
-    fn default_dock_state(&self, egui_context: &Context) -> DockState<Tab> {
-        DockState::new(vec![self.new_text_tab(egui_context)])
-    }
-
-    fn focus_left(&mut self, path: NodePath) -> Option<()> {
-        let parent_id = path.node.parent()?;
-        let parent = &self.dock_state[path.surface][parent_id];
-        if path.node.is_left() || parent.is_vertical() {
-            return self.focus_left(NodePath::new(path.surface, parent_id));
-        }
-        let mut left_id = parent_id.left();
-
-        loop {
-            let node = &self.dock_state[path.surface][left_id];
-            match node {
-                Node::Empty => unreachable!("cannot hit an empty node while digging down"),
-                Node::Leaf { .. } => break,
-                Node::Vertical { .. } => {
-                    left_id = left_id.left();
-                }
-                Node::Horizontal { .. } => {
-                    left_id = left_id.right();
-                }
-            };
-        }
-
-        self.dock_state
-            .set_focused_node_and_surface(NodePath::new(path.surface, left_id));
-        Some(())
-    }
-
-    fn focus_right(&mut self, path: NodePath) -> Option<()> {
-        let parent_id = path.node.parent()?;
-        let parent = &self.dock_state[path.surface][parent_id];
-        if path.node.is_right() || parent.is_vertical() {
-            return self.focus_right(NodePath::new(path.surface, parent_id));
-        }
-        let mut child = parent_id.right();
-
-        loop {
-            let node = &self.dock_state[path.surface][child];
-            match node {
-                Node::Empty => unreachable!("cannot hit an empty node while digging down"),
-                Node::Leaf { .. } => break,
-                Node::Vertical { .. } => {
-                    child = child.left();
-                }
-                Node::Horizontal { .. } => {
-                    child = child.left();
-                }
-            };
-        }
-
-        self.dock_state
-            .set_focused_node_and_surface(NodePath::new(path.surface, child));
-        Some(())
-    }
-
-    fn focus_above(&mut self, path: NodePath) -> Option<()> {
-        let parent_id = path.node.parent()?;
-        let parent = &self.dock_state[path.surface][parent_id];
-        if path.node.is_left() || parent.is_horizontal() {
-            return self.focus_above(NodePath::new(path.surface, parent_id));
-        }
-        let mut left_id = parent_id.left();
-
-        loop {
-            let node = &self.dock_state[path.surface][left_id];
-            match node {
-                Node::Empty => unreachable!("cannot hit an empty node while digging down"),
-                Node::Leaf { .. } => break,
-                Node::Vertical { .. } => {
-                    left_id = left_id.right();
-                }
-                Node::Horizontal { .. } => {
-                    left_id = left_id.left();
-                }
-            };
-        }
-
-        self.dock_state
-            .set_focused_node_and_surface(NodePath::new(path.surface, left_id));
-        Some(())
-    }
-
-    fn focus_below(&mut self, path: NodePath) -> Option<()> {
-        let parent_id = path.node.parent()?;
-        let parent = &self.dock_state[path.surface][parent_id];
-        if path.node.is_right() || parent.is_horizontal() {
-            return self.focus_below(NodePath::new(path.surface, parent_id));
-        }
-        let mut child = parent_id.right();
-
-        loop {
-            let node = &self.dock_state[path.surface][child];
-            match node {
-                Node::Empty => unreachable!("cannot hit an empty node while digging down"),
-                Node::Leaf { .. } => break,
-                Node::Vertical { .. } => {
-                    child = child.left();
-                }
-                Node::Horizontal { .. } => {
-                    child = child.left();
-                }
-            };
-        }
-
-        self.dock_state
-            .set_focused_node_and_surface(NodePath::new(path.surface, child));
-        Some(())
-    }
-
-    fn active_tab(&mut self) -> Option<&mut Tab> {
-        let (_viewport, tab) = self.dock_state.find_active_focused()?;
-        Some(tab)
-    }
-
-    fn active_tab_index(&self) -> Option<(NodeIndex, TabIndex)> {
-        let path = self.dock_state.focused_leaf()?;
-        if let Node::Leaf(LeafNode { active, .. }) = &self.dock_state[path] {
-            Some((path.node, *active))
-        } else {
-            None
         }
     }
 }
@@ -312,6 +107,21 @@ impl App for TwixApp {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut Frame) {
         let _runtime_guard = self.runtime.enter();
         let context = ui.ctx().clone();
+        if context.keybind_pressed(KeybindAction::FocusPanel) {
+            self.layout.open_selector(&context);
+        }
+        if context.keybind_pressed(KeybindAction::FocusLeft) {
+            self.layout.focus(FocusDirection::Left, &context);
+        }
+        if context.keybind_pressed(KeybindAction::FocusBelow) {
+            self.layout.focus(FocusDirection::Below, &context);
+        }
+        if context.keybind_pressed(KeybindAction::FocusAbove) {
+            self.layout.focus(FocusDirection::Above, &context);
+        }
+        if context.keybind_pressed(KeybindAction::FocusRight) {
+            self.layout.focus(FocusDirection::Right, &context);
+        }
 
         EguiPanel::top("top_bar").show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -328,42 +138,6 @@ impl App for TwixApp {
                     {
                         log::error!("failed to set namespace: {error:#}");
                         self.namespace_editor = self.backend.namespace();
-                    }
-
-                    if self.active_tab_index() != Some(self.last_focused_tab) {
-                        self.last_focused_tab =
-                            self.active_tab_index().unwrap_or((0.into(), 0.into()));
-                        if let Some(name) = self
-                            .active_tab()
-                            .and_then(|tab| tab.panel.as_ref().ok())
-                            .map(|panel| format!("{panel}"))
-                        {
-                            self.panel_selection = name;
-                        }
-                    }
-
-                    let panels = SelectablePanel::registered();
-                    let panel_input = ui.add(CompletionEdit::new(
-                        ui.id().with("panel-selector"),
-                        &panels,
-                        &mut self.panel_selection,
-                    ));
-
-                    if context.keybind_pressed(KeybindAction::FocusPanel) {
-                        panel_input.request_focus();
-                    }
-                    if panel_input.changed() {
-                        match SelectablePanel::try_from_display_name(
-                            &self.panel_selection,
-                            self.panel_context(None, ui.ctx()),
-                        ) {
-                            Ok(panel) => {
-                                if let Some(active_tab) = self.active_tab() {
-                                    active_tab.panel = Ok(panel);
-                                }
-                            }
-                            Err(error) => error!("{error:#}"),
-                        }
                     }
                 });
 
@@ -385,203 +159,33 @@ impl App for TwixApp {
         });
 
         CentralPanel::default().show(ui, |ui| {
-            if context.keybind_pressed(KeybindAction::OpenSplit)
-                && let Some(path) = self.dock_state.focused_leaf()
-            {
-                let tab = self.new_text_tab(ui.ctx());
-                let node = &mut self.dock_state[path];
-                if node.tabs_count() == 0 {
-                    node.append_tab(tab);
-                } else {
-                    let rect = node.rect().unwrap();
-                    let direction = if rect.height() > rect.width() {
-                        Split::Below
-                    } else {
-                        Split::Right
-                    };
-                    self.dock_state.split(path, direction, 0.5, Node::leaf(tab));
-                }
+            if context.keybind_pressed(KeybindAction::OpenSplit) {
+                self.layout.open_split(&self.backend, ui.ctx());
             }
             if context.keybind_pressed(KeybindAction::OpenTab) {
-                let tab = self.new_text_tab(ui.ctx());
-                self.dock_state.push_to_focused_leaf(tab);
+                self.layout.open_tab(&self.backend, ui.ctx());
             }
 
-            if context.keybind_pressed(KeybindAction::FocusLeft)
-                && let Some(path) = self.dock_state.focused_leaf()
-            {
-                self.focus_left(path);
-            }
-            if context.keybind_pressed(KeybindAction::FocusBelow)
-                && let Some(path) = self.dock_state.focused_leaf()
-            {
-                self.focus_below(path);
-            }
-            if context.keybind_pressed(KeybindAction::FocusAbove)
-                && let Some(path) = self.dock_state.focused_leaf()
-            {
-                self.focus_above(path);
-            }
-            if context.keybind_pressed(KeybindAction::FocusRight)
-                && let Some(path) = self.dock_state.focused_leaf()
-            {
-                self.focus_right(path);
+            if context.keybind_pressed(KeybindAction::DuplicateTab) {
+                self.layout.duplicate_focused(&self.backend, ui.ctx());
             }
 
-            let saved_tab = if context.keybind_pressed(KeybindAction::DuplicateTab) {
-                self.dock_state
-                    .find_active_focused()
-                    .map(|(_, tab)| tab.save())
-            } else {
-                None
-            };
-            if let Some(saved_tab) = saved_tab {
-                match SelectablePanel::new(self.panel_context(Some(&saved_tab), ui.ctx())) {
-                    Ok(panel) => self.dock_state.push_to_focused_leaf(Tab::from_panel(panel)),
-                    Err(error) => error!("failed to duplicate tab: {error:#}"),
-                }
-            }
-
-            if context.keybind_pressed(KeybindAction::CloseTab)
-                && let Some(path) = self.dock_state.focused_leaf()
-            {
-                let active_node = &mut self.dock_state[path];
-                if let Node::Leaf(LeafNode { active, tabs, .. }) = active_node
-                    && !tabs.is_empty()
-                {
-                    tabs.remove(active.0);
-
-                    active.0 = active.0.saturating_sub(1);
-
-                    if tabs.is_empty() && path.node != NodeIndex(0) {
-                        self.dock_state[path.surface].remove_leaf(path.node);
-                    }
-                }
+            if context.keybind_pressed(KeybindAction::CloseTab) {
+                self.layout.close_focused(&self.backend, ui.ctx());
             }
 
             if context.keybind_pressed(KeybindAction::CloseAll) {
-                self.dock_state = self.default_dock_state(ui.ctx());
-                self.last_focused_tab = (0.into(), 0.into());
-                self.dock_state
-                    .set_focused_node_and_surface(NodePath::MAIN_ROOT);
+                self.layout.reset(&self.backend, ui.ctx());
             }
 
-            let mut style = egui_dock::Style::from_egui(ui.style().as_ref());
-            style.buttons.add_tab_align = TabAddAlign::Left;
-            let mut tab_viewer = TabViewer {
-                nodes_to_add_tabs_to: Vec::new(),
-                backend: self.backend.clone(),
-                egui_context: ui.ctx().clone(),
-            };
-            DockArea::new(&mut self.dock_state)
-                .style(style)
-                .show_add_buttons(true)
-                .show_inside(ui, &mut tab_viewer);
-
-            for path in tab_viewer.nodes_to_add_tabs_to {
-                let tab = self.new_text_tab(ui.ctx());
-                let index = self.dock_state[path].tabs_count();
-                self.dock_state[path].insert_tab(index.into(), tab);
-                self.dock_state.set_focused_node_and_surface(path);
-            }
-
-            if let Some(path) = self.dock_state.focused_leaf() {
-                let node = &self.dock_state[path];
-                if let Some(rect) = node.rect() {
-                    ui.painter().rect_stroke(
-                        rect,
-                        CornerRadius::same(4),
-                        ui.visuals().widgets.active.bg_stroke,
-                        StrokeKind::Outside,
-                    );
-                }
-            }
+            self.layout.ui(ui, &self.backend);
         });
     }
 
     fn save(&mut self, storage: &mut dyn Storage) {
-        let dock_state = self.dock_state.map_tabs(|tab| tab.save());
-
-        storage.set_string(
-            "dock_state",
-            to_string(&dock_state).expect("dock state should serialize"),
-        );
+        self.layout.save(storage);
         storage.set_string("namespace", self.backend.namespace());
         storage.set_string("style", self.visual.to_string());
-    }
-}
-
-struct Tab {
-    panel: color_eyre::Result<SelectablePanel>,
-    ui_id: uuid::Uuid,
-}
-
-impl Tab {
-    fn new(context: PanelCreationContext<'_>) -> Self {
-        Self {
-            panel: SelectablePanel::new(context),
-            ui_id: uuid::Uuid::new_v4(),
-        }
-    }
-
-    fn from_panel(panel: SelectablePanel) -> Self {
-        Self {
-            panel: Ok(panel),
-            ui_id: uuid::Uuid::new_v4(),
-        }
-    }
-
-    fn save(&self) -> serde_json::Value {
-        match &self.panel {
-            Ok(panel) => panel.save(),
-            Err(error) => serde_json::json!({
-                "kind": "load-error",
-                "state": { "error": format!("{error:#}") },
-            }),
-        }
-    }
-}
-
-struct TabViewer {
-    nodes_to_add_tabs_to: Vec<NodePath>,
-    backend: Arc<RobotBackend>,
-    egui_context: Context,
-}
-
-impl TabViewer {
-    fn panel_ui_context(&self) -> PanelUiContext<'_> {
-        PanelUiContext {
-            backend: &self.backend,
-            egui_context: &self.egui_context,
-        }
-    }
-}
-
-impl egui_dock::TabViewer for TabViewer {
-    type Tab = Tab;
-
-    fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
-        match &mut tab.panel {
-            Ok(panel) => panel.ui(ui, self.panel_ui_context()),
-            Err(error) => {
-                ui.label(format!("Error loading panel: {error:#}"));
-            }
-        }
-    }
-
-    fn title(&mut self, tab: &mut Self::Tab) -> eframe::egui::WidgetText {
-        match &mut tab.panel {
-            Ok(panel) => panel.kind().label().into(),
-            Err(error) => format!("{error}").into(),
-        }
-    }
-
-    fn id(&mut self, tab: &mut Self::Tab) -> Id {
-        Id::new(tab.ui_id)
-    }
-
-    fn on_add(&mut self, path: NodePath) {
-        self.nodes_to_add_tabs_to.push(path);
     }
 }
 
@@ -672,50 +276,9 @@ fn main() -> eframe::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashSet, sync::Arc};
+    use std::collections::HashSet;
 
-    use color_eyre::eyre::eyre;
-    use eframe::egui::Context;
-    use egui_dock::TabViewer as _;
-    use uuid::Uuid;
-
-    use super::{PanelKind, RobotBackend, Tab, TabViewer};
-
-    #[test]
-    fn duplicate_title_tabs_have_distinct_dock_ids() {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .expect("runtime should build");
-        let backend = Arc::new(
-            runtime
-                .block_on(RobotBackend::new(
-                    runtime.handle().clone(),
-                    None,
-                    "/".to_string(),
-                ))
-                .expect("backend should build"),
-        );
-        let mut viewer = TabViewer {
-            nodes_to_add_tabs_to: Vec::new(),
-            backend,
-            egui_context: Context::default(),
-        };
-        let mut first = Tab {
-            panel: Err(eyre!("same title")),
-            ui_id: Uuid::from_u128(1),
-        };
-        let mut second = Tab {
-            panel: Err(eyre!("same title")),
-            ui_id: Uuid::from_u128(2),
-        };
-
-        assert_eq!(
-            viewer.title(&mut first).text(),
-            viewer.title(&mut second).text()
-        );
-        assert_ne!(viewer.id(&mut first), viewer.id(&mut second));
-    }
+    use super::PanelKind;
 
     #[test]
     fn registered_panels_have_unique_ids_and_icons() {
