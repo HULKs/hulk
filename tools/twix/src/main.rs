@@ -33,6 +33,9 @@ use crate::backend::RobotBackend;
 mod backend;
 mod configuration;
 mod graph;
+#[cfg(test)]
+#[allow(dead_code)]
+mod layout;
 mod panel;
 mod panels;
 mod repaint;

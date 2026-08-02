@@ -18,6 +18,7 @@ eframe = { workspace = true }
 egui-phosphor = { workspace = true }
 egui_dock = { workspace = true }
 egui_extras = { workspace = true }
+egui_tiles = { workspace = true }
 geometry = { workspace = true }
 hsl_network_messages = { workspace = true }
 hulk_widgets = { workspace = true }
