@@ -549,7 +549,7 @@ impl TabViewer {
     fn panel_ui_context(&self) -> PanelUiContext<'_> {
         PanelUiContext {
             backend: &self.backend,
-            egui_context: self.egui_context.clone(),
+            egui_context: &self.egui_context,
         }
     }
 }
@@ -568,7 +568,7 @@ impl egui_dock::TabViewer for TabViewer {
 
     fn title(&mut self, tab: &mut Self::Tab) -> eframe::egui::WidgetText {
         match &mut tab.panel {
-            Ok(panel) => format!("{panel}").into(),
+            Ok(panel) => panel.kind().label().into(),
             Err(error) => format!("{error}").into(),
         }
     }
@@ -643,6 +643,9 @@ fn main() -> eframe::Result<()> {
         NativeOptions::default(),
         Box::new(move |creation_context| {
             egui_extras::install_image_loaders(&creation_context.egui_ctx);
+            let mut fonts = eframe::egui::FontDefinitions::default();
+            egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
+            creation_context.egui_ctx.set_fonts(fonts);
             let namespace = arguments
                 .namespace
                 .clone()
@@ -666,14 +669,14 @@ fn main() -> eframe::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{collections::HashSet, sync::Arc};
 
     use color_eyre::eyre::eyre;
     use eframe::egui::Context;
     use egui_dock::TabViewer as _;
     use uuid::Uuid;
 
-    use super::{RobotBackend, Tab, TabViewer};
+    use super::{PanelKind, RobotBackend, Tab, TabViewer};
 
     #[test]
     fn duplicate_title_tabs_have_distinct_dock_ids() {
@@ -709,5 +712,30 @@ mod tests {
             viewer.title(&mut second).text()
         );
         assert_ne!(viewer.id(&mut first), viewer.id(&mut second));
+    }
+
+    #[test]
+    fn registered_panels_have_unique_ids_and_icons() {
+        let panels = PanelKind::registered();
+
+        assert_eq!(
+            panels
+                .iter()
+                .map(|panel| (panel.storage_id(), panel.display_name(), panel.icon()))
+                .collect::<Vec<_>>(),
+            vec![
+                ("text", "Text", egui_phosphor::regular::FILE_TEXT),
+                ("image", "Image", egui_phosphor::regular::IMAGE),
+                ("map", "Map", egui_phosphor::regular::MAP_TRIFOLD),
+            ]
+        );
+        assert_eq!(
+            panels
+                .iter()
+                .map(|panel| panel.storage_id())
+                .collect::<HashSet<_>>()
+                .len(),
+            panels.len()
+        );
     }
 }

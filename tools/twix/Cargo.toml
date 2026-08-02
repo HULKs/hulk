@@ -15,6 +15,7 @@ convert_case = { workspace = true }
 coordinate_systems = { workspace = true }
 dirs = { workspace = true }
 eframe = { workspace = true }
+egui-phosphor = { workspace = true }
 egui_dock = { workspace = true }
 egui_extras = { workspace = true }
 geometry = { workspace = true }
