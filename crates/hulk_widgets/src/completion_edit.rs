@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, fmt::Debug, sync::Arc};
+use std::{fmt::Debug, sync::Arc};
 
 use egui::{
     Color32, Context, EventFilter, Id, Key, Modifiers, Popup, PopupCloseBehavior, Response,
@@ -8,10 +8,8 @@ use egui::{
     text::{CCursor, CCursorRange},
     text_edit::{TextEditOutput, TextEditState},
 };
-use nucleo_matcher::{
-    Matcher, Utf32Str,
-    pattern::{CaseMatching, Normalization, Pattern},
-};
+
+use crate::matcher::fuzzy_matches;
 
 pub struct CompletionEdit<'a, T> {
     id: Id,
@@ -60,33 +58,7 @@ type CachedMatcherSearch = FrameCache<MatchingItems, MatcherSearch>;
 
 impl<'a, T: ToString> ComputerMut<(&String, &'a [T]), MatchingItems> for MatcherSearch {
     fn compute(&mut self, (key, items): (&String, &'a [T])) -> MatchingItems {
-        let mut matcher = Matcher::default();
-        let pattern = Pattern::parse(key.as_str(), CaseMatching::Smart, Normalization::Smart);
-
-        if pattern.atoms.is_empty() {
-            return Arc::new(items.iter().map(ToString::to_string).enumerate().collect());
-        }
-
-        let mut buffer = Vec::new();
-        let mut items: Vec<_> = items
-            .iter()
-            .enumerate()
-            .filter_map(|(index, item)| {
-                let string = item.to_string();
-                pattern
-                    .score(Utf32Str::new(string.as_str(), &mut buffer), &mut matcher)
-                    .map(|score| (score, index, string))
-            })
-            .collect();
-
-        items.sort_by_key(|(score, _, _)| Reverse(*score));
-
-        Arc::new(
-            items
-                .into_iter()
-                .map(|(_score, index, item)| (index, item))
-                .collect(),
-        )
+        Arc::new(fuzzy_matches(key, items))
     }
 }
 
