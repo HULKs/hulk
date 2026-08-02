@@ -4,7 +4,7 @@ use eframe::egui::{
     CentralPanel, Context, Event, Id, Key, Modifiers, PointerButton, Popup, Pos2, RawInput, Rect,
     pos2, vec2,
 };
-use egui_tiles::{Container, Linear, LinearDir, Tile, TileId};
+use egui_tiles::{Container, Linear, LinearDir, Tile, TileId, Tree};
 
 use crate::{PanelKind, backend::RobotBackend};
 
@@ -12,6 +12,7 @@ use super::{
     FocusDirection, TREE_ID, TwixLayout,
     focus::{nearest_in_direction, pane_focus_id},
     pane::PanelPane,
+    persistence::{MAX_RESTORED_TILE_ID, SavedLayout},
     tab_bar::tab_title,
     tree::{LayoutRequest, TabGroupId, simplification_options},
 };
@@ -136,6 +137,30 @@ fn add_grouped_split(
     (group, sibling, original)
 }
 
+fn round_trip_layout(
+    layout: &TwixLayout,
+    backend: &Arc<RobotBackend>,
+    context: &Context,
+) -> TwixLayout {
+    let serialized = serde_json::to_string(&SavedLayout {
+        tree: &layout.tree,
+        focused: layout.focused,
+    })
+    .expect("layout should serialize");
+    TwixLayout::from_serialized(&serialized, backend, context).expect("layout should restore")
+}
+
+async fn assert_invalid_tree(tree: Tree<serde_json::Value>) {
+    let backend = test_backend().await;
+    let context = Context::default();
+    let serialized = serde_json::to_string(&serde_json::json!({
+        "tree": tree,
+        "focused": null,
+    }))
+    .expect("layout should serialize");
+    assert!(TwixLayout::from_serialized(&serialized, &backend, &context).is_err());
+}
+
 #[test]
 fn directional_focus_prefers_orthogonally_overlapping_pane() {
     let current = Rect::from_min_max(pos2(100.0, 100.0), pos2(200.0, 200.0));
@@ -199,6 +224,43 @@ async fn tab_and_split_commands_keep_every_pane_in_a_tab_group() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn restored_layout_wraps_a_pane_dropped_between_splits_without_reusing_its_id() {
+    let (backend, context, mut layout) = test_layout().await;
+    layout.open_tab(&backend, &context);
+    layout.open_split(&backend, &context);
+    let mut restored = round_trip_layout(&layout, &backend, &context);
+    let root = restored.tree.root().expect("layout should have a root");
+    let moved = restored
+        .tree
+        .tiles
+        .iter()
+        .find_map(|(_, tile)| match tile {
+            Tile::Container(Container::Tabs(tabs)) if tabs.children.len() == 2 => {
+                tabs.children.first().copied()
+            }
+            _ => None,
+        })
+        .expect("one split should contain two tabs");
+
+    restored.tree.move_tile_to_container(moved, root, 1, false);
+    restored.tree.simplify(&simplification_options());
+
+    let wrapped_pane = match restored.tree.tiles.get(moved) {
+        Some(Tile::Container(Container::Tabs(tabs))) => {
+            assert_eq!(tabs.children.len(), 1);
+            tabs.children[0]
+        }
+        _ => panic!("direct pane should be wrapped in tabs"),
+    };
+    assert_ne!(wrapped_pane, moved);
+    assert!(matches!(
+        restored.tree.tiles.get(wrapped_pane),
+        Some(Tile::Pane(_))
+    ));
+    assert!(!restored.tree.active_tiles().is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn closing_an_inactive_tab_preserves_focus() {
     let (backend, context, mut layout) = test_layout().await;
     layout.open_tab(&backend, &context);
@@ -235,6 +297,49 @@ async fn closing_the_first_focused_tab_focuses_its_sibling() {
 
     assert_eq!(layout.focused, Some(children[1]));
     assert!(context.memory(|memory| memory.has_focus(pane_focus_id(children[1]))));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn empty_tile_layout_is_rejected() {
+    assert_invalid_tree(Tree::empty("empty")).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn implausibly_large_persisted_tile_id_is_rejected() {
+    let pane_id = TileId::from_u64(MAX_RESTORED_TILE_ID + 1);
+    let mut tiles = egui_tiles::Tiles::default();
+    tiles.insert(
+        pane_id,
+        Tile::Pane(serde_json::json!({ "kind": "text", "state": {} })),
+    );
+    assert_invalid_tree(Tree::new("oversized", pane_id, tiles)).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn failed_panel_restoration_rejects_the_entire_layout() {
+    let tree = Tree::new_tabs(
+        "unknown-panel",
+        vec![serde_json::json!({
+            "kind": "not-a-registered-panel",
+            "state": {}
+        })],
+    );
+    assert_invalid_tree(tree).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn restored_layout_preserves_tile_visibility() {
+    let (backend, context, mut layout) = test_layout().await;
+    layout.open_tab(&backend, &context);
+    let tabs_id = layout.focused_tabs().expect("layout should contain tabs");
+    let hidden = match layout.tree.tiles.get(tabs_id.0) {
+        Some(Tile::Container(Container::Tabs(tabs))) => tabs.children[0],
+        _ => panic!("focused pane should be in tabs"),
+    };
+    layout.tree.tiles.set_visible(hidden, false);
+    let restored = round_trip_layout(&layout, &backend, &context);
+
+    assert!(!restored.tree.tiles.is_visible(hidden));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -361,9 +466,9 @@ async fn panel_selector_only_opens_from_the_caret() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn group_tabs_have_no_panel_selector() {
+async fn group_tabs_have_no_panel_selector_and_survive_persistence() {
     let (backend, context, mut layout) = test_layout().await;
-    let (group, _, _) = add_grouped_split(&mut layout, &backend, &context);
+    let (group, _, focused) = add_grouped_split(&mut layout, &backend, &context);
 
     show_layout(&context, &mut layout, &backend, Vec::new());
 
@@ -373,7 +478,12 @@ async fn group_tabs_have_no_panel_selector() {
             .read_response(tab_id(group).with("panel-type"))
             .is_none()
     );
-    assert_eq!(tab_title(&layout.tree.tiles, group), "Group");
+    let restored = round_trip_layout(&layout, &backend, &context);
+
+    assert_eq!(pane_count(&restored), 3);
+    assert_eq!(restored.focused, Some(focused));
+    assert!(restored.focused_tabs().is_some());
+    assert_eq!(tab_title(&restored.tree.tiles, group), "Group");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

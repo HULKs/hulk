@@ -10,6 +10,7 @@ use self::{behavior::LayoutBehavior, pane::PanelPane};
 mod behavior;
 mod focus;
 mod pane;
+mod persistence;
 mod tab_bar;
 mod tree;
 
