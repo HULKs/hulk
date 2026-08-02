@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use color_eyre::{
     Result,
     eyre::{WrapErr as _, bail},
 };
 use eframe::{CreationContext, Storage, egui::Context};
-use egui_tiles::{Tile, TileId, Tiles, Tree};
+use egui_tiles::{Container, Tile, TileId, Tiles, Tree};
 use log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -16,6 +16,8 @@ use super::{TREE_ID, TwixLayout, focus::request_pane_focus, pane::PanelPane, tre
 
 const STORAGE_KEY: &str = "tile_layout";
 pub(super) const MAX_RESTORED_TILE_ID: u64 = 1 << 20;
+const MAX_RESTORED_TILE_COUNT: usize = 4096;
+const MAX_RESTORED_TREE_DEPTH: usize = 128;
 
 #[derive(Serialize)]
 pub(super) struct SavedLayout<'a> {
@@ -62,9 +64,7 @@ impl TwixLayout {
     ) -> Result<Self> {
         let loaded: LoadedLayout =
             serde_json::from_str(serialized).wrap_err("failed to deserialize tile layout")?;
-        let Some(root) = loaded.tree.root else {
-            bail!("tile layout has no root");
-        };
+        let root = validate_tree(&loaded.tree)?;
 
         let highest_id = loaded
             .tree
@@ -117,4 +117,57 @@ impl TwixLayout {
         request_pane_focus(egui_context, focused);
         Ok(layout)
     }
+}
+
+fn validate_tree(tree: &Tree<Value>) -> Result<TileId> {
+    if MAX_RESTORED_TILE_COUNT < tree.tiles.len() {
+        bail!("tile layout contains too many tiles");
+    }
+    let Some(root) = tree.root else {
+        bail!("tile layout has no root");
+    };
+    let mut seen = HashSet::new();
+    let mut stack = vec![(root, 0_usize)];
+    let mut has_pane = false;
+
+    while let Some((tile_id, depth)) = stack.pop() {
+        if MAX_RESTORED_TREE_DEPTH < depth {
+            bail!("tile layout exceeds the maximum supported depth");
+        }
+        if !seen.insert(tile_id) {
+            bail!("tile {tile_id:?} is referenced more than once");
+        }
+        let Some(tile) = tree.tiles.get(tile_id) else {
+            bail!("tile layout references missing tile {tile_id:?}");
+        };
+        match tile {
+            Tile::Pane(_) => has_pane = true,
+            Tile::Container(container) => {
+                if matches!(container, Container::Grid(_)) {
+                    bail!("grid containers are not supported");
+                }
+                if let Container::Tabs(tabs) = container
+                    && tabs
+                        .active
+                        .is_some_and(|active| !tabs.children.contains(&active))
+                {
+                    bail!("tab container {tile_id:?} has an invalid active child");
+                }
+                stack.extend(
+                    container
+                        .children()
+                        .copied()
+                        .map(|child| (child, depth + 1)),
+                );
+            }
+        }
+    }
+
+    if seen.len() != tree.tiles.len() {
+        bail!("tile layout contains unreachable tiles");
+    }
+    if !has_pane {
+        bail!("tile layout has no panels");
+    }
+    Ok(root)
 }

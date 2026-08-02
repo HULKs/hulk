@@ -4,7 +4,7 @@ use eframe::egui::{
     CentralPanel, Context, Event, Id, Key, Modifiers, PointerButton, Popup, Pos2, RawInput, Rect,
     pos2, vec2,
 };
-use egui_tiles::{Container, Linear, LinearDir, Tile, TileId, Tree};
+use egui_tiles::{Container, Linear, LinearDir, Tile, TileId, Tiles, Tree};
 
 use crate::{PanelKind, backend::RobotBackend};
 
@@ -313,6 +313,97 @@ async fn implausibly_large_persisted_tile_id_is_rejected() {
         Tile::Pane(serde_json::json!({ "kind": "text", "state": {} })),
     );
     assert_invalid_tree(Tree::new("oversized", pane_id, tiles)).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn persisted_layout_with_a_missing_child_is_rejected() {
+    let root = TileId::from_u64(1);
+    let missing = TileId::from_u64(2);
+    let mut tiles = Tiles::default();
+    tiles.insert(root, Tile::Container(Container::new_tabs(vec![missing])));
+
+    assert_invalid_tree(Tree::new("missing-child", root, tiles)).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn persisted_layout_with_an_orphan_is_rejected() {
+    let mut tree = Tree::new_tabs(
+        "orphan",
+        vec![serde_json::json!({ "kind": "text", "state": {} })],
+    );
+    let _ = tree.tiles.insert_pane(serde_json::json!({
+        "kind": "text",
+        "state": {}
+    }));
+    assert_invalid_tree(tree).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn persisted_layout_with_an_invalid_active_tab_is_rejected() {
+    let pane = TileId::from_u64(1);
+    let root = TileId::from_u64(2);
+    let mut tiles = Tiles::default();
+    tiles.insert(
+        pane,
+        Tile::Pane(serde_json::json!({ "kind": "text", "state": {} })),
+    );
+    let mut tabs = egui_tiles::Tabs::new(vec![pane]);
+    tabs.active = Some(TileId::from_u64(3));
+    tiles.insert(root, Tile::Container(Container::Tabs(tabs)));
+    assert_invalid_tree(Tree::new("invalid-active", root, tiles)).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn persisted_layout_with_a_grid_is_rejected() {
+    let pane = TileId::from_u64(1);
+    let root = TileId::from_u64(2);
+    let mut tiles = Tiles::default();
+    tiles.insert(
+        pane,
+        Tile::Pane(serde_json::json!({ "kind": "text", "state": {} })),
+    );
+    tiles.insert(root, Tile::Container(Container::new_grid(vec![pane])));
+    assert_invalid_tree(Tree::new("grid", root, tiles)).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn persisted_layout_with_a_multiply_parented_pane_is_rejected() {
+    let pane = TileId::from_u64(1);
+    let left = TileId::from_u64(2);
+    let right = TileId::from_u64(3);
+    let root = TileId::from_u64(4);
+    let mut tiles = Tiles::default();
+    tiles.insert(
+        pane,
+        Tile::Pane(serde_json::json!({ "kind": "text", "state": {} })),
+    );
+    tiles.insert(left, Tile::Container(Container::new_tabs(vec![pane])));
+    tiles.insert(right, Tile::Container(Container::new_tabs(vec![pane])));
+    tiles.insert(
+        root,
+        Tile::Container(Container::new_horizontal(vec![left, right])),
+    );
+    assert_invalid_tree(Tree::new("multiple-parents", root, tiles)).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn excessively_deep_persisted_layout_is_rejected() {
+    let pane = TileId::from_u64(1);
+    let mut tiles = Tiles::default();
+    tiles.insert(
+        pane,
+        Tile::Pane(serde_json::json!({ "kind": "text", "state": {} })),
+    );
+    let mut child = pane;
+    for raw_id in 2..=132 {
+        let parent = TileId::from_u64(raw_id);
+        tiles.insert(
+            parent,
+            Tile::Container(Container::new_horizontal(vec![child])),
+        );
+        child = parent;
+    }
+    assert_invalid_tree(Tree::new("too-deep", child, tiles)).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
