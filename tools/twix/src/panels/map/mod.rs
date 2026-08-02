@@ -174,31 +174,31 @@ impl Panel for MapPanel {
         })
     }
 
-    fn ui(&mut self, ui: &mut Ui, _context: PanelUiContext<'_>) {
-        ui.horizontal(|ui| {
-            ui.menu_button("Overlays", |ui| {
-                self.field.checkbox(ui);
-                self.ball_search_heatmap.checkbox(ui);
-                self.path_obstacles.checkbox(ui);
-                self.obstacles.checkbox(ui);
-                self.path.checkbox(ui);
-                self.robot_pose.checkbox(ui);
-                self.odometry.checkbox(ui);
-                self.ball_percept.checkbox(ui);
-                self.ball_position.checkbox(ui);
-                self.ball_filter.checkbox(ui);
-                self.obstacle_filter.checkbox(ui);
-                self.localization.checkbox(ui);
-                self.voronoi_cells.checkbox(ui);
-            });
-            ComboBox::from_id_salt("plot_type_selector")
-                .selected_text(format!("{:?}", self.current_plot_type))
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut self.current_plot_type, PlotType::Ground, "Ground");
-                    ui.selectable_value(&mut self.current_plot_type, PlotType::Field, "Field");
-                });
+    fn header_ui(&mut self, ui: &mut Ui, _context: PanelUiContext<'_>) {
+        ui.menu_button("Overlays", |ui| {
+            self.field.checkbox(ui);
+            self.ball_search_heatmap.checkbox(ui);
+            self.path_obstacles.checkbox(ui);
+            self.obstacles.checkbox(ui);
+            self.path.checkbox(ui);
+            self.robot_pose.checkbox(ui);
+            self.odometry.checkbox(ui);
+            self.ball_percept.checkbox(ui);
+            self.ball_position.checkbox(ui);
+            self.ball_filter.checkbox(ui);
+            self.obstacle_filter.checkbox(ui);
+            self.localization.checkbox(ui);
+            self.voronoi_cells.checkbox(ui);
         });
+        ComboBox::from_id_salt("plot_type_selector")
+            .selected_text(format!("{:?}", self.current_plot_type))
+            .show_ui(ui, |ui| {
+                ui.selectable_value(&mut self.current_plot_type, PlotType::Ground, "Ground");
+                ui.selectable_value(&mut self.current_plot_type, PlotType::Field, "Field");
+            });
+    }
 
+    fn ui(&mut self, ui: &mut Ui, _context: PanelUiContext<'_>) {
         let field_dimensions: FieldDimensions = match self.field_dimensions.latest().as_deref() {
             Some(sample_record) => sample_record.value,
             None => {
