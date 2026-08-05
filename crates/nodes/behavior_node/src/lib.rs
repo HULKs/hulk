@@ -6,6 +6,7 @@ pub mod head;
 pub mod kick;
 pub mod motion_assembler;
 pub mod node;
+pub mod penalty_shootout;
 pub mod search;
 pub mod send_message;
 pub mod substates;

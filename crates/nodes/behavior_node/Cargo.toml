@@ -18,6 +18,7 @@ log = { workspace = true }
 nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 path_planner = { workspace = true }
+rand = { workspace = true }
 ros-z = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 smallvec = { workspace = true }
