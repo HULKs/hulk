@@ -47,31 +47,36 @@ pub fn penalty_kick_striker_subtree() -> Node<Blackboard> {
 }
 
 pub fn set_penalty_kick_target(blackboard: &mut Blackboard) -> Status {
-    let field_dimensions = blackboard.field_dimensions;
-    let penalty_kick_target_y_scale = blackboard.parameters.substates.penalty_kick_target_y_scale;
-    let target_goal_area_half =
-        field_dimensions.goal_inner_width / 2.0 * penalty_kick_target_y_scale;
+    if let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field {
+        let field_dimensions = blackboard.field_dimensions;
+        let penalty_kick_target_y_scale =
+            blackboard.parameters.substates.penalty_kick_target_y_scale;
+        let target_goal_area_half =
+            field_dimensions.goal_inner_width / 2.0 * penalty_kick_target_y_scale;
 
-    let target = match (blackboard.last_motion_type, blackboard.last_kick_target) {
-        (Some(MotionType::Kick), Some(kick_target)) => kick_target,
-        _ => {
-            let mut rng = StdRng::seed_from_u64(blackboard.world_state.now.as_nanos() as u64);
-            let target_y = if rng.random() {
-                target_goal_area_half
-            } else {
-                -target_goal_area_half
-            };
+        let target = match (blackboard.last_motion_type, blackboard.last_kick_target) {
+            (Some(MotionType::Kick), Some(kick_target)) => kick_target,
+            _ => {
+                let mut rng = StdRng::seed_from_u64(blackboard.world_state.now.as_nanos() as u64);
+                let target_y = if rng.random() {
+                    target_goal_area_half
+                } else {
+                    -target_goal_area_half
+                };
 
-            let target = point!(field_dimensions.length / 2.0, target_y);
+                let target =
+                    ground_to_field * point!(field_dimensions.penalty_area_length, target_y);
 
-            blackboard.last_kick_target = Some(target);
-            target
-        }
-    };
+                blackboard.last_kick_target = Some(target);
+                target
+            }
+        };
 
-    apply_visual_kick_target(
-        blackboard,
-        target,
-        blackboard.parameters.kicking.kick_target_offset_angle,
-    )
+        return apply_visual_kick_target(
+            blackboard,
+            target,
+            blackboard.parameters.kicking.kick_target_offset_angle,
+        );
+    }
+    Status::Failure
 }
