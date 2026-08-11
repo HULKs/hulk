@@ -37,7 +37,7 @@ pub fn plan(
         ..Default::default()
     };
     planner.with_last_motion(
-        &blackboard.last_motion_command,
+        blackboard.last_motion_command.as_ref(),
         parameters.rotation_penalty_factor,
     );
     planner.with_obstacles(&blackboard.world_state.obstacles, parameters.robot_radius);
@@ -92,8 +92,10 @@ pub fn walk_to(
         let parameters = &blackboard.parameters.walking.walk_and_stand;
         let distance_to_walk = target_pose.position().coords().norm();
         let angle_to_walk = target_pose.orientation().angle();
-        let was_standing_last_cycle =
-            matches!(blackboard.last_motion_command, MotionCommand::Stand { .. });
+        let was_standing_last_cycle = matches!(
+            blackboard.last_motion_command,
+            Some(MotionCommand::Stand { .. })
+        );
         let is_reached = less_than_with_relative_hysteresis(
             was_standing_last_cycle,
             distance_to_walk,
