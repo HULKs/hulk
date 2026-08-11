@@ -55,7 +55,7 @@ pub struct Blackboard {
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
     pub last_kick_target: Option<Point2<Field>>,
-    pub last_motion_command: MotionCommand,
+    pub last_motion_command: Option<MotionCommand>,
     pub last_motion_switch_time: Time,
     pub last_motion_type: Option<MotionType>,
     pub last_sent_game_controller_return_message_time: Option<Time>,
@@ -272,7 +272,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         last_ball: None,
         last_close_enough_to_kick: false,
         last_kick_target: None,
-        last_motion_command: MotionCommand::default(),
+        last_motion_command: None,
         last_motion_switch_time: Time::zero(),
         last_motion_type: None,
         last_sent_game_controller_return_message_time: None,
@@ -387,7 +387,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
 
         let previous_motion_command = blackboard.last_motion_command.clone();
-        blackboard.last_motion_command = motion_command.clone();
+        blackboard.last_motion_command = Some(motion_command.clone());
 
         let motion_type = match &motion_command {
             MotionCommand::Damping => Some(MotionType::Damping),
@@ -400,7 +400,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             MotionCommand::Prepare => Some(MotionType::Prepare),
         };
 
-        if previous_motion_command != motion_command || motion_type != blackboard.last_motion_type {
+        if previous_motion_command.as_ref() != Some(&motion_command)
+            || motion_type != blackboard.last_motion_type
+        {
             info!(
                 target: "behavior_node::motion",
                 ?motion_command,

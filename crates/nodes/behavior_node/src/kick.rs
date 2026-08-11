@@ -137,10 +137,10 @@ pub fn allow_schlong(blackboard: &mut Blackboard) -> bool {
 }
 
 pub fn use_last_kick_power(blackboard: &mut Blackboard) -> Status {
-    if let MotionCommand::VisualKick {
+    if let Some(MotionCommand::VisualKick {
         kick_power: last_kick_power,
         ..
-    } = blackboard.last_motion_command
+    }) = blackboard.last_motion_command
         && let Some(BodyMotion::VisualKick {
             kick_power: motion_kick_power,
             ..

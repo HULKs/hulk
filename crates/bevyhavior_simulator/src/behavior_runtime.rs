@@ -85,7 +85,7 @@ impl SimulatorRobotBehavior {
 
         let (status, trace) = self.tree.tick_with_trace(&mut self.blackboard);
         let motion_command = assemble_motion_command(&self.blackboard, status)?;
-        self.blackboard.last_motion_command = motion_command.clone();
+        self.blackboard.last_motion_command = Some(motion_command.clone());
 
         let motion_type = match motion_command.clone() {
             MotionCommand::VisualKick { .. } => Some(types::motion_type::MotionType::Kick),
@@ -171,7 +171,7 @@ fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackbo
         last_ball: None,
         last_close_enough_to_kick: false,
         last_kick_target: None,
-        last_motion_command: MotionCommand::default(),
+        last_motion_command: None,
         last_motion_switch_time: ros_z::time::Time::zero(),
         last_motion_type: None,
         last_sent_game_controller_return_message_time: None,
