@@ -10,13 +10,10 @@ use tokio::fs::{create_dir_all, read_to_string, write};
 
 use crate::Repository;
 
-#[derive(
-    Clone, Copy, Debug, Default, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub enum PlayerNumber {
     One,
     Two,
-    #[default]
     Three,
     Four,
     Five,

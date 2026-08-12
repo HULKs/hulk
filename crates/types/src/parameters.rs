@@ -94,7 +94,7 @@ pub struct LookActionParameters {
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct GoalkeeperParameters {
-    pub player_number: PlayerNumber,
+    pub player_number: Option<PlayerNumber>,
     pub x_offset: f32,
     pub passive_distance: f32,
     pub striker_distance: f32,
