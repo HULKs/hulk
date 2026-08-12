@@ -58,6 +58,7 @@ pub mod step;
 pub mod stereo_camera_info;
 pub mod stereo_image_pair;
 pub mod support_foot;
+pub mod support_side;
 pub mod time_wrapper;
 pub mod visual_localization;
 pub mod visual_odometry;
