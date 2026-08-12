@@ -1,119 +1,82 @@
 {
-  description = "Dev environment for HULKs";
+  description = "Development environment and tools for HULKs";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
-    naersk.url = "github:nix-community/naersk";
-    nixgl.url = "github:guibou/nixGL";
+    crane.url = "github:ipetkov/crane";
   };
 
-  outputs = { self, nixpkgs, flake-utils, naersk, nixgl }:
-    flake-utils.lib.eachDefaultSystem
-      (system:
+  outputs = { nixpkgs, crane, ... }:
+    let
+      system = "x86_64-linux";
+      pkgs = nixpkgs.legacyPackages.${system};
+      craneLibrary = crane.mkLib pkgs;
+
+      src = pkgs.lib.fileset.toSource {
+        root = ./.;
+        fileset = pkgs.lib.fileset.unions [
+          (craneLibrary.fileset.commonCargoSources ./.)
+          ./crates/hsl_network_messages/headers/RoboCupGameControlData.hpp
+          ./tools/pepsi/src/install-podman.sh
+        ];
+      };
+
+      guiLibraries = with pkgs; [ libGL libxkbcommon wayland libx11 ];
+      workspaceVersion =
+        (fromTOML (builtins.readFile ./Cargo.toml)).workspace.package.version;
+
+      mkCrate = {
+        name,
+        cargoToml,
+        package ? name,
+        nativeBuildInputs ? [ ],
+        libraries ? [ ],
+      }:
         let
-          pkgs = import nixpkgs {
-            inherit system;
-            overlays = [ nixgl.overlay ];
-          };
-          naersk' = pkgs.callPackage naersk { };
-          nao_sdk_version = "5.9.0";
-          nao_sdk_environment_path = "$HOME/.naosdk/${nao_sdk_version}/environment-setup-corei7-64-aldebaran-linux";
-          buildInputs = with pkgs;[
-            # Tools
-            cargo
-            cmake
-            llvmPackages.clang
-            pkg-config
-            python312
-            rsync
-            rustc
-            rustfmt
-
-            # Libs
-            alsa-lib
-            hdf5
-            libGL
-            libogg
-            libxkbcommon
-            luajit
-            openssl
-            opusfile
-            pkgs.nixgl.auto.nixGLDefault
-            rustPlatform.bindgenHook
-            systemdLibs
-            wayland
-            xorg.libX11
-            xorg.libXcursor
-            xorg.libXi
-            xorg.libXrandr
-          ];
-
-          mktool = manifest_path:
-            let
-              manifest = (pkgs.lib.importTOML manifest_path).package;
-            in
-            naersk'.buildPackage {
-              name = manifest.name;
-              version = manifest.version;
-              src = ./.;
-              inherit buildInputs;
-              cargoBuildOptions = x: x ++ [ "-p" manifest.name ];
-              cargoTestOptions = x: x ++ [ "-p" manifest.name ];
-            };
-
-          mktool_wrapper_gui = tool:
-            let
-              binary_name = pkgs.lib.strings.removeSuffix "-${tool.version}" tool.name;
-              wrapper = pkgs.writeShellScriptBin "${tool.name}-wrapper" ''
-                ${pkgs.nixgl.auto.nixGLDefault}/bin/nixGL ${tool}/bin/${binary_name} $@
-              '';
-            in
-            {
-              type = "app";
-              program = "${wrapper}/bin/${tool.name}-wrapper";
-            };
+          packageVersion =
+            (fromTOML (builtins.readFile cargoToml)).package.version;
+          version = if builtins.isString packageVersion then packageVersion else workspaceVersion;
         in
-        {
-          packages.twix = mktool ./tools/twix/Cargo.toml;
-          packages.pepsi = mktool ./tools/pepsi/Cargo.toml;
-          packages.fanta = mktool ./tools/fanta/Cargo.toml;
-          packages.annotato = mktool ./tools/annotato/Cargo.toml;
-          packages.behavior_simulator = mktool ./tools/behavior_simulator/Cargo.toml;
+        craneLibrary.buildPackage {
+          inherit src version;
+          pname = name;
+          strictDeps = true;
+          nativeBuildInputs =
+            nativeBuildInputs ++ pkgs.lib.optional (libraries != [ ]) pkgs.makeWrapper;
+          buildInputs = libraries;
+          cargoExtraArgs = "--locked -p ${package} --bin ${name}";
+          doCheck = false;
+          postInstall = pkgs.lib.optionalString (libraries != [ ]) ''
+            wrapProgram "$out/bin/${name}" \
+              --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath libraries}
+          '';
+        };
 
-          # Needed for non-nixos systems
-          apps.twix = mktool_wrapper_gui self.packages.${system}.twix;
+      pepsi = mkCrate {
+        name = "pepsi";
+        cargoToml = ./tools/pepsi/Cargo.toml;
+      };
 
-          # Needed for non-nixos systems
-          apps.annotato  = mktool_wrapper_gui self.packages.${system}.annotato;
+      twix = mkCrate {
+        name = "twix";
+        cargoToml = ./tools/twix/Cargo.toml;
+        nativeBuildInputs = with pkgs; [ pkg-config rustPlatform.bindgenHook ];
+        libraries = guiLibraries;
+      };
 
-          devShells = {
-            tools = pkgs.mkShell
-              rec {
-                inherit buildInputs;
-                env = {
-                  LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath buildInputs}";
-                  LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-                };
-              };
+      rosz = mkCrate {
+        name = "rosz";
+        package = "ros-z-cli";
+        cargoToml = ./crates/ros-z-cli/Cargo.toml;
+      };
+    in
+    {
+      packages.${system} = { inherit pepsi twix rosz; };
 
-            robot = (pkgs.buildFHSUserEnv {
-              name = "hulk-robot-dev-env";
-              targetPkgs = pkgs: ([ ]);
-              extraOutputsToInstall = [ "dev" ];
-              runScript = "bash";
-              profile = ''
-                if [[ ! -f "${nao_sdk_environment_path}" ]]; then
-                  echo "ERROR: nao sdk v${nao_sdk_version} not found! Please install it."
-                  exit 1
-                fi
-                echo "Unsetting LD_LIBRARY_PATH..."
-                unset LD_LIBRARY_PATH
-                echo "Sourcing nao sdk v${nao_sdk_version}..."
-                source ${nao_sdk_environment_path}
-              '';
-            }).env;
-          };
-        }
-      );
+      devShells.${system}.default = craneLibrary.devShell {
+        inputsFrom = [ pepsi twix rosz ];
+        packages = with pkgs; [ rust-analyzer rsync openssh ];
+        env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath guiLibraries;
+      };
+    };
 }
