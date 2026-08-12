@@ -72,7 +72,7 @@ pub fn select_kick_target(blackboard: &mut Blackboard) -> Status {
     apply_visual_kick_target(blackboard, goal_position, target_offset_angle)
 }
 
-pub(super) fn apply_visual_kick_target(
+pub fn apply_visual_kick_target(
     blackboard: &mut Blackboard,
     target_position_in_field: Point2<Field>,
     target_offset_angle: f32,
@@ -190,7 +190,8 @@ pub fn intercept(blackboard: &mut Blackboard) -> Status {
         if interception_point.coords().norm()
             > blackboard
                 .parameters
-                .intercept_ball
+                .ball
+                .interception
                 .maximum_intercept_distance
         {
             return Status::Failure;
@@ -217,28 +218,26 @@ pub fn set_kick_target_in_front(blackboard: &mut Blackboard) -> Status {
     if let (Some(ground_to_field), Some(ball)) = (
         blackboard.world_state.robot.ground_to_field,
         &blackboard.visual_kick_ball_position,
-    ) {
+    ) && let Some(BodyMotion::VisualKick {
+        target_position: motion_target_position,
+        kick_direction: motion_kick_direction,
+        ..
+    }) = blackboard.body_motion.as_mut()
+    {
         if blackboard.last_motion_type != Some(MotionType::Kick) {
             let kick_target = ground_to_field * point!(3.0, 0.0);
             blackboard.last_kick_target = Some(kick_target);
         }
 
-        if let Some(BodyMotion::VisualKick {
-            target_position: motion_target_position,
-            kick_direction: motion_kick_direction,
-            ..
-        }) = blackboard.body_motion.as_mut()
-            && let Some(target_in_field) = blackboard.last_kick_target
-        {
+        if let Some(target_in_field) = blackboard.last_kick_target {
             let field_to_ground = ground_to_field.inverse();
             let ball_in_ground = ball.position;
             let target_position = field_to_ground * target_in_field;
             let kick_direction = Orientation2::from_vector(target_position - ball_in_ground);
 
-            *motion_target_position =
-                Rotation2::new(blackboard.parameters.kicking.kick_target_offset_angle)
-                    * target_position;
+            *motion_target_position = target_position;
             *motion_kick_direction = kick_direction;
+
             return Status::Success;
         }
     }

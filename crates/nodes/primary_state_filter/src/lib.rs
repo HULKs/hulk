@@ -4,7 +4,7 @@ use std::{collections::HashSet, sync::Arc};
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
-use hsl_network_messages::PlayerNumber;
+use hsl_network_messages::{GamePhase, PlayerNumber};
 use ros_z::{prelude::*, qos::QosDurability};
 use tracing::info;
 use types::{
@@ -155,9 +155,16 @@ impl PrimaryStateFilter {
     ) {
         let is_penalized = filtered_game_controller_state.penalties[player_number].is_some();
         let filtered_game_state = filtered_game_controller_state.game_state;
+        let is_penalty_shootout = matches!(
+            filtered_game_controller_state.game_phase,
+            GamePhase::PenaltyShootout { .. }
+        );
 
         self.primary_state = match (self.primary_state, filtered_game_state) {
             (PrimaryState::Damping, _) => PrimaryState::Damping,
+            (PrimaryState::Initial, FilteredGameState::Set) if is_penalty_shootout => {
+                PrimaryState::Set
+            }
             (PrimaryState::Initial, game_state) => {
                 game_state_to_primary_state(game_state, is_penalized)
             }

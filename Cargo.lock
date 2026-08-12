@@ -880,6 +880,7 @@ dependencies = [
  "nalgebra 0.34.2",
  "ordered-float 4.6.0",
  "path_planner",
+ "rand 0.9.4",
  "ros-z",
  "serde",
  "smallvec 1.15.2",

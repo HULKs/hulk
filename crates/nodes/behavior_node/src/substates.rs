@@ -9,10 +9,11 @@ use crate::{
     action,
     behavior_tree::Node,
     condition,
-    conditions::{hulks_is_kicking_team, is_close_to_ball},
+    conditions::{hulks_is_kicking_team, is_close_to_ball_aligned},
     kick::kick_subtree,
     negation,
     node::Blackboard,
+    penalty_shootout::penalty_kick_striker_subtree,
     selection, sequence, subtree,
     walk::{walk_to_ball_subtree, walk_to_block_position},
 };
@@ -23,7 +24,11 @@ pub fn sub_state_subtree() -> Node<Blackboard> {
             condition!(hulks_is_kicking_team),
             selection!(
                 sequence!(
-                    negation!(condition!(is_close_to_ball)),
+                    condition!(is_sub_state, SubState::PenaltyKick),
+                    subtree!(penalty_kick_striker_subtree),
+                ),
+                sequence!(
+                    negation!(condition!(is_close_to_ball_aligned)),
                     subtree!(walk_to_ball_subtree)
                 ),
                 subtree!(kick_subtree)
@@ -89,7 +94,7 @@ pub fn set_block_position_field(blackboard: &mut Blackboard) -> Status {
             + blackboard.parameters.substates.blocking_distance_offset)
             .max(
                 blackboard.field_dimensions.center_circle_diameter / 2.0
-                    + blackboard.parameters.path_planning.robot_radius,
+                    + blackboard.parameters.walking.path_planning.robot_radius,
             );
 
         blackboard.walk_position = Some(ball_in_ground + (direction * distance_to_ball));
@@ -119,10 +124,10 @@ pub fn set_block_position_corner(blackboard: &mut Blackboard) -> Status {
             * (goal_position - ball_position).normalize();
 
         let distance_to_ball = (blackboard.field_dimensions.center_circle_diameter / 2.0
-            + blackboard.parameters.substates.blocking_distance_offset)
+            + parameters.blocking_distance_offset)
             .max(
                 blackboard.field_dimensions.center_circle_diameter / 2.0
-                    + blackboard.parameters.path_planning.robot_radius,
+                    + blackboard.parameters.walking.path_planning.robot_radius,
             );
 
         blackboard.walk_position = Some(ball_position + direction * distance_to_ball);

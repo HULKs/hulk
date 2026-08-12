@@ -78,7 +78,7 @@ impl SimulatorRobotBehavior {
                 .world_state
                 .now
                 .duration_since(last_ball.age)
-                >= self.blackboard.parameters.last_ball_timeout
+                >= self.blackboard.parameters.ball.last_ball_timeout
         {
             self.blackboard.ball = None;
         }
@@ -122,7 +122,7 @@ impl SimulatorRobotBehavior {
         game_controller_address: Option<SocketAddr>,
     ) -> Vec<OutgoingMessage> {
         self.blackboard.world_state = world_state;
-        self.blackboard.parameters.hsl_network = hsl_network_parameters;
+        self.blackboard.parameters.network = hsl_network_parameters;
 
         let mut outgoing_messages = Vec::new();
         if let Some(message) = self

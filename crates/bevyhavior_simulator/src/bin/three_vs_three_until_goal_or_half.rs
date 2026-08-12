@@ -23,8 +23,8 @@ fn three_vs_three_until_goal_or_half(app: &mut App) {
 fn startup(mut commands: Commands, mut ball: ResMut<SimulatorBall>) {
     let mut parameters =
         default_behavior_parameters().expect("failed to load default behavior parameters");
-    parameters.goal_keeper_number = PlayerNumber::One;
-    parameters.last_ball_timeout = Duration::from_secs(2);
+    parameters.goalkeeper.player_number = PlayerNumber::One;
+    parameters.ball.last_ball_timeout = Duration::from_secs(2);
 
     for (team, player_number, pose) in [
         (Team::Hulks, PlayerNumber::Three, pose(-0.8, 0.0, 0.0)),
