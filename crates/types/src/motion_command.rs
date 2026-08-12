@@ -111,9 +111,8 @@ impl MotionCommand {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Message)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Message)]
 pub enum BodyMotion {
-    #[default]
     Damping,
     Prepare,
     Stand,
