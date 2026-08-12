@@ -325,10 +325,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         blackboard.head_motion = None;
         blackboard.voronoi_map = None;
 
-        let player_number = player_number_cache
-            .get_latest()
-            .map(|n| *n)
-            .unwrap_or_default();
+        let Some(player_number) = player_number_cache.get_latest() else {
+            continue;
+        };
         blackboard.parameters = parameters.snapshot().typed().clone();
 
         let was_start_pressed = blackboard
@@ -368,7 +367,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             ground_to_field: ground_to_field_cache
                 .get_latest()
                 .map(|ground_to_field| *ground_to_field),
-            player_number,
+            player_number: Some(*player_number),
             primary_state,
         };
 

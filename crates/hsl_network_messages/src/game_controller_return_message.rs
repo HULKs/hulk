@@ -14,7 +14,7 @@ use crate::{
     },
 };
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, Message)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, Message)]
 pub struct GameControllerReturnMessage {
     pub player_number: PlayerNumber,
     pub fallen: bool,

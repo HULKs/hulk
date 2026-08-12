@@ -96,7 +96,7 @@ impl BallState {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Message)]
 pub struct RobotState {
     pub ground_to_field: Option<Isometry2<Ground, Field>>,
-    pub player_number: PlayerNumber,
+    pub player_number: Option<PlayerNumber>,
     pub primary_state: PrimaryState,
 }
 

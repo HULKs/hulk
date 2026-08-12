@@ -23,13 +23,7 @@ pub enum HulkMessage {
     State(StateMessage),
 }
 
-impl Default for HulkMessage {
-    fn default() -> Self {
-        HulkMessage::State(StateMessage::default())
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, Message)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, Message)]
 pub struct StrikerMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,
@@ -37,7 +31,7 @@ pub struct StrikerMessage {
     pub time_to_reach_kick_position: Duration,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, Message)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, Message)]
 pub struct StateMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,
@@ -54,23 +48,11 @@ pub const HULKS_TEAM_NUMBER: u8 = 24;
 pub const NONE_TEAM_NUMBER: u8 = 255;
 
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Eq,
-    Hash,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    Serialize,
-    ros_z::Message,
+    Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, ros_z::Message,
 )]
 pub enum PlayerNumber {
     One,
     Two,
-    #[default]
     Three,
     Four,
     Five,
