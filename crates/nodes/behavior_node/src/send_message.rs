@@ -41,7 +41,7 @@ impl Blackboard {
         Some(OutgoingMessage::GameController(
             *address,
             GameControllerReturnMessage {
-                player_number: self.world_state.robot.player_number,
+                player_number: self.world_state.robot.player_number?,
                 fallen: self
                     .world_state
                     .fall_detection
@@ -92,7 +92,7 @@ impl Blackboard {
                     });
 
             let message = HulkMessage::State(StateMessage {
-                player_number: self.world_state.robot.player_number,
+                player_number: self.world_state.robot.player_number?,
                 pose,
                 ball_position,
             });

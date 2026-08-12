@@ -31,7 +31,7 @@ fn startup(
 
     let mut parameters =
         default_behavior_parameters().expect("failed to load default behavior parameters");
-    parameters.goalkeeper.player_number = PlayerNumber::One;
+    parameters.goalkeeper.player_number = Some(PlayerNumber::One);
     parameters.ball.last_ball_timeout = Duration::from_secs(2);
 
     let sideline_y = field_dimensions.0.width / 2.0;

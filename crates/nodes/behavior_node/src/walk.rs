@@ -215,7 +215,7 @@ pub fn walk_to_block_position(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
-    if let (Some(ground_to_field), player_number) = (
+    if let (Some(ground_to_field), Some(player_number)) = (
         blackboard.world_state.robot.ground_to_field,
         blackboard.world_state.robot.player_number,
     ) {
@@ -255,13 +255,15 @@ pub fn walk_to_voronoi_position(blackboard: &mut Blackboard) -> Status {
     if let (Some(ground_to_field), Some(map)) = (
         blackboard.world_state.robot.ground_to_field,
         &blackboard.voronoi_map,
-    ) && let Some(target_position) = target_player_position(
-        map,
-        blackboard.world_state.robot.player_number,
-        blackboard.ball.as_ref().map(|ball| ball.position),
-        &blackboard.field_dimensions,
-        &blackboard.parameters.voronoi,
-    ) {
+    ) && let Some(player_number) = blackboard.world_state.robot.player_number
+        && let Some(target_position) = target_player_position(
+            map,
+            player_number,
+            blackboard.ball.as_ref().map(|ball| ball.position),
+            &blackboard.field_dimensions,
+            &blackboard.parameters.voronoi,
+        )
+    {
         let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
         let kicking_speed = blackboard.parameters.walking.speed.kicking;
         let orientation_mode = if let Some(ball) = &blackboard.ball {
