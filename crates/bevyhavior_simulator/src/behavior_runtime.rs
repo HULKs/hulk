@@ -30,17 +30,17 @@ use crate::invariant_checks::BEHAVIOR_TICK_ERROR_CHECK_NAME;
 #[derive(Component)]
 pub struct SimulatorRobotBehavior {
     pub tree: BehaviorNodeTree<BehaviorBlackboard>,
-    pub blackboard: BehaviorBlackboard,
+    pub blackboard: Option<BehaviorBlackboard>,
     pub static_layout: NodeTrace,
 }
 
 impl SimulatorRobotBehavior {
-    pub fn new(parameters: BehaviorParameters) -> Self {
+    pub fn new() -> Self {
         let tree = create_behavior_tree();
         let static_layout = tree.static_layout_trace();
         Self {
             tree,
-            blackboard: create_behavior_blackboard(parameters),
+            blackboard: None,
             static_layout,
         }
     }
@@ -49,43 +49,42 @@ impl SimulatorRobotBehavior {
         &mut self,
         input: SimulatorBehaviorTickInput,
     ) -> Result<SimulatorBehaviorTickOutput> {
-        self.blackboard.field_dimensions = input.field_dimensions;
-        self.blackboard.parameters = input.parameters;
-        self.blackboard.world_state = input.world_state.clone();
-        self.blackboard.visual_kick_ball_position = input.visual_kick_ball_position;
+        let blackboard = self.blackboard.get_or_insert_with(|| {
+            create_behavior_blackboard(input.field_dimensions, input.parameters.clone())
+        });
+        blackboard.field_dimensions = input.field_dimensions;
+        blackboard.parameters = input.parameters;
+        blackboard.world_state = input.world_state.clone();
+        blackboard.visual_kick_ball_position = input.visual_kick_ball_position;
 
-        self.blackboard.path_obstacles_output.clear();
-        self.blackboard.time_since_last_switch = Duration::ZERO;
-        self.blackboard.direction_difference = 0.0;
-        self.blackboard.voronoi_inputs.clear();
-        self.blackboard.is_injected_motion_command = false;
-        self.blackboard.walk_position = None;
-        self.blackboard.body_motion = None;
-        self.blackboard.head_motion = None;
-        self.blackboard.voronoi_map = None;
+        blackboard.path_obstacles_output.clear();
+        blackboard.time_since_last_switch = Duration::ZERO;
+        blackboard.direction_difference = 0.0;
+        blackboard.voronoi_inputs.clear();
+        blackboard.is_injected_motion_command = false;
+        blackboard.walk_position = None;
+        blackboard.body_motion = None;
+        blackboard.head_motion = None;
+        blackboard.voronoi_map = None;
 
-        if let Some(ball) = self.blackboard.world_state.ball {
-            self.blackboard.ball = Some(behavior_node::node::LastBall {
+        if let Some(ball) = blackboard.world_state.ball {
+            blackboard.ball = Some(behavior_node::node::LastBall {
                 position: ball.ball_in_field,
                 velocity: ball.ball_in_ground_velocity,
-                age: self.blackboard.world_state.now,
+                age: blackboard.world_state.now,
                 field_side: ball.field_side,
             });
-            self.blackboard.last_ball.clone_from(&self.blackboard.ball);
-        } else if let Some(last_ball) = &self.blackboard.ball
-            && self
-                .blackboard
-                .world_state
-                .now
-                .duration_since(last_ball.age)
-                >= self.blackboard.parameters.ball.last_ball_timeout
+            blackboard.last_ball.clone_from(&blackboard.ball);
+        } else if let Some(last_ball) = &blackboard.ball
+            && blackboard.world_state.now.duration_since(last_ball.age)
+                >= blackboard.parameters.ball.last_ball_timeout
         {
-            self.blackboard.ball = None;
+            blackboard.ball = None;
         }
 
-        let (status, trace) = self.tree.tick_with_trace(&mut self.blackboard);
-        let motion_command = assemble_motion_command(&self.blackboard, status)?;
-        self.blackboard.last_motion_command = Some(motion_command.clone());
+        let (status, trace) = self.tree.tick_with_trace(blackboard);
+        let motion_command = assemble_motion_command(blackboard, status)?;
+        blackboard.last_motion_command = Some(motion_command.clone());
 
         let motion_type = match motion_command.clone() {
             MotionCommand::VisualKick { .. } => Some(types::motion_type::MotionType::Kick),
@@ -97,21 +96,21 @@ impl SimulatorRobotBehavior {
             _ => None,
         };
 
-        if motion_type != self.blackboard.last_motion_type {
-            self.blackboard.last_motion_switch_time = self.blackboard.world_state.now;
-            self.blackboard.last_motion_type = motion_type;
+        if motion_type != blackboard.last_motion_type {
+            blackboard.last_motion_switch_time = blackboard.world_state.now;
+            blackboard.last_motion_type = motion_type;
         }
 
         Ok(SimulatorBehaviorTickOutput {
             motion_command,
             trace,
             static_layout: self.static_layout.clone(),
-            path_obstacles: self.blackboard.path_obstacles_output.clone(),
-            time_since_last_switch: self.blackboard.time_since_last_switch,
-            direction_difference: self.blackboard.direction_difference,
-            walk_position: self.blackboard.walk_position,
-            voronoi_map: self.blackboard.voronoi_map.clone(),
-            voronoi_inputs: self.blackboard.voronoi_inputs.clone(),
+            path_obstacles: blackboard.path_obstacles_output.clone(),
+            time_since_last_switch: blackboard.time_since_last_switch,
+            direction_difference: blackboard.direction_difference,
+            walk_position: blackboard.walk_position,
+            voronoi_map: blackboard.voronoi_map.clone(),
+            voronoi_inputs: blackboard.voronoi_inputs.clone(),
         })
     }
 
@@ -121,17 +120,19 @@ impl SimulatorRobotBehavior {
         hsl_network_parameters: HslNetworkParameters,
         game_controller_address: Option<SocketAddr>,
     ) -> Vec<OutgoingMessage> {
-        self.blackboard.world_state = world_state;
-        self.blackboard.parameters.network = hsl_network_parameters;
+        let Some(blackboard) = self.blackboard.as_mut() else {
+            return Vec::new();
+        };
+        blackboard.world_state = world_state;
+        blackboard.parameters.network = hsl_network_parameters;
 
         let mut outgoing_messages = Vec::new();
-        if let Some(message) = self
-            .blackboard
-            .game_controller_return_message(game_controller_address.as_ref())
+        if let Some(message) =
+            blackboard.game_controller_return_message(game_controller_address.as_ref())
         {
             outgoing_messages.push(message);
         }
-        if let Some(message) = self.blackboard.try_sending_state_message() {
+        if let Some(message) = blackboard.try_sending_state_message() {
             outgoing_messages.push(message);
         }
         outgoing_messages
@@ -157,9 +158,12 @@ pub struct SimulatorBehaviorTickOutput {
     pub voronoi_inputs: Vec<Pose2<Field>>,
 }
 
-fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackboard {
+fn create_behavior_blackboard(
+    field_dimensions: FieldDimensions,
+    parameters: BehaviorParameters,
+) -> BehaviorBlackboard {
     BehaviorBlackboard {
-        field_dimensions: FieldDimensions::default(),
+        field_dimensions,
         parameters,
         world_state: WorldState::default(),
         path_obstacles_output: Vec::new(),
@@ -305,9 +309,7 @@ mod tests {
             .insert_resource(SimulatorScenarioResult::default())
             .add_systems(Update, tick_behavior_trees);
 
-        let mut behavior = SimulatorRobotBehavior::new(
-            default_behavior_parameters().expect("failed to load behavior parameters"),
-        );
+        let mut behavior = SimulatorRobotBehavior::new();
         behavior.tree = BehaviorNodeTree::Action {
             name: "return_idle",
             action: Box::new(|_| Status::Idle),

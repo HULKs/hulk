@@ -253,12 +253,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .publish_if_subscribed(|| async { static_layout })
         .await?;
     let mut timer = node.create_timer(Duration::from_millis(20));
+    let field_dimensions = loop {
+        timer.tick().await;
+        if let Some(field_dimensions) = field_dimensions_cache.get_latest() {
+            break *field_dimensions;
+        }
+    };
 
     let mut blackboard = Blackboard {
-        field_dimensions: field_dimensions_cache
-            .get_latest()
-            .map(|dimensions| *dimensions)
-            .unwrap_or_default(),
+        field_dimensions,
         parameters: parameters.snapshot().typed().clone(),
         world_state: WorldState::default(),
 
@@ -291,10 +294,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         timer.tick().await;
 
-        blackboard.field_dimensions = field_dimensions_cache
-            .get_latest()
-            .map(|dimensions| *dimensions)
-            .unwrap_or_default();
+        let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
+            continue;
+        };
+        blackboard.field_dimensions = *field_dimensions;
 
         blackboard.path_obstacles_output.clear();
         blackboard.time_since_last_switch = Duration::ZERO;
