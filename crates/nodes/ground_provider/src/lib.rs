@@ -8,7 +8,7 @@ use coordinate_systems::{Ground, Robot};
 use kinematics::robot_kinematics::RobotKinematics;
 use linear_algebra::{Isometry3, Orientation3, vector};
 use ros_z::{prelude::*, qos::QosDurability};
-use types::{support_foot::Side, time_wrapper::TimeWrapper};
+use types::{support_side::Side, time_wrapper::TimeWrapper};
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))

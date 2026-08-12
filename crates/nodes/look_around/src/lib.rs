@@ -12,7 +12,7 @@ use types::{
     },
     motion_command::{HeadMotion, MotionCommand},
     parameters::LookAroundParameters,
-    support_foot::Side,
+    support_side::Side,
 };
 
 const MOTION_COMMAND_TOPIC: &str = "behavior/motion_command";
@@ -262,7 +262,7 @@ mod tests {
         field_dimensions::GlobalFieldSide,
         initial_look_around::{BallSearchLookAround, InitialLookAround, QuickLookAround},
         motion_command::{HeadMotion, ImageRegion},
-        support_foot::Side,
+        support_side::Side,
     };
 
     use super::*;
