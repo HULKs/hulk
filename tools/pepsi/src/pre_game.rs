@@ -32,19 +32,19 @@ pub struct Arguments {
 #[derive(Args)]
 pub struct PreGameArguments {
     /// Do not build before uploading
-    #[arg(long)]
+    #[arg(long, visible_alias = "nich-bauen")]
     pub no_build: bool,
     /// Do not restart HULK service after uploading
-    #[arg(long)]
+    #[arg(long, visible_alias = "nich-neustarten")]
     pub no_restart: bool,
     /// Do not remove existing remote files during uploading
-    #[arg(long)]
+    #[arg(long, visible_alias = "nich-säubern")]
     pub no_clean: bool,
     /// Skip the OS version check
-    #[arg(long)]
+    #[arg(long, visible_alias = "überspringe-bs-prüfung")]
     pub skip_os_check: bool,
     /// Prepare everything for the upload without performing the actual one
-    #[arg(long)]
+    #[arg(long, visible_alias = "vorbereit")]
     pub prepare: bool,
     /// The Robots to apply the pregame to, queried from the deploy.toml if not specified
     pub robots: Option<Vec<RobotAddress>>,

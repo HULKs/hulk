@@ -18,13 +18,18 @@ use tracing::error;
 #[derive(Args)]
 pub struct Arguments {
     /// Output verbose version of the aliveness information
-    #[arg(long, short = 'v', conflicts_with = "json")]
+    #[arg(
+        long,
+        short = 'v',
+        conflicts_with = "json",
+        visible_alias = "gesprächig"
+    )]
     verbose: bool,
     /// Output aliveness information as json
     #[arg(long, short = 'j', conflicts_with = "verbose")]
     json: bool,
     /// Timeout in ms for waiting for responses
-    #[arg(long, short = 't', value_parser = parse_duration, default_value = "200")]
+    #[arg(long, short = 't', value_parser = parse_duration, default_value = "200", visible_alias = "auszeit")]
     timeout: Duration,
     /// The Robots to show the aliveness information from, e.g. 20w or 10.1.24.22
     robots: Option<Vec<RobotAddress>>,

@@ -11,7 +11,7 @@ use crate::progress_indicator::ProgressIndicator;
 #[derive(Args)]
 pub struct Arguments {
     /// Power off all Robots
-    #[arg(long)]
+    #[arg(long, visible_alias = "alle")]
     pub all: bool,
     /// The Robots to power off e.g. 20w or 10.1.24.22
     #[arg(required = true, conflicts_with = "all", num_args = 1..)]
