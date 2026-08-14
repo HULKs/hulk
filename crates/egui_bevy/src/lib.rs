@@ -5,6 +5,7 @@ use bevy::{
     input::{
         ButtonState,
         mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
+        touch::TouchPhase as BevyTouchPhase,
     },
     prelude::*,
     render::{
@@ -328,6 +329,7 @@ fn process_egui_input(world: &mut World, ui: &mut Ui, response: &Response) {
                 Event::MouseWheel {
                     unit,
                     delta,
+                    phase,
                     modifiers: _,
                 } => {
                     let unit = match unit {
@@ -343,6 +345,12 @@ fn process_egui_input(world: &mut World, ui: &mut Ui, response: &Response) {
                         x: delta.x,
                         y: delta.y,
                         window: Entity::PLACEHOLDER,
+                        phase: match phase {
+                            egui::TouchPhase::Start => BevyTouchPhase::Started,
+                            egui::TouchPhase::Move => BevyTouchPhase::Moved,
+                            egui::TouchPhase::End => BevyTouchPhase::Ended,
+                            egui::TouchPhase::Cancel => BevyTouchPhase::Canceled,
+                        },
                     });
                 }
                 _ => {}

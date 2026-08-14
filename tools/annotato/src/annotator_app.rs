@@ -10,7 +10,7 @@ use crate::{
 use color_eyre::{Result, eyre::Context as C};
 use eframe::{
     App, CreationContext,
-    egui::{CentralPanel, Context, RichText, SidePanel, TextStyle},
+    egui::{CentralPanel, Panel, RichText, TextStyle, Ui},
 };
 use glob::glob;
 
@@ -161,8 +161,8 @@ impl AnnotatorApp {
         Ok(())
     }
 
-    fn show_phase_started(&mut self, ctx: &Context) {
-        CentralPanel::default().show(ctx, |ui| {
+    fn show_phase_started(&mut self, ui: &mut Ui) {
+        CentralPanel::default().show(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(200.0);
                 ui.label(RichText::new("Annotato-rs").size(32.0).strong());
@@ -200,15 +200,15 @@ impl AnnotatorApp {
         });
     }
 
-    fn show_phase_labelling(&mut self, ctx: &Context) {
-        CentralPanel::default().show(ctx, |ui| {
+    fn show_phase_labelling(&mut self, ui: &mut Ui) {
+        CentralPanel::default().show(ui, |ui| {
             self.load_image().expect("failed to update image");
             self.label_widget.ui(ui);
         });
     }
 
-    fn show_phase_finished(&mut self, ctx: &Context) {
-        CentralPanel::default().show(ctx, |ui| {
+    fn show_phase_finished(&mut self, ui: &mut Ui) {
+        CentralPanel::default().show(ui, |ui| {
             ui.centered_and_justified(|ui| {
                 ui.label("You finished the data chunk, take the next and go on :)")
             })
@@ -217,13 +217,13 @@ impl AnnotatorApp {
 }
 
 impl App for AnnotatorApp {
-    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        egui_extras::install_image_loaders(ctx);
+    fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
+        egui_extras::install_image_loaders(ui.ctx());
 
-        let width = ctx.content_rect().width();
-        SidePanel::left("image-path-list")
-            .default_width(0.3 * width)
-            .show(ctx, |ui| {
+        let width = ui.ctx().content_rect().width();
+        Panel::left("image-path-list")
+            .default_size(0.3 * width)
+            .show(ui, |ui| {
                 let mut current_phase = self.phase.clone();
                 ui.add(ImageList::new(&self.paths, &mut current_phase));
 
@@ -276,9 +276,9 @@ impl App for AnnotatorApp {
             });
 
         match self.phase {
-            AnnotationPhase::Started => self.show_phase_started(ctx),
-            AnnotationPhase::Labelling { .. } => self.show_phase_labelling(ctx),
-            AnnotationPhase::Finished => self.show_phase_finished(ctx),
+            AnnotationPhase::Started => self.show_phase_started(ui),
+            AnnotationPhase::Labelling { .. } => self.show_phase_labelling(ui),
+            AnnotationPhase::Finished => self.show_phase_finished(ui),
         }
     }
 }

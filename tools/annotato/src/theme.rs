@@ -62,7 +62,7 @@ pub const MOCHA: Theme = Theme {
 };
 
 pub fn apply_theme(ctx: &Context, theme: Theme) {
-    let old = ctx.style().visuals.clone();
+    let old = ctx.style_of(ctx.theme()).visuals.clone();
     ctx.set_visuals(egui::Visuals {
         override_text_color: Some(theme.text),
         hyperlink_color: theme.rosewater,

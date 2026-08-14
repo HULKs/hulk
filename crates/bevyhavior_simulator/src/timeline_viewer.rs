@@ -8,14 +8,14 @@ use coordinate_systems::{Field, Ground, World};
 use eframe::{
     App, Frame, NativeOptions,
     egui::{
-        Align2, CentralPanel, CollapsingHeader, ComboBox, Context, Event, FontId, Key, Label, Pos2,
-        Rect, RichText, ScrollArea, Sense, SidePanel, Slider, StrokeKind, TextEdit, Tooltip,
-        TopBottomPanel, Ui, Vec2, WidgetText, pos2,
+        Align2, CentralPanel, CollapsingHeader, ComboBox, Context, Event, FontId, Key, Label,
+        Panel, Pos2, Rect, RichText, ScrollArea, Sense, Slider, StrokeKind, TextEdit, Tooltip, Ui,
+        Vec2, WidgetText, pos2,
     },
     epaint::{Color32, Stroke},
     run_native,
 };
-use egui_dock::{DockArea, DockState, Node, Split, TabViewer};
+use egui_dock::{DockArea, DockState, Node, NodePath, Split, TabViewer};
 use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{Orientation2, Pose2, point, vector};
 use serde_json::{Value, json};
@@ -88,7 +88,7 @@ impl TimelineViewerApp {
     fn new(data: TimelineViewerData) -> Self {
         let mut dock_state = DockState::new(vec![TimelineViewerTab::Field]);
         dock_state.split(
-            (0.into(), 0.into()),
+            NodePath::MAIN_ROOT,
             Split::Below,
             2.0 / 3.0,
             Node::leaf(TimelineViewerTab::BehaviorTree),
@@ -176,7 +176,7 @@ impl TimelineViewerApp {
     }
 
     fn handle_hotkeys(&mut self, context: &Context) {
-        if context.wants_keyboard_input() {
+        if context.egui_wants_keyboard_input() {
             return;
         }
 
@@ -295,8 +295,8 @@ impl TimelineViewerApp {
         self.playback_time_accumulator = 0.0;
     }
 
-    fn show_top_panel(&self, context: &Context) {
-        TopBottomPanel::top("timeline_viewer_top_panel").show(context, |ui| {
+    fn show_top_panel(&self, ui: &mut Ui) {
+        Panel::top("timeline_viewer_top_panel").show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Behavior Tree Simulator");
                 ui.separator();
@@ -313,12 +313,12 @@ impl TimelineViewerApp {
         });
     }
 
-    fn show_side_panel(&mut self, context: &Context) {
-        SidePanel::right("timeline_viewer_side_panel")
+    fn show_side_panel(&mut self, ui: &mut Ui) {
+        Panel::right("timeline_viewer_side_panel")
             .resizable(true)
-            .default_width(360.0)
-            .max_width(1000.0)
-            .show(context, |ui| {
+            .default_size(360.0)
+            .max_size(1000.0)
+            .show(ui, |ui| {
                 ui.heading("Frame");
                 ui.label(format!("index: {}", self.selected_frame));
 
@@ -402,8 +402,8 @@ impl TimelineViewerApp {
         self.inspector_cache.as_ref()
     }
 
-    fn show_timeline_scrubber(&mut self, context: &Context) {
-        TopBottomPanel::bottom("timeline_viewer_scrubber").show(context, |ui| {
+    fn show_timeline_scrubber(&mut self, ui: &mut Ui) {
+        Panel::bottom("timeline_viewer_scrubber").show(ui, |ui| {
             ui.horizontal(|ui| {
                 if ui
                     .button(if self.is_playing { "pause" } else { "play" })
@@ -449,8 +449,8 @@ impl TimelineViewerApp {
         });
     }
 
-    fn show_dock_area(&mut self, context: &Context) {
-        CentralPanel::default().show(context, |ui| {
+    fn show_dock_area(&mut self, ui: &mut Ui) {
+        CentralPanel::default().show(ui, |ui| {
             let mut tab_viewer = TimelineDockViewer {
                 data: &self.data,
                 selected_frame: self.selected_frame,
@@ -669,14 +669,17 @@ fn game_state_name(game_state: FilteredGameState) -> &'static str {
 }
 
 impl App for TimelineViewerApp {
-    fn update(&mut self, context: &Context, _frame: &mut Frame) {
+    fn logic(&mut self, context: &Context, _frame: &mut Frame) {
         self.clamp_selected_frame();
         self.handle_hotkeys(context);
         self.advance_playback(context);
-        self.show_top_panel(context);
-        self.show_side_panel(context);
-        self.show_timeline_scrubber(context);
-        self.show_dock_area(context);
+    }
+
+    fn ui(&mut self, ui: &mut Ui, _frame: &mut Frame) {
+        self.show_top_panel(ui);
+        self.show_side_panel(ui);
+        self.show_timeline_scrubber(ui);
+        self.show_dock_area(ui);
     }
 }
 

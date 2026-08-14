@@ -1,5 +1,4 @@
-use eframe::egui::{ComboBox, Id, Response, Ui, Widget};
-use std::hash::Hash;
+use eframe::egui::{AsId, ComboBox, Id, Response, Ui, Widget};
 
 use crate::classes::Class;
 pub trait EnumIter {
@@ -14,7 +13,7 @@ pub struct ClassSelector<'a> {
 }
 
 impl<'a> ClassSelector<'a> {
-    pub fn new(id_source: impl Hash, currently_selected: &'a mut Class) -> Self {
+    pub fn new(id_source: impl AsId, currently_selected: &'a mut Class) -> Self {
         Self {
             id: Id::new(id_source),
             currently_selected,

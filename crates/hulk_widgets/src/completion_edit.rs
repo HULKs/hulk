@@ -1,12 +1,12 @@
-use std::{cmp::Reverse, fmt::Debug};
+use std::{cmp::Reverse, fmt::Debug, sync::Arc};
 
 use egui::{
     Color32, Context, EventFilter, Id, Key, Modifiers, Popup, PopupCloseBehavior, Response,
     ScrollArea, TextEdit, TextStyle, Ui, Widget,
+    cache::{ComputerMut, FrameCache},
     response::Flags,
     text::{CCursor, CCursorRange},
     text_edit::{TextEditOutput, TextEditState},
-    util::cache::{ComputerMut, FrameCache},
 };
 use nucleo_matcher::{
     Matcher, Utf32Str,
@@ -55,15 +55,16 @@ struct CompletionEditState {
 
 #[derive(Default)]
 struct MatcherSearch;
-type CachedMatcherSearch = FrameCache<Vec<(usize, String)>, MatcherSearch>;
+type MatchingItems = Arc<Vec<(usize, String)>>;
+type CachedMatcherSearch = FrameCache<MatchingItems, MatcherSearch>;
 
-impl<'a, T: ToString> ComputerMut<(&String, &'a [T]), Vec<(usize, String)>> for MatcherSearch {
-    fn compute(&mut self, (key, items): (&String, &'a [T])) -> Vec<(usize, String)> {
+impl<'a, T: ToString> ComputerMut<(&String, &'a [T]), MatchingItems> for MatcherSearch {
+    fn compute(&mut self, (key, items): (&String, &'a [T])) -> MatchingItems {
         let mut matcher = Matcher::default();
         let pattern = Pattern::parse(key.as_str(), CaseMatching::Smart, Normalization::Smart);
 
         if pattern.atoms.is_empty() {
-            return items.iter().map(ToString::to_string).enumerate().collect();
+            return Arc::new(items.iter().map(ToString::to_string).enumerate().collect());
         }
 
         let mut buffer = Vec::new();
@@ -80,10 +81,12 @@ impl<'a, T: ToString> ComputerMut<(&String, &'a [T]), Vec<(usize, String)>> for 
 
         items.sort_by_key(|(score, _, _)| Reverse(*score));
 
-        items
-            .into_iter()
-            .map(|(_score, index, item)| (index, item))
-            .collect()
+        Arc::new(
+            items
+                .into_iter()
+                .map(|(_score, index, item)| (index, item))
+                .collect(),
+        )
     }
 }
 
@@ -141,7 +144,7 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
     ) -> Response {
         let matching_items = ui.memory_mut(|writer| {
             let cache = writer.caches.cache::<CachedMatcherSearch>();
-            cache.get((self.selected, self.suggestions))
+            Arc::clone(cache.get((self.selected, self.suggestions)))
         });
         let popup_id = self.id.with("popup");
         let is_popup_open = Popup::is_id_open(ui.ctx(), popup_id);
@@ -159,7 +162,7 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
             (false, false)
         };
         let TextEditOutput {
-            mut response,
+            response,
             state: text_edit_state,
             ..
         } = ui
@@ -195,6 +198,7 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
                 }
             })
             .inner;
+        let mut response = response.response;
 
         if response.changed() {
             state.typed_since_focused = true;

@@ -1,56 +1,52 @@
-use eframe::egui::{Color32, Context, RichText, TopBottomPanel, Ui};
+use eframe::egui::{Color32, Panel, RichText, Ui};
 
 use crate::state::{ConnectionStatus, PoseSource, StreamState, StreamStatus, ViewerStatusSnapshot};
 
 use super::RobotViewerApp;
 
 impl RobotViewerApp {
-    pub(super) fn header(&mut self, context: &Context, state: &ViewerStatusSnapshot) {
-        TopBottomPanel::top("header")
-            .min_height(86.0)
-            .show(context, |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.add_space(8.0);
-                    ui.horizontal_wrapped(|ui| {
-                        ui.heading(RichText::new("Robot Viewer").strong());
-                        ui.separator();
-                        ui.label(
-                            RichText::new(format!("namespace {}", self.namespace)).monospace(),
-                        );
-                        ui.separator();
-                        ui.label(RichText::new(format!("router {}", self.router)).monospace());
-                        ui.separator();
-                        connection_status(ui, &state.connection);
-                    });
-                    ui.add_space(4.0);
-                    ui.horizontal_wrapped(|ui| {
-                        stream_status(ui, "field", &state.field_status);
-                        stream_status(ui, "localization", &state.localization_status);
-                        stream_status(ui, "visual odometer", &state.visual_odometer_status);
-                        stream_status(ui, "kinematics", &state.robot_kinematics_status);
-                        stream_status(ui, "camera matrix", &state.camera_matrix_status);
-                        stream_status(
-                            ui,
-                            "calibrated intrinsics",
-                            &state.calibrated_intrinsics_status,
-                        );
-                        stream_status(ui, "camera", &state.camera_status);
-                        stream_status(ui, "objects", &state.objects_status);
-                        stream_status(ui, "associations", &state.field_mark_associations_status);
-                        ui.separator();
-                        ui.label(format!("pose: {}", pose_source_label(self.pose_source)));
-                        if ui
-                            .button(pose_source_button_label(self.pose_source))
-                            .clicked()
-                        {
-                            self.pose_source = match self.pose_source {
-                                PoseSource::Localization => PoseSource::VisualOdometer,
-                                PoseSource::VisualOdometer => PoseSource::Localization,
-                            };
-                        }
-                    });
+    pub(super) fn header(&mut self, ui: &mut Ui, state: &ViewerStatusSnapshot) {
+        Panel::top("header").min_size(86.0).show(ui, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.add_space(8.0);
+                ui.horizontal_wrapped(|ui| {
+                    ui.heading(RichText::new("Robot Viewer").strong());
+                    ui.separator();
+                    ui.label(RichText::new(format!("namespace {}", self.namespace)).monospace());
+                    ui.separator();
+                    ui.label(RichText::new(format!("router {}", self.router)).monospace());
+                    ui.separator();
+                    connection_status(ui, &state.connection);
+                });
+                ui.add_space(4.0);
+                ui.horizontal_wrapped(|ui| {
+                    stream_status(ui, "field", &state.field_status);
+                    stream_status(ui, "localization", &state.localization_status);
+                    stream_status(ui, "visual odometer", &state.visual_odometer_status);
+                    stream_status(ui, "kinematics", &state.robot_kinematics_status);
+                    stream_status(ui, "camera matrix", &state.camera_matrix_status);
+                    stream_status(
+                        ui,
+                        "calibrated intrinsics",
+                        &state.calibrated_intrinsics_status,
+                    );
+                    stream_status(ui, "camera", &state.camera_status);
+                    stream_status(ui, "objects", &state.objects_status);
+                    stream_status(ui, "associations", &state.field_mark_associations_status);
+                    ui.separator();
+                    ui.label(format!("pose: {}", pose_source_label(self.pose_source)));
+                    if ui
+                        .button(pose_source_button_label(self.pose_source))
+                        .clicked()
+                    {
+                        self.pose_source = match self.pose_source {
+                            PoseSource::Localization => PoseSource::VisualOdometer,
+                            PoseSource::VisualOdometer => PoseSource::Localization,
+                        };
+                    }
                 });
             });
+        });
     }
 }
 

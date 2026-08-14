@@ -1,10 +1,9 @@
 use eframe::{
-    egui::{Event, Id, PointerButton, Response, RichText, Ui, Widget},
+    egui::{AsId, Event, Id, PointerButton, Response, RichText, Ui, Widget},
     emath::{Align2, Vec2b},
     epaint::{Color32, Stroke, TextureHandle, Vec2},
 };
 use egui_plot::{Plot, PlotBounds, PlotImage, PlotPoint, PlotResponse, PlotUi, Polygon, Text};
-use std::hash::Hash;
 
 use crate::{boundingbox::BoundingBox, classes::Class, user_toml::CONFIG};
 
@@ -19,7 +18,7 @@ pub struct BoundingBoxAnnotator<'a> {
 
 impl<'a> BoundingBoxAnnotator<'a> {
     pub fn new(
-        id_source: impl Hash,
+        id_source: impl AsId,
         image: TextureHandle,
         image_size: [f32; 2],
         bounding_boxes: &'a mut Vec<BoundingBox>,

@@ -1,6 +1,6 @@
 use eframe::{
     App, Frame,
-    egui::{CentralPanel, Context, Key, KeyboardShortcut, Modifiers},
+    egui::{CentralPanel, Key, KeyboardShortcut, Modifiers, Ui},
     run_native,
 };
 use hulk_widgets::{CompletionEdit, KeybindPreview, SegmentedControl};
@@ -32,8 +32,8 @@ impl AppState {
 }
 
 impl App for AppState {
-    fn update(&mut self, context: &Context, _frame: &mut Frame) {
-        CentralPanel::default().show(context, |ui| {
+    fn ui(&mut self, ui: &mut Ui, _frame: &mut Frame) {
+        CentralPanel::default().show(ui, |ui| {
             ui.horizontal(|ui| {
                 let response = ui.add(CompletionEdit::new(
                     "completion-edit",
