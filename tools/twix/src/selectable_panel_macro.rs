@@ -31,7 +31,9 @@ macro_rules! impl_selectable_panel {
                     $(
                         <$name as $crate::panel::Panel>::STORAGE_ID => Ok(Self::$name($name::new(context))),
                     )*
-                    _ => color_eyre::eyre::bail!("unknown panel storage id: {storage_id}"),
+                    _ => {
+                        color_eyre::eyre::bail!("unknown panel storage id: {storage_id}");
+                    }
                 }
             }
 
@@ -51,7 +53,9 @@ macro_rules! impl_selectable_panel {
                     $(
                         <$name as $crate::panel::Panel>::DISPLAY_NAME => Ok(Self::$name($name::new(context))),
                     )*
-                    _ => color_eyre::eyre::bail!("unknown panel display name: {display_name}"),
+                    _ => {
+                        color_eyre::eyre::bail!("unknown panel display name: {display_name}");
+                    }
                 }
             }
 

@@ -24,7 +24,9 @@ macro_rules! impl_selectable_panel {
                     $(
                         $name::NAME => Ok(SelectablePanel::$name($name::new(context))),
                     )*
-                    _ => bail!("\"{panel_name}\": no such panel"),
+                    _ => {
+                        bail!("\"{panel_name}\": no such panel");
+                    }
                 }
             }
 

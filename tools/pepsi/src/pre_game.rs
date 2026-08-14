@@ -193,7 +193,7 @@ async fn setup_robot(
                 .retrieve_logs()
                 .await
                 .wrap_err("failed to retrieve logs")?;
-            bail!("failed to restart hulk: {error:#?}\nLogs:\n{logs}")
+            bail!("failed to restart hulk: {error:#?}\nLogs:\n{logs}");
         };
     }
 

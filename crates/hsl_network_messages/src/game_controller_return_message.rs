@@ -58,12 +58,16 @@ impl TryFrom<RoboCupGameControlReturnData> for GameControllerReturnMessage {
                 3 => PlayerNumber::Three,
                 4 => PlayerNumber::Four,
                 5 => PlayerNumber::Five,
-                _ => bail!("unexpected player number {}", message.playerNum),
+                _ => {
+                    bail!("unexpected player number {}", message.playerNum);
+                }
             },
             fallen: match message.fallen {
                 1 => true,
                 0 => false,
-                _ => bail!("unexpected fallen state"),
+                _ => {
+                    bail!("unexpected fallen state");
+                }
             },
             pose: Pose2::new(
                 point![message.pose[0] / 1000.0, message.pose[1] / 1000.0],

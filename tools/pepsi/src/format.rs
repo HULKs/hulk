@@ -35,7 +35,7 @@ async fn rustfmt(root: impl AsRef<Path>, check: bool) -> Result<()> {
         return Ok(());
     }
 
-    bail!(String::from_utf8(output.stderr).expect("stderr was not utf8"))
+    bail!(String::from_utf8(output.stderr).expect("stderr was not utf8"));
 }
 
 async fn taplo_fmt(root: impl AsRef<Path>, check: bool) -> Result<()> {
@@ -55,7 +55,7 @@ async fn taplo_fmt(root: impl AsRef<Path>, check: bool) -> Result<()> {
         return Ok(());
     }
 
-    bail!(String::from_utf8(output.stderr).expect("stderr was not utf8"))
+    bail!(String::from_utf8(output.stderr).expect("stderr was not utf8"));
 }
 
 async fn ruff_fmt(root: impl AsRef<Path>, check: bool) -> Result<()> {
@@ -75,7 +75,7 @@ async fn ruff_fmt(root: impl AsRef<Path>, check: bool) -> Result<()> {
         return Ok(());
     }
 
-    bail!(String::from_utf8(output.stderr).expect("stderr was not utf8"))
+    bail!(String::from_utf8(output.stderr).expect("stderr was not utf8"));
 }
 
 pub async fn format(arguments: Arguments, repository: &Repository) -> Result<()> {
