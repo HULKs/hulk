@@ -15,7 +15,7 @@ from ultralytics.utils.torch_utils import get_flops
 from model.hydra import Hydra
 from utils.export_hydra import (
     HydraWrapper,
-    build_task_dict,
+    build_head_specs,
     export_torchscript,
     set_export_mode,
 )
@@ -200,12 +200,17 @@ def profile_hydra_model(
     train_folder_path: Path,
     val_folder_path: Path,
 ) -> ComplexityResult:
-    task_dict = build_task_dict(
+    output_names = {
+        head.name: f"{head.task_type().value}_{index}_output"
+        for index, head in enumerate(hydra_model_name.heads)
+    }
+    head_specs = build_head_specs(
         hydra_model_name=hydra_model_name,
         train_folder_path=train_folder_path,
         val_folder_path=val_folder_path,
+        output_name_by_head=output_names,
     )
-    task_paths = list(task_dict.values())
+    task_paths = [Path(head.path) for head in head_specs]
     backbone_path = resolve_hydra_backbone_path(
         hydra_model_name,
         assets_dir,
@@ -219,7 +224,7 @@ def profile_hydra_model(
     with torch.inference_mode():
         hydra_model = Hydra(
             backbone_path=str(backbone_path),
-            task_dict=task_dict,
+            heads=head_specs,
             number_of_frozen_modules=(
                 hydra_model_name.number_of_frozen_modules
             ),
@@ -227,7 +232,7 @@ def profile_hydra_model(
         hydra_model.eval()
         set_export_mode(hydra_model)
 
-        model = HydraWrapper(hydra_model, task_dict=task_dict).to(device)
+        model = HydraWrapper(hydra_model, head_specs=head_specs).to(device)
         model.eval()
 
         # Ultralytics reports FLOPs as two floating point ops per MAC.
