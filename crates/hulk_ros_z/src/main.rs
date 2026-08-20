@@ -176,7 +176,7 @@ async fn spawn_all(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<Runni
     join_set.spawn(segment_filter::run_boxed(ctx.clone()));
     join_set.spawn(stereo_visual_odometry::run_boxed(ctx.clone()));
     join_set.spawn(support_foot_estimator::run_boxed(ctx.clone()));
-    join_set.spawn(team_ball_receiver::run_boxed(ctx.clone()));
+    join_set.spawn(team_ball_filter::run_boxed(ctx.clone()));
     join_set.spawn(time_to_reach_kick_position::run_boxed(ctx.clone()));
     join_set.spawn(trigger::run_boxed(ctx.clone()));
     join_set.spawn(whistle_detection::run_boxed(ctx.clone()));
