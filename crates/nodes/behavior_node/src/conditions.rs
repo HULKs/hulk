@@ -154,7 +154,7 @@ pub fn is_goalkeeper(blackboard: &mut Blackboard) -> bool {
 }
 
 pub fn is_primary_state(blackboard: &mut Blackboard, primary_state: PrimaryState) -> bool {
-    blackboard.world_state.robot.primary_state == primary_state
+    blackboard.world_state.robot.primary_state == Some(primary_state)
 }
 
 pub fn is_remote_control_enabled(blackboard: &mut Blackboard) -> bool {
