@@ -113,7 +113,7 @@ pub fn build_world_states(
                 robot: RobotState {
                     ground_to_field: Some(ground_to_field),
                     player_number: Some(robot.player_number),
-                    primary_state: primary_state.primary_state,
+                    primary_state: Some(primary_state.primary_state),
                 },
                 rule_ball: ball.state.map(|ball| {
                     ball.to_ball_state(

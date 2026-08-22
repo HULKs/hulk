@@ -315,6 +315,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         };
         blackboard.parameters = parameters.snapshot().typed().clone();
 
+        let Some(primary_state) = primary_state_cache.get_latest() else {
+            continue;
+        };
+
         let player_states = player_states_cache
             .get_latest()
             .map(|player_states| {
@@ -330,10 +334,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 .get_latest()
                 .map(|ground_to_field| *ground_to_field),
             player_number: Some(*player_number),
-            primary_state: primary_state_cache
-                .get_latest()
-                .map(|s| *s)
-                .unwrap_or_default(),
+            primary_state: Some(*primary_state),
         };
 
         blackboard.world_state.ball = ball_state_cache.get_latest().and_then(|ball| *ball);
