@@ -18,14 +18,12 @@ static MATCHER_RESOURCES: LazyLock<Mutex<MatcherResources>> =
     LazyLock::new(|| Mutex::new(MatcherResources::default()));
 
 pub(crate) fn fuzzy_matches<T: ToString>(query: &str, items: &[T]) -> Vec<(usize, String)> {
-    let mut strings: Vec<_> = items.iter().map(|item| Some(item.to_string())).collect();
+    let mut strings: Vec<_> = items.iter().map(ToString::to_string).collect();
     let mut matches = Vec::new();
-    fuzzy_match_indices(query, &strings, &mut matches, |item| {
-        item.as_deref().unwrap_or_default()
-    });
+    fuzzy_match_indices(query, &strings, &mut matches, String::as_str);
     matches
         .into_iter()
-        .map(|(_, index)| (index, strings[index].take().unwrap_or_default()))
+        .map(|(_, index)| (index, std::mem::take(&mut strings[index])))
         .collect()
 }
 
