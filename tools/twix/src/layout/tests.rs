@@ -245,16 +245,21 @@ async fn restored_layout_wraps_a_pane_dropped_between_splits_without_reusing_its
     restored.tree.move_tile_to_container(moved, root, 1, false);
     restored.tree.simplify(&simplification_options());
 
-    let wrapped_pane = match restored.tree.tiles.get(moved) {
+    let wrapper = restored
+        .tree
+        .tiles
+        .parent_of(moved)
+        .expect("direct pane should be wrapped in tabs");
+    match restored.tree.tiles.get(wrapper) {
         Some(Tile::Container(Container::Tabs(tabs))) => {
             assert_eq!(tabs.children.len(), 1);
-            tabs.children[0]
+            assert_eq!(tabs.children[0], moved);
         }
         _ => panic!("direct pane should be wrapped in tabs"),
-    };
-    assert_ne!(wrapped_pane, moved);
+    }
+    assert_ne!(wrapper, moved);
     assert!(matches!(
-        restored.tree.tiles.get(wrapped_pane),
+        restored.tree.tiles.get(moved),
         Some(Tile::Pane(_))
     ));
     assert!(!restored.tree.active_tiles().is_empty());
@@ -714,7 +719,7 @@ async fn dragging_a_tab_closes_an_open_panel_selector() {
         Some(Tile::Container(Container::Tabs(tabs))) => tabs.children.clone(),
         _ => panic!("layout should contain tabs"),
     };
-    let popup_id = tab_id(children[0]).with("panel-type-popup");
+    let popup_id = super::tab_bar::panel_type_popup_id(children[0]);
     Popup::open_id(&context, popup_id);
     show_layout(&context, &mut layout, &backend, Vec::new());
     let dragged_rect = context

@@ -153,10 +153,10 @@ detection = { path = "crates/nodes/detection" }
 dirs = "6.0.0"
 eframe = { version = "0.36.1", features = ["persistence", "wgpu"] }
 egui = { version = "0.36.1", features = ["persistence"] }
-egui-phosphor = "0.13.0"
 egui_bevy = { path = "crates/egui_bevy" }
 egui_dock = { version = "0.21.1", features = ["serde"] }
 egui_extras = { version = "0.36.1", features = ["image"] }
+egui_material_icons = "0.8.0"
 egui_plot = "0.37.0"
 egui_tiles = "0.17.1"
 energy_optimization = { path = "crates/energy_optimization" }

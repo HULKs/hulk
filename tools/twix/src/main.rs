@@ -250,9 +250,7 @@ fn main() -> eframe::Result<()> {
         NativeOptions::default(),
         Box::new(move |creation_context| {
             egui_extras::install_image_loaders(&creation_context.egui_ctx);
-            let mut fonts = eframe::egui::FontDefinitions::default();
-            egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
-            creation_context.egui_ctx.set_fonts(fonts);
+            egui_material_icons::initialize(&creation_context.egui_ctx);
             let namespace = arguments
                 .namespace
                 .clone()
@@ -290,9 +288,17 @@ mod tests {
                 .map(|panel| (panel.storage_id(), panel.display_name(), panel.icon()))
                 .collect::<Vec<_>>(),
             vec![
-                ("text", "Text", egui_phosphor::regular::FILE_TEXT),
-                ("image", "Image", egui_phosphor::regular::IMAGE),
-                ("map", "Map", egui_phosphor::regular::MAP_TRIFOLD),
+                (
+                    "text",
+                    "Text",
+                    egui_material_icons::icons::ICON_DESCRIPTION.codepoint,
+                ),
+                (
+                    "image",
+                    "Image",
+                    egui_material_icons::icons::ICON_IMAGE.codepoint,
+                ),
+                ("map", "Map", egui_material_icons::icons::ICON_MAP.codepoint,),
             ]
         );
         assert_eq!(

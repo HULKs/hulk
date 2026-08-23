@@ -80,7 +80,7 @@ struct RenderedMetadata {
 impl Panel for ImagePanel {
     const STORAGE_ID: &'static str = "image";
     const DISPLAY_NAME: &'static str = "Image";
-    const ICON: &'static str = egui_phosphor::regular::IMAGE;
+    const ICON: &'static str = egui_material_icons::icons::ICON_IMAGE.codepoint;
 
     fn new(context: PanelCreationContext<'_>) -> Self {
         let topic = context
