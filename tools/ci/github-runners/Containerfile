@@ -1,4 +1,4 @@
-FROM docker.io/rust:1.95.0
+FROM docker.io/rust:1.98.0
 
 RUN apt-get update && apt-get install --no-install-recommends --yes \
     buildah \
@@ -25,8 +25,7 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
 
 RUN useradd -u 1000 hulk && \
     usermod --add-subuids 10000-75535 hulk && \
-    usermod --add-subgids 10000-75535 hulk && \
-    podman system migrate
+    usermod --add-subgids 10000-75535 hulk
 
 RUN rustup component add clippy rustfmt
 
