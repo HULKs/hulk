@@ -8,7 +8,7 @@ macro_rules! impl_selectable_panel {
             )*
         }
 
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub enum PanelKind {
             $(
                 $name,
@@ -22,14 +22,6 @@ macro_rules! impl_selectable_panel {
                         <$name as $crate::panel::Panel>::STORAGE_ID => Ok(Self::$name),
                     )*
                     _ => color_eyre::eyre::bail!("unknown panel storage id: {storage_id}"),
-                }
-            }
-
-            pub const fn storage_id(self) -> &'static str {
-                match self {
-                    $(
-                        Self::$name => <$name as $crate::panel::Panel>::STORAGE_ID,
-                    )*
                 }
             }
 
@@ -83,12 +75,6 @@ macro_rules! impl_selectable_panel {
                     )*
                 ];
                 PANELS
-            }
-        }
-
-        impl std::fmt::Display for PanelKind {
-            fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                formatter.write_str(self.display_name())
             }
         }
 
@@ -156,17 +142,6 @@ macro_rules! impl_selectable_panel {
                         },
                     )*
                 }
-            }
-        }
-
-        impl std::fmt::Display for SelectablePanel {
-            fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                let panel_name = match self {
-                    $(
-                        Self::$name(_) => <$name as $crate::panel::Panel>::DISPLAY_NAME,
-                    )*
-                };
-                formatter.write_str(panel_name)
             }
         }
     };

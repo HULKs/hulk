@@ -8,14 +8,14 @@ use egui_tiles::{
     Behavior, EditAction, SimplificationOptions, TabState, TileId, Tiles, UiResponse,
 };
 
-use crate::{PanelKind, backend::RobotBackend};
+use crate::backend::RobotBackend;
 
 use super::{
     TREE_ID,
     focus::pane_focus_id,
     pane::{PanelPane, panel_ui_context},
     tab_bar,
-    tree::{LayoutRequest, TabGroupId, simplification_options},
+    tree::{LayoutRequest, simplification_options},
 };
 
 pub(super) struct LayoutBehavior<'a> {
@@ -172,14 +172,5 @@ impl Behavior<PanelPane> for LayoutBehavior<'_> {
             *self.focus_dirty = true;
         }
         self.egui_context.request_repaint();
-    }
-}
-
-impl LayoutBehavior<'_> {
-    pub(super) fn request_add(&mut self, tabs: TileId, panel: PanelKind) {
-        self.requests.push(LayoutRequest::Add {
-            tabs: TabGroupId(tabs),
-            panel,
-        });
     }
 }

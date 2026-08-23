@@ -220,7 +220,10 @@ pub(super) fn add_panel_button(behavior: &mut LayoutBehavior<'_>, ui: &mut Ui, t
         })
         .and_then(|response| response.inner);
     if let Some(panel) = selected {
-        behavior.request_add(tabs_id, panel);
+        behavior.requests.push(LayoutRequest::Add {
+            tabs: tabs_id,
+            panel,
+        });
     }
 }
 

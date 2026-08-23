@@ -152,9 +152,7 @@ pub(crate) fn show_results<T, M>(
     let mut clicked = None;
     for (visible_index, matched_item) in matches.iter().enumerate() {
         let item_index = item_index(matched_item);
-        let Some(item) = items.get(item_index) else {
-            continue;
-        };
+        let item = &items[item_index];
         let is_highlighted = highlighted == Some(visible_index);
         let response = show_row(ui, is_highlighted, item);
 

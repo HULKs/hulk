@@ -12,11 +12,8 @@ use super::{
     pane::{PanelPane, panel_creation_context},
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) struct TabGroupId(pub(super) TileId);
-
 pub(super) enum LayoutRequest {
-    Add { tabs: TabGroupId, panel: PanelKind },
+    Add { tabs: TileId, panel: PanelKind },
     Replace { pane: TileId, panel: PanelKind },
     Close(TileId),
 }
@@ -45,7 +42,7 @@ impl TwixLayout {
         let direction = self
             .tree
             .tiles
-            .rect(tabs_id.0)
+            .rect(tabs_id)
             .map_or(LinearDir::Horizontal, |rect| {
                 if rect.height() > rect.width() {
                     LinearDir::Vertical
@@ -53,7 +50,7 @@ impl TwixLayout {
                     LinearDir::Horizontal
                 }
             });
-        let Some(old_tabs) = self.tree.tiles.remove(tabs_id.0) else {
+        let Some(old_tabs) = self.tree.tiles.remove(tabs_id) else {
             return;
         };
 
@@ -64,7 +61,7 @@ impl TwixLayout {
             .insert_pane(PanelPane::text(backend, egui_context));
         let new_tabs = self.tree.tiles.insert_tab_tile(vec![new_pane]);
         self.tree.tiles.insert(
-            tabs_id.0,
+            tabs_id,
             Tile::Container(Container::Linear(Linear::new_binary(
                 direction,
                 [old_tabs, new_tabs],
@@ -130,7 +127,7 @@ impl TwixLayout {
         match request {
             LayoutRequest::Add { tabs, panel } => {
                 if !matches!(
-                    self.tree.tiles.get(tabs.0),
+                    self.tree.tiles.get(tabs),
                     Some(Tile::Container(Container::Tabs(_)))
                 ) {
                     return;
@@ -150,28 +147,24 @@ impl TwixLayout {
         }
     }
 
-    fn insert_tab(
-        &mut self,
-        tabs_id: TabGroupId,
-        pane: PanelPane,
-        egui_context: &Context,
-    ) -> Option<TileId> {
+    fn insert_tab(&mut self, tabs_id: TileId, pane: PanelPane, egui_context: &Context) -> TileId {
         let pane_id = self.tree.tiles.next_free_id();
         let tabs = self
             .tree
             .tiles
-            .get_mut(tabs_id.0)
+            .get_mut(tabs_id)
             .and_then(|tile| match tile {
                 Tile::Container(Container::Tabs(tabs)) => Some(tabs),
                 _ => None,
-            })?;
+            })
+            .expect("tab group should identify a tabs container");
         tabs.add_child(pane_id);
         tabs.set_active(pane_id);
         self.tree.tiles.insert(pane_id, Tile::Pane(pane));
         self.focused = Some(pane_id);
         self.tab_to_reveal = Some(pane_id);
         request_pane_focus(egui_context, pane_id);
-        Some(pane_id)
+        pane_id
     }
 
     pub(super) fn close_tile(
@@ -215,14 +208,14 @@ impl TwixLayout {
         }
     }
 
-    pub(super) fn focused_tabs(&self) -> Option<TabGroupId> {
+    pub(super) fn focused_tabs(&self) -> Option<TileId> {
         let focused = self.focused?;
         let parent = self.tree.tiles.parent_of(focused)?;
         matches!(
             self.tree.tiles.get(parent),
             Some(Tile::Container(Container::Tabs(_)))
         )
-        .then_some(TabGroupId(parent))
+        .then_some(parent)
     }
 
     pub(super) fn set_focus(&mut self, tile_id: TileId, egui_context: &Context) {
