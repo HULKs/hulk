@@ -148,7 +148,12 @@ impl Image {
             let src_row = &src_uv[(y * 2) * src_step..][..src_width];
             let dest_row = &mut dest_uv[y * dest_width..][..dest_width];
 
-            for (dest_pair, src_pair) in dest_row.chunks_exact_mut(2).zip(src_row.chunks_exact(4)) {
+            for (dest_pair, src_pair) in dest_row
+                .as_chunks_mut::<2>()
+                .0
+                .iter_mut()
+                .zip(src_row.as_chunks::<4>().0)
+            {
                 dest_pair[0] = src_pair[0];
                 dest_pair[1] = src_pair[1];
             }
@@ -270,7 +275,7 @@ impl TryFrom<Image> for RgbImage {
                 let mut output_buffer = rgb_image.as_flat_samples_mut();
                 let output_buffer = output_buffer.as_mut_slice();
 
-                for (i, pixel_bytes) in image.data.chunks_exact(2).enumerate() {
+                for (i, pixel_bytes) in image.data.as_chunks::<2>().0.iter().enumerate() {
                     let pixel_val = if image.is_bigendian == 0 {
                         u16::from_le_bytes([pixel_bytes[0], pixel_bytes[1]])
                     } else {

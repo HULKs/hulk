@@ -114,7 +114,9 @@ impl TryFrom<&Ros2Image> for YCbCr422Image {
         let data: Vec<YCbCr422> = match ros2_image.encoding.as_str() {
             "rgb8" => ros2_image
                 .data
-                .chunks_exact(6)
+                .as_chunks::<6>()
+                .0
+                .iter()
                 .map(|pixel| {
                     let left_color: YCbCr444 = Rgb {
                         red: pixel[0],
@@ -151,7 +153,9 @@ impl TryFrom<&Ros2Image> for YCbCr422Image {
                 assert_eq!(uv_plane.len(), uv_plane_size);
 
                 y_plane
-                    .chunks_exact(2)
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .enumerate()
                     .map(|(i, y_chunk)| {
                         let (y_row, column) = (i as u32).div_rem_euclid(&chunked_y_stride);

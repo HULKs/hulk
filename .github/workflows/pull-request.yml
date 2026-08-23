@@ -23,7 +23,7 @@ jobs:
         with:
           lfs: true
       - name: Check
-        run: ./pepsi clippy --locked . -- --deny warnings --allow clippy::chunks-exact-to-as-chunks
+        run: ./pepsi clippy --locked . -- --deny warnings
 
   check-cargo-lock:
     name: Check Cargo.lock

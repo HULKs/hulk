@@ -12,7 +12,9 @@ pub(super) fn decode_camera_frame(image: RosImage) -> Result<CameraFrame> {
     let height = rgb_image.height();
     let rgba = rgb_image
         .into_vec()
-        .chunks_exact(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .flat_map(|pixel| [pixel[0], pixel[1], pixel[2], 255])
         .collect();
 

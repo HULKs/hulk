@@ -167,7 +167,9 @@ fn spawn_mujoco_scene(
 
             let mut all_mips_data: Vec<u8> = image_data
                 .rgb
-                .chunks_exact(3)
+                .as_chunks::<3>()
+                .0
+                .iter()
                 .flat_map(|rgb| [rgb[0], rgb[1], rgb[2], 255])
                 .collect();
 
