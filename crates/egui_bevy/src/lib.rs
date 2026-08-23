@@ -2,9 +2,16 @@ use std::sync::Arc;
 
 use bevy::{
     camera::{ManualTextureViewHandle, RenderTarget, Viewport},
+    camera_controller::pan_orbit_camera::{
+        controller::{MinimalPanOrbitCameraPlugin, inputs::MotionInputs},
+        prelude::PanOrbitCamera,
+    },
     input::{
-        ButtonState,
-        mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
+        ButtonState, InputSystems,
+        mouse::{
+            AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButtonInput, MouseMotion,
+            MouseScrollPixelsPerLine, MouseScrollUnit, MouseWheel,
+        },
         touch::TouchPhase as BevyTouchPhase,
     },
     prelude::*,
@@ -19,7 +26,6 @@ use bevy::{
         texture::ManualTextureView,
     },
 };
-use bevy_panorbit_camera::{ActiveCameraData, PanOrbitCamera, PanOrbitCameraPlugin};
 use eframe::{
     egui::{
         self, Event, ImageSource, MouseWheelUnit, PointerButton, Pos2, Response, Sense, Ui, Widget,
@@ -180,10 +186,15 @@ impl Plugin for EguiRenderPlugin {
                 output_size: egui::Vec2::new(512.0, 512.0),
                 wgpu_state: self.wgpu_state.clone(),
             })
-            .add_plugins(PanOrbitCameraPlugin)
+            .add_plugins(MinimalPanOrbitCameraPlugin)
+            .add_systems(
+                PreUpdate,
+                update_pan_orbit_camera_input
+                    .after(InputSystems)
+                    .before(PanOrbitCamera::update_camera_positions),
+            )
             .add_systems(Startup, setup_camera)
             .add_systems(Startup, setup_scene)
-            .add_systems(Update, update_active_camera)
             .add_systems(Update, update_camera_render_target);
     }
 }
@@ -254,15 +265,40 @@ fn update_camera_render_target(
     });
 }
 
-fn update_active_camera(
-    camera: Single<(Entity, &mut Camera)>,
-    target: Res<BevyRenderTarget>,
-    mut active_camera: ResMut<ActiveCameraData>,
+fn update_pan_orbit_camera_input(
+    mut camera: Single<&mut PanOrbitCamera>,
+    mouse_motion: Res<AccumulatedMouseMotion>,
+    mouse_scroll: Res<AccumulatedMouseScroll>,
+    mouse_scroll_conversion: Res<MouseScrollPixelsPerLine>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
 ) {
-    active_camera.entity = Some(camera.0);
-    active_camera.viewport_size = Some(Vec2::new(target.output_size.x, target.output_size.y));
-    active_camera.window_size = Some(Vec2::new(target.output_size.x, target.output_size.y));
-    active_camera.manual = true;
+    let zoom = mouse_scroll.to_pixels(&mouse_scroll_conversion).delta.y;
+    let zoom_stopped =
+        zoom == 0.0 && matches!(camera.motion_inputs(), Some(MotionInputs::Zoom { .. }));
+    let active_button_released = matches!(
+        camera.motion_inputs(),
+        Some(MotionInputs::OrbitZoom { .. }) if mouse_input.just_released(MouseButton::Left)
+    ) || matches!(
+        camera.motion_inputs(),
+        Some(MotionInputs::PanZoom { .. }) if mouse_input.just_released(MouseButton::Right)
+    );
+
+    if active_button_released || zoom_stopped {
+        camera.end_move();
+    }
+
+    if !camera.is_actively_controlled() {
+        if mouse_input.just_pressed(MouseButton::Left) {
+            camera.start_orbit(None);
+        } else if mouse_input.just_pressed(MouseButton::Right) {
+            camera.start_pan(None);
+        } else if zoom != 0.0 && camera.motion_inputs().is_none() {
+            camera.start_zoom(None);
+        }
+    }
+
+    camera.send_screenspace_input(mouse_motion.delta);
+    camera.send_zoom_input(zoom);
 }
 
 fn process_egui_input(world: &mut World, ui: &mut Ui, response: &Response) {
@@ -357,4 +393,74 @@ fn process_egui_input(world: &mut World, ui: &mut Ui, response: &Response) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn camera_input_app(camera: PanOrbitCamera) -> (App, Entity) {
+        let mut app = App::new();
+        app.init_resource::<AccumulatedMouseMotion>()
+            .init_resource::<AccumulatedMouseScroll>()
+            .init_resource::<MouseScrollPixelsPerLine>()
+            .init_resource::<ButtonInput<MouseButton>>()
+            .add_systems(Update, update_pan_orbit_camera_input);
+        let camera = app.world_mut().spawn(camera).id();
+        (app, camera)
+    }
+
+    fn release_mouse_button(app: &mut App, button: MouseButton) {
+        let mut mouse_input = app.world_mut().resource_mut::<ButtonInput<MouseButton>>();
+        mouse_input.press(button);
+        mouse_input.clear();
+        mouse_input.release(button);
+    }
+
+    #[test]
+    fn releasing_inactive_button_keeps_camera_motion() {
+        let mut camera = PanOrbitCamera::default();
+        camera.start_orbit(None);
+        let (mut app, camera) = camera_input_app(camera);
+        release_mouse_button(&mut app, MouseButton::Right);
+
+        app.update();
+
+        let camera = app.world().entity(camera).get::<PanOrbitCamera>().unwrap();
+        assert!(matches!(
+            camera.motion_inputs(),
+            Some(MotionInputs::OrbitZoom { .. })
+        ));
+    }
+
+    #[test]
+    fn pressing_another_button_keeps_camera_motion() {
+        let mut camera = PanOrbitCamera::default();
+        camera.start_orbit(None);
+        let (mut app, camera) = camera_input_app(camera);
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Right);
+
+        app.update();
+
+        let camera = app.world().entity(camera).get::<PanOrbitCamera>().unwrap();
+        assert!(matches!(
+            camera.motion_inputs(),
+            Some(MotionInputs::OrbitZoom { .. })
+        ));
+    }
+
+    #[test]
+    fn releasing_active_button_ends_camera_motion() {
+        let mut camera = PanOrbitCamera::default();
+        camera.start_orbit(None);
+        let (mut app, camera) = camera_input_app(camera);
+        release_mouse_button(&mut app, MouseButton::Left);
+
+        app.update();
+
+        let camera = app.world().entity(camera).get::<PanOrbitCamera>().unwrap();
+        assert!(camera.motion_inputs().is_none());
+    }
 }
