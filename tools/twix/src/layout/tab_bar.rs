@@ -2,6 +2,7 @@ use eframe::egui::{
     Align2, Button, CornerRadius, FontId, Id, Popup, PopupCloseBehavior, Rect, Response, Sense,
     StrokeKind, TextStyle, Ui, vec2,
 };
+use egui_material_icons::icons;
 use egui_tiles::{Behavior as _, TabState, TileId, Tiles};
 use hulk_widgets::SearchableSelector;
 
@@ -114,7 +115,7 @@ pub(super) fn tab_ui(
             ui.painter().text(
                 accessory_rect.center(),
                 Align2::CENTER_CENTER,
-                egui_material_icons::icons::ICON_KEYBOARD_ARROW_DOWN.codepoint,
+                icons::ICON_KEYBOARD_ARROW_DOWN.codepoint,
                 FontId::proportional(12.0),
                 selector_visuals.text_color(),
             );
@@ -197,7 +198,7 @@ pub(super) fn tab_ui(
 pub(super) fn add_panel_button(behavior: &mut LayoutBehavior<'_>, ui: &mut Ui, tabs_id: TileId) {
     let add_response = ui
         .add(
-            Button::new(egui_material_icons::icons::ICON_ADD.codepoint)
+            Button::new(icons::ICON_ADD.codepoint)
                 .frame(false)
                 .min_size(vec2(24.0, 24.0)),
         )

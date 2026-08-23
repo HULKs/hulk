@@ -147,7 +147,7 @@ impl Behavior<PanelPane> for LayoutBehavior<'_> {
     }
 
     fn tab_bar_height(&self, _style: &eframe::egui::Style) -> f32 {
-        28.0
+        30.0
     }
 
     fn paint_on_top_of_tile(
