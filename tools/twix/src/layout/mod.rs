@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use eframe::egui::{Popup, Ui};
+use eframe::egui::Ui;
 use egui_tiles::{TileId, Tree};
 
 use crate::backend::RobotBackend;
@@ -37,16 +37,12 @@ impl TwixLayout {
             focused: &mut self.focused,
             tab_to_reveal: &mut self.tab_to_reveal,
             selector_to_open: &mut self.selector_to_open,
-            add_button_after: None,
             focus_dirty: &mut self.focus_dirty,
             requests: Vec::new(),
         };
         self.tree.ui(&mut behavior, ui);
         let requests = behavior.requests;
         let dragging_tile = self.tree.dragged_id(ui.ctx()).is_some();
-        if dragging_tile {
-            Popup::close_all(ui.ctx());
-        }
 
         for request in requests {
             self.apply_request(request, backend, ui.ctx());

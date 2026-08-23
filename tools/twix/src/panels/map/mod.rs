@@ -83,7 +83,7 @@ pub struct MapPanel {
 impl Panel for MapPanel {
     const STORAGE_ID: &'static str = "map";
     const DISPLAY_NAME: &'static str = "Map";
-    const ICON: &'static str = egui_phosphor::regular::MAP_TRIFOLD;
+    const ICON: &'static str = egui_material_icons::icons::ICON_MAP.codepoint;
 
     fn new(context: PanelCreationContext) -> Self {
         let field = EnabledLayer::new(context.backend.clone(), context.value, true);

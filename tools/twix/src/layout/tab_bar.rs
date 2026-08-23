@@ -1,6 +1,6 @@
 use eframe::egui::{
     Align2, Button, CornerRadius, FontId, Id, Popup, PopupCloseBehavior, Rect, Response, Sense,
-    StrokeKind, TextStyle, Ui, WidgetText, vec2,
+    StrokeKind, TextStyle, Ui, vec2,
 };
 use egui_tiles::{Behavior as _, TabState, TileId, Tiles};
 use hulk_widgets::SearchableSelector;
@@ -8,6 +8,7 @@ use hulk_widgets::SearchableSelector;
 use crate::PanelKind;
 
 use super::{
+    TREE_ID,
     behavior::LayoutBehavior,
     focus::request_pane_focus,
     pane::PanelPane,
@@ -29,9 +30,9 @@ pub(super) fn tab_ui(
     state: &TabState,
 ) -> Response {
     let current = tiles.get_pane(&tile_id).map(PanelPane::kind);
-    let title = current.map_or("Group", |panel| panel.label());
+    let title = behavior.tab_title_for_tile(tiles, tile_id);
     let font_id = TextStyle::Button.resolve(ui.style());
-    let galley = WidgetText::from(title).into_galley(
+    let galley = title.into_galley(
         ui,
         Some(eframe::egui::TextWrapMode::Extend),
         f32::INFINITY,
@@ -53,6 +54,9 @@ pub(super) fn tab_ui(
     let tab_response = ui
         .interact(tab_rect, id, Sense::click_and_drag())
         .on_hover_cursor(eframe::egui::CursorIcon::Grab);
+    if tab_response.drag_started() {
+        close_layout_popups(ui, tiles);
+    }
 
     let right = tab_rect.right() - x_margin;
     let close_rect = Rect::from_center_size(
@@ -110,7 +114,7 @@ pub(super) fn tab_ui(
             ui.painter().text(
                 accessory_rect.center(),
                 Align2::CENTER_CENTER,
-                egui_phosphor::regular::CARET_DOWN,
+                egui_material_icons::icons::ICON_KEYBOARD_ARROW_DOWN.codepoint,
                 FontId::proportional(12.0),
                 selector_visuals.text_color(),
             );
@@ -147,7 +151,7 @@ pub(super) fn tab_ui(
     }
 
     if let Some(selector_response) = &selector_response {
-        let popup_id = id.with("panel-type-popup");
+        let popup_id = panel_type_popup_id(tile_id);
         let popup_was_open = Popup::is_id_open(ui.ctx(), popup_id);
         let mut reset_picker = false;
         if *behavior.selector_to_open == Some(tile_id) {
@@ -184,30 +188,21 @@ pub(super) fn tab_ui(
         }
     }
 
-    if let Some((tabs_id, _)) = behavior
-        .add_button_after
-        .filter(|(_, last_tab)| *last_tab == tile_id)
-        && ui.ctx().dragged_id().is_none()
-        && ui.ctx().drag_stopped_id().is_none()
-    {
-        add_panel_button(behavior, ui, tabs_id);
-    }
-
     match selector_response {
         Some(selector_response) => tab_response | selector_response,
         None => tab_response,
     }
 }
 
-fn add_panel_button(behavior: &mut LayoutBehavior<'_>, ui: &mut Ui, tabs_id: TileId) {
+pub(super) fn add_panel_button(behavior: &mut LayoutBehavior<'_>, ui: &mut Ui, tabs_id: TileId) {
     let add_response = ui
         .add(
-            Button::new(egui_phosphor::regular::PLUS)
+            Button::new(egui_material_icons::icons::ICON_ADD.codepoint)
                 .frame(false)
                 .min_size(vec2(24.0, 24.0)),
         )
         .on_hover_text("Add panel");
-    let popup_id = ui.id().with((tabs_id, "add-panel-popup"));
+    let popup_id = add_panel_popup_id(tabs_id);
     let reset_picker = add_response.clicked() && !Popup::is_id_open(ui.ctx(), popup_id);
     let selected = Popup::from_toggle_button_response(&add_response)
         .id(popup_id)
@@ -226,6 +221,21 @@ fn add_panel_button(behavior: &mut LayoutBehavior<'_>, ui: &mut Ui, tabs_id: Til
     if let Some(panel) = selected {
         behavior.request_add(tabs_id, panel);
     }
+}
+
+fn close_layout_popups(ui: &Ui, tiles: &Tiles<PanelPane>) {
+    for tile_id in tiles.tile_ids() {
+        Popup::close_id(ui.ctx(), panel_type_popup_id(tile_id));
+        Popup::close_id(ui.ctx(), add_panel_popup_id(tile_id));
+    }
+}
+
+pub(super) fn panel_type_popup_id(tile_id: TileId) -> Id {
+    tile_id.egui_id(Id::new(TREE_ID)).with("panel-type-popup")
+}
+
+fn add_panel_popup_id(tabs_id: TileId) -> Id {
+    Id::new((TREE_ID, tabs_id, "add-panel-popup"))
 }
 
 fn panel_picker(

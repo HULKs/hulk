@@ -186,7 +186,7 @@ impl Default for ParameterPanel {
 impl Panel for ParameterPanel {
     const STORAGE_ID: &'static str = "parameter";
     const DISPLAY_NAME: &'static str = "Parameter";
-    const ICON: &'static str = egui_phosphor::regular::SLIDERS_HORIZONTAL;
+    const ICON: &'static str = egui_material_icons::icons::ICON_TUNE.codepoint;
 
     fn new(context: PanelCreationContext<'_>) -> Self {
         let saved = context

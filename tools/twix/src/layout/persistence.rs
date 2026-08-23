@@ -78,9 +78,6 @@ impl TwixLayout {
         }
 
         let mut tiles = Tiles::default();
-        // Explicit insertion preserves persisted IDs but does not advance Tiles' private allocator.
-        while tiles.next_free_id().0 < highest_id {}
-
         for (tile_id, tile) in loaded.tree.tiles.iter() {
             let tile = match tile {
                 Tile::Pane(value) => Tile::Pane(
@@ -92,6 +89,7 @@ impl TwixLayout {
             tiles.insert(*tile_id, tile);
             tiles.set_visible(*tile_id, loaded.tree.tiles.is_visible(*tile_id));
         }
+        tiles.recompute_next_tile_id();
 
         let mut tree = Tree::new(TREE_ID, root, tiles);
         let Some(default_focus) = first_pane(&tree) else {

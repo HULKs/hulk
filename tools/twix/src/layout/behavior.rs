@@ -24,7 +24,6 @@ pub(super) struct LayoutBehavior<'a> {
     pub(super) focused: &'a mut Option<TileId>,
     pub(super) tab_to_reveal: &'a mut Option<TileId>,
     pub(super) selector_to_open: &'a mut Option<TileId>,
-    pub(super) add_button_after: Option<(TileId, TileId)>,
     pub(super) focus_dirty: &'a mut bool,
     pub(super) requests: Vec<LayoutRequest>,
 }
@@ -97,7 +96,7 @@ impl Behavior<PanelPane> for LayoutBehavior<'_> {
 
     fn top_bar_right_ui(
         &mut self,
-        tiles: &Tiles<PanelPane>,
+        _tiles: &Tiles<PanelPane>,
         ui: &mut Ui,
         tile_id: TileId,
         tabs: &egui_tiles::Tabs,
@@ -114,16 +113,9 @@ impl Behavior<PanelPane> for LayoutBehavior<'_> {
             }
             *self.tab_to_reveal = None;
         }
-        self.add_button_after = tabs
-            .children
-            .iter()
-            .rev()
-            .copied()
-            .find(|child| tiles.is_visible(*child))
-            .map(|child| (tile_id, child));
         if ui
             .add(
-                Button::new(egui_phosphor::regular::X)
+                Button::new(egui_material_icons::icons::ICON_CLOSE.codepoint)
                     .frame(false)
                     .min_size(vec2(24.0, 24.0)),
             )
@@ -131,6 +123,18 @@ impl Behavior<PanelPane> for LayoutBehavior<'_> {
             .clicked()
         {
             self.requests.push(LayoutRequest::Close(tile_id));
+        }
+    }
+
+    fn tab_bar_trailing_ui(
+        &mut self,
+        _tiles: &Tiles<PanelPane>,
+        ui: &mut Ui,
+        tile_id: TileId,
+        _tabs: &egui_tiles::Tabs,
+    ) {
+        if ui.ctx().dragged_id().is_none() && ui.ctx().drag_stopped_id().is_none() {
+            tab_bar::add_panel_button(self, ui, tile_id);
         }
     }
 
