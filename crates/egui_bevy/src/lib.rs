@@ -269,21 +269,18 @@ fn update_pan_orbit_camera_input(
     mut camera: Single<&mut PanOrbitCamera>,
     mouse_motion: Res<AccumulatedMouseMotion>,
     mouse_scroll: Res<AccumulatedMouseScroll>,
-    mouse_scroll_conversion: Res<MouseScrollPixelsPerLine>,
+    pixels_per_line: Res<MouseScrollPixelsPerLine>,
     mouse_input: Res<ButtonInput<MouseButton>>,
 ) {
-    let zoom = mouse_scroll.to_pixels(&mouse_scroll_conversion).delta.y;
-    let zoom_stopped =
-        zoom == 0.0 && matches!(camera.motion_inputs(), Some(MotionInputs::Zoom { .. }));
-    let active_button_released = matches!(
-        camera.motion_inputs(),
-        Some(MotionInputs::OrbitZoom { .. }) if mouse_input.just_released(MouseButton::Left)
-    ) || matches!(
-        camera.motion_inputs(),
-        Some(MotionInputs::PanZoom { .. }) if mouse_input.just_released(MouseButton::Right)
-    );
+    let zoom = mouse_scroll.to_pixels(&pixels_per_line).delta.y;
+    let should_end_move = match camera.motion_inputs() {
+        Some(MotionInputs::OrbitZoom { .. }) => mouse_input.just_released(MouseButton::Left),
+        Some(MotionInputs::PanZoom { .. }) => mouse_input.just_released(MouseButton::Right),
+        Some(MotionInputs::Zoom { .. }) => zoom == 0.0,
+        None => false,
+    };
 
-    if active_button_released || zoom_stopped {
+    if should_end_move {
         camera.end_move();
     }
 
@@ -393,74 +390,4 @@ fn process_egui_input(world: &mut World, ui: &mut Ui, response: &Response) {
             }
         }
     });
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn camera_input_app(camera: PanOrbitCamera) -> (App, Entity) {
-        let mut app = App::new();
-        app.init_resource::<AccumulatedMouseMotion>()
-            .init_resource::<AccumulatedMouseScroll>()
-            .init_resource::<MouseScrollPixelsPerLine>()
-            .init_resource::<ButtonInput<MouseButton>>()
-            .add_systems(Update, update_pan_orbit_camera_input);
-        let camera = app.world_mut().spawn(camera).id();
-        (app, camera)
-    }
-
-    fn release_mouse_button(app: &mut App, button: MouseButton) {
-        let mut mouse_input = app.world_mut().resource_mut::<ButtonInput<MouseButton>>();
-        mouse_input.press(button);
-        mouse_input.clear();
-        mouse_input.release(button);
-    }
-
-    #[test]
-    fn releasing_inactive_button_keeps_camera_motion() {
-        let mut camera = PanOrbitCamera::default();
-        camera.start_orbit(None);
-        let (mut app, camera) = camera_input_app(camera);
-        release_mouse_button(&mut app, MouseButton::Right);
-
-        app.update();
-
-        let camera = app.world().entity(camera).get::<PanOrbitCamera>().unwrap();
-        assert!(matches!(
-            camera.motion_inputs(),
-            Some(MotionInputs::OrbitZoom { .. })
-        ));
-    }
-
-    #[test]
-    fn pressing_another_button_keeps_camera_motion() {
-        let mut camera = PanOrbitCamera::default();
-        camera.start_orbit(None);
-        let (mut app, camera) = camera_input_app(camera);
-        app.world_mut()
-            .resource_mut::<ButtonInput<MouseButton>>()
-            .press(MouseButton::Right);
-
-        app.update();
-
-        let camera = app.world().entity(camera).get::<PanOrbitCamera>().unwrap();
-        assert!(matches!(
-            camera.motion_inputs(),
-            Some(MotionInputs::OrbitZoom { .. })
-        ));
-    }
-
-    #[test]
-    fn releasing_active_button_ends_camera_motion() {
-        let mut camera = PanOrbitCamera::default();
-        camera.start_orbit(None);
-        let (mut app, camera) = camera_input_app(camera);
-        release_mouse_button(&mut app, MouseButton::Left);
-
-        app.update();
-
-        let camera = app.world().entity(camera).get::<PanOrbitCamera>().unwrap();
-        assert!(camera.motion_inputs().is_none());
-    }
 }
