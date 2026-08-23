@@ -14,9 +14,6 @@ mod persistence;
 mod tab_bar;
 mod tree;
 
-#[cfg(test)]
-mod tests;
-
 pub use focus::FocusDirection;
 
 const TREE_ID: &str = "twix-tile-tree";

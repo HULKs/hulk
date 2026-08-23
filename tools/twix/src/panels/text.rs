@@ -54,7 +54,7 @@ struct RenderedMetadata {
 impl Panel for TextPanel {
     const STORAGE_ID: &'static str = "text";
     const DISPLAY_NAME: &'static str = "Text";
-    const ICON: &'static str = egui_material_icons::icons::ICON_DESCRIPTION.codepoint;
+    const ICON: &'static str = egui_material_icons::icons::ICON_TEXT_FIELDS.codepoint;
 
     fn new(context: PanelCreationContext<'_>) -> Self {
         let topic = context
