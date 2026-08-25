@@ -168,9 +168,8 @@ pub enum GlanceDirection {
     RightOfTarget,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, Message)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, Message)]
 pub enum KickPower {
-    #[default]
     Rumpelstilzchen,
     Schlong,
 }

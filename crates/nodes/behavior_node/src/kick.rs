@@ -52,7 +52,7 @@ pub fn kick(blackboard: &mut Blackboard) -> Status {
             kick_direction: Default::default(),
             target_position: Default::default(),
             robot_theta_to_field,
-            kick_power: Default::default(),
+            kick_power: KickPower::Rumpelstilzchen,
         });
         blackboard.head_motion = Some(HeadMotion::LookAt {
             target: ball_in_ground,
