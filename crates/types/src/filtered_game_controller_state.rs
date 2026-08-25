@@ -23,21 +23,3 @@ pub struct FilteredGameControllerState {
     pub new_own_penalties_last_cycle: HashMap<PlayerNumber, Penalty>,
     pub new_opponent_penalties_last_cycle: HashMap<PlayerNumber, Penalty>,
 }
-
-impl Default for FilteredGameControllerState {
-    fn default() -> Self {
-        Self {
-            game_state: Default::default(),
-            opponent_game_state: Default::default(),
-            remaining_time_in_half: Duration::ZERO,
-            game_phase: Default::default(),
-            kicking_team: Default::default(),
-            penalties: Default::default(),
-            remaining_number_of_messages: Default::default(),
-            sub_state: Default::default(),
-            global_field_side: GlobalFieldSide::Away,
-            new_own_penalties_last_cycle: Default::default(),
-            new_opponent_penalties_last_cycle: Default::default(),
-        }
-    }
-}
