@@ -323,7 +323,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .get_latest()
             .and_then(|ball_position| *ball_position);
 
-        let mut blackboard = blackboard.get_or_insert_with(|| Blackboard {
+        let blackboard = blackboard.get_or_insert_with(|| Blackboard {
             field_dimensions: *field_dimensions,
             parameters: behavior_parameters.clone(),
             world_state: world_state.clone(),
@@ -379,8 +379,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             blackboard.ball = None;
         }
 
-        let (status, trace) = block_in_place(|| tree.tick_with_trace(&mut blackboard));
-        let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
+        let (status, trace) = block_in_place(|| tree.tick_with_trace(blackboard));
+        let motion_command: MotionCommand = assemble_motion_command(blackboard, status)?;
 
         let previous_motion_command = blackboard.last_motion_command.clone();
         blackboard.last_motion_command = Some(motion_command.clone());
