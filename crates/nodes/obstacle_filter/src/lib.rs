@@ -170,7 +170,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         let primary_state = primary_state_cache
                             .get_latest()
                             .map(|primary_state| *primary_state)
-                            .unwrap_or_default();
+                            .unwrap_or(PrimaryState::Damping);
                         let fall_detection = fall_detection_cache.get_latest();
 
                         let obstacles = obstacle_filter.compose_outputs(
@@ -237,7 +237,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     let primary_state = primary_state_cache
                         .get_latest()
                         .map(|primary_state| *primary_state)
-                        .unwrap_or_default();
+                        .unwrap_or(PrimaryState::Damping);
                     let fall_detection = fall_detection_cache.get_latest();
 
                     let obstacles = obstacle_filter.compose_outputs(
