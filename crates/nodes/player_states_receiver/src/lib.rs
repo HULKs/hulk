@@ -172,11 +172,17 @@ mod tests {
         let mut states = Players::new(None);
         states[PlayerNumber::Two] = Some(TimeWrapper {
             time: Time::from_nanos(10),
-            inner: PlayerState::default(),
+            inner: PlayerState {
+                pose: Pose2::default(),
+                ball_position: None,
+            },
         });
         states[PlayerNumber::Three] = Some(TimeWrapper {
             time: Time::from_nanos(20),
-            inner: PlayerState::default(),
+            inner: PlayerState {
+                pose: Pose2::default(),
+                ball_position: None,
+            },
         });
 
         let game_controller_state = FilteredGameControllerState {
@@ -200,11 +206,17 @@ mod tests {
         let mut states = Players::new(None);
         states[PlayerNumber::Two] = Some(TimeWrapper {
             time: Time::from_nanos(1_000_000_000),
-            inner: PlayerState::default(),
+            inner: PlayerState {
+                pose: Pose2::default(),
+                ball_position: None,
+            },
         });
         states[PlayerNumber::Three] = Some(TimeWrapper {
             time: Time::from_nanos(1_500_000_000),
-            inner: PlayerState::default(),
+            inner: PlayerState {
+                pose: Pose2::default(),
+                ball_position: None,
+            },
         });
 
         let removed_any = clear_old_player_states(
@@ -223,7 +235,10 @@ mod tests {
         let mut states = Players::new(None);
         states[PlayerNumber::Two] = Some(TimeWrapper {
             time: Time::from_nanos(1_000_000_001),
-            inner: PlayerState::default(),
+            inner: PlayerState {
+                pose: Pose2::default(),
+                ball_position: None,
+            },
         });
 
         let removed_any = clear_old_player_states(
