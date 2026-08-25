@@ -480,7 +480,7 @@ mod tests {
     use types::{
         behavior_tree::{NodeTrace, Status},
         field_dimensions::{FieldDimensions, Side},
-        motion_command::{HeadMotion, KickPower, MotionCommand, OrientationMode},
+        motion_command::{HeadMotion, ImageRegion, KickPower, MotionCommand, OrientationMode},
         parameters::BehaviorParameters,
         path::direct_path,
         world_state::WorldState,
@@ -669,7 +669,7 @@ mod tests {
             Orientation2::identity(),
             Some(HeadMotion::LookAt {
                 target: point![0.0, 1.0],
-                image_region_target: Default::default(),
+                image_region_target: ImageRegion::Center,
             }),
             SystemTime::UNIX_EPOCH,
             Duration::from_secs(1),
