@@ -494,7 +494,6 @@ mod tests {
         behavior_tree::{NodeTrace, Status},
         field_dimensions::{FieldDimensions, Side},
         motion_command::{HeadMotion, ImageRegion, KickPower, MotionCommand, OrientationMode},
-        parameters::BehaviorParameters,
         path::direct_path,
         world_state::{RobotState, WorldState},
     };
@@ -502,6 +501,7 @@ mod tests {
     use super::*;
     use crate::behavior_tree_simulator::{
         DEFAULT_TICK_DURATION, RobotFrame, SimulatedBall, SimulationConfig, SimulatorRobotId,
+        default_behavior_parameters,
     };
 
     #[test]
@@ -566,7 +566,8 @@ mod tests {
                 player_number: PlayerNumber::Three,
             },
             SimulatorRobotParameters {
-                behavior: BehaviorParameters::default(),
+                behavior: default_behavior_parameters()
+                    .expect("failed to load behavior parameters"),
                 walking: WalkingParameters {
                     hybrid_align_distance: 1.0,
                     max_alignment_rate: 1.0,
