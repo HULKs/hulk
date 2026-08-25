@@ -91,7 +91,7 @@ struct LookAroundState {
 impl LookAroundState {
     fn new() -> Self {
         Self {
-            current_mode: LookAroundMode::Initial(Default::default()),
+            current_mode: LookAroundMode::Initial(InitialLookAround::Left),
             last_mode_switch: Time::zero(),
             last_head_motion: None,
         }
@@ -107,7 +107,7 @@ impl LookAroundState {
             self.last_mode_switch = now;
             self.current_mode = match head_motion {
                 Some(HeadMotion::LookAround) => filtered_game_controller_state.map_or(
-                    LookAroundMode::Initial(Default::default()),
+                    LookAroundMode::Initial(InitialLookAround::Left),
                     |filtered_game_controller_state| {
                         if filtered_game_controller_state.global_field_side == GlobalFieldSide::Home
                         {
@@ -118,7 +118,11 @@ impl LookAroundState {
                     },
                 ),
                 Some(HeadMotion::SearchForLostBall) => {
-                    LookAroundMode::QuickSearch(Default::default())
+                    LookAroundMode::QuickSearch(QuickLookAround {
+                        mode: BallSearchLookAround::Center {
+                            moving_towards: Side::Left,
+                        },
+                    })
                 }
                 _ => LookAroundMode::Center,
             };
