@@ -50,7 +50,11 @@ impl SimulatorRobotBehavior {
         input: SimulatorBehaviorTickInput,
     ) -> Result<SimulatorBehaviorTickOutput> {
         let blackboard = self.blackboard.get_or_insert_with(|| {
-            create_behavior_blackboard(input.field_dimensions, input.parameters.clone())
+            create_behavior_blackboard(
+                input.field_dimensions,
+                input.parameters.clone(),
+                input.world_state.clone(),
+            )
         });
         blackboard.field_dimensions = input.field_dimensions;
         blackboard.parameters = input.parameters;
@@ -161,11 +165,12 @@ pub struct SimulatorBehaviorTickOutput {
 fn create_behavior_blackboard(
     field_dimensions: FieldDimensions,
     parameters: BehaviorParameters,
+    world_state: WorldState,
 ) -> BehaviorBlackboard {
     BehaviorBlackboard {
         field_dimensions,
         parameters,
-        world_state: WorldState::default(),
+        world_state,
         path_obstacles_output: Vec::new(),
         time_since_last_switch: Duration::ZERO,
         direction_difference: 0.0,
@@ -280,7 +285,12 @@ mod tests {
 
     use bevy::{app::App, ecs::message::Messages};
     use hsl_network_messages::{PlayerNumber, Team};
-    use types::{behavior_tree::Status, world_state::WorldState};
+    use linear_algebra::Point2;
+    use ros_z::time::Time;
+    use types::{
+        behavior_tree::Status,
+        world_state::{RobotState, WorldState},
+    };
 
     use super::*;
     use crate::behavior_tree_simulator::{
@@ -302,7 +312,24 @@ mod tests {
                     Team::Hulks,
                     PlayerNumber::Three,
                 ),
-                WorldState::default(),
+                WorldState {
+                    ball: None,
+                    filtered_game_controller_state: None,
+                    hypothetical_ball_positions: Vec::new(),
+                    now: Time::zero(),
+                    obstacles: Vec::new(),
+                    player_states: Default::default(),
+                    position_of_interest: Point2::origin(),
+                    robot: RobotState {
+                        ground_to_field: None,
+                        player_number: Some(PlayerNumber::Three),
+                        primary_state: None,
+                    },
+                    rule_ball: None,
+                    rule_obstacles: Vec::new(),
+                    fall_down_state: None,
+                    suggested_search_position: None,
+                },
             )])))
             .insert_resource(SimulatorRobotFrames::default())
             .insert_resource(SimulatorCurrentInvariantViolations::default())

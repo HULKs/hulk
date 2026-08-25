@@ -34,26 +34,6 @@ pub struct WorldState {
     pub suggested_search_position: Option<Point2<Field>>,
 }
 
-#[allow(clippy::derivable_impls)]
-impl Default for WorldState {
-    fn default() -> Self {
-        Self {
-            ball: Default::default(),
-            filtered_game_controller_state: Default::default(),
-            hypothetical_ball_positions: Default::default(),
-            now: Time::zero(),
-            obstacles: Default::default(),
-            player_states: Default::default(),
-            position_of_interest: Point2::origin(),
-            robot: Default::default(),
-            rule_ball: Default::default(),
-            rule_obstacles: Default::default(),
-            fall_down_state: Default::default(),
-            suggested_search_position: Default::default(),
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, ros_z::Message)]
 pub struct BallState {
     pub ball_in_ground: Point2<Ground>,
