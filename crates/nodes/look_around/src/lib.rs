@@ -260,12 +260,14 @@ fn target_joints_for_mode(
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::{collections::HashMap, time::Duration};
 
     use types::{
         field_dimensions::GlobalFieldSide,
+        filtered_game_state::FilteredGameState,
         initial_look_around::{BallSearchLookAround, InitialLookAround, QuickLookAround},
         motion_command::{HeadMotion, ImageRegion},
+        players::Players,
         support_side::Side,
     };
 
@@ -275,8 +277,17 @@ mod tests {
     fn entering_look_around_selects_initial_mode() {
         let now = Time::zero() + Duration::from_secs(1);
         let game_controller_state = FilteredGameControllerState {
+            game_state: FilteredGameState::Initial,
+            opponent_game_state: FilteredGameState::Initial,
+            remaining_time_in_half: Duration::ZERO,
+            game_phase: Default::default(),
+            kicking_team: None,
+            penalties: Players::new(None),
+            remaining_number_of_messages: 0,
+            sub_state: None,
             global_field_side: GlobalFieldSide::Home,
-            ..Default::default()
+            new_own_penalties_last_cycle: HashMap::new(),
+            new_opponent_penalties_last_cycle: HashMap::new(),
         };
         let mut state = LookAroundState::new();
 

@@ -129,13 +129,14 @@ fn clear_old_player_states(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use std::time::Duration;
+    use std::{collections::HashMap, time::Duration};
 
-    use hsl_network_messages::{Penalty, PlayerNumber, StateMessage};
+    use hsl_network_messages::{GamePhase, Penalty, PlayerNumber, StateMessage};
     use linear_algebra::Pose2;
     use ros_z::time::Time;
-    use types::messages::IncomingMessage;
+    use types::{filtered_game_state::FilteredGameState, messages::IncomingMessage};
+
+    use super::*;
 
     #[test]
     fn state_message_updates_player_with_receive_time() {
@@ -179,13 +180,22 @@ mod tests {
         });
 
         let game_controller_state = FilteredGameControllerState {
+            game_state: FilteredGameState::Initial,
+            opponent_game_state: FilteredGameState::Initial,
+            remaining_time_in_half: Duration::ZERO,
+            game_phase: GamePhase::Normal,
+            kicking_team: None,
             penalties: Players {
                 two: Some(Penalty::PickUp {
                     remaining: Duration::ZERO,
                 }),
                 ..Default::default()
             },
-            ..Default::default()
+            remaining_number_of_messages: 0,
+            sub_state: None,
+            global_field_side: types::field_dimensions::GlobalFieldSide::Away,
+            new_own_penalties_last_cycle: HashMap::new(),
+            new_opponent_penalties_last_cycle: HashMap::new(),
         };
 
         clear_penalized_players(&mut states, &game_controller_state);
