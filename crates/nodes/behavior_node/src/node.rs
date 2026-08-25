@@ -278,7 +278,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     .map(|player_state| player_state.map(|state| state.inner))
             })
             .unwrap_or_default();
-        
+
         let behavior_parameters = parameters.snapshot().typed().clone();
 
         let world_state = WorldState {

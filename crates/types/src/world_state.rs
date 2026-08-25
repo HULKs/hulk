@@ -80,7 +80,7 @@ pub struct RobotState {
     pub primary_state: Option<PrimaryState>,
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize, Message)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Message)]
 pub struct PlayerState {
     pub pose: Pose2<Field>,
     pub ball_position: Option<BallPosition<Field>>,
