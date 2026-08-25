@@ -38,7 +38,6 @@ pub mod motion_runtime;
 pub mod motion_type;
 pub mod multivariate_normal_distribution;
 pub mod object_detection;
-pub mod obstacle_avoiding_arms;
 pub mod obstacle_filter;
 pub mod obstacles;
 pub mod odometry;
