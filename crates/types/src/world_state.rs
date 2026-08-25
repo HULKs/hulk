@@ -49,18 +49,6 @@ pub struct LastBallState {
     pub ball: BallState,
 }
 
-impl Default for BallState {
-    fn default() -> Self {
-        Self {
-            ball_in_ground: Point2::origin(),
-            ball_in_field: Point2::origin(),
-            ball_in_ground_velocity: Vector2::zeros(),
-            last_seen_ball: UNIX_EPOCH,
-            field_side: Side::Left,
-        }
-    }
-}
-
 impl BallState {
     pub fn new_at_center(ground_to_field: Isometry2<Ground, Field>) -> Self {
         Self {
@@ -73,7 +61,7 @@ impl BallState {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Message)]
+#[derive(Clone, Debug, Serialize, Deserialize, Message)]
 pub struct RobotState {
     pub ground_to_field: Option<Isometry2<Ground, Field>>,
     pub player_number: Option<PlayerNumber>,
