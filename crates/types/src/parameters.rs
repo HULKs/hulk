@@ -42,7 +42,7 @@ pub struct VoronoiParameters {
     pub minimum_centroid_margin_from_own_side: f32,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
+#[derive(Clone, Debug, Deserialize, Serialize, Message)]
 pub struct BehaviorParameters {
     pub control: BehaviorControlParameters,
     pub ball: BallBehaviorParameters,
@@ -77,7 +77,7 @@ pub struct ClosestToBallParameters {
     pub exit_duration: Duration,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+#[derive(Clone, Debug, Deserialize, Serialize, ros_z::Message)]
 pub struct WalkingBehaviorParameters {
     pub path_planning: PathPlanningParameters,
     pub walk_and_stand: WalkAndStandParameters,
@@ -371,19 +371,6 @@ pub struct WalkSpeedParameters {
     pub minimum_speed: f32,
     pub velocity_fade_distance: f32,
     pub walk_to_kickoff: f32,
-}
-
-impl Default for WalkSpeedParameters {
-    fn default() -> Self {
-        Self {
-            kicking: 1.0,
-            search: 1.0,
-            blocking: 1.0,
-            minimum_speed: 0.2,
-            velocity_fade_distance: 1.0,
-            walk_to_kickoff: 0.5,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
