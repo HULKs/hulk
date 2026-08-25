@@ -35,7 +35,7 @@ pub struct SimulatorRobotBehavior {
 }
 
 impl SimulatorRobotBehavior {
-    pub fn new() -> Self {
+    pub fn with_standard_tree() -> Self {
         let tree = create_behavior_tree();
         let static_layout = Arc::new(tree.static_layout_trace());
         Self {
@@ -338,7 +338,7 @@ mod tests {
             .insert_resource(SimulatorScenarioResult::default())
             .add_systems(Update, tick_behavior_trees);
 
-        let mut behavior = SimulatorRobotBehavior::new();
+        let mut behavior = SimulatorRobotBehavior::with_standard_tree();
         behavior.tree = BehaviorNodeTree::Action {
             name: "return_idle",
             action: Box::new(|_| Status::Idle),
