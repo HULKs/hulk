@@ -77,7 +77,7 @@
   },
   goalkeeper: {
     player_number: "One",
-    x_offset: 0.1,
+    x_offset: 0.3,
     passive_distance: 4.5,
     striker_distance: 3.5,
     kick_away_ball_maximum_robot_distance: 1.5,
@@ -102,7 +102,7 @@
   kickoff: {
     striker_position: [-1.5, 0.0],
     standard_positions: {
-      one: { position: [-3.5, 0.5], rotation: 0 },
+      one: { position: [-4.2, 0.0], rotation: 0 },
       two: { position: [-3, -0.5], rotation: 0 },
       three: { position: [-2, 0], rotation: 0 },
       four: { position: [-2.5, -1.5], rotation: 0.4 },
