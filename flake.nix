@@ -4,13 +4,18 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     crane.url = "github:ipetkov/crane";
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { nixpkgs, crane, ... }:
+  outputs = { nixpkgs, crane, rust-overlay, ... }:
     let
       system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
-      craneLibrary = crane.mkLib pkgs;
+      workspace = fromTOML (builtins.readFile ./Cargo.toml);
+      rustVersion = workspace.workspace.package.rust-version;
+      pkgs = import nixpkgs { inherit system; overlays = [ (import rust-overlay) ]; };
+      craneLibrary =
+        (crane.mkLib pkgs).overrideToolchain pkgs.rust-bin.stable.${rustVersion}.default;
 
       src = pkgs.lib.fileset.toSource {
         root = ./.;
@@ -22,8 +27,7 @@
       };
 
       guiLibraries = with pkgs; [ libGL libxkbcommon wayland libx11 ];
-      workspaceVersion =
-        (fromTOML (builtins.readFile ./Cargo.toml)).workspace.package.version;
+      workspaceVersion = workspace.workspace.package.version;
 
       mkCrate = {
         name,

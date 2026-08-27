@@ -2,6 +2,7 @@
 name = "fall_down_state_receiver"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 homepage.workspace = true
 

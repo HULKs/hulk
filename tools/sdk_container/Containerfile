@@ -54,7 +54,7 @@ ENV CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
 ENV AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
 
 # Install Rust and add the AArch64 target
-ENV RUSTUP_TOOLCHAIN=1.95.0
+ENV RUSTUP_TOOLCHAIN=1.98.0
 ENV PATH="/root/.cargo/bin:${PATH}"
 ENV CARGO_HOME="/root/.cargo"
 

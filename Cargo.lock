@@ -7709,15 +7709,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "opn"
-version = "0.1.0"
-dependencies = [
- "byteorder",
- "color-eyre",
- "sha2",
-]
-
-[[package]]
 name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

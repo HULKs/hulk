@@ -2,6 +2,7 @@
 name = "twix"
 version = "0.14.0"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 homepage.workspace = true
 

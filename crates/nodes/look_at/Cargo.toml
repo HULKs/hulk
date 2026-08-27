@@ -2,6 +2,7 @@
 name = "look_at"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 homepage.workspace = true
 
