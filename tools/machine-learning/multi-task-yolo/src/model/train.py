@@ -3,12 +3,12 @@ from pathlib import Path
 from typing import Any, cast
 
 import click
-import wandb
 import yaml
 from ultralytics.models.yolo.model import YOLO
 from ultralytics.nn.tasks import DetectionModel
 from wonderwords import RandomWord
 
+import wandb
 from model.hydra import get_backbone, set_backbone
 from utils.model_naming import (
     HYDRA_MODEL_NAME_TYPE,
@@ -20,6 +20,11 @@ from validation.validator import DatasetNotFoundError
 
 DEVICE_FORMAT_ERROR = "must be a comma-separated list of integers, e.g. 0,1"
 DEVICE_EMPTY_ERROR = "must contain at least one device index, e.g. 0"
+DATASET_NOTE_NAMES = {
+    "coco-pose": "COCO-Pose",
+    "dhrp_yolo": "DHRP",
+    "hslvision_yolo_updated": "HSLVision",
+}
 
 
 @dataclass(frozen=True)
@@ -56,6 +61,15 @@ class TrainingConfig:
         # Apply any overrides
         result.update(overrides)
         return result
+
+
+def dataset_note(dataset_name: Path) -> str:
+    short_name = (
+        dataset_name.parent.name
+        if dataset_name.stem == "data"
+        else dataset_name.stem
+    )
+    return DATASET_NOTE_NAMES.get(short_name.lower(), short_name)
 
 
 def do_hyperparameter_tuning(config: TrainingConfig, model_path: Path) -> Path:
@@ -260,7 +274,11 @@ def main(
                     include_categories=["nouns"],
                 )
             )
-            wandb.init(project="multi-task-yolo", name=run_name)
+            wandb.init(
+                project="multi-task-yolo",
+                name=run_name,
+                notes=dataset_note(dataset_name),
+            )
 
             config = TrainingConfig(
                 data=data,
@@ -292,7 +310,11 @@ def main(
                 include_categories=["nouns"],
             )
         )
-        wandb.init(project="multi-task-yolo", name=run_name)
+        wandb.init(
+            project="multi-task-yolo",
+            name=run_name,
+            notes=dataset_note(dataset_name),
+        )
 
         config = TrainingConfig(
             data=data,
