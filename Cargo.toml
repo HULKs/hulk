@@ -214,6 +214,7 @@ message_filter = { path = "crates/nodes/message_filter" }
 message_handler = { path = "crates/nodes/message_handler" }
 microphone_recorder = { path = "crates/nodes/microphone_recorder" }
 microphones = { path = "crates/microphones" }
+mlua = { version = "0.10.3", features = ["luajit", "serialize", "vendored"] }
 motion_inference = { path = "crates/nodes/motion_inference" }
 motor_commands_collector = { path = "crates/nodes/motor_commands_collector" }
 nalgebra = { version = "0.34.2", features = [
@@ -274,6 +275,7 @@ ros-z-protocol = { path = "crates/ros-z-protocol" }
 ros-z-schema = { path = "crates/ros-z-schema" }
 ros-z-streams = { path = "crates/ros-z-streams" }
 ros2 = { path = "crates/ros2" }
+rsruckig = "=3.0.1"
 rule_obstacle_composer = { path = "crates/nodes/rule_obstacle_composer" }
 rustfft = "6.4.1"
 safe_pose_checker = { path = "crates/nodes/safe_pose_checker" }
@@ -300,7 +302,6 @@ tokio = { version = "1.47.1", features = ["full"] }
 tokio-tungstenite = "0.26.1"
 tokio-util = "0.7.13"
 toml = "0.8.20"
-rsruckig = "=3.0.1"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 trigger = { path = "crates/nodes/trigger" }
