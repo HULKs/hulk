@@ -148,7 +148,7 @@ impl TwixLayout {
     }
 
     fn insert_tab(&mut self, tabs_id: TileId, pane: PanelPane, egui_context: &Context) -> TileId {
-        let pane_id = self.tree.tiles.next_free_id();
+        let pane_id = self.tree.tiles.insert_pane(pane);
         let tabs = self
             .tree
             .tiles
@@ -160,7 +160,6 @@ impl TwixLayout {
             .expect("tab group should identify a tabs container");
         tabs.add_child(pane_id);
         tabs.set_active(pane_id);
-        self.tree.tiles.insert(pane_id, Tile::Pane(pane));
         self.focused = Some(pane_id);
         self.tab_to_reveal = Some(pane_id);
         request_pane_focus(egui_context, pane_id);
