@@ -73,7 +73,6 @@ members = [
   "crates/nodes/whistle_filter",
   "crates/nodes/world_state_composer",
   "crates/nodes/world_to_field_provider",
-  "crates/opn",
   "crates/path_planner",
   "crates/projection",
   "crates/ransac",
@@ -245,7 +244,6 @@ odometer_bridge = { path = "crates/nodes/odometer_bridge" }
 odometry = { path = "crates/nodes/odometry" }
 once_cell = "1.20.3"
 openvino = { version = "0.8.0", features = ["runtime-linking"] }
-opn = { path = "crates/opn" }
 optimization_engine = "0.9.1"
 ordered-float = "4.6.0"
 ort = "=2.0.0-rc.10"
