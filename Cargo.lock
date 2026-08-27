@@ -4163,24 +4163,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b97b65636e5b9ef369943878ac74335ba1c55c1cb6adbf1e2c293c624248d693"
 
 [[package]]
-name = "field_border_detection"
-version = "0.1.0"
-dependencies = [
- "approx",
- "color-eyre",
- "coordinate_systems",
- "geometry",
- "linear_algebra",
- "projection",
- "rand 0.9.4",
- "rand_chacha 0.9.0",
- "ransac",
- "ros-z",
- "serde",
- "types",
-]
-
-[[package]]
 name = "field_mark_association"
 version = "0.1.0"
 dependencies = [
