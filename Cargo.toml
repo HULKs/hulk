@@ -134,14 +134,12 @@ bevy_mujoco = { path = "crates/bevy_mujoco" }
 bevy_panorbit_camera = "0.35.0"
 bincode = "1.3.3"
 bindgen = "0.71.1"
-blake3 = { version = "1.8.2", features = ["mmap", "serde"] }
 booster = { path = "crates/booster" }
 booster_sdk_interface = { path = "crates/nodes/booster_sdk_interface" }
 button_event_bridge = { path = "crates/nodes/button_event_bridge" }
 button_event_handler = { path = "crates/nodes/button_event_handler" }
 bytemuck = "1"
 byteorder = "1.5.0"
-bytes = { version = "1.11.0", features = ["serde"] }
 calibration = { path = "crates/calibration" }
 camera_matrix_calculator = { path = "crates/nodes/camera_matrix_calculator" }
 cdr = "0.2.4"
@@ -151,13 +149,6 @@ clap_complete = "4.5.44"
 color-eyre = "0.6.3"
 convert_case = "0.7.1"
 coordinate_systems = { path = "crates/coordinate_systems" }
-ctrlc = { version = "3.4.5", features = ["termination"] }
-derive_more = { version = "2.0.1", features = [
-  "add",
-  "add_assign",
-  "mul",
-  "not",
-] }
 detection = { path = "crates/nodes/detection" }
 dirs = "6.0.0"
 eframe = { version = "0.35.0", features = ["persistence", "wgpu"] }
@@ -169,26 +160,21 @@ egui_plot = "0.36.0"
 energy_optimization = { path = "crates/energy_optimization" }
 enum-iterator = "2.1.0"
 enum_dispatch = "0.3.13"
-enumset = "1.1.10"
 env_logger = "0.11.8"
 event-listener = "5"
 fake_odometry = { path = "crates/nodes/fake_odometry" }
 fall_down_state_receiver = { path = "crates/nodes/fall_down_state_receiver" }
-fern = { version = "0.7.1", features = ["colored"] }
 field_mark_association = { path = "crates/nodes/field_mark_association" }
 filtering = { path = "crates/filtering" }
-flume = "0.11.1"
 futures-util = "0.3.31"
 game_controller_filter = { path = "crates/nodes/game_controller_filter" }
 game_controller_state_filter = { path = "crates/nodes/game_controller_state_filter" }
 geometry = { path = "crates/geometry" }
-gilrs = "0.11.0"
 glob = "0.3.2"
 global_parameter_provider = { path = "crates/nodes/global_parameter_provider" }
 ground_provider = { path = "crates/nodes/ground_provider" }
 head_motion = { path = "crates/nodes/head_motion" }
 hex = "0.4"
-home = "=0.5.9"
 hsl_network = { path = "crates/hsl_network" }
 hsl_network_messages = { path = "crates/hsl_network_messages" }
 hula_types = { path = "crates/hula_types" }
@@ -199,9 +185,7 @@ image = { version = "0.25.5", default-features = false, features = ["jpeg"] }
 image_receiver = { path = "crates/nodes/image_receiver" }
 image_segmenter = { path = "crates/nodes/image_segmenter" }
 indicatif = "0.18.4"
-insta = "1"
 itertools = "0.14.0"
-ittapi = "0.4.0"
 json5 = "0.4.1"
 kinematics = { path = "crates/kinematics" }
 kinematics_provider = { path = "crates/nodes/kinematics_provider" }
@@ -210,7 +194,6 @@ kornia-algebra = { git = "https://github.com/oleflb/kornia-rs", rev = "7659356f1
 lazy_static = "1.5.0"
 led_handler = { path = "crates/nodes/led_handler" }
 levenberg-marquardt = "0.15.0"
-libc = "0.2.169"
 line_detection = { path = "crates/nodes/line_detection" }
 linear_algebra = { path = "crates/linear_algebra" }
 localization-2d = { path = "crates/nodes/localization-2d" }
@@ -226,7 +209,6 @@ message_filter = { path = "crates/nodes/message_filter" }
 message_handler = { path = "crates/nodes/message_handler" }
 microphone_recorder = { path = "crates/nodes/microphone_recorder" }
 microphones = { path = "crates/microphones" }
-mlua = { version = "0.10.3", features = ["luajit", "serialize", "vendored"] }
 motor_commands_collector = { path = "crates/nodes/motor_commands_collector" }
 nalgebra = { version = "0.34.2", features = [
   "convert-glam030",
@@ -236,15 +218,11 @@ nalgebra = { version = "0.34.2", features = [
 ndarray = { version = "0.16.1", features = ["serde"] }
 ndarray-conv = "0.4.1"
 nucleo-matcher = "0.3.1"
-num-derive = "0.4.2"
-num-dual = "0.13.2"
 num-traits = "0.2"
 obstacle_filter = { path = "crates/nodes/obstacle_filter" }
 odometer_bridge = { path = "crates/nodes/odometer_bridge" }
 odometry = { path = "crates/nodes/odometry" }
 once_cell = "1.20.3"
-openvino = { version = "0.8.0", features = ["runtime-linking"] }
-optimization_engine = "0.9.1"
 ordered-float = "4.6.0"
 ort = "=2.0.0-rc.10"
 parking_lot = "0.12.3"
@@ -252,13 +230,11 @@ parry2d = { version = "0.26.0", default-features = false, features = [
   "alloc",
   "required-features",
 ] }
-paste = "1.0"
 path_planner = { path = "crates/path_planner" }
 pathdiff = "0.2.3"
 pathfinding = "<=4.10.0"
 player_states_receiver = { path = "crates/nodes/player_states_receiver" }
 png = "0.18.1"
-prettyplease = "0.2.29"
 primary_state_filter = { path = "crates/nodes/primary_state_filter" }
 proc-macro-error = "1.0.4"
 proc-macro2 = { version = "1.0.93", features = ["span-locations"] }
@@ -275,7 +251,6 @@ ransac = { path = "crates/ransac" }
 regex = "1.11.1"
 repository = { path = "crates/repository" }
 reqwest = { version = "0.12.28", features = ["blocking"] }
-rmp-serde = "1.3.0"
 robot = { path = "crates/robot" }
 ros-z = { path = "crates/ros-z", features = ["nalgebra", "ndarray"] }
 ros-z-cdr = { path = "crates/ros-z-cdr" }
@@ -286,15 +261,12 @@ ros-z-schema = { path = "crates/ros-z-schema" }
 ros-z-streams = { path = "crates/ros-z-streams" }
 ros2 = { path = "crates/ros2" }
 rule_obstacle_composer = { path = "crates/nodes/rule_obstacle_composer" }
-rustfft = "6.2.0"
 safe_pose_checker = { path = "crates/nodes/safe_pose_checker" }
 scenario = { path = "crates/scenario" }
 search_suggestor = { path = "crates/nodes/search_suggestor" }
 segment_filter = { path = "crates/nodes/segment_filter" }
 semver = "1.0.25"
 serde = { version = "1.0.228", features = ["derive", "rc"] }
-serde_bytes = "0.11.15"
-serde_ignored = "0.1.10"
 serde_json = "1.0.138"
 serial_test = "3.0"
 sha2 = "0.10.8"
@@ -305,17 +277,14 @@ splines = { version = "=4.2.0", features = ["serde"] }
 stereo_visual_odometry = { path = "crates/nodes/stereo_visual_odometry" }
 support_foot_estimator = { path = "crates/nodes/support_foot_estimator" }
 syn = { version = "2.0.98", features = ["extra-traits", "full"] }
-systemd = "0.10.0"
 team_ball_receiver = { path = "crates/nodes/team_ball_receiver" }
 tempfile = "3.17.0"
 thiserror = "2.0.11"
-threadbound = "0.1.7"
 time_to_reach_kick_position = { path = "crates/nodes/time_to_reach_kick_position" }
 tokio = { version = "1.47.1", features = ["full"] }
 tokio-tungstenite = "0.26.1"
 tokio-util = "0.7.13"
 toml = "0.8.20"
-toposort-scc = "0.5.4"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 trigger = { path = "crates/nodes/trigger" }
@@ -331,7 +300,6 @@ whistle_filter = { path = "crates/nodes/whistle_filter" }
 world_state_composer = { path = "crates/nodes/world_state_composer" }
 world_to_field_provider = { path = "crates/nodes/world_to_field_provider" }
 x5_receiver = { path = "crates/x5_receiver" }
-xdg = "2.5.2"
 yuv = "0.8.9"
 zbus = "5.5.0"
 zed = { path = "crates/zed" }
