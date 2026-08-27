@@ -8,7 +8,7 @@ use coordinate_systems::{Field, Ground, World};
 use eframe::{
     App, Frame, NativeOptions,
     egui::{
-        Align2, CentralPanel, CollapsingHeader, ComboBox, Context, Event, FontId, Key, Label,
+        Align2, CentralPanel, CollapsingHeader, ComboBox, Context, Event, FontId, Id, Key, Label,
         Panel, Pos2, Rect, RichText, ScrollArea, Sense, Slider, StrokeKind, TextEdit, Tooltip, Ui,
         Vec2, WidgetText, pos2,
     },
@@ -78,7 +78,7 @@ struct TimelineViewerApp {
     dock_state: DockState<TimelineViewerTab>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum TimelineViewerTab {
     Field,
     BehaviorTree,
@@ -693,6 +693,10 @@ struct TimelineDockViewer<'a> {
 
 impl TabViewer for TimelineDockViewer<'_> {
     type Tab = TimelineViewerTab;
+
+    fn id(&mut self, tab: &mut Self::Tab) -> Id {
+        Id::new(*tab)
+    }
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
         match tab {

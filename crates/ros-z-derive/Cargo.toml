@@ -2,6 +2,7 @@
 name = "ros-z-derive"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 description = "Derive macros for ros-z"
 license.workspace = true
 homepage.workspace = true

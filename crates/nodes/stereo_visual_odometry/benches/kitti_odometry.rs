@@ -234,11 +234,15 @@ fn decode_gray_png(
             data
         }
         (png::ColorType::Rgb, png::BitDepth::Eight) => data[..output.buffer_size()]
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .map(|pixel| rgb_to_luma(pixel[0], pixel[1], pixel[2]))
             .collect(),
         (png::ColorType::Rgba, png::BitDepth::Eight) => data[..output.buffer_size()]
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|pixel| rgb_to_luma(pixel[0], pixel[1], pixel[2]))
             .collect(),
         unsupported => bail!("unsupported PNG format for {path}: {unsupported:?}"),

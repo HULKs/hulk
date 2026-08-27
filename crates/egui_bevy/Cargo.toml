@@ -2,11 +2,11 @@
 name = "egui_bevy"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-bevy = { workspace = true, features = ["3d_bevy_render"] }
-bevy_panorbit_camera = { workspace = true }
+bevy = { workspace = true, features = ["3d_bevy_render", "pan_orbit_camera"] }
 eframe = { workspace = true }
 log = { workspace = true }

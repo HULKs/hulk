@@ -2,6 +2,7 @@
 name = "ros-z-cdr"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 description = "CDR serialization for ros-z"
 license.workspace = true
 homepage.workspace = true

@@ -2,6 +2,7 @@
 name = "visual_kick_ball_selector"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 homepage.workspace = true
 

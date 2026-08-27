@@ -56,7 +56,9 @@ impl Keypoints {
 impl From<&[f32; 51]> for Keypoints {
     fn from(keypoints_slice: &[f32; 51]) -> Self {
         let mut keypoints_iter = keypoints_slice
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .map(|keypoint_chunk| Keypoint {
                 point: point![keypoint_chunk[0], keypoint_chunk[1]],
                 confidence: keypoint_chunk[2],

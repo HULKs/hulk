@@ -1,5 +1,5 @@
 # Unified cross-compilation toolchain for T1 and K1 robots
-FROM --platform=linux/amd64 ubuntu:22.04
+FROM --platform=linux/amd64 docker.io/library/ubuntu:22.04
 
 LABEL maintainer="HULKs"
 LABEL description="Cross-compilation toolchain for T1 and K1 robots"
@@ -54,7 +54,7 @@ ENV CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
 ENV AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
 
 # Install Rust and add the AArch64 target
-ENV RUSTUP_TOOLCHAIN=1.95.0
+ENV RUSTUP_TOOLCHAIN=1.98.0
 ENV PATH="/root/.cargo/bin:${PATH}"
 ENV CARGO_HOME="/root/.cargo"
 

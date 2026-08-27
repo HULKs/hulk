@@ -2,9 +2,16 @@ use std::sync::Arc;
 
 use bevy::{
     camera::{ManualTextureViewHandle, RenderTarget, Viewport},
+    camera_controller::pan_orbit_camera::{
+        controller::{MinimalPanOrbitCameraPlugin, inputs::MotionInputs},
+        prelude::PanOrbitCamera,
+    },
     input::{
-        ButtonState,
-        mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
+        ButtonState, InputSystems,
+        mouse::{
+            AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButtonInput, MouseMotion,
+            MouseScrollPixelsPerLine, MouseScrollUnit, MouseWheel,
+        },
         touch::TouchPhase as BevyTouchPhase,
     },
     prelude::*,
@@ -19,7 +26,6 @@ use bevy::{
         texture::ManualTextureView,
     },
 };
-use bevy_panorbit_camera::{ActiveCameraData, PanOrbitCamera, PanOrbitCameraPlugin};
 use eframe::{
     egui::{
         self, Event, ImageSource, MouseWheelUnit, PointerButton, Pos2, Response, Sense, Ui, Widget,
@@ -180,10 +186,15 @@ impl Plugin for EguiRenderPlugin {
                 output_size: egui::Vec2::new(512.0, 512.0),
                 wgpu_state: self.wgpu_state.clone(),
             })
-            .add_plugins(PanOrbitCameraPlugin)
+            .add_plugins(MinimalPanOrbitCameraPlugin)
+            .add_systems(
+                PreUpdate,
+                update_pan_orbit_camera_input
+                    .after(InputSystems)
+                    .before(PanOrbitCamera::update_camera_positions),
+            )
             .add_systems(Startup, setup_camera)
             .add_systems(Startup, setup_scene)
-            .add_systems(Update, update_active_camera)
             .add_systems(Update, update_camera_render_target);
     }
 }
@@ -254,15 +265,37 @@ fn update_camera_render_target(
     });
 }
 
-fn update_active_camera(
-    camera: Single<(Entity, &mut Camera)>,
-    target: Res<BevyRenderTarget>,
-    mut active_camera: ResMut<ActiveCameraData>,
+fn update_pan_orbit_camera_input(
+    mut camera: Single<&mut PanOrbitCamera>,
+    mouse_motion: Res<AccumulatedMouseMotion>,
+    mouse_scroll: Res<AccumulatedMouseScroll>,
+    pixels_per_line: Res<MouseScrollPixelsPerLine>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
 ) {
-    active_camera.entity = Some(camera.0);
-    active_camera.viewport_size = Some(Vec2::new(target.output_size.x, target.output_size.y));
-    active_camera.window_size = Some(Vec2::new(target.output_size.x, target.output_size.y));
-    active_camera.manual = true;
+    let zoom = mouse_scroll.to_pixels(&pixels_per_line).delta.y;
+    let should_end_move = match camera.motion_inputs() {
+        Some(MotionInputs::OrbitZoom { .. }) => mouse_input.just_released(MouseButton::Left),
+        Some(MotionInputs::PanZoom { .. }) => mouse_input.just_released(MouseButton::Right),
+        Some(MotionInputs::Zoom { .. }) => zoom == 0.0,
+        None => false,
+    };
+
+    if should_end_move {
+        camera.end_move();
+    }
+
+    if !camera.is_actively_controlled() {
+        if mouse_input.just_pressed(MouseButton::Left) {
+            camera.start_orbit(None);
+        } else if mouse_input.just_pressed(MouseButton::Right) {
+            camera.start_pan(None);
+        } else if zoom != 0.0 && camera.motion_inputs().is_none() {
+            camera.start_zoom(None);
+        }
+    }
+
+    camera.send_screenspace_input(mouse_motion.delta);
+    camera.send_zoom_input(zoom);
 }
 
 fn process_egui_input(world: &mut World, ui: &mut Ui, response: &Response) {
