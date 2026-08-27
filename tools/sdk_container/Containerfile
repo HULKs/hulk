@@ -1,5 +1,5 @@
 # Unified cross-compilation toolchain for T1 and K1 robots
-FROM --platform=linux/amd64 ubuntu:22.04
+FROM --platform=linux/amd64 docker.io/library/ubuntu:22.04
 
 LABEL maintainer="HULKs"
 LABEL description="Cross-compilation toolchain for T1 and K1 robots"
