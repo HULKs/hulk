@@ -22,7 +22,6 @@ members = [
   "crates/linear_algebra",
   "crates/localization-factrs",
   "crates/microphones",
-  "crates/motionfile",
   "crates/nodes/active_vision",
   "crates/nodes/ball_filter",
   "crates/nodes/ball_state_composer",
@@ -229,7 +228,6 @@ message_handler = { path = "crates/nodes/message_handler" }
 microphone_recorder = { path = "crates/nodes/microphone_recorder" }
 microphones = { path = "crates/microphones" }
 mlua = { version = "0.10.3", features = ["luajit", "serialize", "vendored"] }
-motionfile = { path = "crates/motionfile" }
 motor_commands_collector = { path = "crates/nodes/motor_commands_collector" }
 nalgebra = { version = "0.34.2", features = [
   "convert-glam030",

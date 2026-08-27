@@ -66,7 +66,6 @@ nav:
           - Step planning: robotics/motion/step_planning.md
           - Walking: robotics/motion/walking.md
           - Kicking: robotics/motion/kicking.md
-          - Motion Files: robotics/motion/motion_files.md
       - Miscellaneous:
           - Create URDF and PROTO for NAOv6: robotics/miscellaneous/create_urdf.md
   - Workflow:
