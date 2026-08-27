@@ -13,7 +13,7 @@ use linear_algebra::Point3;
 use serde::{Deserialize, Serialize};
 
 use ros_z::{prelude::*, qos::QosDurability};
-use types::{support_foot::Side, time_wrapper::TimeWrapper};
+use types::{support_side::Side, time_wrapper::TimeWrapper};
 
 pub const ACTUAL_IMAGE_HEIGHT: f32 = 448.0;
 pub const ACTUAL_IMAGE_WIDTH: f32 = 544.0;
