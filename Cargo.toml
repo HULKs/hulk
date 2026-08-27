@@ -57,11 +57,10 @@ members = [
   "crates/nodes/microphone_recorder",
   "crates/nodes/motor_commands_collector",
   "crates/nodes/obstacle_filter",
-  "crates/nodes/odometry",
   "crates/nodes/odometer_bridge",
+  "crates/nodes/odometry",
   "crates/nodes/player_states_receiver",
   "crates/nodes/primary_state_filter",
-  "crates/nodes/visual_kick_ball_selector",
   "crates/nodes/rule_obstacle_composer",
   "crates/nodes/safe_pose_checker",
   "crates/nodes/search_suggestor",
@@ -71,11 +70,11 @@ members = [
   "crates/nodes/team_ball_receiver",
   "crates/nodes/time_to_reach_kick_position",
   "crates/nodes/trigger",
+  "crates/nodes/visual_kick_ball_selector",
   "crates/nodes/whistle_detection",
   "crates/nodes/whistle_filter",
   "crates/nodes/world_state_composer",
   "crates/nodes/world_to_field_provider",
-  "crates/opn",
   "crates/path_planner",
   "crates/projection",
   "crates/ransac",
@@ -89,8 +88,8 @@ members = [
   "crates/ros-z-streams",
   "crates/ros2",
   "crates/simulation_message",
-  "crates/types",
   "crates/twix_visualization",
+  "crates/types",
   "crates/voronoi",
   "crates/x5_receiver",
   "crates/zed",
@@ -245,11 +244,10 @@ num-derive = "0.4.2"
 num-dual = "0.13.2"
 num-traits = "0.2"
 obstacle_filter = { path = "crates/nodes/obstacle_filter" }
-odometry = { path = "crates/nodes/odometry" }
 odometer_bridge = { path = "crates/nodes/odometer_bridge" }
+odometry = { path = "crates/nodes/odometry" }
 once_cell = "1.20.3"
 openvino = { version = "0.8.0", features = ["runtime-linking"] }
-opn = { path = "crates/opn" }
 optimization_engine = "0.9.1"
 ordered-float = "4.6.0"
 ort = "=2.0.0-rc.10"
@@ -266,7 +264,6 @@ player_states_receiver = { path = "crates/nodes/player_states_receiver" }
 png = "0.18.1"
 prettyplease = "0.2.29"
 primary_state_filter = { path = "crates/nodes/primary_state_filter" }
-visual_kick_ball_selector = { path = "crates/nodes/visual_kick_ball_selector" }
 proc-macro-error = "1.0.4"
 proc-macro2 = { version = "1.0.93", features = ["span-locations"] }
 projection = { path = "crates/projection" }
@@ -327,9 +324,10 @@ tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 trigger = { path = "crates/nodes/trigger" }
 trybuild = "1.0"
-types = { path = "crates/types" }
 twix_visualization = { path = "crates/twix_visualization" }
+types = { path = "crates/types" }
 uuid = { version = "1.12.1", features = ["v4"] }
+visual_kick_ball_selector = { path = "crates/nodes/visual_kick_ball_selector" }
 voronoi = { path = "crates/voronoi" }
 wgpu = "29.0.3"
 whistle_detection = { path = "crates/nodes/whistle_detection" }
