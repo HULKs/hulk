@@ -17,7 +17,6 @@ members = [
   "crates/hula_types",
   "crates/hulk_ros_z",
   "crates/hulk_widgets",
-  "crates/hungarian_algorithm",
   "crates/kinematics",
   "crates/linear_algebra",
   "crates/linear_sum_assignment",
@@ -181,7 +180,6 @@ hsl_network_messages = { path = "crates/hsl_network_messages" }
 hula_types = { path = "crates/hula_types" }
 hulk_widgets = { path = "crates/hulk_widgets" }
 humantime = "2.3.0"
-hungarian_algorithm = { path = "crates/hungarian_algorithm" }
 image = { version = "0.25.5", default-features = false, features = ["jpeg"] }
 image_receiver = { path = "crates/nodes/image_receiver" }
 image_segmenter = { path = "crates/nodes/image_segmenter" }
@@ -234,7 +232,6 @@ parry2d = { version = "0.26.0", default-features = false, features = [
 ] }
 path_planner = { path = "crates/path_planner" }
 pathdiff = "0.2.3"
-pathfinding = "<=4.10.0"
 player_states_receiver = { path = "crates/nodes/player_states_receiver" }
 png = "0.18.1"
 primary_state_filter = { path = "crates/nodes/primary_state_filter" }
