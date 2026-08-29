@@ -20,6 +20,7 @@ members = [
   "crates/hungarian_algorithm",
   "crates/kinematics",
   "crates/linear_algebra",
+  "crates/linear_sum_assignment",
   "crates/localization-factrs",
   "crates/microphones",
   "crates/nodes/active_vision",
@@ -196,6 +197,7 @@ led_handler = { path = "crates/nodes/led_handler" }
 levenberg-marquardt = "0.15.0"
 line_detection = { path = "crates/nodes/line_detection" }
 linear_algebra = { path = "crates/linear_algebra" }
+linear_sum_assignment = { path = "crates/linear_sum_assignment" }
 localization-2d = { path = "crates/nodes/localization-2d" }
 localization-3d = { path = "crates/nodes/localization-3d" }
 localization-factrs = { path = "crates/localization-factrs" }
