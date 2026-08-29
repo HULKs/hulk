@@ -805,8 +805,8 @@ dependencies = [
  "coordinate_systems",
  "filtering",
  "geometry",
- "hungarian_algorithm",
  "linear_algebra",
+ "linear_sum_assignment",
  "nalgebra 0.34.2",
  "ndarray",
  "ordered-float 4.6.0",
@@ -3200,18 +3200,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "deprecate-until"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a3767f826efbbe5a5ae093920b58b43b01734202be697e1354914e862e8e704"
-dependencies = [
- "proc-macro2",
- "quote",
- "semver",
- "syn 2.0.118",
-]
-
-[[package]]
 name = "der"
 version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4222,9 +4210,10 @@ dependencies = [
  "color-eyre",
  "coordinate_systems",
  "geometry",
- "hungarian_algorithm",
  "itertools 0.14.0",
  "linear_algebra",
+ "linear_sum_assignment",
+ "log",
  "nalgebra 0.34.2",
  "ndarray",
  "ordered-float 4.6.0",
@@ -5477,15 +5466,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "15cdd26707701c53297e2fa6afb323d55fbc1d0810c3aec078ae3ef0424c3c15"
 
 [[package]]
-name = "hungarian_algorithm"
-version = "0.1.0"
-dependencies = [
- "ndarray",
- "ordered-float 4.6.0",
- "pathfinding",
-]
-
-[[package]]
 name = "hydra-bench"
 version = "0.1.0"
 dependencies = [
@@ -5859,15 +5839,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "879f10e63c20629ecabbb64a8010319738c66a5cd0c29b02d63d272b03751d01"
 dependencies = [
  "generic-array",
-]
-
-[[package]]
-name = "integer-sqrt"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "276ec31bcb4a9ee45f58bec6f9ec700ae4cf4f4f8f2fa7e06cb406bd5ffdd770"
-dependencies = [
- "num-traits",
 ]
 
 [[package]]
@@ -6452,6 +6423,14 @@ dependencies = [
  "ros-z-schema",
  "serde",
  "simba 0.9.1",
+]
+
+[[package]]
+name = "linear_sum_assignment"
+version = "0.1.0"
+dependencies = [
+ "ndarray",
+ "num-traits",
 ]
 
 [[package]]
@@ -8102,20 +8081,6 @@ name = "pathdiff"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
-
-[[package]]
-name = "pathfinding"
-version = "4.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39103a901800b5711b9076f2474da1e7412f804c11a0f3b4e8dd3b1e59c58b12"
-dependencies = [
- "deprecate-until",
- "indexmap 2.14.0",
- "integer-sqrt",
- "num-traits",
- "rustc-hash 2.1.3",
- "thiserror 1.0.69",
-]
 
 [[package]]
 name = "pem"
