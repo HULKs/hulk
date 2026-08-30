@@ -22,7 +22,7 @@ use egui_dock::{
 use hulk_widgets::CompletionEdit;
 use log::{error, warn};
 use panel::{Panel, PanelCreationContext, PanelUiContext};
-use panels::{ImagePanel, MapPanel, TextPanel};
+use panels::{ImagePanel, MapPanel, ParameterPanel, TextPanel};
 use repository::{Repository, inspect_version::check_for_update};
 use serde_json::{Value, from_str, to_string};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
@@ -42,7 +42,7 @@ mod twix_painter;
 mod visuals;
 mod zoom_and_pan;
 
-impl_selectable_panel!(TextPanel, ImagePanel, MapPanel);
+impl_selectable_panel!(TextPanel, ImagePanel, MapPanel, ParameterPanel);
 
 fn panel_creation_context<'a>(
     backend: &Arc<RobotBackend>,
@@ -57,9 +57,9 @@ fn panel_creation_context<'a>(
 }
 
 fn default_dock_state(backend: &Arc<RobotBackend>, egui_context: &Context) -> DockState<Tab> {
-    DockState::new(vec![Tab::from_panel(SelectablePanel::TextPanel(
+    DockState::new(vec![Tab::from_panel(SelectablePanel::TextPanel(Box::new(
         TextPanel::new(panel_creation_context(backend, None, egui_context)),
-    ))])
+    )))])
 }
 
 #[derive(Debug, Clone, clap::Parser)]
@@ -173,9 +173,9 @@ impl TwixApp {
     }
 
     fn new_text_tab(&self, egui_context: &Context) -> Tab {
-        Tab::from_panel(SelectablePanel::TextPanel(TextPanel::new(
+        Tab::from_panel(SelectablePanel::TextPanel(Box::new(TextPanel::new(
             self.panel_context(None, egui_context),
-        )))
+        ))))
     }
 
     fn default_dock_state(&self, egui_context: &Context) -> DockState<Tab> {

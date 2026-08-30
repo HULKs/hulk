@@ -4,7 +4,7 @@ macro_rules! impl_selectable_panel {
         #[allow(clippy::large_enum_variant)]
         pub enum SelectablePanel {
             $(
-                $name($name),
+                $name(Box<$name>),
             )*
         }
 
@@ -29,7 +29,7 @@ macro_rules! impl_selectable_panel {
             ) -> color_eyre::Result<Self> {
                 match storage_id {
                     $(
-                        <$name as $crate::panel::Panel>::STORAGE_ID => Ok(Self::$name($name::new(context))),
+                        <$name as $crate::panel::Panel>::STORAGE_ID => Ok(Self::$name(Box::new($name::new(context)))),
                     )*
                     _ => color_eyre::eyre::bail!("unknown panel storage id: {storage_id}"),
                 }
@@ -49,7 +49,7 @@ macro_rules! impl_selectable_panel {
             ) -> color_eyre::Result<Self> {
                 match display_name {
                     $(
-                        <$name as $crate::panel::Panel>::DISPLAY_NAME => Ok(Self::$name($name::new(context))),
+                        <$name as $crate::panel::Panel>::DISPLAY_NAME => Ok(Self::$name(Box::new($name::new(context)))),
                     )*
                     _ => color_eyre::eyre::bail!("unknown panel display name: {display_name}"),
                 }
