@@ -87,7 +87,6 @@ fn compose_rule_obstacles(
                     Some(
                         SubState::ThrowIn
                         | SubState::CornerKick
-                        | SubState::GoalKick
                         | SubState::DirectFreeKick
                         | SubState::IndirectFreeKick,
                     ),
@@ -102,6 +101,35 @@ fn compose_rule_obstacles(
                 parameters.free_kick_obstacle_radius,
             ));
             rule_obstacles.push(free_kick_obstacle);
+        }
+        (
+            FilteredGameControllerState {
+                sub_state: Some(SubState::GoalKick),
+                kicking_team: Some(Team::Opponent),
+                game_state: FilteredGameState::Playing { .. },
+                ..
+            },
+            possible_ball,
+        ) => {
+            if let Some(ball) = possible_ball {
+                let goal_kick_obstacle = RuleObstacle::Circle(Circle::new(
+                    ball.ball_in_field,
+                    parameters.free_kick_obstacle_radius,
+                ));
+                rule_obstacles.push(goal_kick_obstacle);
+            }
+
+            let goal_box_obstacle = RuleObstacle::Rectangle(Rectangle {
+                min: point!(
+                    field_dimensions.length / 2.0 - field_dimensions.goal_box_area_length,
+                    -field_dimensions.goal_box_area_width / 2.0
+                ),
+                max: point!(
+                    field_dimensions.length / 2.0,
+                    field_dimensions.goal_box_area_width / 2.0
+                ),
+            });
+            rule_obstacles.push(goal_box_obstacle);
         }
         (
             FilteredGameControllerState {
