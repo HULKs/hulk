@@ -1,0 +1,54 @@
+# RF-DETR Pose (EXPERIMENTAL) Training Config
+# Task: keypoint estimation
+# Source: unmerged PR #521 (community) — https://github.com/roboflow/rf-detr/pull/521
+# Status: research, not delivery. Gated behind 1-day Phase-3 feasibility spike.
+# Run in the rf-detr-pose conda env — NOT the production rf-detr env.
+
+model:
+  variant: "RFDETRPoseSmall"    # Exact class name TBD by spike — adjust when PR is inspected
+  pretrained: true
+  num_classes: 1                # Single class: "robot" (keypoints attached to detected robots)
+  class_names:
+    - robot
+  # Keypoint schema — adjust based on RoboCup-relevant joints
+  num_keypoints: 9
+  keypoint_names:
+    - head
+    - shoulder_left
+    - shoulder_right
+    - hip_left
+    - hip_right
+    - knee_left
+    - knee_right
+    - ankle_left
+    - ankle_right
+
+data:
+  dataset_dir: "./data/processed/coco_format"
+  # NOTE: requires COCO-style keypoint annotations:
+  #   "keypoints": [x1, y1, v1, x2, y2, v2, ...]
+  #   v=0 not labeled, v=1 labeled+occluded, v=2 labeled+visible
+  # Substantial labeling effort — gated behind spike.
+
+training:
+  output_dir: "./models/rf-detr-pose-experimental"
+  epochs: 50
+  batch_size: 4
+  grad_accum_steps: 4
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+  resolution: 448
+  early_stopping_patience: 10
+  fp16: true
+  dataloader_num_workers: 0
+  tensorboard: true
+  logging_dir: "./outputs/logs"
+  save_total_limit: 3
+
+export:
+  output_path: "./exports/rf-detr-pose-448.onnx"
+  simplify: true
+  static_batch: true
+  parity_tolerance: 1.0e-3
+  # CRITICAL gate: ONNX export from PR #521 may fail entirely.
+  # If export fails, drop pose from project scope.

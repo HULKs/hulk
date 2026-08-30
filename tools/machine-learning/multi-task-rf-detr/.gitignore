@@ -1,0 +1,32 @@
+# Mirrors tools/machine-learning/multi-task-yolo/.gitignore conventions.
+# Commit the recipe (code + pyproject + uv.lock + small configs + docs);
+# keep ingredients/outputs (datasets, weights, runs) OUT of git.
+#
+# Directory rules are ANCHORED with a leading "/" so they apply only at the folder
+# root and do NOT accidentally exclude same-named source packages (e.g. src/data/).
+
+.ruff_cache
+.venv
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Datasets — NOT committed (see REPRODUCE.md for how to obtain them).
+# Open-licensed, but kept out of git for size + the team's DVC convention.
+/data/
+/assets/datasets/
+
+# Model weights & ONNX exports — large binaries, kept out of git.
+/models/
+/exports/
+*.pt
+*.pth
+*.onnx
+
+# Training outputs / logs
+/runs/
+/outputs/
+/assets/output/
+*.tfevents.*
