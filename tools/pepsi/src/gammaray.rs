@@ -137,6 +137,7 @@ async fn gammaray_robot(
 
     set_up_static_ips(&robot, team_robot, team.team_number, &progress_bar).await?;
     set_up_wifi(&robot, team_robot, team.team_number, &progress_bar).await?;
+    disable_man_pages(&robot, &progress_bar).await?;
 
     robot
         .ssh_to_robot()?
@@ -351,6 +352,18 @@ async fn install_podman(robot: &Robot, progress_bar: &ProgressBar) -> Result<()>
         .ssh_with_log("installing podman", progress_bar)
         .await
         .wrap_err("podman install/verification failed")
+}
+
+async fn disable_man_pages(robot: &Robot, progress_bar: &ProgressBar) -> Result<()> {
+    robot
+        .ssh_to_robot()?
+        .arg(
+            "sudo mkdir -p /etc/dpkg/dpkg.cfg.d && \
+             printf 'path-exclude=/usr/share/man/*\\n' | sudo tee /etc/dpkg/dpkg.cfg.d/01-disable-man-pages > /dev/null && \
+             sudo rm -rf /usr/share/man/* /var/cache/man/*",
+        )
+        .ssh_with_log("disabling man page generation", progress_bar)
+        .await
 }
 
 async fn set_up_static_ips(
