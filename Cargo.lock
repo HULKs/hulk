@@ -3972,6 +3972,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "evdev"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25b686663ba7f08d92880ff6ba22170f1df4e83629341cba34cf82cd65ebea99"
+dependencies = [
+ "bitvec",
+ "cfg-if",
+ "libc",
+ "nix 0.29.0",
+]
+
+[[package]]
 name = "event-listener"
 version = "5.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4417,6 +4429,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 
 [[package]]
+name = "funty"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
+
+[[package]]
 name = "futures"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4541,6 +4559,21 @@ dependencies = [
  "ros-z-streams",
  "serde",
  "tokio",
+ "types",
+]
+
+[[package]]
+name = "gamepad"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "evdev",
+ "kinematics",
+ "linear_algebra",
+ "ros-z",
+ "serde",
+ "tokio",
+ "tracing",
  "types",
 ]
 
@@ -5421,6 +5454,7 @@ dependencies = [
  "field_mark_association",
  "game_controller_filter",
  "game_controller_state_filter",
+ "gamepad",
  "global_parameter_provider",
  "ground_provider",
  "head_motion",
