@@ -7,6 +7,8 @@ use hsl_network_messages::{SubState, Team};
 use linear_algebra::{Point, point, vector};
 use ros_z::{prelude::*, qos::QosDurability};
 use serde::{Deserialize, Serialize};
+use types::field_dimensions::Half::Opponent;
+use types::field_dimensions::Side::{Left, Right};
 use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, rule_obstacles::RuleObstacle, world_state::BallState,
@@ -120,13 +122,11 @@ fn compose_rule_obstacles(
             }
 
             let goal_box_obstacle = RuleObstacle::Rectangle(Rectangle {
-                min: point!(
-                    field_dimensions.length / 2.0 - field_dimensions.goal_box_area_length,
-                    -field_dimensions.goal_box_area_width / 2.0
-                ),
-                max: point!(
-                    field_dimensions.length / 2.0,
-                    field_dimensions.goal_box_area_width / 2.0
+                min: FieldDimensions::goal_box_corner(field_dimensions, Opponent, Right),
+                max: FieldDimensions::goal_box_goal_line_intersection(
+                    field_dimensions,
+                    Opponent,
+                    Left,
                 ),
             });
             rule_obstacles.push(goal_box_obstacle);
