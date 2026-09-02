@@ -7,6 +7,8 @@ use hsl_network_messages::{SubState, Team};
 use linear_algebra::{Point, point, vector};
 use ros_z::{prelude::*, qos::QosDurability};
 use serde::{Deserialize, Serialize};
+use types::field_dimensions::Half::Opponent;
+use types::field_dimensions::Side::{Left, Right};
 use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, rule_obstacles::RuleObstacle, world_state::BallState,
@@ -87,7 +89,6 @@ fn compose_rule_obstacles(
                     Some(
                         SubState::ThrowIn
                         | SubState::CornerKick
-                        | SubState::GoalKick
                         | SubState::DirectFreeKick
                         | SubState::IndirectFreeKick,
                     ),
@@ -102,6 +103,33 @@ fn compose_rule_obstacles(
                 parameters.free_kick_obstacle_radius,
             ));
             rule_obstacles.push(free_kick_obstacle);
+        }
+        (
+            FilteredGameControllerState {
+                sub_state: Some(SubState::GoalKick),
+                kicking_team: Some(Team::Opponent),
+                game_state: FilteredGameState::Playing { .. },
+                ..
+            },
+            possible_ball,
+        ) => {
+            if let Some(ball) = possible_ball {
+                let goal_kick_obstacle = RuleObstacle::Circle(Circle::new(
+                    ball.ball_in_field,
+                    parameters.free_kick_obstacle_radius,
+                ));
+                rule_obstacles.push(goal_kick_obstacle);
+            }
+
+            let goal_box_obstacle = RuleObstacle::Rectangle(Rectangle {
+                min: FieldDimensions::goal_box_corner(field_dimensions, Opponent, Right),
+                max: FieldDimensions::goal_box_goal_line_intersection(
+                    field_dimensions,
+                    Opponent,
+                    Left,
+                ),
+            });
+            rule_obstacles.push(goal_box_obstacle);
         }
         (
             FilteredGameControllerState {
