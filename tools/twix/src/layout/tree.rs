@@ -4,13 +4,9 @@ use eframe::egui::Context;
 use egui_tiles::{Container, Linear, LinearDir, SimplificationOptions, Tile, TileId, Tiles, Tree};
 use log::error;
 
-use crate::{PanelKind, backend::RobotBackend};
+use crate::{PanelKind, SelectablePanel, backend::RobotBackend};
 
-use super::{
-    TREE_ID, TwixLayout,
-    focus::request_pane_focus,
-    pane::{PanelPane, panel_creation_context},
-};
+use super::{TREE_ID, TwixLayout, focus::request_pane_focus, pane::panel_creation_context};
 
 pub(super) enum LayoutRequest {
     Add { tabs: TileId, panel: PanelKind },
@@ -30,7 +26,7 @@ impl TwixLayout {
         };
         self.insert_tab(
             tabs_id,
-            PanelPane::text(backend, egui_context),
+            SelectablePanel::text(backend, egui_context),
             egui_context,
         );
     }
@@ -58,7 +54,7 @@ impl TwixLayout {
         let new_pane = self
             .tree
             .tiles
-            .insert_pane(PanelPane::text(backend, egui_context));
+            .insert_pane(SelectablePanel::text(backend, egui_context));
         let new_tabs = self.tree.tiles.insert_tab_tile(vec![new_pane]);
         self.tree.tiles.insert(
             tabs_id,
@@ -82,7 +78,7 @@ impl TwixLayout {
             return;
         };
         let saved = tab.save();
-        let pane = match PanelPane::restore(backend, &saved, egui_context) {
+        let pane = match SelectablePanel::restore(backend, &saved, egui_context) {
             Ok(pane) => pane,
             Err(error) => {
                 error!("failed to duplicate tab: {error:#}");
@@ -103,7 +99,7 @@ impl TwixLayout {
     }
 
     pub fn new(egui_context: &Context, backend: &Arc<RobotBackend>) -> Self {
-        let tree = Tree::new_tabs(TREE_ID, vec![PanelPane::text(backend, egui_context)]);
+        let tree = Tree::new_tabs(TREE_ID, vec![SelectablePanel::text(backend, egui_context)]);
         let focused = first_pane(&tree);
         let layout = Self {
             tree,
@@ -133,13 +129,13 @@ impl TwixLayout {
                     return;
                 }
                 let panel = panel.create(panel_creation_context(backend, None, egui_context));
-                self.insert_tab(tabs, PanelPane::from_panel(panel), egui_context);
+                self.insert_tab(tabs, panel, egui_context);
             }
             LayoutRequest::Replace { pane, panel } => {
                 let Some(Tile::Pane(pane)) = self.tree.tiles.get_mut(pane) else {
                     return;
                 };
-                pane.panel = panel.create(panel_creation_context(backend, None, egui_context));
+                *pane = panel.create(panel_creation_context(backend, None, egui_context));
             }
             LayoutRequest::Close(tile_id) => {
                 self.close_tile(tile_id, backend, egui_context);
@@ -147,7 +143,12 @@ impl TwixLayout {
         }
     }
 
-    fn insert_tab(&mut self, tabs_id: TileId, pane: PanelPane, egui_context: &Context) -> TileId {
+    fn insert_tab(
+        &mut self,
+        tabs_id: TileId,
+        pane: SelectablePanel,
+        egui_context: &Context,
+    ) -> TileId {
         let pane_id = self.tree.tiles.insert_pane(pane);
         let tabs = self
             .tree
@@ -253,13 +254,16 @@ pub(super) fn simplification_options() -> SimplificationOptions {
     }
 }
 
-pub(super) fn first_pane(tree: &Tree<PanelPane>) -> Option<TileId> {
+pub(super) fn first_pane(tree: &Tree<SelectablePanel>) -> Option<TileId> {
     tree.active_tiles()
         .into_iter()
         .find(|tile_id| matches!(tree.tiles.get(*tile_id), Some(Tile::Pane(_))))
 }
 
-pub(super) fn active_pane_in_tile(tiles: &Tiles<PanelPane>, tile_id: TileId) -> Option<TileId> {
+pub(super) fn active_pane_in_tile(
+    tiles: &Tiles<SelectablePanel>,
+    tile_id: TileId,
+) -> Option<TileId> {
     match tiles.get(tile_id)? {
         Tile::Pane(_) => Some(tile_id),
         Tile::Container(container) => container

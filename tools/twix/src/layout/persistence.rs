@@ -10,9 +10,9 @@ use log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::backend::RobotBackend;
+use crate::{SelectablePanel, backend::RobotBackend};
 
-use super::{TREE_ID, TwixLayout, focus::request_pane_focus, pane::PanelPane, tree::first_pane};
+use super::{TREE_ID, TwixLayout, focus::request_pane_focus, tree::first_pane};
 
 const STORAGE_KEY: &str = "tile_layout";
 const MAX_RESTORED_TILE_ID: u64 = 1 << 20;
@@ -21,7 +21,7 @@ const MAX_RESTORED_TREE_DEPTH: usize = 128;
 
 #[derive(Serialize)]
 pub(super) struct SavedLayout<'a> {
-    pub(super) tree: &'a Tree<PanelPane>,
+    pub(super) tree: &'a Tree<SelectablePanel>,
     pub(super) focused: Option<TileId>,
 }
 
@@ -70,10 +70,12 @@ impl TwixLayout {
         for (tile_id, tile) in loaded.tree.tiles.iter() {
             let tile = match tile {
                 Tile::Pane(value) => Tile::Pane(
-                    PanelPane::restore(backend, value, egui_context).unwrap_or_else(|error| {
-                        error!("failed to restore panel in tile {tile_id:?}: {error:#}");
-                        PanelPane::text(backend, egui_context)
-                    }),
+                    SelectablePanel::restore(backend, value, egui_context).unwrap_or_else(
+                        |error| {
+                            error!("failed to restore panel in tile {tile_id:?}: {error:#}");
+                            SelectablePanel::text(backend, egui_context)
+                        },
+                    ),
                 ),
                 Tile::Container(container) => Tile::Container(container.clone()),
             };

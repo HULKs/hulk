@@ -41,18 +41,8 @@ macro_rules! impl_selectable_panel {
                 }
             }
 
-            pub fn label(self) -> &'static str {
-                static LABELS: std::sync::LazyLock<Vec<(PanelKind, String)>> =
-                    std::sync::LazyLock::new(|| {
-                        PanelKind::registered()
-                            .iter()
-                            .map(|kind| (*kind, format!("{}  {}", kind.icon(), kind.display_name())))
-                            .collect()
-                    });
-                LABELS
-                    .iter()
-                    .find_map(|(kind, label)| (*kind == self).then_some(label.as_str()))
-                    .unwrap_or_else(|| self.display_name())
+            pub fn label(self) -> String {
+                format!("{}  {}", self.icon(), self.display_name())
             }
 
             pub fn create(

@@ -3,9 +3,9 @@ use std::sync::Arc;
 use eframe::egui::Ui;
 use egui_tiles::{TileId, Tree};
 
-use crate::backend::RobotBackend;
+use crate::{SelectablePanel, backend::RobotBackend};
 
-use self::{behavior::LayoutBehavior, pane::PanelPane};
+use self::behavior::LayoutBehavior;
 
 mod behavior;
 mod focus;
@@ -19,7 +19,7 @@ pub use focus::FocusDirection;
 const TREE_ID: &str = "twix-tile-tree";
 
 pub struct TwixLayout {
-    tree: Tree<PanelPane>,
+    tree: Tree<SelectablePanel>,
     focused: Option<TileId>,
     selector_to_open: Option<TileId>,
     tab_to_reveal: Option<TileId>,

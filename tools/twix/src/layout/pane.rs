@@ -6,47 +6,31 @@ use serde::{Serialize, Serializer};
 use serde_json::Value;
 
 use crate::{
-    PanelKind, SelectablePanel,
+    SelectablePanel,
     backend::RobotBackend,
     panel::{Panel, PanelCreationContext, PanelUiContext},
     panels::TextPanel,
 };
 
-pub(super) struct PanelPane {
-    pub(super) panel: SelectablePanel,
-}
-
-impl PanelPane {
+impl SelectablePanel {
     pub(super) fn restore(
         backend: &Arc<RobotBackend>,
         value: &Value,
         egui_context: &Context,
     ) -> Result<Self> {
-        Ok(Self::from_panel(SelectablePanel::new(
-            panel_creation_context(backend, Some(value), egui_context),
-        )?))
-    }
-
-    pub(super) fn from_panel(panel: SelectablePanel) -> Self {
-        Self { panel }
+        Self::new(panel_creation_context(backend, Some(value), egui_context))
     }
 
     pub(super) fn text(backend: &Arc<RobotBackend>, egui_context: &Context) -> Self {
-        Self::from_panel(SelectablePanel::TextPanel(TextPanel::new(
-            panel_creation_context(backend, None, egui_context),
+        Self::TextPanel(TextPanel::new(panel_creation_context(
+            backend,
+            None,
+            egui_context,
         )))
-    }
-
-    pub(super) fn save(&self) -> Value {
-        self.panel.save()
-    }
-
-    pub(super) fn kind(&self) -> PanelKind {
-        self.panel.kind()
     }
 }
 
-impl Serialize for PanelPane {
+impl Serialize for SelectablePanel {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
