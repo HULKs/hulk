@@ -39,3 +39,5 @@ ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`. Legacy Twix keeps usi
 | `C-S-Backspace` | `close_all` |
 
 Supported action names are `open_split`, `open_tab`, `focus_namespace`, `focus_panel`, `focus_left`, `focus_below`, `focus_above`, `focus_right`, `close_tab`, `duplicate_tab`, `close_all`, and `no_op`.
+
+Directional focus selects the nearest visible panel and outlines it. Press `Tab` after moving focus to enter that panel's controls; subsequent `Tab` and `Shift-Tab` presses follow the normal control order.

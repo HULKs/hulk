@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use color_eyre::{Report, eyre::Context as _};
-use eframe::egui::{TextEdit, Ui};
+use eframe::egui::{ScrollArea, TextEdit, Ui};
 use hulk_widgets::CompletionEdit;
 use ros_z::entity::EndpointKind;
 use ros_z::{dynamic::DynamicPayload, pubsub::PublicationId, time::Time};
@@ -54,6 +54,7 @@ struct RenderedMetadata {
 impl Panel for TextPanel {
     const STORAGE_ID: &'static str = "text";
     const DISPLAY_NAME: &'static str = "Text";
+    const ICON: &'static str = egui_material_icons::icons::ICON_TEXT_FIELDS.codepoint;
 
     fn new(context: PanelCreationContext<'_>) -> Self {
         let topic = context
@@ -78,34 +79,36 @@ impl Panel for TextPanel {
         panel
     }
 
-    fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
-        ui.vertical(|ui| {
-            ui.horizontal(|ui| {
-                ui.label("Topic");
-                let namespace = context.backend.namespace();
-                let completions = {
-                    let graph = context.backend.graph().lock();
-                    TopicCompletionQuery::new(&namespace, &self.topic_editor)
-                        .endpoint_kind(EndpointKind::Publisher)
-                        .complete(graph.publishers())
-                };
-                let response = ui.add(CompletionEdit::new(
-                    ui.id().with("topic"),
-                    &completions,
-                    &mut self.topic_editor,
-                ));
-                if response.changed() {
-                    self.commit_topic(&context);
-                }
-                ui.checkbox(&mut self.pretty, "Pretty");
-            });
+    fn header_ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
+        ui.label("Topic");
+        let namespace = context.backend.namespace();
+        let completions = {
+            let graph = context.backend.graph().lock();
+            TopicCompletionQuery::new(&namespace, &self.topic_editor)
+                .endpoint_kind(EndpointKind::Publisher)
+                .complete(graph.publishers())
+        };
+        let response = ui.add(CompletionEdit::new(
+            ui.id().with("topic"),
+            &completions,
+            &mut self.topic_editor,
+        ));
+        if response.changed() {
+            self.commit_topic(&context);
+        }
+        ui.checkbox(&mut self.pretty, "Pretty");
+    }
 
-            if self.topic.is_empty() {
-                ui.label("Enter a topic.");
-                return;
-            }
+    fn ui(&mut self, ui: &mut Ui, _context: PanelUiContext<'_>) {
+        if self.topic.is_empty() {
+            ui.label("Enter a topic.");
+            return;
+        }
 
-            match &mut self.observation {
+        ScrollArea::both()
+            .id_salt("text-panel-content")
+            .auto_shrink([false; 2])
+            .show(ui, |ui| match &mut self.observation {
                 ObservationState::Idle => {
                     ui.label("No observation.");
                 }
@@ -133,8 +136,7 @@ impl Panel for TextPanel {
                         );
                     }
                 }
-            }
-        });
+            });
     }
 
     fn save(&self) -> Value {
@@ -397,6 +399,10 @@ mod tests {
                 "topic": "/output/text",
                 "pretty": false,
             })
+        );
+        assert_eq!(
+            serde_json::to_value(crate::SelectablePanel::TextPanel(panel)).unwrap(),
+            json!({"kind": "text", "state": {"topic": "/output/text", "pretty": false}})
         );
     }
 

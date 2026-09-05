@@ -2695,7 +2695,7 @@ checksum = "af491d569909a7e4dee0ad7db7f5341fef5c614d5b8ec8cf765732aba3cff681"
 dependencies = [
  "serde",
  "termcolor",
- "unicode-width 0.1.14",
+ "unicode-width 0.2.2",
 ]
 
 [[package]]
@@ -3632,6 +3632,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_material_icons"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cee0067630964844d829cc80f9b9744fdf0443b2eea1e66a0934ccc1af14eb82"
+dependencies = [
+ "egui",
+]
+
+[[package]]
 name = "egui_plot"
 version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3640,6 +3649,19 @@ dependencies = [
  "ahash",
  "egui",
  "emath",
+]
+
+[[package]]
+name = "egui_tiles"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87147a0a2f03415a3082a92dba79062912d70d555f2495a54d16a7be2c81ac55"
+dependencies = [
+ "ahash",
+ "egui",
+ "itertools 0.15.0",
+ "log",
+ "serde",
 ]
 
 [[package]]
@@ -11627,7 +11649,7 @@ dependencies = [
 
 [[package]]
 name = "twix"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "ball_filter",
  "behavior_node",
@@ -11637,8 +11659,9 @@ dependencies = [
  "coordinate_systems",
  "dirs",
  "eframe",
- "egui_dock",
  "egui_extras",
+ "egui_material_icons",
+ "egui_tiles",
  "geometry",
  "hsl_network_messages",
  "hulk_widgets",

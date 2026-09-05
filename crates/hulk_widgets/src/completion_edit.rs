@@ -1,16 +1,19 @@
-use std::{cmp::Reverse, fmt::Debug, sync::Arc};
+use std::{hash::Hash, sync::Arc};
 
 use egui::{
-    Color32, Context, EventFilter, Id, Key, Modifiers, Popup, PopupCloseBehavior, Response,
-    ScrollArea, TextEdit, TextStyle, Ui, Widget,
+    Color32, Context, Id, Key, Popup, PopupCloseBehavior, Response, ScrollArea, TextEdit,
+    TextStyle, Ui, Widget,
     cache::{ComputerMut, FrameCache},
     response::Flags,
     text::{CCursor, CCursorRange},
     text_edit::{TextEditOutput, TextEditState},
 };
-use nucleo_matcher::{
-    Matcher, Utf32Str,
-    pattern::{CaseMatching, Normalization, Pattern},
+
+use crate::{
+    matcher::fuzzy_matches,
+    selection_list::{
+        BoundaryBehavior, ListInput, SelectionListState, lock_text_edit_navigation, show_results,
+    },
 };
 
 pub struct CompletionEdit<'a, T> {
@@ -19,36 +22,9 @@ pub struct CompletionEdit<'a, T> {
     selected: &'a mut String,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
-enum UserState {
-    #[default]
-    Typing,
-    Selecting {
-        index: usize,
-    },
-}
-
-impl UserState {
-    fn handle_arrow(self, pressed_down: bool, pressed_up: bool, number_of_items: usize) -> Self {
-        match (pressed_up, pressed_down, self) {
-            (_, true, UserState::Typing) => UserState::Selecting { index: 0 },
-            (true, _, UserState::Typing) => UserState::Selecting {
-                index: number_of_items - 1,
-            },
-            (true, _, UserState::Selecting { index: 0 }) => UserState::Typing,
-            (true, _, UserState::Selecting { index }) => UserState::Selecting { index: index - 1 },
-            (_, true, UserState::Selecting { index }) if index == number_of_items - 1 => {
-                UserState::Typing
-            }
-            (_, true, UserState::Selecting { index }) => UserState::Selecting { index: index + 1 },
-            (false, false, state) => state,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Default)]
 struct CompletionEditState {
-    user_state: UserState,
+    selection: SelectionListState,
     typed_since_focused: bool,
     textedit_was_focused: bool,
 }
@@ -60,34 +36,19 @@ type CachedMatcherSearch = FrameCache<MatchingItems, MatcherSearch>;
 
 impl<'a, T: ToString> ComputerMut<(&String, &'a [T]), MatchingItems> for MatcherSearch {
     fn compute(&mut self, (key, items): (&String, &'a [T])) -> MatchingItems {
-        let mut matcher = Matcher::default();
-        let pattern = Pattern::parse(key.as_str(), CaseMatching::Smart, Normalization::Smart);
-
-        if pattern.atoms.is_empty() {
-            return Arc::new(items.iter().map(ToString::to_string).enumerate().collect());
-        }
-
-        let mut buffer = Vec::new();
-        let mut items: Vec<_> = items
-            .iter()
-            .enumerate()
-            .filter_map(|(index, item)| {
-                let string = item.to_string();
-                pattern
-                    .score(Utf32Str::new(string.as_str(), &mut buffer), &mut matcher)
-                    .map(|score| (score, index, string))
-            })
-            .collect();
-
-        items.sort_by_key(|(score, _, _)| Reverse(*score));
-
-        Arc::new(
-            items
-                .into_iter()
-                .map(|(_score, index, item)| (index, item))
-                .collect(),
-        )
+        Arc::new(fuzzy_matches(key, items))
     }
+}
+
+fn get_matching_items<T: ToString + Hash>(
+    ui: &mut Ui,
+    query: &String,
+    items: &[T],
+) -> MatchingItems {
+    ui.memory_mut(|memory| {
+        let cache = memory.caches.cache::<CachedMatcherSearch>();
+        Arc::clone(cache.get((query, items)))
+    })
 }
 
 impl CompletionEditState {
@@ -116,7 +77,7 @@ fn set_cursor(
     state.store(context, response.id);
 }
 
-impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
+impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
     pub fn new(id_salt: impl Into<Id>, items: &'a [T], selected: &'a mut String) -> Self {
         Self {
             id: id_salt.into(),
@@ -128,7 +89,7 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
     pub fn ui(
         mut self,
         ui: &mut Ui,
-        show_value: impl Fn(&mut Ui, bool, &T) -> Response,
+        show_value: impl FnMut(&mut Ui, bool, &T) -> Response,
     ) -> Response {
         let mut state = CompletionEditState::load(ui.ctx(), self.id);
         let output = self.show(ui, &mut state, show_value);
@@ -140,37 +101,23 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
         &mut self,
         ui: &mut Ui,
         state: &mut CompletionEditState,
-        show_value: impl Fn(&mut Ui, bool, &T) -> Response,
+        mut show_value: impl FnMut(&mut Ui, bool, &T) -> Response,
     ) -> Response {
-        let matching_items = ui.memory_mut(|writer| {
-            let cache = writer.caches.cache::<CachedMatcherSearch>();
-            Arc::clone(cache.get((self.selected, self.suggestions)))
-        });
+        let mut matching_items = get_matching_items(ui, self.selected, self.suggestions);
+        state.selection.clamp(matching_items.len());
         let popup_id = self.id.with("popup");
         let is_popup_open = Popup::is_id_open(ui.ctx(), popup_id);
-
-        let (pressed_up, pressed_down) = if is_popup_open {
-            ui.input_mut(|reader| {
-                (
-                    reader.consume_key(Modifiers::NONE, Key::ArrowUp)
-                        || reader.consume_key(Modifiers::SHIFT, Key::Tab),
-                    reader.consume_key(Modifiers::NONE, Key::ArrowDown)
-                        || reader.consume_key(Modifiers::NONE, Key::Tab),
-                )
-            })
-        } else {
-            (false, false)
-        };
+        let list_input = ListInput::consume(ui, is_popup_open, false);
         let TextEditOutput {
             response,
             state: text_edit_state,
             ..
         } = ui
-            .scope(|ui| match state.user_state {
-                UserState::Typing => TextEdit::singleline(self.selected)
+            .scope(|ui| match state.selection.highlighted() {
+                None => TextEdit::singleline(self.selected)
                     .hint_text("Search")
                     .show(ui),
-                UserState::Selecting { index } => {
+                Some(index) => {
                     let mut active_stroke = ui.visuals().widgets.active.bg_stroke;
                     active_stroke.color = ui.visuals().warn_fg_color;
                     ui.visuals_mut().widgets.inactive.bg_stroke = active_stroke;
@@ -183,16 +130,17 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
                         .text_color(Color32::GRAY)
                         .hint_text("Search")
                         .show(ui);
+                    let cursor_position = selected.chars().count();
                     set_cursor(
                         ui.ctx(),
                         &output.response,
                         output.state.clone(),
-                        selected.len(),
-                        selected.len(),
+                        cursor_position,
+                        cursor_position,
                     );
                     if output.response.changed() {
                         *self.selected = selected;
-                        state.user_state = UserState::Typing;
+                        state.selection.clear();
                     }
                     output
                 }
@@ -200,42 +148,39 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
             .inner;
         let mut response = response.response;
 
-        if response.changed() {
+        let text_changed = response.changed();
+        if text_changed {
             state.typed_since_focused = true;
+            state.selection.clear();
+            matching_items = get_matching_items(ui, self.selected, self.suggestions);
         }
+        state.selection.clamp(matching_items.len());
         if !state.textedit_was_focused && response.has_focus() {
             // Select all
-            set_cursor(ui.ctx(), &response, text_edit_state, 0, self.selected.len());
+            set_cursor(
+                ui.ctx(),
+                &response,
+                text_edit_state,
+                0,
+                self.selected.chars().count(),
+            );
         }
         state.textedit_was_focused = response.has_focus();
-        // TODO: This is a workaround
+        // Report changes only when the user commits the edited value.
         response.flags.set(Flags::CHANGED, false);
 
         if is_popup_open {
-            ui.ctx().memory_mut(|writer| {
-                writer.set_focus_lock_filter(
-                    response.id,
-                    EventFilter {
-                        tab: true,
-                        horizontal_arrows: true,
-                        vertical_arrows: true,
-                        ..Default::default()
-                    },
-                );
-            });
-            state.user_state =
-                state
-                    .user_state
-                    .handle_arrow(pressed_down, pressed_up, matching_items.len());
-        }
-
-        if matching_items.is_empty() {
-            state.user_state = UserState::Typing;
+            lock_text_edit_navigation(ui, response.id, true);
+            state.selection.navigate(
+                list_input,
+                matching_items.len(),
+                BoundaryBehavior::ReturnToQuery,
+            );
         }
 
         let text_size = ui.text_style_height(&TextStyle::Body);
 
-        let selection_may_have_changed = response.changed() || pressed_down || pressed_up;
+        let selection_may_have_changed = text_changed || list_input.navigation_requested();
         let should_close_popup = Popup::from_response(&response)
             .id(popup_id)
             .open_memory(None)
@@ -244,38 +189,25 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
                 ui.set_max_width(f32::INFINITY);
                 ui.set_max_height(text_size * 20.0);
 
-                if matching_items.is_empty() {
-                    ui.label("No results");
-                    return false;
+                let clicked = ScrollArea::vertical()
+                    .show(ui, |ui| {
+                        show_results(
+                            ui,
+                            self.suggestions,
+                            matching_items.as_slice(),
+                            state.selection.highlighted(),
+                            selection_may_have_changed,
+                            |(original_index, _)| *original_index,
+                            &mut show_value,
+                        )
+                    })
+                    .inner;
+                if let Some(clicked) = clicked {
+                    state.selection.select(clicked.visible_index);
+                    true
+                } else {
+                    false
                 }
-
-                let mut close_me = false;
-                ScrollArea::vertical().show(ui, |ui| {
-                    for (visual_index, (original_index, _)) in matching_items.iter().enumerate() {
-                        let highlight = match state.user_state {
-                            UserState::Selecting {
-                                index: selected_index,
-                            } => visual_index == selected_index,
-                            UserState::Typing => false,
-                        };
-
-                        let response =
-                            show_value(ui, highlight, &self.suggestions[*original_index]);
-
-                        if selection_may_have_changed && highlight {
-                            response.scroll_to_me(None);
-                        }
-
-                        if response.clicked() {
-                            state.user_state = UserState::Selecting {
-                                index: visual_index,
-                            };
-                            close_me = true;
-                        }
-                    }
-                });
-
-                close_me
             })
             .is_some_and(|response| response.inner);
 
@@ -295,14 +227,18 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
 
         if user_completed_search {
             response.mark_changed();
-            if pressed_enter && state.user_state == UserState::Typing && !matching_items.is_empty()
+            if pressed_enter
+                && state.selection.highlighted().is_none()
+                && !matching_items.is_empty()
             {
-                state.user_state = UserState::Selecting { index: 0 };
+                state.selection.select(0);
             }
-            if let UserState::Selecting { index } = state.user_state {
-                let (actual_index, _) = matching_items[index];
+            if let Some(actual_index) = state
+                .selection
+                .item_index(matching_items.as_slice(), |(item_index, _)| *item_index)
+            {
                 *self.selected = self.suggestions[actual_index].to_string();
-                state.user_state = UserState::Typing;
+                state.selection.clear();
             }
         }
 
@@ -310,7 +246,7 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
     }
 }
 
-impl<T: Clone + ToString + Debug + std::hash::Hash> Widget for CompletionEdit<'_, T> {
+impl<T: ToString + Hash> Widget for CompletionEdit<'_, T> {
     fn ui(self, ui: &mut Ui) -> Response {
         self.ui(ui, |ui, highlight, item| {
             ui.selectable_label(highlight, item.to_string())

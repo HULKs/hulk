@@ -8,6 +8,66 @@ macro_rules! impl_selectable_panel {
             )*
         }
 
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        pub enum PanelKind {
+            $(
+                $name,
+            )*
+        }
+
+        impl PanelKind {
+            pub fn from_storage_id(storage_id: &str) -> color_eyre::Result<Self> {
+                match storage_id {
+                    $(
+                        <$name as $crate::panel::Panel>::STORAGE_ID => Ok(Self::$name),
+                    )*
+                    _ => color_eyre::eyre::bail!("unknown panel storage id: {storage_id}"),
+                }
+            }
+
+            pub const fn display_name(self) -> &'static str {
+                match self {
+                    $(
+                        Self::$name => <$name as $crate::panel::Panel>::DISPLAY_NAME,
+                    )*
+                }
+            }
+
+            pub const fn icon(self) -> &'static str {
+                match self {
+                    $(
+                        Self::$name => <$name as $crate::panel::Panel>::ICON,
+                    )*
+                }
+            }
+
+            pub fn label(self) -> String {
+                format!("{}  {}", self.icon(), self.display_name())
+            }
+
+            pub fn create(
+                self,
+                context: $crate::panel::PanelCreationContext<'_>,
+            ) -> SelectablePanel {
+                match self {
+                    $(
+                        Self::$name => SelectablePanel::$name(
+                            <$name as $crate::panel::Panel>::new(context)
+                        ),
+                    )*
+                }
+            }
+
+            pub fn registered() -> &'static [Self] {
+                const PANELS: &[PanelKind] = &[
+                    $(
+                        PanelKind::$name,
+                    )*
+                ];
+                PANELS
+            }
+        }
+
         impl SelectablePanel {
             pub fn new(context: $crate::panel::PanelCreationContext<'_>) -> color_eyre::Result<Self> {
                 let saved: $crate::panel::SavedPanel = serde_json::from_value(
@@ -16,42 +76,19 @@ macro_rules! impl_selectable_panel {
                         .cloned()
                         .ok_or_else(|| color_eyre::eyre::eyre!("missing saved panel state"))?,
                 )?;
-                Self::try_from_id(&saved.kind, $crate::panel::PanelCreationContext {
+                let kind = PanelKind::from_storage_id(&saved.kind)?;
+                Ok(kind.create($crate::panel::PanelCreationContext {
                     backend: context.backend,
                     value: Some(&saved.state),
                     egui_context: context.egui_context,
-                })
+                }))
             }
 
-            pub fn try_from_id(
-                storage_id: &str,
-                context: $crate::panel::PanelCreationContext<'_>,
-            ) -> color_eyre::Result<Self> {
-                match storage_id {
+            pub fn kind(&self) -> PanelKind {
+                match self {
                     $(
-                        <$name as $crate::panel::Panel>::STORAGE_ID => Ok(Self::$name($name::new(context))),
+                        Self::$name(_) => PanelKind::$name,
                     )*
-                    _ => color_eyre::eyre::bail!("unknown panel storage id: {storage_id}"),
-                }
-            }
-
-            pub fn registered() -> Vec<&'static str> {
-                vec![$(<$name as $crate::panel::Panel>::DISPLAY_NAME),*]
-            }
-
-            pub fn storage_ids() -> Vec<&'static str> {
-                vec![$(<$name as $crate::panel::Panel>::STORAGE_ID),*]
-            }
-
-            pub fn try_from_display_name(
-                display_name: &str,
-                context: $crate::panel::PanelCreationContext<'_>,
-            ) -> color_eyre::Result<Self> {
-                match display_name {
-                    $(
-                        <$name as $crate::panel::Panel>::DISPLAY_NAME => Ok(Self::$name($name::new(context))),
-                    )*
-                    _ => color_eyre::eyre::bail!("unknown panel display name: {display_name}"),
                 }
             }
 
@@ -60,7 +97,7 @@ macro_rules! impl_selectable_panel {
                     $(
                         Self::$name(panel) => $crate::panel::SavedPanel {
                             kind: <$name as $crate::panel::Panel>::STORAGE_ID.to_string(),
-                            state: panel.save(),
+                            state: <$name as $crate::panel::Panel>::save(panel),
                         },
                     )*
                 };
@@ -69,6 +106,20 @@ macro_rules! impl_selectable_panel {
         }
 
         impl SelectablePanel {
+            pub fn header_ui(
+                &mut self,
+                ui: &mut eframe::egui::Ui,
+                context: $crate::panel::PanelUiContext<'_>,
+            ) {
+                match self {
+                    $(
+                        SelectablePanel::$name(panel) => {
+                            <$name as $crate::panel::Panel>::header_ui(panel, ui, context)
+                        },
+                    )*
+                }
+            }
+
             pub fn ui(
                 &mut self,
                 ui: &mut eframe::egui::Ui,
@@ -76,20 +127,11 @@ macro_rules! impl_selectable_panel {
             ) {
                 match self {
                     $(
-                        SelectablePanel::$name(panel) => panel.ui(ui, context),
+                        SelectablePanel::$name(panel) => {
+                            <$name as $crate::panel::Panel>::ui(panel, ui, context)
+                        },
                     )*
                 }
-            }
-        }
-
-        impl std::fmt::Display for SelectablePanel {
-            fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                let panel_name = match self {
-                    $(
-                        Self::$name(_) => <$name as $crate::panel::Panel>::DISPLAY_NAME,
-                    )*
-                };
-                formatter.write_str(panel_name)
             }
         }
     };
