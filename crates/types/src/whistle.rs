@@ -30,9 +30,6 @@ pub struct DetectionInfo {
     Default,
     Deserialize,
     Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
     ros_z::Message,
 )]
 pub struct AudioSpectrumBin {
