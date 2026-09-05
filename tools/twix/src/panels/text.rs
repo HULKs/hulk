@@ -400,6 +400,10 @@ mod tests {
                 "pretty": false,
             })
         );
+        assert_eq!(
+            serde_json::to_value(crate::SelectablePanel::TextPanel(panel)).unwrap(),
+            json!({"kind": "text", "state": {"topic": "/output/text", "pretty": false}})
+        );
     }
 
     #[test]

@@ -8,12 +8,12 @@ use egui_tiles::{
     Behavior, EditAction, SimplificationOptions, TabState, TileId, Tiles, UiResponse,
 };
 
-use crate::backend::RobotBackend;
+use crate::{SelectablePanel, backend::RobotBackend};
 
 use super::{
     TREE_ID,
     focus::pane_focus_id,
-    pane::{PanelPane, panel_ui_context},
+    pane::panel_ui_context,
     tab_bar,
     tree::{LayoutRequest, simplification_options},
 };
@@ -28,8 +28,8 @@ pub(super) struct LayoutBehavior<'a> {
     pub(super) requests: Vec<LayoutRequest>,
 }
 
-impl Behavior<PanelPane> for LayoutBehavior<'_> {
-    fn pane_ui(&mut self, ui: &mut Ui, tile_id: TileId, pane: &mut PanelPane) -> UiResponse {
+impl Behavior<SelectablePanel> for LayoutBehavior<'_> {
+    fn pane_ui(&mut self, ui: &mut Ui, tile_id: TileId, pane: &mut SelectablePanel) -> UiResponse {
         let clicked_in_pane =
             ui.rect_contains_pointer(ui.max_rect()) && ui.input(|input| input.pointer.any_click());
         let kind = pane.kind();
@@ -54,15 +54,14 @@ impl Behavior<PanelPane> for LayoutBehavior<'_> {
                             .show(ui, |ui| {
                                 ui.set_min_width(ui.available_width());
                                 ui.horizontal(|ui| {
-                                    pane.panel.header_ui(
+                                    pane.header_ui(
                                         ui,
                                         panel_ui_context(self.backend, &self.egui_context),
                                     );
                                 });
                             });
                         ui.add_space(4.0);
-                        pane.panel
-                            .ui(ui, panel_ui_context(self.backend, &self.egui_context));
+                        pane.ui(ui, panel_ui_context(self.backend, &self.egui_context));
                     });
             },
         );
@@ -75,17 +74,21 @@ impl Behavior<PanelPane> for LayoutBehavior<'_> {
         UiResponse::None
     }
 
-    fn tab_title_for_pane(&mut self, pane: &PanelPane) -> WidgetText {
+    fn tab_title_for_pane(&mut self, pane: &SelectablePanel) -> WidgetText {
         pane.kind().label().into()
     }
 
-    fn tab_title_for_tile(&mut self, tiles: &Tiles<PanelPane>, tile_id: TileId) -> WidgetText {
+    fn tab_title_for_tile(
+        &mut self,
+        tiles: &Tiles<SelectablePanel>,
+        tile_id: TileId,
+    ) -> WidgetText {
         tab_bar::tab_title(tiles, tile_id).into()
     }
 
     fn tab_ui(
         &mut self,
-        tiles: &mut Tiles<PanelPane>,
+        tiles: &mut Tiles<SelectablePanel>,
         ui: &mut Ui,
         id: eframe::egui::Id,
         tile_id: TileId,
@@ -96,7 +99,7 @@ impl Behavior<PanelPane> for LayoutBehavior<'_> {
 
     fn top_bar_right_ui(
         &mut self,
-        _tiles: &Tiles<PanelPane>,
+        _tiles: &Tiles<SelectablePanel>,
         ui: &mut Ui,
         tile_id: TileId,
         tabs: &egui_tiles::Tabs,
@@ -128,7 +131,7 @@ impl Behavior<PanelPane> for LayoutBehavior<'_> {
 
     fn tab_bar_trailing_ui(
         &mut self,
-        _tiles: &Tiles<PanelPane>,
+        _tiles: &Tiles<SelectablePanel>,
         ui: &mut Ui,
         tile_id: TileId,
         _tabs: &egui_tiles::Tabs,
@@ -138,7 +141,7 @@ impl Behavior<PanelPane> for LayoutBehavior<'_> {
         }
     }
 
-    fn is_tab_closable(&self, tiles: &Tiles<PanelPane>, tile_id: TileId) -> bool {
+    fn is_tab_closable(&self, tiles: &Tiles<SelectablePanel>, tile_id: TileId) -> bool {
         tiles.get(tile_id).is_some()
     }
 

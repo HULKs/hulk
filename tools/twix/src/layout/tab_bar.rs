@@ -6,31 +6,30 @@ use egui_material_icons::icons;
 use egui_tiles::{Behavior as _, TabState, TileId, Tiles};
 use hulk_widgets::SearchableSelector;
 
-use crate::PanelKind;
+use crate::{PanelKind, SelectablePanel};
 
 use super::{
     TREE_ID,
     behavior::LayoutBehavior,
     focus::request_pane_focus,
-    pane::PanelPane,
     tree::{LayoutRequest, active_pane_in_tile},
 };
 
-pub(super) fn tab_title(tiles: &Tiles<PanelPane>, tile_id: TileId) -> &'static str {
+pub(super) fn tab_title(tiles: &Tiles<SelectablePanel>, tile_id: TileId) -> String {
     tiles
         .get_pane(&tile_id)
-        .map_or("Group", |pane| pane.kind().label())
+        .map_or_else(|| "Group".to_string(), |pane| pane.kind().label())
 }
 
 pub(super) fn tab_ui(
     behavior: &mut LayoutBehavior<'_>,
-    tiles: &mut Tiles<PanelPane>,
+    tiles: &mut Tiles<SelectablePanel>,
     ui: &mut Ui,
     id: Id,
     tile_id: TileId,
     state: &TabState,
 ) -> Response {
-    let current = tiles.get_pane(&tile_id).map(PanelPane::kind);
+    let current = tiles.get_pane(&tile_id).map(SelectablePanel::kind);
     let title = behavior.tab_title_for_tile(tiles, tile_id);
     let font_id = TextStyle::Button.resolve(ui.style());
     let galley = title.into_galley(
@@ -227,7 +226,7 @@ pub(super) fn add_panel_button(behavior: &mut LayoutBehavior<'_>, ui: &mut Ui, t
     }
 }
 
-fn close_layout_popups(ui: &Ui, tiles: &Tiles<PanelPane>) {
+fn close_layout_popups(ui: &Ui, tiles: &Tiles<SelectablePanel>) {
     for tile_id in tiles.tile_ids() {
         Popup::close_id(ui.ctx(), panel_type_popup_id(tile_id));
         Popup::close_id(ui.ctx(), add_panel_popup_id(tile_id));
@@ -272,4 +271,57 @@ fn panel_picker(
         ui.close();
     }
     selected.and_then(|index| descriptors.get(index)).copied()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use eframe::egui::{CentralPanel, Context, RawInput};
+
+    use crate::{backend::RobotBackend, layout::TwixLayout};
+
+    use super::*;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn new_tab_reveal_settles_for_fitting_and_oversized_tabs() {
+        let backend = Arc::new(
+            RobotBackend::new(tokio::runtime::Handle::current(), None, "/".into())
+                .await
+                .unwrap(),
+        );
+        for width in [140.0, 240.0, 640.0] {
+            let context = Context::default();
+            let mut layout = TwixLayout::new(&context, &backend);
+            for _ in 0..10 {
+                layout.open_tab(&backend, &context);
+            }
+            // Check both first-frame overflow and insertion into an established tab bar.
+            for frame in 0..10 {
+                if frame == 5 {
+                    layout.open_tab(&backend, &context);
+                    assert_eq!(layout.tab_to_reveal, layout.focused);
+                }
+                let input = RawInput {
+                    screen_rect: Some(Rect::from_min_size(Default::default(), vec2(width, 200.0))),
+                    ..Default::default()
+                };
+                let _ = context.run_ui(input, |ui| {
+                    CentralPanel::default().show(ui, |ui| layout.ui(ui, &backend));
+                });
+                if frame == 4 || frame == 9 {
+                    let response = context
+                        .read_response(layout.focused.unwrap().egui_id(Id::new(TREE_ID)))
+                        .unwrap();
+                    assert_eq!(layout.tab_to_reveal, None);
+                    assert!(response.interact_rect.is_positive());
+                    assert_eq!(
+                        response.interact_rect.contains_rect(response.rect),
+                        width >= 240.0,
+                        "width={width} frame={frame} {response:?}"
+                    );
+                }
+            }
+        }
+    }
 }
