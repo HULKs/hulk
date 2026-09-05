@@ -11639,6 +11639,7 @@ dependencies = [
  "eframe",
  "egui_dock",
  "egui_extras",
+ "egui_plot",
  "geometry",
  "hsl_network_messages",
  "hulk_widgets",
