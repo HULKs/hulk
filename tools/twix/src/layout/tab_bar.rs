@@ -1,6 +1,6 @@
 use eframe::egui::{
-    Align2, Button, CornerRadius, FontId, Id, Popup, PopupCloseBehavior, Rect, Response, Sense,
-    StrokeKind, TextStyle, Ui, vec2,
+    Align2, Button, CornerRadius, FontId, Id, Popup, PopupCloseBehavior, Rect, Response, RichText,
+    Sense, StrokeKind, TextStyle, Ui, vec2,
 };
 use egui_material_icons::icons;
 use egui_tiles::{Behavior as _, TabState, TileId, Tiles};
@@ -262,7 +262,8 @@ fn panel_picker(
             |ui, highlighted, panel| {
                 let is_current = current == Some(*panel);
                 ui.add(
-                    Button::selectable(highlighted || is_current, panel.label())
+                    Button::selectable(highlighted, panel.label())
+                        .right_text(RichText::new(if is_current { "Current" } else { "" }).weak())
                         .min_size(vec2(ui.available_width(), 28.0)),
                 )
             },
