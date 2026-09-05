@@ -14,24 +14,24 @@ struct MatcherResources {
     buffer: Vec<char>,
 }
 
+// Reuse nucleo's roughly 135 KB scratch allocation across widgets.
 static MATCHER_RESOURCES: LazyLock<Mutex<MatcherResources>> =
     LazyLock::new(|| Mutex::new(MatcherResources::default()));
 
 pub(crate) fn fuzzy_matches<T: ToString>(query: &str, items: &[T]) -> Vec<(usize, String)> {
     let mut strings: Vec<_> = items.iter().map(ToString::to_string).collect();
     let mut matches = Vec::new();
-    fuzzy_match_indices(query, &strings, &mut matches, String::as_str);
+    fuzzy_match_indices(query, &strings, &mut matches);
     matches
         .into_iter()
         .map(|(_, index)| (index, std::mem::take(&mut strings[index])))
         .collect()
 }
 
-pub(crate) fn fuzzy_match_indices<T>(
+pub(crate) fn fuzzy_match_indices(
     query: &str,
-    items: &[T],
+    items: &[impl AsRef<str>],
     matches: &mut Vec<(u32, usize)>,
-    mut search_text: impl for<'a> FnMut(&'a T) -> &'a str,
 ) {
     matches.clear();
     let pattern = Pattern::parse(query, CaseMatching::Smart, Normalization::Smart);
@@ -40,23 +40,17 @@ pub(crate) fn fuzzy_match_indices<T>(
         return;
     }
 
-    let search_texts: Vec<_> = items.iter().map(&mut search_text).collect();
     {
         let mut resources = MATCHER_RESOURCES
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         let MatcherResources { matcher, buffer } = &mut *resources;
         buffer.clear();
-        matches.extend(
-            search_texts
-                .into_iter()
-                .enumerate()
-                .filter_map(|(index, search_text)| {
-                    pattern
-                        .score(Utf32Str::new(search_text, buffer), matcher)
-                        .map(|score| (score, index))
-                }),
-        );
+        matches.extend(items.iter().enumerate().filter_map(|(index, search_text)| {
+            pattern
+                .score(Utf32Str::new(search_text.as_ref(), buffer), matcher)
+                .map(|score| (score, index))
+        }));
     }
     matches.sort_by_key(|(score, _)| Reverse(*score));
 }
@@ -82,7 +76,7 @@ mod tests {
         let items = ["zzalpha", "unrelated", "alpha"];
         let mut matches = Vec::new();
 
-        fuzzy_match_indices("alpha", &items, &mut matches, |item| item);
+        fuzzy_match_indices("alpha", &items, &mut matches);
 
         assert_eq!(
             matches
@@ -90,28 +84,6 @@ mod tests {
                 .map(|(_, index)| index)
                 .collect::<Vec<_>>(),
             vec![2, 0]
-        );
-    }
-
-    #[test]
-    fn search_text_callback_can_reenter_fuzzy_matching() {
-        let items = ["alpha"];
-        let mut matches = Vec::new();
-
-        fuzzy_match_indices("alpha", &items, &mut matches, |item| {
-            assert_eq!(
-                fuzzy_matches("inner", &["inner"]),
-                [(0, "inner".to_owned())]
-            );
-            item
-        });
-
-        assert_eq!(
-            matches
-                .into_iter()
-                .map(|(_, index)| index)
-                .collect::<Vec<_>>(),
-            [0]
         );
     }
 }
