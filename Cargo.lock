@@ -12729,6 +12729,7 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "filtering",
+ "log",
  "ros-z",
  "rustfft",
  "serde",
