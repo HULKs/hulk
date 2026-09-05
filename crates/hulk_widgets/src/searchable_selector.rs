@@ -22,6 +22,30 @@ struct SelectorState {
     selection: SelectionListState,
     last_rendered_frame: Option<u64>,
     matches: Vec<(u32, usize)>,
+    matched_query: Option<String>,
+    search_texts: Vec<String>,
+}
+
+impl SelectorState {
+    fn update_matches<T>(
+        &mut self,
+        items: &[T],
+        search_text: impl for<'a> FnMut(&'a T) -> &'a str,
+        reset: bool,
+    ) -> bool {
+        let search_texts: Vec<_> = items.iter().map(search_text).collect();
+        if !reset
+            && self.matched_query.as_ref() == Some(&self.query)
+            && self.search_texts == search_texts
+        {
+            return false;
+        }
+
+        fuzzy_match_indices(&self.query, &search_texts, &mut self.matches);
+        self.matched_query = Some(self.query.clone());
+        self.search_texts = search_texts.into_iter().map(str::to_owned).collect();
+        true
+    }
 }
 
 impl<'a, T> SearchableSelector<'a, T> {
@@ -84,7 +108,7 @@ impl<'a, T> SearchableSelector<'a, T> {
             state.selection.clear();
         }
 
-        fuzzy_match_indices(&state.query, self.items, &mut state.matches, search_text);
+        state.update_matches(self.items, search_text, reappeared);
         state
             .selection
             .navigate(list_input, state.matches.len(), BoundaryBehavior::Wrap);
@@ -121,5 +145,48 @@ impl<'a, T> SearchableSelector<'a, T> {
         ui.ctx()
             .data_mut(|writer| writer.insert_temp(state_id, state));
         selected
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SelectorState;
+    use crate::matcher::fuzzy_matches;
+
+    #[test]
+    fn matches_only_recompute_when_inputs_change_or_reset() {
+        let mut state = SelectorState::default();
+        let mut calls = 0;
+        for expected_recompute in [true, false] {
+            assert_eq!(
+                state.update_matches(
+                    &["alpha", "beta"],
+                    |item| {
+                        calls += 1;
+                        assert_eq!(fuzzy_matches("inner", &["inner"]).len(), 1);
+                        *item
+                    },
+                    false,
+                ),
+                expected_recompute,
+            );
+        }
+        assert_eq!(calls, 4);
+        assert_eq!(state.matches, [(0, 0), (0, 1)]);
+
+        state.query = "alpha".to_owned();
+        assert!(state.update_matches(&["alpha", "beta"], |item| *item, false));
+        assert_eq!(state.matches.len(), 1);
+        assert_eq!(state.matches[0].1, 0);
+        assert!(!state.update_matches(&["alpha", "beta"], |item| *item, false));
+
+        assert!(state.update_matches(&["beta", "alpha"], |item| *item, false));
+        assert_eq!(state.matches[0].1, 1);
+        assert!(state.update_matches(&["beta", "gamma"], |item| *item, false));
+        assert!(state.matches.is_empty());
+        assert!(state.update_matches(&["beta", "gamma"], |item| *item, true));
+        assert!(state.update_matches(&["beta"], |item| *item, false));
+        assert!(state.update_matches(&[] as &[&str], |item| *item, false));
+        assert!(!state.update_matches(&[] as &[&str], |item| *item, false));
     }
 }
