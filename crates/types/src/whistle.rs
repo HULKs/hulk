@@ -23,15 +23,7 @@ pub struct DetectionInfo {
     pub upper_band_index: Option<usize>,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    ros_z::Message,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct AudioSpectrumBin {
     pub frequency: f32,
     pub magnitude: f32,

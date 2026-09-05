@@ -3,6 +3,7 @@ use std::{f32::consts::PI, sync::Arc};
 
 use color_eyre::Result;
 use filtering::statistics::{mean, standard_deviation};
+use log::warn;
 use rustfft::{
     Fft, FftPlanner,
     num_complex::{Complex32, ComplexFloat},
@@ -14,13 +15,8 @@ use ros_z::prelude::*;
 use types::{
     parameters::WhistleDetectionParameters,
     samples::Samples,
-    whistle::{DetectionInfo, Whistle},
+    whistle::{AudioSpectrum, AudioSpectrumBin, DetectionInfo, Whistle},
 };
-
-pub const AUDIO_SAMPLE_RATE: u32 = 16000;
-pub const NUMBER_OF_AUDIO_CHANNELS: usize = 6;
-pub const NUMBER_OF_AUDIO_SAMPLES: usize = 1024;
-const NUMBER_OF_FREQUENCY_SAMPLES: usize = NUMBER_OF_AUDIO_SAMPLES / 2;
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -34,10 +30,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<Samples>("inputs/microphones_samples")
         .build()
         .await?;
-    // let audio_spectrums_pub = node
-    //     .publisher::<Vec<AudioSpectrum>>("audio_spectrums")
-    //     .build()
-    //     .await?;
+    let audio_spectrums_pub = node
+        .publisher::<Vec<AudioSpectrum>>("audio_spectrums")
+        .build()
+        .await?;
     let detection_infos_pub = node
         .publisher::<Vec<DetectionInfo>>("detection_infos")
         .build()
@@ -47,12 +43,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    let mut whistle_detection = WhistleDetection::new()?;
+    let mut whistle_detection = WhistleDetection::new(parameters.snapshot().typed())?;
 
     loop {
         let samples = samples_sub.recv().await?;
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
+        let mut audio_spectrums = Vec::new();
 
         let (is_detected, detection_infos): (Vec<bool>, Vec<DetectionInfo>) =
             tokio::task::block_in_place(|| {
@@ -60,7 +57,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     .channels_of_samples
                     .iter()
                     .map(|buffer| {
-                        whistle_detection.is_whistle_detected_in_buffer(buffer, parameters)
+                        whistle_detection.is_whistle_detected_in_buffer(
+                            buffer,
+                            parameters,
+                            &mut audio_spectrums,
+                        )
                     })
                     .unzip()
             });
@@ -68,6 +69,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .publish(&Whistle { is_detected })
             .await?;
 
+        audio_spectrums_pub.publish(&audio_spectrums).await?;
         detection_infos_pub.publish(&detection_infos).await?;
     }
 }
@@ -78,9 +80,9 @@ pub struct WhistleDetection {
 }
 
 impl WhistleDetection {
-    pub fn new() -> Result<Self> {
+    pub fn new(detection_parameters: &WhistleDetectionParameters) -> Result<Self> {
         let mut planner = FftPlanner::new();
-        let fft = planner.plan_fft_forward(NUMBER_OF_AUDIO_SAMPLES);
+        let fft = planner.plan_fft_forward(detection_parameters.number_audio_samples);
         let scratch = vec![Complex32::zero(); fft.get_inplace_scratch_len()];
         Ok(Self { fft, scratch })
     }
@@ -89,13 +91,29 @@ impl WhistleDetection {
         &mut self,
         buffer: &[f32],
         detection_parameters: &WhistleDetectionParameters,
+        audio_spectrums: &mut Vec<AudioSpectrum>,
     ) -> (bool, DetectionInfo) {
-        let frequency_resolution = AUDIO_SAMPLE_RATE as f32 / NUMBER_OF_AUDIO_SAMPLES as f32;
+        let expected_samples = self.fft.len();
+        if buffer.len() != expected_samples
+            || detection_parameters.number_audio_samples != expected_samples
+        {
+            warn!(
+                "ignoring audio buffer with {} samples: FFT expects {} and number_audio_samples is {}",
+                buffer.len(),
+                expected_samples,
+                detection_parameters.number_audio_samples,
+            );
+            audio_spectrums.push(Vec::new());
+            return (false, DetectionInfo::default());
+        }
+
+        let frequency_resolution = detection_parameters.audio_sample_rate as f32
+            / detection_parameters.number_audio_samples as f32;
         let mut buffer: Vec<_> = buffer
             .iter()
             .enumerate()
             .map(|(i, &sample)| {
-                let hann = (PI * i as f32 / NUMBER_OF_AUDIO_SAMPLES as f32)
+                let hann = (PI * i as f32 / detection_parameters.number_audio_samples as f32)
                     .sin()
                     .powi(2);
                 Complex32::new(hann * sample, 0.0)
@@ -103,14 +121,27 @@ impl WhistleDetection {
             .collect();
         self.fft
             .process_with_scratch(&mut buffer, &mut self.scratch);
+
+        let number_frequency_samples = detection_parameters.number_audio_samples / 2;
         let absolute_values: Vec<_> = buffer
             .iter()
-            .take(NUMBER_OF_FREQUENCY_SAMPLES)
+            .take(number_frequency_samples)
             .map(|sample| {
-                let normalized_sample = sample * 1.0 / (NUMBER_OF_FREQUENCY_SAMPLES as f32).sqrt();
+                let normalized_sample = sample * 1.0 / (number_frequency_samples as f32).sqrt();
                 normalized_sample.abs()
             })
             .collect();
+
+        let spectrum: AudioSpectrum = absolute_values
+            .iter()
+            .enumerate()
+            .map(|(i, &magnitude)| AudioSpectrumBin {
+                frequency: i as f32 * frequency_resolution,
+                magnitude,
+            })
+            .collect();
+
+        audio_spectrums.push(spectrum);
 
         let (detected, detection_info) =
             spectrum_contains_whistle(&absolute_values, detection_parameters, frequency_resolution);
@@ -123,19 +154,16 @@ fn spectrum_contains_whistle(
     detection_parameters: &WhistleDetectionParameters,
     frequency_resolution: f32,
 ) -> (bool, DetectionInfo) {
-    let WhistleDetectionParameters {
-        detection_band,
-        background_noise_scaling,
-        whistle_scaling,
-        number_of_chunks,
-    } = detection_parameters;
     let overall_mean = mean(absolute_values);
     let overall_standard_deviation = standard_deviation(absolute_values, overall_mean);
     let background_noise_threshold =
-        overall_mean + background_noise_scaling * overall_standard_deviation;
-    let whistle_threshold = overall_mean + whistle_scaling * overall_standard_deviation;
-    let min_frequency_index = (detection_band.start / frequency_resolution).ceil() as usize;
-    let max_frequency_index = (detection_band.end / frequency_resolution).ceil() as usize;
+        overall_mean + detection_parameters.background_noise_scaling * overall_standard_deviation;
+    let whistle_threshold =
+        overall_mean + detection_parameters.whistle_scaling * overall_standard_deviation;
+    let min_frequency_index =
+        (detection_parameters.detection_band.start / frequency_resolution).ceil() as usize;
+    let max_frequency_index =
+        (detection_parameters.detection_band.end / frequency_resolution).ceil() as usize;
     let band_size = max_frequency_index - min_frequency_index;
     let band_values: Vec<_> = absolute_values
         .iter()
@@ -144,7 +172,7 @@ fn spectrum_contains_whistle(
         .cloned()
         .collect();
     let band_mean = mean(&band_values);
-    let chunk_size = band_size / number_of_chunks;
+    let chunk_size = band_size / detection_parameters.number_of_chunks;
     let mut detection_info = DetectionInfo {
         overall_mean,
         std_deviation: overall_standard_deviation,
