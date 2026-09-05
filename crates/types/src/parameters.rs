@@ -25,6 +25,9 @@ pub struct WhistleDetectionParameters {
     pub background_noise_scaling: f32,
     pub whistle_scaling: f32,
     pub number_of_chunks: usize,
+    pub audio_sample_rate: u32,
+    pub number_audio_channels: usize,
+    pub number_audio_samples: usize,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Message)]

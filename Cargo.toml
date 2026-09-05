@@ -261,6 +261,7 @@ ros-z-schema = { path = "crates/ros-z-schema" }
 ros-z-streams = { path = "crates/ros-z-streams" }
 ros2 = { path = "crates/ros2" }
 rule_obstacle_composer = { path = "crates/nodes/rule_obstacle_composer" }
+rustfft = "6.4.1"
 safe_pose_checker = { path = "crates/nodes/safe_pose_checker" }
 scenario = { path = "crates/scenario" }
 search_suggestor = { path = "crates/nodes/search_suggestor" }
