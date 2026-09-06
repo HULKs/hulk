@@ -22,11 +22,11 @@ impl SelectablePanel {
     }
 
     pub(super) fn text(backend: &Arc<RobotBackend>, egui_context: &Context) -> Self {
-        Self::TextPanel(TextPanel::new(panel_creation_context(
+        Self::TextPanel(Box::new(TextPanel::new(panel_creation_context(
             backend,
             None,
             egui_context,
-        )))
+        ))))
     }
 }
 
