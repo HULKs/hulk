@@ -79,8 +79,8 @@
 
       devShells.${system}.default = craneLibrary.devShell {
         inputsFrom = [ pepsi twix rosz ];
-        packages = with pkgs; [ rust-analyzer rsync openssh ];
-        env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath guiLibraries;
+        packages = with pkgs; [ rust-analyzer rsync openssh systemd.dev ];
+        env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (guiLibraries ++ [ pkgs.systemd ]);
       };
     };
 }

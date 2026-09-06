@@ -316,14 +316,8 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_robot()?
-        .arg("sudo systemctl restart hulk-runtime.service")
-        .ssh_with_log("recreating hulk runtime container", &progress_bar)
-        .await?;
-
-    robot
-        .ssh_to_robot()?
-        .arg("sudo systemctl enable hulk && sudo systemctl start hulk")
-        .ssh_with_log("enabling and starting hulk", &progress_bar)
+        .arg("sudo systemctl enable hulk && sudo systemctl stop hulk && sudo systemctl restart hulk-runtime && sudo systemctl start hulk")
+        .ssh_with_log("enabling and restarting hulk and its runtime", &progress_bar)
         .await?;
 
     robot
