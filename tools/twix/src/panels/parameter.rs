@@ -205,7 +205,7 @@ impl Panel for ParameterPanel {
         }
     }
 
-    fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
+    fn header_ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
         self.drain_remote_results(&context);
         self.ensure_event_subscription(&context);
 
@@ -225,33 +225,44 @@ impl Panel for ParameterPanel {
             .unwrap_or_default();
 
         ui.vertical(|ui| {
+            ui.spacing_mut().text_edit_width = ui
+                .spacing()
+                .text_edit_width
+                .min(((ui.available_width() - 120.0) / 2.0).max(0.0));
             ui.add_enabled_ui(self.can_edit_selectors(), |ui| {
-                ui.horizontal(|ui| {
-                    ui.label("Node");
-                    let node_response = ui.add(CompletionEdit::new(
-                        ui.id().with("parameter_node"),
-                        &nodes,
-                        &mut self.node_editor,
-                    ));
-                    if (node_response.changed() || node_response.lost_focus())
-                        && self.commit_node(&service_names, &namespace)
-                    {
-                        self.spawn_snapshot_fetch(&context, SnapshotRequestKind::Auto);
-                    }
+                ui.horizontal_wrapped(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Node");
+                        let node_response = ui.add(CompletionEdit::new(
+                            ui.id().with("parameter_node"),
+                            &nodes,
+                            &mut self.node_editor,
+                        ));
+                        if (node_response.changed() || node_response.lost_focus())
+                            && self.commit_node(&service_names, &namespace)
+                        {
+                            self.spawn_snapshot_fetch(&context, SnapshotRequestKind::Auto);
+                        }
+                    });
 
-                    ui.label("Path");
-                    let path_response = ui.add(CompletionEdit::new(
-                        ui.id().with("parameter_path"),
-                        &path_completions,
-                        &mut self.path_editor,
-                    ));
-                    if (path_response.changed() || path_response.lost_focus()) && self.commit_path()
-                    {
-                        self.spawn_value_fetch(&context);
-                    }
+                    ui.horizontal(|ui| {
+                        ui.label("Path");
+                        let path_response = ui.add(CompletionEdit::new(
+                            ui.id().with("parameter_path"),
+                            &path_completions,
+                            &mut self.path_editor,
+                        ));
+                        if (path_response.changed() || path_response.lost_focus())
+                            && self.commit_path()
+                        {
+                            self.spawn_value_fetch(&context);
+                        }
+                    });
                 });
+            });
 
-                ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.add_enabled_ui(self.can_edit_selectors(), |ui| {
                     ui.label("Layer");
                     let layer_response = ui.add(CompletionEdit::new(
                         ui.id().with("parameter_layer"),
@@ -262,9 +273,6 @@ impl Panel for ParameterPanel {
                         self.commit_layer();
                     }
                 });
-            });
-
-            ui.horizontal(|ui| {
                 ui.add_enabled_ui(self.can_start_remote_operation(), |ui| {
                     if ui.button("Refresh").clicked() {
                         match self.validate_node_for_remote_action(&service_names, &namespace) {
@@ -295,7 +303,20 @@ impl Panel for ParameterPanel {
                     }
                 });
             });
+        });
+    }
 
+    fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
+        let nodes = {
+            let graph = context.backend.graph().lock();
+            parameter_node_completions(
+                graph.services().map(|service| &service.topic),
+                &context.backend.namespace(),
+                &self.node_editor,
+            )
+        };
+
+        ui.vertical(|ui| {
             if nodes.is_empty() {
                 ui.label("No parameter-capable nodes visible yet.");
             }
@@ -1159,6 +1180,82 @@ mod tests {
 
     fn snapshot_response(layers: &[&str]) -> ros_z::parameter::GetNodeParametersSnapshotResponse {
         snapshot_response_with_value_json(layers, "{}")
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn header_contains_controls_and_drains_results_before_body() {
+        use std::sync::Arc;
+
+        use eframe::egui::{CentralPanel, Context, RawInput, Rect, epaint::Shape, vec2};
+
+        use crate::{backend::RobotBackend, panel::PanelUiContext};
+
+        let backend = Arc::new(
+            RobotBackend::new(tokio::runtime::Handle::current(), None, "/".into())
+                .await
+                .unwrap(),
+        );
+        for width in [240.0, 800.0] {
+            let context = Context::default();
+            let mut panel = ParameterPanel::default();
+            panel.remote.pending_count = 1;
+            panel
+                .remote
+                .sender
+                .send(RemoteOperationResult::Snapshot {
+                    request: SnapshotRequest {
+                        node: String::new(),
+                        kind: SnapshotRequestKind::Manual,
+                    },
+                    result: Err("snapshot failed".into()),
+                })
+                .unwrap();
+
+            for header in [true, false] {
+                let output = context.run_ui(
+                    RawInput {
+                        screen_rect: Some(Rect::from_min_size(
+                            Default::default(),
+                            vec2(width, 600.0),
+                        )),
+                        ..Default::default()
+                    },
+                    |ui| {
+                        CentralPanel::default().show(ui, |ui| {
+                            let panel_context = PanelUiContext {
+                                backend: &backend,
+                                egui_context: &context,
+                            };
+                            if header {
+                                let available_width = ui.available_width();
+                                let response =
+                                    ui.horizontal(|ui| panel.header_ui(ui, panel_context));
+                                assert!(
+                                    response.response.rect.width() <= available_width + 1.0,
+                                    "width={width}, available={available_width}, actual={:?}",
+                                    response.response.rect
+                                );
+                            } else {
+                                panel.ui(ui, panel_context);
+                            }
+                        });
+                    },
+                );
+                let labels: Vec<_> = output
+                    .shapes
+                    .iter()
+                    .filter_map(|shape| match &shape.shape {
+                        Shape::Text(text) => Some(text.galley.text()),
+                        _ => None,
+                    })
+                    .collect();
+                for label in ["Node", "Path", "Layer", "Refresh", "Set"] {
+                    assert_eq!(labels.contains(&label), header, "{label}: {labels:?}");
+                }
+                assert_eq!(labels.contains(&"snapshot failed"), !header);
+                assert_eq!(panel.remote.pending_count, 0);
+            }
+        }
     }
 
     fn snapshot_response_with_value_json(
