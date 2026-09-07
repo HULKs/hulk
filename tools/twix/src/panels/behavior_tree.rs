@@ -20,6 +20,7 @@ pub struct BehaviorTreePanel {
 impl Panel for BehaviorTreePanel {
     const STORAGE_ID: &'static str = "behavior_tree";
     const DISPLAY_NAME: &'static str = "Behavior Tree";
+    const ICON: &'static str = egui_material_icons::icons::ICON_FAMILY_HISTORY.codepoint;
 
     fn new(context: PanelCreationContext<'_>) -> Self {
         let runtime_handle = context.backend.runtime_handle().clone();
