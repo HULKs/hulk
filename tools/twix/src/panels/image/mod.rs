@@ -385,7 +385,7 @@ mod tests {
 
     use eframe::egui::Color32;
     use eframe::egui::Context as EguiContext;
-    use ros_z::{context::ContextBuilder, time::Time};
+    use ros_z::context::ContextBuilder;
     use ros_z_debug::{TopicObserver, TopicObserverOptions};
     use ros2::{sensor_msgs::image::Image as RosImage, std_msgs::header::Header};
     use serde_json::json;
@@ -394,7 +394,7 @@ mod tests {
 
     use super::{
         DEFAULT_IMAGE_TOPIC, ImageDecodeError, ImageOverlays, ImagePanel, ObservationState,
-        RenderedImageCache, decode_color_image, format_image_time,
+        RenderedImageCache, decode_color_image,
     };
     use crate::panel::Panel;
 
@@ -435,23 +435,6 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn image_timestamp_formats_wallclock_in_utc() {
-        assert_eq!(
-            format_image_time(Time::from_nanos(1_783_512_245_123_456_789)),
-            "2026-07-08 12:04:05.123 UTC"
-        );
-    }
-
-    #[test]
-    fn image_timestamp_preserves_simulation_time() {
-        assert_eq!(format_image_time(Time::zero()), "0.000000000 s");
-        assert_eq!(
-            format_image_time(Time::from_nanos(12_345_678_901)),
-            "12.345678901 s"
-        );
-    }
-
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn render_cache_decodes_new_rgb8_sample() {
         let context = EguiContext::default();
@@ -477,9 +460,7 @@ mod tests {
             .unwrap()
             .spawn();
         let mut cache = RenderedImageCache::new("test-image-cache");
-        let mut image = rgb8_image(2, 1, vec![255, 0, 0, 0, 255, 0]);
-        image.header.stamp.sec = 12;
-        image.header.stamp.nanosec = 345_678_901;
+        let image = rgb8_image(2, 1, vec![255, 0, 0, 0, 255, 0]);
 
         tokio::time::timeout(Duration::from_secs(3), async {
             while observation.latest().is_none() {
@@ -495,12 +476,6 @@ mod tests {
         assert_eq!(cache.dimensions(), Some([2, 1]));
         assert!(cache.texture().is_some());
         assert!(cache.error().is_none());
-        assert_eq!(cache.timestamp.as_deref(), Some("12.345678901 s"));
-
-        cache.refresh_sample(&context, None);
-        assert!(!cache.has_sample());
-        assert!(cache.texture().is_none());
-        assert!(cache.timestamp.is_none());
     }
 
     #[test]
