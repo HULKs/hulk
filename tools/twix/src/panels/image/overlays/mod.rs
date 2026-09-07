@@ -3,7 +3,6 @@ mod field_border;
 mod horizon;
 mod line_detection;
 mod object_detection;
-mod pose;
 mod pose_detection;
 mod prediction_colors;
 
