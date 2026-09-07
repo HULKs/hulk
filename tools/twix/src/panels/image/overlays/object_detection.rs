@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use color_eyre::Report;
 use coordinate_systems::Pixel;
-use eframe::egui::{Align2, Color32, Stroke};
+use eframe::egui::{DragValue, Ui};
 use ros_z::time::Time;
 use ros_z_debug::{SampleRecord, query::plan::Selection};
 use twix_visualization::twix_painter::TwixPainter;
@@ -16,9 +16,20 @@ use super::super::{
     inputs::{OverlayInput, OverlayInputs},
 };
 
-#[derive(Default)]
+use super::prediction_colors;
+
 pub(in crate::panels::image) struct ObjectDetectionOverlay {
+    confidence_threshold: f32,
     sample: Option<Arc<SampleRecord<Detections>>>,
+}
+
+impl Default for ObjectDetectionOverlay {
+    fn default() -> Self {
+        Self {
+            confidence_threshold: 0.5,
+            sample: None,
+        }
+    }
 }
 
 type Detections = TimeWrapper<Vec<Object<RobocupObjectLabel>>>;
@@ -36,39 +47,48 @@ impl ImageOverlay for ObjectDetectionOverlay {
         Ok(())
     }
 
+    fn ui(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            ui.label("Confidence");
+            ui.add(
+                DragValue::new(&mut self.confidence_threshold)
+                    .range(0.0..=1.0)
+                    .speed(0.01)
+                    .fixed_decimals(2),
+            );
+        });
+    }
+
+    fn reset_settings(&mut self) {
+        *self = Self::default();
+    }
+
     fn paint(&self, painter: &TwixPainter<Pixel>) {
         let Some(object_detections) = &self.sample else {
             return;
         };
-        paint_bounding_boxes(painter, &object_detections.value.inner, Color32::LIGHT_RED);
+        paint_bounding_boxes(
+            painter,
+            &object_detections.value.inner,
+            self.confidence_threshold,
+        );
     }
 }
 
 fn paint_bounding_boxes(
     painter: &TwixPainter<Pixel>,
     detections: &[Object<RobocupObjectLabel>],
-    line_color: Color32,
+    confidence_threshold: f32,
 ) {
     for detection in detections {
         let bounding_box = detection.bounding_box;
-        painter.rect_stroke(
-            bounding_box.area.min,
-            bounding_box.area.max,
-            Stroke::new(1.0, line_color),
-        );
-        painter.floating_text(
-            bounding_box.area.min,
-            Align2::RIGHT_BOTTOM,
-            format!("{:.2}", bounding_box.confidence),
-            eframe::egui::FontId::default(),
-            Color32::WHITE,
-        );
-        painter.floating_text(
-            bounding_box.area.max,
-            Align2::RIGHT_TOP,
+        if bounding_box.confidence < confidence_threshold {
+            continue;
+        }
+        painter.detection_box(
+            bounding_box,
             detection.label.into(),
-            eframe::egui::FontId::default(),
-            Color32::WHITE,
+            prediction_colors::robocup_object(detection.label),
         );
     }
 }
