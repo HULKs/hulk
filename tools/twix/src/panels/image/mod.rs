@@ -1,20 +1,18 @@
 use std::{sync::Arc, time::Duration};
 
-use color_eyre::{Report, eyre::Context as _};
+use chrono::{DateTime, Utc};
 use coordinate_systems::Pixel;
+use linear_algebra::{point, vector};
+use twix_visualization::{twix_painter::{Orientation, TwixPainter}, zoom_and_pan::ZoomAndPanTransform};
+use color_eyre::{Report, eyre::Context as _};
 use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui};
 use hulk_widgets::CompletionEdit;
 use image::RgbImage;
-use linear_algebra::{point, vector};
 use ros_z::{Message, entity::EndpointKind, time::Time};
 use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
 use ros2::sensor_msgs::image::Image as RosImage;
 use serde_json::{Value, json};
 use thiserror::Error;
-use twix_visualization::{
-    twix_painter::{Orientation, TwixPainter},
-    zoom_and_pan::ZoomAndPanTransform,
-};
 use uuid::Uuid;
 
 use crate::{
@@ -23,7 +21,7 @@ use crate::{
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
 };
 
-use self::image_overlay::ImageOverlays;
+use self::image_overlay::{ImageOverlayPainter, ImageOverlays};
 
 mod image_overlay;
 mod overlays;
@@ -106,27 +104,42 @@ impl Panel for ImagePanel {
     }
 
     fn header_ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
-        self.overlays.ui(ui, &context);
-        ui.label("Topic");
-        let namespace = context.backend.namespace();
-        let completions = {
-            let graph = context.backend.graph().lock();
-            TopicCompletionQuery::new(&namespace, &self.topic_editor)
-                .endpoint_kind(EndpointKind::Publisher)
-                .type_name(RosImage::type_name())
-                .complete(graph.publishers())
-        };
-        let response = ui.add(CompletionEdit::new(
-            ui.id().with("image_topic"),
-            &completions,
-            &mut self.topic_editor,
-        ));
-        if response.changed() {
-            self.commit_topic(&context);
-        }
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Topic");
+            let namespace = context.backend.namespace();
+            let completions = {
+                let graph = context.backend.graph().lock();
+                TopicCompletionQuery::new(&namespace, &self.topic_editor)
+                    .endpoint_kind(EndpointKind::Publisher)
+                    .type_name(RosImage::type_name())
+                    .complete(graph.publishers())
+            };
+            let response = ui.add(CompletionEdit::new(
+                ui.id().with("image_topic"),
+                &completions,
+                &mut self.topic_editor,
+            ));
+            if response.changed() {
+                self.commit_topic(&context);
+            }
+            self.overlays.ui(ui, &context);
+            ui.label(RosImage::type_name())
+                .on_hover_text("Subscribed image type");
+            if let ObservationState::Observing(observed) = &mut self.observation {
+                observed.render_cache.refresh(
+                    context.egui_context,
+                    &observed.observation,
+                    self.overlays.preferred_image_time(),
+                );
+                if let Some(timestamp) = &observed.render_cache.timestamp {
+                    ui.label(timestamp)
+                        .on_hover_text("Timestamp from the displayed image's header");
+                }
+            }
+        });
     }
 
-    fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
+    fn ui(&mut self, ui: &mut Ui, _context: PanelUiContext<'_>) {
         if self.topic.is_empty() {
             ui.label("Enter an image topic.");
             return;
@@ -140,15 +153,10 @@ impl Panel for ImagePanel {
                 ui.colored_label(ui.visuals().error_fg_color, error);
             }
             ObservationState::Observing(observed) => {
-                let preferred_image_time = self.overlays.preferred_image_time();
-                if let Some(time) = preferred_image_time {
-                    ui.label(time.as_nanos().to_string());
+                if !observed.render_cache.has_sample() {
+                    ui.label("Waiting for first sample.");
+                    return;
                 }
-                observed.render_cache.refresh(
-                    context.egui_context,
-                    &observed.observation,
-                    preferred_image_time,
-                );
 
                 if let Some(error) = observed.render_cache.error() {
                     ui.colored_label(ui.visuals().error_fg_color, error);
@@ -175,8 +183,13 @@ impl Panel for ImagePanel {
                         max: point![width as f32, height as f32],
                     },
                 );
-                self.overlays.paint(
+                let overlay_painter = ImageOverlayPainter::new(
+                    ui.painter_at(response.rect),
                     &painter,
+                    [width, height],
+                );
+                self.overlays.paint(
+                    &overlay_painter,
                     observed
                         .render_cache
                         .image_time()
@@ -244,6 +257,7 @@ impl ImagePanel {
 
 struct RenderedImageCache {
     sample: Option<Arc<SampleRecord<RosImage>>>,
+    timestamp: Option<String>,
     texture: Option<TextureHandle>,
     dimensions: Option<[usize; 2]>,
     error: Option<String>,
@@ -258,6 +272,7 @@ impl RenderedImageCache {
     fn new(texture_name: impl Into<String>) -> Self {
         Self {
             sample: None,
+            timestamp: None,
             texture: None,
             dimensions: None,
             error: None,
@@ -287,6 +302,7 @@ impl RenderedImageCache {
         }
 
         self.sample = sample;
+        self.timestamp = None;
         self.texture = None;
         self.dimensions = None;
         self.error = None;
@@ -295,6 +311,7 @@ impl RenderedImageCache {
             return;
         };
 
+        self.timestamp = Some(format_image_time(image_time(&record.value)));
         match decode_color_image(&record.value) {
             Ok(image) => {
                 self.dimensions = Some(image.size);
@@ -308,6 +325,10 @@ impl RenderedImageCache {
                 self.error = Some(error.to_string());
             }
         }
+    }
+
+    fn has_sample(&self) -> bool {
+        self.sample.is_some()
     }
 
     fn texture(&self) -> Option<&TextureHandle> {
@@ -370,6 +391,20 @@ fn create_observation(
         .spawn();
     let repaint = observation.repaint_on_updates(context);
     Ok((observation, repaint))
+}
+
+fn format_image_time(time: Time) -> String {
+    let nanos = time.as_nanos();
+    // ROS image stamps can use a simulation timeline. Do not turn small values
+    // into misleading dates in 1970. Calendar timestamps use an explicit timezone.
+    const UNIX_2000_NANOS: i64 = 946_684_800_000_000_000;
+    if nanos >= UNIX_2000_NANOS {
+        DateTime::<Utc>::from_timestamp_nanos(nanos)
+            .format("%Y-%m-%d %H:%M:%S%.3f UTC")
+            .to_string()
+    } else {
+        format!("{}.{:09} s", nanos / 1_000_000_000, nanos % 1_000_000_000)
+    }
 }
 
 #[cfg(test)]
