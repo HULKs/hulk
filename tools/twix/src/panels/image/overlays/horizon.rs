@@ -30,7 +30,12 @@ impl ImageOverlay for HorizonOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter, image_time: Time) {
+    fn paint(
+        &self,
+        painter: &ImageOverlayPainter,
+        image_time: Time,
+        _confidence_thresholds: &[f32],
+    ) {
         let Some(camera_matrix) = self
             .camera_matrix
             .nearest_to_time(image_time, CAMERA_MATRIX_ALIGNMENT_TOLERANCE)

@@ -36,7 +36,12 @@ impl ImageOverlay for LineDetectionOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter, _image_time: Time) {
+    fn paint(
+        &self,
+        painter: &ImageOverlayPainter,
+        _image_time: Time,
+        _confidence_thresholds: &[f32],
+    ) {
         let (Some(lines), Some(discarded_lines), Some(filtered_segments)) = (
             self.lines_in_image.latest(),
             self.discarded_lines.latest(),

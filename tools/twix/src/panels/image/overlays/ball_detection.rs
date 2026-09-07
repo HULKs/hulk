@@ -28,7 +28,12 @@ impl ImageOverlay for BallDetectionOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter, _image_time: Time) {
+    fn paint(
+        &self,
+        painter: &ImageOverlayPainter,
+        _image_time: Time,
+        _confidence_thresholds: &[f32],
+    ) {
         let Some(filtered_balls) = self.filtered_balls.latest() else {
             return;
         };

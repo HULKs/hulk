@@ -1,11 +1,12 @@
 use std::{sync::Arc, time::Duration};
 
+use chrono::{DateTime, Utc};
 use color_eyre::{Report, eyre::Context as _};
 use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui, load::SizedTexture};
 use hulk_widgets::CompletionEdit;
 use image::RgbImage;
-use ros_z::{Message, entity::EndpointKind, pubsub::PublicationId, time::Time};
-use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation, TopicObservationStatus};
+use ros_z::{Message, entity::EndpointKind, time::Time};
+use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
 use ros2::sensor_msgs::image::Image as RosImage;
 use serde_json::{Value, json};
 use thiserror::Error;
@@ -15,7 +16,6 @@ use crate::{
     graph::TopicCompletionQuery,
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
-    status::format_topic_observation_status,
 };
 
 use self::image_overlay::{ImageOverlayPainter, ImageOverlays};
@@ -68,15 +68,6 @@ struct ObservedImage {
     render_cache: RenderedImageCache,
 }
 
-struct RenderedMetadata {
-    resolved_topic: String,
-    type_name: String,
-    source_time: String,
-    transport_time: String,
-    publication_id: String,
-    image_time: String,
-}
-
 impl Panel for ImagePanel {
     const STORAGE_ID: &'static str = "image";
     const DISPLAY_NAME: &'static str = "Image";
@@ -104,27 +95,42 @@ impl Panel for ImagePanel {
     }
 
     fn header_ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
-        self.overlays.ui(ui, &context);
-        ui.label("Topic");
-        let namespace = context.backend.namespace();
-        let completions = {
-            let graph = context.backend.graph().lock();
-            TopicCompletionQuery::new(&namespace, &self.topic_editor)
-                .endpoint_kind(EndpointKind::Publisher)
-                .type_name(RosImage::type_name())
-                .complete(graph.publishers())
-        };
-        let response = ui.add(CompletionEdit::new(
-            ui.id().with("image_topic"),
-            &completions,
-            &mut self.topic_editor,
-        ));
-        if response.changed() {
-            self.commit_topic(&context);
-        }
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Topic");
+            let namespace = context.backend.namespace();
+            let completions = {
+                let graph = context.backend.graph().lock();
+                TopicCompletionQuery::new(&namespace, &self.topic_editor)
+                    .endpoint_kind(EndpointKind::Publisher)
+                    .type_name(RosImage::type_name())
+                    .complete(graph.publishers())
+            };
+            let response = ui.add(CompletionEdit::new(
+                ui.id().with("image_topic"),
+                &completions,
+                &mut self.topic_editor,
+            ));
+            if response.changed() {
+                self.commit_topic(&context);
+            }
+            self.overlays.ui(ui, &context);
+            ui.label(RosImage::type_name())
+                .on_hover_text("Subscribed image type");
+            if let ObservationState::Observing(observed) = &mut self.observation {
+                observed.render_cache.refresh(
+                    context.egui_context,
+                    &observed.observation,
+                    self.overlays.preferred_image_time(),
+                );
+                if let Some(timestamp) = &observed.render_cache.timestamp {
+                    ui.label(timestamp)
+                        .on_hover_text("Timestamp from the displayed image's header");
+                }
+            }
+        });
     }
 
-    fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
+    fn ui(&mut self, ui: &mut Ui, _context: PanelUiContext<'_>) {
         if self.topic.is_empty() {
             ui.label("Enter an image topic.");
             return;
@@ -138,20 +144,10 @@ impl Panel for ImagePanel {
                 ui.colored_label(ui.visuals().error_fg_color, error);
             }
             ObservationState::Observing(observed) => {
-                Self::render_status(ui, observed.observation.status());
-                let preferred_image_time = self.overlays.preferred_image_time();
-                observed.render_cache.refresh(
-                    context.egui_context,
-                    &observed.observation,
-                    preferred_image_time,
-                );
-
-                let Some(metadata) = observed.render_cache.metadata() else {
+                if !observed.render_cache.has_sample() {
                     ui.label("Waiting for first sample.");
                     return;
-                };
-                Self::render_metadata(ui, metadata);
-                ui.separator();
+                }
 
                 if let Some(error) = observed.render_cache.error() {
                     ui.colored_label(ui.visuals().error_fg_color, error);
@@ -229,40 +225,11 @@ impl ImagePanel {
         self.topic = next_topic;
         self.recreate_observation(context);
     }
-
-    fn render_metadata(ui: &mut Ui, metadata: &RenderedMetadata) {
-        ui.horizontal_wrapped(|ui| {
-            ui.label("topic:");
-            ui.monospace(&metadata.resolved_topic);
-            ui.separator();
-            ui.label("type:");
-            ui.monospace(&metadata.type_name);
-            ui.separator();
-            ui.label("source:");
-            ui.monospace(&metadata.source_time);
-            ui.separator();
-            ui.label("transport:");
-            ui.monospace(&metadata.transport_time);
-            ui.separator();
-            ui.label("publication:");
-            ui.monospace(&metadata.publication_id);
-            ui.separator();
-            ui.label("image:");
-            ui.monospace(&metadata.image_time);
-        });
-    }
-
-    fn render_status(ui: &mut Ui, status: TopicObservationStatus) {
-        ui.horizontal_wrapped(|ui| {
-            ui.label("status:");
-            ui.monospace(format_topic_observation_status(status));
-        });
-    }
 }
 
 struct RenderedImageCache {
     sample: Option<Arc<SampleRecord<RosImage>>>,
-    metadata: Option<RenderedMetadata>,
+    timestamp: Option<String>,
     texture: Option<TextureHandle>,
     dimensions: Option<[usize; 2]>,
     error: Option<String>,
@@ -277,7 +244,7 @@ impl RenderedImageCache {
     fn new(texture_name: impl Into<String>) -> Self {
         Self {
             sample: None,
-            metadata: None,
+            timestamp: None,
             texture: None,
             dimensions: None,
             error: None,
@@ -307,7 +274,7 @@ impl RenderedImageCache {
         }
 
         self.sample = sample;
-        self.metadata = None;
+        self.timestamp = None;
         self.texture = None;
         self.dimensions = None;
         self.error = None;
@@ -316,7 +283,7 @@ impl RenderedImageCache {
             return;
         };
 
-        self.metadata = Some(RenderedMetadata::from(record.as_ref()));
+        self.timestamp = Some(format_image_time(image_time(&record.value)));
         match decode_color_image(&record.value) {
             Ok(image) => {
                 self.dimensions = Some(image.size);
@@ -332,8 +299,8 @@ impl RenderedImageCache {
         }
     }
 
-    fn metadata(&self) -> Option<&RenderedMetadata> {
-        self.metadata.as_ref()
+    fn has_sample(&self) -> bool {
+        self.sample.is_some()
     }
 
     fn texture(&self) -> Option<&TextureHandle> {
@@ -361,22 +328,6 @@ fn same_sample(
         (Some(current), Some(next)) => Arc::ptr_eq(current, next),
         (None, None) => true,
         _ => false,
-    }
-}
-
-impl From<&SampleRecord<RosImage>> for RenderedMetadata {
-    fn from(record: &SampleRecord<RosImage>) -> Self {
-        Self {
-            resolved_topic: record.metadata.resolved_topic.clone(),
-            type_name: record.metadata.type_info.name.to_string(),
-            source_time: format_time(record.source_time),
-            transport_time: record
-                .transport_time
-                .map(format_time)
-                .unwrap_or_else(|| "none".to_string()),
-            publication_id: format_publication_id(record.publication_id),
-            image_time: format_time(image_time(&record.value)),
-        }
     }
 }
 
@@ -414,12 +365,18 @@ fn create_observation(
     Ok((observation, repaint))
 }
 
-fn format_time(time: Time) -> String {
-    format!("{} ns", time.as_nanos())
-}
-
-fn format_publication_id(publication_id: PublicationId) -> String {
-    format!("{publication_id:#}")
+fn format_image_time(time: Time) -> String {
+    let nanos = time.as_nanos();
+    // ROS image stamps can use a simulation timeline. Do not turn small values
+    // into misleading dates in 1970. Calendar timestamps use an explicit timezone.
+    const UNIX_2000_NANOS: i64 = 946_684_800_000_000_000;
+    if nanos >= UNIX_2000_NANOS {
+        DateTime::<Utc>::from_timestamp_nanos(nanos)
+            .format("%Y-%m-%d %H:%M:%S%.3f UTC")
+            .to_string()
+    } else {
+        format!("{}.{:09} s", nanos / 1_000_000_000, nanos % 1_000_000_000)
+    }
 }
 
 #[cfg(test)]
@@ -428,7 +385,7 @@ mod tests {
 
     use eframe::egui::Color32;
     use eframe::egui::Context as EguiContext;
-    use ros_z::{EndpointGlobalId, context::ContextBuilder, pubsub::Received, time::Time};
+    use ros_z::{context::ContextBuilder, time::Time};
     use ros_z_debug::{TopicObserver, TopicObserverOptions};
     use ros2::{sensor_msgs::image::Image as RosImage, std_msgs::header::Header};
     use serde_json::json;
@@ -437,22 +394,9 @@ mod tests {
 
     use super::{
         DEFAULT_IMAGE_TOPIC, ImageDecodeError, ImageOverlays, ImagePanel, ObservationState,
-        RenderedImageCache, decode_color_image, format_publication_id,
+        RenderedImageCache, decode_color_image, format_image_time,
     };
     use crate::panel::Panel;
-
-    fn publication_id() -> ros_z::pubsub::PublicationId {
-        Received {
-            message: (),
-            transport_time: None,
-            source_time: Time::zero(),
-            sequence_number: 42,
-            source_global_id: EndpointGlobalId::from([
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-            ]),
-        }
-        .publication_id()
-    }
 
     fn rgb8_image(width: u32, height: u32, data: Vec<u8>) -> RosImage {
         RosImage {
@@ -492,10 +436,19 @@ mod tests {
     }
 
     #[test]
-    fn metadata_formats_compact_publication_id() {
+    fn image_timestamp_formats_wallclock_in_utc() {
         assert_eq!(
-            format_publication_id(publication_id()),
-            "01020304…0d0e0f10#42"
+            format_image_time(Time::from_nanos(1_783_512_245_123_456_789)),
+            "2026-07-08 12:04:05.123 UTC"
+        );
+    }
+
+    #[test]
+    fn image_timestamp_preserves_simulation_time() {
+        assert_eq!(format_image_time(Time::zero()), "0.000000000 s");
+        assert_eq!(
+            format_image_time(Time::from_nanos(12_345_678_901)),
+            "12.345678901 s"
         );
     }
 
@@ -524,7 +477,9 @@ mod tests {
             .unwrap()
             .spawn();
         let mut cache = RenderedImageCache::new("test-image-cache");
-        let image = rgb8_image(2, 1, vec![255, 0, 0, 0, 255, 0]);
+        let mut image = rgb8_image(2, 1, vec![255, 0, 0, 0, 255, 0]);
+        image.header.stamp.sec = 12;
+        image.header.stamp.nanosec = 345_678_901;
 
         tokio::time::timeout(Duration::from_secs(3), async {
             while observation.latest().is_none() {
@@ -540,6 +495,12 @@ mod tests {
         assert_eq!(cache.dimensions(), Some([2, 1]));
         assert!(cache.texture().is_some());
         assert!(cache.error().is_none());
+        assert_eq!(cache.timestamp.as_deref(), Some("12.345678901 s"));
+
+        cache.refresh_sample(&context, None);
+        assert!(!cache.has_sample());
+        assert!(cache.texture().is_none());
+        assert!(cache.timestamp.is_none());
     }
 
     #[test]
@@ -560,8 +521,20 @@ mod tests {
                     "ball_detection": {"active": false},
                     "horizon": {"active": false},
                     "field_border": {"active": false},
-                    "object_detection": {"active": false},
-                    "pose_detection": {"active": false},
+                    "object_detection": {
+                        "active": false,
+                        "confidence_threshold": 0.5,
+                    },
+                    "pose_detection": {
+                        "active": false,
+                        "bounding_box_confidence_threshold": 0.5,
+                        "keypoint_confidence_threshold": 0.5,
+                    },
+                    "robot_pose_detection": {
+                        "active": false,
+                        "bounding_box_confidence_threshold": 0.5,
+                        "keypoint_confidence_threshold": 0.5,
+                    },
                 },
             })
         );

@@ -28,7 +28,12 @@ impl ImageOverlay for FieldBorderOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter, _image_time: Time) {
+    fn paint(
+        &self,
+        painter: &ImageOverlayPainter,
+        _image_time: Time,
+        _confidence_thresholds: &[f32],
+    ) {
         let Some(candidates) = self.candidates.latest() else {
             return;
         };
