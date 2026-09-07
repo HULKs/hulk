@@ -34,6 +34,10 @@ impl<'a> From<&'a Sample> for SampleIdentity<'a> {
 }
 
 impl SampleIdentity<'_> {
+    pub fn type_name(&self) -> &str {
+        &self.type_info.name
+    }
+
     pub fn into_owned(self) -> SampleIdentity<'static> {
         SampleIdentity {
             topic: Cow::Owned(self.topic.into_owned()),

@@ -228,14 +228,19 @@ impl Panel for ImagePanel {
             }
             self.overlays.ui(ui);
             self.refresh(&context);
-            if let Ok(Some(observed)) = &self.observation
-                && let Some(sample) = &observed.render_cache.sample
-            {
+            let sample = self
+                .observation
+                .as_ref()
+                .ok()
+                .and_then(Option::as_ref)
+                .and_then(|observed| observed.render_cache.sample.as_ref());
+            if let Some(sample) = sample {
                 ui.label(format_image_time(sample.time))
                     .on_hover_text("Timestamp from the displayed image's header");
             }
-            ui.label(RosImage::type_name())
-                .on_hover_text("Subscribed image type");
+            let image_type =
+                sample.map_or_else(RosImage::type_name, |sample| sample.type_name().to_owned());
+            ui.label(image_type).on_hover_text("Subscribed image type");
         });
     }
 
