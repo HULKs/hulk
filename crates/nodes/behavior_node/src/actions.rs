@@ -1,5 +1,8 @@
 use linear_algebra::vector;
-use types::{behavior_tree::Status, motion_command::BodyMotion};
+use types::{
+    behavior_tree::Status,
+    motion_command::{BodyMotion, HeadMotion},
+};
 
 use crate::node::Blackboard;
 
@@ -38,6 +41,10 @@ pub fn remote_control(blackboard: &mut Blackboard) -> Status {
             -input.axis_value("LeftStickX")
         ],
         angular_velocity: -input.axis_value("RightStickX"),
+    });
+    blackboard.head_motion = Some(HeadMotion::MoveWithVelocity {
+        yaw: input.button_value("DPadLeft") - input.button_value("DPadRight"),
+        pitch: input.button_value("DPadDown") - input.button_value("DPadUp"),
     });
     Status::Success
 }

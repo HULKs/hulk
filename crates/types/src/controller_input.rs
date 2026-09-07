@@ -16,6 +16,13 @@ impl ControllerInput {
             .map_or(0.0, |axis| axis.value)
     }
 
+    pub fn button_value(&self, name: &str) -> f32 {
+        self.buttons
+            .iter()
+            .find(|button| button.name == name)
+            .map_or(0.0, |button| button.value)
+    }
+
     pub fn is_pressed(&self, name: &str) -> bool {
         self.buttons
             .iter()

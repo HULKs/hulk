@@ -257,7 +257,7 @@ fn apply_head_motion(
     tick_duration: Duration,
     config: &SimulationConfig,
 ) -> Orientation2<Ground> {
-    let desired_yaw = desired_head_yaw(head_motion, now, config)
+    let desired_yaw = desired_head_yaw(current_yaw, head_motion, now, tick_duration, config)
         .clamp(config.head_yaw_minimum, config.head_yaw_maximum);
     let maximum_movement = config.head_yaw_velocity * tick_duration.as_secs_f32();
     let movement =
@@ -268,11 +268,16 @@ fn apply_head_motion(
 }
 
 fn desired_head_yaw(
+    current_yaw: Orientation2<Ground>,
     head_motion: Option<HeadMotion>,
     now: SystemTime,
+    tick_duration: Duration,
     config: &SimulationConfig,
 ) -> f32 {
     match head_motion {
+        Some(HeadMotion::MoveWithVelocity { yaw, .. }) => {
+            current_yaw.angle() + yaw * tick_duration.as_secs_f32()
+        }
         Some(HeadMotion::LookAt { target, .. }) => {
             Orientation2::from_vector(target.coords()).angle()
         }
