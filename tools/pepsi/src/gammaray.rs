@@ -50,6 +50,36 @@ const WIFI_PASSWORD: &str = "HSL?!HSL?!";
 
 const PODMAN_INSTALLATION_SCRIPT: &str = include_str!("install-podman.sh");
 
+pub(super) const MANUFACTURER_CONTROLLER_SCRIPT: &str = r#"set -euo pipefail
+
+mode="$1"
+case "$mode" in
+    enable|disable) ;;
+    *) echo "Expected enable or disable" >&2; exit 1 ;;
+esac
+
+config="$(readlink -f "$2")"
+updated="$(mktemp "${config}.XXXXXX")"
+trap 'rm -f "$updated"' EXIT
+cp --preserve=mode,ownership "$config" "$updated"
+
+awk -v mode="$mode" -v marker='; HULK disabled RemoteController: ' '
+    { sub("^" marker, "") }
+    /^[[:space:]]*\[/ {
+        in_controller = ($0 ~ /^[[:space:]]*\[RemoteController\]/)
+    }
+    { print (mode == "disable" && in_controller ? marker : "") $0 }
+' "$config" > "$updated"
+
+if ! cmp -s "$config" "$updated"; then
+    systemctl stop hulk
+    mv "$updated" "$config"
+    systemctl restart booster-daemon
+fi
+
+systemctl "$mode" --now joystick_ros2
+"#;
+
 static ADD_ZENOH_APT_SOURCES: &str = "
 curl -L https://download.eclipse.org/zenoh/debian-repo/zenoh-public-key | sudo gpg --dearmor --yes --output /etc/apt/keyrings/zenoh-public-key.gpg
 grep \"https://download.eclipse.org/zenoh/debian-repo/\" /etc/apt/sources.list || echo \"deb [signed-by=/etc/apt/keyrings/zenoh-public-key.gpg] https://download.eclipse.org/zenoh/debian-repo/ /\" | sudo tee -a /etc/apt/sources.list > /dev/null
@@ -312,6 +342,15 @@ async fn gammaray_robot(
         .ssh_to_robot()?
         .arg("sudo systemctl enable --now jetson-clocks-refresh.timer")
         .ssh_with_log("enabling jetson clocks refresh timer", &progress_bar)
+        .await?;
+
+    robot
+        .ssh_to_robot()?
+        .arg(format!(
+            "sudo bash -s -- disable /opt/booster/Daemon/bin/child.ini <<'EOF'\n{}\nEOF",
+            MANUFACTURER_CONTROLLER_SCRIPT
+        ))
+        .ssh_with_log("disabling manufacturer controller", &progress_bar)
         .await?;
 
     robot

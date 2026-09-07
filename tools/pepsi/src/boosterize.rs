@@ -4,7 +4,10 @@ use color_eyre::Result;
 use argument_parsers::RobotAddress;
 use robot::Robot;
 
-use crate::{gammaray::CommandExt, progress_indicator::ProgressIndicator};
+use crate::{
+    gammaray::{CommandExt, MANUFACTURER_CONTROLLER_SCRIPT},
+    progress_indicator::ProgressIndicator,
+};
 
 #[derive(Args, Debug)]
 pub struct Arguments {
@@ -33,6 +36,14 @@ pub async fn boosterize(arguments: Arguments) -> Result<()> {
                     .arg("sudo systemctl disable --now")
                     .arg("hulk")
                     .ssh_with_log("disabling hulk", &progress_bar)
+                    .await?;
+                robot
+                    .ssh_to_robot()?
+                    .arg(format!(
+                        "sudo bash -s -- enable /opt/booster/Daemon/bin/child.ini <<'EOF'\n{}\nEOF",
+                        MANUFACTURER_CONTROLLER_SCRIPT
+                    ))
+                    .ssh_with_log("restoring manufacturer controller", &progress_bar)
                     .await?;
                 robot
                     .ssh_to_robot()?
