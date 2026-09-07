@@ -44,6 +44,7 @@ nav:
       - Machine Learning: tooling/machine-learning.md
       - Behavior Simulator: tooling/behavior_simulator.md
       - Behavior Tree Simulator Design: tooling/behavior_tree_simulator_design.md
+      - Remote Control: tooling/remote_control.md
       - Debugging with GDB/LLDB: tooling/debugging.md
       - Profiling with perf: tooling/profiling.md
   - Operating System:
