@@ -86,51 +86,6 @@ impl From<&[f32; 51]> for Keypoints {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, ros_z::Message)]
-pub struct RobotKeypoints {
-    pub nose: Keypoint,
-    pub neck: Keypoint,
-    pub right_shoulder: Keypoint,
-    pub right_elbow: Keypoint,
-    pub right_wrist: Keypoint,
-    pub left_shoulder: Keypoint,
-    pub left_elbow: Keypoint,
-    pub left_wrist: Keypoint,
-    pub right_hip: Keypoint,
-    pub right_knee: Keypoint,
-    pub right_ankle: Keypoint,
-    pub left_hip: Keypoint,
-    pub left_knee: Keypoint,
-    pub left_ankle: Keypoint,
-}
-
-impl RobotKeypoints {
-    pub fn as_array(self) -> [Keypoint; 14] {
-        [
-            self.nose,
-            self.neck,
-            self.right_shoulder,
-            self.right_elbow,
-            self.right_wrist,
-            self.left_shoulder,
-            self.left_elbow,
-            self.left_wrist,
-            self.right_hip,
-            self.right_knee,
-            self.right_ankle,
-            self.left_hip,
-            self.left_knee,
-            self.left_ankle,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, ros_z::Message)]
-pub struct RobotPoseDetection {
-    pub object: Object<crate::object_detection::RobocupObjectLabel>,
-    pub keypoints: RobotKeypoints,
-}
-
 impl Index<usize> for Keypoints {
     fn index(&self, index: usize) -> &Keypoint {
         match index {
