@@ -6,7 +6,9 @@ use ros_z::time::Time;
 
 use crate::repaint::ObservationContext;
 
-use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
+use super::super::image_overlay::{
+    ConfidenceThresholds, ImageOverlay, ImageOverlayPainter, OverlayObservation,
+};
 
 pub(in crate::panels::image) struct BallDetectionOverlay {
     filtered_balls: OverlayObservation<Vec<Circle<Pixel>>>,
@@ -32,7 +34,7 @@ impl ImageOverlay for BallDetectionOverlay {
         &self,
         painter: &ImageOverlayPainter,
         _image_time: Time,
-        _confidence_thresholds: &[f32],
+        _confidence_thresholds: &ConfidenceThresholds,
     ) {
         let Some(filtered_balls) = self.filtered_balls.latest() else {
             return;

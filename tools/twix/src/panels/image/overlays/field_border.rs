@@ -7,7 +7,9 @@ use types::{field_border::FieldBorder as FieldBorderData, time_wrapper::TimeWrap
 
 use crate::repaint::ObservationContext;
 
-use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
+use super::super::image_overlay::{
+    ConfidenceThresholds, ImageOverlay, ImageOverlayPainter, OverlayObservation,
+};
 
 pub(in crate::panels::image) struct FieldBorderOverlay {
     border_lines: OverlayObservation<TimeWrapper<Option<FieldBorderData>>>,
@@ -32,7 +34,7 @@ impl ImageOverlay for FieldBorderOverlay {
         &self,
         painter: &ImageOverlayPainter,
         _image_time: Time,
-        _confidence_thresholds: &[f32],
+        _confidence_thresholds: &ConfidenceThresholds,
     ) {
         let Some(candidates) = self.candidates.latest() else {
             return;

@@ -57,7 +57,9 @@ These cover bundled presets, file operations, picker dialogs, and layout renderi
 
 ## Panels and keybindings
 
-ROS-Z Twix currently contains Text, Image, Map, and Parameter panels. The Text panel observes one ROS-Z topic through `ros-z-debug` and renders the latest dynamic payload as JSON. The Image panel observes `TimeWrapper<ros2::sensor_msgs::image::Image>` topics, defaults to `inputs/left_image`, and renders the latest raw camera frame. The Parameter panel discovers ROS-Z nodes with remote parameter services, shows full snapshots or selected paths as JSON, and writes selected paths to active layers with revision checks.
+ROS-Z Twix currently contains Text, Image, Map, and Parameter panels. The Text panel observes one ROS-Z topic through `ros-z-debug` and renders the latest dynamic payload as JSON. The Image panel observes `ros2::sensor_msgs::image::Image` topics, defaults to `inputs/left_image`, and renders the latest raw camera frame. The Parameter panel discovers ROS-Z nodes with remote parameter services, shows full snapshots or selected paths as JSON, and writes selected paths to active layers with revision checks.
+
+The Image panel's Overlays menu offers confidence controls for object and pose detections. Bounding boxes default to `0.5` confidence and pose keypoints to `0.8`, including when an older layout has no saved thresholds. Values range from `0` to `1` and are saved with the panel layout. These controls only filter the visualization; they do not change the detector or its published results.
 
 ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`. Legacy Twix keeps using `hulks/twix.toml`, so the two tools do not share incompatible keybinding schemas. The default ROS-Z keybindings are:
 

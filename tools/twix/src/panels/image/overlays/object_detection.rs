@@ -8,12 +8,14 @@ use types::{
 use crate::repaint::ObservationContext;
 
 use super::super::image_overlay::{
-    ConfidenceThresholdDefinition, ImageOverlay, ImageOverlayPainter, OverlayObservation,
+    ConfidenceThresholdDefinition, ConfidenceThresholdKind, ConfidenceThresholds, ImageOverlay,
+    ImageOverlayPainter, OverlayObservation,
 };
 use super::prediction_colors;
 
 const OBJECT_CONFIDENCE_THRESHOLDS: [ConfidenceThresholdDefinition; 1] =
     [ConfidenceThresholdDefinition::new(
+        ConfidenceThresholdKind::BoundingBox,
         "Confidence",
         "confidence_threshold",
     )];
@@ -41,7 +43,7 @@ impl ImageOverlay for ObjectDetectionOverlay {
         &self,
         painter: &ImageOverlayPainter,
         image_time: Time,
-        confidence_thresholds: &[f32],
+        confidence_thresholds: &ConfidenceThresholds,
     ) {
         let Some(object_detections) = self.object_detections.at_time(image_time) else {
             return;
@@ -49,7 +51,7 @@ impl ImageOverlay for ObjectDetectionOverlay {
         paint_bounding_boxes(
             painter,
             &object_detections.value.inner,
-            confidence_thresholds[0],
+            confidence_thresholds.bounding_box,
         );
     }
 
