@@ -123,8 +123,6 @@ impl Panel for ImagePanel {
                 self.commit_topic(&context);
             }
             self.overlays.ui(ui, &context);
-            ui.label(RosImage::type_name())
-                .on_hover_text("Subscribed image type");
             if let ObservationState::Observing(observed) = &mut self.observation {
                 observed.render_cache.refresh(
                     context.egui_context,
@@ -136,6 +134,8 @@ impl Panel for ImagePanel {
                         .on_hover_text("Timestamp from the displayed image's header");
                 }
             }
+            ui.label(RosImage::type_name())
+                .on_hover_text("Subscribed image type");
         });
     }
 
