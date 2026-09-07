@@ -28,12 +28,17 @@ pub fn prepare(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn remote_control(blackboard: &mut Blackboard) -> Status {
-    let parameters = &blackboard.parameters.control.remote_control;
-    let remote_control_motion_command = BodyMotion::WalkWithVelocity {
-        velocity: vector![parameters.walk.forward, parameters.walk.left,],
-        angular_velocity: parameters.walk.turn,
+    let Some(input) = &blackboard.controller_input else {
+        return Status::Failure;
     };
-    blackboard.body_motion = Some(remote_control_motion_command);
+
+    blackboard.body_motion = Some(BodyMotion::WalkWithVelocity {
+        velocity: vector![
+            input.axis_value("LeftStickY"),
+            -input.axis_value("LeftStickX")
+        ],
+        angular_velocity: -input.axis_value("RightStickX"),
+    });
     Status::Success
 }
 

@@ -8,16 +8,7 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
 use linear_algebra::{Framed, Point2, Vector2, Vector3};
 
-use crate::{
-    field_color::FieldColorParameters, motion_command::MotionCommand, players::Players, step::Step,
-};
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub struct RemoteControlParameters {
-    pub walk: Step,
-    pub kick_mode_toggle: bool,
-    pub enable: bool,
-}
+use crate::{field_color::FieldColorParameters, motion_command::MotionCommand, players::Players};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct WhistleDetectionParameters {
@@ -60,7 +51,6 @@ pub struct BehaviorParameters {
 pub struct BehaviorControlParameters {
     pub allow_switch: AllowSwitchParameters,
     pub injected_motion_command: Option<MotionCommand>,
-    pub remote_control: RemoteControlParameters,
     pub is_simple: bool,
 }
 
