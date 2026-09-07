@@ -10,7 +10,6 @@ const ROBOT: Color32 = Color32::from_rgb(255, 225, 25);
 const T_SPOT: Color32 = Color32::from_rgb(40, 202, 255);
 const X_SPOT: Color32 = Color32::from_rgb(185, 35, 35);
 pub(super) const PERSON_POSE: Color32 = Color32::from_rgb(255, 100, 190);
-pub(super) const ROBOT_POSE: Color32 = Color32::from_rgb(0, 109, 119);
 
 pub(super) const fn robocup_object(label: RobocupObjectLabel) -> Color32 {
     match label {
@@ -40,7 +39,6 @@ mod tests {
                 robocup_object(RobocupObjectLabel::TSpot),
                 robocup_object(RobocupObjectLabel::XSpot),
                 PERSON_POSE,
-                ROBOT_POSE,
             ],
             [
                 Color32::from_rgb(255, 140, 56),
@@ -51,7 +49,6 @@ mod tests {
                 Color32::from_rgb(40, 202, 255),
                 Color32::from_rgb(185, 35, 35),
                 Color32::from_rgb(255, 100, 190),
-                Color32::from_rgb(0, 109, 119),
             ]
         );
     }
@@ -68,7 +65,6 @@ mod tests {
             T_SPOT,
             X_SPOT,
             PERSON_POSE,
-            ROBOT_POSE,
         ];
 
         for (index, first) in colors.iter().enumerate() {
