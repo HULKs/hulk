@@ -1,4 +1,9 @@
-use std::{net::SocketAddr, pin::Pin, sync::Arc, time::Duration};
+use std::{
+    net::SocketAddr,
+    pin::Pin,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use booster::FallDownState;
 use color_eyre::Result;
@@ -13,6 +18,7 @@ use tracing::info;
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     behavior_tree::NodeTrace,
+    controller_input::ControllerInput,
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     messages::OutgoingMessage,
@@ -44,6 +50,7 @@ pub struct Blackboard {
     pub field_dimensions: FieldDimensions,
     pub parameters: BehaviorParameters,
     pub world_state: WorldState,
+    pub controller_input: Option<ControllerInput>,
 
     pub path_obstacles_output: Vec<PathObstacle>,
     pub time_since_last_switch: Duration,
@@ -158,6 +165,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
+    let controller_input_cache = node
+        .subscriber::<ControllerInput>("inputs/controller_input")
+        .cache(1)
+        .build()
+        .await?;
     let ball_state_cache = node
         .subscriber::<Option<BallState>>("ball_state")
         .cache(1)
@@ -261,6 +273,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .unwrap_or_default(),
         parameters: parameters.snapshot().typed().clone(),
         world_state: WorldState::default(),
+        controller_input: None,
 
         path_obstacles_output: Vec::new(),
         time_since_last_switch: Duration::ZERO,
@@ -312,6 +325,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .map(|n| *n)
             .unwrap_or_default();
         blackboard.parameters = parameters.snapshot().typed().clone();
+        blackboard.controller_input = controller_input_cache
+            .get_after(Time::from_wallclock(SystemTime::now()) - Duration::from_millis(250))
+            .filter(|input| input.connected)
+            .map(|input| input.as_ref().clone());
 
         let player_states = player_states_cache
             .get_latest()

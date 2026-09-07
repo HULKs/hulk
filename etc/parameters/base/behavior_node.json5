@@ -9,15 +9,6 @@
       damping: { secs: 0, nanos: 0 },
     },
     injected_motion_command: null,
-    remote_control: {
-      walk: {
-        forward: 0.0,
-        left: 0.0,
-        turn: 0.0,
-      },
-      kick_mode_toggle: false,
-      enable: false,
-    },
     is_simple: false,
   },
   ball: {

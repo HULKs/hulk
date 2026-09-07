@@ -214,7 +214,7 @@ pub fn intercept(blackboard: &mut Blackboard) -> Status {
     }
     Status::Failure
 }
-pub fn set_kick_target_in_front(blackboard: &mut Blackboard) -> Status {
+pub fn set_kick_target_beyond_ball(blackboard: &mut Blackboard) -> Status {
     if let (Some(ground_to_field), Some(ball)) = (
         blackboard.world_state.robot.ground_to_field,
         &blackboard.visual_kick_ball_position,
@@ -225,7 +225,10 @@ pub fn set_kick_target_in_front(blackboard: &mut Blackboard) -> Status {
     }) = blackboard.body_motion.as_mut()
     {
         if blackboard.last_motion_type != Some(MotionType::Kick) {
-            let kick_target = ground_to_field * point!(3.0, 0.0);
+            let Some(direction) = ball.position.coords().try_normalize(f32::EPSILON) else {
+                return Status::Failure;
+            };
+            let kick_target = ground_to_field * (ball.position + direction * 10.0);
             blackboard.last_kick_target = Some(kick_target);
         }
 

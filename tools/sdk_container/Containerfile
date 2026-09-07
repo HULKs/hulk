@@ -32,6 +32,7 @@ RUN dpkg --add-architecture arm64 && \
         libssl-dev \
         libssl-dev:arm64 \
         libstdc++-11-dev-arm64-cross \
+        libudev-dev:arm64 \
         pkg-config && \
     rm -rf \
         /usr/lib/llvm-14/include \

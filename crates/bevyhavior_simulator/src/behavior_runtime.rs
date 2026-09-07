@@ -162,6 +162,7 @@ fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackbo
         field_dimensions: FieldDimensions::default(),
         parameters,
         world_state: WorldState::default(),
+        controller_input: None,
         path_obstacles_output: Vec::new(),
         time_since_last_switch: Duration::ZERO,
         direction_difference: 0.0,

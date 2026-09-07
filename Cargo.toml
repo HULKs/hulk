@@ -30,6 +30,7 @@ members = [
   "crates/nodes/button_event_bridge",
   "crates/nodes/button_event_handler",
   "crates/nodes/camera_matrix_calculator",
+  "crates/nodes/controller_handler",
   "crates/nodes/detection",
   "crates/nodes/fake_odometry",
   "crates/nodes/fall_down_state_receiver",
@@ -147,6 +148,7 @@ chrono = "0.4.39"
 clap = { version = "4.5.29", features = ["derive", "env"] }
 clap_complete = "4.5.44"
 color-eyre = "0.6.3"
+controller_handler = { path = "crates/nodes/controller_handler" }
 convert_case = "0.7.1"
 coordinate_systems = { path = "crates/coordinate_systems" }
 detection = { path = "crates/nodes/detection" }
@@ -172,6 +174,7 @@ futures-util = "0.3.31"
 game_controller_filter = { path = "crates/nodes/game_controller_filter" }
 game_controller_state_filter = { path = "crates/nodes/game_controller_state_filter" }
 geometry = { path = "crates/geometry" }
+gilrs = "0.11.2"
 glob = "0.3.2"
 global_parameter_provider = { path = "crates/nodes/global_parameter_provider" }
 ground_provider = { path = "crates/nodes/ground_provider" }
