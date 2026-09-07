@@ -12,7 +12,7 @@ use crate::{
     },
     goalkeeper::goalkeeper_subtree,
     head::{look_around, look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
-    kick::{intercept, kick, kick_subtree, set_kick_target_in_front, use_kick_power},
+    kick::{intercept, kick, kick_subtree, set_kick_target_beyond_ball, use_kick_power},
     negation,
     node::Blackboard,
     penalty_shootout::{is_penalty_shootout, penalty_shootout_subtree},
@@ -176,7 +176,7 @@ fn remote_kick_subtree(button: &'static str, kick_power: KickPower) -> Node<Blac
         condition!(is_remote_kick_mode, button),
         subtree!(look_at_ball_subtree),
         action!(kick),
-        action!(set_kick_target_in_front),
+        action!(set_kick_target_beyond_ball),
         action!(use_kick_power, kick_power),
     )
 }
