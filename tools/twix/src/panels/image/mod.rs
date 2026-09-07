@@ -530,11 +530,6 @@ mod tests {
                         "bounding_box_confidence_threshold": 0.5,
                         "keypoint_confidence_threshold": 0.5,
                     },
-                    "robot_pose_detection": {
-                        "active": false,
-                        "bounding_box_confidence_threshold": 0.5,
-                        "keypoint_confidence_threshold": 0.5,
-                    },
                 },
             })
         );

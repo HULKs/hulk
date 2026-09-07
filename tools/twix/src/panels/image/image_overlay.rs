@@ -18,7 +18,7 @@ use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
 
 use super::overlays::{
     BallDetectionOverlay, FieldBorderOverlay, HorizonOverlay, LineDetectionOverlay,
-    ObjectDetectionOverlay, PoseDetectionOverlay, RobotPoseDetectionOverlay,
+    ObjectDetectionOverlay, PoseDetectionOverlay,
 };
 
 const OVERLAY_RETENTION_WINDOW: Duration = Duration::from_secs(2);
@@ -44,7 +44,6 @@ pub(super) struct ImageOverlays {
     field_border: OverlaySlot<FieldBorderOverlay>,
     object_detection: OverlaySlot<ObjectDetectionOverlay>,
     pose_detection: OverlaySlot<PoseDetectionOverlay>,
-    robot_pose_detection: OverlaySlot<RobotPoseDetectionOverlay>,
 }
 
 impl ImageOverlays {
@@ -59,7 +58,6 @@ impl ImageOverlays {
             field_border: OverlaySlot::new(value, context),
             object_detection: OverlaySlot::new(value, context),
             pose_detection: OverlaySlot::new(value, context),
-            robot_pose_detection: OverlaySlot::new(value, context),
         }
     }
 
@@ -76,7 +74,6 @@ impl ImageOverlays {
                 self.field_border.checkbox(ui, context);
                 self.object_detection.checkbox(ui, context);
                 self.pose_detection.checkbox(ui, context);
-                self.robot_pose_detection.checkbox(ui, context);
             });
     }
 
@@ -87,14 +84,12 @@ impl ImageOverlays {
         self.field_border.paint(painter, image_time);
         self.object_detection.paint(painter, image_time);
         self.pose_detection.paint(painter, image_time);
-        self.robot_pose_detection.paint(painter, image_time);
     }
 
     pub(super) fn preferred_image_time(&self) -> Option<Time> {
         [
             self.object_detection.latest_time(),
             self.pose_detection.latest_time(),
-            self.robot_pose_detection.latest_time(),
         ]
         .into_iter()
         .flatten()
@@ -109,7 +104,6 @@ impl ImageOverlays {
             FieldBorderOverlay::STORAGE_KEY: self.field_border.save(),
             ObjectDetectionOverlay::STORAGE_KEY: self.object_detection.save(),
             PoseDetectionOverlay::STORAGE_KEY: self.pose_detection.save(),
-            RobotPoseDetectionOverlay::STORAGE_KEY: self.robot_pose_detection.save(),
         })
     }
 }
@@ -127,7 +121,6 @@ impl Default for ImageOverlays {
             field_border: OverlaySlot::inactive(),
             object_detection: OverlaySlot::inactive(),
             pose_detection: OverlaySlot::inactive(),
-            robot_pose_detection: OverlaySlot::inactive(),
         }
     }
 }
@@ -651,18 +644,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn detection_overlays_have_five_default_confidence_thresholds() {
+    fn detection_overlays_have_three_default_confidence_thresholds() {
         let overlays = ImageOverlays::default();
         let thresholds = overlays
             .object_detection
             .confidence_thresholds
             .iter()
             .chain(&overlays.pose_detection.confidence_thresholds)
-            .chain(&overlays.robot_pose_detection.confidence_thresholds)
             .copied()
             .collect::<Vec<_>>();
 
-        assert_eq!(thresholds, vec![0.5; 5]);
+        assert_eq!(thresholds, vec![0.5; 3]);
     }
 
     #[test]
