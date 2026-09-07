@@ -1,18 +1,24 @@
 use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, Utc};
-use coordinate_systems::Pixel;
-use linear_algebra::{point, vector};
-use twix_visualization::{twix_painter::{Orientation, TwixPainter}, zoom_and_pan::ZoomAndPanTransform};
 use color_eyre::{Report, eyre::Context as _};
+use coordinate_systems::Pixel;
 use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui};
 use hulk_widgets::CompletionEdit;
 use image::RgbImage;
+use linear_algebra::{point, vector};
 use ros_z::{Message, entity::EndpointKind, time::Time};
-use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
+use ros_z_debug::{
+    CachedSubscriptionStatus, RetentionPolicy, SampleRecord, TopicObservation,
+    TopicObservationStatus,
+};
 use ros2::sensor_msgs::image::Image as RosImage;
 use serde_json::{Value, json};
 use thiserror::Error;
+use twix_visualization::{
+    twix_painter::{Orientation, TwixPainter},
+    zoom_and_pan::ZoomAndPanTransform,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -21,10 +27,14 @@ use crate::{
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
 };
 
-use self::image_overlay::{ImageOverlayPainter, ImageOverlays};
+use self::{
+    image_overlay::{ImageOverlayPainter, ImageOverlays},
+    status::format_topic_observation_status,
+};
 
 mod image_overlay;
 mod overlays;
+mod status;
 
 pub const DEFAULT_IMAGE_TOPIC: &str = "inputs/left_image";
 const IMAGE_RETENTION_WINDOW: Duration = Duration::from_secs(2);
@@ -136,6 +146,9 @@ impl Panel for ImagePanel {
             }
             ui.label(RosImage::type_name())
                 .on_hover_text("Subscribed image type");
+            if let ObservationState::Observing(observed) = &self.observation {
+                render_observation_status(ui, observed.observation.status());
+            }
         });
     }
 
@@ -391,6 +404,28 @@ fn create_observation(
         .spawn();
     let repaint = observation.repaint_on_updates(context);
     Ok((observation, repaint))
+}
+
+fn render_observation_status(ui: &mut Ui, status: TopicObservationStatus) {
+    let label = match &status {
+        TopicObservationStatus::Building => return,
+        TopicObservationStatus::Observing { cache } => match cache.status() {
+            CachedSubscriptionStatus::Ready | CachedSubscriptionStatus::WaitingForFirstSample => {
+                return;
+            }
+            CachedSubscriptionStatus::ProtocolError { .. } => "Protocol error",
+            CachedSubscriptionStatus::DecodeError { .. } => "Decode error",
+            CachedSubscriptionStatus::Closed => "Subscription closed",
+            _ => "Subscription warning",
+        },
+        TopicObservationStatus::Rebuilding { .. } => "Reconnecting",
+        TopicObservationStatus::Retrying { .. } => "Retrying subscription",
+        TopicObservationStatus::Blocked { .. } => "Subscription blocked",
+        TopicObservationStatus::Closed => "Subscription closed",
+        _ => "Subscription warning",
+    };
+    ui.colored_label(ui.visuals().warn_fg_color, label)
+        .on_hover_text(format_topic_observation_status(status));
 }
 
 fn format_image_time(time: Time) -> String {
