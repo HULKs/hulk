@@ -6,7 +6,10 @@ use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui, load:
 use hulk_widgets::CompletionEdit;
 use image::RgbImage;
 use ros_z::{Message, entity::EndpointKind, time::Time};
-use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
+use ros_z_debug::{
+    CachedSubscriptionStatus, RetentionPolicy, SampleRecord, TopicObservation,
+    TopicObservationStatus,
+};
 use ros2::sensor_msgs::image::Image as RosImage;
 use serde_json::{Value, json};
 use thiserror::Error;
@@ -16,6 +19,7 @@ use crate::{
     graph::TopicCompletionQuery,
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
+    status::format_topic_observation_status,
 };
 
 use self::image_overlay::{ImageOverlayPainter, ImageOverlays};
@@ -127,6 +131,9 @@ impl Panel for ImagePanel {
             }
             ui.label(RosImage::type_name())
                 .on_hover_text("Subscribed image type");
+            if let ObservationState::Observing(observed) = &self.observation {
+                render_observation_status(ui, observed.observation.status());
+            }
         });
     }
 
@@ -365,6 +372,28 @@ fn create_observation(
     Ok((observation, repaint))
 }
 
+fn render_observation_status(ui: &mut Ui, status: TopicObservationStatus) {
+    let label = match &status {
+        TopicObservationStatus::Building => return,
+        TopicObservationStatus::Observing { cache } => match cache.status() {
+            CachedSubscriptionStatus::Ready | CachedSubscriptionStatus::WaitingForFirstSample => {
+                return;
+            }
+            CachedSubscriptionStatus::ProtocolError { .. } => "Protocol error",
+            CachedSubscriptionStatus::DecodeError { .. } => "Decode error",
+            CachedSubscriptionStatus::Closed => "Subscription closed",
+            _ => "Subscription warning",
+        },
+        TopicObservationStatus::Rebuilding { .. } => "Reconnecting",
+        TopicObservationStatus::Retrying { .. } => "Retrying subscription",
+        TopicObservationStatus::Blocked { .. } => "Subscription blocked",
+        TopicObservationStatus::Closed => "Subscription closed",
+        _ => "Subscription warning",
+    };
+    ui.colored_label(ui.visuals().warn_fg_color, label)
+        .on_hover_text(format_topic_observation_status(status));
+}
+
 fn format_image_time(time: Time) -> String {
     let nanos = time.as_nanos();
     // ROS image stamps can use a simulation timeline. Do not turn small values
@@ -503,7 +532,7 @@ mod tests {
                     "pose_detection": {
                         "active": false,
                         "bounding_box_confidence_threshold": 0.5,
-                        "keypoint_confidence_threshold": 0.5,
+                        "keypoint_confidence_threshold": 0.8_f32,
                     },
                 },
             })

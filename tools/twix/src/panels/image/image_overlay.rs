@@ -22,7 +22,6 @@ use super::overlays::{
 };
 
 const OVERLAY_RETENTION_WINDOW: Duration = Duration::from_secs(2);
-const DEFAULT_CONFIDENCE_THRESHOLD: f32 = 0.5;
 const DETECTION_BOX_CORNER_RADIUS: f32 = 7.0;
 const DETECTION_BOX_OPACITY: f32 = 0.85;
 const DETECTION_STROKE_WIDTH: f32 = 1.0;
@@ -35,6 +34,13 @@ const MAXIMUM_INSIDE_LABEL_FRACTION: f32 = 0.5;
 enum DetectionLabelCorner {
     TopLeft,
     BottomLeft,
+}
+
+#[derive(Clone, Copy)]
+enum DetectionLabelPlacement {
+    Inside,
+    Outside,
+    Clamped,
 }
 
 pub(super) struct ImageOverlays {
@@ -125,7 +131,7 @@ struct OverlaySlot<T> {
     active: bool,
     overlay: Option<T>,
     error: Option<String>,
-    confidence_thresholds: Vec<f32>,
+    confidence_thresholds: ConfidenceThresholds,
 }
 
 impl<T> OverlaySlot<T>
@@ -142,16 +148,13 @@ where
             .and_then(|value| value.get("active"))
             .and_then(Value::as_bool)
             .unwrap_or(false);
-        for (threshold, definition) in slot
-            .confidence_thresholds
-            .iter_mut()
-            .zip(T::CONFIDENCE_THRESHOLDS)
-        {
+        for definition in T::CONFIDENCE_THRESHOLDS {
+            let threshold = slot.confidence_thresholds.get_mut(definition.kind);
             *threshold = overlay_value
                 .and_then(|value| value.get(definition.storage_key))
                 .and_then(Value::as_f64)
                 .map(|value| value as f32)
-                .unwrap_or(DEFAULT_CONFIDENCE_THRESHOLD)
+                .unwrap_or(*threshold)
                 .clamp(0.0, 1.0);
         }
         if slot.active {
@@ -165,10 +168,7 @@ where
             active: false,
             overlay: None,
             error: None,
-            confidence_thresholds: vec![
-                DEFAULT_CONFIDENCE_THRESHOLD;
-                T::CONFIDENCE_THRESHOLDS.len()
-            ],
+            confidence_thresholds: ConfidenceThresholds::default(),
         }
     }
 
@@ -187,11 +187,8 @@ where
         }
         if self.active && !T::CONFIDENCE_THRESHOLDS.is_empty() {
             ui.indent(T::STORAGE_KEY, |ui| {
-                for (threshold, definition) in self
-                    .confidence_thresholds
-                    .iter_mut()
-                    .zip(T::CONFIDENCE_THRESHOLDS)
-                {
+                for definition in T::CONFIDENCE_THRESHOLDS {
+                    let threshold = self.confidence_thresholds.get_mut(definition.kind);
                     ui.horizontal(|ui| {
                         ui.label(definition.label);
                         ui.add(
@@ -238,25 +235,69 @@ where
     fn save(&self) -> Value {
         let mut value = serde_json::Map::new();
         value.insert("active".to_string(), json!(self.active));
-        for (threshold, definition) in self
-            .confidence_thresholds
-            .iter()
-            .zip(T::CONFIDENCE_THRESHOLDS)
-        {
-            value.insert(definition.storage_key.to_string(), json!(threshold));
+        for definition in T::CONFIDENCE_THRESHOLDS {
+            value.insert(
+                definition.storage_key.to_string(),
+                json!(self.confidence_thresholds.get(definition.kind)),
+            );
         }
         Value::Object(value)
     }
 }
 
+#[derive(Clone, Copy)]
+pub(super) enum ConfidenceThresholdKind {
+    BoundingBox,
+    Keypoint,
+}
+
+pub(super) struct ConfidenceThresholds {
+    pub(super) bounding_box: f32,
+    pub(super) keypoint: f32,
+}
+
+impl Default for ConfidenceThresholds {
+    fn default() -> Self {
+        Self {
+            bounding_box: 0.5,
+            keypoint: 0.8,
+        }
+    }
+}
+
+impl ConfidenceThresholds {
+    fn get(&self, kind: ConfidenceThresholdKind) -> f32 {
+        match kind {
+            ConfidenceThresholdKind::BoundingBox => self.bounding_box,
+            ConfidenceThresholdKind::Keypoint => self.keypoint,
+        }
+    }
+
+    fn get_mut(&mut self, kind: ConfidenceThresholdKind) -> &mut f32 {
+        match kind {
+            ConfidenceThresholdKind::BoundingBox => &mut self.bounding_box,
+            ConfidenceThresholdKind::Keypoint => &mut self.keypoint,
+        }
+    }
+}
+
 pub(super) struct ConfidenceThresholdDefinition {
+    kind: ConfidenceThresholdKind,
     label: &'static str,
     storage_key: &'static str,
 }
 
 impl ConfidenceThresholdDefinition {
-    pub(super) const fn new(label: &'static str, storage_key: &'static str) -> Self {
-        Self { label, storage_key }
+    pub(super) const fn new(
+        kind: ConfidenceThresholdKind,
+        label: &'static str,
+        storage_key: &'static str,
+    ) -> Self {
+        Self {
+            kind,
+            label,
+            storage_key,
+        }
     }
 }
 
@@ -269,7 +310,12 @@ pub(super) trait ImageOverlay: Sized {
     where
         C: ObservationContext;
 
-    fn paint(&self, painter: &ImageOverlayPainter, image_time: Time, confidence_thresholds: &[f32]);
+    fn paint(
+        &self,
+        painter: &ImageOverlayPainter,
+        image_time: Time,
+        confidence_thresholds: &ConfidenceThresholds,
+    );
 
     fn latest_time(&self) -> Option<Time> {
         None
@@ -464,8 +510,12 @@ impl ImageOverlayPainter {
         text: String,
         background_color: Color32,
         class_color: Color32,
-        occupied_inside_rect: Option<Rect>,
+        occupied_rect: Option<Rect>,
     ) -> Option<Rect> {
+        let image_rect = self.rect.intersect(self.painter.clip_rect());
+        if !image_rect.is_positive() || !bounding_box_rect.intersects(image_rect) {
+            return None;
+        }
         let text_color = contrast_text_color(class_color);
         let galley = self.painter.layout_no_wrap(
             text,
@@ -474,9 +524,14 @@ impl ImageOverlayPainter {
         );
         let label_size =
             galley.size() + 2.0 * DETECTION_LABEL_PADDING + vec2(DETECTION_LABEL_BOLD_OFFSET, 0.0);
-        let (label_rect, is_inside) =
-            detection_label_rect(bounding_box_rect, label_size, corner, occupied_inside_rect);
-        if !is_inside {
+        let (label_rect, placement) = detection_label_rect(
+            bounding_box_rect,
+            image_rect,
+            label_size,
+            corner,
+            occupied_rect,
+        );
+        if matches!(placement, DetectionLabelPlacement::Outside) {
             let fill_points = outside_bounding_box_corner_fill(bounding_box_rect, corner);
             self.painter.add(Shape::mesh(colored_polygon_mesh(
                 &fill_points,
@@ -485,10 +540,16 @@ impl ImageOverlayPainter {
         }
         self.painter.rect_filled(
             label_rect,
-            detection_label_corner_radius(corner, is_inside),
+            match placement {
+                DetectionLabelPlacement::Inside => detection_label_corner_radius(corner, true),
+                DetectionLabelPlacement::Outside => detection_label_corner_radius(corner, false),
+                DetectionLabelPlacement::Clamped => {
+                    CornerRadius::same(DETECTION_BOX_CORNER_RADIUS as u8)
+                }
+            },
             background_color,
         );
-        let clipped_painter = self.painter.with_clip_rect(label_rect);
+        let clipped_painter = self.painter.with_clip_rect(label_rect.intersect(self.rect));
         let text_position = label_rect.min + DETECTION_LABEL_PADDING;
         clipped_painter.galley(text_position, galley.clone(), text_color);
         clipped_painter.galley(
@@ -497,7 +558,7 @@ impl ImageOverlayPainter {
             text_color,
         );
 
-        is_inside.then_some(label_rect)
+        Some(label_rect)
     }
 
     pub(super) fn circle_filled(&self, center: Point2<Pixel>, radius: f32, fill_color: Color32) {
@@ -532,10 +593,11 @@ impl ImageOverlayPainter {
 
 fn detection_label_rect(
     bounding_box_rect: Rect,
+    image_rect: Rect,
     label_size: Vec2,
     corner: DetectionLabelCorner,
-    occupied_inside_rect: Option<Rect>,
-) -> (Rect, bool) {
+    occupied_rect: Option<Rect>,
+) -> (Rect, DetectionLabelPlacement) {
     let inside_min = match corner {
         DetectionLabelCorner::TopLeft => bounding_box_rect.left_top(),
         DetectionLabelCorner::BottomLeft => pos2(
@@ -547,10 +609,10 @@ fn detection_label_rect(
     let fits_inside = label_size.x <= bounding_box_rect.width() * MAXIMUM_INSIDE_LABEL_FRACTION
         && label_size.y <= bounding_box_rect.height() * MAXIMUM_INSIDE_LABEL_FRACTION
         && bounding_box_rect.contains_rect(inside_rect)
-        && occupied_inside_rect
-            .is_none_or(|occupied| !occupied.intersect(inside_rect).is_positive());
+        && image_rect.contains_rect(inside_rect)
+        && occupied_rect.is_none_or(|occupied| !occupied.intersect(inside_rect).is_positive());
     if fits_inside {
-        return (inside_rect, true);
+        return (inside_rect, DetectionLabelPlacement::Inside);
     }
 
     let outside_min = match corner {
@@ -562,7 +624,30 @@ fn detection_label_rect(
             pos2(bounding_box_rect.left(), bounding_box_rect.bottom())
         }
     };
-    (Rect::from_min_size(outside_min, label_size), false)
+    let outside_rect = Rect::from_min_size(outside_min, label_size);
+    if image_rect.contains_rect(outside_rect)
+        && occupied_rect.is_none_or(|occupied| !occupied.intersect(outside_rect).is_positive())
+    {
+        return (outside_rect, DetectionLabelPlacement::Outside);
+    }
+
+    // Prefer an inward label at image edges, even if it covers more of the box.
+    // A label larger than the visible image is clipped to the available area.
+    let size = label_size.min(image_rect.size().max(Vec2::ZERO));
+    let min = inside_min.max(image_rect.min).min(image_rect.max - size);
+    let mut rect = Rect::from_min_size(min, size);
+    if let Some(occupied) = occupied_rect
+        && occupied.intersect(rect).is_positive()
+    {
+        for y in [occupied.bottom(), occupied.top() - size.y] {
+            let candidate = Rect::from_min_size(pos2(min.x, y), size);
+            if image_rect.contains_rect(candidate) && !occupied.intersect(candidate).is_positive() {
+                rect = candidate;
+                break;
+            }
+        }
+    }
+    (rect, DetectionLabelPlacement::Clamped)
 }
 
 fn detection_label_corner_radius(corner: DetectionLabelCorner, is_inside: bool) -> CornerRadius {
@@ -586,7 +671,7 @@ fn detection_label_corner_radius(corner: DetectionLabelCorner, is_inside: bool) 
 fn outside_bounding_box_corner_fill(
     bounding_box_rect: Rect,
     corner: DetectionLabelCorner,
-) -> Vec<Pos2> {
+) -> [Pos2; 6] {
     const ARC_SEGMENTS: usize = 4;
     let radius = DETECTION_BOX_CORNER_RADIUS
         .min(bounding_box_rect.width() * 0.5)
@@ -605,13 +690,14 @@ fn outside_bounding_box_corner_fill(
             std::f32::consts::PI,
         ),
     };
-    let mut points = Vec::with_capacity(ARC_SEGMENTS + 2);
-    points.push(outer_corner);
-    for index in 0..=ARC_SEGMENTS {
-        let angle = start_angle + (end_angle - start_angle) * index as f32 / ARC_SEGMENTS as f32;
-        points.push(arc_center + vec2(angle.cos() * radius, angle.sin() * radius));
-    }
-    points
+    std::array::from_fn(|index| {
+        if index == 0 {
+            return outer_corner;
+        }
+        let angle =
+            start_angle + (end_angle - start_angle) * (index - 1) as f32 / ARC_SEGMENTS as f32;
+        arc_center + vec2(angle.cos() * radius, angle.sin() * radius)
+    })
 }
 
 fn colored_polygon_mesh(points: &[Pos2], color: Color32) -> Mesh {

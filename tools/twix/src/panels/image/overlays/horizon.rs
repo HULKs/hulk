@@ -9,7 +9,9 @@ use types::time_wrapper::TimeWrapper;
 
 use crate::repaint::ObservationContext;
 
-use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
+use super::super::image_overlay::{
+    ConfidenceThresholds, ImageOverlay, ImageOverlayPainter, OverlayObservation,
+};
 
 const CAMERA_MATRIX_ALIGNMENT_TOLERANCE: Duration = Duration::from_millis(100);
 
@@ -34,7 +36,7 @@ impl ImageOverlay for HorizonOverlay {
         &self,
         painter: &ImageOverlayPainter,
         image_time: Time,
-        _confidence_thresholds: &[f32],
+        _confidence_thresholds: &ConfidenceThresholds,
     ) {
         let Some(camera_matrix) = self
             .camera_matrix
