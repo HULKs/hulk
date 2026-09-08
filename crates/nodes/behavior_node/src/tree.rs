@@ -92,7 +92,7 @@ fn playing_subtree() -> Node<Blackboard> {
             subtree!(penalty_shootout_subtree)
         ),
         sequence!(
-            condition!(is_simple),
+            selection!(condition!(is_simple), condition!(is_last_hulk_standing)),
             selection!(
                 sequence!(
                     negation!(condition!(has_ball_position)),
@@ -101,7 +101,6 @@ fn playing_subtree() -> Node<Blackboard> {
                 subtree!(striker_subtree)
             )
         ),
-        sequence!(condition!(is_last_hulk_standing), subtree!(striker_subtree)),
         sequence!(condition!(is_goalkeeper), subtree!(goalkeeper_subtree)),
         sequence!(
             negation!(condition!(has_ball_position)),
