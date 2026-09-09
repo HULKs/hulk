@@ -13,11 +13,13 @@ destructors. Loading only through `ORT_DYLIB_PATH` produced a heap-corruption
 abort on process exit with the Linux x64 ONNX Runtime 1.22 build, even with
 only a session builder and no inference.
 
-Deploy the updated container definition and recreate the runtime container
-before running the upgraded binaries. This does not require a new image or
-a CUDA upgrade. Verify startup and shutdown on the robot, including GPU
-provider selection and model inference, before rollout. Local CPU validation
-does not cover Jetson CUDA or TensorRT execution.
+`pepsi gammaray` uploads the container definition before reloading systemd,
+stops HULK, restarts `hulk-runtime.service` to recreate the container, and
+then starts HULK. Run this setup before deploying the upgraded binaries.
+This does not require a new image or a CUDA upgrade. Verify startup and
+shutdown on the robot, including GPU provider selection and model inference,
+before rollout. Local CPU validation does not cover Jetson CUDA or TensorRT
+execution.
 
 For local dynamic-loading runs, set both variables to the same absolute
 library path. The opt-in regression test runs a Float32 Identity model with

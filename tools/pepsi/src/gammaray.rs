@@ -221,12 +221,6 @@ async fn gammaray_robot(
         .await?;
 
     robot
-        .ssh_to_robot()?
-        .arg("sudo systemctl daemon-reload")
-        .ssh_with_log("reloading service daemon", &progress_bar)
-        .await?;
-
-    robot
         .rsync_with_robot()?
         .arg("--rsync-path=sudo rsync")
         .arg("--info=progress2")
@@ -285,18 +279,18 @@ async fn gammaray_robot(
         .await?;
 
     robot
-        .ssh_to_robot()?
-        .arg("sudo systemctl daemon-reload")
-        .ssh_with_log("reloading service daemon", &progress_bar)
-        .await?;
-
-    robot
         .rsync_with_robot()?
         .arg("--rsync-path=sudo rsync")
         .arg("--info=progress2")
         .arg(setup.join("hulk-runtime.container"))
         .arg(format!("{}:/etc/containers/systemd/", robot.address))
         .rsync_with_log("uploading service file", &progress_bar)
+        .await?;
+
+    robot
+        .ssh_to_robot()?
+        .arg("sudo systemctl daemon-reload")
+        .ssh_with_log("reloading service daemon", &progress_bar)
         .await?;
 
     robot
@@ -322,8 +316,20 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_robot()?
-        .arg("sudo systemctl enable hulk && sudo systemctl restart hulk")
-        .ssh_with_log("enabling and restarting hulk", &progress_bar)
+        .arg("sudo systemctl stop hulk")
+        .ssh_with_log("stopping hulk before replacing its runtime", &progress_bar)
+        .await?;
+
+    robot
+        .ssh_to_robot()?
+        .arg("sudo systemctl restart hulk-runtime.service")
+        .ssh_with_log("recreating hulk runtime container", &progress_bar)
+        .await?;
+
+    robot
+        .ssh_to_robot()?
+        .arg("sudo systemctl enable hulk && sudo systemctl start hulk")
+        .ssh_with_log("enabling and starting hulk", &progress_bar)
         .await?;
 
     robot
