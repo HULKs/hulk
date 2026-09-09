@@ -62,7 +62,7 @@ fn main() -> Result<()> {
     let mut session = Session::builder()?
         .with_execution_providers([tensor_rt, cuda])
         .map_err(ort::Error::<()>::from)?
-        .with_optimization_level(GraphOptimizationLevel::Level3)
+        .with_optimization_level(GraphOptimizationLevel::All)
         .map_err(ort::Error::<()>::from)?
         .with_intra_threads(2)
         .map_err(ort::Error::<()>::from)?

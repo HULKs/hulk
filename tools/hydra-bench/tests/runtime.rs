@@ -1,12 +1,15 @@
 use color_eyre::Result;
 use ndarray::Array4;
-use ort::session::Session;
+use ort::session::{Session, builder::GraphOptimizationLevel};
 
 #[test]
 #[ignore = "requires ONNX Runtime; see tools/k1-setup/inference-runtime/README.md"]
 fn inference_preserves_values_and_layout() -> Result<()> {
     // Float32 Identity graph with input `images` and output `out`, shape [1, 3, 2, 2].
-    let mut session = Session::builder()?.commit_from_memory(IDENTITY_MODEL)?;
+    let mut session = Session::builder()?
+        .with_optimization_level(GraphOptimizationLevel::All)
+        .map_err(ort::Error::<()>::from)?
+        .commit_from_memory(IDENTITY_MODEL)?;
     assert_eq!(session.inputs()[0].name(), "images");
     let image = Array4::from_shape_fn((1, 3, 2, 2), |(_, channel, y, x)| {
         (channel * 4 + y * 2 + x) as f32

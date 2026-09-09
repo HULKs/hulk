@@ -6,6 +6,10 @@ from the existing container image. The Rust workspace uses `ort` rc.13 with
 revalidating the runtime. Automatic device selection enabled by `api-22`
 aborted in the ONNX Runtime 1.22 CPU build during local validation.
 
+Use `GraphOptimizationLevel::All` to retain rc.10's `Level3` behavior.
+In rc.13, `Level3` selects `ORT_ENABLE_LAYOUT`, which ONNX Runtime 1.22
+rejects with `graph_optimization_level is not valid`.
+
 `hulk-runtime.container` sets both `ORT_DYLIB_PATH` and `LD_PRELOAD` to
 `/usr/local/lib/libonnxruntime.so`. Preloading is required for the rc.13
 shutdown order: its environment must be released before ONNX Runtime's C++
@@ -23,7 +27,8 @@ execution.
 
 For local dynamic-loading runs, set both variables to the same absolute
 library path. The opt-in regression test runs a Float32 Identity model with
-contiguous and transposed ndarray inputs and also exercises process cleanup:
+all graph optimizations, contiguous and transposed ndarray inputs, and
+process cleanup:
 
 ```bash
 ORT_DYLIB_PATH=/absolute/path/to/libonnxruntime.so \
