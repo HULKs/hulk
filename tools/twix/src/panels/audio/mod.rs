@@ -1,4 +1,7 @@
-use std::{collections::VecDeque, time::Duration};
+use std::{
+    collections::{HashSet, VecDeque},
+    time::Duration,
+};
 
 use color_eyre::{Report, eyre::Context as _};
 use eframe::egui::{self, Color32, DragValue, Ui, Vec2};
@@ -222,53 +225,6 @@ impl Panel for AudioPanel {
         }
         self.y_max_smoothed = self.y_max_smoothed.max(0.01); // Minimum y max
 
-        ui.horizontal(|ui| {
-            draw_color_legend(ui, self.current_max_magnitude);
-            ui.separator();
-            ui.label("History:");
-            let mut history_secs = self.history_seconds;
-            if ui
-                .add(
-                    DragValue::new(&mut history_secs)
-                        .range(1.0..=30.0)
-                        .suffix(" s")
-                        .speed(0.1),
-                )
-                .changed()
-            {
-                self.history_seconds = history_secs;
-                let max_frames = (self.history_seconds
-                    / duration_to_seconds(self.time_per_frame).max(1e-4))
-                    as usize;
-                while self.waterfall_history.len() > max_frames {
-                    self.waterfall_history.pop_back();
-                }
-            }
-
-            ui.separator();
-            ui.label("Waterfall channel:");
-            let available_channels = current_spectra.as_ref().map_or(0, |spectra| spectra.len());
-            if available_channels > 0 {
-                let previous_channel = self.selected_waterfall_channel;
-                eframe::egui::ComboBox::from_id_salt(ui.id().with("waterfall_channel"))
-                    .selected_text(format!("Channel {}", self.selected_waterfall_channel))
-                    .show_ui(ui, |ui| {
-                        for channel_idx in 0..available_channels {
-                            ui.selectable_value(
-                                &mut self.selected_waterfall_channel,
-                                channel_idx,
-                                format!("Channel {}", channel_idx),
-                            );
-                        }
-                    });
-                if self.selected_waterfall_channel != previous_channel {
-                    self.waterfall_history.clear();
-                }
-            } else {
-                ui.label("n/a");
-            }
-        });
-
         let number_frequencies = self.waterfall_history.front().map_or(0, Vec::len);
         let number_times = self.waterfall_history.len();
 
@@ -302,7 +258,7 @@ impl Panel for AudioPanel {
         let tree = self.tree.get_or_insert_with(|| {
             egui_tiles::Tree::new_vertical(
                 ui.id().with("audio_tiles"),
-                vec![AudioPane::Spectrum, AudioPane::Waterfall],
+                vec![AudioPane::Spectrum(HashSet::new()), AudioPane::Waterfall],
             )
         });
 
@@ -314,6 +270,11 @@ impl Panel for AudioPanel {
                 max_magnitude: self.y_max_smoothed,
                 total_time: number_times as f32
                     * duration_to_seconds(self.time_per_frame).max(1e-4),
+                current_max_magnitude: self.current_max_magnitude,
+                history_seconds: &mut self.history_seconds,
+                time_per_frame: self.time_per_frame,
+                waterfall_history: &mut self.waterfall_history,
+                selected_waterfall_channel: &mut self.selected_waterfall_channel,
             },
             ui,
         );
@@ -367,7 +328,7 @@ impl AudioPanel {
 }
 
 enum AudioPane {
-    Spectrum,
+    Spectrum(HashSet<usize>),
     Waterfall,
 }
 
@@ -377,12 +338,17 @@ struct AudioBehavior<'a> {
     max_frequency: f32,
     max_magnitude: f32,
     total_time: f32,
+    current_max_magnitude: f32,
+    history_seconds: &'a mut f32,
+    time_per_frame: Duration,
+    waterfall_history: &'a mut VecDeque<Vec<f32>>,
+    selected_waterfall_channel: &'a mut usize,
 }
 
 impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
     fn tab_title_for_pane(&mut self, pane: &AudioPane) -> egui::WidgetText {
         match pane {
-            AudioPane::Spectrum => "Spectrum",
+            AudioPane::Spectrum(_) => "Spectrum",
             AudioPane::Waterfall => "Waterfall",
         }
         .into()
@@ -404,17 +370,54 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
         ui.label(format!("Frequency: 0–{:.0} Hz", self.max_frequency));
 
         match pane {
-            AudioPane::Spectrum => {
+            AudioPane::Spectrum(hidden_channels) => {
                 ui.label(format!("Magnitude: 0–{:.3}", self.max_magnitude));
 
+                let (saturation, value) = if ui.visuals().dark_mode {
+                    (0.65, 0.95)
+                } else {
+                    (0.85, 0.16)
+                };
+
                 let color = |channel: usize| -> Color32 {
-                    egui::ecolor::Hsva::new((channel as f32 * 0.618_034) % 1.0, 0.65, 0.95, 1.0)
-                        .into()
+                    egui::ecolor::Hsva::new(
+                        (channel as f32 * 0.618_034) % 1.0,
+                        saturation,
+                        value,
+                        1.0,
+                    )
+                    .into()
                 };
 
                 ui.horizontal_wrapped(|ui| {
                     for channel in 0..self.spectra.len() {
-                        ui.colored_label(color(channel), format!("Channel {channel}"));
+                        let text_color = if hidden_channels.contains(&channel) {
+                            ui.visuals().weak_text_color()
+                        } else {
+                            color(channel)
+                        };
+
+                        let mut text =
+                            egui::RichText::new(format!("Channel {channel}")).color(text_color);
+
+                        if hidden_channels.contains(&channel) {
+                            text = text.color(ui.visuals().weak_text_color());
+                        }
+
+                        if ui
+                            .add(
+                                egui::Label::new(text)
+                                    .selectable(false)
+                                    .sense(egui::Sense::click()),
+                            )
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .clicked()
+                        {
+                            if !hidden_channels.remove(&channel) {
+                                hidden_channels.insert(channel);
+                            }
+                            ui.ctx().request_repaint();
+                        }
                     }
                 });
 
@@ -426,6 +429,9 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
                     let painter = painter.with_clip_rect(rect.intersect(ui.clip_rect()));
 
                     for (channel, spectrum) in self.spectra.iter().enumerate() {
+                        if hidden_channels.contains(&channel) {
+                            continue;
+                        }
                         let points = spectrum
                             .iter()
                             .map(|&(frequency, magnitude)| {
@@ -446,6 +452,56 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
                 }
             }
             AudioPane::Waterfall => {
+                ui.horizontal(|ui| {
+                    draw_color_legend(ui, self.current_max_magnitude);
+                    ui.separator();
+                    ui.label("History:");
+                    let mut history_secs = *self.history_seconds;
+                    if ui
+                        .add(
+                            DragValue::new(&mut history_secs)
+                                .range(1.0..=30.0)
+                                .suffix(" s")
+                                .speed(0.1),
+                        )
+                        .changed()
+                    {
+                        *self.history_seconds = history_secs;
+                        let max_frames = (*self.history_seconds
+                            / duration_to_seconds(self.time_per_frame).max(1e-4))
+                            as usize;
+                        while self.waterfall_history.len() > max_frames {
+                            self.waterfall_history.pop_back();
+                        }
+                    }
+
+                    ui.separator();
+                    ui.label("Waterfall channel:");
+                    let available_channels = self.spectra.len();
+                    if available_channels > 0 {
+                        let previous_channel = *self.selected_waterfall_channel;
+                        eframe::egui::ComboBox::from_id_salt(ui.id().with("waterfall_channel"))
+                            .selected_text(format!("Channel {}", self.selected_waterfall_channel))
+                            .show_ui(ui, |ui| {
+                                for channel_idx in 0..available_channels {
+                                    ui.selectable_value(
+                                        self.selected_waterfall_channel,
+                                        channel_idx,
+                                        format!("Channel {}", channel_idx),
+                                    );
+                                }
+                            });
+                        if *self.selected_waterfall_channel != previous_channel {
+                            self.waterfall_history.clear();
+                            self.texture = None;
+                            self.total_time = 0.0;
+                            ui.ctx().request_repaint();
+                        }
+                    } else {
+                        ui.label("n/a");
+                    }
+                });
+
                 ui.label(format!("History: {:.2} s; newest at top", self.total_time,));
 
                 if let Some(texture) = self.texture {
