@@ -109,7 +109,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut session = block_in_place(|| {
         Session::builder()?
             .with_execution_providers([tensor_rt, cuda])?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
+            .with_optimization_level(GraphOptimizationLevel::All)?
             .with_intra_threads(2)?
             .commit_from_file(model_path)
     })?;
