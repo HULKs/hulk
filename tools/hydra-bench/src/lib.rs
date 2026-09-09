@@ -4,7 +4,7 @@ use clap::Parser;
 use color_eyre::Result;
 use ndarray::Array4;
 use ort::{
-    execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
+    ep::{CUDA, TensorRT},
     inputs,
     session::{Session, SessionOutputs, builder::GraphOptimizationLevel},
     value::TensorRef,
@@ -45,25 +45,33 @@ pub fn run_inference<'a>(
     session: &'a mut Session,
     sample_image: &Array4<f32>,
 ) -> Result<SessionOutputs<'a>> {
-    Ok(session.run(inputs!["images" => TensorRef::from_array_view(sample_image.view())?])?)
+    let sample_image = sample_image.as_standard_layout();
+    let data = sample_image
+        .as_slice()
+        .ok_or_else(|| color_eyre::eyre::eyre!("sample image must be contiguous"))?;
+    let input = TensorRef::from_array_view((sample_image.shape(), data))?;
+    Ok(session.run(inputs!["images" => input])?)
 }
 
 pub fn setup(
     onnx_path: impl AsRef<Path>,
     cache_path: impl AsRef<Path>,
 ) -> Result<Session, color_eyre::eyre::Error> {
-    let tensor_rt = TensorRTExecutionProvider::default()
+    let tensor_rt = TensorRT::default()
         .with_device_id(0)
         .with_fp16(true)
         .with_engine_cache(true)
         .with_engine_cache_path(cache_path.as_ref().display())
         .build()
         .error_on_failure();
-    let cuda = CUDAExecutionProvider::default().build();
+    let cuda = CUDA::default().build();
     let session = Session::builder()?
-        .with_execution_providers([tensor_rt, cuda])?
-        .with_optimization_level(GraphOptimizationLevel::Level3)?
-        .with_intra_threads(2)?
+        .with_execution_providers([tensor_rt, cuda])
+        .map_err(ort::Error::<()>::from)?
+        .with_optimization_level(GraphOptimizationLevel::Level3)
+        .map_err(ort::Error::<()>::from)?
+        .with_intra_threads(2)
+        .map_err(ort::Error::<()>::from)?
         .commit_from_file(onnx_path.as_ref())?;
     Ok(session)
 }

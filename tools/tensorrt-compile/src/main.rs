@@ -6,9 +6,9 @@ use color_eyre::{
     eyre::{Context, ContextCompat, bail},
 };
 use ort::{
-    execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
-    session::{Input, Session, builder::GraphOptimizationLevel},
-    value::{DynTensor, ValueType},
+    ep::{CUDA, TensorRT},
+    session::{Session, builder::GraphOptimizationLevel},
+    value::{DynTensor, Outlet, ValueType},
 };
 
 const DEFAULT_CACHE_PATH: &str = "/home/booster/hulk/etc/neural_networks/";
@@ -42,9 +42,9 @@ fn main() -> Result<()> {
     std::fs::create_dir_all(&args.cache_path).wrap_err("failed to create cache path")?;
 
     let metadata_session = Session::builder()?.commit_from_file(&args.onnx_path)?;
-    let input_shapes = resolve_input_shapes(&metadata_session.inputs, &shape_overrides)?;
+    let input_shapes = resolve_input_shapes(metadata_session.inputs(), &shape_overrides)?;
 
-    let mut tensor_rt = TensorRTExecutionProvider::default()
+    let mut tensor_rt = TensorRT::default()
         .with_device_id(0)
         .with_fp16(true)
         .with_engine_cache(true)
@@ -57,12 +57,15 @@ fn main() -> Result<()> {
             .with_profile_max_shapes(profile_shapes);
     }
 
-    let cuda = CUDAExecutionProvider::default().build();
+    let cuda = CUDA::default().build();
     let tensor_rt = tensor_rt.build().error_on_failure();
     let mut session = Session::builder()?
-        .with_execution_providers([tensor_rt, cuda])?
-        .with_optimization_level(GraphOptimizationLevel::Level3)?
-        .with_intra_threads(2)?
+        .with_execution_providers([tensor_rt, cuda])
+        .map_err(ort::Error::<()>::from)?
+        .with_optimization_level(GraphOptimizationLevel::Level3)
+        .map_err(ort::Error::<()>::from)?
+        .with_intra_threads(2)
+        .map_err(ort::Error::<()>::from)?
         .commit_from_file(args.onnx_path)?;
 
     let input_shapes = input_shapes
@@ -70,7 +73,7 @@ fn main() -> Result<()> {
         .map(|input| (input.name, input.shape))
         .collect::<HashMap<_, _>>();
     let inputs = session
-        .inputs
+        .inputs()
         .iter()
         .map(|input| create_dummy_input(&session, input, &input_shapes))
         .collect::<Result<Vec<_>>>()?;
@@ -126,28 +129,28 @@ fn parse_shape(shape: &str) -> Result<Vec<i64>> {
 }
 
 fn resolve_input_shapes(
-    inputs: &[Input],
+    inputs: &[Outlet],
     overrides: &HashMap<String, Vec<i64>>,
 ) -> Result<Vec<InputShape>> {
     let mut resolved = Vec::new();
     let mut unused_overrides = overrides.keys().cloned().collect::<Vec<_>>();
 
     for input in inputs {
-        unused_overrides.retain(|name| name != &input.name);
+        unused_overrides.retain(|name| name != input.name());
         let model_shape = tensor_shape(input)?;
         let dynamic = model_shape.iter().any(|dimension| *dimension < 0);
-        let shape = match overrides.get(&input.name) {
-            Some(shape) => validate_shape(&input.name, model_shape, shape)?,
+        let shape = match overrides.get(input.name()) {
+            Some(shape) => validate_shape(input.name(), model_shape, shape)?,
             None if dynamic => bail!(
                 "input '{}' has dynamic shape {}; pass --{} dim1,dim2,...",
-                input.name,
+                input.name(),
                 format_shape(model_shape),
-                input.name
+                input.name()
             ),
             None => model_shape.to_vec(),
         };
         resolved.push(InputShape {
-            name: input.name.clone(),
+            name: input.name().to_owned(),
             shape,
             dynamic,
         });
@@ -163,12 +166,12 @@ fn resolve_input_shapes(
     Ok(resolved)
 }
 
-fn tensor_shape(input: &Input) -> Result<&[i64]> {
-    let ValueType::Tensor { shape, .. } = &input.input_type else {
+fn tensor_shape(input: &Outlet) -> Result<&[i64]> {
+    let ValueType::Tensor { shape, .. } = input.dtype() else {
         bail!(
             "input '{}' is not a tensor: {:?}",
-            input.name,
-            input.input_type
+            input.name(),
+            input.dtype()
         );
     };
     Ok(shape)
@@ -202,24 +205,24 @@ fn validate_shape(name: &str, model_shape: &[i64], shape: &[i64]) -> Result<Vec<
 
 fn create_dummy_input(
     session: &Session,
-    input: &Input,
+    input: &Outlet,
     shapes: &HashMap<String, Vec<i64>>,
 ) -> Result<(String, DynTensor)> {
-    let ValueType::Tensor { ty, .. } = &input.input_type else {
+    let ValueType::Tensor { ty, .. } = input.dtype() else {
         bail!(
             "input '{}' is not a tensor: {:?}",
-            input.name,
-            input.input_type
+            input.name(),
+            input.dtype()
         );
     };
     Ok((
-        input.name.clone(),
+        input.name().to_owned(),
         DynTensor::new(
             session.allocator(),
             *ty,
             shapes
-                .get(&input.name)
-                .wrap_err_with(|| format!("missing resolved shape for '{}'", input.name))?
+                .get(input.name())
+                .wrap_err_with(|| format!("missing resolved shape for '{}'", input.name()))?
                 .clone(),
         )?,
     ))
