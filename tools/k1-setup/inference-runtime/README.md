@@ -26,15 +26,4 @@ before rollout. Local CPU validation does not cover Jetson CUDA or TensorRT
 execution.
 
 For local dynamic-loading runs, set both variables to the same absolute
-library path. The opt-in regression test runs a Float32 Identity model with
-all graph optimizations, contiguous and transposed ndarray inputs, and
-process cleanup:
-
-```bash
-ORT_DYLIB_PATH=/absolute/path/to/libonnxruntime.so \
-LD_PRELOAD=/absolute/path/to/libonnxruntime.so \
-cargo test --locked -p hydra-bench --test runtime -- --ignored
-```
-
-The test fixture uses ONNX IR 8, opset 13, input `images`, output `out`, and
-shape `[1, 3, 2, 2]`. No GPU is needed for this test.
+library path.
