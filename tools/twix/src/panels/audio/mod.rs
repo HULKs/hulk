@@ -1,8 +1,7 @@
 use std::{collections::VecDeque, time::Duration};
 
 use color_eyre::{Report, eyre::Context as _};
-use eframe::egui::{Color32, DragValue, Ui, Vec2};
-use egui_plot::{HoverPosition, Line, Plot as EguiPlot, PlotImage, PlotPoint, PlotPoints};
+use eframe::egui::{self, Color32, DragValue, Ui, Vec2};
 use hulk_widgets::CompletionEdit;
 use ros_z::entity::EndpointKind;
 use ros_z_debug::DynamicTopicObservation;
@@ -35,6 +34,7 @@ pub struct AudioPanel {
     y_max_smoothed: f32,
     y_hysteresis_factor: f32,
     current_max_magnitude: f32,
+    tree: Option<egui_tiles::Tree<AudioPane>>,
 }
 
 enum ObservationState {
@@ -51,6 +51,7 @@ struct ObservedSpectra {
 impl Panel for AudioPanel {
     const STORAGE_ID: &'static str = "audio";
     const DISPLAY_NAME: &'static str = "Audio";
+    const ICON: &'static str = egui_material_icons::icons::ICON_GRAPHIC_EQ.codepoint;
 
     fn new(context: PanelCreationContext<'_>) -> Self {
         let topic = context
@@ -85,6 +86,7 @@ impl Panel for AudioPanel {
             y_max_smoothed: 0.5,
             y_hysteresis_factor: 0.98,
             current_max_magnitude: 0.001,
+            tree: None,
         };
         panel.recreate_observation(&context);
         panel
@@ -220,55 +222,6 @@ impl Panel for AudioPanel {
         }
         self.y_max_smoothed = self.y_max_smoothed.max(0.01); // Minimum y max
 
-        let available_height = ui.available_height() - 60.0;
-        let spectrum_height = available_height * 0.35;
-        let waterfall_height = available_height * 0.55;
-
-        let link_group = ui.id().with("spectrum_link");
-
-        let plot_response = EguiPlot::new(ui.id().with("audio_spectrum_plot"))
-            .legend(Default::default())
-            .height(spectrum_height)
-            .link_axis(link_group, [true, false])
-            .include_y(0.0)
-            .include_y(self.y_max_smoothed as f64)
-            .auto_bounds([true, false])
-            .label_formatter(|position| {
-                Some(match position {
-                    HoverPosition::NearDataPoint {
-                        plot_name,
-                        position,
-                        ..
-                    } => format!(
-                        "{}\nFreq: {:.0} Hz\nMag: {:.4}",
-                        plot_name, position.x, position.y
-                    ),
-                    HoverPosition::Elsewhere { position } => {
-                        format!("Freq: {:.0} Hz\nMag: {:.4}", position.x, position.y)
-                    }
-                })
-            })
-            .allow_drag(true)
-            .allow_zoom(true)
-            .allow_scroll(true)
-            .show_axes([true, true])
-            .show_grid([true, true])
-            .x_grid_spacer(egui_plot::log_grid_spacer(10))
-            .show(ui, |plot_ui| {
-                if let Some(ref spectra) = current_spectra {
-                    for (channel_idx, spectrum) in spectra.iter().enumerate() {
-                        if !spectrum.is_empty() {
-                            let points: PlotPoints = spectrum
-                                .iter()
-                                .map(|(freq, mag)| [*freq as f64, *mag as f64])
-                                .collect();
-                            let line = Line::new(format!("Channel {}", channel_idx), points);
-                            plot_ui.line(line);
-                        }
-                    }
-                }
-            });
-
         ui.horizontal(|ui| {
             draw_color_legend(ui, self.current_max_magnitude);
             ui.separator();
@@ -316,84 +269,54 @@ impl Panel for AudioPanel {
             }
         });
 
-        ui.label("Waterfall (Time vs Frequency)");
+        let number_frequencies = self.waterfall_history.front().map_or(0, Vec::len);
+        let number_times = self.waterfall_history.len();
 
-        let waterfall_response = if !self.waterfall_history.is_empty() {
-            let number_frequencies = self.waterfall_history.front().map(|v| v.len()).unwrap_or(0);
-            let number_times = self.waterfall_history.len();
+        if number_frequencies > 0 && number_times > 0 {
+            let max_magnitude = self.current_max_magnitude.max(0.001);
 
-            if number_frequencies > 0 && number_times > 0 {
-                let max_magnitude = self.current_max_magnitude.max(0.001);
-
-                let mut pixels = Vec::with_capacity(number_times * number_frequencies);
-                for row in self.waterfall_history.iter() {
-                    for &magnitude in row.iter() {
-                        pixels.push(magnitude_to_color(magnitude, max_magnitude));
-                    }
+            let mut pixels = Vec::with_capacity(number_times * number_frequencies);
+            for row in &self.waterfall_history {
+                for &magnitude in row {
+                    pixels.push(magnitude_to_color(magnitude, max_magnitude));
                 }
-
-                let image = eframe::egui::ColorImage::from_rgba_unmultiplied(
-                    [number_frequencies, number_times],
-                    &pixels
-                        .iter()
-                        .flat_map(|color| [color.r(), color.g(), color.b(), color.a()])
-                        .collect::<Vec<_>>(),
-                );
-
-                self.waterfall_texture = Some(ui.ctx().load_texture(
-                    "waterfall",
-                    image,
-                    eframe::egui::TextureOptions::NEAREST,
-                ));
-
-                let time_per_frame = duration_to_seconds(self.time_per_frame).max(1e-4);
-                let total_time = number_times as f64 * time_per_frame as f64;
-                let major = 1.0;
-                let medium = 1.0;
-                let minor = 0.1;
-
-                EguiPlot::new(ui.id().with("waterfall_plot"))
-                    .height(waterfall_height)
-                    .link_axis(link_group, [true, false])
-                    .allow_drag(true)
-                    .allow_zoom(true)
-                    .show_axes([true, true])
-                    .show_grid([true, true])
-                    .x_grid_spacer(egui_plot::log_grid_spacer(10))
-                    .y_grid_spacer(egui_plot::uniform_grid_spacer(move |_| {
-                        [major, medium, minor]
-                    }))
-                    .y_axis_formatter(move |mark, _| format!("{:.1}s", mark.value))
-                    .label_formatter(move |position| {
-                        let position = match position {
-                            HoverPosition::NearDataPoint { position, .. }
-                            | HoverPosition::Elsewhere { position } => position,
-                        };
-                        Some(format!(
-                            "Freq: {:.0} Hz\nTime: {:.2}s ago",
-                            position.x, position.y
-                        ))
-                    })
-                    .show(ui, |plot_ui| {
-                        if let Some(texture) = &self.waterfall_texture {
-                            let image = PlotImage::new(
-                                "waterfall",
-                                texture.id(),
-                                PlotPoint::new(self.max_frequency as f64 / 2.0, total_time / 2.0),
-                                [self.max_frequency, total_time as f32],
-                            );
-                            plot_ui.image(image);
-                        }
-                    })
-                    .response
-            } else {
-                ui.label("Waiting for data...")
             }
-        } else {
-            ui.label("Waiting for data...")
-        };
 
-        let _response = plot_response.response | waterfall_response;
+            let image = egui::ColorImage::from_rgba_unmultiplied(
+                [number_frequencies, number_times],
+                &pixels
+                    .iter()
+                    .flat_map(|color| [color.r(), color.g(), color.b(), color.a()])
+                    .collect::<Vec<_>>(),
+            );
+
+            self.waterfall_texture = Some(ui.ctx().load_texture(
+                "waterfall",
+                image,
+                egui::TextureOptions::NEAREST,
+            ));
+        } else {
+            self.waterfall_texture = None;
+        }
+
+        let tree = self.tree.get_or_insert_with(|| {
+            egui_tiles::Tree::new_vertical(
+                ui.id().with("audio_tiles"),
+                vec![AudioPane::Spectrum, AudioPane::Waterfall],
+            )
+        });
+
+        tree.ui(
+            &mut AudioBehavior {
+                spectra: current_spectra.as_deref().unwrap_or_default(),
+                texture: self.waterfall_texture.as_ref(),
+                max_frequency: self.max_frequency,
+                max_magnitude: self.y_max_smoothed,
+                total_time: number_times as f32
+                    * duration_to_seconds(self.time_per_frame).max(1e-4),
+            },
+            ui,
+        );
     }
 
     fn save(&self) -> Value {
@@ -440,6 +363,104 @@ impl AudioPanel {
         }
         self.topic = next_topic;
         self.recreate_observation(context);
+    }
+}
+
+enum AudioPane {
+    Spectrum,
+    Waterfall,
+}
+
+struct AudioBehavior<'a> {
+    spectra: &'a [Spectrum],
+    texture: Option<&'a egui::TextureHandle>,
+    max_frequency: f32,
+    max_magnitude: f32,
+    total_time: f32,
+}
+
+impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
+    fn tab_title_for_pane(&mut self, pane: &AudioPane) -> egui::WidgetText {
+        match pane {
+            AudioPane::Spectrum => "Spectrum",
+            AudioPane::Waterfall => "Waterfall",
+        }
+        .into()
+    }
+
+    fn simplification_options(&self) -> egui_tiles::SimplificationOptions {
+        egui_tiles::SimplificationOptions {
+            all_panes_must_have_tabs: true,
+            ..Default::default()
+        }
+    }
+
+    fn pane_ui(
+        &mut self,
+        ui: &mut Ui,
+        _tile_id: egui_tiles::TileId,
+        pane: &mut AudioPane,
+    ) -> egui_tiles::UiResponse {
+        ui.label(format!("Frequency: 0–{:.0} Hz", self.max_frequency));
+
+        match pane {
+            AudioPane::Spectrum => {
+                ui.label(format!("Magnitude: 0–{:.3}", self.max_magnitude));
+
+                let color = |channel: usize| -> Color32 {
+                    egui::ecolor::Hsva::new((channel as f32 * 0.618_034) % 1.0, 0.65, 0.95, 1.0)
+                        .into()
+                };
+
+                ui.horizontal_wrapped(|ui| {
+                    for channel in 0..self.spectra.len() {
+                        ui.colored_label(color(channel), format!("Channel {channel}"));
+                    }
+                });
+
+                let (response, painter) =
+                    ui.allocate_painter(ui.available_size().max(Vec2::ZERO), egui::Sense::hover());
+                let rect = response.rect;
+
+                if rect.is_positive() {
+                    let painter = painter.with_clip_rect(rect.intersect(ui.clip_rect()));
+
+                    for (channel, spectrum) in self.spectra.iter().enumerate() {
+                        let points = spectrum
+                            .iter()
+                            .map(|&(frequency, magnitude)| {
+                                egui::pos2(
+                                    rect.left()
+                                        + frequency / self.max_frequency.max(1.0) * rect.width(),
+                                    rect.bottom()
+                                        - magnitude / self.max_magnitude.max(0.001) * rect.height(),
+                                )
+                            })
+                            .collect();
+
+                        painter.add(egui::Shape::line(
+                            points,
+                            egui::Stroke::new(1.0, color(channel)),
+                        ));
+                    }
+                }
+            }
+            AudioPane::Waterfall => {
+                ui.label(format!("History: {:.2} s; newest at top", self.total_time,));
+
+                if let Some(texture) = self.texture {
+                    ui.add(
+                        egui::Image::new(texture)
+                            .maintain_aspect_ratio(false)
+                            .fit_to_exact_size(ui.available_size().max(Vec2::ZERO)),
+                    );
+                } else {
+                    ui.label("Waiting for data...");
+                }
+            }
+        }
+
+        egui_tiles::UiResponse::None
     }
 }
 

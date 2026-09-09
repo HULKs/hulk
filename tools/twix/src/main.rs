@@ -18,13 +18,12 @@ use eframe::{
 };
 use layout::{FocusDirection, TwixLayout};
 use log::{error, warn};
-use panel::{Panel, PanelCreationContext, PanelUiContext};
-use panels::{AudioPanel, ImagePanel, MapPanel, ParameterPanel, TextPanel};
+use panels::{ImagePanel, MapPanel, ParameterPanel, TextPanel};
 use repository::{Repository, inspect_version::check_for_update};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use visuals::Visuals;
 
-use crate::backend::RobotBackend;
+use crate::{backend::RobotBackend, panels::AudioPanel};
 
 mod backend;
 mod configuration;
@@ -41,25 +40,6 @@ mod visuals;
 mod zoom_and_pan;
 
 impl_selectable_panel!(TextPanel, ImagePanel, MapPanel, ParameterPanel, AudioPanel);
-
-fn panel_creation_context<'a>(
-    backend: &Arc<RobotBackend>,
-    value: Option<&'a Value>,
-    egui_context: &Context,
-) -> PanelCreationContext<'a> {
-    PanelCreationContext {
-        backend: backend.clone(),
-        value,
-        egui_context: egui_context.clone(),
-    }
-}
-
-fn default_dock_state(backend: &Arc<RobotBackend>, egui_context: &Context) -> DockState<Tab> {
-    DockState::new(vec![Tab::from_panel(SelectablePanel::TextPanel(
-        TextPanel::new(panel_creation_context(backend, None, egui_context)),
-    ))])
-}
->>>>>>> 67684e2aa3 (add audio spectrum to twix again)
 
 #[derive(Debug, Clone, clap::Parser)]
 struct Arguments {
