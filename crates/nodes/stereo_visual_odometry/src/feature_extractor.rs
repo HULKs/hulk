@@ -6,14 +6,13 @@ use color_eyre::{
 };
 
 use ort::{
-    execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
+    ep::{CUDA, TensorRT},
     inputs,
     session::{
-        HasSelectedOutputs, RunOptions, Session, SessionOutputs, builder::GraphOptimizationLevel,
-        run_options::OutputSelector,
+        HasSelectedOutputs, OutputSelector, RunOptions, Session, SessionOutputs,
+        builder::GraphOptimizationLevel,
     },
-    tensor::PrimitiveTensorElementType,
-    value::TensorRef,
+    value::{PrimitiveTensorElementType, TensorRef},
 };
 use ros2::sensor_msgs::image::Image;
 use types::stereo_image_pair::StereoImagePair;
@@ -68,17 +67,20 @@ pub struct Matches<'a, From, To> {
 impl FeatureExtractor {
     pub fn new(path: impl AsRef<Path>) -> Result<Self> {
         let parent = path.as_ref().parent().wrap_err("failed to find parent")?;
-        let tensorrt = TensorRTExecutionProvider::default()
+        let tensorrt = TensorRT::default()
             .with_device_id(0)
             .with_fp16(true)
             .with_engine_cache(true)
             .with_engine_cache_path(parent.display())
             .build();
-        let cuda = CUDAExecutionProvider::default().build();
+        let cuda = CUDA::default().build();
         let session = Session::builder()?
-            .with_execution_providers([tensorrt, cuda])?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_intra_threads(2)?
+            .with_execution_providers([tensorrt, cuda])
+            .map_err(ort::Error::<()>::from)?
+            .with_optimization_level(GraphOptimizationLevel::Level3)
+            .map_err(ort::Error::<()>::from)?
+            .with_intra_threads(2)
+            .map_err(ort::Error::<()>::from)?
             .commit_from_file(path)?;
 
         let run_options = RunOptions::new()?.with_outputs(
