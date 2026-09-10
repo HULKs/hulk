@@ -117,6 +117,10 @@ To build and run Pepsi from source, use
 
 This downloads and builds all dependencies for the workspace and displays the help page of Pepsi.
 
+The launcher builds Pepsi natively in `target`.
+SDK container builds use `target/container` so they can reuse their Cargo cache independently of native builds.
+See [Pepsi build directories](../tooling/pepsi.md#build-directories) for overrides and binary locations.
+
 !!! tip
 
     You can also install Pepsi into your local system to conveniently use it without rebuilding:

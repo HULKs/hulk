@@ -14,7 +14,7 @@ use color_eyre::{
 use argument_parsers::RobotAddress;
 use indicatif::ProgressBar;
 use pathdiff::diff_paths;
-use repository::{Repository, upload::get_binary};
+use repository::Repository;
 use robot::Robot;
 use tempfile::tempdir;
 use tokio::{
@@ -23,9 +23,7 @@ use tokio::{
 };
 
 use crate::{
-    cargo::{
-        self, CargoCommand, build, construct_cargo_command, environment::EnvironmentArguments,
-    },
+    cargo::{self, build, construct_cargo_command, environment::EnvironmentArguments},
     gammaray::CommandExt,
     progress_indicator::{ProgressIndicator, Task},
 };
@@ -68,14 +66,14 @@ pub async fn tensorrt_compile(arguments: Arguments, repository: &Repository) -> 
     let progress_compile = multiprogres.task("Compile", false);
     let progress_download = multiprogres.task("Download", false);
 
-    let binary_path = get_binary(arguments.build.profile(), BINARY_NAME);
+    let cargo_arguments = cargo::Arguments {
+        manifest: Some(manifest(repository)),
+        environment: arguments.environment,
+        cargo: arguments.build,
+    };
+    let binary_path = cargo_arguments.binary_path(repository, BINARY_NAME).await?;
     if !arguments.tensorrt_compile.no_build {
         progress_build.enable_steady_tick();
-        let cargo_arguments = cargo::Arguments {
-            manifest: Some(manifest(repository)),
-            environment: arguments.environment,
-            cargo: arguments.build,
-        };
         build_binary(cargo_arguments, repository, &progress_build)
             .await
             .wrap_err("failed to build")
@@ -273,7 +271,7 @@ pub async fn build_binary(
     repository: &Repository,
     progress_bar: &Task,
 ) -> Result<()> {
-    let binary_path = get_binary(cargo_arguments.cargo.profile(), BINARY_NAME);
+    let binary_path = cargo_arguments.binary_path(repository, BINARY_NAME).await?;
     let mut command = construct_cargo_command(cargo_arguments, repository, &[binary_path])
         .await
         .expect("failed to construct cargo command");

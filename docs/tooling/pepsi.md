@@ -56,6 +56,24 @@ For subcommands that build a binary, you can specify a target and a build profil
 These include `build`, `run`, `check`, and `clippy`.
 However `upload` and `pregame` only supports a profiles, since it doesn't make sense to upload a webots binary to the nao.
 
+### Build directories
+
+Native builds, including the `./pepsi` launcher, keep Cargo's default `target` directory.
+Podman and Docker builds use `target/container`, mounted at `/hulk/target/container` inside the container.
+Separating these directories prevents Cargo from repeatedly rebuilding dependencies whose source paths differ between native and container builds.
+The first container build after this change needs to populate the new cache; existing artifacts are left in place.
+
+Use `--target-dir` to override the directory for a Pepsi build command.
+Relative paths are relative to the directory where you invoke Pepsi.
+Absolute container paths use the container filesystem; keep them under `/hulk` when you need to retrieve or upload binaries.
+Native `CARGO_TARGET_DIR` is not forwarded to containers, so a custom container directory must be selected with `--target-dir`.
+Choosing the same directory for both environments can bring back the invalidation.
+
+`upload`, `pregame`, `tensorrt-compile`, and `hydra-bench` look for binaries in the selected environment's directory, including with `--no-build`.
+Use the same environment, profile, and target directory as the build that produced the binary.
+Remote container builds return binaries from the selected container directory to the matching path in your local repository.
+For remote native builds that retrieve binaries, use a relative `--target-dir`; absolute paths can refer to different locations on the two machines.
+
 ## Aliveness
 
 Using the `aliveness` subcommand, pepsi can query information from NAOs connected via ethernet. By default, only irregular information like non-active services, outdated HULKs-OS versions and battery charge levels below 95% are displayed. Using `-v`/`--verbose` or `-j`/`--json`, you can retrieve all information available via aliveness in either a human- or machine-readable format.

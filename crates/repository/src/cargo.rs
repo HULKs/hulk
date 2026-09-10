@@ -23,6 +23,16 @@ pub enum Environment {
     Docker { sdk_image: SDKImage },
 }
 
+impl Environment {
+    /// Default artifact directory, relative to the repository root.
+    pub fn default_target_directory(&self) -> &Path {
+        Path::new(match self {
+            Self::Native => "target",
+            Self::Podman { .. } | Self::Docker { .. } => "target/container",
+        })
+    }
+}
+
 impl Display for Environment {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -117,6 +127,7 @@ impl Cargo {
         let arguments = self.arguments.join(OsStr::new(" "));
 
         let data_home_script = repository.data_home_script()?;
+        let target_directory = Path::new("/hulk").join(self.environment.default_target_directory());
 
         let command_string = match self.environment {
             Environment::Native => {
@@ -136,6 +147,7 @@ impl Cargo {
                     root.display().to_string(),
                     tagged_image_name,
                     pwd.display().to_string(),
+                    &target_directory,
                 ));
                 command.push(arguments);
                 command.push(OsStr::new("\""));
@@ -153,6 +165,7 @@ impl Cargo {
                     root.display().to_string(),
                     tagged_image_name,
                     pwd.display().to_string(),
+                    &target_directory,
                 ));
                 command.push(arguments);
                 command.push(OsStr::new("'"));
@@ -189,12 +202,14 @@ fn build_command_string(
     root: String,
     tagged_image_name: String,
     pwd: String,
+    target_directory: &Path,
 ) -> String {
     format!(
         "\
             mkdir -p {cargo_home}/git && \
             mkdir -p {cargo_home}/registry && \
             {container_runtime} run \
+                --env=CARGO_TARGET_DIR={target_directory} \
                 --volume={root}:/hulk:z \
                 --volume={cargo_home}/git:/root/.cargo/git:z \
                 --volume={cargo_home}/registry:/root/.cargo/registry:z \
@@ -207,6 +222,7 @@ fn build_command_string(
                 /bin/sh -c \"\
                     cd {pwd} && \
                     cargo \
-        "
+        ",
+        target_directory = target_directory.display(),
     )
 }
