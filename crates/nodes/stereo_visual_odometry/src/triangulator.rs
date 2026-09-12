@@ -24,6 +24,7 @@ pub struct StereoTriangulator {
 pub struct StereoPoint {
     pub left_index: usize,
     pub right_pixel: Vec2F32,
+    /// Position in the rectified left optical frame, not the stereo midpoint.
     pub position: Vec3AF32,
     pub disparity: f32,
 }

@@ -112,8 +112,8 @@ fn motion_name(motion_command: &MotionCommand) -> &str {
         MotionCommand::Damping => "damping",
         MotionCommand::Prepare => "prepare",
         MotionCommand::Stand { .. } => "stand",
-        MotionCommand::StandUp => "stand_up",
-        MotionCommand::VisualKick { .. } => "visual_kick",
+        MotionCommand::StandUp { .. } => "stand_up",
+        MotionCommand::Kick { .. } => "kick",
         MotionCommand::Walk { .. } => "walk",
         MotionCommand::WalkWithVelocity { .. } => "walk_with_velocity",
     }

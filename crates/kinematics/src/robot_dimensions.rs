@@ -14,7 +14,18 @@ impl RobotDimensions {
     pub const ROBOT_TO_NECK: Vector3<Robot> = vector![0.0056, 0.0, 0.2149];
     pub const NECK_TO_HEAD: Vector3<Neck> = vector![0.0, 0.0, 0.033];
 
-    pub const HEAD_TO_CAMERA: Vector3<Head> = vector![0.05868, 0.00002, 0.09849];
+    /// Assumed stereo separation in meters, from the camera's `ipd` in
+    /// tools/mujoco-simulator/mujoco-simulator/K1/K1.xml.
+    pub const CAMERA_IPD: f32 = 0.064;
+
+    /// Estimated left optical center, expressed in the head frame.
+    /// K1.xml places the central camera at [0.05868, 0.00002, 0.09849] m.
+    /// Shift it left (+Y in Head) by half the IPD; the camera's mounting pitch
+    /// does not change this lateral direction. Neither the midpoint nor the IPD
+    /// is verified against the hardware: the URDFs provide no camera frames and
+    /// we have no calibrated head-to-left-camera transform.
+    pub const HEAD_TO_LEFT_CAMERA: Vector3<Head> =
+        vector![0.05868, 0.00002 + Self::CAMERA_IPD / 2.0, 0.09849];
 
     pub const ROBOT_TO_LEFT_INNER_SHOULDER: Vector3<Robot> = vector![0.0, 0.077, 0.1845];
     pub const LEFT_INNER_SHOULDER_TO_LEFT_OUTER_SHOULDER: Vector3<LeftInnerShoulder> =

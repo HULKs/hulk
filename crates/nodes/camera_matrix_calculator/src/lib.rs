@@ -1,11 +1,11 @@
+use std::sync::Arc;
 use std::{boxed::Box, future::Future, pin::Pin};
-use std::{f32::consts::FRAC_PI_2, sync::Arc};
 
 use color_eyre::Result;
 
-use coordinate_systems::{Camera, Ground, Head, Robot};
-use kinematics::{robot_dimensions::RobotDimensions, robot_kinematics::RobotKinematics};
-use linear_algebra::{IntoTransform, Isometry3, Rotation3, Vector3, vector};
+use coordinate_systems::{Ground, Robot};
+use kinematics::{forward::head_to_left_camera, robot_kinematics::RobotKinematics};
+use linear_algebra::{Isometry3, Rotation3, vector};
 use projection::camera_matrix::CameraMatrix;
 use ros_z::prelude::*;
 use ros2::sensor_msgs::camera_info::CameraInfo;
@@ -79,10 +79,8 @@ fn compute_camera_matrix(
     camera_info: &CameraInfo,
 ) -> CameraMatrix {
     let image_size = vector![camera_info.width as f32, camera_info.height as f32];
-    let head_to_camera = head_to_camera(
-        parameters.camera_to_head_pitch.to_radians(),
-        RobotDimensions::HEAD_TO_CAMERA,
-    );
+    // inputs/camera_info describes the left image, so use its optical center.
+    let head_to_camera = head_to_left_camera(parameters.camera_to_head_pitch.to_radians());
 
     let uncorrected_camera_matrix = CameraMatrix::from_camera_info(
         camera_info,
@@ -104,14 +102,6 @@ fn compute_camera_matrix(
     );
 
     uncorrected_camera_matrix.to_corrected(correction_in_robot, correction_in_camera)
-}
-
-fn head_to_camera(camera_pitch: f32, head_to_camera: Vector3<Head>) -> Isometry3<Head, Camera> {
-    (nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * -camera_pitch)
-        * nalgebra::Isometry3::rotation(nalgebra::Vector3::y() * -FRAC_PI_2)
-        * nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * FRAC_PI_2)
-        * nalgebra::Isometry3::from(-head_to_camera.inner))
-    .framed_transform()
 }
 
 #[cfg(test)]

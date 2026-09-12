@@ -7,7 +7,7 @@ use nalgebra::{Matrix2, matrix};
 use thiserror::Error;
 
 use crate::camera_matrix::CameraMatrix;
-use coordinate_systems::{Camera, Ground, Pixel, Robot};
+use coordinate_systems::{Ground, LeftCamera, Pixel, Robot};
 use linear_algebra::{Isometry3, Point2, Point3, Vector2, Vector3, point, vector};
 
 #[derive(Debug, Error)]
@@ -23,8 +23,8 @@ pub enum Error {
 }
 
 pub trait Projection {
-    fn bearing(&self, pixel_coordinates: Point2<Pixel>) -> Vector3<Camera>;
-    fn camera_to_pixel(&self, camera_ray: Vector3<Camera>) -> Result<Point2<Pixel>, Error>;
+    fn bearing(&self, pixel_coordinates: Point2<Pixel>) -> Vector3<LeftCamera>;
+    fn camera_to_pixel(&self, camera_ray: Vector3<LeftCamera>) -> Result<Point2<Pixel>, Error>;
     fn get_pixel_radius(
         &self,
         radius_in_ground_coordinates: f32,
@@ -65,7 +65,7 @@ impl Projection for CameraMatrix {
         bearing_in_ground.z() * camera.z() >= 0.0
     }
 
-    fn camera_to_pixel(&self, camera_ray: Vector3<Camera>) -> Result<Point2<Pixel>, Error> {
+    fn camera_to_pixel(&self, camera_ray: Vector3<LeftCamera>) -> Result<Point2<Pixel>, Error> {
         if camera_ray.z() <= 0.0 {
             return Err(Error::BehindCamera);
         }
@@ -169,7 +169,7 @@ impl Projection for CameraMatrix {
         Ok(noise_projection * Matrix2::from_diagonal(&noise.inner) * noise_projection.transpose())
     }
 
-    fn bearing(&self, pixel_coordinates: Point2<Pixel>) -> Vector3<Camera> {
+    fn bearing(&self, pixel_coordinates: Point2<Pixel>) -> Vector3<LeftCamera> {
         self.intrinsics.bearing(pixel_coordinates)
     }
 }

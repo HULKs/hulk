@@ -2,8 +2,8 @@ use std::sync::Arc;
 use std::{boxed::Box, future::Future, pin::Pin};
 
 use booster::LedColor;
-use booster_sdk_interface::LedCommand;
 use color_eyre::Result;
+use hardware_interface::LedCommand;
 
 use ros_z::{prelude::*, qos::QosDurability};
 use types::primary_state::PrimaryState;

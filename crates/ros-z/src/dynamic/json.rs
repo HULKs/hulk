@@ -54,6 +54,7 @@ pub fn dynamic_payload_to_json(payload: &DynamicPayload, policy: DynamicJsonRend
 pub fn dynamic_value_to_json(value: &DynamicValue, policy: DynamicJsonRenderPolicy) -> Value {
     match value {
         DynamicValue::Bool(value) => Value::Bool(*value),
+        DynamicValue::Unit => Value::Null,
         DynamicValue::Int8(value) => Value::Number((*value).into()),
         DynamicValue::Int16(value) => Value::Number((*value).into()),
         DynamicValue::Int32(value) => Value::Number((*value).into()),

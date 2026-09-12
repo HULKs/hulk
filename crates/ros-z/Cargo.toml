@@ -12,6 +12,7 @@ crate-type = ["lib"]
 [dependencies]
 arc-swap = { workspace = true }
 byteorder = { workspace = true }
+color-eyre = { workspace = true }
 event-listener = { workspace = true }
 itertools = { workspace = true }
 json5 = { workspace = true }
@@ -34,7 +35,6 @@ zenoh-buffers = { workspace = true }
 zenoh-ext = { workspace = true }
 
 [dev-dependencies]
-color-eyre = { workspace = true }
 serial_test = { workspace = true }
 trybuild = { workspace = true }
 

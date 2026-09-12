@@ -339,6 +339,7 @@ fn describe_shape(shape: &TypeDef, definitions: &TypeDefinitions) -> String {
 
 fn describe_primitive(primitive: PrimitiveTypeDef) -> &'static str {
     match primitive {
+        PrimitiveTypeDef::Unit => "()",
         PrimitiveTypeDef::Bool => "bool",
         PrimitiveTypeDef::I8 => "int8",
         PrimitiveTypeDef::U8 => "uint8",

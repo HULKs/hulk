@@ -12,8 +12,9 @@ use crate::camera::robot_to_camera;
 
 /// Ingests one visual-odometry delta into the VINS frontend.
 ///
-/// `previous_camera_matrix` and `current_camera_matrix` provide the robot-to-camera extrinsics for
-/// the two endpoints of the visual-odometry measurement.
+/// Stereo odometry uses the rectified left optical frame. `previous_camera_matrix`
+/// and `current_camera_matrix` supply the robot-to-left-camera extrinsics at both
+/// endpoints, including head motion. The stereo baseline is already used in triangulation.
 pub fn ingest_visual_odometry(
     frontend: &mut VinsFrontend,
     delta: VisualOdometryDeltaMessage,

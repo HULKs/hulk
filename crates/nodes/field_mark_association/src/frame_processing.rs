@@ -1,7 +1,7 @@
 use std::{future::ready, time::Duration};
 
 use color_eyre::Result;
-use coordinate_systems::{Camera, Field, Robot};
+use coordinate_systems::{Field, LeftCamera, Robot};
 use linear_algebra::Isometry3;
 use projection::camera_matrix::CameraMatrix;
 use ros_z::{cache::Cache, parameter::NodeParameters, pubsub::Publisher, time::Time};
@@ -39,7 +39,7 @@ struct PreparedDetectionFrame {
     image_time: Time,
     objects: Vec<Object<RobocupObjectLabel>>,
     camera_matrix: CameraMatrix,
-    robot_to_camera: Isometry3<Robot, Camera>,
+    robot_to_camera: Isometry3<Robot, LeftCamera>,
     field_dimensions: FieldDimensions,
     pose_hint: Option<Isometry3<Robot, Field>>,
     parameters: FieldMarkAssociationParameters,
@@ -48,7 +48,7 @@ struct PreparedDetectionFrame {
 
 struct ProcessedDetectionFrame {
     image_time: Time,
-    robot_to_camera: Isometry3<Robot, Camera>,
+    robot_to_camera: Isometry3<Robot, LeftCamera>,
     localization: GlobalVisualLocalization,
 }
 

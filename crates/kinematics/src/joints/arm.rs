@@ -41,6 +41,33 @@ where
     }
 }
 
+impl<T> ArmJoints<T> {
+    pub fn map<U>(self, f: impl Fn(T) -> U) -> ArmJoints<U> {
+        ArmJoints {
+            shoulder_pitch: f(self.shoulder_pitch),
+            shoulder_roll: f(self.shoulder_roll),
+            shoulder_yaw: f(self.shoulder_yaw),
+            elbow: f(self.elbow),
+        }
+    }
+}
+
+impl<'a, T> IntoIterator for &'a ArmJoints<T> {
+    type Item = &'a T;
+
+    type IntoIter = std::array::IntoIter<&'a T, 4>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        [
+            &self.shoulder_pitch,
+            &self.shoulder_roll,
+            &self.shoulder_yaw,
+            &self.elbow,
+        ]
+        .into_iter()
+    }
+}
+
 impl<T> IntoIterator for ArmJoints<T> {
     type Item = T;
 

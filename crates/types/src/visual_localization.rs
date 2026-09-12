@@ -1,4 +1,4 @@
-use coordinate_systems::{Camera, Field, Pixel, Robot};
+use coordinate_systems::{Field, LeftCamera, Pixel, Robot};
 use linear_algebra::{Isometry3, Point2, Point3};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,7 @@ pub enum AssociationPoseHintSource {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 pub struct VisualLocalizationFrame {
-    pub robot_to_camera: Isometry3<Robot, Camera>,
+    pub robot_to_camera: Isometry3<Robot, LeftCamera>,
     pub associations: Vec<FieldMarkAssociation>,
     pub backend_reset: Option<Isometry3<Robot, Field>>,
 }
