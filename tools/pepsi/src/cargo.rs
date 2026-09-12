@@ -67,43 +67,39 @@ pub trait CargoCommand {
 }
 
 impl<CargoArguments: Args> Arguments<CargoArguments> {
-    async fn resolve(
-        &self,
-        repository: &Repository,
-    ) -> Result<(Option<PathBuf>, repository::cargo::Environment)> {
-        let manifest_path = match self.manifest.as_ref() {
-            Some(manifest) => {
-                let absolute_manifest = resolve_manifest_path(manifest, repository)
-                    .await
-                    .wrap_err("failed to resolve manifest path")?;
-                let relative_manifest = diff_paths(
-                    absolute_manifest,
-                    &current_dir().wrap_err("failed to get current directory")?,
-                )
-                .wrap_err("failed to express manifest relative to repository root")?;
+    async fn manifest_path(&self, repository: &Repository) -> Result<Option<PathBuf>> {
+        match self.manifest.as_ref() {
+            Some(manifest) => resolve_manifest_path(manifest, repository)
+                .await
+                .wrap_err("failed to resolve manifest path")
+                .map(Some),
+            None => Ok(None),
+        }
+    }
 
-                Some(relative_manifest)
-            }
-            None => None,
-        };
-        let environment = match self.environment.env.clone() {
+    async fn resolve_environment(
+        &self,
+        manifest_path: Option<&Path>,
+        repository: &Repository,
+    ) -> Result<repository::cargo::Environment> {
+        match self.environment.env.clone() {
             Some(environment) => environment,
-            None => read_requested_environment(&manifest_path)
+            None => read_requested_environment(manifest_path)
                 .await
                 .wrap_err("failed to read requested environment")?,
         }
         .resolve(repository)
         .await
-        .wrap_err("failed to resolve environment")?;
-        Ok((manifest_path, environment))
+        .wrap_err("failed to resolve environment")
     }
 }
 
 impl Arguments<build::Arguments> {
-    /// Locate a robot binary for upload or return from a remote build, relative to the repository.
-    /// Resolving the path does not set up the SDK or run a build, so it also supports --no-build.
     pub async fn binary_path(&self, repository: &Repository, binary_name: &str) -> Result<PathBuf> {
-        let (_, environment) = self.resolve(repository).await?;
+        let manifest_path = self.manifest_path(repository).await?;
+        let environment = self
+            .resolve_environment(manifest_path.as_deref(), repository)
+            .await?;
         let is_native = matches!(environment, repository::cargo::Environment::Native);
         let target_dir = self.cargo.common.target_dir.clone().or_else(|| {
             if is_native && !self.environment.remote {
@@ -113,7 +109,8 @@ impl Arguments<build::Arguments> {
             }
         });
         let target_dir = match target_dir {
-            None => environment.default_target_directory().to_path_buf(),
+            None if is_native => PathBuf::from("target"),
+            None => PathBuf::from(repository::cargo::CONTAINER_TARGET_DIRECTORY),
             Some(path) if path.is_absolute() && !is_native => path
                 .strip_prefix("/hulk")
                 .wrap_err("container target directory must be under /hulk to retrieve binaries")?
@@ -159,7 +156,10 @@ pub async fn construct_cargo_command<CargoArguments: Args + CargoCommand>(
     repository: &Repository,
     compiler_artifacts: &[impl AsRef<Path>],
 ) -> Result<tokio::process::Command, color_eyre::eyre::Error> {
-    let (manifest_path, environment) = arguments.resolve(repository).await?;
+    let manifest_path = arguments.manifest_path(repository).await?;
+    let environment = arguments
+        .resolve_environment(manifest_path.as_deref(), repository)
+        .await?;
     let mut cargo = if arguments.environment.remote {
         Cargo::remote(environment)
     } else {
@@ -171,6 +171,11 @@ pub async fn construct_cargo_command<CargoArguments: Args + CargoCommand>(
         .wrap_err("failed to set up cargo environment")?;
     cargo.arg(CargoArguments::SUB_COMMAND);
     if let Some(manifest_path) = manifest_path {
+        let manifest_path = diff_paths(
+            manifest_path,
+            &current_dir().wrap_err("failed to get current directory")?,
+        )
+        .wrap_err("failed to express manifest relative to current directory")?;
         if CargoArguments::SUB_COMMAND == "install" {
             cargo.arg("--path");
             cargo.arg(
@@ -191,7 +196,7 @@ pub async fn construct_cargo_command<CargoArguments: Args + CargoCommand>(
     Ok(cargo_command)
 }
 
-async fn read_requested_environment(manifest_path: &Option<PathBuf>) -> Result<Environment> {
+async fn read_requested_environment(manifest_path: Option<&Path>) -> Result<Environment> {
     let Some(manifest_path) = manifest_path else {
         return Ok(Environment::Native);
     };
