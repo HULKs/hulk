@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use color_eyre::{
     Result,
@@ -49,12 +49,16 @@ impl Repository {
     }
 }
 
-pub fn get_binary(profile: &str, binary_name: &str) -> String {
+pub fn get_binary(target_directory: impl AsRef<Path>, profile: &str, binary_name: &str) -> PathBuf {
     // the target directory is "debug" with --profile dev...
     let profile_directory = match profile {
         "dev" => "debug",
         other => other,
     };
 
-    format!("target/aarch64-unknown-linux-gnu/{profile_directory}/{binary_name}")
+    target_directory
+        .as_ref()
+        .join("aarch64-unknown-linux-gnu")
+        .join(profile_directory)
+        .join(binary_name)
 }

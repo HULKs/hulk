@@ -23,6 +23,8 @@ pub enum Environment {
     Docker { sdk_image: SDKImage },
 }
 
+pub const CONTAINER_TARGET_DIRECTORY: &str = "target/container";
+
 impl Display for Environment {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -195,6 +197,7 @@ fn build_command_string(
             mkdir -p {cargo_home}/git && \
             mkdir -p {cargo_home}/registry && \
             {container_runtime} run \
+                --env=CARGO_TARGET_DIR=/hulk/{CONTAINER_TARGET_DIRECTORY} \
                 --volume={root}:/hulk:z \
                 --volume={cargo_home}/git:/root/.cargo/git:z \
                 --volume={cargo_home}/registry:/root/.cargo/registry:z \

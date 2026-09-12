@@ -7,12 +7,12 @@ use color_eyre::{
     eyre::{WrapErr, bail},
 };
 use futures_util::{StreamExt, stream::FuturesUnordered};
-use repository::{Repository, upload::get_binary};
+use repository::Repository;
 use robot::{Robot, SystemctlAction};
 use tempfile::tempdir;
 
 use crate::{
-    cargo::{self, CargoCommand, build, cargo, environment::EnvironmentArguments},
+    cargo::{self, build, cargo, environment::EnvironmentArguments},
     gammaray::CommandExt,
     progress_indicator::{ProgressIndicator, Task},
 };
@@ -122,7 +122,6 @@ async fn upload_with_progress(
 pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()> {
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
     const BINARY_NAME: &str = "hulk_ros_z";
-    let hulk_binary = get_binary(arguments.build.profile(), BINARY_NAME);
 
     let cargo_arguments = cargo::Arguments {
         manifest: Some(
@@ -134,6 +133,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         environment: arguments.environment,
         cargo: arguments.build,
     };
+    let hulk_binary = cargo_arguments.binary_path(repository, BINARY_NAME).await?;
 
     if !arguments.upload.no_build {
         cargo(cargo_arguments, repository, &[&hulk_binary])

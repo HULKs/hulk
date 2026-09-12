@@ -8,13 +8,13 @@ use color_eyre::{
 };
 use itertools::Itertools;
 use pathdiff::diff_paths;
-use repository::{Repository, upload::get_binary};
+use repository::Repository;
 use robot::Robot;
 use tempfile::tempdir;
 use tokio::fs::{create_dir_all, symlink};
 
 use crate::{
-    cargo::{self, CargoCommand, build, cargo, environment::EnvironmentArguments},
+    cargo::{self, build, cargo, environment::EnvironmentArguments},
     gammaray::CommandExt,
     progress_indicator::ProgressIndicator,
     tensorrt_compile,
@@ -93,21 +93,29 @@ pub async fn hydra_bench(arguments: Arguments, repository: &Repository) -> Resul
     let progress_benchmark = multiprogress.task("Benchmark", false);
     let progress_download = multiprogress.task("Download", false);
 
-    let hydra_bench_binary_path = get_binary(arguments.build.profile(), "hydra-bench");
-    let tensorrt_compile_binary_path =
-        get_binary(arguments.build.profile(), tensorrt_compile::BINARY_NAME);
+    let hydra_bench_cargo_arguments = cargo::Arguments {
+        manifest: Some(
+            repository
+                .root
+                .join("tools/hydra-bench/Cargo.toml")
+                .into_os_string(),
+        ),
+        environment: arguments.environment.clone(),
+        cargo: arguments.build.clone(),
+    };
+    let tensorrt_compile_cargo_arguments = cargo::Arguments {
+        manifest: Some(tensorrt_compile::manifest(repository)),
+        environment: arguments.environment,
+        cargo: arguments.build,
+    };
+    let hydra_bench_binary_path = hydra_bench_cargo_arguments
+        .binary_path(repository, "hydra-bench")
+        .await?;
+    let tensorrt_compile_binary_path = tensorrt_compile_cargo_arguments
+        .binary_path(repository, tensorrt_compile::BINARY_NAME)
+        .await?;
     if !arguments.hydra_bench.no_build {
         progress_build.enable_steady_tick();
-        let hydra_bench_cargo_arguments = cargo::Arguments {
-            manifest: Some(
-                repository
-                    .root
-                    .join("tools/hydra-bench/Cargo.toml")
-                    .into_os_string(),
-            ),
-            environment: arguments.environment.clone(),
-            cargo: arguments.build.clone(),
-        };
         cargo(
             hydra_bench_cargo_arguments,
             repository,
@@ -116,11 +124,6 @@ pub async fn hydra_bench(arguments: Arguments, repository: &Repository) -> Resul
         .await
         .wrap_err("failed to build hydra-bench")
         .inspect_err(|_| progress_build.progress.finish())?;
-        let tensorrt_compile_cargo_arguments = cargo::Arguments {
-            manifest: Some(tensorrt_compile::manifest(repository)),
-            environment: arguments.environment,
-            cargo: arguments.build,
-        };
         tensorrt_compile::build_binary(
             tensorrt_compile_cargo_arguments,
             repository,

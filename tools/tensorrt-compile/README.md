@@ -24,7 +24,7 @@ Run from repository root:
 ```
 
 This uses the cross-compilation environment and produces an aarch64 binary
-under `target/aarch64-unknown-linux-gnu/debug/`.
+under `target/container/aarch64-unknown-linux-gnu/debug/`.
 
 ## Step 2: Upload to sync model file to robot
 
@@ -34,10 +34,11 @@ under `target/aarch64-unknown-linux-gnu/debug/`.
 
 ## Step 3: Sync binary to robot
 
-Copy the binary to the robot:
+Copy the binary to the robot. If you built with `--target-dir`, use that directory
+in the source path instead:
 
 ```bash
-rsync -av target/aarch64-unknown-linux-gnu/debug/tensorrt-compile \
+rsync -av target/container/aarch64-unknown-linux-gnu/debug/tensorrt-compile \
   booster@<robot-ip>:~/hulk/bin/tensorrt-compile
 ```
 
