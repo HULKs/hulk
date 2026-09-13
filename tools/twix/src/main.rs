@@ -18,7 +18,7 @@ use eframe::{
 };
 use layout::{FocusDirection, TwixLayout};
 use log::{error, warn};
-use panels::{ImagePanel, MapPanel, ParameterPanel, TextPanel};
+use panels::{BehaviorTreePanel, ImagePanel, MapPanel, ParameterPanel, TextPanel};
 use repository::{Repository, inspect_version::check_for_update};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use visuals::Visuals;
@@ -38,7 +38,13 @@ mod twix_painter;
 mod visuals;
 mod zoom_and_pan;
 
-impl_selectable_panel!(TextPanel, ImagePanel, MapPanel, ParameterPanel);
+impl_selectable_panel!(
+    TextPanel,
+    ImagePanel,
+    MapPanel,
+    ParameterPanel,
+    BehaviorTreePanel
+);
 
 #[derive(Debug, Clone, clap::Parser)]
 struct Arguments {
