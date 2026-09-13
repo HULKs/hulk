@@ -5297,6 +5297,22 @@ version = "0.1.0"
 dependencies = [
  "booster",
  "color-eyre",
+ "coordinate_systems",
+ "kinematics",
+ "linear_algebra",
+ "projection",
+ "ros-z",
+ "ros-z-schema",
+ "serde",
+ "types",
+]
+
+[[package]]
+name = "head_motion_legacy"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "color-eyre",
  "filtering",
  "kinematics",
  "ros-z",
@@ -5476,7 +5492,7 @@ dependencies = [
  "game_controller_state_filter",
  "global_parameter_provider",
  "ground_provider",
- "head_motion",
+ "head_motion_legacy",
  "image_receiver",
  "kinematics_provider",
  "led_handler",
