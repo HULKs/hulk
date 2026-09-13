@@ -28,6 +28,24 @@ pub(super) struct ImageOverlays {
 }
 
 impl ImageOverlays {
+    pub(super) fn validate(value: &Value) -> color_eyre::Result<()> {
+        color_eyre::eyre::ensure!(value.is_object(), "overlays must be an object");
+        for key in [
+            LineDetectionOverlay::STORAGE_KEY,
+            BallDetectionOverlay::STORAGE_KEY,
+            HorizonOverlay::STORAGE_KEY,
+            FieldBorderOverlay::STORAGE_KEY,
+            ObjectDetectionOverlay::STORAGE_KEY,
+            PoseDetectionOverlay::STORAGE_KEY,
+        ] {
+            if let Some(state) = value.get(key) {
+                color_eyre::eyre::ensure!(state.is_object(), "overlay {key} must be an object");
+                crate::panel::saved_field::<bool>(state, "active")?;
+            }
+        }
+        Ok(())
+    }
+
     pub(super) fn new<C>(value: Option<&Value>, context: &C) -> Self
     where
         C: ObservationContext,

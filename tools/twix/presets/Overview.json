@@ -1,0 +1,20 @@
+{
+  "tree": {
+    "id": 1,
+    "root": 5,
+    "tiles": {
+      "next_tile_id": 6,
+      "tiles": {
+        "1": { "Pane": { "kind": "map", "state": { "current_plot_type": "Field" } } },
+        "2": { "Container": { "Tabs": { "children": [1], "active": 1 } } },
+        "3": { "Pane": { "kind": "image", "state": { "topic": "inputs/left_image" } } },
+        "4": { "Container": { "Tabs": { "children": [3], "active": 3 } } },
+        "5": { "Container": { "Linear": { "children": [2, 4], "dir": "Horizontal", "shares": { "shares": {} } } } }
+      },
+      "invisible": []
+    },
+    "height": null,
+    "width": null
+  },
+  "focused": 1
+}

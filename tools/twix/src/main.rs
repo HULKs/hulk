@@ -31,6 +31,7 @@ mod graph;
 mod layout;
 mod panel;
 mod panels;
+mod presets;
 mod repaint;
 mod selectable_panel_macro;
 mod status;
@@ -53,7 +54,7 @@ struct Arguments {
     #[arg(long)]
     repository_root: Option<PathBuf>,
 
-    /// Delete the current panel setup.
+    /// Start with one blank workspace, ignoring the saved session.
     #[arg(long)]
     clear: bool,
 }
@@ -76,10 +77,12 @@ impl TwixApp {
     ) -> Self {
         let namespace_editor = backend.namespace();
 
-        let layout = match arguments.clear {
-            true => TwixLayout::new(&creation_context.egui_ctx, &backend),
-            false => TwixLayout::load(creation_context, &backend),
-        };
+        let layout = TwixLayout::load(
+            creation_context.storage,
+            &creation_context.egui_ctx,
+            &backend,
+            arguments.clear,
+        );
 
         keybind_plugin::register(&creation_context.egui_ctx);
         creation_context
@@ -107,28 +110,15 @@ impl App for TwixApp {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut Frame) {
         let _runtime_guard = self.runtime.enter();
         let context = ui.ctx().clone();
-        if context.keybind_pressed(KeybindAction::FocusPanel) {
-            self.layout.open_selector(&context);
-        }
-        if context.keybind_pressed(KeybindAction::FocusLeft) {
-            self.layout.focus(FocusDirection::Left, &context);
-        }
-        if context.keybind_pressed(KeybindAction::FocusBelow) {
-            self.layout.focus(FocusDirection::Below, &context);
-        }
-        if context.keybind_pressed(KeybindAction::FocusAbove) {
-            self.layout.focus(FocusDirection::Above, &context);
-        }
-        if context.keybind_pressed(KeybindAction::FocusRight) {
-            self.layout.focus(FocusDirection::Right, &context);
-        }
+        self.layout.update(&context, &self.backend);
+        let shortcuts_enabled = !self.layout.dialog_open();
 
         EguiPanel::top("top_bar").show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                     ui.label("Namespace:");
                     let namespace_response = ui.text_edit_singleline(&mut self.namespace_editor);
-                    if context.keybind_pressed(KeybindAction::FocusNamespace) {
+                    if shortcuts_enabled && context.keybind_pressed(KeybindAction::FocusNamespace) {
                         namespace_response.request_focus();
                     }
                     if namespace_response.lost_focus()
@@ -159,27 +149,40 @@ impl App for TwixApp {
         });
 
         CentralPanel::default().show(ui, |ui| {
-            if context.keybind_pressed(KeybindAction::OpenSplit) {
-                self.layout.open_split(&self.backend, ui.ctx());
+            let layout = &mut self.layout;
+            if shortcuts_enabled {
+                if context.keybind_pressed(KeybindAction::FocusPanel) {
+                    layout.open_selector(&context);
+                }
+                for (action, direction) in [
+                    (KeybindAction::FocusLeft, FocusDirection::Left),
+                    (KeybindAction::FocusBelow, FocusDirection::Below),
+                    (KeybindAction::FocusAbove, FocusDirection::Above),
+                    (KeybindAction::FocusRight, FocusDirection::Right),
+                ] {
+                    if context.keybind_pressed(action) {
+                        layout.focus(direction, &context);
+                    }
+                }
+                if context.keybind_pressed(KeybindAction::OpenSplit) {
+                    layout.open_split(&self.backend, &context);
+                }
+                if context.keybind_pressed(KeybindAction::OpenTab) {
+                    layout.open_tab(&self.backend, &context);
+                }
+                if context.keybind_pressed(KeybindAction::DuplicateTab) {
+                    layout.duplicate_focused(&self.backend, &context);
+                }
+                if context.keybind_pressed(KeybindAction::CloseTab) {
+                    layout.close_focused(&self.backend, &context);
+                }
+                if context.keybind_pressed(KeybindAction::CloseAll) {
+                    layout.reset(&self.backend, &context);
+                }
             }
-            if context.keybind_pressed(KeybindAction::OpenTab) {
-                self.layout.open_tab(&self.backend, ui.ctx());
-            }
-
-            if context.keybind_pressed(KeybindAction::DuplicateTab) {
-                self.layout.duplicate_focused(&self.backend, ui.ctx());
-            }
-
-            if context.keybind_pressed(KeybindAction::CloseTab) {
-                self.layout.close_focused(&self.backend, ui.ctx());
-            }
-
-            if context.keybind_pressed(KeybindAction::CloseAll) {
-                self.layout.reset(&self.backend, ui.ctx());
-            }
-
-            self.layout.ui(ui, &self.backend);
+            layout.ui(ui, &self.backend);
         });
+        self.layout.dialogs(&context);
     }
 
     fn save(&mut self, storage: &mut dyn Storage) {

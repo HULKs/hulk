@@ -16,6 +16,11 @@ macro_rules! impl_selectable_panel {
         }
 
         impl PanelKind {
+            pub fn validate_state(self, value: &serde_json::Value) -> color_eyre::Result<()> {
+                match self {
+                    $(Self::$name => <$name as $crate::panel::Panel>::validate_state(value),)*
+                }
+            }
             pub fn from_storage_id(storage_id: &str) -> color_eyre::Result<Self> {
                 match storage_id {
                     $(
@@ -106,6 +111,12 @@ macro_rules! impl_selectable_panel {
         }
 
         impl SelectablePanel {
+            pub fn update(&mut self, context: $crate::panel::PanelUiContext<'_>) {
+                match self {
+                    $(Self::$name(panel) => <$name as $crate::panel::Panel>::update(panel, context),)*
+                }
+            }
+
             pub fn header_ui(
                 &mut self,
                 ui: &mut eframe::egui::Ui,

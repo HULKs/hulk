@@ -85,6 +85,40 @@ impl Panel for MapPanel {
     const DISPLAY_NAME: &'static str = "Map";
     const ICON: &'static str = egui_material_icons::icons::ICON_MAP.codepoint;
 
+    fn validate_state(value: &Value) -> color_eyre::Result<()> {
+        use crate::panel::saved_field;
+        saved_field::<PlotType>(value, "current_plot_type")?;
+        if let Some(transform) = saved_field::<ZoomAndPanTransform>(value, "zoom_and_pan")? {
+            let matrix = transform.transformation.inner.to_homogeneous();
+            color_eyre::eyre::ensure!(
+                matrix.iter().all(|value| value.is_finite())
+                    && transform.transformation.inner.scaling() > 0.0,
+                "invalid zoom and pan transform"
+            );
+        }
+        for key in [
+            "field",
+            "ball_search_heatmap",
+            "path_obstacles",
+            "obstacles",
+            "path",
+            "robot_pose",
+            "odometry",
+            "ball_percept",
+            "ball_position",
+            "ball_filter",
+            "obstacle_filter",
+            "localization",
+            "voronoi_cells",
+        ] {
+            if let Some(state) = value.get(key) {
+                color_eyre::eyre::ensure!(state.is_object(), "layer {key} must be an object");
+                saved_field::<bool>(state, "active")?;
+            }
+        }
+        Ok(())
+    }
+
     fn new(context: PanelCreationContext) -> Self {
         let field = EnabledLayer::new(context.backend.clone(), context.value, true);
         let ball_search_heatmap = EnabledLayer::new(context.backend.clone(), context.value, false);

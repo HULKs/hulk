@@ -56,6 +56,12 @@ impl Panel for TextPanel {
     const DISPLAY_NAME: &'static str = "Text";
     const ICON: &'static str = egui_material_icons::icons::ICON_TEXT_FIELDS.codepoint;
 
+    fn validate_state(value: &Value) -> color_eyre::Result<()> {
+        crate::panel::saved_field::<String>(value, "topic")?;
+        crate::panel::saved_field::<bool>(value, "pretty")?;
+        Ok(())
+    }
+
     fn new(context: PanelCreationContext<'_>) -> Self {
         let topic = context
             .value

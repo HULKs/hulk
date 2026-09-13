@@ -1,6 +1,6 @@
 use eframe::egui::{
-    Align2, Button, CornerRadius, FontId, Id, Popup, PopupCloseBehavior, Rect, Response, RichText,
-    Sense, StrokeKind, TextStyle, Ui, vec2,
+    Align2, Button, CornerRadius, FontId, Id, Key, Popup, PopupCloseBehavior, Rect, Response,
+    RichText, Sense, StrokeKind, TextEdit, TextStyle, Ui, vec2,
 };
 use egui_material_icons::icons;
 use egui_tiles::{Behavior as _, TabState, TileId, Tiles};
@@ -9,16 +9,23 @@ use hulk_widgets::SearchableSelector;
 use crate::{PanelKind, SelectablePanel};
 
 use super::{
-    TREE_ID,
     behavior::LayoutBehavior,
     focus::request_pane_focus,
+    preset_ui::select_name,
     tree::{LayoutRequest, active_pane_in_tile},
 };
 
 pub(super) fn tab_title(tiles: &Tiles<SelectablePanel>, tile_id: TileId) -> String {
+    tiles.get_pane(&tile_id).map_or_else(
+        || "Group".to_string(),
+        |pane| pane.kind().display_name().to_owned(),
+    )
+}
+
+pub(super) fn tab_icon(tiles: &Tiles<SelectablePanel>, tile_id: TileId) -> &'static str {
     tiles
         .get_pane(&tile_id)
-        .map_or_else(|| "Group".to_string(), |pane| pane.kind().label())
+        .map_or(icons::ICON_DASHBOARD_2.codepoint, |pane| pane.kind().icon())
 }
 
 pub(super) fn tab_ui(
@@ -55,8 +62,34 @@ pub(super) fn tab_ui(
         .interact(tab_rect, id, Sense::click_and_drag())
         .on_hover_cursor(eframe::egui::CursorIcon::Grab);
     if tab_response.drag_started() {
-        close_layout_popups(ui, tiles);
+        close_layout_popups(ui, behavior.tree_id, tiles);
     }
+
+    Popup::context_menu(&tab_response)
+        .id(id.with("menu"))
+        .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
+        .show(|ui| {
+            ui.label(format!("{}  Name", icons::ICON_EDIT.codepoint));
+            let name = behavior
+                .names
+                .entry(tile_id)
+                .or_insert_with(|| tab_title(tiles, tile_id));
+            let editor = TextEdit::singleline(name).id(id.with("name")).show(ui);
+            if tab_response.secondary_clicked() {
+                select_name(ui.ctx(), editor, name);
+            }
+            if ui.input_mut(|input| input.consume_key(eframe::egui::Modifiers::NONE, Key::Enter)) {
+                ui.close();
+            }
+            ui.separator();
+            if ui
+                .button(format!("{}  Save as preset…", icons::ICON_SAVE.codepoint))
+                .clicked()
+            {
+                behavior.requests.push(LayoutRequest::Save(tile_id));
+                ui.close();
+            }
+        });
 
     let right = tab_rect.right() - x_margin;
     let close_rect = Rect::from_center_size(
@@ -144,14 +177,14 @@ pub(super) fn tab_ui(
         && let Some(pane_id) = active_pane_in_tile(tiles, tile_id)
     {
         *behavior.focused = Some(pane_id);
-        request_pane_focus(&behavior.egui_context, pane_id);
+        request_pane_focus(&behavior.egui_context, behavior.tree_id, pane_id);
     }
     if tab_response.middle_clicked() {
         behavior.requests.push(LayoutRequest::Close(tile_id));
     }
 
     if let Some(selector_response) = &selector_response {
-        let popup_id = panel_type_popup_id(tile_id);
+        let popup_id = panel_type_popup_id(behavior.tree_id, tile_id);
         let popup_was_open = Popup::is_id_open(ui.ctx(), popup_id);
         let mut reset_picker = false;
         if *behavior.selector_to_open == Some(tile_id) {
@@ -201,44 +234,42 @@ pub(super) fn add_panel_button(behavior: &mut LayoutBehavior<'_>, ui: &mut Ui, t
                 .frame(false)
                 .min_size(vec2(24.0, 24.0)),
         )
-        .on_hover_text("Add panel");
-    let popup_id = add_panel_popup_id(tabs_id);
+        .on_hover_text("Add panel or preset");
+    let popup_id = add_panel_popup_id(behavior.tree_id, tabs_id);
     let reset_picker = add_response.clicked() && !Popup::is_id_open(ui.ctx(), popup_id);
     let selected = Popup::from_toggle_button_response(&add_response)
         .id(popup_id)
         .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
-        .width(220.0)
+        .width(300.0)
         .show(|ui| {
-            panel_picker(
+            behavior.preset_ui.picker(
                 ui,
-                ui.id().with("panel-picker"),
-                None,
-                "New panel",
+                popup_id.with("picker"),
+                tabs_id,
+                behavior.root == Some(tabs_id),
                 reset_picker,
             )
         })
         .and_then(|response| response.inner);
-    if let Some(panel) = selected {
-        behavior.requests.push(LayoutRequest::Add {
-            tabs: tabs_id,
-            panel,
-        });
+    if let Some(request) = selected {
+        behavior.requests.push(request);
     }
 }
 
-fn close_layout_popups(ui: &Ui, tiles: &Tiles<SelectablePanel>) {
+fn close_layout_popups(ui: &Ui, tree_id: Id, tiles: &Tiles<SelectablePanel>) {
     for tile_id in tiles.tile_ids() {
-        Popup::close_id(ui.ctx(), panel_type_popup_id(tile_id));
-        Popup::close_id(ui.ctx(), add_panel_popup_id(tile_id));
+        Popup::close_id(ui.ctx(), panel_type_popup_id(tree_id, tile_id));
+        Popup::close_id(ui.ctx(), add_panel_popup_id(tree_id, tile_id));
+        Popup::close_id(ui.ctx(), tile_id.egui_id(tree_id).with("menu"));
     }
 }
 
-pub(super) fn panel_type_popup_id(tile_id: TileId) -> Id {
-    tile_id.egui_id(Id::new(TREE_ID)).with("panel-type-popup")
+pub(super) fn panel_type_popup_id(tree_id: Id, tile_id: TileId) -> Id {
+    tile_id.egui_id(tree_id).with("panel-type-popup")
 }
 
-fn add_panel_popup_id(tabs_id: TileId) -> Id {
-    Id::new((TREE_ID, tabs_id, "add-panel-popup"))
+fn add_panel_popup_id(tree_id: Id, tabs_id: TileId) -> Id {
+    tree_id.with((tabs_id, "add-panel-popup"))
 }
 
 fn panel_picker(
@@ -311,7 +342,7 @@ mod tests {
                 });
                 if frame == 4 || frame == 9 {
                     let response = context
-                        .read_response(layout.focused.unwrap().egui_id(Id::new(TREE_ID)))
+                        .read_response(layout.focused.unwrap().egui_id(layout.tree.id()))
                         .unwrap();
                     assert_eq!(layout.tab_to_reveal, None);
                     assert!(response.interact_rect.is_positive());

@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use eframe::egui::{Context, FocusDirection as EguiFocusDirection, Id, Rangef, Rect};
 use egui_tiles::{Tile, TileId};
 
-use super::{TREE_ID, TwixLayout};
+use super::TwixLayout;
 
 #[derive(Clone, Copy)]
 pub enum FocusDirection {
@@ -39,12 +39,12 @@ impl TwixLayout {
     }
 }
 
-pub(super) fn pane_focus_id(tile_id: TileId) -> Id {
-    Id::new(TREE_ID).with(("pane-focus", tile_id))
+pub(super) fn pane_focus_id(tree_id: Id, tile_id: TileId) -> Id {
+    tree_id.with(("pane-focus", tile_id))
 }
 
-pub(super) fn request_pane_focus(egui_context: &Context, tile_id: TileId) {
-    egui_context.memory_mut(|memory| memory.request_focus(pane_focus_id(tile_id)));
+pub(super) fn request_pane_focus(egui_context: &Context, tree_id: Id, tile_id: TileId) {
+    egui_context.memory_mut(|memory| memory.request_focus(pane_focus_id(tree_id, tile_id)));
 }
 
 pub(super) fn nearest_in_direction(

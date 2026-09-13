@@ -205,8 +205,16 @@ impl Panel for ParameterPanel {
         }
     }
 
-    fn header_ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
+    fn validate_state(value: &Value) -> color_eyre::Result<()> {
+        serde_json::from_value::<SavedState>(value.clone())?;
+        Ok(())
+    }
+
+    fn update(&mut self, context: PanelUiContext<'_>) {
         self.drain_remote_results(&context);
+    }
+
+    fn header_ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
         self.ensure_event_subscription(&context);
 
         let namespace = context.backend.namespace();
@@ -1183,7 +1191,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn header_contains_controls_and_drains_results_before_body() {
+    async fn update_drains_hidden_panel_results_and_header_contains_controls() {
         use std::sync::Arc;
 
         use eframe::egui::{CentralPanel, Context, RawInput, Rect, epaint::Shape, vec2};
@@ -1210,6 +1218,13 @@ mod tests {
                     result: Err("snapshot failed".into()),
                 })
                 .unwrap();
+
+            panel.update(PanelUiContext {
+                backend: &backend,
+                egui_context: &context,
+            });
+            assert_eq!(panel.remote.pending_count, 0);
+            assert_eq!(panel.status, Status::Error("snapshot failed".into()));
 
             for header in [true, false] {
                 let output = context.run_ui(
