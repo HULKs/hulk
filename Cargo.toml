@@ -54,6 +54,7 @@ members = [
   "crates/nodes/message_filter",
   "crates/nodes/message_handler",
   "crates/nodes/microphone_recorder",
+  "crates/nodes/motion",
   "crates/nodes/motor_commands_collector",
   "crates/nodes/obstacle_filter",
   "crates/nodes/odometer_bridge",

@@ -8,7 +8,7 @@ use filtering::low_pass_filter::LowPassFilter;
 use kinematics::joints::{Joints, head::HeadJoints};
 use ros_z::{prelude::*, time::Time};
 use types::{
-    motion_command::{HeadMotion, ImageRegion, MotionCommand},
+    motion_command::{MotionCommand, HeadMotion, ImageRegion},
     parameters::HeadMotionParameters,
 };
 

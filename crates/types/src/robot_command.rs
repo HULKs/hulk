@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use kinematics::joints::Joints;
 use ros_z::Message;
 
-#[derive(Serialize, Deserialize, Message)]
+#[derive(Serialize, Deserialize, Message, Clone)]
 pub struct MotorCommand {
     pub position: f32,
     pub velocity: f32,

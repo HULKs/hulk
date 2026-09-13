@@ -6957,6 +6957,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "motion"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "coordinate_systems",
+ "kinematics",
+ "linear_algebra",
+ "ros-z",
+ "ros-z-schema",
+ "serde",
+ "tokio",
+ "tracing",
+ "types",
+]
+
+[[package]]
 name = "motor_commands_collector"
 version = "0.1.0"
 dependencies = [
