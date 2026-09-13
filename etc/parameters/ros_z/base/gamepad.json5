@@ -1,0 +1,12 @@
+{
+  device_path: "/dev/input/by-id/usb-Sony_Interactive_Entertainment_Wireless_Controller-event-joystick",
+  reconnect_interval: { secs: 1, nanos: 0 },
+  deadzone: 0.15,
+  maximum_forward_velocity: 0.3,
+  maximum_left_velocity: 0.2,
+  maximum_angular_velocity: 0.5,
+  head_center: { yaw: 0.0, pitch: 0.4 },
+  head_minimum: { yaw: -0.785, pitch: -0.3 },
+  head_maximum: { yaw: 0.785, pitch: 1.0 },
+  head_velocity: { yaw: 1.0, pitch: 1.0 },
+}

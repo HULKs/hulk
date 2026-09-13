@@ -15,6 +15,7 @@ use types::{
     behavior_tree::NodeTrace,
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
+    gamepad::GamepadManualMotion,
     messages::OutgoingMessage,
     motion_command::{BodyMotion, HeadMotion, MotionCommand},
     motion_type::MotionType,
@@ -73,6 +74,24 @@ pub struct Blackboard {
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
+}
+
+fn select_motion_command(
+    primary_state: PrimaryState,
+    autonomous_motion_command: MotionCommand,
+    gamepad_manual_motion: Option<&GamepadManualMotion>,
+) -> MotionCommand {
+    if primary_state == PrimaryState::Damping {
+        return autonomous_motion_command;
+    }
+
+    match gamepad_manual_motion {
+        Some(GamepadManualMotion {
+            active: true,
+            motion_command,
+        }) => motion_command.clone(),
+        _ => autonomous_motion_command,
+    }
 }
 
 fn validate_behavior_parameters(
@@ -204,6 +223,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
+        .cache(1)
+        .build()
+        .await?;
+    let gamepad_manual_motion_cache = node
+        .subscriber::<GamepadManualMotion>("gamepad/manual_motion")
         .cache(1)
         .build()
         .await?;
@@ -384,7 +408,14 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         }
 
         let (status, trace) = block_in_place(|| tree.tick_with_trace(&mut blackboard));
-        let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
+        let autonomous_motion_command: MotionCommand =
+            assemble_motion_command(&blackboard, status)?;
+        let gamepad_manual_motion = gamepad_manual_motion_cache.get_latest();
+        let motion_command = select_motion_command(
+            blackboard.world_state.robot.primary_state,
+            autonomous_motion_command,
+            gamepad_manual_motion.as_deref(),
+        );
 
         let previous_motion_command = blackboard.last_motion_command.clone();
         blackboard.last_motion_command = motion_command.clone();
@@ -435,5 +466,85 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .publish_if_subscribed(|| async { blackboard.clone() })
             .await?;
         motion_command_pub.publish(&motion_command).await?;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use linear_algebra::vector;
+    use types::{
+        gamepad::GamepadManualMotion,
+        motion_command::{HeadMotion, ImageRegion, MotionCommand},
+        primary_state::PrimaryState,
+    };
+
+    use super::select_motion_command;
+
+    fn stand_command() -> MotionCommand {
+        MotionCommand::Stand {
+            head: HeadMotion::Center {
+                image_region_target: ImageRegion::Center,
+            },
+        }
+    }
+
+    fn manual_walk_command() -> MotionCommand {
+        MotionCommand::WalkWithVelocity {
+            head: HeadMotion::Center {
+                image_region_target: ImageRegion::Center,
+            },
+            velocity: vector![0.2, -0.1],
+            angular_velocity: 0.3,
+        }
+    }
+
+    #[test]
+    fn damping_ignores_active_gamepad_manual_motion() {
+        let autonomous = MotionCommand::Damping;
+        let manual = GamepadManualMotion {
+            active: true,
+            motion_command: manual_walk_command(),
+        };
+
+        let selected = select_motion_command(PrimaryState::Damping, autonomous, Some(&manual));
+
+        assert_eq!(selected, MotionCommand::Damping);
+    }
+
+    #[test]
+    fn non_damping_uses_active_gamepad_manual_motion() {
+        let autonomous = stand_command();
+        let manual_motion_command = manual_walk_command();
+        let manual = GamepadManualMotion {
+            active: true,
+            motion_command: manual_motion_command.clone(),
+        };
+
+        let selected = select_motion_command(PrimaryState::Playing, autonomous, Some(&manual));
+
+        assert_eq!(selected, manual_motion_command);
+    }
+
+    #[test]
+    fn non_damping_uses_autonomous_motion_when_gamepad_inactive() {
+        let autonomous = stand_command();
+        let manual = GamepadManualMotion {
+            active: false,
+            motion_command: manual_walk_command(),
+        };
+
+        let selected =
+            select_motion_command(PrimaryState::Playing, autonomous.clone(), Some(&manual));
+
+        assert_eq!(selected, autonomous);
+    }
+
+    #[test]
+    fn non_damping_uses_autonomous_motion_without_gamepad_sample() {
+        let autonomous = stand_command();
+
+        let selected = select_motion_command(PrimaryState::Playing, autonomous.clone(), None);
+
+        assert_eq!(selected, autonomous);
     }
 }
