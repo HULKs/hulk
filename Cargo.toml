@@ -55,6 +55,7 @@ members = [
   "crates/nodes/message_handler",
   "crates/nodes/microphone_recorder",
   "crates/nodes/motion",
+  "crates/nodes/motion_inference",
   "crates/nodes/motor_commands_collector",
   "crates/nodes/obstacle_filter",
   "crates/nodes/odometer_bridge",
@@ -217,6 +218,7 @@ message_filter = { path = "crates/nodes/message_filter" }
 message_handler = { path = "crates/nodes/message_handler" }
 microphone_recorder = { path = "crates/nodes/microphone_recorder" }
 microphones = { path = "crates/microphones" }
+motion_inference = { path = "crates/nodes/motion_inference" }
 motor_commands_collector = { path = "crates/nodes/motor_commands_collector" }
 nalgebra = { version = "0.34.2", features = [
   "convert-glam030",

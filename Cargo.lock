@@ -5489,6 +5489,7 @@ dependencies = [
  "message_filter",
  "message_handler",
  "microphone_recorder",
+ "motion_inference",
  "motor_commands_collector",
  "obstacle_filter",
  "odometer_bridge",
@@ -6969,6 +6970,25 @@ dependencies = [
  "serde",
  "tokio",
  "tracing",
+ "types",
+]
+
+[[package]]
+name = "motion_inference"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "booster",
+ "color-eyre",
+ "coordinate_systems",
+ "kinematics",
+ "linear_algebra",
+ "nalgebra 0.34.2",
+ "ort",
+ "ros-z",
+ "ros-z-schema",
+ "serde",
+ "tokio",
  "types",
 ]
 
