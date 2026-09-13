@@ -7,6 +7,7 @@ members = [
   "crates/bevyhavior_simulator",
   "crates/booster",
   "crates/calibration",
+  "crates/cfg_aliases_0_1",
   "crates/coordinate_systems",
   "crates/egui_bevy",
   "crates/energy_optimization",
@@ -226,7 +227,16 @@ odometer_bridge = { path = "crates/nodes/odometer_bridge" }
 odometry = { path = "crates/nodes/odometry" }
 once_cell = "1.20.3"
 ordered-float = "4.6.0"
-ort = "=2.0.0-rc.10"
+# Keep the robot's ONNX Runtime 1.22 / CUDA 12 runtime supported.
+# api-22 enables automatic device selection, which can abort with ORT 1.22.
+ort = { version = "=2.0.0-rc.13", default-features = false, features = [
+  "std",
+  "tracing",
+  "download-binaries",
+  "tls-native",
+  "copy-dylibs",
+  "api-21",
+] }
 parking_lot = "0.12.3"
 parry2d = { version = "0.26.0", default-features = false, features = [
   "alloc",
@@ -314,6 +324,7 @@ zip = { version = "2.4.2", default-features = false, features = [
 ] }
 
 [patch.crates-io]
+cfg_aliases_0_1 = { package = "cfg_aliases", path = "crates/cfg_aliases_0_1" }
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
 serde = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged

@@ -1,9 +1,9 @@
 use std::{boxed::Box, future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use color_eyre::{Result, eyre::bail};
-use ndarray::{ArrayView2, ArrayView3, Axis};
+use ndarray::{ArrayView2, ArrayViewD, Axis, IxDyn};
 use ort::{
-    execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
+    ep::{CUDA, TensorRT},
     inputs,
     session::{Session, SessionOutputs, builder::GraphOptimizationLevel},
     value::TensorRef,
@@ -98,18 +98,18 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .neural_networks_folder
         .join(&parameters.model_name);
 
-    let tensor_rt = TensorRTExecutionProvider::default()
+    let tensor_rt = TensorRT::default()
         .with_device_id(0)
         .with_fp16(true)
         .with_engine_cache(true)
         .with_engine_cache_path(parameters.neural_networks_folder.display())
         .build();
-    let cuda = CUDAExecutionProvider::default().build();
+    let cuda = CUDA::default().build();
 
     let mut session = block_in_place(|| {
         Session::builder()?
             .with_execution_providers([tensor_rt, cuda])?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
+            .with_optimization_level(GraphOptimizationLevel::All)?
             .with_intra_threads(2)?
             .commit_from_file(model_path)
     })?;
@@ -136,12 +136,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let output = block_in_place(|| {
             let inference_start = Instant::now();
 
-            let nv12_data = ArrayView3::from_shape(
+            let nv12_data = TensorRef::from_array_view((
                 [image.height as usize / 2, image.width as usize / 2, 6],
-                &image.data,
-            )?;
-            let outputs: SessionOutputs = session
-                .run(inputs!["raw_bytes_input" => TensorRef::from_array_view(nv12_data)?])?;
+                &image.data[..],
+            ))?;
+            let outputs: SessionOutputs = session.run(inputs!["raw_bytes_input" => nv12_data])?;
 
             let inference_duration = inference_start.elapsed();
 
@@ -226,25 +225,24 @@ fn check_image(image: &Image) -> Result<()> {
     Ok(())
 }
 
-fn extract_outputs<'a>(outputs: &'a SessionOutputs<'a>) -> Result<ModelOutputs<'a>> {
-    let objects_output =
-        outputs[TaskHead::ObjectDetection.output_name()].try_extract_array::<f32>()?;
+fn extract_outputs<'a>(outputs: &'a SessionOutputs<'_>) -> Result<ModelOutputs<'a>> {
+    let objects_output = extract_output(outputs, TaskHead::ObjectDetection)?;
     if objects_output.shape() != TaskHead::ObjectDetection.expected_shape() {
         bail!(
             "object detection output not of expected shape. Expected: {:?}, got: {:?}",
             TaskHead::ObjectDetection.expected_shape(),
             objects_output.shape()
-        )
+        );
     }
     let reshaped_objects_output = objects_output.squeeze().into_dimensionality()?;
 
-    let poses_output = outputs[TaskHead::PoseDetection.output_name()].try_extract_array::<f32>()?;
+    let poses_output = extract_output(outputs, TaskHead::PoseDetection)?;
     if poses_output.shape() != TaskHead::PoseDetection.expected_shape() {
         bail!(
             "pose detection output not of expected shape. Expected: {:?}, got: {:?}",
             TaskHead::PoseDetection.expected_shape(),
             poses_output.shape()
-        )
+        );
     }
     let reshaped_pose_output = poses_output.squeeze().into_dimensionality()?;
 
@@ -252,6 +250,18 @@ fn extract_outputs<'a>(outputs: &'a SessionOutputs<'a>) -> Result<ModelOutputs<'
         objects: reshaped_objects_output,
         poses: reshaped_pose_output,
     })
+}
+
+fn extract_output<'a>(
+    outputs: &'a SessionOutputs<'_>,
+    task_head: TaskHead,
+) -> Result<ArrayViewD<'a, f32>> {
+    let (shape, data) = outputs[task_head.output_name()].try_extract_tensor::<f32>()?;
+    let dimensions = shape
+        .iter()
+        .map(|&dimension| usize::try_from(dimension))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(ArrayViewD::from_shape(IxDyn(&dimensions), data)?)
 }
 
 fn extract_candidate_object_detections(

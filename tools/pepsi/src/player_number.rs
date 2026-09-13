@@ -65,7 +65,7 @@ pub fn check_for_duplication(assignments: &[RobotNumberPlayerAssignment]) -> Res
                 || !existing_player_numbers.insert(player_number)
         },
     ) {
-        bail!("duplication in Robot to player number assignments")
+        bail!("duplication in Robot to player number assignments");
     }
     Ok(())
 }
