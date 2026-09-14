@@ -1,9 +1,9 @@
 use std::{future::Future, future::pending, pin::Pin, sync::Arc};
 
-use booster::{LowState, MotorState};
+use booster::LowState;
 use color_eyre::Result;
 use coordinate_systems::{Ground, Robot};
-use kinematics::joints::{Joints, head::HeadJoints};
+use kinematics::joints::head::HeadJoints;
 use linear_algebra::Isometry3;
 use projection::camera_matrix::CameraMatrix;
 use ros_z::prelude::*;
@@ -25,11 +25,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let _low_state_sub = node
         .subscriber::<LowState>("inputs/low_state")
-        .build()
-        .await?;
-    let _serial_motor_states_cache = node
-        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")
-        .cache(1)
         .build()
         .await?;
     let _camera_matrix_cache = node
