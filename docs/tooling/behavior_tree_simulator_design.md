@@ -404,7 +404,9 @@ Default routing semantics:
 
 The live HSL message budgets are owned by `SimulatorGameState.game_controller_state.hulks_team.remaining_amount_of_messages` and `opponent_team.remaining_amount_of_messages`.
 
-`SimulationConfig::remaining_amount_of_messages` is only an initial value for that live game-controller field. The plugin should copy it into `SimulatorGameState` during initialization. After startup, the simulator must not use `SimulationConfig::remaining_amount_of_messages` as the source of truth for planning or routing.
+Initial budgets come directly from `SimulatorGameState::default()`. Scenarios can adjust a team's counter during startup and call `sync_filtered_game_controller_state()`. Planning and routing always use the sender's team's live game-controller budget.
+
+The plugin's default HSL network parameters come from the `network` section of `etc/parameters/base/behavior_node.json5`, including the 300 ms state-message interval. Scenarios can override `BehaviorTreeSimulatorPlugin::hsl_network_parameters` or the `SimulatorHslNetworkParameters` resource. Communication planning continues during `VisualKick`; teammate poses are updated on message receipt and retained between messages.
 
 Communication planning should expose the current live budget through `WorldState.filtered_game_controller_state.remaining_number_of_messages`:
 

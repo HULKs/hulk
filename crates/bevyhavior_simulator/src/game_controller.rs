@@ -95,7 +95,7 @@ pub fn default_game_controller_state() -> GameControllerState {
             score: 0,
             penalty_shoot_index: 0,
             penalty_shoots: Vec::new(),
-            remaining_amount_of_messages: 1200,
+            remaining_amount_of_messages: 12000,
             players: Vec::new(),
         },
         opponent_team: TeamState {
@@ -106,7 +106,7 @@ pub fn default_game_controller_state() -> GameControllerState {
             score: 0,
             penalty_shoot_index: 0,
             penalty_shoots: Vec::new(),
-            remaining_amount_of_messages: 1200,
+            remaining_amount_of_messages: 12000,
             players: Vec::new(),
         },
     }
