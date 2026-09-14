@@ -865,6 +865,8 @@ The simulator opens a local viewer after scenario binaries unless `BEVYHAVIOR_SI
 
 The viewer shows field state, a behavior-tree trace view, a frame inspector, scenario failures, and a timeline scrubber. The behavior-tree view reuses Twix's `BehaviorTreeVisualizer` rendering code and includes a robot selector for choosing which robot's `NodeTrace` and static layout are shown.
 
+The Field tab has a `Voronoi Cells` checkbox, disabled by default, and a robot selector for displaying that robot's recorded Voronoi grid and input poses using Twix's colors. The overlay follows the selected timeline frame and transforms each team's field coordinates into the shared world view. Frames without a grid for the selected robot are labeled accordingly.
+
 The timeline scrubber is color-coded by filtered game state. Hovering the timeline shows an immediate cursor-anchored tooltip above the timeline. Marker labels are listed first; frame index, simulation time, and game-state name follow.
 
 # Recording and Outputs
