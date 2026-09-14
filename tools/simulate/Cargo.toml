@@ -1,0 +1,30 @@
+[package]
+name = "simulate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+mujoco-rs = { version = "5.0.0", features = ["auto-download-mujoco"] }
+color-eyre = { workspace = true }
+bevy = { workspace = true, features = ["3d", "ui", "free_camera", "bevy_dev_tools", "bevy_feathers"] }
+clap = { workspace = true, features = ["derive"] }
+ros-z = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+types = { workspace = true }
+booster = { workspace = true }
+booster_sdk_interface = { workspace = true }
+cdr = { workspace = true }
+coordinate_systems = { workspace = true }
+geometry = { workspace = true }
+head_motion = { workspace = true }
+hsl_network_messages = { workspace = true }
+kinematics = { workspace = true }
+linear_algebra = { workspace = true }
+motion_inference = { workspace = true }
+nalgebra = { workspace = true }
+projection = { workspace = true }
+serde_json = { workspace = true }
+zenoh = { workspace = true }

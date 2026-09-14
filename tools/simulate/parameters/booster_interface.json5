@@ -1,0 +1,5 @@
+{
+  joint_control_message_interval: { secs: 0, nanos: 20000000 },
+  rotate_head_message_interval: { secs: 0, nanos: 20000000 },
+  sdk_request_timeout: { secs: 1, nanos: 0 },
+}

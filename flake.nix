@@ -26,7 +26,7 @@
         ];
       };
 
-      guiLibraries = with pkgs; [ libGL libxkbcommon wayland libx11 ];
+      guiLibraries = with pkgs; [ libGL libxkbcommon wayland libx11 vulkan-loader ];
       workspaceVersion = workspace.workspace.package.version;
 
       mkCrate = {
@@ -79,8 +79,12 @@
 
       devShells.${system}.default = craneLibrary.devShell {
         inputsFrom = [ pepsi twix rosz ];
-        packages = with pkgs; [ rust-analyzer rsync openssh systemd.dev ];
+        packages = with pkgs; [ rust-analyzer rsync openssh openssl udev systemd.dev ];
         env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (guiLibraries ++ [ pkgs.systemd ]);
+        shellHook = ''
+          export MUJOCO_DOWNLOAD_DIR="''${XDG_CACHE_HOME:-$HOME/.cache}/mujoco-rs"
+          export LD_LIBRARY_PATH="$MUJOCO_DOWNLOAD_DIR/mujoco-3.9.0/lib:$LD_LIBRARY_PATH"
+        '';
       };
     };
 }
