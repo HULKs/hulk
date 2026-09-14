@@ -630,6 +630,7 @@ Use a `SimulationConfig` for constants:
 - `head_scan_period`
 - `head_glance_angle`
 - `robot_radius`
+- `kick_alignment_tolerance`
 
 Use invented defaults initially, but keep them compile-time configurable through a plain Rust config struct with a `Default` implementation. Scenario code can construct `SimulationConfig` directly or use `SimulationConfig { field: value, ..Default::default() }`. Do not require parameter files for these constants in the first version.
 
@@ -653,6 +654,7 @@ pub struct SimulationConfig {
     pub head_glance_angle: f32,
     pub robot_radius: f32,
     pub kick_radius: f32,
+    pub kick_alignment_tolerance: f32,
 }
 
 impl Default for SimulationConfig {
@@ -674,6 +676,7 @@ impl Default for SimulationConfig {
             head_glance_angle: 0.25,
             robot_radius: 0.25,
             kick_radius: 0.25,
+            kick_alignment_tolerance: 0.2,
         }
     }
 }
@@ -694,9 +697,11 @@ impl Default for SimulationConfig {
 
 `MotionCommand::VisualKick`:
 
-- If the shared ball is within a configured kick radius of the expected ball position, set ball velocity along the kick direction.
+- Approach the kick pose behind the expected ball position while facing the ball. Circle around the ball at a rate limited by body rotation speed to keep it in view and avoid pushing it while repositioning.
+- Kick only when the shared ball is within the configured kick radius of both the robot and the expected ball position, and the robot-to-ball direction aligns with the kick direction within `kick_alignment_tolerance`. This prevents kicking the ball through the robot and rebounding toward its own goal.
+- Set ball velocity along the commanded kick direction.
 - Map `KickPower` to velocity through `SimulationConfig`.
-- Enforce `kick_cooldown` per robot to avoid applying a kick every tick while the command remains active.
+- Enforce `kick_cooldown` per robot to avoid applying a kick every tick while the command remains active. Keep turning toward the ball during cooldown without translating.
 
 `MotionCommand::Stand`, `Prepare`, and `StandUp`:
 
