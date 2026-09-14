@@ -56,7 +56,9 @@ fn collect_sites(
     blackboard: &Blackboard,
     robot_pose: Pose2<Field>,
 ) -> Vec<(Pose2<Field>, PlayerNumber)> {
-    let robot_player_number = blackboard.world_state.robot.player_number;
+    let Some(robot_player_number) = blackboard.world_state.robot.player_number else {
+        return Vec::new();
+    };
     let mut sites = vec![(robot_pose, robot_player_number)];
 
     for (player_number, player_state) in blackboard.world_state.player_states.iter() {

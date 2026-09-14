@@ -4,7 +4,7 @@ use linear_algebra::{Point2, point};
 
 use coordinate_systems::{Field, World};
 
-#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, ros_z::Message)]
 pub struct FieldDimensions {
     pub ball_radius: f32,
     pub length: f32,

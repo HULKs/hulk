@@ -20,9 +20,8 @@ pub enum OrientationMode {
     },
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Message)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Message)]
 pub enum MotionCommand {
-    #[default]
     Damping,
     Prepare,
     Stand {
@@ -112,9 +111,8 @@ impl MotionCommand {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Message)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Message)]
 pub enum BodyMotion {
-    #[default]
     Damping,
     Prepare,
     Stand,
@@ -157,24 +155,21 @@ pub enum HeadMotion {
     Unstiff,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, Message)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, Message)]
 pub enum ImageRegion {
     Bottom,
-    #[default]
     Center,
     Top,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum GlanceDirection {
-    #[default]
     LeftOfTarget,
     RightOfTarget,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, Message)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, Message)]
 pub enum KickPower {
-    #[default]
     Rumpelstilzchen,
     Schlong,
 }
