@@ -254,11 +254,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let mut timer = node.create_timer(Duration::from_millis(20));
 
-    let mut blackboard = Blackboard {
-        field_dimensions: field_dimensions_cache
-            .get_latest()
-            .map(|dimensions| *dimensions)
-            .unwrap_or_default(),
+    let field_dimensions = loop {
+        timer.tick().await;
+        let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
+            continue;
+        };
+        break *field_dimensions;
+    };
+
+    let mut blackboard: Blackboard = Blackboard {
+        field_dimensions,
         parameters: parameters.snapshot().typed().clone(),
         world_state: WorldState::default(),
 
