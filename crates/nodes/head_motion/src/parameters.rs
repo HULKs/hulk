@@ -11,6 +11,8 @@ pub struct Parameters {
     pub kp: HeadJoints<f32>,
     pub kd: HeadJoints<f32>,
 
+    pub center_head_position: HeadJoints<f32>,
+
     pub maximum_velocity: HeadJoints<f32>,
     pub maximum_defender_velocity: HeadJoints<f32>,
     pub maximum_pitch: f32,

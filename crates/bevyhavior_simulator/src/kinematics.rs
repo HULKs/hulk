@@ -307,7 +307,7 @@ fn desired_head_yaw(
         }
         Some(HeadMotion::ZeroAngles)
         | Some(HeadMotion::Center { .. })
-        | Some(HeadMotion::Unstiff)
+        | Some(HeadMotion::Damping)
         | None => 0.0,
     }
 }

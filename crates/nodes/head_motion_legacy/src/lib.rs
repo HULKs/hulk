@@ -181,7 +181,7 @@ fn joints_from_motion(
             pitch: 0.4,
         },
         Some(HeadMotion::LookAt { .. }) | Some(HeadMotion::LookLeftAndRightOf { .. }) => look_at,
-        Some(HeadMotion::Unstiff) => motor_states.positions().head,
+        Some(HeadMotion::Damping) => motor_states.positions().head,
         Some(HeadMotion::LookAround) | Some(HeadMotion::SearchForLostBall) => {
             look_around_target_joints
         }
@@ -229,7 +229,7 @@ mod tests {
     }
 
     #[test]
-    fn unstiff_uses_measured_head_positions() {
+    fn damping_uses_measured_head_positions() {
         let measured_head = HeadJoints {
             yaw: 0.3,
             pitch: -0.2,
@@ -244,7 +244,7 @@ mod tests {
             &motor_states,
             Duration::from_secs(1),
             &MotionCommand::Stand {
-                head: HeadMotion::Unstiff,
+                head: HeadMotion::Damping,
             },
         );
 

@@ -8,14 +8,11 @@ use linear_algebra::Isometry3;
 use projection::camera_matrix::CameraMatrix;
 use ros_z::prelude::*;
 use types::{
-    filtered_game_controller_state::FilteredGameControllerState,
-    initial_look_around::LookAroundMode, motion_command::HeadMotion, robot_command::MotorCommand,
-    time_wrapper::TimeWrapper,
+    filtered_game_controller_state::FilteredGameControllerState, motion_command::HeadMotion,
+    robot_command::MotorCommand, time_wrapper::TimeWrapper,
 };
 
-use crate::parameters::Parameters;
-
-pub const SERVICE_NAME: &str = "services/head_motion";
+use crate::{head::HeadController, parameters::Parameters};
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -53,26 +50,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    let _look_at_pub = node.publisher::<HeadJoints<f32>>("look_at").build().await?;
-    let _look_around_target_joints_pub = node
-        .publisher::<HeadJoints<f32>>("look_around_target_joints")
-        .build()
-        .await?;
-    let _look_around_mode_pub = node
-        .publisher::<LookAroundMode>("look_around_mode")
-        .build()
-        .await?;
-    let _head_joints_command_pub = node
-        .publisher::<HeadJoints<f32>>("head_joints_command")
-        .build()
-        .await?;
-
     let _head_motion_service = node
-        .service_server::<HeadMotionService>(SERVICE_NAME)
+        .service_server::<HeadMotionService>("services/head_motion")
         .build()
         .await?;
 
-    // TODO: Process LowState samples and answer requests using the head motion modules.
+    let _controller = HeadController::default();
+
+    // TODO: Feed LowState observations to the controller and evaluate service requests.
+    // Keep the controller's unimplemented entry points disconnected until logic is added.
     pending::<()>().await;
 
     Ok(())

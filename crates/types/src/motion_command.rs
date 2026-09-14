@@ -154,7 +154,7 @@ pub enum HeadMotion {
     LookLeftAndRightOf {
         target: Point2<Ground>,
     },
-    Unstiff,
+    Damping,
     MoveWithVelocity {
         yaw: f32,
         pitch: f32,
