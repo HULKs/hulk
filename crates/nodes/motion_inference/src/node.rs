@@ -214,7 +214,7 @@ impl InferenceNode {
                         }
                         Ok(Completion::Inference(output)) => {
                             self.last_inferred_position = Some((*output.inference.joints).into_iter().map(|joint| joint.position).collect());
-                            respond(worker.reply.take().expect("active request has a reply"), InferenceResult::Output(output)).await;
+                            respond(worker.reply.take().expect("active request has a reply"), Ok(Box::new(output))).await;
                         }
                         Err(error) => self.fail_job(&node, &statuses, worker.reply.take(), &format!("{error:#}")).await?,
                     }
@@ -316,9 +316,9 @@ async fn respond(reply: ServiceReply<Infer>, result: InferenceResult) {
 async fn deny(reply: ServiceReply<Infer>, reason: &str) {
     respond(
         reply,
-        InferenceResult::RequestDenied {
+        Err(InferenceError {
             reason: reason.to_owned(),
-        },
+        }),
     )
     .await;
 }
@@ -338,12 +338,20 @@ mod messages {
 
     pub type Request = InferenceCommand;
     pub type Response = InferenceResult;
+    pub type InferenceResult = std::result::Result<Box<Output>, InferenceError>;
 
-    #[derive(Clone, Serialize, Deserialize, Message)]
-    pub enum InferenceResult {
-        Output(Output),
-        RequestDenied { reason: String },
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Message)]
+    pub struct InferenceError {
+        pub reason: String,
     }
+
+    impl std::fmt::Display for InferenceError {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str(&self.reason)
+        }
+    }
+
+    impl std::error::Error for InferenceError {}
 
     #[derive(Clone, Serialize, Deserialize, Message)]
     pub struct Status {
@@ -365,12 +373,9 @@ mod messages {
 }
 
 pub use crate::config::Parameters;
-pub use messages::{InferenceResult, Output, Request, Response, State, Status};
+pub use messages::{InferenceError, InferenceResult, Output, Request, Response, State, Status};
 
-fn sensor_frame(
-    low_state: &LowState,
-    timestamp: Time,
-) -> anyhow::Result<observation::SensorFrame> {
+fn sensor_frame(low_state: &LowState, timestamp: Time) -> anyhow::Result<observation::SensorFrame> {
     let motors = low_state
         .serial_motor_states()
         .map_err(|error| anyhow!("{error:#}"))?;
