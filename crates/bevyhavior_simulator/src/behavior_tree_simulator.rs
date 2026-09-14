@@ -111,7 +111,9 @@ impl Default for BehaviorTreeSimulatorPlugin {
             config: SimulationConfig::default(),
             auto_referee_config: AutoRefereeConfig::default(),
             field_dimensions: FieldDimensions::SPL_2025,
-            hsl_network_parameters: HslNetworkParameters::default(),
+            hsl_network_parameters: default_behavior_parameters()
+                .expect("failed to load default behavior parameters")
+                .network,
             tick_duration: DEFAULT_TICK_DURATION,
             enable_default_ball_physics: true,
             enable_default_kinematics: true,
@@ -123,13 +125,6 @@ impl Default for BehaviorTreeSimulatorPlugin {
 
 impl Plugin for BehaviorTreeSimulatorPlugin {
     fn build(&self, app: &mut App) {
-        let mut game_state = SimulatorGameState::default();
-        game_state
-            .game_controller_state
-            .hulks_team
-            .remaining_amount_of_messages = self.config.remaining_amount_of_messages.unwrap_or(0);
-        game_state.sync_filtered_game_controller_state();
-
         app.add_message::<AppExit>()
             .add_message::<SimulatorRefereeCommand>()
             .insert_resource(SimulatorClock {
@@ -138,7 +133,7 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
             })
             .insert_resource(SimulatorFieldDimensions(self.field_dimensions))
             .insert_resource(SimulatorBall::default())
-            .insert_resource(game_state)
+            .insert_resource(SimulatorGameState::default())
             .insert_resource(SimulatorAutoReferee::default())
             .insert_resource(SimulatorRuleObstacles::default())
             .insert_resource(SimulatorScenarioObstacles::default())
@@ -451,26 +446,25 @@ mod tests {
     };
 
     #[test]
-    fn plugin_initializes_live_message_budget_from_simulation_config() {
+    fn plugin_uses_game_controller_message_budgets() {
         let mut app = App::new();
-        app.add_plugins((
-            MinimalPlugins,
-            BehaviorTreeSimulatorPlugin {
-                config: SimulationConfig {
-                    remaining_amount_of_messages: Some(7),
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
-        ));
+        app.add_plugins((MinimalPlugins, BehaviorTreeSimulatorPlugin::default()));
 
+        let defaults = SimulatorGameState::default().game_controller_state;
         let game_state = app.world().resource::<SimulatorGameState>();
         assert_eq!(
             game_state
                 .game_controller_state
                 .hulks_team
                 .remaining_amount_of_messages,
-            7
+            defaults.hulks_team.remaining_amount_of_messages
+        );
+        assert_eq!(
+            game_state
+                .game_controller_state
+                .opponent_team
+                .remaining_amount_of_messages,
+            defaults.opponent_team.remaining_amount_of_messages
         );
         assert_eq!(
             game_state
@@ -478,7 +472,7 @@ mod tests {
                 .as_ref()
                 .expect("filtered game state should exist")
                 .remaining_number_of_messages,
-            7
+            defaults.hulks_team.remaining_amount_of_messages
         );
     }
 
