@@ -42,7 +42,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let team_ball_sub = node
-        .subscriber::<BallPosition<Field>>("team_ball")
+        .subscriber::<Option<BallPosition<Field>>>("team_ball")
         .build()
         .await?;
     let primary_state_cache = node
@@ -108,7 +108,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 });
             }
             received_team_ball = team_ball_sub.recv() => {
-                let team_ball = received_team_ball?;
+                let Some(team_ball) = received_team_ball? else {
+                    ball_state_pub.publish(&None).await?;
+                    last_ball_state = None;
+                    continue;
+                };
 
                 let Some(ground_to_field) = ground_to_field_cache.get_latest() else {
                     continue;
