@@ -121,7 +121,7 @@ impl Robotics {
             }
         });
         let (status_tx, status) = watch::channel(if configuration.launch_nodes {
-            "Zero-pose dummy active; motion node disabled".to_owned()
+            "Head-yaw sine dummy active; motion node disabled".to_owned()
         } else {
             "External I/O only (robotics nodes disabled)".to_owned()
         });
@@ -411,8 +411,12 @@ mod tests {
                 command
                     .motor_commands
                     .iter()
-                    .all(|motor| motor.position == 0.0 && motor.kp > 0.0 && motor.kd > 0.0)
+                    .enumerate()
+                    .all(|(i, motor)| (i == 0 || motor.position == 0.0)
+                        && motor.kp > 0.0
+                        && motor.kd > 0.0)
             );
+            assert!(command.motor_commands[0].position.abs() <= 0.5);
             assert_eq!(command.motor_commands[0].kp, 10.0);
             assert_eq!(command.motor_commands[10].kp, 80.0);
         });

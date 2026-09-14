@@ -5,25 +5,24 @@ The Bevy scene runs a MuJoCo K1 and a small ROS-Z robotics stack.
 
 ## Run
 
-From the repository root, enter `nix develop` and run:
+From the repository root, run (also works from fish or inside `nix develop`):
 
 ```bash
-git lfs pull
-cargo run -p simulate
+./simulator
 ```
 
-Outside the Nix shell, configure MuJoCo's download and shared-library paths first:
+The launcher sets the working directory and library paths, and forwards arguments
+to the simulator. It forces the build to use the downloaded MuJoCo 3.9.0 required
+by the Rust bindings, overriding system MuJoCo discovery and explicit link-directory
+settings. The first build downloads it into
+`${XDG_CACHE_HOME:-$HOME/.cache}/mujoco-rs`, or your existing `MUJOCO_DOWNLOAD_DIR`.
 
-```bash
-export MUJOCO_DOWNLOAD_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/mujoco-rs"
-export LD_LIBRARY_PATH="$MUJOCO_DOWNLOAD_DIR/mujoco-3.9.0/lib:${LD_LIBRARY_PATH:-}"
-cargo run -p simulate
-```
-
-The first build downloads MuJoCo 3.9.0. The launched `motion_inference` node also
-needs ONNX Runtime (the existing node uses `ort` with dynamic loading). Set
-`ORT_DYLIB_PATH` to your ONNX Runtime shared library if it is not on the library
-search path. The five K1 ONNX models are loaded from `etc/neural_networks`.
+The launched `motion_inference` node also needs ONNX Runtime (the existing node
+uses `ort` with dynamic loading). The launcher uses `/usr/lib/libonnxruntime.so`
+when available; an explicit `ORT_DYLIB_PATH` takes precedence. For other locations,
+set that variable to your ONNX Runtime shared library or put it on the library
+search path. The five K1 ONNX models must be downloaded with Git LFS and are loaded
+from `etc/neural_networks`.
 The UI requires an X11 or Wayland display and a graphics adapter supported by Bevy.
 
 The simulator starts paused with one controlled robot. Press **Run / Pause** to
@@ -36,8 +35,11 @@ The palette can add balls and additional passive robots as physical objects.
 
 The launcher currently starts:
 
-- `motion_inference_dummy`: sends all 22 joint targets at zero, with zero velocity
-  and feedforward torque, at 50 Hz of simulation time. It uses the Walk policy's
+- `motion_inference_dummy`: sends a sinusoidal head-yaw target with amplitude
+  0.5 radians and a four-second period, including the matching target velocity.
+  The other 21 joints hold zero position and velocity; all feedforward torques
+  are zero. Commands are sent at 50 Hz of simulation time. The sine pauses with
+  physics and restarts at zero phase when the stack is reset. It uses the Walk policy's
   configured gains: head kp/kd 10/1.2, arms 40/1, major leg joints 80/4, ankle pitch
   50/2 and ankle roll 25/2. It publishes `types::robot_command::MotionCommand` on
   `commands/motion_command`, the existing Booster interface's input. Its motion
@@ -46,8 +48,9 @@ The launcher currently starts:
 - `motion_inference`
 - `booster_interface` (from `booster_sdk_interface`)
 
-The real `motion` node is deliberately **not launched**. The dummy holds a zero
-pose; it is not a balance controller and does not consume the MotionCommand UI.
+The real `motion` node is deliberately **not launched**. The dummy moves the head
+yaw and holds the other joints at zero; it is not a balance controller and does
+not consume the MotionCommand UI.
 The editor publishes real commands for inspection and for the real motion node
 once the launcher is switched after rebasing onto the completed motion branch.
 No changes to motion/head algorithms, inference services, or kick mappings are
@@ -119,7 +122,7 @@ The simulator owns a local router at `tcp/127.0.0.1:7447`, with multicast discov
 disabled. To use an existing router:
 
 ```bash
-cargo run -p simulate -- --router tcp/127.0.0.1:7447
+./simulator --router tcp/127.0.0.1:7447
 ```
 
 - `--parameter-root`: simulator parameter directory, default `tools/simulate/parameters`.
@@ -144,9 +147,12 @@ implemented scope of this motion-only integration.
 
 ## Checks
 
-With the MuJoCo library path configured as above:
+For direct Cargo checks, configure MuJoCo in your shell first (Bash syntax):
 
 ```bash
+export MUJOCO_NO_PKG_CONFIG=1
+export MUJOCO_DOWNLOAD_DIR="${MUJOCO_DOWNLOAD_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/mujoco-rs}"
+export LD_LIBRARY_PATH="$MUJOCO_DOWNLOAD_DIR/mujoco-3.9.0/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 cargo check -p simulate
 cargo test -p simulate
 ```

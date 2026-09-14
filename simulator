@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+
+# The Rust bindings require MuJoCo 3.9.0, including when a newer system version exists.
+unset MUJOCO_STATIC_LINK_DIR MUJOCO_DYNAMIC_LINK_DIR
+export MUJOCO_NO_PKG_CONFIG=1
+export MUJOCO_DOWNLOAD_DIR="${MUJOCO_DOWNLOAD_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/mujoco-rs}"
+export LD_LIBRARY_PATH="$MUJOCO_DOWNLOAD_DIR/mujoco-3.9.0/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+if [[ -z "${ORT_DYLIB_PATH:-}" && -f /usr/lib/libonnxruntime.so ]]; then
+    export ORT_DYLIB_PATH=/usr/lib/libonnxruntime.so
+fi
+
+exec cargo run -p simulate -- "$@"

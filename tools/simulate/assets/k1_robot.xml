@@ -1,4 +1,5 @@
 <mujoco model="K1">
+  <compiler angle="radian" />
   <default>
     <default class="colliderprimitive">
       <geom rgba="0.75294 0.75294 0.75294 0.0" />
