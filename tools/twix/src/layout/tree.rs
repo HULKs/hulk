@@ -6,12 +6,28 @@ use log::error;
 
 use crate::{PanelKind, SelectablePanel, backend::RobotBackend};
 
-use super::{TREE_ID, TwixLayout, focus::request_pane_focus, pane::panel_creation_context};
+use super::{
+    TwixLayout, focus::request_pane_focus, pane::panel_creation_context, persistence::LoadedLayout,
+    tree_id,
+};
 
 pub(super) enum LayoutRequest {
-    Add { tabs: TileId, panel: PanelKind },
-    Replace { pane: TileId, panel: PanelKind },
+    Add {
+        tabs: TileId,
+        panel: PanelKind,
+    },
+    Replace {
+        pane: TileId,
+        panel: PanelKind,
+    },
     Close(TileId),
+    Import {
+        tabs: TileId,
+        title: String,
+        saved: String,
+    },
+    Blank(TileId),
+    Save(TileId),
 }
 
 impl TwixLayout {
@@ -95,23 +111,28 @@ impl TwixLayout {
     }
 
     pub fn reset(&mut self, backend: &Arc<RobotBackend>, egui_context: &Context) {
+        let recovery = self.recovery.take();
         *self = Self::new(egui_context, backend);
+        self.recovery = recovery;
+        self.activate(egui_context);
     }
 
     pub fn new(egui_context: &Context, backend: &Arc<RobotBackend>) -> Self {
-        let tree = Tree::new_tabs(TREE_ID, vec![SelectablePanel::text(backend, egui_context)]);
+        let tree = Tree::new_tabs(
+            tree_id(),
+            vec![SelectablePanel::text(backend, egui_context)],
+        );
         let focused = first_pane(&tree);
-        let layout = Self {
+        Self {
             tree,
+            names: Default::default(),
+            preset_ui: Default::default(),
+            recovery: None,
             focused,
             selector_to_open: None,
             tab_to_reveal: None,
             focus_dirty: false,
-        };
-        if let Some(focused) = layout.focused {
-            request_pane_focus(egui_context, focused);
         }
-        layout
     }
 
     pub(super) fn apply_request(
@@ -140,6 +161,31 @@ impl TwixLayout {
             LayoutRequest::Close(tile_id) => {
                 self.close_tile(tile_id, backend, egui_context);
             }
+            LayoutRequest::Import { tabs, title, saved } => {
+                let result = LoadedLayout::parse(&saved).and_then(|layout| {
+                    self.insert_layout(tabs, layout, title, backend, egui_context)
+                });
+                match result {
+                    Ok(_) => self.activate(egui_context),
+                    Err(error) => self.preset_ui.error = Some(format!("{error:#}")),
+                }
+            }
+            LayoutRequest::Blank(tabs) => {
+                match self.insert_layout(
+                    tabs,
+                    LoadedLayout::blank(),
+                    "Workspace".into(),
+                    backend,
+                    egui_context,
+                ) {
+                    Ok(_) => self.activate(egui_context),
+                    Err(error) => self.preset_ui.error = Some(format!("{error:#}")),
+                }
+            }
+            LayoutRequest::Save(tile) => match self.snapshot_subtree(tile) {
+                Ok(saved) => self.preset_ui.save(self.title(tile), saved),
+                Err(error) => self.preset_ui.error = Some(format!("{error:#}")),
+            },
         }
     }
 
@@ -163,7 +209,7 @@ impl TwixLayout {
         tabs.set_active(pane_id);
         self.focused = Some(pane_id);
         self.tab_to_reveal = Some(pane_id);
-        request_pane_focus(egui_context, pane_id);
+        request_pane_focus(egui_context, self.tree.id(), pane_id);
         pane_id
     }
 
@@ -194,7 +240,7 @@ impl TwixLayout {
         let focus_was_removed = self
             .focused
             .is_some_and(|focused| self.tree.tiles.get(focused).is_none());
-        self.tree.simplify(&simplification_options());
+        self.simplify();
 
         if first_pane(&self.tree).is_none() {
             self.reset(backend, egui_context);
@@ -218,10 +264,44 @@ impl TwixLayout {
         .then_some(parent)
     }
 
+    pub(super) fn simplify(&mut self) {
+        self.tree.simplify(&simplification_options());
+        if let Some(root) = self.tree.root {
+            self.tree.root = Some(self.simplify_tile(root));
+        }
+    }
+
+    fn simplify_tile(&mut self, id: TileId) -> TileId {
+        let Some(Tile::Container(container)) = self.tree.tiles.get(id) else {
+            return id;
+        };
+        let mut container = container.clone();
+        for child in container.children_vec() {
+            let replacement = self.simplify_tile(child);
+            if replacement != child {
+                let _ = container.replace_child(child, replacement);
+            }
+        }
+        if let Container::Tabs(tabs) = &mut container {
+            tabs.ensure_active(&self.tree.tiles);
+        }
+        if !self.names.contains_key(&id)
+            && !matches!(container, Container::Tabs(_))
+            && let Some(child) = container.only_child()
+        {
+            let visible = self.tree.tiles.is_visible(id) && self.tree.tiles.is_visible(child);
+            self.tree.tiles.remove(id);
+            self.tree.tiles.set_visible(child, visible);
+            return child;
+        }
+        self.tree.tiles.insert(id, Tile::Container(container));
+        id
+    }
+
     pub(super) fn set_focus(&mut self, tile_id: TileId, egui_context: &Context) {
         self.focused = Some(tile_id);
         self.tree.make_active(|candidate, _| candidate == tile_id);
-        request_pane_focus(egui_context, tile_id);
+        request_pane_focus(egui_context, self.tree.id(), tile_id);
     }
 
     pub(super) fn repair_focus(&mut self, egui_context: &Context) {
@@ -231,18 +311,10 @@ impl TwixLayout {
         {
             return;
         }
-        if let Some(focused) = self.focused
-            && self.tree.make_active(|tile_id, _| tile_id == focused)
-            && let Some(pane) = active_pane_in_tile(&self.tree.tiles, focused)
-        {
-            self.focused = Some(pane);
-            request_pane_focus(egui_context, pane);
-            return;
-        }
         self.focused = first_pane(&self.tree);
         if let Some(focused) = self.focused {
             self.tree.make_active(|tile_id, _| tile_id == focused);
-            request_pane_focus(egui_context, focused);
+            request_pane_focus(egui_context, self.tree.id(), focused);
         }
     }
 }
@@ -250,11 +322,14 @@ impl TwixLayout {
 pub(super) fn simplification_options() -> SimplificationOptions {
     SimplificationOptions {
         all_panes_must_have_tabs: true,
+        prune_single_child_tabs: false,
+        prune_single_child_containers: false,
+        join_nested_linear_containers: false,
         ..Default::default()
     }
 }
 
-pub(super) fn first_pane(tree: &Tree<SelectablePanel>) -> Option<TileId> {
+pub(super) fn first_pane<Pane>(tree: &Tree<Pane>) -> Option<TileId> {
     tree.active_tiles()
         .into_iter()
         .find(|tile_id| matches!(tree.tiles.get(*tile_id), Some(Tile::Pane(_))))

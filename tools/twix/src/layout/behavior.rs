@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use eframe::egui::{
     Button, Context, CornerRadius, Id, Margin, Rect, Response, Sense, StrokeKind, Ui, UiBuilder,
@@ -11,20 +11,25 @@ use egui_tiles::{
 use crate::{SelectablePanel, backend::RobotBackend};
 
 use super::{
-    TREE_ID,
     focus::pane_focus_id,
     pane::panel_ui_context,
+    preset_ui::PresetUi,
     tab_bar,
     tree::{LayoutRequest, simplification_options},
 };
 
 pub(super) struct LayoutBehavior<'a> {
+    pub(super) tree_id: Id,
+    pub(super) root: Option<TileId>,
+    pub(super) names: &'a mut HashMap<TileId, String>,
+    pub(super) preset_ui: &'a mut PresetUi,
     pub(super) backend: &'a Arc<RobotBackend>,
     pub(super) egui_context: Context,
     pub(super) focused: &'a mut Option<TileId>,
     pub(super) tab_to_reveal: &'a mut Option<TileId>,
     pub(super) selector_to_open: &'a mut Option<TileId>,
     pub(super) focus_dirty: &'a mut bool,
+    pub(super) dropped: bool,
     pub(super) requests: Vec<LayoutRequest>,
 }
 
@@ -35,7 +40,7 @@ impl Behavior<SelectablePanel> for LayoutBehavior<'_> {
         let kind = pane.kind();
         let pane = ui.scope_builder(
             UiBuilder::new()
-                .id(pane_focus_id(tile_id))
+                .id(pane_focus_id(self.tree_id, tile_id))
                 .max_rect(ui.max_rect())
                 .sense(Sense::focusable_noninteractive()),
             |ui| {
@@ -83,7 +88,12 @@ impl Behavior<SelectablePanel> for LayoutBehavior<'_> {
         tiles: &Tiles<SelectablePanel>,
         tile_id: TileId,
     ) -> WidgetText {
-        tab_bar::tab_title(tiles, tile_id).into()
+        let name = self
+            .names
+            .get(&tile_id)
+            .cloned()
+            .unwrap_or_else(|| tab_bar::tab_title(tiles, tile_id));
+        format!("{}  {name}", tab_bar::tab_icon(tiles, tile_id)).into()
     }
 
     fn tab_ui(
@@ -107,9 +117,7 @@ impl Behavior<SelectablePanel> for LayoutBehavior<'_> {
     ) {
         if let Some(tab) = *self.tab_to_reveal
             && tabs.children.contains(&tab)
-            && let Some(response) = self
-                .egui_context
-                .read_response(tab.egui_id(Id::new(TREE_ID)))
+            && let Some(response) = self.egui_context.read_response(tab.egui_id(self.tree_id))
         {
             if !response.interact_rect.contains_rect(response.rect) {
                 *scroll_offset = f32::INFINITY;
@@ -171,7 +179,11 @@ impl Behavior<SelectablePanel> for LayoutBehavior<'_> {
     }
 
     fn on_edit(&mut self, edit_action: EditAction) {
-        if edit_action == EditAction::TileDropped {
+        self.dropped |= edit_action == EditAction::TileDropped;
+        if matches!(
+            edit_action,
+            EditAction::TileDropped | EditAction::TabSelected
+        ) {
             *self.focus_dirty = true;
         }
         self.egui_context.request_repaint();
