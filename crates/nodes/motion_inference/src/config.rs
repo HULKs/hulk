@@ -61,7 +61,6 @@ impl Policy {
 pub struct Parameters {
     pub neural_networks_folder: PathBuf,
     pub inference_threads: usize,
-    pub joint_limits: Joints<[f32; 2]>,
     pub policies: HashMap<Policy, PolicyParameters>,
     pub timing: TimingParameters,
     pub observation: ObservationParameters,
@@ -145,7 +144,6 @@ pub struct GetUpParameters {
 
 impl Parameters {
     pub fn validate(&self) -> Result<()> {
-        validate_joint_limits(self.joint_limits)?;
         ensure!(
             self.inference_threads > 0,
             "inference_threads must be positive"
@@ -176,13 +174,9 @@ impl Parameters {
         }
         let t = &self.timing;
         ensure!(
-            [
-                t.policy_period,
-                t.sensor_period,
-                t.arm_blend_duration
-            ]
-            .into_iter()
-            .all(|value| !value.is_zero() && value.as_secs_f32().is_finite()),
+            [t.policy_period, t.sensor_period, t.arm_blend_duration]
+                .into_iter()
+                .all(|value| !value.is_zero() && value.as_secs_f32().is_finite()),
             "invalid inference timing"
         );
         let o = &self.observation;
@@ -269,16 +263,6 @@ impl Parameters {
         }
         Ok(())
     }
-}
-
-pub fn validate_joint_limits(joint_limits: Joints<[f32; 2]>) -> Result<()> {
-    for (joint, [minimum, maximum]) in joint_limits.enumerate() {
-        ensure!(
-            minimum.is_finite() && maximum.is_finite() && minimum <= maximum,
-            "invalid joint limits for {joint:?}: [{minimum}, {maximum}]"
-        );
-    }
-    Ok(())
 }
 
 pub fn clip_measurement(position: Joints<f32>, joint_limits: Joints<[f32; 2]>) -> Joints<f32> {

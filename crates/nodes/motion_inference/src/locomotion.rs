@@ -8,6 +8,7 @@ use booster::MotorCommand;
 use coordinate_systems::{Ground, Robot};
 use linear_algebra::{Point2, Point3, Vector2, point};
 use std::{collections::VecDeque, f32::consts::TAU};
+use types::joint_limits::JointLimits;
 
 pub mod kick;
 pub mod walk;
@@ -45,14 +46,19 @@ pub struct Locomotion {
 }
 
 impl Locomotion {
-    pub fn new(sensor: &SensorFrame, parameters: std::sync::Arc<Parameters>) -> Self {
+    pub fn new(
+        sensor: &SensorFrame,
+        parameters: std::sync::Arc<Parameters>,
+        joints: &JointLimits,
+    ) -> Self {
         Self {
             history: VecDeque::from(vec![
                 walk::history_frame(
                     sensor,
                     &sensor.last_commanded_position,
                     true,
-                    &parameters
+                    &parameters,
+                    joints
                 );
                 HISTORY_LENGTH
             ]),
@@ -77,8 +83,8 @@ impl Locomotion {
         }
     }
 
-    pub fn record_walk_sample(&mut self, sensor: &SensorFrame) {
-        self.record_history(sensor);
+    pub fn record_walk_sample(&mut self, sensor: &SensorFrame, joints: &JointLimits) {
+        self.record_history(sensor, joints);
         self.previous_ball = None;
     }
 
@@ -86,8 +92,9 @@ impl Locomotion {
         &mut self,
         sensor: &SensorFrame,
         request: KickRequest,
+        joints: &JointLimits,
     ) -> (Point2<Ground>, Point2<Ground>) {
-        self.record_history(sensor);
+        self.record_history(sensor, joints);
         let ball = kick::shifted_ball(sensor, request, &self.parameters.kick);
         let previous = self
             .previous_ball
@@ -97,13 +104,14 @@ impl Locomotion {
         (ball, previous)
     }
 
-    fn record_history(&mut self, sensor: &SensorFrame) {
+    fn record_history(&mut self, sensor: &SensorFrame, joints: &JointLimits) {
         self.history.pop_front();
         self.history.push_back(walk::history_frame(
             sensor,
             &self.previous_target,
             false,
             &self.parameters,
+            joints,
         ));
     }
 
@@ -120,13 +128,14 @@ impl Locomotion {
         policy: Policy,
         actions: &[f32],
         sensor: &SensorFrame,
+        joints: &JointLimits,
     ) -> Joints<MotorCommand> {
         let offset = policy.offset(&self.parameters);
         let (kp, kd) = policy.gains(&self.parameters);
         let action_limit = policy.action_limit(&self.parameters);
         let mut position = sensor.last_commanded_position;
         let arms = arm_targets(
-            &clip_measurement(sensor.position, self.parameters.joint_limits),
+            &clip_measurement(sensor.position, joints.position),
             &self.parameters.locomotion,
         );
         position.left_arm = arms.left_arm;

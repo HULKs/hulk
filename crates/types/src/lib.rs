@@ -28,6 +28,7 @@ pub mod heatmap;
 pub mod image_segments;
 pub mod initial_look_around;
 pub mod initial_pose;
+pub mod joint_limits;
 pub mod jpeg;
 pub mod last_filtered_game_controller_state_change;
 pub mod line_data;

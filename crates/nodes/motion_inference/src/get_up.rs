@@ -1,6 +1,7 @@
 use ::kinematics::joints::Joints;
 use booster::MotorCommand;
 use ros_z::time::Time;
+use types::joint_limits::JointLimits;
 
 use crate::{
     config::{JOINT_COUNT, Parameters, Policy, clip_measurement},
@@ -38,9 +39,10 @@ impl GetUp {
         policy: Policy,
         actions: &[f32],
         sensor: &SensorFrame,
+        joints: &JointLimits,
     ) -> Joints<MotorCommand> {
         let reference_position = if policy == Policy::FastGetUp {
-            clip_measurement(sensor.position, self.parameters.joint_limits)
+            clip_measurement(sensor.position, joints.position)
         } else {
             policy.offset(&self.parameters)
         };

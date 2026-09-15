@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use types::joint_limits::JointLimits;
 
 use ::kinematics::joints::Joints;
 use coordinate_systems::Ground;
@@ -75,13 +76,14 @@ pub(super) fn history_frame(
     previous_target: &Joints<f32>,
     initializing: bool,
     parameters: &Parameters,
+    joints: &JointLimits,
 ) -> [f32; HISTORY_FRAME_SIZE] {
     let mut frame = [0.0; HISTORY_FRAME_SIZE];
     frame[..3].copy_from_slice(&sensor.gravity());
     if !initializing {
         frame[3..6].copy_from_slice(sensor.gyro.inner.as_slice());
     }
-    let measured_position = clip_measurement(sensor.position, parameters.joint_limits);
+    let measured_position = clip_measurement(sensor.position, joints.position);
     let offset = Policy::Walk.offset(parameters);
     frame[6..18].copy_from_slice(&LEGS.map(|joint| measured_position[joint] - offset[joint]));
     frame[18..30].copy_from_slice(&LEGS.map(|joint| previous_target[joint] - offset[joint]));

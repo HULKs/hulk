@@ -1,4 +1,5 @@
 use std::{collections::VecDeque, future::Future, pin::Pin, sync::Arc};
+use types::joint_limits::JointLimits;
 
 use anyhow::anyhow;
 use booster::{JointsMotorState, LowState};
@@ -97,6 +98,7 @@ struct Worker {
 
 struct InferenceNode {
     parameters: Arc<Parameters>,
+    joint_limits: Option<Arc<JointLimits>>,
     controller: Option<Controller>,
     worker: Option<Worker>,
     pending: VecDeque<QueuedRequest>,
@@ -109,6 +111,7 @@ struct InferenceNode {
 impl InferenceNode {
     fn new(parameters: Arc<Parameters>) -> Self {
         Self {
+            joint_limits: None,
             controller: Some(Controller::new(parameters.clone())),
             parameters,
             worker: None,
@@ -149,6 +152,15 @@ impl InferenceNode {
             history: QosHistory::from_depth(1),
             ..Default::default()
         };
+        let joint_limits = node
+            .subscriber::<JointLimits>("joint_limits")
+            .qos(QosProfile {
+                durability: QosDurability::TransientLocal,
+                history: QosHistory::from_depth(1),
+                ..Default::default()
+            })
+            .build()
+            .await?;
         let sensors = node
             .subscriber::<LowState>(SENSOR_TOPIC)
             .qos(latest)
@@ -219,6 +231,13 @@ impl InferenceNode {
                         Err(error) => self.fail_job(&node, &statuses, worker.reply.take(), &format!("{error:#}")).await?,
                     }
                 }
+                received = joint_limits.recv() => {
+                    let received = received?;
+                    match received.validate() {
+                        Ok(()) => self.joint_limits = Some(Arc::new(received)),
+                        Err(reason) => statuses.publish(&fault_status(&mut self.first_fault, node.clock().now(), anyhow!(reason))).await?,
+                    }
+                }
                 received = sensors.recv_with_metadata() => {
                     let received = received?;
                     if self.initialized() && self.first_fault.is_none() {
@@ -246,6 +265,10 @@ impl InferenceNode {
                 () = std::future::ready(()), if self.worker.is_none() && !self.pending.is_empty() => {
                     let queued = self.pending.pop_front().expect("queued request exists");
                     let request = queued.request;
+                    let Some(joints) = self.joint_limits.clone() else {
+                        deny(queued.reply, "global joint limits are missing").await;
+                        continue;
+                    };
                     let Some(sensor) = &self.sensor else {
                         deny(queued.reply, "sensor frame is missing").await;
                         continue;
@@ -262,7 +285,7 @@ impl InferenceNode {
                     let mut controller = self.controller.take().expect("idle controller exists");
                     let clock = node.clock().clone();
                     let handle = tokio::task::spawn_blocking(move || {
-                        let result = controller.execute(clock.now(), &sensor, request, velocity)
+                        let result = controller.execute(clock.now(), &sensor, request, velocity, &joints)
                             .map(Completion::Inference);
                         (controller, result)
                     });
@@ -419,12 +442,13 @@ impl Controller {
         sensor: &SensorFrame,
         command: InferenceCommand,
         velocity: VelocityEstimator,
+        joints: &JointLimits,
     ) -> anyhow::Result<InferenceOutput> {
         let inference = self
             .inference
             .as_mut()
             .ok_or_else(|| anyhow!("inference is initializing"))?;
-        inference.execute_request(now, sensor, command, velocity)
+        inference.execute_request(now, sensor, command, velocity, joints)
     }
 }
 

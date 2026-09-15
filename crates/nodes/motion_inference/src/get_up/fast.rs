@@ -1,6 +1,7 @@
 use ::kinematics::joints::Joints;
 use coordinate_systems::Robot;
 use linear_algebra::Vector3;
+use types::joint_limits::JointLimits;
 
 use super::GetUp;
 use crate::{
@@ -18,12 +19,17 @@ pub struct Observation {
 }
 
 impl Observation {
-    pub fn new(state: &GetUp, sensor: &SensorFrame, joint_velocity: &Joints<f32>) -> Self {
+    pub fn new(
+        state: &GetUp,
+        sensor: &SensorFrame,
+        joint_velocity: &Joints<f32>,
+        joints: &JointLimits,
+    ) -> Self {
         Self {
             joint_velocity_scale: state.parameters.observation.joint_velocity_scale,
             angular_velocity: sensor.gyro,
             gravity: Vector3::wrap(sensor.gravity().into()),
-            position_offsets: clip_measurement(sensor.position, state.parameters.joint_limits)
+            position_offsets: clip_measurement(sensor.position, joints.position)
                 - Policy::FastGetUp.offset(&state.parameters),
             joint_velocity: *joint_velocity,
             previous_action: state.previous_action,

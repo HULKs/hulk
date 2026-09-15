@@ -2,6 +2,7 @@ use ::kinematics::joints::Joints;
 use coordinate_systems::Robot;
 use linear_algebra::Vector3;
 use ros_z::time::Time;
+use types::joint_limits::JointLimits;
 
 use super::GetUp;
 use crate::{
@@ -25,6 +26,7 @@ impl Observation {
         sensor: &SensorFrame,
         joint_velocity: &Joints<f32>,
         now: Time,
+        joints: &JointLimits,
     ) -> Self {
         let offset = Policy::SlowGetUp.offset(&state.parameters);
         Self {
@@ -34,8 +36,7 @@ impl Observation {
             progress: now.duration_since(state.start).as_secs_f32()
                 * state.parameters.get_up.progress_rate
                 / state.reference_duration_seconds,
-            position_offsets: clip_measurement(sensor.position, state.parameters.joint_limits)
-                - offset,
+            position_offsets: clip_measurement(sensor.position, joints.position) - offset,
             joint_velocity: *joint_velocity,
             previous_target_offsets: sensor.last_commanded_position - offset,
         }

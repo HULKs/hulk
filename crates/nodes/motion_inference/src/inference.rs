@@ -13,6 +13,7 @@ use linear_algebra::Vector2;
 use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path, sync::Arc};
+use types::joint_limits::JointLimits;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, ros_z::Message)]
 pub enum InferenceCommand {
@@ -133,12 +134,13 @@ impl Inference {
         sensor: &SensorFrame,
         request: InferenceCommand,
         velocity: VelocityEstimator,
+        joints: &JointLimits,
     ) -> Result<InferenceOutput> {
         self.validate_update(now, sensor, request)?;
         self.velocity = velocity;
-        self.activate(now, sensor, request.policy());
+        self.activate(now, sensor, request.policy(), joints);
         let standing = self.advance_gait(now, request);
-        self.infer(now, sensor, request, standing)
+        self.infer(now, sensor, request, standing, joints)
     }
 
     fn validate_update(
@@ -160,7 +162,7 @@ impl Inference {
         Ok(())
     }
 
-    fn activate(&mut self, now: Time, sensor: &SensorFrame, policy: Policy) {
+    fn activate(&mut self, now: Time, sensor: &SensorFrame, policy: Policy, joints: &JointLimits) {
         if let Some(active) = &mut self.active {
             if active.policy == policy {
                 return;
@@ -173,7 +175,13 @@ impl Inference {
                 self.last_motion = Some(now);
             }
         }
-        self.active = Some(Execution::new(policy, sensor, now, self.parameters.clone()));
+        self.active = Some(Execution::new(
+            policy,
+            sensor,
+            now,
+            self.parameters.clone(),
+            joints,
+        ));
         self.previous_update = Some(now);
     }
 
@@ -201,19 +209,21 @@ impl Inference {
         sensor: &SensorFrame,
         request: InferenceCommand,
         standing: bool,
+        joints: &JointLimits,
     ) -> Result<InferenceOutput> {
         let active = self
             .active
             .as_mut()
             .expect("policy activated before inference");
         let policy = active.policy;
-        let observation = active.prepare_input(now, sensor, &self.velocity, request, standing);
+        let observation =
+            active.prepare_input(now, sensor, &self.velocity, request, standing, joints);
         let raw_output = self
             .networks
             .get_mut(&policy)
             .expect("policy validated before activation")
             .run(&observation)?;
-        let joints = active.decode(now, sensor, &raw_output);
+        let joints = active.decode(now, sensor, &raw_output, joints);
         ensure!(joints_are_finite(joints), "non-finite decoded joints");
         Ok(InferenceOutput {
             joints: Box::new(joints),
@@ -240,10 +250,16 @@ struct Execution {
 }
 
 impl Execution {
-    fn new(policy: Policy, sensor: &SensorFrame, now: Time, parameters: Arc<Parameters>) -> Self {
+    fn new(
+        policy: Policy,
+        sensor: &SensorFrame,
+        now: Time,
+        parameters: Arc<Parameters>,
+        joints: &JointLimits,
+    ) -> Self {
         let state = match policy {
             Policy::Walk | Policy::Kick | Policy::SoftKick => {
-                State::Locomotion(Locomotion::new(sensor, parameters))
+                State::Locomotion(Locomotion::new(sensor, parameters, joints))
             }
             Policy::SlowGetUp => State::SlowGetUp(GetUp::new(sensor, now, parameters)),
             Policy::FastGetUp => State::FastGetUp(GetUp::new(sensor, now, parameters)),
@@ -269,11 +285,12 @@ impl Execution {
         velocity: &VelocityEstimator,
         request: InferenceCommand,
         standing: bool,
+        joints: &JointLimits,
     ) -> Vec<f32> {
         match &mut self.state {
             State::Locomotion(state) => match request {
                 InferenceCommand::Kick { soft, request } => {
-                    let ball_positions = state.record_kick_sample(sensor, request);
+                    let ball_positions = state.record_kick_sample(sensor, request, joints);
                     kick::Observation::new(
                         state,
                         sensor,
@@ -282,12 +299,13 @@ impl Execution {
                         request,
                         soft,
                         ball_positions,
+                        joints,
                     )
                     .to_tensor()
                     .to_vec()
                 }
                 _ => {
-                    state.record_walk_sample(sensor);
+                    state.record_walk_sample(sensor, joints);
                     let (linear_velocity, angular_velocity) = match request {
                         InferenceCommand::Walk {
                             velocity,
@@ -306,19 +324,29 @@ impl Execution {
                     .to_vec()
                 }
             },
-            State::SlowGetUp(state) => slow::Observation::new(state, sensor, &velocity.get_up, now)
-                .to_tensor()
-                .to_vec(),
-            State::FastGetUp(state) => fast::Observation::new(state, sensor, &velocity.get_up)
-                .to_tensor()
-                .to_vec(),
+            State::SlowGetUp(state) => {
+                slow::Observation::new(state, sensor, &velocity.get_up, now, joints)
+                    .to_tensor()
+                    .to_vec()
+            }
+            State::FastGetUp(state) => {
+                fast::Observation::new(state, sensor, &velocity.get_up, joints)
+                    .to_tensor()
+                    .to_vec()
+            }
         }
     }
 
-    fn decode(&mut self, now: Time, sensor: &SensorFrame, actions: &[f32]) -> Joints<MotorCommand> {
+    fn decode(
+        &mut self,
+        now: Time,
+        sensor: &SensorFrame,
+        actions: &[f32],
+        joints: &JointLimits,
+    ) -> Joints<MotorCommand> {
         match &mut self.state {
             State::Locomotion(state) => {
-                let mut joints = state.decode(self.policy, actions, sensor);
+                let mut joints = state.decode(self.policy, actions, sensor, joints);
                 let ratio = (now.duration_since(self.started).as_secs_f32()
                     / state.parameters.timing.arm_blend_duration.as_secs_f32())
                 .clamp(0.0, 1.0);
@@ -329,7 +357,7 @@ impl Execution {
                 joints
             }
             State::SlowGetUp(state) | State::FastGetUp(state) => {
-                state.decode(self.policy, actions, sensor)
+                state.decode(self.policy, actions, sensor, joints)
             }
         }
     }

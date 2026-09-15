@@ -1,4 +1,5 @@
 use std::f32::consts::{PI, TAU};
+use types::joint_limits::JointLimits;
 
 use ::kinematics::joints::Joints;
 use coordinate_systems::{Ground, Robot};
@@ -42,6 +43,7 @@ impl Observation {
         request: KickRequest,
         soft: bool,
         (ball_position, previous_ball_position): (Point2<Ground>, Point2<Ground>),
+        joints: &JointLimits,
     ) -> Self {
         let strong = request.strong && !soft;
         let parameters = &state.parameters;
@@ -61,7 +63,7 @@ impl Observation {
             ball_position,
             direction: request.direction,
             phase: state.phase_encoding(standing),
-            position_offsets: clip_measurement(sensor.position, parameters.joint_limits) - offset,
+            position_offsets: clip_measurement(sensor.position, joints.position) - offset,
             joint_velocity: *joint_velocity,
             previous_target_offsets: state.previous_target - offset,
             frequency_offset: state.frequency_offset,
