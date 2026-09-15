@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use coordinate_systems::{Camera, Robot};
+use coordinate_systems::{LeftCamera, Robot};
 use linear_algebra::{Isometry3, point};
 use localization_factrs::CameraIntrinsics;
 use projection::{camera_matrix::CameraMatrix, intrinsic::Intrinsic};
@@ -49,7 +49,7 @@ pub fn intrinsic_from_camera_intrinsics(camera_intrinsics: &CameraIntrinsics) ->
     )
 }
 
-pub(crate) fn robot_to_camera(camera_matrix: &CameraMatrix) -> Isometry3<Robot, Camera> {
+pub(crate) fn robot_to_camera(camera_matrix: &CameraMatrix) -> Isometry3<Robot, LeftCamera> {
     camera_matrix.head_to_camera * camera_matrix.robot_to_head
 }
 
@@ -77,7 +77,7 @@ mod tests {
     fn visual_odometry_extrinsic_uses_head_and_camera_transforms() {
         let robot_to_head: Isometry3<Robot, Head> =
             nalgebra::Isometry3::translation(1.0, 2.0, 3.0).framed_transform();
-        let head_to_camera: Isometry3<Head, Camera> =
+        let head_to_camera: Isometry3<Head, LeftCamera> =
             nalgebra::Isometry3::translation(0.5, 0.0, -0.25).framed_transform();
         let camera_matrix = CameraMatrix {
             robot_to_head,

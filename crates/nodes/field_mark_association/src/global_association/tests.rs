@@ -1,5 +1,5 @@
 use ::types::field_dimensions::{FieldDimensions, Half, Side};
-use coordinate_systems::{Camera, Field, Ground, Pixel, Robot};
+use coordinate_systems::{Field, Ground, LeftCamera, Pixel, Robot};
 use linear_algebra::{IntoTransform, Isometry3, Point2, point};
 use projection::intrinsic::Intrinsic;
 
@@ -10,7 +10,7 @@ fn camera_intrinsic() -> Intrinsic {
     Intrinsic::new(nalgebra::vector![100.0, 100.0], point![320.0, 240.0])
 }
 
-fn robot_to_camera() -> Isometry3<Robot, Camera> {
+fn robot_to_camera() -> Isometry3<Robot, LeftCamera> {
     nalgebra::Isometry3::translation(0.0, 0.0, 0.5).framed_transform()
 }
 

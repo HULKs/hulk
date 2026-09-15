@@ -1,10 +1,12 @@
+use std::f32::consts::FRAC_PI_2;
+
 use coordinate_systems::{
-    Head, LeftAnkle, LeftFoot, LeftForearm, LeftHip, LeftInnerShoulder, LeftOuterShoulder,
-    LeftPelvis, LeftSole, LeftThigh, LeftTibia, LeftUpperArm, Neck, RightAnkle, RightFoot,
-    RightForearm, RightHip, RightInnerShoulder, RightOuterShoulder, RightPelvis, RightSole,
-    RightThigh, RightTibia, RightUpperArm, Robot,
+    Head, LeftAnkle, LeftCamera, LeftFoot, LeftForearm, LeftHip, LeftInnerShoulder,
+    LeftOuterShoulder, LeftPelvis, LeftSole, LeftThigh, LeftTibia, LeftUpperArm, Neck, RightAnkle,
+    RightFoot, RightForearm, RightHip, RightInnerShoulder, RightOuterShoulder, RightPelvis,
+    RightSole, RightThigh, RightTibia, RightUpperArm, Robot,
 };
-use linear_algebra::{Isometry3, Orientation3, Vector3};
+use linear_algebra::{Isometry3, Orientation3, Rotation3, Vector3};
 
 use crate::{
     joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints},
@@ -23,6 +25,18 @@ pub fn head_to_neck(angles: &HeadJoints<f32>) -> Isometry3<Head, Neck> {
         RobotDimensions::NECK_TO_HEAD,
         Orientation3::new(Vector3::y_axis() * angles.pitch),
     )
+}
+
+pub fn head_to_robot(angles: &HeadJoints<f32>) -> Isometry3<Head, Robot> {
+    neck_to_robot(angles) * head_to_neck(angles)
+}
+
+/// Left optical frame: X right, Y down, Z forward. Mounting pitch is in radians;
+/// positive pitch raises the viewing direction. Calibration is applied separately.
+pub fn head_to_left_camera(camera_pitch: f32) -> Isometry3<Head, LeftCamera> {
+    Rotation3::<LeftCamera, LeftCamera>::new(Vector3::x_axis() * -camera_pitch)
+        * Rotation3::<Head, LeftCamera>::from_euler_angles(FRAC_PI_2, -FRAC_PI_2, 0.0)
+        * Isometry3::<Head, Head>::from(-RobotDimensions::HEAD_TO_LEFT_CAMERA)
 }
 
 // left arm
@@ -196,4 +210,52 @@ pub fn right_sole_to_robot(angles: &LegJoints<f32>) -> Isometry3<RightSole, Robo
         * right_ankle_to_right_tibia(angles)
         * right_foot_to_right_ankle(angles)
         * Isometry3::from(RobotDimensions::RIGHT_FOOT_TO_RIGHT_SOLE)
+}
+
+#[cfg(test)]
+mod tests {
+    use linear_algebra::{Point3, point, vector};
+
+    use super::*;
+
+    #[test]
+    fn left_optical_axes_and_offset_follow_the_head() {
+        let camera_to_head = head_to_left_camera(0.0).inverse();
+        let center = camera_to_head * Point3::origin();
+        assert!((center - point![0.05868, 0.03202, 0.09849]).norm() < 1e-6);
+        for (optical_axis, head_axis) in [
+            (vector![1.0, 0.0, 0.0], vector![0.0, -1.0, 0.0]),
+            (vector![0.0, 1.0, 0.0], vector![0.0, 0.0, -1.0]),
+            (vector![0.0, 0.0, 1.0], vector![1.0, 0.0, 0.0]),
+        ] {
+            assert!((camera_to_head * optical_axis - head_axis).norm() < 1e-6);
+        }
+
+        // A left offset is attached to the head, not fixed in the robot frame.
+        let camera_to_robot = head_to_robot(&HeadJoints {
+            yaw: FRAC_PI_2,
+            pitch: 0.0,
+        }) * camera_to_head;
+        let center = camera_to_robot * Point3::origin();
+        assert!(
+            (center - point![0.0056 - 0.03202, 0.05868, 0.2149 + 0.033 + 0.09849]).norm() < 1e-6
+        );
+
+        // Positive head pitch looks down; positive mounting pitch looks up.
+        let pitch = 0.3;
+        let head_pitch_camera_to_robot =
+            head_to_robot(&HeadJoints { yaw: 0.0, pitch }) * camera_to_head;
+        assert!(
+            (head_pitch_camera_to_robot * Vector3::z_axis()
+                - vector![pitch.cos(), 0.0, -pitch.sin()])
+            .norm()
+                < 1e-6
+        );
+        let mounted_camera_to_head = head_to_left_camera(pitch).inverse();
+        assert!(
+            (mounted_camera_to_head * Vector3::z_axis() - vector![pitch.cos(), 0.0, pitch.sin()])
+                .norm()
+                < 1e-6
+        );
+    }
 }

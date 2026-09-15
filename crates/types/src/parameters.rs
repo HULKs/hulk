@@ -5,7 +5,7 @@ use kinematics::joints::{Joints, head::HeadJoints};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
+use coordinate_systems::{Field, Ground, LeftCamera, NormalizedPixel, Pixel, Robot};
 use linear_algebra::{Framed, Point2, Vector2, Vector3};
 
 use crate::{field_color::FieldColorParameters, motion_command::MotionCommand, players::Players};
@@ -270,7 +270,7 @@ pub struct ObstacleFilterParameters {
 pub struct CameraMatrixParameters {
     pub camera_to_head_pitch: f32,
     pub correction_in_robot: Vector3<Robot>,
-    pub correction_in_camera: Vector3<Camera>,
+    pub correction_in_camera: Vector3<LeftCamera>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]

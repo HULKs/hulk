@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use coordinate_systems::{Camera, Field, Robot};
+use coordinate_systems::{Field, LeftCamera, Robot};
 use eframe::{
     App, CreationContext, Frame,
     egui::{
@@ -67,7 +67,7 @@ const PROJECTED_ARC_SCREEN_ERROR: f32 = 1.5;
 struct ProjectionContext<'a> {
     image_rect: Rect,
     image_size: Vec2,
-    field_to_camera: &'a Isometry3<Field, Camera>,
+    field_to_camera: &'a Isometry3<Field, LeftCamera>,
     intrinsics: Intrinsic,
 }
 
@@ -493,7 +493,7 @@ fn draw_projected_field_lines(
     }
 }
 
-fn robot_to_camera(camera_matrix: &CameraMatrix) -> Isometry3<Robot, Camera> {
+fn robot_to_camera(camera_matrix: &CameraMatrix) -> Isometry3<Robot, LeftCamera> {
     camera_matrix.head_to_camera * camera_matrix.robot_to_head
 }
 

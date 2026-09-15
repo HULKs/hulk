@@ -17,7 +17,7 @@ use std::{
 };
 
 use color_eyre::Result;
-use coordinate_systems::Camera;
+use coordinate_systems::LeftCamera;
 use linear_algebra::Point3;
 use nalgebra as na;
 
@@ -80,9 +80,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    // Caution: We don't yet differentiate between left and right camera frames.
     let triangulated_features_pub = node
-        .publisher::<Vec<Point3<Camera>>>("debug/visual_odometry/triangulated_features")
+        .publisher::<Vec<Point3<LeftCamera>>>("debug/visual_odometry/triangulated_features")
         .build()
         .await?;
 

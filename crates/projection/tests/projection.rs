@@ -2,7 +2,7 @@ use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
 use approx::assert_relative_eq;
 
-use coordinate_systems::{Camera, Head, Pixel};
+use coordinate_systems::{Head, LeftCamera, Pixel};
 use linear_algebra::{IntoTransform, Isometry3, Vector2, Vector3, point, vector};
 use projection::{Projection, camera_matrix::CameraMatrix};
 
@@ -21,7 +21,7 @@ fn from_normalized_focal_and_center_short(
     )
 }
 
-fn head_to_camera(camera_pitch: f32, head_to_camera: Vector3<Head>) -> Isometry3<Head, Camera> {
+fn head_to_camera(camera_pitch: f32, head_to_camera: Vector3<Head>) -> Isometry3<Head, LeftCamera> {
     (nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * -camera_pitch)
         * nalgebra::Isometry3::rotation(nalgebra::Vector3::y() * -FRAC_PI_2)
         * nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * FRAC_PI_2)

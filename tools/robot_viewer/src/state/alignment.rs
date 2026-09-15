@@ -93,7 +93,7 @@ pub(super) fn nearest_sample<T>(
 
 #[cfg(test)]
 mod tests {
-    use coordinate_systems::{Camera, Robot};
+    use coordinate_systems::{LeftCamera, Robot};
     use kinematics::robot_kinematics::RobotKinematics;
     use linear_algebra::Isometry3;
     use projection::camera_matrix::CameraMatrix;
@@ -108,7 +108,7 @@ mod tests {
 
     fn empty_associations() -> FieldMarkAssociations {
         FieldMarkAssociations {
-            robot_to_camera: Isometry3::<Robot, Camera>::identity(),
+            robot_to_camera: Isometry3::<Robot, LeftCamera>::identity(),
             associations: Vec::new(),
             backend_reset: None,
         }

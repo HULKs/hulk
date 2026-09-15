@@ -1,4 +1,4 @@
-use coordinate_systems::{Camera, Field};
+use coordinate_systems::{Field, LeftCamera};
 use linear_algebra::Isometry3;
 use ordered_float::NotNan;
 use projection::intrinsic::Intrinsic;
@@ -126,7 +126,7 @@ struct PoseHintOption {
 fn pose_hint_assignments_for_class(
     map: &LandmarkMap,
     detections: &[DetectionPoint],
-    field_to_camera: Isometry3<Field, Camera>,
+    field_to_camera: Isometry3<Field, LeftCamera>,
     intrinsic: Intrinsic,
     config: PoseHintAssociationConfig,
     class: VisualFeatureClass,
@@ -217,7 +217,7 @@ fn pose_hint_options_for_detection(
     map: &LandmarkMap,
     detection_index: usize,
     detection: &DetectionPoint,
-    field_to_camera: Isometry3<Field, Camera>,
+    field_to_camera: Isometry3<Field, LeftCamera>,
     intrinsic: Intrinsic,
 ) -> Vec<PoseHintOption> {
     let mut candidates = map

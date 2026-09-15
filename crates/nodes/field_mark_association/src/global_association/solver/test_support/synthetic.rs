@@ -270,7 +270,7 @@ pub(in super::super) fn synthetic_input<'a>(
     }
 }
 
-fn synthetic_robot_to_camera() -> Isometry3<Robot, Camera> {
+fn synthetic_robot_to_camera() -> Isometry3<Robot, LeftCamera> {
     nalgebra::Isometry3::translation(0.0, 0.0, 0.5).framed_transform()
 }
 

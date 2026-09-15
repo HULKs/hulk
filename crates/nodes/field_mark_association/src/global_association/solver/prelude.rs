@@ -4,7 +4,7 @@ pub(super) use std::{
 };
 
 pub(super) use ::types::field_dimensions::FieldDimensions;
-pub(super) use coordinate_systems::{Camera, Field, Ground, Pixel, Robot};
+pub(super) use coordinate_systems::{Field, Ground, LeftCamera, Pixel, Robot};
 pub(super) use linear_algebra::{Isometry3, Point2, point};
 pub(super) use nalgebra::{Similarity2, Translation3, Vector2};
 pub(super) use ordered_float::NotNan;

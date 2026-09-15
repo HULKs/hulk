@@ -4,9 +4,9 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use booster::MotorState;
-use coordinate_systems::{Camera, Ground, Robot};
+use coordinate_systems::{Ground, LeftCamera, Robot};
 use kinematics::{
-    forward::{head_to_neck, neck_to_robot},
+    forward::head_to_robot,
     joints::{Joints, head::HeadJoints},
 };
 use linear_algebra::{Isometry3, Point2, distance, point, vector};
@@ -146,8 +146,7 @@ impl LookAtState {
             _ => return measured_head_angles,
         };
 
-        let zero_head_to_robot =
-            neck_to_robot(&HeadJoints::default()) * head_to_neck(&HeadJoints::default());
+        let zero_head_to_robot = head_to_robot(&HeadJoints::default());
         let robot_to_zero_head = zero_head_to_robot.inverse();
         let ground_to_zero_head = robot_to_zero_head * ground_to_robot;
         let image_region_target = if with_camera {
@@ -185,7 +184,7 @@ impl LookAtState {
 
 fn look_at_with_camera(
     target: Point2<Ground>,
-    ground_to_zero_camera: Isometry3<Ground, Camera>,
+    ground_to_zero_camera: Isometry3<Ground, LeftCamera>,
     camera_matrix: &CameraMatrix,
     image_region_target: ImageRegion,
     image_region_parameters: ImageRegionParameters,
@@ -222,7 +221,7 @@ fn measured_head_angles(serial_motor_states: &Joints<MotorState>) -> HeadJoints<
 
 #[cfg(test)]
 mod tests {
-    use coordinate_systems::{Camera, Ground, Head, Robot};
+    use coordinate_systems::{Ground, Head, LeftCamera, Robot};
     use kinematics::joints::head::HeadJoints;
     use linear_algebra::{Isometry3, nalgebra, point};
     use projection::camera_matrix::CameraMatrix;
@@ -253,7 +252,7 @@ mod tests {
             linear_algebra::vector![640.0, 480.0],
             Isometry3::<Ground, Robot>::identity(),
             Isometry3::<Robot, Head>::identity(),
-            Isometry3::<Head, Camera>::from_translation(0.0, 0.0, 1.0),
+            Isometry3::<Head, LeftCamera>::from_translation(0.0, 0.0, 1.0),
         );
         let image_region_parameters = ImageRegionParameters {
             bottom: point![0.5, 0.5],
@@ -263,7 +262,7 @@ mod tests {
 
         let HeadJoints { yaw, pitch } = look_at_with_camera(
             point![0.0, 0.0],
-            Isometry3::<Ground, Camera>::identity(),
+            Isometry3::<Ground, LeftCamera>::identity(),
             &camera_matrix,
             ImageRegion::Center,
             image_region_parameters,

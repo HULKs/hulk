@@ -1,5 +1,5 @@
 use color_eyre::Result;
-use coordinate_systems::{Camera, Field, Robot};
+use coordinate_systems::{Field, LeftCamera, Robot};
 use linear_algebra::Isometry3;
 use localization_factrs::{
     VinsFrontend, VinsFrontendError, VisualReprojectionAssociation,
@@ -111,7 +111,7 @@ fn has_global_associations(associations: &[FieldMarkAssociation]) -> bool {
 fn ingest_visual_localization_associations(
     frontend: &mut VinsFrontend,
     time: Time,
-    robot_to_camera: Isometry3<Robot, Camera>,
+    robot_to_camera: Isometry3<Robot, LeftCamera>,
     associations: Vec<FieldMarkAssociation>,
 ) -> Result<(), VinsFrontendError> {
     let associations = associations

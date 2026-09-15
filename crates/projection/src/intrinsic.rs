@@ -1,4 +1,4 @@
-use coordinate_systems::{Camera, NormalizedDeviceCoordinates, Pixel};
+use coordinate_systems::{LeftCamera, NormalizedDeviceCoordinates, Pixel};
 use linear_algebra::{Point2, Vector2, Vector3, point, vector};
 use ros2::sensor_msgs::camera_info::CameraInfo;
 use serde::{Deserialize, Serialize};
@@ -34,7 +34,7 @@ impl Intrinsic {
         ]
     }
 
-    pub fn transform(&self, ray: Vector3<Camera>) -> Vector3<NormalizedDeviceCoordinates> {
+    pub fn transform(&self, ray: Vector3<LeftCamera>) -> Vector3<NormalizedDeviceCoordinates> {
         let (x, y, z) = (ray.x(), ray.y(), ray.z());
 
         vector![
@@ -44,12 +44,12 @@ impl Intrinsic {
         ]
     }
 
-    pub fn project(&self, ray: Vector3<Camera>) -> Point2<Pixel> {
+    pub fn project(&self, ray: Vector3<LeftCamera>) -> Point2<Pixel> {
         let projected = self.transform(ray);
         point![projected.x() / projected.z(), projected.y() / projected.z()]
     }
 
-    pub fn bearing(&self, pixel: Point2<Pixel>) -> Vector3<Camera> {
+    pub fn bearing(&self, pixel: Point2<Pixel>) -> Vector3<LeftCamera> {
         let x = (pixel.x() - self.optical_center.x()) / self.focals.x;
         let y = (pixel.y() - self.optical_center.y()) / self.focals.y;
 
