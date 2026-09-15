@@ -329,7 +329,7 @@ pub(super) fn simplification_options() -> SimplificationOptions {
     }
 }
 
-pub(super) fn first_pane(tree: &Tree<SelectablePanel>) -> Option<TileId> {
+pub(super) fn first_pane<Pane>(tree: &Tree<Pane>) -> Option<TileId> {
     tree.active_tiles()
         .into_iter()
         .find(|tile_id| matches!(tree.tiles.get(*tile_id), Some(Tile::Pane(_))))

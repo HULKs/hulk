@@ -164,11 +164,10 @@ impl TwixLayout {
         );
         let root = other.tree.root.wrap_err("imported layout is empty")?;
         // Fresh IDs lie above both ranges, so replace_child cannot remap an already-remapped child.
-        let start = (self
+        let start = (other
             .tree
             .tiles
             .tile_ids()
-            .chain(other.tree.tiles.tile_ids())
             .map(|id| id.0)
             .max()
             .unwrap_or(0)
@@ -224,10 +223,7 @@ impl TwixLayout {
         target.add_child(root);
         target.set_active(root);
         self.tree.make_active(|id, _| id == root);
-        self.focused = other
-            .focused
-            .map(|id| ids[&id])
-            .or_else(|| active_pane_in_tile(&self.tree.tiles, root));
+        self.focused = other.focused.map(|id| ids[&id]);
         self.tab_to_reveal = Some(root);
         Ok(root)
     }
@@ -251,11 +247,8 @@ impl TwixLayout {
         egui_context: &Context,
     ) -> Result<Self> {
         let root = loaded.tree.root.wrap_err("tile layout has no root")?;
-        let names = loaded
-            .names
-            .into_iter()
-            .filter(|(id, _)| loaded.tree.tiles.get(*id).is_some())
-            .collect();
+        let mut names = loaded.names;
+        names.retain(|id, _| loaded.tree.tiles.get(*id).is_some());
 
         let mut tiles = Tiles::default();
         for (tile_id, tile) in loaded.tree.tiles.iter() {
@@ -383,12 +376,7 @@ fn validate_tree(tree: &Tree<Value>) -> Result<TileId> {
         seen.len() == tree.tiles.len(),
         "layout contains unreachable tiles"
     );
-    ensure!(
-        tree.active_tiles()
-            .iter()
-            .any(|id| matches!(tree.tiles.get(*id), Some(Tile::Pane(_)))),
-        "layout has no active panels"
-    );
+    ensure!(first_pane(tree).is_some(), "layout has no active panels");
     Ok(root)
 }
 
