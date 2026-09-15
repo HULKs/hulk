@@ -2,7 +2,7 @@
 
 use coordinate_systems::Ground;
 use kinematics::joints::head::HeadJoints;
-use linear_algebra::Point3;
+use linear_algebra::Point2;
 use ros_z::time::Time;
 
 use crate::{joint_control::MotionProgress, parameters::Parameters};
@@ -40,13 +40,14 @@ impl ScanState {
 pub struct GlanceState;
 
 impl GlanceState {
-    /// Returns a spatial target for look_at; target changes preserve glance phase.
+    /// Returns a ground position for look_at; the coordinator retains target height.
+    /// Target changes preserve glance phase.
     pub fn update(
         &mut self,
-        _target: Point3<Ground>,
+        _target: Point2<Ground>,
         _parameters: &Parameters,
         _now: Time,
-    ) -> Point3<Ground> {
+    ) -> Point2<Ground> {
         todo!("advance glance phase and offset the spatial target")
     }
 
