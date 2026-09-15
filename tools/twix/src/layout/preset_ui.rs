@@ -15,6 +15,7 @@ struct SaveDialog {
     name: String,
     saved: Value,
     focus: bool,
+    overwrite: bool,
     error: Option<String>,
 }
 
@@ -27,6 +28,7 @@ enum Source {
 
 #[derive(Default)]
 pub(super) struct PresetUi {
+    user_presets: Option<Result<Vec<PathBuf>, String>>,
     save_dialog: Option<SaveDialog>,
     delete: Option<PathBuf>,
     delete_error: Option<String>,
@@ -39,6 +41,7 @@ impl PresetUi {
             name,
             saved,
             focus: true,
+            overwrite: false,
             error: None,
         });
     }
@@ -66,18 +69,26 @@ impl PresetUi {
                 .iter()
                 .map(|&(title, saved)| (title.to_owned(), Source::Provided(saved))),
         );
-        match presets::directory().and_then(|directory| presets::list(&directory)) {
-            Ok(paths) => choices.extend(paths.into_iter().map(|path| {
+        if reset {
+            self.user_presets = None;
+        }
+        let user_presets = self.user_presets.get_or_insert_with(|| {
+            presets::directory()
+                .and_then(|directory| presets::list(&directory))
+                .map_err(|error| format!("{error:#}"))
+        });
+        match user_presets {
+            Ok(paths) => choices.extend(paths.iter().map(|path| {
                 (
                     path.file_stem()
                         .unwrap_or_default()
                         .to_string_lossy()
                         .into_owned(),
-                    Source::User(path),
+                    Source::User(path.clone()),
                 )
             })),
             Err(error) => {
-                ui.colored_label(ui.visuals().error_fg_color, format!("{error:#}"));
+                ui.colored_label(ui.visuals().error_fg_color, error.as_str());
             }
         }
         let selected = show_choices(ui, id, &choices, reset, &mut self.delete)?;
@@ -116,12 +127,16 @@ impl PresetUi {
                     .id(Id::new("preset-name"))
                     .desired_width(f32::INFINITY)
                     .show(ui);
+                let refresh_overwrite = dialog.focus || editor.response.changed();
                 if std::mem::take(&mut dialog.focus) {
                     select_name(ui.ctx(), editor, &dialog.name);
                 }
                 let path = presets::directory()
                     .and_then(|directory| presets::path(&directory, &dialog.name));
-                let label = if path.as_ref().is_ok_and(|path| path.exists()) {
+                if refresh_overwrite {
+                    dialog.overwrite = path.as_ref().is_ok_and(|path| path.exists());
+                }
+                let label = if dialog.overwrite {
                     "Overwrite"
                 } else {
                     "Save"
