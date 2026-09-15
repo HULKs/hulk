@@ -61,10 +61,7 @@ pub fn save(path: &Path, serialized: &str) -> Result<()> {
     fs::create_dir_all(directory)?;
     let temporary = directory.join(format!(".{}.tmp", uuid::Uuid::new_v4()));
     let result = (|| {
-        let mut file = fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)?;
+        let mut file = fs::File::create_new(&temporary)?;
         file.write_all(serialized.as_bytes())?;
         file.sync_all()?;
         fs::rename(&temporary, path)
