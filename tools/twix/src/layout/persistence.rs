@@ -62,20 +62,10 @@ impl TwixLayout {
     ) -> Self {
         let mut layout = Self::new_session(context, backend);
         if !clear
-            && let Some((saved, legacy)) = storage.and_then(|storage| {
-                storage
-                    .get_string("workspace_session")
-                    .map(|saved| (saved, false))
-                    .or_else(|| storage.get_string("tile_layout").map(|saved| (saved, true)))
-            })
+            && let Some(saved) = storage.and_then(|storage| storage.get_string("workspace_session"))
         {
             match Self::from_serialized(&saved, backend, context) {
-                Ok(mut restored) => {
-                    if legacy {
-                        restored.wrap_root("Workspace".into());
-                    }
-                    layout = restored;
-                }
+                Ok(restored) => layout = restored,
                 Err(error) => {
                     layout.recovery = Some(saved);
                     layout.preset_ui.error = Some(format!(
@@ -100,14 +90,10 @@ impl TwixLayout {
 
     pub(super) fn new_session(context: &Context, backend: &Arc<RobotBackend>) -> Self {
         let mut layout = Self::new(context, backend);
-        layout.wrap_root("Workspace".into());
+        let root = layout.tree.root.unwrap();
+        layout.names.insert(root, "Workspace".into());
+        layout.tree.root = Some(layout.tree.tiles.insert_tab_tile(vec![root]));
         layout
-    }
-
-    fn wrap_root(&mut self, name: String) {
-        let root = self.tree.root.unwrap();
-        self.names.insert(root, name);
-        self.tree.root = Some(self.tree.tiles.insert_tab_tile(vec![root]));
     }
 
     pub(super) fn title(&self, tile: TileId) -> String {
