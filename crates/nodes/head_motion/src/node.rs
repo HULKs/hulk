@@ -14,6 +14,8 @@ use types::{
 
 use crate::{head::HeadController, parameters::Parameters};
 
+pub const HEAD_MOTION_SERVICE_TOPIC: &str = "services/head_motion";
+
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
 }
@@ -46,7 +48,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let _head_motion_service = node
-        .service_server::<HeadMotionService>("services/head_motion")
+        .service_server::<HeadMotionService>(HEAD_MOTION_SERVICE_TOPIC)
         .build()
         .await?;
 
