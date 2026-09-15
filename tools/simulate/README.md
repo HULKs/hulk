@@ -35,17 +35,24 @@ The palette can add balls and additional passive robots as physical objects.
 
 The launcher currently starts:
 
-- `motion_inference_dummy`: publishes a zero-pose `JointsCommand` on
+- `motion_inference_dummy`: publishes a nominal `JointsCommand` on
   `motion_inference/dummy_joints` at 50 Hz of simulation time, using the Walk
-  policy's configured gains. Central motion replaces its head commands.
-- `motion`: uses the temporary `motion::run_head_only_boxed` entry point. Every
+  policy's configured gains. Arms use `locomotion.shoulder_roll_degrees` and
+  `locomotion.elbow_degrees`, mirrored for the right arm (currently -78°/-30°
+  left and +78°/+30° right); shoulder pitch/yaw stay zero. Legs start at zero
+  as a fallback until walking inference responds.
+- `motion`: uses the temporary `motion::run_simulator_boxed` entry point. Every
   20 ms of simulation time it extracts `MotionCommand::head_motion()` from the
-  latest UI/behavior request, calls `services/head_motion`, and merges the reply
-  into the dummy pose. It publishes the resulting `robot_command::MotionCommand`
+  latest UI/behavior request and calls `services/head_motion`. In parallel, it
+  calls `motion_inference/infer_walk` with forward/lateral/angular velocity
+  exactly `(0, 0, 0)`. It merges the returned twelve leg commands and the head
+  reply into the nominal pose, retaining the configured arm targets.
+  It publishes the resulting `robot_command::MotionCommand`
   on `commands/motion_command` in Custom mode. A missing head request, including
   body Damping or StandUp, requests head damping. A failed service call also damps
-  the head and continues holding the body. Service calls have a 20 ms wall-clock
-  timeout so a missing or failing head service cannot stall body commands.
+  the head. If walking inference is unavailable or rejects a request, the legs
+  fall back to the dummy's zero pose and a warning is logged. Both service calls
+  have a 20 ms wall-clock timeout and cannot block each other.
 - `head_motion`
 - `motion_inference`
 - `hardware_interface`
@@ -58,10 +65,17 @@ click **Send current form**, then **Run / Pause**. **ZeroAngles** returns the he
 to zero; **LookAt** and **LookLeftAndRightOf** expose target position and height.
 The game-controller form controls the field side used by head scan patterns.
 
-The body stays at zero for every behavior request, including walk, kick, damping,
-and stand-up. This is a head-controller test, not a balance controller. The real
-inference node is running but receives no inference requests. The original central
-motion entry point and its pending body coordination remain unchanged.
+Walking velocity stays fixed at zero for every UI behavior request, including
+walk, kick, damping, and stand-up; the real walking policy controls the legs.
+The original central motion entry point and its pending body coordination remain
+unchanged.
+
+**Look at ball** immediately sends `Stand { head: LookAt { ... } }` for the first
+spawned ball still in the scene and opens the constructed command in the form.
+It samples the ball's current MuJoCo center, converts it into the controlled
+robot's Ground frame, and includes its height above ground with image region
+Center. This is a snapshot: click again to sample a moved ball. With no ball,
+the button shows a message and leaves the current command unchanged.
 
 `hardware_interface` publishes raw CDR `LowCommand` messages on `rt/joint_ctrl`.
 MuJoCo applies `tau + kp * (q_target - q) + kd * (dq_target - dq)` every physics

@@ -117,9 +117,9 @@ impl Parameters {
     }
 }
 
-mod head_only;
+mod simulator;
 
-pub use head_only::run_boxed as run_head_only_boxed;
+pub use simulator::run_boxed as run_simulator_boxed;
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(node::run(ctx))

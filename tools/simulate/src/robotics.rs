@@ -127,7 +127,7 @@ impl Robotics {
             }
         });
         let (status_tx, status) = watch::channel(if configuration.launch_nodes {
-            "UI controls head motion; body held at zero pose".to_owned()
+            "UI controls head; walking inference requests (0, 0, 0)".to_owned()
         } else {
             "External I/O only (robotics nodes disabled)".to_owned()
         });
@@ -139,7 +139,7 @@ impl Robotics {
             }
             let mut tasks = JoinSet::new();
             tasks.spawn(crate::motion_dummy::run(ctx.clone()));
-            tasks.spawn(motion::run_head_only_boxed(ctx.clone()));
+            tasks.spawn(motion::run_simulator_boxed(ctx.clone()));
             tasks.spawn(publish_joint_limits(ctx.clone()));
             tasks.spawn(head_motion::node::run_boxed(ctx.clone()));
             tasks.spawn(motion_inference::run_boxed(ctx.clone()));
@@ -459,11 +459,11 @@ mod tests {
             tasks.spawn(publish_joint_limits(io.context.clone()));
             tasks.spawn(hardware_interface::run_boxed(io.context.clone()));
             tasks.spawn(crate::motion_dummy::run(io.context.clone()));
-            tasks.spawn(motion::run_head_only_boxed(io.context.clone()));
+            tasks.spawn(motion::run_simulator_boxed(io.context.clone()));
             let head = tasks.spawn(head_motion::node::run_boxed(io.context.clone()));
             (tasks, head)
         });
-        let mut step = |io: &mut Robotics| {
+        let mut step = |io: &mut Robotics, inferred: bool| {
             let observation = {
                 let mut world = app.world_mut().resource_mut::<MujocoWorld>();
                 let data = world.data_mut();
@@ -484,16 +484,18 @@ mod tests {
             });
             if let Some(command) = io.latest_command() {
                 assert_eq!(command.motor_commands.len(), 22);
-                assert!(
-                    command
-                        .motor_commands
-                        .iter()
-                        .skip(2)
-                        .all(|motor| motor.position == 0.0
-                            && motor.velocity == 0.0
-                            && motor.kp > 0.0
-                            && motor.kd > 0.0)
-                );
+                for (index, motor) in command.motor_commands.iter().enumerate().skip(2) {
+                    let expected = match index {
+                        3 => -78.0_f32.to_radians(),
+                        5 => -30.0_f32.to_radians(),
+                        7 => 78.0_f32.to_radians(),
+                        9 => 30.0_f32.to_radians(),
+                        10..=21 if inferred => 0.1,
+                        _ => 0.0,
+                    };
+                    assert!((motor.position - expected).abs() < 1e-6);
+                    assert!(motor.kp > 0.0 && motor.kd > 0.0);
+                }
             }
             measured
         };
@@ -503,7 +505,7 @@ mod tests {
         let mut maximum_yaw = 0.0_f32;
         let mut maximum_pitch = 0.0_f32;
         for _ in 0..250 {
-            let head = step(io);
+            let head = step(io, false);
             maximum_yaw = maximum_yaw.max(head[0].position.abs());
             maximum_pitch = maximum_pitch.max(head[1].position);
         }
@@ -518,9 +520,9 @@ mod tests {
             head: HeadMotion::ZeroAngles,
         };
         for _ in 0..150 {
-            step(io);
+            step(io, false);
         }
-        let measured = step(io);
+        let measured = step(io, false);
         assert!(
             measured.iter().all(|motor| motor.position.abs() < 0.05),
             "ZeroAngles did not return the head to zero"
@@ -532,7 +534,7 @@ mod tests {
         assert!(!io.commands.has_changed().unwrap());
         io.input_motion = MotionCommand::Damping;
         for _ in 0..3 {
-            step(io);
+            step(io, false);
         }
         assert_eq!(io.latest_command().unwrap().motor_commands[0].kp, 0.0);
         // A missing head service must not stop the dummy body commands or leave
@@ -541,17 +543,71 @@ mod tests {
             head: HeadMotion::LookAround,
         };
         for _ in 0..5 {
-            step(io);
+            step(io, false);
         }
         assert!(io.latest_command().unwrap().motor_commands[0].kp > 0.0);
         head.abort();
         for _ in 0..3 {
-            step(io);
+            step(io, false);
         }
         let command = io.latest_command().unwrap();
         assert_eq!(command.motor_commands[0].kp, 0.0);
         assert!(command.motor_commands[0].kd > 0.0);
         assert_eq!(command.motor_commands[10].kp, 80.0);
+        // Exercise the walking service contract separately from ONNX execution:
+        // requests must be exactly (0, 0, 0), and all leg command fields must
+        // survive composition with independent arm and head commands.
+        let walking = runtime.block_on(async {
+            use motion_inference::node::{WALK_INFERENCE_SERVICE, WalkInferenceService};
+            let node = io
+                .context
+                .create_node("walking_test")
+                .build()
+                .await
+                .unwrap();
+            let mut service = node
+                .service_server::<WalkInferenceService>(WALK_INFERENCE_SERVICE)
+                .build()
+                .await
+                .unwrap();
+            tasks.spawn(async move {
+                let _node = node;
+                loop {
+                    let (request, reply) = service.take_request_async().await?.into_parts();
+                    assert_eq!(request.velocity.x(), 0.0);
+                    assert_eq!(request.velocity.y(), 0.0);
+                    assert_eq!(request.angular_velocity, 0.0);
+                    let result: motion_inference::node::InferenceResult<_> = Ok(Box::new(
+                        kinematics::joints::body::LowerBodyJoints::fill(booster::MotorCommand {
+                            position: 0.1,
+                            velocity: 0.2,
+                            torque: 0.3,
+                            kp: 12.0,
+                            kd: 1.0,
+                            ..Default::default()
+                        }),
+                    ));
+                    reply.reply_async(&result).await?;
+                }
+            })
+        });
+        // Allow discovery and drain any in-flight fallback before checking legs.
+        runtime.block_on(async { tokio::time::sleep(Duration::from_millis(30)).await });
+        step(io, true);
+        for _ in 0..3 {
+            step(io, true);
+        }
+        for motor in &io.latest_command().unwrap().motor_commands[10..] {
+            assert_eq!(motor.velocity, 0.2);
+            assert_eq!(motor.torque, 0.3);
+            assert_eq!(motor.kp, 12.0);
+            assert_eq!(motor.kd, 1.0);
+        }
+        walking.abort();
+        runtime.block_on(async { tokio::time::sleep(Duration::from_millis(30)).await });
+        for _ in 0..3 {
+            step(io, false);
+        }
         runtime.block_on(async {
             tasks.abort_all();
             while tasks.join_next().await.is_some() {}

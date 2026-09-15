@@ -18,6 +18,9 @@ pub struct ObjectsPlugin;
 impl Plugin for ObjectsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<visual::ObjectVisualAssets>()
+            .init_resource::<ball::SpawnedBalls>()
+            .add_observer(ball::record_spawn)
+            .add_observer(ball::record_removal)
             .configure_sets(
                 PreUpdate,
                 SceneParameterUpdateSet

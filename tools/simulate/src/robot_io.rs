@@ -54,6 +54,13 @@ pub struct Observation {
 }
 
 impl RobotBinding {
+    /// Convert a MuJoCo world point using the same Ground frame as the published observations.
+    pub fn point_in_ground(&self, data: &Data, position: [f64; 3]) -> nalgebra::Point3<f32> {
+        let [left, right] = self.feet.map(|id| data.xpos()[id]);
+        ground_pose(body_pose(data, self.trunk), left, right).inverse()
+            * nalgebra::Point3::from(position.map(|v| v as f32))
+    }
+
     pub fn new(data: &Data, prefix: &str) -> Result<Self> {
         let model = data.model();
         let id = |kind, name: &str| {

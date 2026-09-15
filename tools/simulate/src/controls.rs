@@ -13,20 +13,47 @@ use bevy::{
     ui_widgets::{Activate, ValueChange},
 };
 use coordinate_systems::Ground;
-use linear_algebra::Orientation2;
+use linear_algebra::{Orientation2, point};
 use serde_json::{Value, json};
 use types::{
-    filtered_game_controller_state::FilteredGameControllerState, motion_command::MotionCommand,
+    filtered_game_controller_state::FilteredGameControllerState,
+    motion_command::{HeadMotion, ImageRegion, MotionCommand},
 };
 
 use crate::{
     bevy_mujoco::{MujocoWorld, SimulationMode},
+    robot_io::RobotBinding,
     robotics::Robotics,
-    simulation::SimulationControl,
+    scene::ball::SpawnedBalls,
+    simulation::{ControlledRobot, SimulationControl},
 };
 use choices::{choices, is_angle, value, variant};
 
 pub const PANEL_WIDTH: f32 = 460.0;
+
+fn look_at_first_ball(
+    world: &MujocoWorld,
+    balls: &SpawnedBalls,
+    robot: Entity,
+) -> color_eyre::Result<MotionCommand> {
+    let ball = balls.0.first().ok_or_else(|| {
+        color_eyre::eyre::eyre!("No ball in the scene. Drag a ball onto the field first.")
+    })?;
+    let data = world.data();
+    let ball = data
+        .body(&format!("object_{}_ball", ball.to_bits()))
+        .ok_or_else(|| color_eyre::eyre::eyre!("The first ball is not ready in MuJoCo yet."))?
+        .view(data);
+    let robot = RobotBinding::new(data, &format!("object_{}_", robot.to_bits()))?;
+    let target = robot.point_in_ground(data, [ball.xpos[0], ball.xpos[1], ball.xpos[2]]);
+    Ok(MotionCommand::Stand {
+        head: HeadMotion::LookAt {
+            target: point![target.x, target.y],
+            height_above_ground: target.z,
+            image_region_target: ImageRegion::Center,
+        },
+    })
+}
 
 #[derive(Resource)]
 struct Editor {
@@ -160,7 +187,23 @@ fn setup(mut commands: Commands) {
             io.input_motion = MotionCommand::Damping;
             editor.draft["motion"] = value(MotionCommand::Damping);
             editor.rebuild = true;
-            editor.message = report(io.publish_inputs(), "Head damping requested; body remains at zero pose.");
+            editor.message = report(io.publish_inputs(), "Head damping requested; zero-velocity walking remains active.");
+        })
+    });
+    commands.spawn_scene(bsn! {
+        @FeathersButton ChildOf(toolbar) Children[label("Look at ball")]
+        on(|_: On<Activate>, world: Res<MujocoWorld>, balls: Res<SpawnedBalls>,
+            robot: Single<Entity, With<ControlledRobot>>, mut io: ResMut<Robotics>, mut editor: ResMut<Editor>| {
+            match look_at_first_ball(&world, &balls, *robot) {
+                Ok(command) => {
+                    editor.draft["motion"] = value(&command);
+                    editor.tab = "motion";
+                    editor.rebuild = true;
+                    io.input_motion = command;
+                    editor.message = report(io.publish_inputs(), "LookAt sent for the first ball's current position.");
+                }
+                Err(error) => editor.message = error.to_string(),
+            }
         })
     });
     let tabs = commands
@@ -187,7 +230,7 @@ fn setup(mut commands: Commands) {
                 serde_json::from_value::<FilteredGameControllerState>(editor.draft["game"].clone()).map(|game| io.input_game = game)
             };
             editor.message = match result {
-                Ok(()) => report(io.publish_inputs(), if editor.tab == "motion" { "Head request published; body remains at zero pose." } else { "Game controller state published." }),
+                Ok(()) => report(io.publish_inputs(), if editor.tab == "motion" { "Head request published; zero-velocity walking remains active." } else { "Game controller state published." }),
                 Err(error) => format!("Cannot send: {error}"),
             };
         })
@@ -556,4 +599,146 @@ fn field_label(name: &str) -> String {
         _ => name,
     }
     .replace('_', " ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        bevy_mujoco::{MjcfObject, MujocoWorldPlugin},
+        parameters::BallParameters,
+        scene::ball::{self, Ball},
+    };
+
+    #[test]
+    fn first_ball_target_uses_current_ground_coordinates_and_spawn_order() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, MujocoWorldPlugin));
+        app.insert_resource(SimulationMode::Paused);
+        app.init_resource::<SpawnedBalls>()
+            .add_observer(ball::record_spawn)
+            .add_observer(ball::record_removal);
+        let robot = app
+            .world_mut()
+            .spawn((
+                MjcfObject::new(
+                    concat!(env!("CARGO_MANIFEST_DIR"), "/assets/k1_robot.xml"),
+                    "Trunk",
+                )
+                .with_free_joint("world_joint")
+                .grounded(),
+                Transform::from_xyz(2.0, 0.0, -3.0)
+                    .with_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)),
+            ))
+            .id();
+        app.update();
+        let target = |app: &App| {
+            look_at_first_ball(
+                app.world().resource::<MujocoWorld>(),
+                app.world().resource::<SpawnedBalls>(),
+                robot,
+            )
+        };
+        assert!(target(&app).is_err());
+        let origin = {
+            let data = app.world().resource::<MujocoWorld>().data();
+            let feet = ["left_foot_link", "right_foot_link"].map(|foot| {
+                let foot = data
+                    .body(&format!("object_{}_{foot}", robot.to_bits()))
+                    .unwrap()
+                    .view(data);
+                Vec2::new(foot.xpos[0] as f32, foot.xpos[1] as f32)
+            });
+            (feet[0] + feet[1]) * 0.5
+        };
+        let ball_object = || {
+            MjcfObject::from_factory(
+                || {
+                    ball::ball_spec(
+                        0.105,
+                        &BallParameters {
+                            mass: 0.45,
+                            joint_damping: 0.002,
+                            joint_friction_loss: 0.0,
+                            friction: [1.0, 0.005, 0.0001],
+                            solref: [0.08, 0.25],
+                            solimp: [0.9, 0.95, 0.001, 0.5, 2.0],
+                        },
+                    )
+                },
+                "ball",
+            )
+            .with_free_joint("ball_free_joint")
+        };
+        // Bevy is Y-up; MuJoCo is Z-up. The robot faces world +Y here.
+        let first = app
+            .world_mut()
+            .spawn((
+                Ball,
+                ball_object(),
+                Transform::from_xyz(origin.x - 2.0, 0.6, -(origin.y + 1.0)),
+            ))
+            .id();
+        let second = app
+            .world_mut()
+            .spawn((
+                Ball,
+                ball_object(),
+                Transform::from_xyz(origin.x, 0.105, -(origin.y + 4.0)),
+            ))
+            .id();
+        app.update();
+        let MotionCommand::Stand {
+            head:
+                HeadMotion::LookAt {
+                    target: point,
+                    height_above_ground,
+                    image_region_target,
+                },
+        } = target(&app).unwrap()
+        else {
+            panic!("expected Stand with LookAt");
+        };
+        assert!((point.x() - 1.0).abs() < 1e-5);
+        assert!((point.y() - 2.0).abs() < 1e-5);
+        assert!((height_above_ground - 0.6).abs() < 1e-5);
+        assert_eq!(image_region_target, ImageRegion::Center);
+        app.world_mut()
+            .resource_mut::<MujocoWorld>()
+            .set_object_pose(
+                first,
+                Transform::from_xyz(origin.x - 3.0, 0.105, -(origin.y + 1.0)),
+            )
+            .unwrap();
+        let MotionCommand::Stand {
+            head: HeadMotion::LookAt { target: point, .. },
+        } = target(&app).unwrap()
+        else {
+            panic!("expected LookAt");
+        };
+        assert!(
+            (point.y() - 3.0).abs() < 1e-5,
+            "must sample current ball position"
+        );
+        app.world_mut().despawn(first);
+        let third = app
+            .world_mut()
+            .spawn((Ball, ball_object(), Transform::default()))
+            .id();
+        app.update();
+        assert_eq!(
+            app.world().resource::<SpawnedBalls>().0,
+            vec![second, third]
+        );
+        let MotionCommand::Stand {
+            head: HeadMotion::LookAt { target: point, .. },
+        } = target(&app).unwrap()
+        else {
+            panic!("expected LookAt");
+        };
+        assert!(
+            (point.x() - 4.0).abs() < 1e-5,
+            "must select oldest remaining ball"
+        );
+    }
 }

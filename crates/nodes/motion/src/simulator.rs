@@ -1,12 +1,16 @@
-//! Temporary head-controller test path with a dummy body pose.
+//! Temporary simulator coordinator: zero-velocity walking with UI-controlled head motion.
 use std::{pin::Pin, sync::Arc, time::Duration};
 
 use color_eyre::Result;
 use head_motion::node::{HEAD_MOTION_SERVICE_TOPIC, HeadMotionService};
+use motion_inference::{
+    inference::WalkCommand,
+    node::{WALK_INFERENCE_SERVICE, WalkInferenceService},
+};
 use ros_z::{prelude::*, time::Time};
 use types::{
     motion_command::{HeadMotion, MotionCommand},
-    robot_command::{JointsCommand, MotionCommand as RobotCommand, MotionType},
+    robot_command::{JointsCommand, MotionCommand as RobotCommand, MotionType, MotorCommand},
 };
 
 const PERIOD: Duration = Duration::from_millis(20);
@@ -35,8 +39,17 @@ async fn run(context: Arc<Context>) -> Result<()> {
         .publisher::<RobotCommand>("commands/motion_command")
         .build()
         .await?;
+    let walking = node
+        .service_client::<WalkInferenceService>(WALK_INFERENCE_SERVICE)
+        .build()
+        .await?;
+    let walk_request = WalkCommand {
+        velocity: linear_algebra::Vector2::zeros(),
+        angular_velocity: 0.0,
+    };
     let mut tick = node.create_timer(PERIOD);
     let mut last_warning: Option<Time> = None;
+    let mut last_walk_warning: Option<Time> = None;
     loop {
         tick.tick().await;
         let Some(body) = body.get_latest() else {
@@ -47,10 +60,47 @@ async fn run(context: Arc<Context>) -> Result<()> {
             .and_then(|request| request.head_motion())
             .unwrap_or(HeadMotion::Damping);
         let mut joints_command = (*body).clone();
-        match head.call_with_timeout_async(&request, PERIOD).await {
+        let (head_result, walk_result) = tokio::join!(
+            head.call_with_timeout_async(&request, PERIOD),
+            walking.call_with_timeout_async(&walk_request, PERIOD),
+        );
+        match walk_result
+            .map_err(color_eyre::Report::new)
+            .and_then(|result| result.map_err(color_eyre::Report::new))
+        {
+            Ok(legs) => {
+                // Keep the ten head/arm entries, and replace all twelve serial leg commands.
+                joints_command = joints_command
+                    .into_iter()
+                    .take(10)
+                    .chain(
+                        legs.left_leg
+                            .into_iter()
+                            .chain(legs.right_leg)
+                            .map(|motor| MotorCommand {
+                                position: motor.position,
+                                velocity: motor.velocity,
+                                torque: motor.torque,
+                                kp: motor.kp,
+                                kd: motor.kd,
+                            }),
+                    )
+                    .collect();
+            }
+            Err(error) => {
+                let now = node.clock().now();
+                if last_walk_warning
+                    .is_none_or(|last| now.duration_since(last) >= Duration::from_secs(1))
+                {
+                    tracing::warn!(%error, "walking inference unavailable; using dummy zero pose");
+                    last_walk_warning = Some(now);
+                }
+            }
+        }
+        match head_result {
             Ok(head) => joints_command.head = head,
             Err(error) => {
-                // Keep the zero-pose body running, but never reuse an active head
+                // Keep body commands running, but never reuse an active head
                 // target after a failed service call. Damping uses the dummy's kd.
                 for motor in [&mut joints_command.head.yaw, &mut joints_command.head.pitch] {
                     motor.kp = 0.0;
@@ -68,7 +118,7 @@ async fn run(context: Arc<Context>) -> Result<()> {
         }
         commands
             .publish(&RobotCommand {
-                // Custom mode is needed for the simulator's zero-pose body, even
+                // Custom mode is needed for the simulator's joint commands, even
                 // when the behavior command requests damping or preparation.
                 motion_type: MotionType::Walk,
                 joints_command,

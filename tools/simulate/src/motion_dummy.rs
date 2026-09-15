@@ -1,4 +1,4 @@
-//! Temporary zero-pose body source for central motion's head-controller test path.
+//! Nominal arm pose and zero-leg fallback for the simulator coordinator.
 use std::{sync::Arc, time::Duration};
 
 use color_eyre::Result;
@@ -21,13 +21,27 @@ pub async fn run(context: Arc<Context>) -> Result<()> {
     loop {
         let parameters = parameters.snapshot();
         let (kp, kd) = Policy::Walk.gains(parameters.typed());
-        publisher.publish(&dummy_pose(kp, kd)).await?;
+        let locomotion = &parameters.typed().locomotion;
+        publisher
+            .publish(&dummy_pose(
+                kp,
+                kd,
+                locomotion.shoulder_roll_degrees,
+                locomotion.elbow_degrees,
+            ))
+            .await?;
         tick.tick().await;
     }
 }
 
-fn dummy_pose(kp: Joints<f32>, kd: Joints<f32>) -> JointsCommand {
-    kp.into_iter()
+fn dummy_pose(
+    kp: Joints<f32>,
+    kd: Joints<f32>,
+    shoulder_roll_degrees: f32,
+    elbow_degrees: f32,
+) -> JointsCommand {
+    let mut pose: JointsCommand = kp
+        .into_iter()
         .zip(kd)
         .map(|(kp, kd)| MotorCommand {
             position: 0.0,
@@ -36,7 +50,12 @@ fn dummy_pose(kp: Joints<f32>, kd: Joints<f32>) -> JointsCommand {
             kp,
             kd,
         })
-        .collect()
+        .collect();
+    for (arm, sign) in [(&mut pose.left_arm, 1.0), (&mut pose.right_arm, -1.0)] {
+        arm.shoulder_roll.position = sign * shoulder_roll_degrees.to_radians();
+        arm.elbow.position = sign * elbow_degrees.to_radians();
+    }
+    pose
 }
 
 #[cfg(test)]
@@ -83,7 +102,7 @@ mod tests {
                 let mut world = app.world_mut().resource_mut::<MujocoWorld>();
                 let data = world.data_mut();
                 while data.time() < time {
-                    let mut pose = dummy_pose(kp, kd);
+                    let mut pose = dummy_pose(kp, kd, -78.0, -30.0);
                     pose.head.yaw.position = expected_yaw;
                     let command = booster::LowCommand {
                         command_type: booster::CommandType::Serial,
@@ -117,11 +136,18 @@ mod tests {
     }
 
     #[test]
-    fn zero_pose_preserves_configured_gains() {
+    fn nominal_pose_uses_arm_parameters_and_preserves_configured_gains() {
         let kp: Joints<f32> = (0..22).map(|i| 10.0 + i as f32).collect();
         let kd: Joints<f32> = (0..22).map(|i| 0.5 + i as f32 * 0.1).collect();
-        for (i, motor) in dummy_pose(kp, kd).into_iter().enumerate() {
-            assert_eq!(motor.position, 0.0);
+        let pose = dummy_pose(kp, kd, -70.0, -25.0);
+        assert_eq!(pose.left_arm.shoulder_roll.position, -70.0_f32.to_radians());
+        assert_eq!(pose.right_arm.shoulder_roll.position, 70.0_f32.to_radians());
+        assert_eq!(pose.left_arm.elbow.position, -25.0_f32.to_radians());
+        assert_eq!(pose.right_arm.elbow.position, 25.0_f32.to_radians());
+        for (i, motor) in pose.into_iter().enumerate() {
+            if ![3, 5, 7, 9].contains(&i) {
+                assert_eq!(motor.position, 0.0);
+            }
             assert_eq!(motor.velocity, 0.0);
             assert_eq!(motor.torque, 0.0);
             assert_eq!(motor.kp, 10.0 + i as f32);

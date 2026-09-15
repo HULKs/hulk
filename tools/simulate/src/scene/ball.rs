@@ -18,6 +18,18 @@ const BALL_NORMAL_MAP: &str = "textures/football_normal.png";
 #[derive(Component)]
 pub struct Ball;
 
+/// Live balls in insertion order, independent of entity index reuse.
+#[derive(Default, Resource)]
+pub struct SpawnedBalls(pub Vec<Entity>);
+
+pub fn record_spawn(event: On<Add<Ball>>, mut balls: ResMut<SpawnedBalls>) {
+    balls.0.push(event.entity);
+}
+
+pub fn record_removal(event: On<Remove<Ball>>, mut balls: ResMut<SpawnedBalls>) {
+    balls.0.retain(|entity| *entity != event.entity);
+}
+
 pub struct BallAssets {
     mesh: Handle<Mesh>,
     solid: Handle<StandardMaterial>,
