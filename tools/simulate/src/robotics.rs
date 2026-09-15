@@ -18,8 +18,8 @@ use tokio::{
     task::{JoinHandle, JoinSet},
 };
 use types::{
-    filtered_game_controller_state::FilteredGameControllerState, motion_command::MotionCommand,
-    time_wrapper::TimeWrapper,
+    field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
+    joint_limits::JointLimits, motion_command::MotionCommand, time_wrapper::TimeWrapper,
 };
 
 use crate::robot_io::{Observation, RobotBinding};
@@ -44,6 +44,7 @@ pub struct Robotics {
     ground: Publisher<TimeWrapper<Option<Isometry3<Ground, Robot>>>>,
     motion: Publisher<MotionCommand>,
     game: Publisher<FilteredGameControllerState>,
+    field: Publisher<FieldDimensions>,
     commands: watch::Receiver<Option<LowCommand>>,
     command_task: JoinHandle<()>,
     stack_task: JoinHandle<()>,
@@ -99,6 +100,11 @@ impl Robotics {
             .qos(retained)
             .build()
             .await?;
+        let field = node
+            .publisher("field_dimensions")
+            .qos(retained)
+            .build()
+            .await?;
         let sub = context
             .session()
             .declare_subscriber("rt/joint_ctrl")
@@ -121,7 +127,7 @@ impl Robotics {
             }
         });
         let (status_tx, status) = watch::channel(if configuration.launch_nodes {
-            "Head-yaw sine dummy active; motion node disabled".to_owned()
+            "UI controls head motion; body held at zero pose".to_owned()
         } else {
             "External I/O only (robotics nodes disabled)".to_owned()
         });
@@ -133,6 +139,8 @@ impl Robotics {
             }
             let mut tasks = JoinSet::new();
             tasks.spawn(crate::motion_dummy::run(ctx.clone()));
+            tasks.spawn(motion::run_head_only_boxed(ctx.clone()));
+            tasks.spawn(publish_joint_limits(ctx.clone()));
             tasks.spawn(head_motion::node::run_boxed(ctx.clone()));
             tasks.spawn(motion_inference::run_boxed(ctx.clone()));
             tasks.spawn(booster_sdk_interface::run_boxed(ctx));
@@ -158,6 +166,7 @@ impl Robotics {
             ground,
             motion,
             game,
+            field,
             commands,
             command_task,
             stack_task,
@@ -181,6 +190,11 @@ impl Robotics {
             self.game.publish(&self.input_game).await?;
             Ok(())
         })
+    }
+
+    pub fn publish_field_dimensions(&self, dimensions: &FieldDimensions) -> Result<()> {
+        self.runtime.block_on(self.field.publish(dimensions))?;
+        Ok(())
     }
 
     pub fn publish_observation(&self, observation: Observation, time: Time) -> Result<()> {
@@ -230,6 +244,29 @@ impl Robotics {
         replacement.input_game = self.input_game.clone();
         *self = replacement;
         self.publish_inputs()
+    }
+}
+
+async fn publish_joint_limits(context: Arc<Context>) -> Result<()> {
+    let node = context
+        .create_node("simulator_joint_limits")
+        .build()
+        .await?;
+    let parameters = node.bind_parameter_as::<global_parameter_provider::Parameters>("global")?;
+    parameters.add_validation_hook(|parameters| parameters.joint_limits.validate())?;
+    let publisher = node
+        .publisher::<JointLimits>("joint_limits")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await?;
+    let mut updates = parameters.subscribe();
+    loop {
+        let snapshot = updates.borrow_and_update().clone();
+        publisher.publish(&snapshot.typed().joint_limits).await?;
+        updates.changed().await?;
     }
 }
 
@@ -381,46 +418,143 @@ mod tests {
                 head: HeadMotion::ZeroAngles
             }
         );
-        // Exercise the real hardware interface as well: the dummy's ROS-Z joint
-        // command must become a raw CDR LowCommand even with unanswered mode RPCs.
-        runtime.block_on(async {
-            let hardware = tokio::spawn(booster_sdk_interface::run_boxed(io.context.clone()));
-            let dummy = tokio::spawn(crate::motion_dummy::run(io.context.clone()));
-            let mut received = false;
-            for _ in 0..20 {
-                clock.advance(Duration::from_millis(20)).unwrap();
-                if tokio::time::timeout(Duration::from_millis(100), io.commands.changed())
-                    .await
-                    .is_ok()
-                {
-                    received = true;
-                    break;
-                }
-            }
-            hardware.abort();
-            dummy.abort();
-            let _ = hardware.await;
-            let _ = dummy.await;
-            assert!(
-                received,
-                "dummy command never reached the raw hardware topic"
-            );
-            let command = io.latest_command().unwrap();
-            assert_eq!(command.motor_commands.len(), 22);
-            assert!(
-                command
-                    .motor_commands
-                    .iter()
-                    .enumerate()
-                    .all(|(i, motor)| (i == 0 || motor.position == 0.0)
-                        && motor.kp > 0.0
-                        && motor.kd > 0.0)
-            );
-            assert!(command.motor_commands[0].position.abs() <= 0.5);
-            assert_eq!(command.motor_commands[0].kp, 10.0);
-            assert_eq!(command.motor_commands[10].kp, 80.0);
-        });
+        exercise_head_motion(&runtime, &mut io, &clock);
         drop(io);
         server.shutdown().unwrap();
+    }
+
+    fn exercise_head_motion(runtime: &tokio::runtime::Runtime, io: &mut Robotics, clock: &Clock) {
+        use crate::bevy_mujoco::{MjcfObject, MujocoWorld, MujocoWorldPlugin, SimulationMode};
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, MujocoWorldPlugin));
+        app.insert_resource(SimulationMode::Paused);
+        let robot = app
+            .world_mut()
+            .spawn((
+                MjcfObject::new(
+                    concat!(env!("CARGO_MANIFEST_DIR"), "/assets/k1_robot.xml"),
+                    "Trunk",
+                )
+                .with_free_joint("world_joint")
+                .grounded(),
+                Transform::default(),
+            ))
+            .id();
+        app.update();
+        let binding = RobotBinding::new(
+            app.world().resource::<MujocoWorld>().data(),
+            &format!("object_{}_", robot.to_bits()),
+        )
+        .unwrap();
+        let dimensions = FieldDimensions {
+            width: 6.0,
+            ..Default::default()
+        };
+        // Publish before the head node starts to exercise retained inputs.
+        io.publish_field_dimensions(&dimensions).unwrap();
+        let (mut tasks, head) = runtime.block_on(async {
+            let mut tasks = JoinSet::new();
+            tasks.spawn(publish_joint_limits(io.context.clone()));
+            tasks.spawn(booster_sdk_interface::run_boxed(io.context.clone()));
+            tasks.spawn(crate::motion_dummy::run(io.context.clone()));
+            tasks.spawn(motion::run_head_only_boxed(io.context.clone()));
+            let head = tasks.spawn(head_motion::node::run_boxed(io.context.clone()));
+            (tasks, head)
+        });
+        let mut step = |io: &mut Robotics| {
+            let observation = {
+                let mut world = app.world_mut().resource_mut::<MujocoWorld>();
+                let data = world.data_mut();
+                for _ in 0..10 {
+                    binding.apply(data, io.latest_command().as_ref());
+                    data.step();
+                }
+                data.forward();
+                binding.observe(data)
+            };
+            let measured = observation.low_state.motor_state_serial[0..2].to_vec();
+            io.publish_inputs().unwrap();
+            io.publish_observation(observation, clock.now() + Duration::from_millis(20))
+                .unwrap();
+            runtime.block_on(async {
+                let _ =
+                    tokio::time::timeout(Duration::from_millis(100), io.commands.changed()).await;
+            });
+            if let Some(command) = io.latest_command() {
+                assert_eq!(command.motor_commands.len(), 22);
+                assert!(
+                    command
+                        .motor_commands
+                        .iter()
+                        .skip(2)
+                        .all(|motor| motor.position == 0.0
+                            && motor.velocity == 0.0
+                            && motor.kp > 0.0
+                            && motor.kd > 0.0)
+                );
+            }
+            measured
+        };
+        io.input_motion = MotionCommand::Stand {
+            head: HeadMotion::LookAround,
+        };
+        let mut maximum_yaw = 0.0_f32;
+        let mut maximum_pitch = 0.0_f32;
+        for _ in 0..250 {
+            let head = step(io);
+            maximum_yaw = maximum_yaw.max(head[0].position.abs());
+            maximum_pitch = maximum_pitch.max(head[1].position);
+        }
+        assert!(maximum_yaw > 0.3, "scan did not move yaw: {maximum_yaw}");
+        assert!(
+            maximum_pitch > 0.3,
+            "scan did not move pitch: {maximum_pitch}"
+        );
+        // The request remains unchanged throughout each phase, so this also
+        // requires central motion to reevaluate it on simulation-clock ticks.
+        io.input_motion = MotionCommand::Stand {
+            head: HeadMotion::ZeroAngles,
+        };
+        for _ in 0..150 {
+            step(io);
+        }
+        let measured = step(io);
+        assert!(
+            measured.iter().all(|motor| motor.position.abs() < 0.05),
+            "ZeroAngles did not return the head to zero"
+        );
+        // No logical clock advance means neither commands nor the head move.
+        runtime.block_on(async { tokio::time::sleep(Duration::from_millis(30)).await });
+        io.commands.borrow_and_update();
+        runtime.block_on(async { tokio::time::sleep(Duration::from_millis(30)).await });
+        assert!(!io.commands.has_changed().unwrap());
+        io.input_motion = MotionCommand::Damping;
+        for _ in 0..3 {
+            step(io);
+        }
+        assert_eq!(io.latest_command().unwrap().motor_commands[0].kp, 0.0);
+        // A missing head service must not stop the dummy body commands or leave
+        // the last active head target running.
+        io.input_motion = MotionCommand::Stand {
+            head: HeadMotion::LookAround,
+        };
+        for _ in 0..5 {
+            step(io);
+        }
+        assert!(io.latest_command().unwrap().motor_commands[0].kp > 0.0);
+        head.abort();
+        for _ in 0..3 {
+            step(io);
+        }
+        let command = io.latest_command().unwrap();
+        assert_eq!(command.motor_commands[0].kp, 0.0);
+        assert!(command.motor_commands[0].kd > 0.0);
+        assert_eq!(command.motor_commands[10].kp, 80.0);
+        runtime.block_on(async {
+            tasks.abort_all();
+            while tasks.join_next().await.is_some() {}
+        });
     }
 }

@@ -83,10 +83,12 @@ pub fn choices(path: &str) -> Option<Vec<Value>> {
             HeadMotion::SearchForLostBall,
             HeadMotion::LookAt {
                 target: point![1.0, 0.0],
+                height_above_ground: 0.0,
                 image_region_target: ImageRegion::Center,
             },
             HeadMotion::LookLeftAndRightOf {
                 target: point![1.0, 0.0],
+                height_above_ground: 0.0,
             },
             HeadMotion::Damping,
         ]

@@ -5,6 +5,7 @@ use ros_z::time::Time as RosTime;
 
 use crate::{
     bevy_mujoco::{MujocoModelUpdateSet, MujocoStepSet, MujocoWorld, SimulationMode},
+    parameters::{CurrentSimulatorParameters, SimulatorParameterSyncSet},
     robot_io::RobotBinding,
     robotics::Robotics,
     scene::{robot, visual::ObjectVisualAssets},
@@ -39,7 +40,18 @@ impl Plugin for MotionSimulationPlugin {
                     .after(MujocoModelUpdateSet),
             )
             .add_systems(FixedUpdate, apply_command.before(MujocoStepSet))
+            .add_systems(
+                PreUpdate,
+                publish_field_dimensions.after(SimulatorParameterSyncSet),
+            )
             .add_systems(FixedUpdate, publish_observation.after(MujocoStepSet));
+    }
+}
+
+fn publish_field_dimensions(parameters: Res<CurrentSimulatorParameters>, io: Res<Robotics>) {
+    if parameters.is_changed() || io.is_changed() {
+        io.publish_field_dimensions(&parameters.parameters.field_dimensions)
+            .expect("publish simulator field dimensions");
     }
 }
 

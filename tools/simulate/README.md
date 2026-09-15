@@ -35,26 +35,33 @@ The palette can add balls and additional passive robots as physical objects.
 
 The launcher currently starts:
 
-- `motion_inference_dummy`: sends a sinusoidal head-yaw target with amplitude
-  0.5 radians and a four-second period, including the matching target velocity.
-  The other 21 joints hold zero position and velocity; all feedforward torques
-  are zero. Commands are sent at 50 Hz of simulation time. The sine pauses with
-  physics and restarts at zero phase when the stack is reset. It uses the Walk policy's
-  configured gains: head kp/kd 10/1.2, arms 40/1, major leg joints 80/4, ankle pitch
-  50/2 and ankle roll 25/2. It publishes `types::robot_command::MotionCommand` on
-  `commands/motion_command`, the existing Booster interface's input. Its motion
-  type selects Booster Custom mode.
+- `motion_inference_dummy`: publishes a zero-pose `JointsCommand` on
+  `motion_inference/dummy_joints` at 50 Hz of simulation time, using the Walk
+  policy's configured gains. Central motion replaces its head commands.
+- `motion`: uses the temporary `motion::run_head_only_boxed` entry point. Every
+  20 ms of simulation time it extracts `MotionCommand::head_motion()` from the
+  latest UI/behavior request, calls `services/head_motion`, and merges the reply
+  into the dummy pose. It publishes the resulting `robot_command::MotionCommand`
+  on `commands/motion_command` in Custom mode. A missing head request, including
+  body Damping or StandUp, requests head damping. A failed service call also damps
+  the head and continues holding the body. Service calls have a 20 ms wall-clock
+  timeout so a missing or failing head service cannot stall body commands.
 - `head_motion`
 - `motion_inference`
 - `booster_interface` (from `booster_sdk_interface`)
+- `simulator_joint_limits`: publishes retained `joint_limits` from the robotics
+  `global` parameters. The simulator publishes retained `field_dimensions` from
+  the actual simulated field, including parameter changes and stack resets.
 
-The real `motion` node is deliberately **not launched**. The dummy moves the head
-yaw and holds the other joints at zero; it is not a balance controller and does
-not consume the MotionCommand UI.
-The editor publishes real commands for inspection and for the real motion node
-once the launcher is switched after rebasing onto the completed motion branch.
-No changes to motion/head algorithms, inference services, or kick mappings are
-part of this simulator integration.
+To test the head, select **Stand** and **LookAround** in the Motion command form,
+click **Send current form**, then **Run / Pause**. **ZeroAngles** returns the head
+to zero; **LookAt** and **LookLeftAndRightOf** expose target position and height.
+The game-controller form controls the field side used by head scan patterns.
+
+The body stays at zero for every behavior request, including walk, kick, damping,
+and stand-up. This is a head-controller test, not a balance controller. The real
+inference node is running but receives no inference requests. The original central
+motion entry point and its pending body coordination remain unchanged.
 
 `booster_interface` publishes raw CDR `LowCommand` messages on `rt/joint_ctrl`.
 MuJoCo applies `tau + kp * (q_target - q) + kd * (dq_target - dq)` every physics
@@ -79,6 +86,8 @@ ROS-Z topics below are relative to `--robot-namespace` (default
 | Publish | `ground_to_robot` | `TimeWrapper<Option<Isometry3<Ground, Robot>>>`, ground truth |
 | Publish | `behavior/motion_command` | `types::motion_command::MotionCommand`, UI |
 | Publish | `filtered_game_controller_state` | `FilteredGameControllerState`, UI |
+| Publish | `field_dimensions` | `FieldDimensions`, actual simulator parameters, retained |
+| Publish | `joint_limits` | `JointLimits`, robotics global parameters, retained |
 | Receive, raw Zenoh | `rt/joint_ctrl` | CDR little-endian `booster::LowCommand` |
 
 Physics uses MuJoCo's fixed timestep (currently 2 ms). Each step publishes measured

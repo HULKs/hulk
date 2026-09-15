@@ -160,7 +160,7 @@ fn setup(mut commands: Commands) {
             io.input_motion = MotionCommand::Damping;
             editor.draft["motion"] = value(MotionCommand::Damping);
             editor.rebuild = true;
-            editor.message = report(io.publish_inputs(), "Damping request published. The head-yaw sine dummy remains active.");
+            editor.message = report(io.publish_inputs(), "Head damping requested; body remains at zero pose.");
         })
     });
     let tabs = commands
@@ -187,7 +187,7 @@ fn setup(mut commands: Commands) {
                 serde_json::from_value::<FilteredGameControllerState>(editor.draft["game"].clone()).map(|game| io.input_game = game)
             };
             editor.message = match result {
-                Ok(()) => report(io.publish_inputs(), if editor.tab == "motion" { "Request published. The head-yaw sine dummy ignores motion requests." } else { "Game controller state published." }),
+                Ok(()) => report(io.publish_inputs(), if editor.tab == "motion" { "Head request published; body remains at zero pose." } else { "Game controller state published." }),
                 Err(error) => format!("Cannot send: {error}"),
             };
         })
