@@ -29,7 +29,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("head_motion").build().await?;
 
     let parameters = node.bind_parameter_as::<Parameters>("head_motion")?;
-    parameters.add_validation_hook(|parameters| parameters.joint_control.validate())?;
+    parameters.add_validation_hook(Parameters::validate)?;
     let _joint_limits_cache = node
         .subscriber::<JointLimits>("joint_limits")
         .qos(QosProfile {

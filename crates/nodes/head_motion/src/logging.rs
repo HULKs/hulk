@@ -1,3 +1,5 @@
+//! Constraint and scan-deadline logging with independent warning throttling.
+
 use std::{mem::take, time::Duration};
 
 use ros_z::time::Time;
@@ -7,6 +9,7 @@ use types::motion_command::HeadMotion;
 use crate::{
     joint_control::{ConstraintCause, ConstraintDiagnostic, HeadObservation, JointControlOutput},
     parameters::JointControlParameters,
+    patterns::ScanTimeout,
 };
 
 /// Logs constraint episodes from the pure joint controller. Call once for each evaluated
@@ -108,6 +111,49 @@ fn same_constraint_episode(left: &ConstraintDiagnostic, right: &ConstraintDiagno
         && left.bounds == right.bounds
         && (left.value < (left.bounds[0] + left.bounds[1]) / 2.0)
             == (right.value < (right.bounds[0] + right.bounds[1]) / 2.0)
+}
+
+/// Logs scan deadlines. Call for every evaluated scan output.
+#[derive(Default)]
+pub struct ScanLogger {
+    last_update: Option<Time>,
+    last_warning: Option<Time>,
+    suppressed: usize,
+}
+
+impl ScanLogger {
+    pub fn log(
+        &mut self,
+        timeout: Option<&ScanTimeout>,
+        observation: &HeadObservation,
+        warning_interval: Duration,
+        now: Time,
+    ) {
+        if self.last_update.is_some_and(|previous| now < previous) {
+            self.last_warning = None;
+            self.suppressed = 0;
+        }
+        self.last_update = Some(now);
+        let Some(timeout) = timeout else { return };
+        if self
+            .last_warning
+            .is_some_and(|previous| now.duration_since(previous) < warning_interval)
+        {
+            self.suppressed += 1;
+            return;
+        }
+        self.last_warning = Some(now);
+        let suppressed = take(&mut self.suppressed);
+        warn!(
+            kind = ?timeout.kind, waypoint = ?timeout.waypoint,
+            requested_target = ?timeout.requested_target, progress = ?timeout.progress,
+            measured_position_rad = ?observation.positions,
+            measured_velocity_rad_s = ?observation.velocities,
+            elapsed_seconds = timeout.elapsed.as_secs_f64(),
+            ever_reached = timeout.ever_reached, suppressed,
+            action = "advance_to_next_waypoint", "head scan waypoint deadline reached"
+        );
+    }
 }
 
 #[cfg(test)]

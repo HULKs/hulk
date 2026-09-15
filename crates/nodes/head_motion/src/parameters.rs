@@ -19,16 +19,61 @@ pub struct Parameters {
     pub image_region_parameters: ImageRegionParameters,
     pub glance_direction_toggle_interval: Duration,
 
-    pub look_around_timeout: Duration,
-    pub quick_search_timeout: Duration,
+    pub look_around: ScanParameters,
+    pub search_for_lost_ball: ScanParameters,
+}
 
-    pub middle_positions: HeadJoints<f32>,
-    pub left_positions: HeadJoints<f32>,
-    pub right_positions: HeadJoints<f32>,
-    pub halfway_left_positions: HeadJoints<f32>,
-    pub halfway_right_positions: HeadJoints<f32>,
-    pub initial_left_positions: HeadJoints<f32>,
-    pub initial_right_positions: HeadJoints<f32>,
+impl Parameters {
+    pub fn validate(&self) -> Result<(), String> {
+        self.joint_control.validate()?;
+        self.look_around
+            .validate()
+            .map_err(|error| format!("look_around.{error}"))?;
+        self.search_for_lost_ball
+            .validate()
+            .map_err(|error| format!("search_for_lost_ball.{error}"))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Message)]
+#[serde(deny_unknown_fields)]
+pub struct ScanParameters {
+    pub center: HeadJoints<f32>,
+    pub left: HeadJoints<f32>,
+    pub right: HeadJoints<f32>,
+    /// Desired positive travel speeds in rad/s, with direction set by the endpoint.
+    /// Ruckig accelerates toward these speeds and brakes to arrive at rest.
+    /// Short segments may not reach them; safety-limit reductions may constrain them.
+    pub travel_speed: HeadJoints<f32>,
+    /// Continuous measured arrival required before advancing. Zero disables dwell.
+    pub dwell_duration: Duration,
+    /// Fallback deadline including travel, settling, and dwell; does not pace motion.
+    pub maximum_waypoint_duration: Duration,
+}
+
+impl ScanParameters {
+    pub fn validate(&self) -> Result<(), String> {
+        for (name, position) in [
+            ("center", self.center),
+            ("left", self.left),
+            ("right", self.right),
+        ] {
+            if !position.into_iter().all(f32::is_finite) {
+                return Err(format!("{name} must contain finite joint positions"));
+            }
+        }
+        if !self
+            .travel_speed
+            .into_iter()
+            .all(|speed| speed.is_finite() && speed > 0.0)
+        {
+            return Err("travel_speed must contain finite positive speeds".into());
+        }
+        if self.maximum_waypoint_duration <= self.dwell_duration {
+            return Err("maximum_waypoint_duration must exceed dwell_duration".into());
+        }
+        Ok(())
+    }
 }
 
 /// Motion limits describe the generated reference, not guaranteed physical motion.

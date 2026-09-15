@@ -55,14 +55,24 @@ impl HeadObservation {
 #[derive(Debug, Clone, Copy)]
 pub enum JointTarget {
     Position(HeadJoints<f32>),
+    /// Travel toward a position at the requested positive joint speeds (rad/s),
+    /// arriving at rest. Short segments may finish before reaching cruise speed.
+    /// Lowering travel speed preserves the current derivatives while braking.
+    MoveTo {
+        position: HeadJoints<f32>,
+        travel_speed: HeadJoints<f32>,
+    },
     Damping,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct MotionProgress {
+    /// Identifies the request that produced this feedback, before position clipping.
+    pub requested_target: HeadJoints<f32>,
     /// Constrained final goal, not the intermediate trajectory reference.
     pub effective_target: HeadJoints<f32>,
     pub target_reached: bool,
+    /// Whether the requested position was clipped; speed clipping is a diagnostic.
     pub constrained: bool,
 }
 
@@ -101,7 +111,26 @@ impl JointController {
         joints.validate().map_err(|reason| eyre!(reason))?;
         match target {
             JointTarget::Position(requested) => {
-                self.track(requested, observation, parameters, joints, now)
+                self.track(requested, None, observation, parameters, joints, now)
+            }
+            JointTarget::MoveTo {
+                position,
+                travel_speed,
+            } => {
+                ensure!(
+                    travel_speed
+                        .into_iter()
+                        .all(|speed| speed.is_finite() && speed > 0.0),
+                    "head travel speeds must be finite and positive"
+                );
+                self.track(
+                    position,
+                    Some(travel_speed),
+                    observation,
+                    parameters,
+                    joints,
+                    now,
+                )
             }
             JointTarget::Damping => Ok(self.damp(observation, parameters, joints)),
         }
@@ -110,6 +139,7 @@ impl JointController {
     fn track(
         &mut self,
         requested: HeadJoints<f32>,
+        travel_speed: Option<HeadJoints<f32>>,
         observation: &HeadObservation,
         parameters: &JointControlParameters,
         joints: &JointLimits,
@@ -130,18 +160,24 @@ impl JointController {
         for joint in JOINTS {
             let limits = limits_for(joint, parameters, joints);
             record_measurement(&mut diagnostics, joint, observation, limits);
+            let planning_limits = planning_limits(
+                joint,
+                limits,
+                travel_speed.map(|speed| speed[joint]),
+                &mut diagnostics,
+            );
             let step = self.generators[joint]
                 .step(
                     reference[joint],
                     requested[joint],
                     observation.positions[joint],
-                    limits,
+                    planning_limits,
                     elapsed,
                 )
                 .wrap_err_with(|| {
                     format!(
                         "failed to plan head joint {joint:?}: start={:?}, requested_target={}, \
-                         measured_position={}, limits={limits:?}, elapsed_seconds={elapsed}",
+                         measured_position={}, limits={planning_limits:?}, elapsed_seconds={elapsed}",
                         reference[joint], requested[joint], observation.positions[joint],
                     )
                 })?;
@@ -168,6 +204,7 @@ impl JointController {
             commands: motor_commands(reference, parameters.kp, parameters.kd),
             reference,
             progress: Some(MotionProgress {
+                requested_target: requested,
                 effective_target,
                 target_reached,
                 constrained: effective_target != requested,
@@ -260,6 +297,33 @@ impl JointController {
         self.previous_target = None;
         self.arrived = false;
         Ok(())
+    }
+}
+
+fn planning_limits(
+    joint: HeadJoint,
+    safety_limits: Limits,
+    travel_speed: Option<f32>,
+    diagnostics: &mut Vec<ConstraintDiagnostic>,
+) -> Limits {
+    let Some(speed) = travel_speed.map(f64::from) else {
+        return safety_limits;
+    };
+    if speed > safety_limits.velocity {
+        diagnostics.push(ConstraintDiagnostic {
+            joint,
+            constraint: Constraint::Velocity,
+            cause: ConstraintCause::TargetClipped,
+            value: speed,
+            effective_value: safety_limits.velocity,
+            bounds: [0.0, safety_limits.velocity],
+        });
+    }
+    Limits {
+        // Ruckig's position-mode max_velocity sets cruise speed; target_velocity
+        // is the arrival velocity and remains zero. Safety limits are independent.
+        velocity: speed.min(safety_limits.velocity),
+        ..safety_limits
     }
 }
 

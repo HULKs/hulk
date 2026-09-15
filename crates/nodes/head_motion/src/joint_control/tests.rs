@@ -337,3 +337,170 @@ fn tightening_limits_checks_the_existing_reference_before_emitting_it() {
             .all(|command| command.position <= 0.2 && command.velocity == 0.0)
     );
 }
+
+#[test]
+fn travel_speed_sets_cruise_and_duration_with_zero_velocity_at_each_endpoint() {
+    let (parameters, joints) = configuration();
+    let mut controller = JointController::default();
+    let mut observation = HeadObservation {
+        positions: HeadJoints {
+            yaw: -0.95,
+            pitch: 0.7,
+        },
+        velocities: HeadJoints::fill(0.0),
+    };
+    let mut now = Time::zero();
+    let mut durations = Vec::new();
+    for (yaw, speed) in [(0.95, 1.5), (-0.95, 0.8)] {
+        let target = JointTarget::MoveTo {
+            position: HeadJoints { yaw, pitch: 0.7 },
+            travel_speed: HeadJoints {
+                yaw: speed,
+                pitch: 0.5,
+            },
+        };
+        let mut peak_speed = 0.0_f32;
+        let mut arrival = None;
+        for sample in 0..400 {
+            let output = controller
+                .update(target, &observation, &parameters, &joints, now)
+                .unwrap();
+            let command = &output.commands.yaw;
+            peak_speed = peak_speed.max(command.velocity.abs());
+            assert!(command.velocity.abs() <= speed + 1e-5);
+            assert!(
+                !output
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.constraint == Constraint::Velocity),
+                "requested cruise speed is not a safety-limit violation"
+            );
+            if (command.position - yaw).abs() < 1e-6 && command.velocity.abs() < 1e-6 {
+                arrival.get_or_insert(sample);
+            }
+            observation.positions = HeadJoints {
+                yaw: command.position,
+                pitch: output.commands.pitch.position,
+            };
+            observation.velocities = HeadJoints {
+                yaw: command.velocity,
+                pitch: output.commands.pitch.velocity,
+            };
+            now = now + Duration::from_millis(10);
+        }
+        assert!(
+            (peak_speed - speed).abs() < 1e-5,
+            "a long sweep must reach its requested speed"
+        );
+        assert!((observation.positions.yaw - yaw).abs() < 1e-6);
+        assert!(observation.velocities.yaw.abs() < 1e-6);
+        durations.push(arrival.unwrap());
+    }
+    assert!(
+        durations[1] > durations[0] + 50,
+        "slower requested speed must lengthen travel"
+    );
+}
+
+#[test]
+fn lowering_requested_speed_brakes_continuously_and_safety_clipping_is_reported() {
+    let (parameters, joints) = configuration();
+    let mut controller = JointController::default();
+    let observation = HeadObservation {
+        positions: HeadJoints {
+            yaw: -0.95,
+            pitch: 0.7,
+        },
+        velocities: HeadJoints::fill(0.0),
+    };
+    let position = HeadJoints {
+        yaw: 0.95,
+        pitch: 0.7,
+    };
+    let fast = JointTarget::MoveTo {
+        position,
+        travel_speed: HeadJoints::fill(1.5),
+    };
+    let mut previous = controller
+        .update(fast, &observation, &parameters, &joints, Time::zero())
+        .unwrap()
+        .reference
+        .yaw;
+    for sample in 1..=100 {
+        let target = if sample <= 30 {
+            fast
+        } else {
+            JointTarget::MoveTo {
+                position,
+                travel_speed: HeadJoints::fill(0.4),
+            }
+        };
+        let output = controller
+            .update(
+                target,
+                &observation,
+                &parameters,
+                &joints,
+                Time::zero() + Duration::from_millis(sample * 10),
+            )
+            .unwrap();
+        let reference = output.reference.yaw;
+        assert!(
+            (reference.velocity - previous.velocity).abs()
+                <= f64::from(parameters.maximum_acceleration.yaw) * 0.01 + 1e-6
+        );
+        assert!(
+            (reference.acceleration - previous.acceleration).abs()
+                <= f64::from(parameters.maximum_jerk.yaw) * 0.01 + 1e-6
+        );
+        if sample == 31 {
+            assert!(
+                reference.velocity > 0.4,
+                "speed changes must preserve continuity while braking"
+            );
+        }
+        previous = reference;
+    }
+    assert!(
+        (previous.velocity - 0.4).abs() < 1e-5,
+        "reference after braking: {previous:?}"
+    );
+
+    let excessive = JointTarget::MoveTo {
+        position,
+        travel_speed: HeadJoints::fill(10.0),
+    };
+    let clipped = controller
+        .update(
+            excessive,
+            &observation,
+            &parameters,
+            &joints,
+            Time::zero() + Duration::from_millis(1010),
+        )
+        .unwrap();
+    assert!(clipped.diagnostics.iter().any(|diagnostic| {
+        diagnostic.joint == HeadJoint::Yaw
+            && diagnostic.constraint == Constraint::Velocity
+            && diagnostic.cause == ConstraintCause::TargetClipped
+            && diagnostic.value == 10.0
+            && diagnostic.effective_value == f64::from(parameters.maximum_velocity.yaw)
+    }));
+    for speed in [0.0, -1.0, f32::NAN, f32::INFINITY] {
+        let invalid = JointTarget::MoveTo {
+            position,
+            travel_speed: HeadJoints::fill(speed),
+        };
+        assert!(
+            controller
+                .update(
+                    invalid,
+                    &observation,
+                    &parameters,
+                    &joints,
+                    Time::zero() + Duration::from_millis(1020)
+                )
+                .is_err()
+        );
+    }
+}
