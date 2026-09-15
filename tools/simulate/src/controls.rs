@@ -1,7 +1,7 @@
 //! Structured editors for the exact published message fields, using native Bevy widgets.
 mod choices;
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use bevy::{
     camera_controller::free_camera::FreeCameraState,
@@ -10,6 +10,7 @@ use bevy::{
     },
     input_focus::{InputFocus, tab_navigation::TabGroup},
     prelude::*,
+    ui::InteractionDisabled,
     ui_widgets::{Activate, ValueChange},
 };
 use coordinate_systems::Ground;
@@ -22,7 +23,6 @@ use types::{
 
 use crate::{
     bevy_mujoco::{MujocoWorld, SimulationMode},
-    motion_parameters::MotionParameters,
     robot_io::RobotBinding,
     robotics::Robotics,
     scene::ball::SpawnedBalls,
@@ -30,7 +30,7 @@ use crate::{
 };
 use choices::{choices, is_angle, value, variant};
 
-pub const PANEL_WIDTH: f32 = 460.0;
+pub const PANEL_WIDTH: f32 = 480.0;
 
 fn look_at_first_ball(
     world: &MujocoWorld,
@@ -63,17 +63,29 @@ struct Editor {
     rebuild: bool,
     message: String,
     expanded: HashSet<String>,
-    rendered_tab: &'static str,
+    rendered_tab: String,
+    parameter_group: &'static str,
+    baselines: BTreeMap<String, crate::motion_parameters::Snapshot>,
+    completion: u64,
+    pending: Option<(&'static str, Value)>,
+    message_error: bool,
+    track_ball: bool,
 }
 
 impl Default for Editor {
     fn default() -> Self {
         Self {
-            draft: json!({"motion": value(MotionCommand::Damping), "game": value(FilteredGameControllerState::default())}),
+            draft: json!({"motion": value(MotionCommand::Damping), "game": value(FilteredGameControllerState::default()), "parameters": {}}),
             tab: "motion",
             rebuild: true,
-            expanded: HashSet::new(),
-            rendered_tab: "",
+            expanded: HashSet::from(["/parameters/head_motion/joint_control".into()]),
+            rendered_tab: String::new(),
+            parameter_group: "head_motion",
+            baselines: BTreeMap::new(),
+            completion: 0,
+            pending: None,
+            message_error: false,
+            track_ball: false,
             message: "Edit a command, then press Send. Numbers support dragging and text entry."
                 .into(),
         }
@@ -82,26 +94,52 @@ impl Default for Editor {
 
 #[derive(Component)]
 struct Form;
-#[derive(Component)]
-struct Status;
-#[derive(Component)]
-struct SimulationStatus;
 #[derive(Component, Default, Clone)]
-struct SendForm;
+struct PanelText;
+#[derive(Component, Clone)]
+enum PanelLabel {
+    Run,
+    Telemetry,
+    Submit,
+    Details,
+    Draft,
+    Status,
+    TrackBall,
+    ParameterGroup(&'static str),
+}
+#[derive(Component, Clone)]
+struct TabButton(&'static str);
+#[derive(Component, Default, Clone)]
+struct SubmitButton;
+#[derive(Component)]
+struct ParameterNavigation;
+#[derive(Component, Clone)]
+struct ParameterTab(&'static str);
 #[derive(Component, Clone)]
 struct ParameterText(String);
+#[derive(Component)]
+struct MotionNumber(String);
 
 pub struct ControlsPlugin;
 impl Plugin for ControlsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FeathersPlugins)
-            .insert_resource(UiTheme(create_dark_theme()))
+            .insert_resource(UiTheme(panel_theme()))
             .init_resource::<Editor>()
             .add_systems(Startup, setup)
             .add_systems(PreUpdate, gate_camera_input)
             .add_systems(
                 Update,
-                (sync_parameter_text, rebuild_form, update_status).chain(),
+                (
+                    update_ball_target,
+                    sync_parameter_text,
+                    synchronize_parameters,
+                    rebuild_form,
+                    update_status,
+                    style_actions,
+                    style_panel_text,
+                )
+                    .chain(),
             );
     }
 }
@@ -142,16 +180,13 @@ fn text(commands: &mut Commands, parent: Entity, content: impl Into<String>) {
     commands.spawn((
         ChildOf(parent),
         Text::new(content),
+        PanelText,
         TextFont::from_font_size(14.0),
         TextColor(Color::srgb(0.85, 0.89, 0.95)),
     ));
 }
 
-fn setup(mut commands: Commands, mut editor: ResMut<Editor>, io: Res<Robotics>) {
-    match io.parameter_values() {
-        Ok(parameters) => editor.draft["parameters"] = parameters,
-        Err(error) => editor.message = format!("Could not load motion parameters: {error:#}"),
-    }
+fn setup(mut commands: Commands) {
     let root = commands
         .spawn((
             Node {
@@ -160,123 +195,59 @@ fn setup(mut commands: Commands, mut editor: ResMut<Editor>, io: Res<Robotics>) 
                 top: px(0),
                 bottom: px(0),
                 width: px(PANEL_WIDTH),
-                padding: UiRect::all(px(14)),
+                padding: UiRect::all(px(20)),
                 flex_direction: FlexDirection::Column,
-                row_gap: px(10),
+                row_gap: px(14),
                 ..default()
             },
-            BackgroundColor(Color::srgb(0.055, 0.065, 0.08)),
+            BackgroundColor(rgb(0x202b3b)),
             GlobalZIndex(10),
             TabGroup::default(),
         ))
         .id();
-    text(&mut commands, root, "MOTION LAB");
-    commands.spawn((
-        ChildOf(root),
-        SimulationStatus,
-        Text::new("Paused"),
-        TextFont::from_font_size(13.0),
-    ));
-    let toolbar = commands
-        .spawn((
-            ChildOf(root),
-            Node {
-                flex_wrap: FlexWrap::Wrap,
-                column_gap: px(6),
-                row_gap: px(6),
-                ..default()
-            },
-        ))
-        .id();
+    let header = row(&mut commands, root);
+    heading(&mut commands, header, "Motion studio", 24.0);
+    let toolbar = row(&mut commands, root);
     commands.spawn_scene(bsn! {
-        @FeathersButton ChildOf(toolbar) Children[label("Run / Pause")]
+        @FeathersButton { @variant: ButtonVariant::Primary }
+        ChildOf(toolbar) Node { height: px(36), min_width: px(105), flex_shrink: 0.0 }
+        Children [Text::new("Run") PanelText template_value(PanelLabel::Run)]
         on(|_: On<Activate>, mut mode: ResMut<SimulationMode>| {
             *mode = match *mode { SimulationMode::Paused => SimulationMode::Running, SimulationMode::Running => SimulationMode::Paused };
         })
     });
     commands.spawn_scene(bsn! {
-        @FeathersButton ChildOf(toolbar) Children[label("Reset robot & stack")]
+        @FeathersButton ChildOf(toolbar) Node { height: px(36), flex_grow: 1.0 }
+        Children[label("Reset robot & stack")]
         on(|_: On<Activate>, mut control: ResMut<SimulationControl>| { control.reset = true; })
     });
-    commands.spawn_scene(bsn! {
-        @FeathersButton ChildOf(toolbar) Children[label("Send Damping")]
-        on(|_: On<Activate>, mut io: ResMut<Robotics>, mut editor: ResMut<Editor>| {
-            io.input_motion = MotionCommand::Damping;
-            editor.draft["motion"] = value(MotionCommand::Damping);
-            editor.rebuild = true;
-            editor.message = report(io.publish_inputs(), "Head damping requested; zero-velocity walking remains active.");
-        })
-    });
-    commands.spawn_scene(bsn! {
-        @FeathersButton ChildOf(toolbar) Children[label("Look at ball")]
-        on(|_: On<Activate>, world: Res<MujocoWorld>, balls: Res<SpawnedBalls>,
-            robot: Single<Entity, With<ControlledRobot>>, mut io: ResMut<Robotics>, mut editor: ResMut<Editor>| {
-            match look_at_first_ball(&world, &balls, *robot) {
-                Ok(command) => {
-                    editor.draft["motion"] = value(&command);
-                    editor.tab = "motion";
-                    editor.rebuild = true;
-                    io.input_motion = command;
-                    editor.message = report(io.publish_inputs(), "LookAt sent for the first ball's current position.");
-                }
-                Err(error) => editor.message = error.to_string(),
-            }
-        })
-    });
-    let tabs = commands
-        .spawn((
-            ChildOf(root),
-            Node {
-                column_gap: px(6),
-                flex_wrap: FlexWrap::Wrap,
-                row_gap: px(6),
-                ..default()
-            },
-        ))
-        .id();
+    panel_label(&mut commands, root, PanelLabel::Telemetry);
+    let tabs = row(&mut commands, root);
     for (name, title) in [
-        ("motion", "Motion command"),
-        ("game", "Game controller"),
+        ("motion", "Commands"),
+        ("game", "Game"),
         ("parameters", "Parameters"),
     ] {
         commands.spawn_scene(bsn! {
-            @FeathersButton ChildOf(tabs) Children[label(title)]
+            @FeathersButton ChildOf(tabs) template_value(TabButton(name))
+            Node { height: px(36), flex_grow: 1.0, flex_basis: px(0) }
+            Children[label(title)]
             on(move |_: On<Activate>, mut editor: ResMut<Editor>| {
-                editor.tab = name;
-                editor.rebuild = true;
-                editor.message = if name == "parameters" {
-                    "Expand a parameter group to edit it, then apply the complete form."
-                } else {
-                    "Edit a command, then press Send. Numbers support dragging and text entry."
-                }.into();
+                editor.tab = name; editor.rebuild = true; editor.message.clear();
             })
         });
     }
-    commands.spawn_scene(bsn! {
-        @FeathersButton ChildOf(root) SendForm Children[label("Send current form")]
-        on(|_: On<Activate>, mut editor: ResMut<Editor>, mut io: ResMut<Robotics>| {
-            if editor.tab == "parameters" {
-                editor.message = "Use Apply parameters & reset below to apply this form.".into();
-                return;
-            }
-            let result = if editor.tab == "motion" {
-                serde_json::from_value::<MotionCommand>(editor.draft["motion"].clone()).map(|command| io.input_motion = command)
-            } else {
-                serde_json::from_value::<FilteredGameControllerState>(editor.draft["game"].clone()).map(|game| io.input_game = game)
-            };
-            editor.message = match result {
-                Ok(()) => report(io.publish_inputs(), if editor.tab == "motion" { "Head request published; zero-velocity walking remains active." } else { "Game controller state published." }),
-                Err(error) => format!("Cannot send: {error}"),
-            };
-        })
-    });
-    commands.spawn((
-        ChildOf(root),
-        Status,
-        Text::new(""),
-        TextFont::from_font_size(13.0),
-    ));
-    // PointerScroll bubbles to the form even when a child widget is under the cursor.
+    let groups = row(&mut commands, root);
+    commands.entity(groups).insert(ParameterNavigation);
+    for &(key, title, _, _) in &crate::motion_parameters::GROUPS {
+        commands.spawn_scene(bsn! {
+            @FeathersButton ChildOf(groups) template_value(ParameterTab(key))
+            Node { height: px(30), flex_grow: 1.0 }
+            Children[Text::new(title) PanelText template_value(PanelLabel::ParameterGroup(key)) TextFont { font_size: bevy::text::FontSize::Px(14.0) }]
+            on(move |_: On<Activate>, mut editor: ResMut<Editor>| { editor.parameter_group = key; editor.rebuild = true; })
+        });
+    }
+    panel_label(&mut commands, root, PanelLabel::Details);
     commands
         .spawn((
             ChildOf(root),
@@ -286,7 +257,8 @@ fn setup(mut commands: Commands, mut editor: ResMut<Editor>, io: Res<Robotics>) 
                 flex_grow: 1.0,
                 min_height: px(0),
                 flex_direction: FlexDirection::Column,
-                row_gap: px(10),
+                row_gap: px(14),
+                padding: UiRect::right(px(8)),
                 ..default()
             },
         ))
@@ -299,7 +271,7 @@ fn setup(mut commands: Commands, mut editor: ResMut<Editor>, io: Res<Robotics>) 
                     scroll.y = (scroll.y
                         - event.y
                             * if event.unit == bevy::input::mouse::MouseScrollUnit::Line {
-                                30.0
+                                32.0
                             } else {
                                 1.0
                             })
@@ -308,13 +280,179 @@ fn setup(mut commands: Commands, mut editor: ResMut<Editor>, io: Res<Robotics>) 
                 }
             },
         );
+    let footer = column(&mut commands, root);
+    commands
+        .entity(footer)
+        .insert(Node {
+            width: percent(100),
+            flex_shrink: 0.0,
+            flex_direction: FlexDirection::Column,
+            row_gap: px(10),
+            padding: UiRect::top(px(12)),
+            border: UiRect::top(px(1)),
+            ..default()
+        })
+        .insert(BorderColor::all(rgb(0x43556d)));
+    panel_label(&mut commands, footer, PanelLabel::Draft);
+    panel_label(&mut commands, footer, PanelLabel::Status);
+    let actions = row(&mut commands, footer);
+    commands.spawn_scene(bsn! {
+        @FeathersButton ChildOf(actions) Node { height: px(36), flex_grow: 1.0 }
+        Children[label("Discard edits")]
+        on(|_: On<Activate>, mut editor: ResMut<Editor>, io: Res<Robotics>| {
+            if editor.tab == "parameters" {
+                let group = editor.parameter_group;
+                if let Some(snapshot) = io.parameters.state().snapshots.get(group) {
+                    editor.draft["parameters"][group] = snapshot.value.clone();
+                    editor.baselines.insert(group.to_string(), snapshot.clone());
+                }
+            } else if editor.tab == "motion" { editor.draft["motion"] = value(&io.input_motion); }
+            else { editor.draft["game"] = value(&io.input_game); }
+            editor.rebuild = true;
+            editor.message = "Loaded current values".into();
+            editor.message_error = false;
+        })
+    });
+    commands.spawn_scene(bsn! {
+        @FeathersButton { @variant: ButtonVariant::Primary }
+        ChildOf(actions) SubmitButton Node { height: px(36), flex_grow: 1.0 }
+        Children[Text::new("Send command") PanelText template_value(PanelLabel::Submit)]
+        on(|_: On<Activate>, mut editor: ResMut<Editor>, mut io: ResMut<Robotics>, inputs: Query<(&ParameterText, &bevy::text::EditableText)>| {
+            copy_parameter_text(&mut editor, &inputs);
+            let result = if editor.tab == "parameters" {
+                let group = editor.parameter_group;
+                if let Some(snapshot) = editor.baselines.get(group) {
+                    let draft = editor.draft["parameters"][group].clone();
+                    io.parameters.apply(group, draft.clone(), snapshot).map(|()| {
+                        editor.pending = Some((group, draft));
+                        "Applying live...".to_owned()
+                    })
+                } else { Err(color_eyre::eyre::eyre!("Waiting for the node's parameter service")) }
+            } else {
+                let decoded = if editor.tab == "motion" {
+                    editor.track_ball = false;
+                    serde_json::from_value::<MotionCommand>(editor.draft["motion"].clone()).map(|command| io.input_motion = command)
+                } else {
+                    serde_json::from_value::<FilteredGameControllerState>(editor.draft["game"].clone()).map(|game| io.input_game = game)
+                };
+                decoded.map_err(color_eyre::Report::from).and_then(|()| io.publish_inputs()).map(|()| "Published".to_owned())
+            };
+            editor.message_error = result.is_err();
+            editor.message = result.unwrap_or_else(|e| format!("{e:#}"));
+        })
+    });
 }
 
-fn report(result: color_eyre::Result<()>, success: &str) -> String {
-    result.map_or_else(
-        |e| format!("Publish failed: {e:#}"),
-        |()| success.to_owned(),
-    )
+fn row(commands: &mut Commands, parent: Entity) -> Entity {
+    commands
+        .spawn((
+            ChildOf(parent),
+            Node {
+                width: percent(100),
+                column_gap: px(8),
+                align_items: AlignItems::Center,
+                flex_shrink: 0.0,
+                ..default()
+            },
+        ))
+        .id()
+}
+
+fn heading(commands: &mut Commands, parent: Entity, content: &str, size: f32) {
+    commands.spawn((
+        ChildOf(parent),
+        Text::new(content),
+        PanelText,
+        TextFont::from_font_size(size),
+        TextColor(rgb(0xecf2fa)),
+    ));
+}
+
+fn panel_label(commands: &mut Commands, parent: Entity, label: PanelLabel) {
+    commands.spawn((
+        ChildOf(parent),
+        Text::new(""),
+        PanelText,
+        label,
+        TextFont::from_font_size(13.0),
+        TextColor(rgb(0xb4c5da)),
+    ));
+}
+
+fn rgb(hex: u32) -> Color {
+    Color::srgb_u8((hex >> 16) as u8, (hex >> 8) as u8, hex as u8)
+}
+
+fn panel_theme() -> bevy::feathers::theme::ThemeProps {
+    use bevy::feathers::tokens::semantic::*;
+    let mut theme = create_dark_theme();
+    for (token, color) in [
+        (FILL_ACCENT_DEFAULT, 0x346ea6),
+        (FILL_ACCENT_HOVER, 0x4383bb),
+        (FILL_ACCENT_PRESSED, 0x295d91),
+        (FILL_SOLID_DEFAULT, 0x35465c),
+        (FILL_SOLID_HOVER, 0x445b75),
+        (FILL_SOLID_PRESSED, 0x293a4f),
+        (FILL_FIELD_DEFAULT, 0x17212e),
+        (FILL_FIELD_HOVER, 0x26354a),
+        (TEXT_DEFAULT, 0xecf2fa),
+        (TEXT_DIM, 0xb4c5da),
+        (FOCUS_RING, 0x77b3f3),
+    ] {
+        theme.semantic_base.insert(token, rgb(color));
+    }
+    theme
+}
+
+fn style_panel_text(mut text: Query<&mut TextFont, Added<PanelText>>, assets: Res<AssetServer>) {
+    for mut font in &mut text {
+        font.font = assets
+            .load(bevy::feathers::constants::fonts::REGULAR)
+            .into();
+    }
+}
+
+fn style_actions(
+    editor: Res<Editor>,
+    io: Res<Robotics>,
+    mut tabs: Query<(&TabButton, &mut ButtonVariant), Without<ParameterTab>>,
+    mut groups: Query<(&ParameterTab, &mut ButtonVariant), Without<TabButton>>,
+    mut navigation: Single<&mut Node, With<ParameterNavigation>>,
+    submit: Single<Entity, With<SubmitButton>>,
+    mut commands: Commands,
+) {
+    let state = io.parameters.state();
+    let group = editor.parameter_group;
+    let baseline = editor.baselines.get(group);
+    let dirty =
+        baseline.is_some_and(|snapshot| editor.draft["parameters"][group] != snapshot.value);
+    let disconnected = state.errors.contains_key(group) || baseline.is_none();
+    let busy = state.busy || editor.pending.is_some();
+    let disabled = editor.tab == "parameters" && (busy || disconnected || !dirty);
+    if disabled {
+        commands.entity(*submit).insert(InteractionDisabled);
+    } else {
+        commands.entity(*submit).remove::<InteractionDisabled>();
+    }
+    for (tab, mut variant) in &mut tabs {
+        *variant = if tab.0 == editor.tab {
+            ButtonVariant::Primary
+        } else {
+            ButtonVariant::Plain
+        };
+    }
+    navigation.display = if editor.tab == "parameters" {
+        Display::Flex
+    } else {
+        Display::None
+    };
+    for (tab, mut variant) in &mut groups {
+        *variant = if tab.0 == editor.parameter_group {
+            ButtonVariant::Primary
+        } else {
+            ButtonVariant::Normal
+        };
+    }
 }
 
 fn update_status(
@@ -323,24 +461,194 @@ fn update_status(
     io: Res<Robotics>,
     world: Res<MujocoWorld>,
     mode: Res<SimulationMode>,
-    mut status: Single<&mut Text, (With<Status>, Without<SimulationStatus>)>,
-    mut simulation: Single<&mut Text, (With<SimulationStatus>, Without<Status>)>,
+    mut labels: Query<(&PanelLabel, &mut Text, &mut TextColor)>,
 ) {
     if let Some(message) = control.message.take() {
         editor.message = message;
+        editor.message_error = false;
+        editor.pending = None;
     }
-    status.0 = editor.message.clone();
-    simulation.0 = format!(
-        "{:?}  |  {:.3} s\n{}\nJoint commands: {}",
-        *mode,
-        world.data().time(),
-        io.status(),
-        if io.latest_command().is_some() {
-            "receiving"
-        } else {
-            "waiting"
+    let state = io.parameters.state();
+    let group = editor.parameter_group;
+    let baseline = editor.baselines.get(group);
+    let dirty = if editor.tab == "parameters" {
+        baseline.is_some_and(|snapshot| editor.draft["parameters"][group] != snapshot.value)
+    } else if editor.tab == "motion" {
+        editor.draft["motion"] != value(&io.input_motion)
+    } else {
+        editor.draft["game"] != value(&io.input_game)
+    };
+    let disconnected = state.errors.contains_key(group) || baseline.is_none();
+    let busy = state.busy || editor.pending.is_some();
+    for (kind, mut label, mut color) in &mut labels {
+        label.0 = match kind {
+            PanelLabel::TrackBall => if editor.track_ball {
+                "Stop tracking ball"
+            } else {
+                "Look at first ball"
+            }
+            .into(),
+            PanelLabel::ParameterGroup(key) => {
+                let title = crate::motion_parameters::GROUPS
+                    .iter()
+                    .find(|group| group.0 == *key)
+                    .unwrap()
+                    .1;
+                let changed = editor
+                    .baselines
+                    .get(*key)
+                    .is_some_and(|snapshot| editor.draft["parameters"][*key] != snapshot.value);
+                format!("{title}{}", if changed { " *" } else { "" })
+            }
+            PanelLabel::Run => if *mode == SimulationMode::Paused {
+                "Run"
+            } else {
+                "Pause"
+            }
+            .into(),
+            PanelLabel::Telemetry => format!(
+                "{}     {:.3} s     Joints: {}",
+                if *mode == SimulationMode::Paused {
+                    "Paused"
+                } else {
+                    "Running"
+                },
+                world.data().time(),
+                if io.latest_command().is_some() {
+                    "connected"
+                } else {
+                    "waiting"
+                }
+            ),
+            PanelLabel::Submit => if editor.tab == "parameters" {
+                if busy { "Applying..." } else { "Apply live" }
+            } else if editor.tab == "motion" {
+                "Send command"
+            } else {
+                "Send game state"
+            }
+            .into(),
+            PanelLabel::Details => match editor.tab {
+                "motion" => "Head follows this request. Walking stays at (0, 0, 0).".into(),
+                "game" => "Set match state and field side for head-motion tests.".into(),
+                _ => "Tune the running nodes. Applying keeps the robot and simulation running."
+                    .into(),
+            },
+            PanelLabel::Draft => {
+                if editor.tab == "motion" && editor.track_ball {
+                    "Tracking first ball · target updates live".into()
+                } else if editor.tab == "parameters" && disconnected {
+                    "Waiting for parameter service...".into()
+                } else if editor.tab == "parameters"
+                    && baseline
+                        .zip(state.snapshots.get(group))
+                        .is_some_and(|(old, new)| old.revision != new.revision)
+                {
+                    "Node changed externally. Discard edits to reload before applying.".into()
+                } else if dirty {
+                    "Unapplied changes".into()
+                } else {
+                    "Up to date".into()
+                }
+            }
+            PanelLabel::Status => {
+                let stack = io.status();
+                let message = if stack.contains("failed")
+                    || stack.contains("exited")
+                    || stack.contains("fault")
+                {
+                    stack
+                } else if editor.tab == "parameters" && disconnected {
+                    state.errors.get(group).cloned().unwrap_or_default()
+                } else {
+                    editor.message.clone()
+                };
+                color.0 = if editor.message_error {
+                    rgb(0xe6b66b)
+                } else {
+                    rgb(0xb4c5da)
+                };
+                message.chars().take(350).collect()
+            }
+        };
+    }
+}
+
+fn synchronize_parameters(
+    mut editor: ResMut<Editor>,
+    io: Res<Robotics>,
+    focus: Res<InputFocus>,
+    inputs: Query<(), With<bevy::text::EditableText>>,
+) {
+    let editing = focus.get().is_some_and(|entity| inputs.contains(entity));
+    let state = io.parameters.state();
+    if state.completion != editor.completion {
+        editor.completion = state.completion;
+        if let Some(result) = &state.result {
+            editor.message_error = result.is_err();
+            editor.message = result.clone().unwrap_or_else(|e| e);
+            if let Some((group, submitted)) = editor.pending.take()
+                && result.is_ok()
+                && let Some(snapshot) = state.snapshots.get(group)
+            {
+                if editor.draft["parameters"][group] == submitted {
+                    editor.draft["parameters"][group] = snapshot.value.clone();
+                    editor.rebuild = true;
+                }
+                editor.baselines.insert(group.into(), snapshot.clone());
+            }
         }
-    );
+    }
+    for (group, snapshot) in &state.snapshots {
+        let baseline = editor.baselines.get(group);
+        let clean = baseline.is_none_or(|old| editor.draft["parameters"][group] == old.value);
+        if clean && !editing && baseline != Some(snapshot) && editor.pending.is_none() {
+            let changed = editor.draft["parameters"][group] != snapshot.value;
+            editor.draft["parameters"][group] = snapshot.value.clone();
+            editor.baselines.insert(group.clone(), snapshot.clone());
+            if changed && editor.tab == "parameters" {
+                editor.rebuild = true;
+            }
+        }
+    }
+}
+
+fn update_ball_target(
+    mut commands: Commands,
+    world: Res<MujocoWorld>,
+    balls: Res<SpawnedBalls>,
+    robot: Single<Entity, With<ControlledRobot>>,
+    mut io: ResMut<Robotics>,
+    mut editor: ResMut<Editor>,
+    numbers: Query<(Entity, &MotionNumber, &NumberInputValue)>,
+) {
+    if !editor.track_ball {
+        return;
+    }
+    let result = look_at_first_ball(&world, &balls, *robot).and_then(|command| {
+        let next = value(&command);
+        if next != value(&io.input_motion) {
+            io.input_motion = command;
+            io.publish_inputs()?;
+        }
+        editor.draft["motion"] = next;
+        // Update the displayed coordinates in place so tracking does not recreate
+        // the form or interrupt clicks. This also runs while dragging pauses physics.
+        for (entity, path, input) in &numbers {
+            if let Some(number) = editor.draft.pointer(&path.0).and_then(Value::as_f64) {
+                let next = NumberInputValue::F64(number);
+                if *input != next {
+                    commands.entity(entity).insert(next);
+                }
+            }
+        }
+        Ok(())
+    });
+    if let Err(error) = result {
+        editor.track_ball = false;
+        editor.message_error = true;
+        editor.message = format!("Ball tracking stopped: {error}");
+    }
 }
 
 fn rebuild_form(
@@ -349,7 +657,6 @@ fn rebuild_form(
     form: Single<Entity, With<Form>>,
     children: Query<&Children>,
     mut scroll: Query<&mut ScrollPosition, With<Form>>,
-    mut send: Single<&mut Node, With<SendForm>>,
 ) {
     if !editor.rebuild {
         return;
@@ -360,74 +667,76 @@ fn rebuild_form(
             commands.entity(child).despawn();
         }
     }
-    let path = format!("/{}", editor.tab);
-    let title = match editor.tab {
-        "motion" => "MotionCommand",
-        "game" => "FilteredGameControllerState",
-        _ => "Motion parameters",
-    };
-    if editor.rendered_tab != editor.tab {
-        if let Ok(mut scroll) = scroll.get_mut(*form) {
+    let form = *form;
+    let rendered = format!("{}/{}", editor.tab, editor.parameter_group);
+    if editor.rendered_tab != rendered {
+        if let Ok(mut scroll) = scroll.get_mut(form) {
             scroll.y = 0.0;
         }
-        editor.rendered_tab = editor.tab;
+        editor.rendered_tab = rendered;
     }
-    send.display = if editor.tab == "parameters" {
-        Display::None
-    } else {
-        Display::Flex
-    };
     if editor.tab == "parameters" {
-        let form_entity = *form;
-        text(
+        let group = editor.parameter_group;
+        if editor.baselines.contains_key(group) {
+            build_field(
+                &mut commands,
+                form,
+                &format!("/parameters/{group}"),
+                "",
+                &editor.draft["parameters"][group],
+                false,
+                &editor.expanded,
+            );
+        } else {
+            text(&mut commands, form, "Connecting to the running node...");
+        }
+    } else {
+        if editor.tab == "motion" {
+            let shortcuts = row(&mut commands, form);
+            commands.spawn_scene(bsn! {
+                @FeathersButton ChildOf(shortcuts) Node { height: px(32), flex_grow: 1.0 }
+                Children[Text::new("Look at first ball") PanelText template_value(PanelLabel::TrackBall)]
+                on(|_: On<Activate>, world: Res<MujocoWorld>, balls: Res<SpawnedBalls>, robot: Single<Entity, With<ControlledRobot>>, mut io: ResMut<Robotics>, mut editor: ResMut<Editor>| {
+                    if editor.track_ball {
+                        editor.track_ball = false;
+                        editor.message_error = false;
+                        editor.message = "Ball tracking stopped; holding the last target".into();
+                        return;
+                    }
+                    let result = look_at_first_ball(&world, &balls, *robot).and_then(|command| {
+                        editor.draft["motion"] = value(&command); editor.rebuild = true; io.input_motion = command; io.publish_inputs()
+                    });
+                    editor.track_ball = result.is_ok();
+                    editor.message_error = result.is_err();
+                    editor.message = result.map_or_else(|e| e.to_string(), |()| "Tracking the first ball. Move it to update the target.".into());
+                })
+            });
+            commands.spawn_scene(bsn! {
+                @FeathersButton ChildOf(shortcuts) Node { height: px(32), flex_grow: 1.0 }
+                Children[label("Damp head")]
+                on(|_: On<Activate>, mut io: ResMut<Robotics>, mut editor: ResMut<Editor>| {
+                    editor.track_ball = false;
+                    io.input_motion = MotionCommand::Damping; editor.draft["motion"] = value(&io.input_motion); editor.rebuild = true;
+                    let result = io.publish_inputs(); editor.message_error = result.is_err();
+                    editor.message = result.map_or_else(|e| e.to_string(), |()| "Head damping sent; walking remains active".into());
+                })
+            });
+        }
+        let path = format!("/{}", editor.tab);
+        build_field(
             &mut commands,
-            *form,
-            "Session settings. Applying restarts all motion nodes and resets the robot paused. Angles use radians unless named degrees; durations use seconds.",
+            form,
+            &path,
+            if editor.tab == "motion" {
+                "Behavior request"
+            } else {
+                "Match settings"
+            },
+            &editor.draft[editor.tab],
+            true,
+            &editor.expanded,
         );
-        commands.spawn_scene(bsn! {
-            @FeathersButton ChildOf(form_entity) Children[label("Apply parameters & reset")]
-            on(|_: On<Activate>, mut editor: ResMut<Editor>, io: Res<Robotics>,
-                inputs: Query<(&ParameterText, &bevy::text::EditableText)>,
-                mut control: ResMut<SimulationControl>| {
-                if !io.launches_nodes() {
-                    editor.message = "Parameter application requires the simulator's robotics nodes (--no-robotics is active).".into();
-                    return;
-                }
-                // Include text edits from this frame even if the polling system has not run yet.
-                copy_parameter_text(&mut editor, &inputs);
-                match MotionParameters::prepare(editor.draft["parameters"].clone()) {
-                    Ok(layer) => {
-                        control.parameter_overrides = Some(layer);
-                        control.reset = true;
-                        editor.message = "Applying parameters and restarting the motion stack...".into();
-                    }
-                    Err(error) => editor.message = format!("Cannot apply parameters: {error:#}"),
-                }
-            })
-        });
-        commands.spawn_scene(bsn! {
-            @FeathersButton ChildOf(form_entity) Children[label("Discard edits / reload applied settings")]
-            on(|_: On<Activate>, mut editor: ResMut<Editor>, io: Res<Robotics>| {
-                match io.parameter_values() {
-                    Ok(parameters) => {
-                        editor.draft["parameters"] = parameters;
-                        editor.rebuild = true;
-                        editor.message = "Loaded the current motion settings.".into();
-                    }
-                    Err(error) => editor.message = format!("Cannot load parameters: {error:#}"),
-                }
-            })
-        });
     }
-    build_field(
-        &mut commands,
-        *form,
-        &path,
-        title,
-        &editor.draft[editor.tab],
-        true,
-        &editor.expanded,
-    );
 }
 
 fn copy_parameter_text(
@@ -458,11 +767,13 @@ fn choice_button(
     option: Value,
     selected: bool,
 ) {
-    let name = format!("{}{}", if selected { "[x] " } else { "" }, variant(&option));
+    let name = readable(variant(&option));
     let path = path.to_owned();
     commands.spawn_scene(bsn! {
-        @FeathersButton ChildOf(parent) Children[label(&name)]
+        @FeathersButton { @variant: {if selected { ButtonVariant::Primary } else { ButtonVariant::Normal }} }
+        ChildOf(parent) Node { min_height: px(30), flex_shrink: 0.0 } Children[label(&name)]
         on(move |_: On<Activate>, mut editor: ResMut<Editor>| {
+            if path.starts_with("/motion/") { editor.track_ball = false; }
             if let Some(slot) = editor.draft.pointer_mut(&path) { *slot = option.clone(); }
             editor.rebuild = true;
         })
@@ -478,29 +789,114 @@ fn build_field(
     allow_choices: bool,
     expanded: &HashSet<String>,
 ) {
-    let group = column(commands, parent);
-    let title = title.replace('_', " ");
-    text(commands, group, &title);
     let parameter = path.starts_with("/parameters/");
-    if parameter && path.matches('/').count() > 2 {
-        commands.entity(group).insert(Node {
-            flex_direction: FlexDirection::Column,
-            row_gap: px(6),
-            width: percent(100),
-            flex_shrink: 0.0,
-            padding: UiRect::left(px(10)),
+    let title = readable(title);
+    if let Some((initial, kind)) = numeric_value(path, current) {
+        let group = row(commands, parent);
+        let caption = column(commands, group);
+        commands.entity(caption).insert(Node {
+            width: percent(59),
+            flex_shrink: 1.0,
             ..default()
         });
+        text(
+            commands,
+            caption,
+            if matches!(kind, Numeric::Duration) {
+                format!("{title} (s)")
+            } else {
+                title
+            },
+        );
+        let input = column(commands, group);
+        commands.entity(input).insert(Node {
+            width: percent(41),
+            min_width: px(90),
+            ..default()
+        });
+        number(commands, input, path, initial, kind);
+        return;
     }
-    if parameter
+    let group = column(commands, parent);
+    let pairs: Option<Vec<(String, &Value)>> = match current {
+        Value::Object(fields)
+            if !fields.is_empty()
+                && fields.len() <= 4
+                && fields.values().all(Value::is_number)
+                && fields
+                    .keys()
+                    .all(|key| matches!(key.as_str(), "yaw" | "pitch" | "x" | "y" | "z" | "w"))
+                && !path.ends_with("/injected_head_joints") =>
+        {
+            Some(
+                fields
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value))
+                    .collect(),
+            )
+        }
+        Value::Array(values)
+            if !values.is_empty() && values.len() <= 4 && values.iter().all(Value::is_number) =>
+        {
+            Some(
+                values
+                    .iter()
+                    .enumerate()
+                    .map(|(i, v)| (i.to_string(), v))
+                    .collect(),
+            )
+        }
+        _ => None,
+    };
+    if let Some(pairs) = pairs {
+        text(commands, group, &title);
+        let inputs = row(commands, group);
+        let count = pairs.len();
+        for (key, value) in pairs {
+            let cell = column(commands, inputs);
+            commands.entity(cell).insert(Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(4),
+                flex_grow: 1.0,
+                flex_basis: px(0),
+                min_width: px(0),
+                ..default()
+            });
+            let label = if current.is_array() {
+                let index: usize = key.parse().unwrap();
+                if parameter && count == 2 && !path.contains("/image_region_parameters/") {
+                    ["Min", "Max"][index]
+                } else {
+                    ["x", "y", "z", "w"][index]
+                }
+            } else {
+                &key
+            };
+            text(commands, cell, readable(label));
+            number(
+                commands,
+                cell,
+                &format!("{path}/{key}"),
+                value.as_f64().unwrap(),
+                Numeric::Float,
+            );
+        }
+        return;
+    }
+    let collapsible = (parameter
+        && path.matches('/').count() > 2
         && current.is_object()
-        && current.get("secs").is_none()
-        && !path.ends_with("/injected_head_joints")
-    {
+        && !path.ends_with("/injected_head_joints"))
+        || path.ends_with("/penalties")
+        || path.ends_with("_penalties_last_cycle");
+    if collapsible {
         let open = expanded.contains(path);
         let key = path.to_owned();
+        let caption = format!("{}  {title}", if open { "−" } else { "+" });
         commands.spawn_scene(bsn! {
-            @FeathersButton ChildOf(group) Children[label(if open { "Collapse" } else { "Expand" })]
+            @FeathersButton { @variant: ButtonVariant::Plain }
+            ChildOf(group) Node { height: px(34), justify_content: JustifyContent::FlexStart, width: percent(100) }
+            Children[label(&caption)]
             on(move |_: On<Activate>, mut editor: ResMut<Editor>| {
                 if !editor.expanded.remove(&key) { editor.expanded.insert(key.clone()); }
                 editor.rebuild = true;
@@ -509,6 +905,8 @@ fn build_field(
         if !open {
             return;
         }
+    } else if !title.is_empty() {
+        heading(commands, group, &title, 15.0);
     }
     if parameter && path.ends_with("/injected_head_joints") {
         let key = path.to_owned();
@@ -521,20 +919,6 @@ fn build_field(
             })
         });
         if !enabled {
-            return;
-        }
-    }
-    if path.ends_with("/penalties") || path.ends_with("_penalties_last_cycle") {
-        let open = expanded.contains(path);
-        let key = path.to_owned();
-        commands.spawn_scene(bsn! {
-            @FeathersButton ChildOf(group) Children[label(if open { "Hide player penalties" } else { "Edit player penalties" })]
-            on(move |_: On<Activate>, mut editor: ResMut<Editor>| {
-                if !editor.expanded.remove(&key) { editor.expanded.insert(key.clone()); }
-                editor.rebuild = true;
-            })
-        });
-        if !open {
             return;
         }
     }
@@ -719,7 +1103,7 @@ fn build_field(
         let path = path.to_owned();
         commands.spawn_scene(bsn! {
             @FeathersTextInputContainer ChildOf(group)
-            Node { width: percent(100), min_height: px(28) }
+            Node { width: percent(100), min_height: px(30) }
             Children [
                 @FeathersTextInput
                 template_value(ParameterText(path))
@@ -731,6 +1115,53 @@ fn build_field(
     }
 }
 
+fn readable(name: &str) -> String {
+    let mut result = String::new();
+    for (index, ch) in name.chars().enumerate() {
+        if ch == '_' {
+            result.push(' ');
+        } else {
+            if index > 0 && ch.is_uppercase() && !result.ends_with(' ') {
+                result.push(' ');
+            }
+            result.push(ch);
+        }
+    }
+    if let Some(first) = result.get_mut(..1) {
+        first.make_ascii_uppercase();
+    }
+    result
+}
+
+fn numeric_value(path: &str, value: &Value) -> Option<(f64, Numeric)> {
+    if let Some(number) = value.as_f64() {
+        let unsigned = if path.starts_with("/parameters/") {
+            path.ends_with("/inference_threads")
+        } else {
+            value.as_number()?.is_u64()
+        };
+        return Some((
+            number,
+            if unsigned {
+                Numeric::Unsigned
+            } else {
+                Numeric::Float
+            },
+        ));
+    }
+    if value.get("secs").is_some() && value.get("nanos").is_some() {
+        let duration: std::time::Duration = serde_json::from_value(value.clone()).ok()?;
+        return Some((duration.as_secs_f64(), Numeric::Duration));
+    }
+    if is_angle(path, value) {
+        let angle = serde_json::from_value::<Orientation2<Ground>>(value.clone())
+            .ok()?
+            .angle();
+        return Some((f64::from(angle), Numeric::Angle));
+    }
+    None
+}
+
 #[derive(Clone, Copy)]
 enum Numeric {
     Float,
@@ -739,23 +1170,27 @@ enum Numeric {
     Duration,
 }
 fn number(commands: &mut Commands, parent: Entity, path: &str, initial: f64, kind: Numeric) {
+    let motion_path = path.starts_with("/motion/").then(|| path.to_owned());
     let path = path.to_owned();
     let units = match kind {
         Numeric::Angle => "rad",
         Numeric::Duration => "s",
         _ => "",
     };
-    text(commands, parent, units);
-    commands.spawn_scene(bsn! {
+    if !units.is_empty() && !matches!(kind, Numeric::Duration) {
+        text(commands, parent, units);
+    }
+    let input = commands.spawn_scene(bsn! {
         @FeathersNumberInput
         ChildOf(parent)
         template_value(NumberInputValue::F64(initial))
         NumberInputPrecision(4)
         NumberInputStep(0.01)
-        Node { width: percent(100), min_height: px(28) }
+        Node { width: percent(100), min_height: px(30) }
         on(move |event: On<ValueChange<f64>>, mut commands: Commands, mut editor: ResMut<Editor>| {
             let n = event.value;
             if !n.is_finite() || n.abs() > f32::MAX as f64 || matches!(kind, Numeric::Unsigned | Numeric::Duration) && n < 0.0 { return; }
+            if path.starts_with("/motion/") { editor.track_ball = false; }
             let next = match kind {
                 Numeric::Float => json!(n),
                 Numeric::Unsigned => json!(n.round() as u64),
@@ -765,7 +1200,10 @@ fn number(commands: &mut Commands, parent: Entity, path: &str, initial: f64, kin
             *editor.draft.pointer_mut(&path).unwrap() = next;
             commands.entity(event.event_target()).insert(NumberInputValue::F64(n));
         })
-    });
+    }).id();
+    if let Some(path) = motion_path {
+        commands.entity(input).insert(MotionNumber(path));
+    }
 }
 
 fn field_label(name: &str) -> String {
@@ -796,8 +1234,57 @@ mod tests {
 
     #[test]
     fn first_ball_target_uses_current_ground_coordinates_and_spawn_order() {
+        use ros_z::{
+            context::ContextBuilder,
+            time::{Clock, Time},
+        };
+        use std::{path::PathBuf, time::Duration};
+
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let endpoint = format!("tcp/127.0.0.1:{}", listener.local_addr().unwrap().port());
+        drop(listener);
+        let (server, io, motion) = runtime.block_on(async {
+            let server = ContextBuilder::default()
+                .with_mode("router")
+                .disable_multicast_scouting()
+                .with_connect_endpoints(std::iter::empty::<&str>())
+                .with_listen_endpoints([endpoint.as_str()])
+                .build()
+                .await
+                .unwrap();
+            let observer = server
+                .create_node("ball_tracking_test")
+                .build()
+                .await
+                .unwrap();
+            let motion = observer
+                .subscriber::<MotionCommand>("/ball_tracking/behavior/motion_command")
+                .build()
+                .await
+                .unwrap();
+            let io = Robotics::new(
+                runtime.handle().clone(),
+                crate::robotics::StackConfiguration {
+                    router: endpoint,
+                    namespace: "/ball_tracking".into(),
+                    parameter_layers: vec![
+                        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("parameters"),
+                        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../etc/parameters/base"),
+                    ],
+                    launch_nodes: false,
+                },
+                Clock::logical(Time::zero()),
+            )
+            .await
+            .unwrap();
+            (server, io, motion)
+        });
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, MujocoWorldPlugin));
+        app.insert_resource(io)
+            .init_resource::<Editor>()
+            .add_systems(Update, update_ball_target);
         app.insert_resource(SimulationMode::Paused);
         app.init_resource::<SpawnedBalls>()
             .add_observer(ball::record_spawn)
@@ -805,6 +1292,7 @@ mod tests {
         let robot = app
             .world_mut()
             .spawn((
+                ControlledRobot,
                 MjcfObject::new(
                     concat!(env!("CARGO_MANIFEST_DIR"), "/assets/k1_robot.xml"),
                     "Trunk",
@@ -871,7 +1359,27 @@ mod tests {
                 Transform::from_xyz(origin.x, 0.105, -(origin.y + 4.0)),
             ))
             .id();
+        app.world_mut().resource_mut::<Editor>().track_ball = true;
+        let height_input = app
+            .world_mut()
+            .spawn((
+                MotionNumber("/motion/Stand/head/LookAt/height_above_ground".into()),
+                NumberInputValue::F64(0.0),
+            ))
+            .id();
         app.update();
+        let receive = || {
+            runtime.block_on(async {
+                tokio::time::timeout(Duration::from_secs(2), motion.recv())
+                    .await
+                    .unwrap()
+                    .unwrap()
+            })
+        };
+        assert_eq!(
+            value(receive()),
+            value(&app.world().resource::<Robotics>().input_motion)
+        );
         let MotionCommand::Stand {
             head:
                 HeadMotion::LookAt {
@@ -894,6 +1402,25 @@ mod tests {
                 Transform::from_xyz(origin.x - 3.0, 0.105, -(origin.y + 1.0)),
             )
             .unwrap();
+        app.update();
+        assert_eq!(value(receive()), value(target(&app).unwrap()));
+        assert_eq!(
+            app.world().resource::<Editor>().draft["motion"],
+            value(target(&app).unwrap())
+        );
+        let NumberInputValue::F64(height) =
+            app.world().get::<NumberInputValue>(height_input).unwrap()
+        else {
+            panic!("expected a floating-point height input");
+        };
+        assert!(
+            (height - 0.105).abs() < 1e-5,
+            "displayed height must track the ball too"
+        );
+        assert_eq!(
+            *app.world().resource::<SimulationMode>(),
+            SimulationMode::Paused
+        );
         let MotionCommand::Stand {
             head: HeadMotion::LookAt { target: point, .. },
         } = target(&app).unwrap()
@@ -924,5 +1451,29 @@ mod tests {
             (point.x() - 4.0).abs() < 1e-5,
             "must select oldest remaining ball"
         );
+        assert_eq!(value(receive()), value(target(&app).unwrap()));
+        app.world_mut().resource_mut::<Editor>().track_ball = false;
+        let held = value(&app.world().resource::<Robotics>().input_motion);
+        app.world_mut()
+            .resource_mut::<MujocoWorld>()
+            .set_object_pose(second, Transform::from_xyz(5.0, 0.105, 5.0))
+            .unwrap();
+        app.update();
+        assert_eq!(
+            value(&app.world().resource::<Robotics>().input_motion),
+            held
+        );
+        app.world_mut().despawn(second);
+        app.world_mut().despawn(third);
+        app.world_mut().resource_mut::<Editor>().track_ball = true;
+        app.update();
+        assert!(!app.world().resource::<Editor>().track_ball);
+        assert!(app.world().resource::<Editor>().message.contains("No ball"));
+        assert_eq!(
+            value(&app.world().resource::<Robotics>().input_motion),
+            held
+        );
+        drop(app);
+        drop(server);
     }
 }

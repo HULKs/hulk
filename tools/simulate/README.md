@@ -67,7 +67,7 @@ The launcher currently starts:
   the actual simulated field, including parameter changes and stack resets.
 
 To test the head, select **Stand** and **LookAround** in the Motion command form,
-click **Send current form**, then **Run / Pause**. **ZeroAngles** returns the head
+click **Send command**, then **Run / Pause**. **ZeroAngles** returns the head
 to zero; **LookAt** and **LookLeftAndRightOf** expose target position and height.
 The game-controller form controls the field side used by head scan patterns.
 
@@ -76,12 +76,15 @@ walk, kick, damping, and stand-up; the real walking policy controls the legs.
 The original central motion entry point and its pending body coordination remain
 unchanged.
 
-**Look at ball** immediately sends `Stand { head: LookAt { ... } }` for the first
+**Look at first ball** immediately sends `Stand { head: LookAt { ... } }` for the first
 spawned ball still in the scene and opens the constructed command in the form.
-It samples the ball's current MuJoCo center, converts it into the controlled
+It continuously samples the ball's current MuJoCo center, converts it into the controlled
 robot's Ground frame, and includes its height above ground with image region
-Center. This is a snapshot: click again to sample a moved ball. With no ball,
-the button shows a message and leaves the current command unchanged.
+Center. Moving the ball or robot updates the published target and displayed coordinates,
+including while paused or dragging. **Stop tracking ball** holds the last target;
+editing or sending a motion command, or pressing **Damp head**, also stops tracking.
+If the first ball is removed, tracking follows the oldest remaining ball. With no ball,
+tracking stops with a message and leaves the last command unchanged.
 
 `hardware_interface` publishes raw CDR `LowCommand` messages on `rt/joint_ctrl`.
 MuJoCo applies `tau + kp * (q_target - q) + kd * (dq_target - dq)` every physics
@@ -131,7 +134,7 @@ image or perception node is needed.
 
 ## Editors
 
-The right panel has **Motion command**, **Game controller**, and **Parameters** forms.
+The right panel has **Commands**, **Game**, and **Parameters** tabs.
 Select a variant and edit its fields with number inputs and choice buttons.
 Numbers support dragging or direct text entry. Angles are edited in radians,
 positions in metres, and velocities in metres/second or radians/second.
@@ -140,32 +143,47 @@ requests, orientation modes, kick fields, and editable line/arc path segments.
 Game state, phase, teams, time, substate, field side, and per-player penalties are
 editable; the larger penalty sections can be expanded.
 
-**Send current form** publishes that form. Edits remain drafts until sent.
+**Send command** or **Send game state** publishes the selected form. Edits remain drafts until sent.
 The most recently sent motion command and game state are repeated every 20 ms
 of simulation time, so late-starting subscribers receive them. The simulation
 status shows whether a joint command has arrived and whether the stack has exited.
 
 The **Parameters** tab exposes every field of `head_motion`, `motion_inference`
 (including all five policies), and `hardware_interface`, plus the shared global
-joint limits. Expand groups to edit individual joints, gains, offsets, model
-paths, and other settings. The optional injected head position has an enable
-button. Durations use seconds; joint angles use radians unless the field name
-specifies degrees. Image-region coordinates are normalized. The temporary central
-motion node has no parameter binding; its walking request remains `(0, 0, 0)`.
+joint limits. Use the pinned Head / Inference / Hardware / Joint limits selector;
+expand section headers for nested settings. Related numeric fields are paired,
+model paths have text inputs, and the injected head position has an enable button.
+Durations use seconds; joint angles use radians unless named in degrees.
 
-Click **Apply parameters & reset** to validate the complete draft, pause and reset
-the robot, and restart the stack with those settings. Inference parameters are
-startup-only, so applying restarts every motion node and clears controller history.
-Press **Run / Pause** to resume. Validation errors leave the running settings intact;
-model loading failures appear in the stack status. **Discard edits / reload applied
-settings** restores the form from the current parameter layers.
+**Apply live** sends the selected group's fields as one atomic ROS-Z parameter
+transaction to its running node. It does not pause physics, reset the robot,
+restart nodes, or reset simulation time. The footer reports pending changes,
+service availability, rejection reasons, and completion. Drafts in other groups
+are retained and marked with an asterisk. **Discard edits** reloads the selected
+form from the latest node snapshot. Node snapshots refresh in the background;
+external edits are reflected when the form has no unsent changes. Revision checks
+reject stale drafts instead of overwriting another editor's changes.
 
-Edits apply only to this simulator session, survive **Reset robot & stack**, and
-do not change repository configuration files. Closing the simulator discards them.
-The editor loads base/location/robot settings with any session edits layered last.
-Applying is unavailable with `--no-robotics`, because external nodes do not read
-the simulator's session layer. Field geometry and ball physics remain configurable
-through the simulator parameter service described below.
+Inference consumes new tuning at request boundaries, preserving gait phase and
+controller history. Model filenames, model directory, or thread-count changes
+reload networks on the inference worker; service requests can temporarily time out
+while loading. Failed reloads appear in the panel, retain the previous networks,
+and can be corrected with another parameter update. The dummy listens for inference
+parameter events and reloads the shared layer, so its arms also follow ROS-Z edits.
+Shared joint limits and head settings use their existing live parameter handling.
+
+The simulator adds a temporary writable parameter layer, so UI edits survive
+**Reset robot & stack** and do not alter repository configuration files. They are
+discarded when the simulator closes. With `--no-robotics`, the editor contacts the
+external nodes in the configured namespace and writes to their last reported layer.
+Field geometry and ball physics remain available through the simulator parameter
+service below. The temporary central motion coordinator has no parameter binding;
+its walking request stays `(0, 0, 0)`.
+
+The right panel uses a fixed simulation toolbar, selected tabs, a scrolling form,
+and a fixed feedback/action area. Its visual pass follows
+[Anthropic's frontend-design skill](https://github.com/anthropics/skills/blob/main/skills/frontend-design/SKILL.md)
+with Fira Sans labels, slate surfaces, blue active controls, and amber errors.
 
 ## Configuration
 

@@ -366,7 +366,7 @@ mod tests {
         let viewport = world_viewport(UVec2::new(1920, 1080), 1.5);
 
         assert_eq!(viewport.physical_position, UVec2::new(360, 0));
-        assert_eq!(viewport.physical_size, UVec2::new(870, 1080));
+        assert_eq!(viewport.physical_size, UVec2::new(840, 1080));
     }
 
     #[test]

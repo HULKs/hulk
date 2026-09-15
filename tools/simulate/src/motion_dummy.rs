@@ -8,20 +8,34 @@ use ros_z::prelude::*;
 use types::robot_command::{JointsCommand, MotorCommand};
 
 pub async fn run(context: Arc<Context>) -> Result<()> {
-    let node = context
-        .create_node("motion_inference_dummy")
-        .build()
-        .await?;
+    let node = Arc::new(
+        context
+            .create_node("motion_inference_dummy")
+            .build()
+            .await?,
+    );
     let parameters = node.bind_parameter_as::<Parameters>("motion_inference")?;
+    parameters.add_validation_hook(|candidate| candidate.validate().map_err(|e| e.to_string()))?;
+    let inference = ros_z::parameter::RemoteParameterClient::new(
+        node.clone(),
+        format!(
+            "{}/motion_inference",
+            node.node_entity()
+                .fully_qualified_name()
+                .rsplit_once('/')
+                .map_or("", |(namespace, _)| namespace)
+        ),
+    )?;
+    let updates = inference.subscribe_events().await?;
     let publisher = node
         .publisher::<JointsCommand>("motion_inference/dummy_joints")
         .build()
         .await?;
     let mut tick = node.create_timer(Duration::from_millis(20));
     loop {
-        let parameters = parameters.snapshot();
-        let (kp, kd) = Policy::Walk.gains(parameters.typed());
-        let locomotion = &parameters.typed().locomotion;
+        let snapshot = parameters.snapshot();
+        let (kp, kd) = Policy::Walk.gains(snapshot.typed());
+        let locomotion = &snapshot.typed().locomotion;
         publisher
             .publish(&dummy_pose(
                 kp,
@@ -30,7 +44,13 @@ pub async fn run(context: Arc<Context>) -> Result<()> {
                 locomotion.elbow_degrees,
             ))
             .await?;
-        tick.tick().await;
+        tokio::select! {
+            _ = tick.tick() => {},
+            event = updates.recv() => {
+                event?;
+                parameters.reload()?;
+            }
+        }
     }
 }
 
