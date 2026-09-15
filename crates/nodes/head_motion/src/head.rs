@@ -81,6 +81,11 @@ pub struct HeadController {
 }
 
 impl HeadController {
+    /// Discard measurements when the input adapter cannot decode a LowState sample.
+    pub fn invalidate_observation(&mut self) {
+        self.observation = None;
+    }
+
     /// Receive every LowState-derived head observation without generating commands.
     /// Invalid observations invalidate the cache instead of retaining older input.
     pub fn observe(&mut self, observation: HeadObservation, now: Time) -> Result<()> {

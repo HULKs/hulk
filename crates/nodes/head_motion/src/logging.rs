@@ -2,15 +2,100 @@
 
 use std::{mem::take, time::Duration};
 
+use color_eyre::Report;
 use ros_z::time::Time;
 use tracing::warn;
 use types::motion_command::HeadMotion;
 
 use crate::{
+    head::{HeadOutput, HoldReason},
     joint_control::{ConstraintCause, ConstraintDiagnostic, HeadObservation, JointControlOutput},
     parameters::JointControlParameters,
     patterns::{GlanceTimeout, ScanTimeout},
 };
+
+#[derive(Debug, Clone, Copy)]
+pub enum FailureKind {
+    Observation,
+    Request,
+    Response,
+}
+
+/// Owns all runtime logging; independent failure categories cannot suppress each other.
+#[derive(Default)]
+pub struct NodeLogger {
+    constraints: ConstraintLogger,
+    patterns: PatternLogger,
+    hold_reason: Option<HoldReason>,
+    hold: WarningThrottle,
+    failures: [WarningThrottle; 3],
+}
+
+impl NodeLogger {
+    pub fn log_output(
+        &mut self,
+        request: &HeadMotion,
+        output: &HeadOutput,
+        parameters: &JointControlParameters,
+        now: Time,
+    ) {
+        self.constraints.log(
+            request,
+            &output.observation,
+            &output.joint_control,
+            parameters,
+            now,
+        );
+        self.patterns.log_scan(
+            output.scan_timeout.as_ref(),
+            &output.observation,
+            parameters.warning_interval,
+            now,
+        );
+        self.patterns.log_glance(
+            output.glance_timeout.as_ref(),
+            &output.observation,
+            parameters.warning_interval,
+            now,
+        );
+        if output.hold_reason != self.hold_reason {
+            self.hold = WarningThrottle::default();
+            self.hold_reason = output.hold_reason;
+        }
+        let suppressed = self.hold.warning(
+            output.hold_reason.is_some(),
+            parameters.warning_interval,
+            now,
+        );
+        if let (Some(reason), Some(suppressed)) = (output.hold_reason, suppressed) {
+            warn!(?request, ?reason, suppressed, injected = output.injected,
+                measured_position_rad = ?output.observation.positions,
+                measured_velocity_rad_s = ?output.observation.velocities,
+                progress = ?output.joint_control.progress,
+                action = "hold_captured_reference", "head gaze geometry unavailable");
+        }
+    }
+
+    pub fn log_error(
+        &mut self,
+        kind: FailureKind,
+        request: Option<&HeadMotion>,
+        error: &Report,
+        warning_interval: Duration,
+        now: Time,
+    ) {
+        if let Some(suppressed) = self.failures[kind as usize].warning(true, warning_interval, now)
+        {
+            let action = match kind {
+                FailureKind::Observation => "invalidate_measurement",
+                FailureKind::Request => "omit_command_reply",
+                FailureKind::Response => "continue_serving_requests",
+            };
+            warn!(?kind, ?request, error = %format_args!("{error:#}"), suppressed, action,
+                "head motion service failure");
+        }
+    }
+}
 
 /// Logs constraint episodes from the pure joint controller. Call once for each evaluated
 /// output, including unconstrained outputs so completed episodes are cleared.
@@ -116,6 +201,11 @@ fn same_constraint_episode(left: &ConstraintDiagnostic, right: &ConstraintDiagno
 /// Logs pattern deadlines. Call the corresponding method for every evaluated output.
 #[derive(Default)]
 pub struct PatternLogger {
+    throttle: WarningThrottle,
+}
+
+#[derive(Default)]
+struct WarningThrottle {
     last_update: Option<Time>,
     last_warning: Option<Time>,
     suppressed: usize,
@@ -129,7 +219,9 @@ impl PatternLogger {
         warning_interval: Duration,
         now: Time,
     ) {
-        let suppressed = self.warning(timeout.is_some(), warning_interval, now);
+        let suppressed = self
+            .throttle
+            .warning(timeout.is_some(), warning_interval, now);
         let (Some(timeout), Some(suppressed)) = (timeout, suppressed) else {
             return;
         };
@@ -151,7 +243,9 @@ impl PatternLogger {
         warning_interval: Duration,
         now: Time,
     ) {
-        let suppressed = self.warning(timeout.is_some(), warning_interval, now);
+        let suppressed = self
+            .throttle
+            .warning(timeout.is_some(), warning_interval, now);
         let (Some(timeout), Some(suppressed)) = (timeout, suppressed) else {
             return;
         };
@@ -163,14 +257,16 @@ impl PatternLogger {
             action = "switch_glance_side", "head glance phase deadline reached"
         );
     }
+}
 
-    fn warning(&mut self, timed_out: bool, warning_interval: Duration, now: Time) -> Option<usize> {
+impl WarningThrottle {
+    fn warning(&mut self, active: bool, warning_interval: Duration, now: Time) -> Option<usize> {
         if self.last_update.is_some_and(|previous| now < previous) {
             self.last_warning = None;
             self.suppressed = 0;
         }
         self.last_update = Some(now);
-        if !timed_out {
+        if !active {
             return None;
         }
         if self
@@ -229,6 +325,48 @@ mod tests {
             reseeded: true,
         };
         (parameters, observation, output)
+    }
+
+    #[test]
+    fn holding_keeps_throttling_across_reseeds_but_recovery_ends_the_episode() {
+        let (parameters, observation, joint_control) = fixture();
+        let mut output = HeadOutput {
+            observation,
+            joint_control,
+            hold_reason: Some(HoldReason::MissingGeometry),
+            scan_timeout: None,
+            glance_timeout: None,
+            injected: false,
+        };
+        let mut logger = NodeLogger::default();
+        for millis in [0, 200, 400] {
+            logger.log_output(
+                &HeadMotion::ZeroAngles,
+                &output,
+                &parameters.joint_control,
+                Time::zero() + Duration::from_millis(millis),
+            );
+        }
+        assert_eq!(logger.hold.last_warning, Some(Time::zero()));
+        assert_eq!(logger.hold.suppressed, 2);
+
+        output.hold_reason = None;
+        logger.log_output(
+            &HeadMotion::ZeroAngles,
+            &output,
+            &parameters.joint_control,
+            Time::zero() + Duration::from_millis(500),
+        );
+        output.hold_reason = Some(HoldReason::MissingGeometry);
+        let restart = Time::zero() + Duration::from_millis(600);
+        logger.log_output(
+            &HeadMotion::ZeroAngles,
+            &output,
+            &parameters.joint_control,
+            restart,
+        );
+        assert_eq!(logger.hold.last_warning, Some(restart));
+        assert_eq!(logger.hold.suppressed, 0);
     }
 
     #[test]

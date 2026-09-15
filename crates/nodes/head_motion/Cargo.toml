@@ -19,6 +19,7 @@ serde = { workspace = true, features = ["derive"] }
 types = { workspace = true }
 rsruckig.workspace = true
 tracing.workspace = true
+tokio.workspace = true
 
 [dev-dependencies]
 json5.workspace = true
