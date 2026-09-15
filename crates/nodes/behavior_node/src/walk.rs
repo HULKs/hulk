@@ -5,8 +5,10 @@ use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, point};
 use path_planner::path_planner::PathPlanner;
 use types::{
     behavior_tree::Status,
+    field_dimensions::FieldDimensions,
     motion_command::{BodyMotion, MotionCommand, OrientationMode},
     motion_type::MotionType,
+    parameters::VoronoiParameters,
     path::{Path, direct_path},
 };
 use voronoi::{Ownership, VoronoiGrid};
@@ -255,6 +257,8 @@ pub fn walk_to_voronoi_position(blackboard: &mut Blackboard) -> Status {
         map,
         blackboard.world_state.robot.player_number,
         blackboard.ball.as_ref().map(|ball| ball.position),
+        &blackboard.field_dimensions,
+        &blackboard.parameters.voronoi,
     ) {
         let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
         let kicking_speed = blackboard.parameters.walking.speed.kicking;
@@ -284,29 +288,23 @@ fn target_player_position(
     map: &VoronoiGrid,
     player: PlayerNumber,
     ball_position: Option<Point2<Field>>,
+    field_dimensions: &FieldDimensions,
+    parameters: &VoronoiParameters,
 ) -> Option<Point2<Field>> {
     let mut sum_x = 0.0;
     let mut sum_y = 0.0;
     let mut count = 0;
     let mut candidates = Vec::new();
 
-    for (index, ownership) in map.tiles.iter().copied().enumerate() {
+    for (point, ownership) in map.cells() {
         if ownership != Ownership::Robot(player) {
             continue;
         }
-
-        let point = map.index_to_point(index);
-        if !is_in_bounds(map, point) {
-            continue;
-        }
-
         candidates.push(point);
 
-        if map.cell_overlaps_centroid_bounds(index) {
-            sum_x += point.x();
-            sum_y += point.y();
-            count += 1;
-        }
+        sum_x += point.x();
+        sum_y += point.y();
+        count += 1;
     }
 
     if count == 0 {
@@ -320,43 +318,35 @@ fn target_player_position(
         return Some(centroid);
     };
 
-    let field_length = map.bounds.grid_max.x() - map.bounds.grid_min.x();
-    let half_length = field_length * 0.5;
+    let half_length = field_dimensions.length / 2.0 + parameters.padding;
     let ball_x = ball_position.x();
     let ball_y = ball_position.y();
     let side_factor = (ball_x / half_length).clamp(-1.0, 1.0);
 
-    let support_distance = map
-        .parameters
-        .ball_support_distance
-        .max(map.parameters.grid_resolution);
-    let support_sigma = map
-        .parameters
-        .ball_support_sigma
-        .max(map.parameters.grid_resolution);
+    let resolution = map.resolution();
+
+    let support_distance = parameters.ball_support_distance.max(resolution);
+    let support_sigma = parameters.ball_support_sigma.max(resolution);
     let inv_two_support_sigma_sq = 1.0 / (2.0 * support_sigma * support_sigma);
 
-    let centroid_sigma = map
-        .parameters
-        .centroid_anchor_sigma
-        .max(map.parameters.grid_resolution);
+    let centroid_sigma = parameters.centroid_anchor_sigma.max(resolution);
 
     let mut best_target = None;
 
     for point in candidates {
         let forward_norm = point.x() / half_length;
-        let forward_term = map.parameters.forward_weight * side_factor * forward_norm;
+        let forward_term = parameters.forward_weight * side_factor * forward_norm;
 
         let dx_ball = point.x() - ball_x;
         let dy_ball = point.y() - ball_y;
         let ball_distance = (dx_ball * dx_ball + dy_ball * dy_ball).sqrt();
         let support_distance_error = ball_distance - support_distance;
-        let ball_term = map.parameters.ball_weight
+        let ball_term = parameters.ball_weight
             * (-(support_distance_error * support_distance_error) * inv_two_support_sigma_sq).exp();
 
         let dx_centroid = point.x() - centroid.x();
         let dy_centroid = point.y() - centroid.y();
-        let centroid_penalty = map.parameters.centroid_anchor_weight
+        let centroid_penalty = parameters.centroid_anchor_weight
             * (dx_centroid * dx_centroid + dy_centroid * dy_centroid).sqrt()
             / centroid_sigma;
 
@@ -367,9 +357,4 @@ fn target_player_position(
     }
 
     best_target.map(|(_, point)| point)
-}
-
-fn is_in_bounds(map: &VoronoiGrid, point: Point2<Field>) -> bool {
-    (map.bounds.centroid_min.x()..=map.bounds.centroid_max.x()).contains(&point.x())
-        && (map.bounds.centroid_min.y()..=map.bounds.centroid_max.y()).contains(&point.y())
 }

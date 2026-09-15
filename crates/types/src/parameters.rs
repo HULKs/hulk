@@ -20,7 +20,6 @@ pub struct WhistleDetectionParameters {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Message)]
 pub struct VoronoiParameters {
-    pub orientation_bias: f32,
     pub grid_resolution: f32,
     pub padding: f32,
     pub forward_weight: f32,
@@ -29,7 +28,6 @@ pub struct VoronoiParameters {
     pub ball_support_sigma: f32,
     pub centroid_anchor_weight: f32,
     pub centroid_anchor_sigma: f32,
-    pub centroid_offset: f32,
     pub minimum_centroid_margin_from_own_side: f32,
 }
 
