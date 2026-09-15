@@ -1,10 +1,9 @@
 //! Stateful target sequences for scanning and glancing, without motor commands.
 
-use std::time::Duration;
-
 use coordinate_systems::Ground;
 use kinematics::joints::head::HeadJoints;
 use linear_algebra::Point3;
+use ros_z::time::Time;
 
 use crate::{joint_control::MotionProgress, parameters::Parameters};
 
@@ -26,7 +25,7 @@ impl ScanState {
         _kind: ScanKind,
         _progress: Option<&MotionProgress>,
         _parameters: &Parameters,
-        _now: Duration,
+        _now: Time,
     ) -> HeadJoints<f32> {
         todo!("advance scan phase and select its next joint target")
     }
@@ -46,7 +45,7 @@ impl GlanceState {
         &mut self,
         _target: Point3<Ground>,
         _parameters: &Parameters,
-        _now: Duration,
+        _now: Time,
     ) -> Point3<Ground> {
         todo!("advance glance phase and offset the spatial target")
     }

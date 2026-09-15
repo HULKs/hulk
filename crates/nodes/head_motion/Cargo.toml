@@ -17,3 +17,8 @@ ros-z = { workspace = true }
 ros-z-schema = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 types = { workspace = true }
+rsruckig.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+json5.workspace = true

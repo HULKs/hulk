@@ -1,4 +1,8 @@
-use std::{future::Future, future::pending, pin::Pin, sync::Arc};
+use std::{
+    future::{Future, pending},
+    pin::Pin,
+    sync::Arc,
+};
 
 use booster::LowState;
 use color_eyre::Result;
@@ -6,10 +10,11 @@ use coordinate_systems::{Ground, Robot};
 use kinematics::joints::head::HeadJoints;
 use linear_algebra::Isometry3;
 use projection::camera_matrix::CameraMatrix;
-use ros_z::prelude::*;
+use ros_z::{prelude::*, qos::QosDurability};
+use ros_z_schema::{ServiceDef, compute_hash};
 use types::{
-    filtered_game_controller_state::FilteredGameControllerState, motion_command::HeadMotion,
-    robot_command::MotorCommand, time_wrapper::TimeWrapper,
+    filtered_game_controller_state::FilteredGameControllerState, joint_limits::JointLimits,
+    motion_command::HeadMotion, robot_command::MotorCommand, time_wrapper::TimeWrapper,
 };
 
 use crate::{head::HeadController, parameters::Parameters};
@@ -23,7 +28,17 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("head_motion").build().await?;
 
-    let _parameters = node.bind_parameter_as::<Parameters>("head_motion")?;
+    let parameters = node.bind_parameter_as::<Parameters>("head_motion")?;
+    parameters.add_validation_hook(|parameters| parameters.joint_control.validate())?;
+    let _joint_limits_cache = node
+        .subscriber::<JointLimits>("joint_limits")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
 
     let _low_state_sub = node
         .subscriber::<LowState>("inputs/low_state")
@@ -70,14 +85,13 @@ impl Service for HeadMotionService {
 
 impl ServiceTypeInfo for HeadMotionService {
     fn service_type_info() -> TypeInfo {
-        let descriptor = ros_z_schema::ServiceDef::new(
+        let descriptor = ServiceDef::new(
             "head_motion::node::HeadMotionService",
             HeadMotion::type_name(),
             HeadJoints::<MotorCommand>::type_name(),
         )
         .expect("static head motion service descriptor is valid");
-        let hash = ros_z_schema::compute_hash(&descriptor)
-            .expect("static head motion service hash is valid");
+        let hash = compute_hash(&descriptor).expect("static head motion service hash is valid");
         TypeInfo::new(descriptor.type_name.as_str(), hash)
     }
 }

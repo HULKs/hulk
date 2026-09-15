@@ -5298,12 +5298,15 @@ dependencies = [
  "booster",
  "color-eyre",
  "coordinate_systems",
+ "json5",
  "kinematics",
  "linear_algebra",
  "projection",
  "ros-z",
  "ros-z-schema",
+ "rsruckig",
  "serde",
+ "tracing",
  "types",
 ]
 
@@ -9755,6 +9758,17 @@ dependencies = [
  "spki",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "rsruckig"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8302f2de93029610200d16b3e4b5b630b543522d10369ddbf415ce9ccbd80b9"
+dependencies = [
+ "arrayvec",
+ "num-traits",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

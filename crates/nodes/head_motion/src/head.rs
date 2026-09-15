@@ -1,10 +1,9 @@
 //! Coordinates head requests, observations, patterns, geometry, and joint control.
 //! Controller operations are scaffolding and are not called by the node yet.
 
-use std::time::Duration;
-
 use kinematics::joints::head::HeadJoints;
-use types::{motion_command::HeadMotion, robot_command::MotorCommand};
+use ros_z::time::Time;
+use types::{joint_limits::JointLimits, motion_command::HeadMotion, robot_command::MotorCommand};
 
 use crate::{
     joint_control::{HeadObservation, JointController, MotionProgress},
@@ -16,7 +15,7 @@ use crate::{
 #[derive(Default)]
 pub struct HeadController {
     observation: Option<HeadObservation>,
-    observation_time: Option<Duration>,
+    observation_time: Option<Time>,
     last_request: Option<HeadMotion>,
     progress: Option<MotionProgress>,
     scan: ScanState,
@@ -27,7 +26,7 @@ pub struct HeadController {
 impl HeadController {
     /// Receives each head observation extracted from LowState.
     /// Times use a common robot-clock origin, including when running in simulation.
-    pub fn observe(&mut self, _observation: HeadObservation, _now: Duration) {
+    pub fn observe(&mut self, _observation: HeadObservation, _now: Time) {
         todo!("update measured head state from incoming observations")
     }
 
@@ -38,13 +37,14 @@ impl HeadController {
         _request: &HeadMotion,
         _geometry: Option<&GazeGeometry<'_>>,
         _parameters: &Parameters,
-        _now: Duration,
+        _joints: &JointLimits,
+        _now: Time,
     ) -> HeadJoints<MotorCommand> {
         todo!("resolve the request, handle missing inputs, and coordinate head motion modules")
     }
 
     /// Reseeds controller state from measurements at startup or reactivation.
-    pub fn reset(&mut self, _observation: HeadObservation, _now: Duration) {
+    pub fn reset(&mut self, _observation: HeadObservation, _now: Time) {
         todo!("reset pattern and joint-control state")
     }
 }
