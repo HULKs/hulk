@@ -82,14 +82,6 @@ impl Panel for ImagePanel {
     const DISPLAY_NAME: &'static str = "Image";
     const ICON: &'static str = egui_material_icons::icons::ICON_PHOTO_CAMERA.codepoint;
 
-    fn validate_state(value: &Value) -> color_eyre::Result<()> {
-        crate::panel::saved_field::<String>(value, "topic")?;
-        if let Some(overlays) = value.get("overlays") {
-            image_overlay::ImageOverlays::validate(overlays)?;
-        }
-        Ok(())
-    }
-
     fn new(context: PanelCreationContext<'_>) -> Self {
         let topic = context
             .value

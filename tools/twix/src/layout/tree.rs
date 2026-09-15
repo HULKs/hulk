@@ -6,7 +6,10 @@ use log::error;
 
 use crate::{PanelKind, SelectablePanel, backend::RobotBackend};
 
-use super::{TwixLayout, focus::request_pane_focus, pane::panel_creation_context, tree_id};
+use super::{
+    TwixLayout, focus::request_pane_focus, pane::panel_creation_context, persistence::LoadedLayout,
+    tree_id,
+};
 
 pub(super) enum LayoutRequest {
     Add {
@@ -159,16 +162,22 @@ impl TwixLayout {
                 self.close_tile(tile_id, backend, egui_context);
             }
             LayoutRequest::Import { tabs, title, saved } => {
-                let result = Self::from_serialized(&saved, backend, egui_context)
-                    .and_then(|layout| self.insert_layout(tabs, layout, title));
+                let result = LoadedLayout::parse(&saved).and_then(|layout| {
+                    self.insert_layout(tabs, layout, title, backend, egui_context)
+                });
                 match result {
                     Ok(_) => self.activate(egui_context),
                     Err(error) => self.preset_ui.error = Some(format!("{error:#}")),
                 }
             }
             LayoutRequest::Blank(tabs) => {
-                match self.insert_layout(tabs, Self::new(egui_context, backend), "Workspace".into())
-                {
+                match self.insert_layout(
+                    tabs,
+                    LoadedLayout::blank(),
+                    "Workspace".into(),
+                    backend,
+                    egui_context,
+                ) {
                     Ok(_) => self.activate(egui_context),
                     Err(error) => self.preset_ui.error = Some(format!("{error:#}")),
                 }
@@ -231,7 +240,7 @@ impl TwixLayout {
         let focus_was_removed = self
             .focused
             .is_some_and(|focused| self.tree.tiles.get(focused).is_none());
-        self.tree.simplify(&simplification_options());
+        self.simplify();
 
         if first_pane(&self.tree).is_none() {
             self.reset(backend, egui_context);
@@ -253,6 +262,40 @@ impl TwixLayout {
             Some(Tile::Container(Container::Tabs(_)))
         )
         .then_some(parent)
+    }
+
+    pub(super) fn simplify(&mut self) {
+        self.tree.simplify(&simplification_options());
+        if let Some(root) = self.tree.root {
+            self.tree.root = Some(self.simplify_tile(root));
+        }
+    }
+
+    fn simplify_tile(&mut self, id: TileId) -> TileId {
+        let Some(Tile::Container(container)) = self.tree.tiles.get(id) else {
+            return id;
+        };
+        let mut container = container.clone();
+        for child in container.children_vec() {
+            let replacement = self.simplify_tile(child);
+            if replacement != child {
+                let _ = container.replace_child(child, replacement);
+            }
+        }
+        if let Container::Tabs(tabs) = &mut container {
+            tabs.ensure_active(&self.tree.tiles);
+        }
+        if !self.names.contains_key(&id)
+            && !matches!(container, Container::Tabs(_))
+            && let Some(child) = container.only_child()
+        {
+            let visible = self.tree.tiles.is_visible(id) && self.tree.tiles.is_visible(child);
+            self.tree.tiles.remove(id);
+            self.tree.tiles.set_visible(child, visible);
+            return child;
+        }
+        self.tree.tiles.insert(id, Tile::Container(container));
+        id
     }
 
     pub(super) fn set_focus(&mut self, tile_id: TileId, egui_context: &Context) {

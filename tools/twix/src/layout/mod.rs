@@ -41,14 +41,6 @@ impl TwixLayout {
         self.preset_ui.dialogs(context);
     }
 
-    pub fn update(&mut self, context: &Context, backend: &Arc<RobotBackend>) {
-        for (_, tile) in self.tree.tiles.iter_mut() {
-            if let egui_tiles::Tile::Pane(panel) = tile {
-                panel.update(pane::panel_ui_context(backend, context));
-            }
-        }
-    }
-
     pub fn activate(&mut self, context: &Context) {
         eframe::egui::Popup::close_all(context);
         self.repair_focus(context);
@@ -75,11 +67,14 @@ impl TwixLayout {
         self.tree.ui(&mut behavior, ui);
         let dragging_tile = self.tree.dragged_id(ui.ctx()).is_some();
         if behavior.dropped {
-            // A drop can empty a container after Tree::ui's initial cleanup.
-            self.tree.simplify(&tree::simplification_options());
             self.tree.gc(&mut behavior);
         }
+        let dropped = behavior.dropped;
         let requests = behavior.requests;
+        if dropped {
+            // A drop can empty a container after Tree::ui's initial cleanup.
+            self.simplify();
+        }
 
         for request in requests {
             self.apply_request(request, backend, ui.ctx());

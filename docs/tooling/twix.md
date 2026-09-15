@@ -51,9 +51,9 @@ User presets are JSON files in `dirs::config_dir()/hulks/twix-ros-z/presets/`
 (`$XDG_CONFIG_HOME/hulks/twix-ros-z/presets/` on Linux, defaulting to `~/.config/hulks/twix-ros-z/presets/`).
 To contribute a bundled preset, save it through the UI, copy the file to `tools/twix/presets/`,
 and register it in `tools/twix/src/presets.rs`. Bundled files are embedded in the binary.
-Validation checks the tree structure and panel setting types before constructing any panels.
+Validation checks the tree structure before constructing any panels.
 Run `cargo test -p twix --bin twix` for preset validation, session, and headless layout tests.
-These include real drag gestures for panels and whole groups, subtree import/export, and session restoration.
+These cover bundled presets, file operations, picker dialogs, and layout rendering and round trips.
 
 ## Panels and keybindings
 

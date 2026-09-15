@@ -128,8 +128,10 @@ impl PresetUi {
                     .desired_width(f32::INFINITY)
                     .show(ui);
                 let refresh_overwrite = dialog.focus || editor.response.changed();
+                let submitted = editor.response.lost_focus()
+                    && ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, Key::Enter));
                 if std::mem::take(&mut dialog.focus) {
-                    select_name(ui.ctx(), editor, &dialog.name);
+                    select_name(editor);
                 }
                 let path = presets::directory()
                     .and_then(|directory| presets::path(&directory, &dialog.name));
@@ -150,7 +152,7 @@ impl PresetUi {
                     ui.colored_label(ui.visuals().error_fg_color, error);
                 }
                 ui.add_space(12.0);
-                let save = ui
+                let (save, cancel) = ui
                     .with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
                         let save = ui
                             .add_enabled(
@@ -158,17 +160,15 @@ impl PresetUi {
                                 Button::new(format!("{}  {label}", icons::ICON_SAVE.codepoint)),
                             )
                             .clicked();
-                        if ui.button("Cancel").clicked() {
-                            ui.close();
-                        }
-                        save
+                        (save, ui.button("Cancel").clicked())
                     })
-                    .inner
-                    || (path.is_ok()
-                        && ui.input_mut(|input| {
-                            input.consume_key(egui::Modifiers::NONE, Key::Enter)
-                        }));
-                save.then_some(path).and_then(Result::ok)
+                    .inner;
+                if cancel {
+                    ui.close();
+                    None
+                } else {
+                    (save || submitted).then_some(path).and_then(Result::ok)
+                }
             });
             if let Some(path) = response.inner.as_ref() {
                 let result = serde_json::to_string_pretty(&dialog.saved)
@@ -238,20 +238,13 @@ impl PresetUi {
     }
 }
 
-pub(super) fn select_name(
-    context: &Context,
-    mut editor: egui::text_edit::TextEditOutput,
-    name: &str,
-) {
+pub(super) fn select_name(mut editor: egui::text_edit::TextEditOutput) {
     editor.response.request_focus();
     editor
         .state
         .cursor
-        .set_char_range(Some(egui::text::CCursorRange::two(
-            egui::text::CCursor::new(0),
-            egui::text::CCursor::new(name.chars().count()),
-        )));
-    editor.state.store(context, editor.response.id);
+        .set_char_range(Some(egui::text::CCursorRange::select_all(&editor.galley)));
+    editor.state.store(&editor.response.ctx, editor.response.id);
 }
 
 fn show_choices(
@@ -306,8 +299,50 @@ fn show_choices(
 
 #[cfg(test)]
 mod tests {
-    use super::super::tests::{click, context, key, painted_text, text_center};
     use super::*;
+
+    fn context() -> Context {
+        let context = Context::default();
+        egui_material_icons::initialize(&context);
+        context.global_style_mut(|style| style.animation_time = 0.0);
+        context
+    }
+
+    fn key(key: Key) -> egui::Event {
+        egui::Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        }
+    }
+
+    fn click(pos: egui::Pos2, button: egui::PointerButton) -> Vec<egui::Event> {
+        vec![egui::Event::PointerMoved(pos)]
+            .into_iter()
+            .chain([true, false].map(|pressed| egui::Event::PointerButton {
+                pos,
+                button,
+                pressed,
+                modifiers: egui::Modifiers::NONE,
+            }))
+            .collect()
+    }
+
+    fn painted_text(output: &egui::FullOutput) -> impl Iterator<Item = &egui::epaint::TextShape> {
+        output.shapes.iter().filter_map(|shape| match &shape.shape {
+            egui::epaint::Shape::Text(text) => Some(text),
+            _ => None,
+        })
+    }
+
+    fn text_center(output: &egui::FullOutput, label: &str) -> egui::Pos2 {
+        let text = painted_text(output)
+            .find(|text| text.galley.text().ends_with(label))
+            .unwrap_or_else(|| panic!("missing text: {label}"));
+        text.pos + text.galley.size() / 2.0
+    }
 
     fn frame(
         context: &Context,

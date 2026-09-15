@@ -9,10 +9,11 @@ use color_eyre::{
 };
 use eframe::{Storage, egui::Context};
 use egui_tiles::{Container, Tile, TileId, Tiles, Tree};
+use log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{PanelKind, SelectablePanel, backend::RobotBackend, panel::SavedPanel};
+use crate::{SelectablePanel, backend::RobotBackend, panel::Panel, panels::TextPanel};
 
 use super::{
     TwixLayout,
@@ -25,11 +26,31 @@ const MAX_RESTORED_TILE_COUNT: usize = 4096;
 const MAX_RESTORED_TREE_DEPTH: usize = 128;
 
 #[derive(Serialize, Deserialize)]
-struct LoadedLayout {
+pub(super) struct LoadedLayout {
     tree: Tree<Value>,
     focused: Option<TileId>,
     #[serde(default)]
     names: HashMap<TileId, String>,
+}
+
+impl LoadedLayout {
+    pub(super) fn parse(serialized: &str) -> Result<Self> {
+        let loaded: Self =
+            serde_json::from_str(serialized).wrap_err("failed to deserialize tile layout")?;
+        validate_tree(&loaded.tree)?;
+        Ok(loaded)
+    }
+
+    pub(super) fn blank() -> Self {
+        Self {
+            tree: Tree::new_tabs(
+                "saved-layout",
+                vec![serde_json::json!({"kind": TextPanel::STORAGE_ID, "state": {}})],
+            ),
+            focused: None,
+            names: HashMap::new(),
+        }
+    }
 }
 
 impl TwixLayout {
@@ -41,10 +62,20 @@ impl TwixLayout {
     ) -> Self {
         let mut layout = Self::new_session(context, backend);
         if !clear
-            && let Some(saved) = storage.and_then(|storage| storage.get_string("workspace_session"))
+            && let Some((saved, legacy)) = storage.and_then(|storage| {
+                storage
+                    .get_string("workspace_session")
+                    .map(|saved| (saved, false))
+                    .or_else(|| storage.get_string("tile_layout").map(|saved| (saved, true)))
+            })
         {
             match Self::from_serialized(&saved, backend, context) {
-                Ok(restored) => layout = restored,
+                Ok(mut restored) => {
+                    if legacy {
+                        restored.wrap_root("Workspace".into());
+                    }
+                    layout = restored;
+                }
                 Err(error) => {
                     layout.recovery = Some(saved);
                     layout.preset_ui.error = Some(format!(
@@ -98,7 +129,11 @@ impl TwixLayout {
                 Tile::Pane(panel) => Tile::Pane(panel.save()),
                 Tile::Container(container) => {
                     pending.extend(container.children().copied());
-                    Tile::Container(container.clone())
+                    let mut container = container.clone();
+                    if let Container::Tabs(tabs) = &mut container {
+                        tabs.ensure_active(&self.tree.tiles);
+                    }
+                    Tile::Container(container)
                 }
             };
             tiles.insert(id, tile);
@@ -125,8 +160,10 @@ impl TwixLayout {
     pub(super) fn insert_layout(
         &mut self,
         tabs: TileId,
-        mut other: Self,
+        other: LoadedLayout,
         title: String,
+        backend: &Arc<RobotBackend>,
+        egui_context: &Context,
     ) -> Result<TileId> {
         ensure!(
             matches!(
@@ -141,7 +178,7 @@ impl TwixLayout {
         );
         let root = other.tree.root.wrap_err("imported layout is empty")?;
         // Fresh IDs lie above both ranges, so replace_child cannot remap an already-remapped child.
-        let start = self
+        let start = (self
             .tree
             .tiles
             .tile_ids()
@@ -149,7 +186,8 @@ impl TwixLayout {
             .map(|id| id.0)
             .max()
             .unwrap_or(0)
-            + 1;
+            + 1)
+        .max(self.tree.tiles.next_free_id().0);
         ensure!(
             start + other.tree.tiles.len() as u64 <= MAX_RESTORED_TILE_ID,
             "too many tile IDs"
@@ -170,6 +208,7 @@ impl TwixLayout {
                 pending.extend(container.children().map(|id| (*id, depth + 1)));
             }
         }
+        let mut other = Self::from_loaded(other, backend, egui_context)?;
         let ids: HashMap<_, _> = other
             .tree
             .tiles
@@ -208,8 +247,7 @@ impl TwixLayout {
     }
 
     pub fn validate(serialized: &str) -> Result<()> {
-        let loaded: LoadedLayout = serde_json::from_str(serialized)?;
-        validate_tree(&loaded.tree)?;
+        LoadedLayout::parse(serialized)?;
         Ok(())
     }
 
@@ -218,9 +256,15 @@ impl TwixLayout {
         backend: &Arc<RobotBackend>,
         egui_context: &Context,
     ) -> Result<Self> {
-        let loaded: LoadedLayout =
-            serde_json::from_str(serialized).wrap_err("failed to deserialize tile layout")?;
-        let root = validate_tree(&loaded.tree)?;
+        Self::from_loaded(LoadedLayout::parse(serialized)?, backend, egui_context)
+    }
+
+    fn from_loaded(
+        loaded: LoadedLayout,
+        backend: &Arc<RobotBackend>,
+        egui_context: &Context,
+    ) -> Result<Self> {
+        let root = loaded.tree.root.wrap_err("tile layout has no root")?;
         let names = loaded
             .names
             .into_iter()
@@ -230,9 +274,14 @@ impl TwixLayout {
         let mut tiles = Tiles::default();
         for (tile_id, tile) in loaded.tree.tiles.iter() {
             let tile = match tile {
-                Tile::Pane(value) => {
-                    Tile::Pane(SelectablePanel::restore(backend, value, egui_context)?)
-                }
+                Tile::Pane(value) => Tile::Pane(
+                    SelectablePanel::restore(backend, value, egui_context).unwrap_or_else(
+                        |error| {
+                            error!("failed to restore panel in tile {tile_id:?}: {error:#}");
+                            SelectablePanel::text(backend, egui_context)
+                        },
+                    ),
+                ),
                 Tile::Container(container) => Tile::Container(container.clone()),
             };
             tiles.insert(*tile_id, tile);
@@ -347,16 +396,6 @@ fn validate_tree(tree: &Tree<Value>) -> Result<TileId> {
                     .copied()
                     .map(|child| (child, depth + 1)),
             );
-        } else if let Tile::Pane(value) = tile {
-            let panel: SavedPanel = serde_json::from_value(value.clone())
-                .wrap_err_with(|| format!("invalid panel in {tile_id:?}"))?;
-            ensure!(
-                panel.state.is_object(),
-                "panel state in {tile_id:?} must be an object"
-            );
-            PanelKind::from_storage_id(&panel.kind)?
-                .validate_state(&panel.state)
-                .wrap_err_with(|| format!("invalid {} panel in {tile_id:?}", panel.kind))?;
         }
     }
 
@@ -398,18 +437,6 @@ mod tests {
                 "/tree/tiles/tiles/5/Container/Linear/shares/shares",
                 json!({"2": 0, "4": 0}),
             ),
-            ("/tree/tiles/tiles/1/Pane/kind", json!("missing")),
-            (
-                "/tree/tiles/tiles/1/Pane/state",
-                json!({"current_plot_type": "missing"}),
-            ),
-            (
-                "/tree/tiles/tiles/1/Pane/state",
-                json!({"field": {"active": "yes"}}),
-            ),
-            ("/tree/tiles/tiles/3/Pane/state/topic", json!(42)),
-            ("/tree/tiles/tiles/3/Pane/state", json!({"overlays": false})),
-            ("/tree/tiles/tiles/3/Pane/state", json!(null)),
             ("/tree/tiles/invisible", json!([5])),
         ] {
             let mut bad = preset.clone();
@@ -417,17 +444,6 @@ mod tests {
             assert!(
                 TwixLayout::validate(&bad.to_string()).is_err(),
                 "accepted {bad}"
-            );
-        }
-        for (kind, state) in [
-            ("text", json!({"pretty": "yes"})),
-            ("parameter", json!({"node": 42})),
-        ] {
-            assert!(
-                PanelKind::from_storage_id(kind)
-                    .unwrap()
-                    .validate_state(&state)
-                    .is_err()
             );
         }
     }
@@ -454,7 +470,13 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn presets_render_round_trip_and_isolate_focus() {
         use eframe::egui::{CentralPanel, RawInput, Rect, vec2};
-        let (backend, context) = super::super::tests::setup().await;
+        let backend = Arc::new(
+            RobotBackend::new(tokio::runtime::Handle::current(), None, "/".into())
+                .await
+                .unwrap(),
+        );
+        let context = Context::default();
+        egui_material_icons::initialize(&context);
         for &(name, preset) in crate::presets::PROVIDED {
             let mut layout = TwixLayout::from_serialized(preset, &backend, &context).unwrap();
             let snapshot = layout.snapshot().unwrap();
@@ -471,7 +493,6 @@ mod tests {
                         super::super::focus::pane_focus_id(layout.tree.id(), focused)
                     )));
                     for _ in 0..3 {
-                        layout.update(&context, &backend);
                         let _ = context.run_ui(
                             RawInput {
                                 screen_rect: Some(Rect::from_min_size(

@@ -62,7 +62,7 @@ pub(super) fn tab_ui(
         .interact(tab_rect, id, Sense::click_and_drag())
         .on_hover_cursor(eframe::egui::CursorIcon::Grab);
     if tab_response.drag_started() {
-        close_layout_popups(ui, behavior.tree_id, tiles);
+        Popup::close_all(ui.ctx());
     }
 
     Popup::context_menu(&tab_response)
@@ -75,10 +75,14 @@ pub(super) fn tab_ui(
                 .entry(tile_id)
                 .or_insert_with(|| tab_title(tiles, tile_id));
             let editor = TextEdit::singleline(name).id(id.with("name")).show(ui);
+            let submitted = editor.response.lost_focus()
+                && ui.input_mut(|input| {
+                    input.consume_key(eframe::egui::Modifiers::NONE, Key::Enter)
+                });
             if tab_response.secondary_clicked() {
-                select_name(ui.ctx(), editor, name);
+                select_name(editor);
             }
-            if ui.input_mut(|input| input.consume_key(eframe::egui::Modifiers::NONE, Key::Enter)) {
+            if submitted {
                 ui.close();
             }
             ui.separator();
@@ -253,14 +257,6 @@ pub(super) fn add_panel_button(behavior: &mut LayoutBehavior<'_>, ui: &mut Ui, t
         .and_then(|response| response.inner);
     if let Some(request) = selected {
         behavior.requests.push(request);
-    }
-}
-
-fn close_layout_popups(ui: &Ui, tree_id: Id, tiles: &Tiles<SelectablePanel>) {
-    for tile_id in tiles.tile_ids() {
-        Popup::close_id(ui.ctx(), panel_type_popup_id(tree_id, tile_id));
-        Popup::close_id(ui.ctx(), add_panel_popup_id(tree_id, tile_id));
-        Popup::close_id(ui.ctx(), tile_id.egui_id(tree_id).with("menu"));
     }
 }
 

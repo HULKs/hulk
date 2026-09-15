@@ -110,7 +110,6 @@ impl App for TwixApp {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut Frame) {
         let _runtime_guard = self.runtime.enter();
         let context = ui.ctx().clone();
-        self.layout.update(&context, &self.backend);
         let shortcuts_enabled = !self.layout.dialog_open();
 
         EguiPanel::top("top_bar").show(ui, |ui| {
