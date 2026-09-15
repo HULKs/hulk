@@ -85,7 +85,7 @@ enum Job {
 
 enum Completion {
     Initialized,
-    Inference(Output),
+    Inference(InferenceOutput),
 }
 
 struct Worker {
@@ -213,8 +213,8 @@ impl InferenceNode {
                             statuses.publish(&Status { time: node.clock().now(), state: State::Initialized }).await?;
                         }
                         Ok(Completion::Inference(output)) => {
-                            self.last_inferred_position = Some((*output.inference.joints).into_iter().map(|joint| joint.position).collect());
-                            respond(worker.reply.take().expect("active request has a reply"), Ok(Box::new(output))).await;
+                            self.last_inferred_position = Some((*output.joints).into_iter().map(|joint| joint.position).collect());
+                            respond(worker.reply.take().expect("active request has a reply"), Ok(output)).await;
                         }
                         Err(error) => self.fail_job(&node, &statuses, worker.reply.take(), &format!("{error:#}")).await?,
                     }
@@ -263,7 +263,7 @@ impl InferenceNode {
                     let clock = node.clock().clone();
                     let handle = tokio::task::spawn_blocking(move || {
                         let result = controller.execute(clock.now(), &sensor, request, velocity)
-                            .map(|inference| Completion::Inference(Output { inference }));
+                            .map(Completion::Inference);
                         (controller, result)
                     });
                     self.worker = Some(Worker { handle, job: Job::Inference, reply: Some(queued.reply), response_sent: false });
@@ -338,7 +338,7 @@ mod messages {
 
     pub type Request = InferenceCommand;
     pub type Response = InferenceResult;
-    pub type InferenceResult = std::result::Result<Box<Output>, InferenceError>;
+    pub type InferenceResult = std::result::Result<InferenceOutput, InferenceError>;
 
     #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Message)]
     pub struct InferenceError {
@@ -365,15 +365,10 @@ mod messages {
         Initialized,
         Fault { reason: String },
     }
-
-    #[derive(Clone, Serialize, Deserialize, Message)]
-    pub struct Output {
-        pub inference: InferenceOutput,
-    }
 }
 
 pub use crate::config::Parameters;
-pub use messages::{InferenceError, InferenceResult, Output, Request, Response, State, Status};
+pub use messages::{InferenceError, InferenceResult, Request, Response, State, Status};
 
 fn sensor_frame(low_state: &LowState, timestamp: Time) -> anyhow::Result<observation::SensorFrame> {
     let motors = low_state
