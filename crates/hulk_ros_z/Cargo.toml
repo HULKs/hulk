@@ -29,14 +29,12 @@ game_controller_filter = { workspace = true }
 game_controller_state_filter = { workspace = true }
 global_parameter_provider = { workspace = true }
 ground_provider = { workspace = true }
-head_motion_legacy = { workspace = true }
+head_motion = { workspace = true }
 image_receiver = { workspace = true }
 kinematics_provider = { workspace = true }
 led_handler = { workspace = true }
 localization-2d = { workspace = true }
 localization-3d = { workspace = true }
-look_around = { workspace = true }
-look_at = { workspace = true }
 low_state_bridge = { workspace = true }
 mcap_recorder = { workspace = true }
 message_filter = { workspace = true }

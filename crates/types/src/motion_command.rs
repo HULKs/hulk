@@ -174,13 +174,6 @@ pub enum ImageRegion {
     Top,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-pub enum GlanceDirection {
-    #[default]
-    LeftOfTarget,
-    RightOfTarget,
-}
-
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, Message)]
 pub enum KickPower {
     #[default]

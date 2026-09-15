@@ -5312,19 +5312,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "head_motion_legacy"
-version = "0.1.0"
-dependencies = [
- "booster",
- "color-eyre",
- "filtering",
- "kinematics",
- "ros-z",
- "serde",
- "types",
-]
-
-[[package]]
 name = "heapless"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5496,14 +5483,12 @@ dependencies = [
  "game_controller_state_filter",
  "global_parameter_provider",
  "ground_provider",
- "head_motion_legacy",
+ "head_motion",
  "image_receiver",
  "kinematics_provider",
  "led_handler",
  "localization-2d",
  "localization-3d",
- "look_around",
- "look_at",
  "low_state_bridge",
  "mcap_recorder",
  "message_filter",
@@ -6693,32 +6678,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52d3a9855747c17eaf4383823f135220716ab49bea5fbea7dd42cc9a92f8aa31"
 dependencies = [
  "logos-codegen",
-]
-
-[[package]]
-name = "look_around"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "kinematics",
- "ros-z",
- "serde",
- "types",
-]
-
-[[package]]
-name = "look_at"
-version = "0.1.0"
-dependencies = [
- "booster",
- "color-eyre",
- "coordinate_systems",
- "kinematics",
- "linear_algebra",
- "projection",
- "ros-z",
- "serde",
- "types",
 ]
 
 [[package]]

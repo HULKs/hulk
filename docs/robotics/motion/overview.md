@@ -20,7 +20,9 @@ Motion finishes by collecting and optimizing all motor commands in the `motor_co
 
 ## ROS-Z Booster Path
 
-The ROS-Z Booster stack bypasses the legacy `commands_sender` path. Behavior publishes `behavior/motion_command`, the ROS-Z head nodes publish `head_joints_command`, and `booster_interface` owns Booster Zenoh RPC mode changes, walking commands, head rotation, stand-up requests, LED forwarding, and `rt/kick_ball` publishing.
+The ROS-Z Booster stack bypasses the legacy `commands_sender` path. Behavior publishes `behavior/motion_command`, and `booster_interface` owns Booster Zenoh RPC mode changes, walking commands, head rotation, stand-up requests, LED forwarding, and `rt/kick_ball` publishing.
+
+Head motion runs in `crates/nodes/head_motion`. The launcher starts its `services/head_motion` service, which accepts a `HeadMotion` request and returns `HeadJoints<MotorCommand>`. Connecting the service caller in central motion remains pending.
 
 `booster_interface` reads its runtime parameters from `etc/parameters/base/booster_interface.json5`. The removed split ROS-Z nodes no longer consume `commands/high_level_command`, `services/get_robot_mode`, or `command_sender` parameters. Robot mode is now managed internally from `behavior/motion_command` without waiting for SDK mode feedback.
 
@@ -33,7 +35,6 @@ Manual validation on a Booster robot should check these behaviors:
 - `Stand`, `Walk`, `WalkWithVelocity`, and `VisualKick` commands request Booster Zenoh RPC `Soccer` mode, not Booster Zenoh RPC `Walking` mode.
 - Walking commands produce periodic Booster Zenoh RPC `move_robot` calls at about `50 Hz` while locally assuming `Soccer`.
 - `Stand` commands produce periodic zero-velocity Booster Zenoh RPC `move_robot` calls at about `50 Hz` while locally assuming `Soccer`.
-- `head_joints_command` produces periodic Booster Zenoh RPC `rotate_head` calls at about `50 Hz` while locally assuming `Soccer`.
 - Stand-up commands produce one Booster Zenoh RPC `get_up` request on entry while locally assuming `Prepare`.
 - Visual kick commands publish `rt/kick_ball` and send one Booster Zenoh RPC `visual_kick(true)` request on visual-kick entry while locally assuming `Soccer`.
 - Visual kick commands keep publishing fresh `rt/kick_ball` at about `50 Hz` while active.

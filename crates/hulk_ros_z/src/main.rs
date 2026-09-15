@@ -151,14 +151,12 @@ async fn spawn_all(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<Runni
     join_set.spawn(game_controller_state_filter::run_boxed(ctx.clone()));
     join_set.spawn(global_parameter_provider::run_boxed(ctx.clone()));
     join_set.spawn(ground_provider::run_boxed(ctx.clone()));
-    join_set.spawn(head_motion_legacy::run_boxed(ctx.clone()));
+    join_set.spawn(head_motion::node::run_boxed(ctx.clone()));
     join_set.spawn(image_receiver::run_boxed(ctx.clone()));
     join_set.spawn(kinematics_provider::run_boxed(ctx.clone()));
     join_set.spawn(led_handler::run_boxed(ctx.clone()));
     join_set.spawn(localization_2d::run_boxed(ctx.clone()));
     join_set.spawn(localization_3d::run_boxed(ctx.clone()));
-    join_set.spawn(look_around::run_boxed(ctx.clone()));
-    join_set.spawn(look_at::run_boxed(ctx.clone()));
     join_set.spawn(low_state_bridge::run_boxed(ctx.clone()));
     join_set.spawn(mcap_recorder::run_boxed(ctx.clone(), log_path));
     join_set.spawn(message_filter::run_boxed(ctx.clone()));
