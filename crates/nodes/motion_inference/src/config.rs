@@ -84,7 +84,6 @@ pub struct PolicyParameters {
 pub struct TimingParameters {
     pub policy_period: Duration,
     pub sensor_period: Duration,
-    pub stand_delay: Duration,
     pub arm_blend_duration: Duration,
 }
 
@@ -103,9 +102,6 @@ pub struct LocomotionParameters {
     pub forward_velocity_limits: [f32; 2],
     pub lateral_velocity_limit: f32,
     pub angular_velocity_limit: f32,
-    pub minimum_forward_velocity: f32,
-    pub minimum_lateral_velocity: f32,
-    pub minimum_angular_velocity_degrees: f32,
     pub base_frequency: f32,
     pub initial_frequency_offset: f32,
     pub frequency_offset_limit: f32,
@@ -194,9 +190,6 @@ impl Parameters {
                 o.joint_velocity_scale,
                 l.lateral_velocity_limit,
                 l.angular_velocity_limit,
-                l.minimum_forward_velocity,
-                l.minimum_lateral_velocity,
-                l.minimum_angular_velocity_degrees,
                 l.base_frequency,
                 l.frequency_offset_limit,
                 l.shoulder_pitch_scale,

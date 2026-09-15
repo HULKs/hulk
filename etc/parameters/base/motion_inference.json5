@@ -4,7 +4,6 @@
   timing: {
     policy_period: { secs: 0, nanos: 20000000 },
     sensor_period: { secs: 0, nanos: 2000000 },
-    stand_delay: { secs: 1, nanos: 0 },
     arm_blend_duration: { secs: 1, nanos: 0 },
   },
   // Velocity limiter delta is degrees/second per sensor update; scales encode network features.
@@ -14,16 +13,13 @@
     maximum_walking_velocity_change_degrees: 100.0,
     joint_velocity_scale: 0.1,
   },
-  // Linear velocities: m/s; angular limit: rad/s; angular deadband: deg/s.
+  // Linear velocities: m/s; angular limit: rad/s.
   // Frequencies: Hz; distances: metres; arm angles: degrees.
   // Shoulder position scales: rad/m; elbow_scale is dimensionless.
   locomotion: {
     forward_velocity_limits: [-1.0, 2.0],
     lateral_velocity_limit: 1.0,
     angular_velocity_limit: 1.5,
-    minimum_forward_velocity: 0.075,
-    minimum_lateral_velocity: 0.03,
-    minimum_angular_velocity_degrees: 10.0,
     base_frequency: 1.5,
     // The startup observation intentionally exceeds the subsequent correction limit.
     initial_frequency_offset: 1.5,

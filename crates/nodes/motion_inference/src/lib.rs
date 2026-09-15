@@ -1,6 +1,7 @@
 pub mod node;
 pub use node::run_boxed;
 
+pub mod arms;
 pub mod config;
 pub mod get_up;
 pub mod inference;

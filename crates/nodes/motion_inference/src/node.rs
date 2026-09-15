@@ -2,9 +2,12 @@ use std::{collections::VecDeque, future::Future, pin::Pin, sync::Arc};
 use types::joint_limits::JointLimits;
 
 use anyhow::anyhow;
-use booster::{JointsMotorState, LowState};
+use booster::{JointsMotorState, LowState, MotorCommand};
 use color_eyre::Result;
-use kinematics::joints::Joints;
+use kinematics::joints::{
+    Joints,
+    body::{BodyJoints, LowerBodyJoints},
+};
 use nalgebra::UnitQuaternion;
 use ros_z::{
     Message, ServiceTypeInfo,
@@ -20,35 +23,62 @@ use tokio::task::JoinHandle;
 
 use crate::{
     config::Policy,
-    inference::{Inference, InferenceCommand, InferenceOutput},
+    inference::{
+        GetUpCommand, Inference, InferenceCommand, InferenceOutput, KickCommand, WalkCommand,
+    },
     observation::{self, SensorFrame, VelocityEstimator},
 };
 
 pub const SENSOR_TOPIC: &str = "inputs/low_state";
-pub const INFERENCE_SERVICE: &str = "motion_inference/infer";
+pub const GETUP_INFERENCE_SERVICE: &str = "motion_inference/infer_getup";
+pub const KICK_INFERENCE_SERVICE: &str = "motion_inference/infer_kick";
+pub const WALK_INFERENCE_SERVICE: &str = "motion_inference/infer_walk";
 pub const STATUS_TOPIC: &str = "motion_inference/status";
 
 const REQUEST_QUEUE_CAPACITY: usize = 5;
 
-pub struct Infer;
+macro_rules! impl_service {
+    ($service:ty, $request:ty, $response:ty) => {
+        impl Service for $service {
+            type Request = $request;
+            type Response = $response;
+        }
 
-impl Service for Infer {
-    type Request = Request;
-    type Response = Response;
+        impl ServiceTypeInfo for $service {
+            fn service_type_info() -> TypeInfo {
+                let descriptor = ros_z_schema::ServiceDef::new(
+                    concat!(module_path!(), "::", stringify!($service)),
+                    <$request>::type_name(),
+                    <$response>::type_name(),
+                )
+                .expect("static inference service descriptor is valid");
+                let hash =
+                    ros_z_schema::compute_hash(&descriptor).expect("static service hash is valid");
+                TypeInfo::new(descriptor.type_name.as_str(), hash)
+            }
+        }
+    };
 }
 
-impl ServiceTypeInfo for Infer {
-    fn service_type_info() -> TypeInfo {
-        let descriptor = ros_z_schema::ServiceDef::new(
-            "motion_inference::node::Infer",
-            Request::type_name(),
-            Response::type_name(),
-        )
-        .expect("static inference service descriptor is valid");
-        let hash = ros_z_schema::compute_hash(&descriptor).expect("static service hash is valid");
-        TypeInfo::new(descriptor.type_name.as_str(), hash)
-    }
-}
+pub struct WalkInferenceService;
+pub struct KickInferenceService;
+pub struct GetUpInferenceService;
+
+impl_service!(
+    WalkInferenceService,
+    WalkCommand,
+    InferenceResult<Box<LowerBodyJoints<MotorCommand>>>
+);
+impl_service!(
+    KickInferenceService,
+    KickCommand,
+    InferenceResult<Box<LowerBodyJoints<MotorCommand>>>
+);
+impl_service!(
+    GetUpInferenceService,
+    GetUpCommand,
+    InferenceResult<Box<Joints<MotorCommand>>>
+);
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -73,9 +103,54 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     runtime.run(node).await
 }
 
-struct QueuedRequest {
-    request: Request,
-    reply: ServiceReply<Infer>,
+enum QueuedRequest {
+    Walk {
+        request: WalkCommand,
+        reply: ServiceReply<WalkInferenceService>,
+    },
+    Kick {
+        request: KickCommand,
+        reply: ServiceReply<KickInferenceService>,
+    },
+    GetUp {
+        request: GetUpCommand,
+        reply: ServiceReply<GetUpInferenceService>,
+    },
+}
+
+impl QueuedRequest {
+    fn command(&self) -> InferenceCommand {
+        match self {
+            Self::Walk { request, .. } => InferenceCommand::Walk(*request),
+            Self::Kick { request, .. } => InferenceCommand::Kick(*request),
+            Self::GetUp { request, .. } => InferenceCommand::GetUp(*request),
+        }
+    }
+
+    async fn respond(self, result: InferenceResult<Box<Joints<MotorCommand>>>) {
+        match self {
+            Self::Walk { reply, .. } => {
+                let response =
+                    result.map(|joints| Box::new(LowerBodyJoints::from(BodyJoints::from(*joints))));
+                let _ = reply.reply_async(&response).await;
+            }
+            Self::Kick { reply, .. } => {
+                let response =
+                    result.map(|joints| Box::new(LowerBodyJoints::from(BodyJoints::from(*joints))));
+                let _ = reply.reply_async(&response).await;
+            }
+            Self::GetUp { reply, .. } => {
+                let _ = reply.reply_async(&result).await;
+            }
+        }
+    }
+
+    async fn deny(self, reason: &str) {
+        self.respond(Err(InferenceError {
+            reason: reason.to_owned(),
+        }))
+        .await;
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -92,7 +167,7 @@ enum Completion {
 struct Worker {
     handle: JoinHandle<(Controller, anyhow::Result<Completion>)>,
     job: Job,
-    reply: Option<ServiceReply<Infer>>,
+    request: Option<QueuedRequest>,
     response_sent: bool,
 }
 
@@ -142,7 +217,7 @@ impl InferenceNode {
         self.worker = Some(Worker {
             handle,
             job: Job::Initialize,
-            reply: None,
+            request: None,
             response_sent: false,
         });
     }
@@ -166,8 +241,24 @@ impl InferenceNode {
             .qos(latest)
             .build()
             .await?;
-        let mut requests = node
-            .service_server::<Infer>(INFERENCE_SERVICE)
+        let mut getup_requests = node
+            .service_server::<GetUpInferenceService>(GETUP_INFERENCE_SERVICE)
+            .qos(QosProfile {
+                history: QosHistory::KeepAll,
+                ..Default::default()
+            })
+            .build()
+            .await?;
+        let mut kick_requests = node
+            .service_server::<KickInferenceService>(KICK_INFERENCE_SERVICE)
+            .qos(QosProfile {
+                history: QosHistory::KeepAll,
+                ..Default::default()
+            })
+            .build()
+            .await?;
+        let mut walk_requests = node
+            .service_server::<WalkInferenceService>(WALK_INFERENCE_SERVICE)
             .qos(QosProfile {
                 history: QosHistory::KeepAll,
                 ..Default::default()
@@ -195,8 +286,8 @@ impl InferenceNode {
                     && !worker.response_sent
                 {
                     worker.response_sent = true;
-                    if let Some(reply) = worker.reply.take() {
-                        deny(reply, &reason).await;
+                    if let Some(request) = worker.request.take() {
+                        request.deny(&reason).await;
                     }
                 }
                 self.reject_pending(&reason).await;
@@ -209,7 +300,7 @@ impl InferenceNode {
                         Err(error) => {
                             let reason = format!("motion inference worker failed: {error}");
                             if !worker.response_sent {
-                                self.fail_job(&node, &statuses, worker.reply.take(), &reason).await?;
+                                self.fail_job(&node, &statuses, worker.request.take(), &reason).await?;
                             }
                             self.reject_pending(&reason).await;
                             return Err(color_eyre::eyre::eyre!(reason));
@@ -226,9 +317,9 @@ impl InferenceNode {
                         }
                         Ok(Completion::Inference(output)) => {
                             self.last_inferred_position = Some((*output.joints).into_iter().map(|joint| joint.position).collect());
-                            respond(worker.reply.take().expect("active request has a reply"), Ok(output)).await;
+                            worker.request.take().expect("active request has a reply").respond(Ok(output.joints)).await;
                         }
-                        Err(error) => self.fail_job(&node, &statuses, worker.reply.take(), &format!("{error:#}")).await?,
+                        Err(error) => self.fail_job(&node, &statuses, worker.request.take(), &format!("{error:#}")).await?,
                     }
                 }
                 received = joint_limits.recv() => {
@@ -252,25 +343,27 @@ impl InferenceNode {
                         }
                     }
                 }
-                received = requests.take_request_async() => {
+                received = getup_requests.take_request_async() => {
                     let (request, reply) = received?.into_parts();
-                    if let Some(reason) = &self.first_fault {
-                        deny(reply, reason).await;
-                    } else if !self.initialized() {
-                        deny(reply, "inference is initializing").await;
-                    } else if let Some(oldest) = enqueue_request(&mut self.pending, QueuedRequest { request, reply }) {
-                        deny(oldest.reply, "inference request queue is full").await;
-                    }
+                    self.enqueue(QueuedRequest::GetUp { request, reply }).await;
+                }
+                received = kick_requests.take_request_async() => {
+                    let (request, reply) = received?.into_parts();
+                    self.enqueue(QueuedRequest::Kick { request, reply }).await;
+                }
+                received = walk_requests.take_request_async() => {
+                    let (request, reply) = received?.into_parts();
+                    self.enqueue(QueuedRequest::Walk { request, reply }).await;
                 }
                 () = std::future::ready(()), if self.worker.is_none() && !self.pending.is_empty() => {
                     let queued = self.pending.pop_front().expect("queued request exists");
-                    let request = queued.request;
+                    let request = queued.command();
                     let Some(joints) = self.joint_limits.clone() else {
-                        deny(queued.reply, "global joint limits are missing").await;
+                        queued.deny("global joint limits are missing").await;
                         continue;
                     };
                     let Some(sensor) = &self.sensor else {
-                        deny(queued.reply, "sensor frame is missing").await;
+                        queued.deny("sensor frame is missing").await;
                         continue;
                     };
                     let mut sensor = sensor.clone();
@@ -278,7 +371,7 @@ impl InferenceNode {
                     if let Err(error) = sensor.validate(&self.parameters) {
                         let reason = format!("{error:#}");
                         statuses.publish(&fault_status(&mut self.first_fault, node.clock().now(), error)).await?;
-                        deny(queued.reply, &reason).await;
+                        queued.deny(&reason).await;
                         continue;
                     }
                     let velocity = self.velocity.clone();
@@ -289,15 +382,25 @@ impl InferenceNode {
                             .map(Completion::Inference);
                         (controller, result)
                     });
-                    self.worker = Some(Worker { handle, job: Job::Inference, reply: Some(queued.reply), response_sent: false });
+                    self.worker = Some(Worker { handle, job: Job::Inference, request: Some(queued), response_sent: false });
                 }
             }
         }
     }
 
+    async fn enqueue(&mut self, request: QueuedRequest) {
+        if let Some(reason) = &self.first_fault {
+            request.deny(reason).await;
+        } else if !self.initialized() {
+            request.deny("inference is initializing").await;
+        } else if let Some(oldest) = enqueue_request(&mut self.pending, request) {
+            oldest.deny("inference request queue is full").await;
+        }
+    }
+
     async fn reject_pending(&mut self, reason: &str) {
         while let Some(queued) = self.pending.pop_front() {
-            deny(queued.reply, reason).await;
+            queued.deny(reason).await;
         }
     }
 
@@ -305,7 +408,7 @@ impl InferenceNode {
         &mut self,
         node: &Node,
         statuses: &Publisher<Status>,
-        reply: Option<ServiceReply<Infer>>,
+        request: Option<QueuedRequest>,
         reason: &str,
     ) -> Result<()> {
         statuses
@@ -315,8 +418,8 @@ impl InferenceNode {
                 anyhow!("{reason}"),
             ))
             .await?;
-        if let Some(reply) = reply {
-            deny(reply, reason).await;
+        if let Some(request) = request {
+            request.deny(reason).await;
         }
         Ok(())
     }
@@ -332,20 +435,6 @@ fn enqueue_request<T>(pending: &mut VecDeque<T>, request: T) -> Option<T> {
     denied
 }
 
-async fn respond(reply: ServiceReply<Infer>, result: InferenceResult) {
-    let _ = reply.reply_async(&result).await;
-}
-
-async fn deny(reply: ServiceReply<Infer>, reason: &str) {
-    respond(
-        reply,
-        Err(InferenceError {
-            reason: reason.to_owned(),
-        }),
-    )
-    .await;
-}
-
 fn fault_status(first_fault: &mut Option<String>, time: Time, error: anyhow::Error) -> Status {
     let reason = first_fault
         .get_or_insert_with(|| format!("{error:#}"))
@@ -357,12 +446,10 @@ fn fault_status(first_fault: &mut Option<String>, time: Time, error: anyhow::Err
 }
 
 mod messages {
+    use std::result::Result;
+    pub type InferenceResult<T> = Result<T, InferenceError>;
+
     use super::*;
-
-    pub type Request = InferenceCommand;
-    pub type Response = InferenceResult;
-    pub type InferenceResult = std::result::Result<InferenceOutput, InferenceError>;
-
     #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Message)]
     pub struct InferenceError {
         pub reason: String,
@@ -391,7 +478,7 @@ mod messages {
 }
 
 pub use crate::config::Parameters;
-pub use messages::{InferenceError, InferenceResult, Request, Response, State, Status};
+pub use messages::{InferenceError, InferenceResult, State, Status};
 
 fn sensor_frame(low_state: &LowState, timestamp: Time) -> anyhow::Result<observation::SensorFrame> {
     let motors = low_state

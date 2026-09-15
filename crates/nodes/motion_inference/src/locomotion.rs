@@ -1,5 +1,5 @@
 use crate::{
-    config::{HISTORY_FRAME_SIZE, HISTORY_LENGTH, LEGS, Parameters, Policy, clip_measurement},
+    config::{HISTORY_FRAME_SIZE, HISTORY_LENGTH, LEGS, Parameters, Policy},
     inference::position_targets,
     observation::SensorFrame,
 };
@@ -128,18 +128,11 @@ impl Locomotion {
         policy: Policy,
         actions: &[f32],
         sensor: &SensorFrame,
-        joints: &JointLimits,
     ) -> Joints<MotorCommand> {
         let offset = policy.offset(&self.parameters);
         let (kp, kd) = policy.gains(&self.parameters);
         let action_limit = policy.action_limit(&self.parameters);
         let mut position = sensor.last_commanded_position;
-        let arms = arm_targets(
-            &clip_measurement(sensor.position, joints.position),
-            &self.parameters.locomotion,
-        );
-        position.left_arm = arms.left_arm;
-        position.right_arm = arms.right_arm;
         for (index, joint) in LEGS.into_iter().enumerate() {
             position[joint] = actions[index].clamp(-action_limit, action_limit) + offset[joint];
             // RLWalkPhase::calcJoints retains these targets before downstream composition/clipping.
@@ -179,27 +172,4 @@ pub fn leg(position: &Joints<f32>, left: bool) -> (Point3<Robot>, Point3<Robot>)
             tibia_to_robot.translation(),
         )
     }
-}
-
-pub fn arm_targets(
-    position: &Joints<f32>,
-    parameters: &crate::config::LocomotionParameters,
-) -> Joints<f32> {
-    let mut target = Joints::fill(0.0);
-    for (left, arm, sign) in [
-        (true, &mut target.left_arm, 1.0),
-        (false, &mut target.right_arm, -1.0),
-    ] {
-        let (sole, knee) = leg(position, left);
-        arm.shoulder_pitch = sole.x() * parameters.shoulder_pitch_scale;
-        arm.shoulder_roll = sign
-            * (parameters.shoulder_roll_degrees.to_radians()
-                + (sign * knee.y() - parameters.knee_lateral_offset).max(0.0)
-                    * parameters.shoulder_roll_scale);
-        arm.shoulder_yaw = 0.0;
-        arm.elbow = sign
-            * (parameters.elbow_degrees.to_radians()
-                + sole.x() * parameters.shoulder_pitch_scale * parameters.elbow_scale);
-    }
-    target
 }

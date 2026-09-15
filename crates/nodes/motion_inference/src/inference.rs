@@ -1,5 +1,5 @@
 use crate::{
-    config::{ARMS, Parameters, Policy},
+    config::{Parameters, Policy},
     get_up::{GetUp, fast, slow},
     locomotion::{KickRequest, Locomotion, kick, walk},
     network::Network,
@@ -16,19 +16,27 @@ use std::{collections::HashMap, path::Path, sync::Arc};
 use types::joint_limits::JointLimits;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, ros_z::Message)]
+pub struct KickCommand {
+    pub soft: bool,
+    pub request: KickRequest,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, ros_z::Message)]
+pub struct WalkCommand {
+    pub velocity: Vector2<Ground>,
+    pub angular_velocity: f32,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, ros_z::Message)]
+pub struct GetUpCommand {
+    pub fast: bool,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, ros_z::Message)]
 pub enum InferenceCommand {
-    Stand,
-    Walk {
-        velocity: Vector2<Ground>,
-        angular_velocity: f32,
-    },
-    Kick {
-        soft: bool,
-        request: KickRequest,
-    },
-    GetUp {
-        fast: bool,
-    },
+    Walk(WalkCommand),
+    Kick(KickCommand),
+    GetUp(GetUpCommand),
 }
 
 #[derive(Clone, Serialize, Deserialize, Message)]
@@ -46,39 +54,20 @@ pub enum Mode {
 impl InferenceCommand {
     pub fn policy(self) -> Policy {
         match self {
-            Self::Stand | Self::Walk { .. } => Policy::Walk,
-            Self::Kick { soft: true, .. } => Policy::SoftKick,
-            Self::Kick { soft: false, .. } => Policy::Kick,
-            Self::GetUp { fast: false } => Policy::SlowGetUp,
-            Self::GetUp { fast: true } => Policy::FastGetUp,
-        }
-    }
-
-    fn is_moving(self, parameters: &Parameters) -> bool {
-        match self {
-            Self::Walk {
-                velocity,
-                angular_velocity,
-            } => {
-                velocity.x().abs() >= parameters.locomotion.minimum_forward_velocity
-                    || velocity.y().abs() >= parameters.locomotion.minimum_lateral_velocity
-                    || angular_velocity.abs()
-                        >= parameters
-                            .locomotion
-                            .minimum_angular_velocity_degrees
-                            .to_radians()
-            }
-            Self::Kick { .. } => true,
-            _ => false,
+            Self::Walk(_) => Policy::Walk,
+            Self::Kick(KickCommand { soft: true, .. }) => Policy::SoftKick,
+            Self::Kick(KickCommand { soft: false, .. }) => Policy::Kick,
+            Self::GetUp(GetUpCommand { fast: false }) => Policy::SlowGetUp,
+            Self::GetUp(GetUpCommand { fast: true }) => Policy::FastGetUp,
         }
     }
 
     fn validate(self, parameters: &Parameters) -> Result<()> {
         match self {
-            Self::Walk {
+            Self::Walk(WalkCommand {
                 velocity,
                 angular_velocity,
-            } => {
+            }) => {
                 ensure!(
                     velocity.inner.iter().all(|v| v.is_finite()) && angular_velocity.is_finite(),
                     "non-finite walking command"
@@ -92,7 +81,9 @@ impl InferenceCommand {
                     "walking command outside trained envelope"
                 );
             }
-            Self::Kick { request, .. } => ensure!(request.is_finite(), "invalid kick request"),
+            Self::Kick(KickCommand { request, .. }) => {
+                ensure!(request.is_finite(), "invalid kick request")
+            }
             _ => {}
         }
         Ok(())
@@ -105,7 +96,6 @@ pub struct Inference {
     active: Option<Execution>,
     velocity: VelocityEstimator,
     previous_update: Option<Time>,
-    last_motion: Option<Time>,
 }
 
 impl Inference {
@@ -124,7 +114,6 @@ impl Inference {
             active: None,
             velocity: VelocityEstimator::default(),
             previous_update: None,
-            last_motion: None,
         })
     }
 
@@ -171,9 +160,6 @@ impl Inference {
                 active.policy = policy;
                 return;
             }
-            if policy.is_locomotion() {
-                self.last_motion = Some(now);
-            }
         }
         self.active = Some(Execution::new(
             policy,
@@ -186,13 +172,12 @@ impl Inference {
     }
 
     fn advance_gait(&mut self, now: Time, request: InferenceCommand) -> bool {
-        if request.is_moving(&self.parameters) {
-            self.last_motion = Some(now);
-        }
-        let standing = matches!(request, InferenceCommand::Stand)
-            && self
-                .last_motion
-                .is_none_or(|last| now.duration_since(last) >= self.parameters.timing.stand_delay);
+        // Only exact zero requests standing; tiny nonzero commands must retain gait phase.
+        let standing = matches!(
+            request,
+            InferenceCommand::Walk(WalkCommand { velocity, angular_velocity })
+                if velocity.x() == 0.0 && velocity.y() == 0.0 && angular_velocity == 0.0
+        );
         let elapsed = self
             .previous_update
             .map_or(0.0, |last| now.duration_since(last).as_secs_f32());
@@ -223,7 +208,7 @@ impl Inference {
             .get_mut(&policy)
             .expect("policy validated before activation")
             .run(&observation)?;
-        let joints = active.decode(now, sensor, &raw_output, joints);
+        let joints = active.decode(sensor, &raw_output, joints);
         ensure!(joints_are_finite(joints), "non-finite decoded joints");
         Ok(InferenceOutput {
             joints: Box::new(joints),
@@ -245,8 +230,6 @@ enum State {
 struct Execution {
     policy: Policy,
     state: State,
-    started: Time,
-    start_position: Joints,
 }
 
 impl Execution {
@@ -264,12 +247,7 @@ impl Execution {
             Policy::SlowGetUp => State::SlowGetUp(GetUp::new(sensor, now, parameters)),
             Policy::FastGetUp => State::FastGetUp(GetUp::new(sensor, now, parameters)),
         };
-        Self {
-            policy,
-            state,
-            started: now,
-            start_position: sensor.last_commanded_position,
-        }
+        Self { policy, state }
     }
 
     fn advance(&mut self, seconds: f32, standing: bool) {
@@ -289,7 +267,7 @@ impl Execution {
     ) -> Vec<f32> {
         match &mut self.state {
             State::Locomotion(state) => match request {
-                InferenceCommand::Kick { soft, request } => {
+                InferenceCommand::Kick(KickCommand { soft, request }) => {
                     let ball_positions = state.record_kick_sample(sensor, request, joints);
                     kick::Observation::new(
                         state,
@@ -307,10 +285,10 @@ impl Execution {
                 _ => {
                     state.record_walk_sample(sensor, joints);
                     let (linear_velocity, angular_velocity) = match request {
-                        InferenceCommand::Walk {
+                        InferenceCommand::Walk(WalkCommand {
                             velocity,
                             angular_velocity,
-                        } => (velocity, angular_velocity),
+                        }) => (velocity, angular_velocity),
                         _ => (Vector2::zeros(), 0.0),
                     };
                     walk::Observation::new(
@@ -339,23 +317,12 @@ impl Execution {
 
     fn decode(
         &mut self,
-        now: Time,
         sensor: &SensorFrame,
         actions: &[f32],
         joints: &JointLimits,
     ) -> Joints<MotorCommand> {
         match &mut self.state {
-            State::Locomotion(state) => {
-                let mut joints = state.decode(self.policy, actions, sensor, joints);
-                let ratio = (now.duration_since(self.started).as_secs_f32()
-                    / state.parameters.timing.arm_blend_duration.as_secs_f32())
-                .clamp(0.0, 1.0);
-                for joint in ARMS {
-                    joints[joint].position =
-                        self.start_position[joint] * (1.0 - ratio) + joints[joint].position * ratio;
-                }
-                joints
-            }
+            State::Locomotion(state) => state.decode(self.policy, actions, sensor),
             State::SlowGetUp(state) | State::FastGetUp(state) => {
                 state.decode(self.policy, actions, sensor, joints)
             }
