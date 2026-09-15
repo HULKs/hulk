@@ -207,6 +207,10 @@ fn arrival_uses_constrained_goal_and_measured_velocity_with_hysteresis() {
         .unwrap();
     assert!(moving.constrained);
     assert_eq!(moving.effective_target, goal);
+    assert!(
+        moving.position_reached,
+        "glancing may reverse at the constrained goal while moving"
+    );
     assert!(!moving.target_reached);
     observation.velocities = HeadJoints::fill(0.0);
     let arrived = controller

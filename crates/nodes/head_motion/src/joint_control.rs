@@ -71,6 +71,10 @@ pub struct MotionProgress {
     pub requested_target: HeadJoints<f32>,
     /// Constrained final goal, not the intermediate trajectory reference.
     pub effective_target: HeadJoints<f32>,
+    /// Measured position is within entry tolerances, independent of velocity.
+    /// Glancing uses this to reverse while following a moving target.
+    pub position_reached: bool,
+    /// Measured position and velocity satisfy arrival tolerances, with hysteresis.
     pub target_reached: bool,
     /// Whether the requested position was clipped; speed clipping is a diagnostic.
     pub constrained: bool,
@@ -206,6 +210,12 @@ impl JointController {
             progress: Some(MotionProgress {
                 requested_target: requested,
                 effective_target,
+                position_reached: position_within_tolerance(
+                    effective_target,
+                    observation,
+                    parameters,
+                    1.0,
+                ),
                 target_reached,
                 constrained: effective_target != requested,
             }),
@@ -281,12 +291,10 @@ impl JointController {
         } else {
             1.0
         };
-        self.arrived = JOINTS.into_iter().all(|joint| {
-            (observation.positions[joint] - target[joint]).abs()
-                <= parameters.position_tolerance[joint] * factor
-                && observation.velocities[joint].abs()
-                    <= parameters.velocity_tolerance[joint] * factor
-        });
+        self.arrived = position_within_tolerance(target, observation, parameters, factor)
+            && JOINTS.into_iter().all(|joint| {
+                observation.velocities[joint].abs() <= parameters.velocity_tolerance[joint] * factor
+            });
         self.arrived
     }
 
@@ -298,6 +306,18 @@ impl JointController {
         self.arrived = false;
         Ok(())
     }
+}
+
+fn position_within_tolerance(
+    target: HeadJoints<f32>,
+    observation: &HeadObservation,
+    parameters: &JointControlParameters,
+    factor: f32,
+) -> bool {
+    JOINTS.into_iter().all(|joint| {
+        (observation.positions[joint] - target[joint]).abs()
+            <= parameters.position_tolerance[joint] * factor
+    })
 }
 
 fn planning_limits(

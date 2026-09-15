@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{f32::consts::FRAC_PI_2, time::Duration};
 
 use kinematics::joints::head::HeadJoints;
 use ros_z::Message;
@@ -15,10 +15,9 @@ pub struct Parameters {
     pub maximum_defender_velocity: HeadJoints<f32>,
     pub injected_head_joints: Option<HeadJoints<f32>>,
 
-    pub glance_angle: f32,
     pub image_region_parameters: ImageRegionParameters,
-    pub glance_direction_toggle_interval: Duration,
 
+    pub glance: GlanceParameters,
     pub look_around: ScanParameters,
     pub search_for_lost_ball: ScanParameters,
 }
@@ -31,7 +30,40 @@ impl Parameters {
             .map_err(|error| format!("look_around.{error}"))?;
         self.search_for_lost_ball
             .validate()
-            .map_err(|error| format!("search_for_lost_ball.{error}"))
+            .map_err(|error| format!("search_for_lost_ball.{error}"))?;
+        self.glance
+            .validate()
+            .map_err(|error| format!("glance.{error}"))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Message)]
+#[serde(deny_unknown_fields)]
+pub struct GlanceParameters {
+    /// Bearing offset on each side, in radians, strictly between zero and pi/2.
+    pub angle: f32,
+    /// Positive desired joint travel speeds in rad/s; each movement targets rest.
+    pub travel_speed: HeadJoints<f32>,
+    /// Fallback time per side while tracking valid geometry. There is no dwell.
+    pub maximum_phase_duration: Duration,
+}
+
+impl GlanceParameters {
+    pub fn validate(&self) -> Result<(), String> {
+        if !self.angle.is_finite() || self.angle <= 0.0 || self.angle >= FRAC_PI_2 {
+            return Err("angle must be finite and strictly between zero and pi/2".into());
+        }
+        if !self
+            .travel_speed
+            .into_iter()
+            .all(|speed| speed.is_finite() && speed > 0.0)
+        {
+            return Err("travel_speed must contain finite positive speeds".into());
+        }
+        if self.maximum_phase_duration.is_zero() {
+            return Err("maximum_phase_duration must be positive".into());
+        }
+        Ok(())
     }
 }
 

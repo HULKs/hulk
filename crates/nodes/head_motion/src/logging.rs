@@ -1,4 +1,4 @@
-//! Constraint and scan-deadline logging with independent warning throttling.
+//! Constraint and pattern-deadline logging with independent warning throttling.
 
 use std::{mem::take, time::Duration};
 
@@ -9,7 +9,7 @@ use types::motion_command::HeadMotion;
 use crate::{
     joint_control::{ConstraintCause, ConstraintDiagnostic, HeadObservation, JointControlOutput},
     parameters::JointControlParameters,
-    patterns::ScanTimeout,
+    patterns::{GlanceTimeout, ScanTimeout},
 };
 
 /// Logs constraint episodes from the pure joint controller. Call once for each evaluated
@@ -113,37 +113,26 @@ fn same_constraint_episode(left: &ConstraintDiagnostic, right: &ConstraintDiagno
             == (right.value < (right.bounds[0] + right.bounds[1]) / 2.0)
 }
 
-/// Logs scan deadlines. Call for every evaluated scan output.
+/// Logs pattern deadlines. Call the corresponding method for every evaluated output.
 #[derive(Default)]
-pub struct ScanLogger {
+pub struct PatternLogger {
     last_update: Option<Time>,
     last_warning: Option<Time>,
     suppressed: usize,
 }
 
-impl ScanLogger {
-    pub fn log(
+impl PatternLogger {
+    pub fn log_scan(
         &mut self,
         timeout: Option<&ScanTimeout>,
         observation: &HeadObservation,
         warning_interval: Duration,
         now: Time,
     ) {
-        if self.last_update.is_some_and(|previous| now < previous) {
-            self.last_warning = None;
-            self.suppressed = 0;
-        }
-        self.last_update = Some(now);
-        let Some(timeout) = timeout else { return };
-        if self
-            .last_warning
-            .is_some_and(|previous| now.duration_since(previous) < warning_interval)
-        {
-            self.suppressed += 1;
+        let suppressed = self.warning(timeout.is_some(), warning_interval, now);
+        let (Some(timeout), Some(suppressed)) = (timeout, suppressed) else {
             return;
-        }
-        self.last_warning = Some(now);
-        let suppressed = take(&mut self.suppressed);
+        };
         warn!(
             kind = ?timeout.kind, waypoint = ?timeout.waypoint,
             requested_target = ?timeout.requested_target, progress = ?timeout.progress,
@@ -153,6 +142,46 @@ impl ScanLogger {
             ever_reached = timeout.ever_reached, suppressed,
             action = "advance_to_next_waypoint", "head scan waypoint deadline reached"
         );
+    }
+
+    pub fn log_glance(
+        &mut self,
+        timeout: Option<&GlanceTimeout>,
+        observation: &HeadObservation,
+        warning_interval: Duration,
+        now: Time,
+    ) {
+        let suppressed = self.warning(timeout.is_some(), warning_interval, now);
+        let (Some(timeout), Some(suppressed)) = (timeout, suppressed) else {
+            return;
+        };
+        warn!(
+            side = ?timeout.side, ground_target = ?timeout.target, progress = ?timeout.progress,
+            measured_position_rad = ?observation.positions,
+            measured_velocity_rad_s = ?observation.velocities,
+            tracking_seconds = timeout.elapsed.as_secs_f64(), suppressed,
+            action = "switch_glance_side", "head glance phase deadline reached"
+        );
+    }
+
+    fn warning(&mut self, timed_out: bool, warning_interval: Duration, now: Time) -> Option<usize> {
+        if self.last_update.is_some_and(|previous| now < previous) {
+            self.last_warning = None;
+            self.suppressed = 0;
+        }
+        self.last_update = Some(now);
+        if !timed_out {
+            return None;
+        }
+        if self
+            .last_warning
+            .is_some_and(|previous| now.duration_since(previous) < warning_interval)
+        {
+            self.suppressed += 1;
+            return None;
+        }
+        self.last_warning = Some(now);
+        Some(take(&mut self.suppressed))
     }
 }
 
