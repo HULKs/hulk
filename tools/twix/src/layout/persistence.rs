@@ -351,16 +351,10 @@ fn validate_tree(tree: &Tree<Value>) -> Result<TileId> {
                     "tile {tile_id:?} has no valid active tab"
                 ),
                 Container::Linear(linear) => {
-                    let shares: Vec<_> = linear
-                        .children
-                        .iter()
-                        .map(|id| linear.shares[*id])
-                        .collect();
-                    let total: f32 = shares.iter().sum();
+                    let mut shares = linear.children.iter().map(|id| linear.shares[*id]);
+                    let total: f32 = shares.clone().sum();
                     ensure!(
-                        shares
-                            .iter()
-                            .all(|share| share.is_finite() && *share >= 0.0)
+                        shares.all(|share| share.is_finite() && share >= 0.0)
                             && total.is_finite()
                             && total > 0.0,
                         "invalid split shares in {tile_id:?}"
