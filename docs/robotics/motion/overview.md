@@ -20,15 +20,15 @@ Motion finishes by collecting and optimizing all motor commands in the `motor_co
 
 ## ROS-Z Booster Path
 
-The ROS-Z Booster stack bypasses the legacy `commands_sender` path. Behavior publishes `behavior/motion_command`, and `booster_interface` owns Booster Zenoh RPC mode changes, walking commands, head rotation, stand-up requests, LED forwarding, and `rt/kick_ball` publishing.
+The ROS-Z Booster stack bypasses the legacy `commands_sender` path. Behavior publishes `behavior/motion_command`, and `hardware_interface` owns Booster Zenoh RPC mode changes, walking commands, head rotation, stand-up requests, LED forwarding, and `rt/kick_ball` publishing.
 
 Head motion runs in `crates/nodes/head_motion`. The launcher starts its `services/head_motion` service, which accepts a `HeadMotion` request and returns `HeadJoints<MotorCommand>`. Connecting the service caller in central motion remains pending.
 
-`booster_interface` reads its runtime parameters from `etc/parameters/base/booster_interface.json5`. The removed split ROS-Z nodes no longer consume `commands/high_level_command`, `services/get_robot_mode`, or `command_sender` parameters. Robot mode is now managed internally from `behavior/motion_command` without waiting for SDK mode feedback.
+`hardware_interface` reads its runtime parameters from `etc/parameters/base/hardware_interface.json5`. The removed split ROS-Z nodes no longer consume `commands/high_level_command`, `services/get_robot_mode`, or `command_sender` parameters. Robot mode is now managed internally from `behavior/motion_command` without waiting for SDK mode feedback.
 
 Manual validation on a Booster robot should check these behaviors:
 
-- Before the first `behavior/motion_command` arrives, `booster_interface` does not send Booster Zenoh RPC motion requests.
+- Before the first `behavior/motion_command` arrives, `hardware_interface` does not send Booster Zenoh RPC motion requests.
 - Mode changes send one Booster Zenoh RPC `change_mode` request when the locally desired motion mode changes.
 - `Damping` commands request Booster Zenoh RPC `Damping` mode.
 - `Prepare` and stand-up commands request Booster Zenoh RPC `Prepare` mode.

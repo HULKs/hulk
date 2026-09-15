@@ -108,7 +108,7 @@ impl RpcAttempt {
             .saturating_sub(1);
         let elapsed_ms = self.started_at.elapsed().as_secs_f64() * 1000.0;
         info!(
-            target: "booster_interface::rpc",
+            target: "hardware_interface::rpc",
             sequence = self.sequence,
             action = self.kind.as_str(),
             status,
@@ -132,14 +132,14 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = Arc::new(
-        ctx.create_node("booster_interface")
+        ctx.create_node("hardware_interface")
             .build()
             .await
-            .wrap_err("failed to create booster_interface node")?,
+            .wrap_err("failed to create hardware_interface node")?,
     );
     let parameters = Arc::new(
-        node.bind_parameter_as::<Parameters>("booster_interface")
-            .wrap_err("failed to bind booster_interface parameters")?,
+        node.bind_parameter_as::<Parameters>("hardware_interface")
+            .wrap_err("failed to bind hardware_interface parameters")?,
     );
 
     let rpc_diagnostics = Arc::new(RpcDiagnostics::default());
@@ -284,7 +284,7 @@ fn spawn_mode_worker(
             let mode = command.target;
             let attempt = rpc_diagnostics.begin(RpcActionKind::ChangeMode);
             info!(
-                target: "booster_interface::rpc",
+                target: "hardware_interface::rpc",
                 sequence = attempt.sequence,
                 action = "change_mode",
                 ?mode,
@@ -314,7 +314,7 @@ fn spawn_led_worker(
             let desired_led = command.target;
             let attempt = rpc_diagnostics.begin(RpcActionKind::LedControl);
             info!(
-                target: "booster_interface::rpc",
+                target: "hardware_interface::rpc",
                 sequence = attempt.sequence,
                 action = "led_control",
                 ?desired_led,
@@ -356,7 +356,7 @@ fn send_retry_command<T: Copy>(
     operation: &'static str,
 ) {
     if sender.send(Some(RetryCommand { target, timeout })).is_err() {
-        error!(target: "booster_interface::rpc", operation, "failed to send rpc worker command");
+        error!(target: "hardware_interface::rpc", operation, "failed to send rpc worker command");
     }
 }
 
@@ -398,9 +398,9 @@ fn finish_rpc_result<T>(
                 "error"
             };
             if status == "timeout" {
-                error!(target: "booster_interface::rpc", operation = %operation, error = %error, "booster rpc timed out");
+                error!(target: "hardware_interface::rpc", operation = %operation, error = %error, "booster rpc timed out");
             } else {
-                error!(target: "booster_interface::rpc", operation = %operation, error = %error, "booster rpc failed");
+                error!(target: "hardware_interface::rpc", operation = %operation, error = %error, "booster rpc failed");
             }
             attempt.finish(status);
             None

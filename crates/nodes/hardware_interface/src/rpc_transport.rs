@@ -74,7 +74,7 @@ impl ZenohRpcClient {
                         let mut pending_responses = task_pending_responses.lock().await;
                         if !route_response_by_uuid(&mut pending_responses, response) {
                             debug!(
-                                target: "booster_interface::rpc",
+                                target: "hardware_interface::rpc",
                                 %response_topic,
                                 response_uuid,
                                 "ignore rpc response without pending waiter"
@@ -82,7 +82,7 @@ impl ZenohRpcClient {
                         }
                     }
                     Err(error) => {
-                        warn!(target: "booster_interface::rpc", %response_topic, error = %error, "failed to decode rpc response");
+                        warn!(target: "hardware_interface::rpc", %response_topic, error = %error, "failed to decode rpc response");
                     }
                 }
             }
@@ -115,7 +115,7 @@ impl ZenohRpcClient {
             .insert(request_uuid.clone(), response_sender);
 
         debug!(
-            target: "booster_interface::rpc",
+            target: "hardware_interface::rpc",
             service_topic = self.service_topic,
             api_id,
             request_uuid,

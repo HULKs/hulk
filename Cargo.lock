@@ -2309,27 +2309,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "booster_sdk_interface"
-version = "0.1.0"
-dependencies = [
- "booster",
- "cdr",
- "color-eyre",
- "kinematics",
- "linear_algebra",
- "ros-z",
- "ros2",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "types",
- "uuid",
- "zenoh",
-]
-
-[[package]]
 name = "bs58"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5224,6 +5203,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "hardware_interface"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "cdr",
+ "color-eyre",
+ "kinematics",
+ "linear_algebra",
+ "ros-z",
+ "ros2",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "types",
+ "uuid",
+ "zenoh",
+]
+
+[[package]]
 name = "harfrust"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5468,7 +5468,6 @@ dependencies = [
  "ball_filter",
  "ball_state_composer",
  "behavior_node",
- "booster_sdk_interface",
  "button_event_bridge",
  "button_event_handler",
  "camera_matrix_calculator",
@@ -5483,6 +5482,7 @@ dependencies = [
  "game_controller_state_filter",
  "global_parameter_provider",
  "ground_provider",
+ "hardware_interface",
  "head_motion",
  "image_receiver",
  "kinematics_provider",
@@ -6365,8 +6365,8 @@ name = "led_handler"
 version = "0.1.0"
 dependencies = [
  "booster",
- "booster_sdk_interface",
  "color-eyre",
+ "hardware_interface",
  "ros-z",
  "types",
 ]

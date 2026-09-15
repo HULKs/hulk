@@ -138,7 +138,6 @@ async fn spawn_all(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<Runni
     join_set.spawn(ball_filter::run_boxed(ctx.clone()));
     join_set.spawn(ball_state_composer::run_boxed(ctx.clone()));
     join_set.spawn(behavior_node::run_boxed(ctx.clone()));
-    join_set.spawn(booster_sdk_interface::run_boxed(ctx.clone()));
     join_set.spawn(button_event_bridge::run_boxed(ctx.clone()));
     join_set.spawn(button_event_handler::run_boxed(ctx.clone()));
     join_set.spawn(camera_matrix_calculator::run_boxed(ctx.clone()));
@@ -151,6 +150,7 @@ async fn spawn_all(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<Runni
     join_set.spawn(game_controller_state_filter::run_boxed(ctx.clone()));
     join_set.spawn(global_parameter_provider::run_boxed(ctx.clone()));
     join_set.spawn(ground_provider::run_boxed(ctx.clone()));
+    join_set.spawn(hardware_interface::run_boxed(ctx.clone()));
     join_set.spawn(head_motion::node::run_boxed(ctx.clone()));
     join_set.spawn(image_receiver::run_boxed(ctx.clone()));
     join_set.spawn(kinematics_provider::run_boxed(ctx.clone()));
