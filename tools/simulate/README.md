@@ -48,7 +48,7 @@ The launcher currently starts:
   timeout so a missing or failing head service cannot stall body commands.
 - `head_motion`
 - `motion_inference`
-- `booster_interface` (from `booster_sdk_interface`)
+- `hardware_interface`
 - `simulator_joint_limits`: publishes retained `joint_limits` from the robotics
   `global` parameters. The simulator publishes retained `field_dimensions` from
   the actual simulated field, including parameter changes and stack resets.
@@ -63,7 +63,7 @@ and stand-up. This is a head-controller test, not a balance controller. The real
 inference node is running but receives no inference requests. The original central
 motion entry point and its pending body coordination remain unchanged.
 
-`booster_interface` publishes raw CDR `LowCommand` messages on `rt/joint_ctrl`.
+`hardware_interface` publishes raw CDR `LowCommand` messages on `rt/joint_ctrl`.
 MuJoCo applies `tau + kp * (q_target - q) + kd * (dq_target - dq)` every physics
 step, clamped to each actuator's torque limits. Commands are serial and must
 contain exactly 22 finite motor commands with nonnegative gains. The last valid
@@ -137,7 +137,7 @@ disabled. To use an existing router:
 - `--parameter-root`: simulator parameter directory, default `tools/simulate/parameters`.
 - `--robotics-parameter-root`: robotics parameter root, default `etc/parameters`.
 - `--location` and `--robot`: optional location/robot parameter layers over `base`.
-  Simulator-local defaults (including `booster_interface`) are loaded first, so
+  Simulator-local defaults (including `hardware_interface`) are loaded first, so
   robotics base/location/robot layers can override them.
 - `--robot-namespace`: namespace shared by the robotics nodes and UI publishers.
 - `--no-robotics`: run the UI, sensors and raw command receiver without launching nodes;

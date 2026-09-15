@@ -143,7 +143,7 @@ impl Robotics {
             tasks.spawn(publish_joint_limits(ctx.clone()));
             tasks.spawn(head_motion::node::run_boxed(ctx.clone()));
             tasks.spawn(motion_inference::run_boxed(ctx.clone()));
-            tasks.spawn(booster_sdk_interface::run_boxed(ctx));
+            tasks.spawn(hardware_interface::run_boxed(ctx));
             if let Some(result) = tasks.join_next().await {
                 let reason = match result {
                     Ok(Ok(())) => "A motion-stack node exited".to_owned(),
@@ -457,7 +457,7 @@ mod tests {
         let (mut tasks, head) = runtime.block_on(async {
             let mut tasks = JoinSet::new();
             tasks.spawn(publish_joint_limits(io.context.clone()));
-            tasks.spawn(booster_sdk_interface::run_boxed(io.context.clone()));
+            tasks.spawn(hardware_interface::run_boxed(io.context.clone()));
             tasks.spawn(crate::motion_dummy::run(io.context.clone()));
             tasks.spawn(motion::run_head_only_boxed(io.context.clone()));
             let head = tasks.spawn(head_motion::node::run_boxed(io.context.clone()));

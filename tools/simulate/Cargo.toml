@@ -15,7 +15,7 @@ serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 types = { workspace = true }
 booster = { workspace = true }
-booster_sdk_interface = { workspace = true }
+hardware_interface = { workspace = true }
 cdr = { workspace = true }
 coordinate_systems = { workspace = true }
 geometry = { workspace = true }
