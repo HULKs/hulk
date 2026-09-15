@@ -28,7 +28,7 @@ pub struct HeadObservation {
 }
 
 impl HeadObservation {
-    fn validate(&self) -> Result<()> {
+    pub(crate) fn validate(&self) -> Result<()> {
         ensure!(
             self.positions
                 .into_iter()

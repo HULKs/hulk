@@ -17,7 +17,9 @@
     warning_interval: { secs: 1, nanos: 0 },
   },
 
-  center_head_position: { yaw: 0.0, pitch: 0.5 },
+  direct_travel_speed: { yaw: 1.5, pitch: 0.5 },
+  // 500 Hz observations normally arrive every 2 ms. Reject stale request inputs.
+  maximum_observation_age: { secs: 0, nanos: 50000000 },
 
   maximum_defender_velocity: { yaw: 2.0, pitch: 0.8 },
   injected_head_joints: null,

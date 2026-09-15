@@ -124,12 +124,16 @@ impl LookAtState {
 
         self.update_glance_direction(now, parameters.glance_direction_toggle_interval);
 
-        let (target, image_region_target, with_camera) = match head_motion {
+        let (target, height_above_ground, image_region_target, with_camera) = match head_motion {
             HeadMotion::LookAt {
                 target,
+                height_above_ground,
                 image_region_target,
-            } => (target, image_region_target, true),
-            HeadMotion::LookLeftAndRightOf { target } => {
+            } => (target, height_above_ground, image_region_target, true),
+            HeadMotion::LookLeftAndRightOf {
+                target,
+                height_above_ground,
+            } => {
                 let left_right_shift = vector![
                     0.0,
                     f32::tan(parameters.glance_angle) * distance(target, Point2::origin())
@@ -139,6 +143,7 @@ impl LookAtState {
                         GlanceDirection::LeftOfTarget => target + left_right_shift,
                         GlanceDirection::RightOfTarget => target - left_right_shift,
                     },
+                    height_above_ground,
                     ImageRegion::default(),
                     false,
                 )
@@ -157,6 +162,7 @@ impl LookAtState {
 
         look_at_with_camera(
             target,
+            height_above_ground,
             camera_matrix.head_to_camera * ground_to_zero_head,
             camera_matrix,
             image_region_target,
@@ -184,6 +190,7 @@ impl LookAtState {
 
 fn look_at_with_camera(
     target: Point2<Ground>,
+    height_above_ground: f32,
     ground_to_zero_camera: Isometry3<Ground, LeftCamera>,
     camera_matrix: &CameraMatrix,
     image_region_target: ImageRegion,
@@ -200,7 +207,8 @@ fn look_at_with_camera(
         pixel_target.y() * camera_matrix.image_size.y()
     ];
 
-    let target_in_camera = ground_to_zero_camera * point![target.x(), target.y(), 0.0];
+    let target_in_camera =
+        ground_to_zero_camera * point![target.x(), target.y(), height_above_ground];
 
     let offset_to_center = pixel_target - camera_matrix.intrinsics.optical_center.coords();
     let yaw_offset = f32::atan2(offset_to_center.x(), camera_matrix.intrinsics.focals.x);
@@ -262,6 +270,7 @@ mod tests {
 
         let HeadJoints { yaw, pitch } = look_at_with_camera(
             point![0.0, 0.0],
+            0.0,
             Isometry3::<Ground, LeftCamera>::identity(),
             &camera_matrix,
             ImageRegion::Center,

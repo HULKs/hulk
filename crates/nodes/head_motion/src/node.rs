@@ -13,8 +13,9 @@ use projection::camera_matrix::CameraMatrix;
 use ros_z::{prelude::*, qos::QosDurability};
 use ros_z_schema::{ServiceDef, compute_hash};
 use types::{
-    filtered_game_controller_state::FilteredGameControllerState, joint_limits::JointLimits,
-    motion_command::HeadMotion, robot_command::MotorCommand, time_wrapper::TimeWrapper,
+    field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
+    joint_limits::JointLimits, motion_command::HeadMotion, robot_command::MotorCommand,
+    time_wrapper::TimeWrapper,
 };
 
 use crate::{head::HeadController, parameters::Parameters};
@@ -32,6 +33,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     parameters.add_validation_hook(Parameters::validate)?;
     let _joint_limits_cache = node
         .subscriber::<JointLimits>("joint_limits")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
+
+    let _field_dimensions_cache = node
+        .subscriber::<FieldDimensions>("field_dimensions")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -70,7 +81,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let _controller = HeadController::default();
 
     // TODO: Feed LowState observations to the controller and evaluate service requests.
-    // Keep the controller's unimplemented entry points disconnected until logic is added.
+    // The coordinator is implemented; service-loop wiring remains a separate step.
     pending::<()>().await;
 
     Ok(())

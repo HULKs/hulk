@@ -10,9 +10,13 @@ use types::parameters::ImageRegionParameters;
 pub struct Parameters {
     pub joint_control: JointControlParameters,
 
-    pub center_head_position: HeadJoints<f32>,
+    /// Desired travel speeds for direct position/gaze requests.
+    pub direct_travel_speed: HeadJoints<f32>,
+    /// Maximum age of the latest head measurement when answering a request.
+    pub maximum_observation_age: Duration,
 
     pub maximum_defender_velocity: HeadJoints<f32>,
+    /// Explicit debug override of behavior requests, still subject to joint control.
     pub injected_head_joints: Option<HeadJoints<f32>>,
 
     pub image_region_parameters: ImageRegionParameters,
@@ -25,6 +29,22 @@ pub struct Parameters {
 impl Parameters {
     pub fn validate(&self) -> Result<(), String> {
         self.joint_control.validate()?;
+        if !self
+            .direct_travel_speed
+            .into_iter()
+            .all(|speed| speed.is_finite() && speed > 0.0)
+        {
+            return Err("direct_travel_speed must contain finite positive speeds".into());
+        }
+        if self.maximum_observation_age.is_zero() {
+            return Err("maximum_observation_age must be positive".into());
+        }
+        if self
+            .injected_head_joints
+            .is_some_and(|position| !position.into_iter().all(f32::is_finite))
+        {
+            return Err("injected_head_joints must contain finite positions".into());
+        }
         self.look_around
             .validate()
             .map_err(|error| format!("look_around.{error}"))?;
