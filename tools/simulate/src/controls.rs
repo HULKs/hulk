@@ -22,6 +22,7 @@ use types::{
 
 use crate::{
     bevy_mujoco::{MujocoWorld, SimulationMode},
+    motion_parameters::MotionParameters,
     robot_io::RobotBinding,
     robotics::Robotics,
     scene::ball::SpawnedBalls,
@@ -62,6 +63,7 @@ struct Editor {
     rebuild: bool,
     message: String,
     expanded: HashSet<String>,
+    rendered_tab: &'static str,
 }
 
 impl Default for Editor {
@@ -71,6 +73,7 @@ impl Default for Editor {
             tab: "motion",
             rebuild: true,
             expanded: HashSet::new(),
+            rendered_tab: "",
             message: "Edit a command, then press Send. Numbers support dragging and text entry."
                 .into(),
         }
@@ -83,6 +86,10 @@ struct Form;
 struct Status;
 #[derive(Component)]
 struct SimulationStatus;
+#[derive(Component, Default, Clone)]
+struct SendForm;
+#[derive(Component, Clone)]
+struct ParameterText(String);
 
 pub struct ControlsPlugin;
 impl Plugin for ControlsPlugin {
@@ -92,7 +99,10 @@ impl Plugin for ControlsPlugin {
             .init_resource::<Editor>()
             .add_systems(Startup, setup)
             .add_systems(PreUpdate, gate_camera_input)
-            .add_systems(Update, (rebuild_form, update_status));
+            .add_systems(
+                Update,
+                (sync_parameter_text, rebuild_form, update_status).chain(),
+            );
     }
 }
 
@@ -101,11 +111,14 @@ fn gate_camera_input(
     focus: Res<InputFocus>,
     editors: Query<(), With<bevy::text::EditableText>>,
     mut camera: Single<&mut FreeCameraState>,
+    balls: Res<crate::scene::ball_interaction::BallSelection>,
 ) {
     let over_scene = window
         .cursor_position()
         .is_some_and(|position| position.x >= 240.0 && position.x < window.width() - PANEL_WIDTH);
-    camera.enabled = over_scene && !focus.get().is_some_and(|entity| editors.contains(entity));
+    camera.enabled = over_scene
+        && !balls.is_dragging()
+        && !focus.get().is_some_and(|entity| editors.contains(entity));
     if !camera.enabled {
         camera.velocity = Vec3::ZERO;
     }
@@ -134,7 +147,11 @@ fn text(commands: &mut Commands, parent: Entity, content: impl Into<String>) {
     ));
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, mut editor: ResMut<Editor>, io: Res<Robotics>) {
+    match io.parameter_values() {
+        Ok(parameters) => editor.draft["parameters"] = parameters,
+        Err(error) => editor.message = format!("Could not load motion parameters: {error:#}"),
+    }
     let root = commands
         .spawn((
             Node {
@@ -211,19 +228,37 @@ fn setup(mut commands: Commands) {
             ChildOf(root),
             Node {
                 column_gap: px(6),
+                flex_wrap: FlexWrap::Wrap,
+                row_gap: px(6),
                 ..default()
             },
         ))
         .id();
-    for (name, title) in [("motion", "Motion command"), ("game", "Game controller")] {
+    for (name, title) in [
+        ("motion", "Motion command"),
+        ("game", "Game controller"),
+        ("parameters", "Parameters"),
+    ] {
         commands.spawn_scene(bsn! {
             @FeathersButton ChildOf(tabs) Children[label(title)]
-            on(move |_: On<Activate>, mut editor: ResMut<Editor>| { editor.tab = name; editor.rebuild = true; })
+            on(move |_: On<Activate>, mut editor: ResMut<Editor>| {
+                editor.tab = name;
+                editor.rebuild = true;
+                editor.message = if name == "parameters" {
+                    "Expand a parameter group to edit it, then apply the complete form."
+                } else {
+                    "Edit a command, then press Send. Numbers support dragging and text entry."
+                }.into();
+            })
         });
     }
     commands.spawn_scene(bsn! {
-        @FeathersButton ChildOf(root) Children[label("Send current form")]
+        @FeathersButton ChildOf(root) SendForm Children[label("Send current form")]
         on(|_: On<Activate>, mut editor: ResMut<Editor>, mut io: ResMut<Robotics>| {
+            if editor.tab == "parameters" {
+                editor.message = "Use Apply parameters & reset below to apply this form.".into();
+                return;
+            }
             let result = if editor.tab == "motion" {
                 serde_json::from_value::<MotionCommand>(editor.draft["motion"].clone()).map(|command| io.input_motion = command)
             } else {
@@ -283,13 +318,17 @@ fn report(result: color_eyre::Result<()>, success: &str) -> String {
 }
 
 fn update_status(
-    editor: Res<Editor>,
+    mut editor: ResMut<Editor>,
+    mut control: ResMut<SimulationControl>,
     io: Res<Robotics>,
     world: Res<MujocoWorld>,
     mode: Res<SimulationMode>,
     mut status: Single<&mut Text, (With<Status>, Without<SimulationStatus>)>,
     mut simulation: Single<&mut Text, (With<SimulationStatus>, Without<Status>)>,
 ) {
+    if let Some(message) = control.message.take() {
+        editor.message = message;
+    }
     status.0 = editor.message.clone();
     simulation.0 = format!(
         "{:?}  |  {:.3} s\n{}\nJoint commands: {}",
@@ -309,6 +348,8 @@ fn rebuild_form(
     mut editor: ResMut<Editor>,
     form: Single<Entity, With<Form>>,
     children: Query<&Children>,
+    mut scroll: Query<&mut ScrollPosition, With<Form>>,
+    mut send: Single<&mut Node, With<SendForm>>,
 ) {
     if !editor.rebuild {
         return;
@@ -320,11 +361,64 @@ fn rebuild_form(
         }
     }
     let path = format!("/{}", editor.tab);
-    let title = if editor.tab == "motion" {
-        "MotionCommand"
-    } else {
-        "FilteredGameControllerState"
+    let title = match editor.tab {
+        "motion" => "MotionCommand",
+        "game" => "FilteredGameControllerState",
+        _ => "Motion parameters",
     };
+    if editor.rendered_tab != editor.tab {
+        if let Ok(mut scroll) = scroll.get_mut(*form) {
+            scroll.y = 0.0;
+        }
+        editor.rendered_tab = editor.tab;
+    }
+    send.display = if editor.tab == "parameters" {
+        Display::None
+    } else {
+        Display::Flex
+    };
+    if editor.tab == "parameters" {
+        let form_entity = *form;
+        text(
+            &mut commands,
+            *form,
+            "Session settings. Applying restarts all motion nodes and resets the robot paused. Angles use radians unless named degrees; durations use seconds.",
+        );
+        commands.spawn_scene(bsn! {
+            @FeathersButton ChildOf(form_entity) Children[label("Apply parameters & reset")]
+            on(|_: On<Activate>, mut editor: ResMut<Editor>, io: Res<Robotics>,
+                inputs: Query<(&ParameterText, &bevy::text::EditableText)>,
+                mut control: ResMut<SimulationControl>| {
+                if !io.launches_nodes() {
+                    editor.message = "Parameter application requires the simulator's robotics nodes (--no-robotics is active).".into();
+                    return;
+                }
+                // Include text edits from this frame even if the polling system has not run yet.
+                copy_parameter_text(&mut editor, &inputs);
+                match MotionParameters::prepare(editor.draft["parameters"].clone()) {
+                    Ok(layer) => {
+                        control.parameter_overrides = Some(layer);
+                        control.reset = true;
+                        editor.message = "Applying parameters and restarting the motion stack...".into();
+                    }
+                    Err(error) => editor.message = format!("Cannot apply parameters: {error:#}"),
+                }
+            })
+        });
+        commands.spawn_scene(bsn! {
+            @FeathersButton ChildOf(form_entity) Children[label("Discard edits / reload applied settings")]
+            on(|_: On<Activate>, mut editor: ResMut<Editor>, io: Res<Robotics>| {
+                match io.parameter_values() {
+                    Ok(parameters) => {
+                        editor.draft["parameters"] = parameters;
+                        editor.rebuild = true;
+                        editor.message = "Loaded the current motion settings.".into();
+                    }
+                    Err(error) => editor.message = format!("Cannot load parameters: {error:#}"),
+                }
+            })
+        });
+    }
     build_field(
         &mut commands,
         *form,
@@ -334,6 +428,27 @@ fn rebuild_form(
         true,
         &editor.expanded,
     );
+}
+
+fn copy_parameter_text(
+    editor: &mut Editor,
+    inputs: &Query<(&ParameterText, &bevy::text::EditableText)>,
+) {
+    for (path, input) in inputs {
+        if let Some(slot) = editor.draft.pointer_mut(&path.0) {
+            *slot = Value::String(input.value().to_string());
+        }
+    }
+}
+
+fn sync_parameter_text(
+    mut editor: ResMut<Editor>,
+    inputs: Query<(&ParameterText, &bevy::text::EditableText)>,
+) {
+    // Rebuilding (e.g. discarding a draft) must not copy stale widget values back over it.
+    if !editor.rebuild {
+        copy_parameter_text(&mut editor, &inputs);
+    }
 }
 
 fn choice_button(
@@ -366,6 +481,49 @@ fn build_field(
     let group = column(commands, parent);
     let title = title.replace('_', " ");
     text(commands, group, &title);
+    let parameter = path.starts_with("/parameters/");
+    if parameter && path.matches('/').count() > 2 {
+        commands.entity(group).insert(Node {
+            flex_direction: FlexDirection::Column,
+            row_gap: px(6),
+            width: percent(100),
+            flex_shrink: 0.0,
+            padding: UiRect::left(px(10)),
+            ..default()
+        });
+    }
+    if parameter
+        && current.is_object()
+        && current.get("secs").is_none()
+        && !path.ends_with("/injected_head_joints")
+    {
+        let open = expanded.contains(path);
+        let key = path.to_owned();
+        commands.spawn_scene(bsn! {
+            @FeathersButton ChildOf(group) Children[label(if open { "Collapse" } else { "Expand" })]
+            on(move |_: On<Activate>, mut editor: ResMut<Editor>| {
+                if !editor.expanded.remove(&key) { editor.expanded.insert(key.clone()); }
+                editor.rebuild = true;
+            })
+        });
+        if !open {
+            return;
+        }
+    }
+    if parameter && path.ends_with("/injected_head_joints") {
+        let key = path.to_owned();
+        let enabled = !current.is_null();
+        commands.spawn_scene(bsn! {
+            @FeathersButton ChildOf(group) Children[label(if enabled { "Disable override" } else { "Enable override" })]
+            on(move |_: On<Activate>, mut editor: ResMut<Editor>| {
+                *editor.draft.pointer_mut(&key).unwrap() = if enabled { Value::Null } else { json!({"yaw": 0.0, "pitch": 0.0}) };
+                editor.rebuild = true;
+            })
+        });
+        if !enabled {
+            return;
+        }
+    }
     if path.ends_with("/penalties") || path.ends_with("_penalties_last_cycle") {
         let open = expanded.contains(path);
         let key = path.to_owned();
@@ -380,7 +538,10 @@ fn build_field(
             return;
         }
     }
-    if allow_choices && let Some(options) = choices(path) {
+    if !parameter
+        && allow_choices
+        && let Some(options) = choices(path)
+    {
         let row = commands
             .spawn((
                 ChildOf(group),
@@ -469,7 +630,11 @@ fn build_field(
                     commands,
                     group,
                     &format!("{path}/{key}"),
-                    &field_label(key),
+                    &if parameter {
+                        key.replace('_', " ")
+                    } else {
+                        field_label(key)
+                    },
                     value,
                     true,
                     expanded,
@@ -478,7 +643,15 @@ fn build_field(
         }
     } else if let Value::Array(values) = current {
         for (index, value) in values.iter().enumerate() {
-            let item_label = if path.ends_with("/segments") {
+            let item_label = if parameter {
+                if path.contains("/image_region_parameters/") {
+                    ["x (normalized image)", "y (normalized image)"][index].to_owned()
+                } else if values.len() == 2 {
+                    ["minimum", "maximum"][index].to_owned()
+                } else {
+                    index.to_string()
+                }
+            } else if path.ends_with("/segments") {
                 format!("Segment {}", index + 1)
             } else if path.ends_with("/LineSegment") {
                 ["Start (Ground, m)", "End (Ground, m)"][index].to_owned()
@@ -541,6 +714,17 @@ fn build_field(
                 *editor.draft.pointer_mut(&path).unwrap() = Value::Bool(next);
                 editor.rebuild = true;
             })
+        });
+    } else if parameter && let Value::String(initial) = current {
+        let path = path.to_owned();
+        commands.spawn_scene(bsn! {
+            @FeathersTextInputContainer ChildOf(group)
+            Node { width: percent(100), min_height: px(28) }
+            Children [
+                @FeathersTextInput
+                template_value(ParameterText(path))
+                template_value(bevy::text::EditableText::new(initial.clone()))
+            ]
         });
     } else {
         text(commands, group, variant(current));

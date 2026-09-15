@@ -25,6 +25,7 @@ use crate::{
 mod bevy_mujoco;
 mod controls;
 mod motion_dummy;
+mod motion_parameters;
 mod parameters;
 mod robot_io;
 mod robotics;

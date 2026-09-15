@@ -30,6 +30,12 @@ advance physics. **Reset robot & stack** pauses, returns that robot to its initi
 zero-joint pose and location, clears the received command, and recreates the
 robotics context and nodes. Simulation time remains monotonic across resets.
 The palette can add balls and additional passive robots as physical objects.
+Drag a ball from the palette to place it. Click an existing ball to select it
+(highlighted gold), then hold the left mouse button and drag to reposition it.
+Dragging moves the actual MuJoCo ball horizontally at its current height and
+clears its linear/angular velocity. Physics pauses during the drag and resumes
+on release if it was running beforehand. Moving over a sidebar holds the last
+valid scene position. Click the field to clear the selection.
 
 ## Robotics stack
 
@@ -125,7 +131,7 @@ image or perception node is needed.
 
 ## Editors
 
-The right panel has separate **Motion command** and **Game controller** forms.
+The right panel has **Motion command**, **Game controller**, and **Parameters** forms.
 Select a variant and edit its fields with number inputs and choice buttons.
 Numbers support dragging or direct text entry. Angles are edited in radians,
 positions in metres, and velocities in metres/second or radians/second.
@@ -138,6 +144,28 @@ editable; the larger penalty sections can be expanded.
 The most recently sent motion command and game state are repeated every 20 ms
 of simulation time, so late-starting subscribers receive them. The simulation
 status shows whether a joint command has arrived and whether the stack has exited.
+
+The **Parameters** tab exposes every field of `head_motion`, `motion_inference`
+(including all five policies), and `hardware_interface`, plus the shared global
+joint limits. Expand groups to edit individual joints, gains, offsets, model
+paths, and other settings. The optional injected head position has an enable
+button. Durations use seconds; joint angles use radians unless the field name
+specifies degrees. Image-region coordinates are normalized. The temporary central
+motion node has no parameter binding; its walking request remains `(0, 0, 0)`.
+
+Click **Apply parameters & reset** to validate the complete draft, pause and reset
+the robot, and restart the stack with those settings. Inference parameters are
+startup-only, so applying restarts every motion node and clears controller history.
+Press **Run / Pause** to resume. Validation errors leave the running settings intact;
+model loading failures appear in the stack status. **Discard edits / reload applied
+settings** restores the form from the current parameter layers.
+
+Edits apply only to this simulator session, survive **Reset robot & stack**, and
+do not change repository configuration files. Closing the simulator discards them.
+The editor loads base/location/robot settings with any session edits layered last.
+Applying is unavailable with `--no-robotics`, because external nodes do not read
+the simulator's session layer. Field geometry and ball physics remain configurable
+through the simulator parameter service described below.
 
 ## Configuration
 

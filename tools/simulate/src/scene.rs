@@ -1,4 +1,5 @@
 pub mod ball;
+pub mod ball_interaction;
 pub mod field;
 pub mod goal;
 pub mod object;
@@ -18,6 +19,7 @@ pub struct ObjectsPlugin;
 impl Plugin for ObjectsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<visual::ObjectVisualAssets>()
+            .add_plugins(ball_interaction::BallInteractionPlugin)
             .init_resource::<ball::SpawnedBalls>()
             .add_observer(ball::record_spawn)
             .add_observer(ball::record_removal)

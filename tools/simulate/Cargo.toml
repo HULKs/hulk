@@ -29,4 +29,5 @@ motion_inference = { workspace = true }
 nalgebra = { workspace = true }
 projection = { workspace = true }
 serde_json = { workspace = true }
+tempfile = { workspace = true }
 zenoh = { workspace = true }

@@ -17,6 +17,8 @@ pub struct ControlledRobot;
 #[derive(Default, Resource)]
 pub struct SimulationControl {
     pub reset: bool,
+    pub parameter_overrides: Option<std::sync::Arc<tempfile::TempDir>>,
+    pub message: Option<String>,
 }
 
 #[derive(Default, Resource)]
@@ -147,7 +149,25 @@ fn reset_robot(
         )
         .expect("reset robot pose");
     // Preserve monotonic MuJoCo time; restart nodes to clear controller histories and cached commands.
-    io.restart().expect("restart motion stack");
+    let parameters = control.parameter_overrides.take();
+    let edited = parameters.is_some();
+    let result = if edited {
+        io.restart_with_parameters(parameters)
+    } else {
+        io.restart()
+    };
+    if let Err(error) = result {
+        control.message = Some(format!("Could not restart motion stack: {error:#}"));
+        return;
+    }
+    control.message = Some(
+        if edited {
+            "Parameters applied for this session. Robot reset and paused; press Run to continue."
+        } else {
+            "Robot and stack reset; current parameter settings retained."
+        }
+        .into(),
+    );
     io.publish_observation(
         robot_binding.observe(world.data()),
         simulation_time(world.data().time()),

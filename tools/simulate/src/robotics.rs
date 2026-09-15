@@ -38,6 +38,7 @@ pub struct Robotics {
     configuration: StackConfiguration,
     clock: Clock,
     context: Arc<Context>,
+    parameter_overrides: Option<Arc<tempfile::TempDir>>,
     _node: Node,
     low_state: Publisher<LowState>,
     camera: Publisher<TimeWrapper<CameraMatrix>>,
@@ -59,10 +60,23 @@ impl Robotics {
         configuration: StackConfiguration,
         clock: Clock,
     ) -> Result<Self> {
+        Self::with_overrides(runtime, configuration, clock, None).await
+    }
+
+    async fn with_overrides(
+        runtime: Handle,
+        configuration: StackConfiguration,
+        clock: Clock,
+        parameter_overrides: Option<Arc<tempfile::TempDir>>,
+    ) -> Result<Self> {
+        let mut layers = configuration.parameter_layers.clone();
+        if let Some(layer) = &parameter_overrides {
+            layers.push(layer.path().to_owned());
+        }
         let context = Arc::new(
             ContextBuilder::default()
                 .with_namespace(&configuration.namespace)
-                .with_parameter_layers(configuration.parameter_layers.clone())
+                .with_parameter_layers(layers)
                 .with_clock(clock.clone())
                 .with_mode("client")
                 .with_router_endpoint(&configuration.router)?
@@ -160,6 +174,7 @@ impl Robotics {
             configuration,
             clock,
             context,
+            parameter_overrides,
             _node: node,
             low_state,
             camera,
@@ -228,6 +243,26 @@ impl Robotics {
     }
 
     pub fn restart(&mut self) -> Result<()> {
+        self.restart_with_parameters(self.parameter_overrides.clone())
+    }
+
+    pub fn parameter_values(&self) -> Result<serde_json::Value> {
+        let parameters =
+            self.runtime
+                .block_on(crate::motion_parameters::MotionParameters::load(
+                    &self.context,
+                ))?;
+        Ok(serde_json::to_value(parameters)?)
+    }
+
+    pub fn launches_nodes(&self) -> bool {
+        self.configuration.launch_nodes
+    }
+
+    pub fn restart_with_parameters(
+        &mut self,
+        overrides: Option<Arc<tempfile::TempDir>>,
+    ) -> Result<()> {
         self.command_task.abort();
         self.stack_task.abort();
         self.runtime.block_on(async {
@@ -235,10 +270,11 @@ impl Robotics {
             let _ = (&mut self.stack_task).await;
         });
         self.context.shutdown()?;
-        let mut replacement = self.runtime.block_on(Self::new(
+        let mut replacement = self.runtime.block_on(Self::with_overrides(
             self.runtime.clone(),
             self.configuration.clone(),
             self.clock.clone(),
+            overrides,
         ))?;
         replacement.input_motion = self.input_motion.clone();
         replacement.input_game = self.input_game.clone();
@@ -284,6 +320,99 @@ mod tests {
     use booster::MotorState;
     use std::time::Duration;
     use types::motion_command::HeadMotion;
+
+    #[test]
+    fn motion_parameter_edits_are_validated_and_survive_stack_resets() {
+        use crate::motion_parameters::MotionParameters;
+        use serde_json::json;
+
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let endpoint = format!("tcp/127.0.0.1:{}", listener.local_addr().unwrap().port());
+        drop(listener);
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let (server, mut io) = runtime.block_on(async {
+            let server = ContextBuilder::default()
+                .with_mode("router")
+                .disable_multicast_scouting()
+                .with_connect_endpoints(std::iter::empty::<&str>())
+                .with_listen_endpoints([endpoint.as_str()])
+                .build()
+                .await
+                .unwrap();
+            let io = Robotics::new(
+                runtime.handle().clone(),
+                StackConfiguration {
+                    router: endpoint,
+                    namespace: "/simulator/parameter_test".into(),
+                    parameter_layers: vec![
+                        root.join("parameters"),
+                        root.join("../../etc/parameters/base"),
+                    ],
+                    launch_nodes: false,
+                },
+                Clock::logical(Time::from_nanos(123_000_000)),
+            )
+            .await
+            .unwrap();
+            (server, io)
+        });
+        let original = io.parameter_values().unwrap();
+        let mut draft = original.clone();
+        draft["head_motion"]["joint_control"]["kp"]["yaw"] = json!(-1.0);
+        assert!(
+            MotionParameters::prepare(draft)
+                .unwrap_err()
+                .to_string()
+                .contains("head_motion")
+        );
+        assert_eq!(io.parameter_values().unwrap(), original);
+
+        let mut draft = original.clone();
+        draft["head_motion"]["joint_control"]["kp"]["yaw"] = json!(17.0);
+        draft["head_motion"]["injected_head_joints"] = json!({"yaw": 0.25, "pitch": -0.125});
+        draft["motion_inference"]["locomotion"]["elbow_degrees"] = json!(-25.0);
+        draft["motion_inference"]["policies"]["Walk"]["kp"]["head"]["yaw"] = json!(13.0);
+        draft["hardware_interface"]["sdk_request_timeout"] = json!({"secs": 2, "nanos": 0});
+        draft["joint_limits"]["position"]["head"]["yaw"] = json!([-1.0, 1.0]);
+        draft["motion_inference"]["neural_networks_folder"] =
+            json!(root.join("../../etc/neural_networks"));
+        let layer = MotionParameters::prepare(draft.clone()).unwrap();
+        let layer_path = layer.path().to_owned();
+        io.input_motion = MotionCommand::Stand {
+            head: HeadMotion::ZeroAngles,
+        };
+        io.input_game.remaining_number_of_messages = 42;
+        io.restart_with_parameters(Some(layer)).unwrap();
+        assert_eq!(io.parameter_values().unwrap(), draft);
+        // Independent consumers (inference and the dummy) bind the same edited key.
+        runtime.block_on(async {
+            for name in ["test_inference", "test_dummy"] {
+                let node = io.context.create_node(name).build().await.unwrap();
+                let parameters = node
+                    .bind_parameter_as::<motion_inference::config::Parameters>("motion_inference")
+                    .unwrap();
+                assert_eq!(
+                    parameters.snapshot().typed().locomotion.elbow_degrees,
+                    -25.0
+                );
+            }
+        });
+        io.restart().unwrap();
+        assert_eq!(io.parameter_values().unwrap(), draft);
+        assert_eq!(io.input_game.remaining_number_of_messages, 42);
+        assert!(matches!(
+            io.input_motion,
+            MotionCommand::Stand {
+                head: HeadMotion::ZeroAngles
+            }
+        ));
+        assert_eq!(io.clock.now(), Time::from_nanos(123_000_000));
+        assert!(layer_path.exists());
+        drop(io);
+        assert!(!layer_path.exists());
+        server.shutdown().unwrap();
+    }
 
     #[test]
     fn external_topics_preserve_types_source_time_and_raw_command_encoding() {

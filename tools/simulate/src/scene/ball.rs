@@ -33,6 +33,7 @@ pub fn record_removal(event: On<Remove<Ball>>, mut balls: ResMut<SpawnedBalls>) 
 pub struct BallAssets {
     mesh: Handle<Mesh>,
     solid: Handle<StandardMaterial>,
+    selected: Handle<StandardMaterial>,
     ghost: Handle<StandardMaterial>,
     radius: f32,
     parameters: BallParameters,
@@ -63,6 +64,14 @@ impl BallAssets {
                 perceptual_roughness: 0.8,
                 ..default()
             }),
+            selected: materials.add(StandardMaterial {
+                base_color: Color::srgb(1.0, 0.75, 0.2),
+                base_color_texture: Some(base_color_texture.clone()),
+                normal_map_texture: Some(normal_map_texture.clone()),
+                emissive: LinearRgba::new(0.35, 0.18, 0.0, 1.0),
+                perceptual_roughness: 0.8,
+                ..default()
+            }),
             ghost: materials.add(StandardMaterial {
                 base_color: Color::srgba(1.0, 1.0, 1.0, 0.38),
                 base_color_texture: Some(base_color_texture),
@@ -78,6 +87,14 @@ impl BallAssets {
 
     pub fn radius(&self) -> f32 {
         self.radius
+    }
+
+    pub(super) fn material(&self, selected: bool) -> Handle<StandardMaterial> {
+        if selected {
+            self.selected.clone()
+        } else {
+            self.solid.clone()
+        }
     }
 
     fn mjcf_object(&self) -> MjcfObject {
@@ -133,6 +150,7 @@ pub fn spawn(commands: &mut Commands, assets: &BallAssets, transform: Transform)
     let entity = ball.id();
     ball.insert((
         Ball,
+        Pickable::default(),
         ObjectKind::Ball,
         assets.mjcf_object(),
         MujocoBody::new(entity, "ball"),
