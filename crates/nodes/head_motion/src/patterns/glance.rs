@@ -75,16 +75,23 @@ impl GlanceState {
             .glance
             .validate()
             .map_err(|error| eyre!("glance.{error}"))?;
-        ensure!(
-            target.inner.coords.iter().all(|value| value.is_finite()),
-            "glance target must be finite"
-        );
         let active = self.active.get_or_insert_with(|| ActiveGlance::new(now));
         if now < active.last_update
             || now.duration_since(active.last_update) > parameters.joint_control.reseed_after
         {
             *active = ActiveGlance::new(now);
         }
+        let elapsed = if active.tracking {
+            now.duration_since(active.last_update)
+        } else {
+            Duration::ZERO
+        };
+        // Invalid targets still count as activity. advance(None) pauses phase time.
+        active.last_update = now;
+        ensure!(
+            target.inner.coords.iter().all(|value| value.is_finite()),
+            "glance target must be finite"
+        );
         let angle = match active.side {
             Side::Left => parameters.glance.angle,
             Side::Right => -parameters.glance.angle,
@@ -96,14 +103,9 @@ impl GlanceState {
         );
         active.pending = Some(PendingGlance {
             target: position,
-            elapsed: if active.tracking {
-                now.duration_since(active.last_update)
-            } else {
-                Duration::ZERO
-            },
+            elapsed,
             maximum_duration: parameters.glance.maximum_phase_duration,
         });
-        active.last_update = now;
         Ok(GlanceTarget {
             position,
             image_region: ImageRegion::Center,
@@ -369,22 +371,42 @@ mod tests {
             .update(point![2.0, 0.0], &parameters, at(1710))
             .unwrap();
         assert_eq!(state.active.as_ref().unwrap().side, Side::Left);
-        state.advance(Some(&feedback));
-        assert!(
-            state
-                .update(point![f32::NAN, 0.0], &parameters, at(1720))
-                .is_err()
-        );
-        state.advance(None);
-        assert_eq!(state.active.as_ref().unwrap().side, Side::Left);
-        state
-            .update(point![2.0, 0.0], &parameters, at(1730))
-            .unwrap();
-        state.advance(Some(&feedback));
-        assert_eq!(
-            state.active.as_ref().unwrap().elapsed,
-            Duration::ZERO,
-            "an invalid target must pause timing even though update returned an error"
-        );
+    }
+
+    #[test]
+    fn continuous_invalid_target_holds_preserve_side_and_phase_time_on_recovery() {
+        let mut parameters = parameters();
+        parameters.joint_control.reseed_after = Duration::from_millis(100);
+        let target = point![2.0, 0.0];
+        let feedback = progress(false);
+        // The second input is finite, but its rotated offset overflows on the right.
+        for invalid in [point![f32::NAN, 0.0], point![f32::MAX, f32::MAX]] {
+            let mut state = GlanceState::default();
+            state.update(target, &parameters, at(0)).unwrap();
+            state.advance(Some(&progress(true)));
+            for millis in [10, 20] {
+                state.update(target, &parameters, at(millis)).unwrap();
+                state.advance(Some(&feedback));
+            }
+            for millis in (30..=200).step_by(10) {
+                assert!(state.update(invalid, &parameters, at(millis)).is_err());
+                state.advance(None);
+                let active = state.active.as_ref().unwrap();
+                assert_eq!(active.side, Side::Right);
+                assert_eq!(active.elapsed, Duration::from_millis(10));
+            }
+            state.update(target, &parameters, at(210)).unwrap();
+            assert!(state.advance(Some(&feedback)).is_none());
+            let active = state.active.as_ref().unwrap();
+            assert_eq!(active.side, Side::Right);
+            assert_eq!(active.elapsed, Duration::from_millis(10));
+
+            state.update(target, &parameters, at(220)).unwrap();
+            assert!(state.advance(Some(&feedback)).is_none());
+            assert_eq!(
+                state.active.as_ref().unwrap().elapsed,
+                Duration::from_millis(20)
+            );
+        }
     }
 }
