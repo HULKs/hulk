@@ -279,7 +279,6 @@ splines = { version = "=4.2.0", features = ["serde"] }
 stereo_visual_odometry = { path = "crates/nodes/stereo_visual_odometry" }
 support_foot_estimator = { path = "crates/nodes/support_foot_estimator" }
 syn = { version = "2.0.98", features = ["extra-traits", "full"] }
-systemd = "0.10.0"
 team_ball_filter = { path = "crates/nodes/team_ball_filter" }
 tempfile = "3.17.0"
 thiserror = "2.0.11"

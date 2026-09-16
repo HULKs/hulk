@@ -108,15 +108,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 });
             }
             received_team_ball = team_ball_sub.recv() => {
-                let Some(team_ball) = received_team_ball? else {
-                    ball_state_pub.publish(&None).await?;
-                    last_ball_state = None;
+                let (Some(team_ball), Some(ground_to_field)) = (received_team_ball?, ground_to_field_cache.get_latest()) else {
                     continue;
                 };
 
-                let Some(ground_to_field) = ground_to_field_cache.get_latest() else {
-                    continue;
-                };
                 let ground_to_field = *ground_to_field;
 
                 let ball = create_ball_state(

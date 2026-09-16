@@ -45,12 +45,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let mut team_ball_filter = TeamBallFilter::default();
     let mut filtered_game_controller_state = None;
+    let mut tick = node.create_timer(std::time::Duration::from_millis(100));
 
     loop {
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
 
         tokio::select! {
+            _ = tick.tick() => {},
             received_player_states = player_states_sub.recv() => {
                 team_ball_filter.update_received_balls(received_player_states?);
             }
@@ -68,7 +70,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         }
 
-        let team_ball = team_ball_filter.get_best_received_ball(now, parameters.maximum_age);
+        let team_ball = team_ball_filter.get_last_valid_received_ball(now, parameters.maximum_age);
         team_balls_pub
             .publish_if_subscribed(|| async {
                 team_ball_filter.filtered_received_balls(now, parameters.maximum_age)
@@ -98,7 +100,7 @@ impl TeamBallFilter {
             .map(|ball| ball.filter(|ball| ball.age_at(now).is_some_and(|age| age < maximum_age)))
     }
 
-    fn get_best_received_ball(
+    fn get_last_valid_received_ball(
         &self,
         now: ros_z::time::Time,
         maximum_age: Duration,
