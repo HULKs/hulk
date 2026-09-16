@@ -14,7 +14,7 @@ use crate::parameters::JointControlParameters;
 pub use diagnostics::{Constraint, ConstraintCause, ConstraintDiagnostic};
 use diagnostics::{record_measurement, record_tracking};
 pub use trajectory::KinematicState;
-use trajectory::{AxisGenerator, Limits};
+use trajectory::{Limits, TrajectoryGenerator};
 
 mod diagnostics;
 mod trajectory;
@@ -56,7 +56,7 @@ impl HeadObservation {
 pub enum JointTarget {
     Position(HeadJoints<f32>),
     /// Travel toward a position at the requested positive joint speeds (rad/s),
-    /// arriving at rest. Short segments may finish before reaching cruise speed.
+    /// arriving together at rest. Short segments and synchronization may reduce achieved speeds.
     /// Lowering travel speed preserves the current derivatives while braking.
     MoveTo {
         position: HeadJoints<f32>,
@@ -92,7 +92,7 @@ pub struct JointControlOutput {
 
 #[derive(Default)]
 pub struct JointController {
-    generators: HeadJoints<AxisGenerator>,
+    generator: TrajectoryGenerator,
     reference: Option<HeadJoints<KinematicState>>,
     last_update: Option<Time>,
     previous_target: Option<HeadJoints<f32>>,
@@ -158,46 +158,43 @@ impl JointController {
             elapsed,
             reseeded,
         } = self.tracking_start(observation, now, parameters.reseed_after);
-        let mut effective_target = HeadJoints::default();
+        let limits = HeadJoints {
+            yaw: limits_for(HeadJoint::Yaw, parameters, joints),
+            pitch: limits_for(HeadJoint::Pitch, parameters, joints),
+        };
+        let mut motion_limits = limits;
         let mut diagnostics = Vec::new();
-
         for joint in JOINTS {
-            let limits = limits_for(joint, parameters, joints);
-            record_measurement(&mut diagnostics, joint, observation, limits);
-            let planning_limits = planning_limits(
+            record_measurement(&mut diagnostics, joint, observation, limits[joint]);
+            motion_limits[joint] = planning_limits(
                 joint,
-                limits,
+                limits[joint],
                 travel_speed.map(|speed| speed[joint]),
                 &mut diagnostics,
             );
-            let step = self.generators[joint]
-                .step(
-                    reference[joint],
-                    requested[joint],
-                    observation.positions[joint],
-                    planning_limits,
-                    elapsed,
-                )
-                .wrap_err_with(|| {
-                    format!(
-                        "failed to plan head joint {joint:?}: start={:?}, requested_target={}, \
-                         measured_position={}, limits={planning_limits:?}, elapsed_seconds={elapsed}",
-                        reference[joint], requested[joint], observation.positions[joint],
-                    )
-                })?;
+        }
+        let steps = self.generator.step(
+            reference, requested, observation.positions, motion_limits, elapsed,
+        ).wrap_err_with(|| format!(
+            "failed to plan head trajectory: start={reference:?}, requested_target={requested:?}, \
+             measured_position={:?}, limits={motion_limits:?}, elapsed_seconds={elapsed}",
+            observation.positions,
+        ))?;
+        let mut effective_target = HeadJoints::default();
+        for joint in JOINTS {
             record_tracking(
                 &mut diagnostics,
                 joint,
                 requested[joint],
                 reference[joint],
-                &step,
-                limits,
+                &steps[joint],
+                limits[joint],
             );
-            reference[joint] = step.reference;
-            effective_target[joint] = step.effective_target;
+            reference[joint] = steps[joint].reference;
+            effective_target[joint] = steps[joint].effective_target;
         }
 
-        // Commit controller state only after both joints produced valid trajectories.
+        // Commit controller state only after the shared trajectory is valid.
         let target_reached =
             self.update_arrival(effective_target, observation, parameters, reseeded);
         self.reference = Some(reference);

@@ -11,6 +11,7 @@ pub struct Parameters {
     pub joint_control: JointControlParameters,
 
     /// Desired travel speeds for direct position/gaze requests.
+    /// Synchronization may reduce either joint's achieved speed for shared arrival.
     pub direct_travel_speed: HeadJoints<f32>,
     /// Maximum age of the latest head measurement when answering a request.
     pub maximum_observation_age: Duration,
@@ -63,6 +64,7 @@ pub struct GlanceParameters {
     /// Bearing offset on each side, in radians, strictly between zero and pi/2.
     pub angle: f32,
     /// Positive desired joint travel speeds in rad/s; each movement targets rest.
+    /// Synchronization may reduce either joint's achieved speed for shared arrival.
     pub travel_speed: HeadJoints<f32>,
     /// Fallback time per side while tracking valid geometry. There is no dwell.
     pub maximum_phase_duration: Duration,
@@ -95,7 +97,8 @@ pub struct ScanParameters {
     pub right: HeadJoints<f32>,
     /// Desired positive travel speeds in rad/s, with direction set by the endpoint.
     /// Ruckig accelerates toward these speeds and brakes to arrive at rest.
-    /// Short segments may not reach them; safety-limit reductions may constrain them.
+    /// Short segments and synchronization may reduce achieved speeds; safety limits
+    /// may constrain the requested speeds.
     pub travel_speed: HeadJoints<f32>,
     /// Continuous measured arrival required before advancing. Zero disables dwell.
     pub dwell_duration: Duration,
@@ -133,7 +136,8 @@ impl ScanParameters {
 /// `maximum_velocity`. Lowering limits during tracking preserves reference velocity
 /// and acceleration, which may temporarily exceed their new maxima while the planner
 /// brakes within the jerk limit. Infeasible position bounds instead trigger recovery
-/// with zero velocity and acceleration.
+/// with zero velocity and acceleration on the reseeded joints. Recovery preserves
+/// the other joint's reference when a bounded shared trajectory is feasible.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
 pub struct JointControlParameters {

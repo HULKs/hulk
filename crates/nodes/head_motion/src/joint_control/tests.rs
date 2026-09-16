@@ -508,3 +508,239 @@ fn lowering_requested_speed_brakes_continuously_and_safety_clipping_is_reported(
         );
     }
 }
+
+#[test]
+fn unequal_joint_moves_follow_a_shared_phase_to_the_constrained_target() {
+    let (parameters, joints) = configuration();
+    for pitch in [0.2, -0.6] {
+        let mut controller = JointController::default();
+        let observation = HeadObservation {
+            positions: HeadJoints {
+                yaw: -0.6,
+                pitch: 0.65,
+            },
+            velocities: HeadJoints::fill(0.0),
+        };
+        let target = JointTarget::MoveTo {
+            position: HeadJoints { yaw: 0.9, pitch },
+            travel_speed: HeadJoints {
+                yaw: 1.5,
+                pitch: 0.4,
+            },
+        };
+        let mut arrived = false;
+        let mut saw_motion = false;
+        for sample in 0..400 {
+            let output = controller
+                .update(
+                    target,
+                    &observation,
+                    &parameters,
+                    &joints,
+                    Time::zero() + Duration::from_millis(sample * 10),
+                )
+                .unwrap();
+            let goal = output.progress.unwrap().effective_target;
+            let distance = HeadJoints {
+                yaw: f64::from(goal.yaw) - f64::from(observation.positions.yaw),
+                pitch: f64::from(goal.pitch) - f64::from(observation.positions.pitch),
+            };
+            let fraction = |joint| {
+                (output.reference[joint].position - f64::from(observation.positions[joint]))
+                    / distance[joint]
+            };
+            assert!(
+                (fraction(HeadJoint::Yaw) - fraction(HeadJoint::Pitch)).abs() < 1e-6,
+                "both joints must make the same relative progress: sample={sample}, pitch={pitch}, reference={:?}, yaw_fraction={}, pitch_fraction={}",
+                output.reference,
+                fraction(HeadJoint::Yaw),
+                fraction(HeadJoint::Pitch)
+            );
+            assert!(
+                (output.reference.yaw.velocity / distance.yaw
+                    - output.reference.pitch.velocity / distance.pitch)
+                    .abs()
+                    < 1e-6
+            );
+            assert!(
+                !output
+                    .diagnostics
+                    .iter()
+                    .any(|d| d.cause == ConstraintCause::PositionRecovery)
+            );
+            saw_motion |= output.reference.yaw.velocity.abs() > 0.1;
+            if JOINTS.into_iter().all(|joint| {
+                (fraction(joint) - 1.0).abs() < 1e-9
+                    && output.reference[joint].velocity.abs() < 1e-9
+            }) {
+                arrived = true;
+                break;
+            }
+        }
+        assert!(saw_motion && arrived);
+    }
+}
+
+#[test]
+fn retargeting_with_incompatible_derivatives_preserves_continuity_and_shared_arrival() {
+    let (parameters, joints) = configuration();
+    let mut controller = JointController::default();
+    let observation = observed(0.0, 0.0);
+    let first = JointTarget::MoveTo {
+        position: HeadJoints {
+            yaw: 0.9,
+            pitch: 0.2,
+        },
+        travel_speed: HeadJoints {
+            yaw: 1.5,
+            pitch: 0.5,
+        },
+    };
+    let mut previous = HeadJoints::default();
+    for sample in 0..=20 {
+        previous = controller
+            .update(
+                first,
+                &observation,
+                &parameters,
+                &joints,
+                Time::zero() + Duration::from_millis(sample * 10),
+            )
+            .unwrap()
+            .reference;
+    }
+    let goal = HeadJoints {
+        yaw: -0.5,
+        pitch: 0.6,
+    };
+    let target = JointTarget::MoveTo {
+        position: goal,
+        travel_speed: HeadJoints {
+            yaw: 1.5,
+            pitch: 0.5,
+        },
+    };
+    assert!(previous.yaw.velocity > 0.0 && previous.pitch.velocity > 0.0);
+    // Yaw must reverse while pitch continues: a straight new path would require
+    // discontinuously changing the current velocity direction.
+    let retargeted = controller
+        .update(
+            target,
+            &observation,
+            &parameters,
+            &joints,
+            Time::zero() + Duration::from_millis(200),
+        )
+        .unwrap();
+    for joint in JOINTS {
+        assert!((retargeted.reference[joint].position - previous[joint].position).abs() < 1e-9);
+        assert!((retargeted.reference[joint].velocity - previous[joint].velocity).abs() < 1e-9);
+        assert!(
+            (retargeted.reference[joint].acceleration - previous[joint].acceleration).abs() < 1e-9
+        );
+    }
+    let mut arrival = HeadJoints::fill(None);
+    for sample in 1..400 {
+        let output = controller
+            .update(
+                target,
+                &observation,
+                &parameters,
+                &joints,
+                Time::zero() + Duration::from_millis(200 + sample * 10),
+            )
+            .unwrap();
+        assert!(
+            !output
+                .diagnostics
+                .iter()
+                .any(|d| d.cause == ConstraintCause::PositionRecovery)
+        );
+        for joint in JOINTS {
+            let state = output.reference[joint];
+            assert!(
+                (state.velocity - previous[joint].velocity).abs()
+                    <= f64::from(parameters.maximum_acceleration[joint]) * 0.01 + 1e-7
+            );
+            assert!(
+                (state.acceleration - previous[joint].acceleration).abs()
+                    <= f64::from(parameters.maximum_jerk[joint]) * 0.01 + 1e-7
+            );
+            if (state.position - f64::from(goal[joint])).abs() < 1e-9
+                && state.velocity.abs() < 1e-9
+                && state.acceleration.abs() < 1e-9
+            {
+                arrival[joint].get_or_insert(sample);
+            }
+        }
+        previous = output.reference;
+        if arrival.yaw.is_some() && arrival.pitch.is_some() {
+            break;
+        }
+    }
+    assert!(arrival.yaw.is_some());
+    assert_eq!(
+        arrival.yaw, arrival.pitch,
+        "time synchronization must preserve shared arrival"
+    );
+}
+
+#[test]
+fn one_joint_recovery_preserves_the_other_joints_reference() {
+    let (parameters, joints) = configuration();
+    for failing in JOINTS {
+        let unaffected = if failing == HeadJoint::Yaw {
+            HeadJoint::Pitch
+        } else {
+            HeadJoint::Yaw
+        };
+        let mut controller = JointController::default();
+        let mut observation = observed(0.1, 0.2);
+        observation.positions[failing] = joints.position.head[failing][1] - 0.001;
+        observation.velocities[failing] = 6.0;
+        let target = JointTarget::Position(HeadJoints {
+            yaw: 0.0,
+            pitch: 0.4,
+        });
+        let output = controller
+            .update(target, &observation, &parameters, &joints, Time::zero())
+            .unwrap();
+        let recovered: Vec<_> = output
+            .diagnostics
+            .iter()
+            .filter(|d| d.cause == ConstraintCause::PositionRecovery)
+            .map(|d| d.joint)
+            .collect();
+        assert_eq!(recovered, [failing]);
+        assert_eq!(output.reference[failing].velocity, 0.0);
+        assert_eq!(
+            output.reference[unaffected].position,
+            f64::from(observation.positions[unaffected])
+        );
+        assert_eq!(
+            output.reference[unaffected].velocity,
+            f64::from(observation.velocities[unaffected])
+        );
+        for sample in 1..200 {
+            let output = controller
+                .update(
+                    target,
+                    &observation,
+                    &parameters,
+                    &joints,
+                    Time::zero() + Duration::from_millis(sample * 10),
+                )
+                .unwrap();
+            assert!(
+                !output
+                    .diagnostics
+                    .iter()
+                    .any(|d| d.cause == ConstraintCause::PositionRecovery)
+            );
+            for joint in JOINTS {
+                let [min, max] = joints.position.head[joint];
+                assert!((min..=max).contains(&output.commands[joint].position));
+            }
+        }
+    }
+}

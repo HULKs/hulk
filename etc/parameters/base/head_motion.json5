@@ -7,8 +7,8 @@
     maximum_velocity: { yaw: 6.283185307, pitch: 6.283185307 },
     // Provisional tuning values: validate acceleration, jerk and damping on K1.
     // rad/s^2 and rad/s^3; acceleration ramps over 0.1 s at these limits.
-    maximum_acceleration: { yaw: 20.0, pitch: 20.0 },
-    maximum_jerk: { yaw: 200.0, pitch: 200.0 },
+    maximum_acceleration: { yaw: 10.0, pitch: 10.0 },
+    maximum_jerk: { yaw: 100.0, pitch: 100.0 },
     damping_kd: { yaw: 1.2, pitch: 1.2 },
     position_tolerance: { yaw: 0.02, pitch: 0.02 },
     velocity_tolerance: { yaw: 0.05, pitch: 0.05 },
