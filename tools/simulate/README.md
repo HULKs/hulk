@@ -125,9 +125,11 @@ joint order, mapped by MJCF names rather than MuJoCo array order. The model has 
 parallel ankle motor measurements, so that list is empty. Temperature, packet loss
 and reserved fields use zero defaults.
 
-The robotics context uses `Clock::logical`. Sensor source timestamps and geometry
-wrapper timestamps use the same MuJoCo time; publishing a physics frame advances
-the clock and wakes robotics timers. Pause stops physics, recurring sensor
+The robotics context uses `Clock::logical`. Before publishing each physics frame,
+the simulator advances the shared clock to that frame's MuJoCo time, also used for
+sensor source timestamps and geometry wrappers. This prevents concurrent service
+requests from seeing observations ahead of their clock. Advancing time wakes robotics
+timers. Pause stops physics, recurring sensor
 publication, and those timers. UI input can still be sent while paused.
 An initial observation is published at startup and after structural model changes.
 

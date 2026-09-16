@@ -245,6 +245,9 @@ impl Robotics {
     }
 
     pub fn publish_observation(&self, observation: Observation, time: Time) -> Result<()> {
+        // Service requests also run between timer ticks. Advance the shared clock
+        // before exposing this frame so no consumer can see a future observation.
+        self.clock.set_time(time)?;
         self.runtime.block_on(async {
             self.low_state
                 .publish_with_source_time(&observation.low_state, time)
@@ -269,8 +272,6 @@ impl Robotics {
                 .await?;
             Ok::<_, color_eyre::Report>(())
         })?;
-        // Wake node timers only after enqueuing observations for this physics step.
-        self.clock.set_time(time)?;
         Ok(())
     }
 
@@ -507,9 +508,74 @@ mod tests {
                 head: HeadMotion::ZeroAngles
             }
         );
+        exercise_observation_clock_ordering(&runtime, &io, &clock);
         exercise_head_motion(&runtime, &mut io, &clock);
         drop(io);
         server.shutdown().unwrap();
+    }
+
+    fn exercise_observation_clock_ordering(
+        runtime: &tokio::runtime::Runtime,
+        io: &Robotics,
+        clock: &Clock,
+    ) {
+        let subscriber = runtime.block_on(async {
+            io._node
+                .subscriber::<LowState>("inputs/low_state")
+                .build()
+                .await
+                .unwrap()
+        });
+        let observation = || Observation {
+            low_state: LowState {
+                motor_state_serial: vec![MotorState::default(); 22],
+                ..Default::default()
+            },
+            camera_matrix: CameraMatrix::default(),
+            ground_to_robot: Isometry3::identity(),
+        };
+        let (observed_tx, mut observed_rx) = tokio::sync::mpsc::unbounded_channel();
+        let observed_clock = clock.clone();
+        let receiver = runtime.spawn(async move {
+            while let Ok(sample) = subscriber.recv_with_metadata().await {
+                let now = observed_clock.now();
+                observed_tx.send((sample.source_time, now)).unwrap();
+            }
+        });
+        // Check inside a concurrent consumer, not after publish_observation returns:
+        // a service request may inspect this sample while publication is still running.
+        for _ in 0..512 {
+            let time = clock.now() + Duration::from_millis(2);
+            io.publish_observation(observation(), time).unwrap();
+            let (source_time, observed_time) = runtime.block_on(async {
+                tokio::time::timeout(Duration::from_secs(2), observed_rx.recv())
+                    .await
+                    .unwrap()
+                    .unwrap()
+            });
+            assert_eq!(source_time, time);
+            assert!(
+                source_time <= observed_time,
+                "sensor timestamp {source_time:?} is ahead of receiver clock {observed_time:?}"
+            );
+        }
+        receiver.abort();
+        runtime.block_on(async {
+            let _ = receiver.await;
+        });
+        let subscriber = runtime.block_on(async {
+            io._node
+                .subscriber::<LowState>("inputs/low_state")
+                .build()
+                .await
+                .unwrap()
+        });
+        // A rejected timestamp must not leak a sensor frame to running nodes.
+        assert!(io.publish_observation(observation(), Time::zero()).is_err());
+        assert!(
+            !subscriber.is_ready(),
+            "rejected clock update published a sensor frame"
+        );
     }
 
     fn exercise_head_motion(runtime: &tokio::runtime::Runtime, io: &mut Robotics, clock: &Clock) {
