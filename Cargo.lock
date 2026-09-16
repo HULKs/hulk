@@ -2080,6 +2080,7 @@ dependencies = [
  "hsl_network_messages",
  "json5",
  "linear_algebra",
+ "motion",
  "nalgebra 0.34.2",
  "ros-z",
  "scenario",
