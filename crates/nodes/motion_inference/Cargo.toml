@@ -8,15 +8,15 @@ homepage.workspace = true
 
 [dependencies]
 anyhow = "1"
+booster.workspace = true
+color-eyre.workspace = true
+coordinate_systems.workspace = true
+kinematics.workspace = true
+linear_algebra.workspace = true
 nalgebra.workspace = true
 ort = { workspace = true, features = ["load-dynamic"] }
-serde = { workspace = true, features = ["derive"] }
-booster.workspace = true
-coordinate_systems.workspace = true
-linear_algebra.workspace = true
-color-eyre.workspace = true
-types.workspace = true
-kinematics.workspace = true
 ros-z.workspace = true
 ros-z-schema.workspace = true
+serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["rt", "macros", "time"] }
+types.workspace = true
