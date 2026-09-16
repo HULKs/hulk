@@ -43,14 +43,10 @@ The launcher currently starts:
 
 - `motion`: the main `motion::run_boxed` entry point. Every 20 ms of simulation
   time it dispatches the UI/behavior request to the real head and inference services,
-  composes their outputs, and publishes `JointsCommand` on
-  `commands/joints_command`. The motion crate is unchanged from
-  `rmburg/motion-inference`; there is no dummy node or simulator-specific coordinator.
-- `simulator_joint_commands`: forwards those joints unchanged inside the
-  `robot_command::MotionCommand` envelope consumed by `hardware_interface` on
-  `commands/motion_command`. The mode tag follows the latest behavior request:
-  Damping, Prepare, or Custom for other requests. This only adapts the topic and
-  message types; it does not infer, override, or generate joint commands.
+  composes their outputs, and publishes `robot_command::MotionCommand` directly on
+  `commands/motion_command`, which `hardware_interface` consumes. The motion crate
+  is unchanged from `rmburg/motion-inference`; there is no dummy node or
+  simulator-specific coordinator.
 - `head_motion`
 - `motion_inference`
 - `hardware_interface`

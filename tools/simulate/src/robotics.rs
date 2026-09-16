@@ -178,7 +178,6 @@ impl Robotics {
                 return;
             }
             let mut tasks = JoinSet::new();
-            tasks.spawn(forward_joint_commands(ctx.clone()));
             tasks.spawn(motion::run_boxed(ctx.clone()));
             tasks.spawn(publish_joint_limits(ctx.clone()));
             tasks.spawn(head_motion::node::run_boxed(ctx.clone()));
@@ -294,45 +293,6 @@ impl Robotics {
         replacement.input_game = self.input_game.clone();
         *self = replacement;
         self.publish_inputs()
-    }
-}
-
-// The upstream motion node publishes bare joints, whereas hardware_interface
-// expects a motion envelope. Keep that transport adaptation in the simulator;
-// all joint positions, velocities, torques and gains pass through unchanged.
-async fn forward_joint_commands(context: Arc<Context>) -> Result<()> {
-    use types::robot_command::{JointsCommand, MotionCommand as RobotCommand, MotionType};
-
-    let node = context
-        .create_node("simulator_joint_commands")
-        .build()
-        .await?;
-    let joints = node
-        .subscriber::<JointsCommand>("commands/joints_command")
-        .build()
-        .await?;
-    let requests = node
-        .subscriber::<MotionCommand>("behavior/motion_command")
-        .cache(1)
-        .build()
-        .await?;
-    let commands = node
-        .publisher::<RobotCommand>("commands/motion_command")
-        .build()
-        .await?;
-    loop {
-        let joints_command = joints.recv().await?;
-        let motion_type = match requests.get_latest().as_deref() {
-            Some(MotionCommand::Prepare) => MotionType::Stand,
-            Some(MotionCommand::Damping) | None => MotionType::Damping,
-            _ => MotionType::Walk,
-        };
-        commands
-            .publish(&RobotCommand {
-                motion_type,
-                joints_command,
-            })
-            .await?;
     }
 }
 
@@ -684,7 +644,6 @@ mod tests {
             });
             tasks.spawn(publish_joint_limits(io.context.clone()));
             tasks.spawn(hardware_interface::run_boxed(io.context.clone()));
-            tasks.spawn(forward_joint_commands(io.context.clone()));
             tasks.spawn(motion::run_boxed(io.context.clone()));
             tasks.spawn(head_motion::node::run_boxed(io.context.clone()));
             (tasks, node)
