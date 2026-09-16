@@ -10,7 +10,7 @@
     maximum_acceleration: { yaw: 10.0, pitch: 10.0 },
     maximum_jerk: { yaw: 100.0, pitch: 100.0 },
     damping_kd: { yaw: 1.2, pitch: 1.2 },
-    position_tolerance: { yaw: 0.02, pitch: 0.02 },
+    position_tolerance: { yaw: 0.02, pitch: 0.05 },
     velocity_tolerance: { yaw: 0.05, pitch: 0.05 },
     arrival_exit_factor: 1.5,
     reseed_after: { secs: 0, nanos: 100000000 },
