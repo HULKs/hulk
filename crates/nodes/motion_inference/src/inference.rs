@@ -126,12 +126,29 @@ impl Inference {
         request: InferenceCommand,
         velocity: VelocityEstimator,
         joints: &JointLimits,
+        parameters: Arc<Parameters>,
     ) -> Result<InferenceOutput> {
+        self.update_parameters(parameters);
         self.validate_update(now, sensor, request)?;
         self.velocity = velocity;
         self.activate(now, sensor, request.policy(), joints);
         let standing = self.advance_gait(now, request);
         self.infer(now, sensor, request, standing, joints)
+    }
+
+    fn update_parameters(&mut self, parameters: Arc<Parameters>) {
+        if Arc::ptr_eq(&self.parameters, &parameters) {
+            return;
+        }
+        if let Some(active) = &mut self.active {
+            match &mut active.state {
+                State::Locomotion(state) => state.update_parameters(parameters.clone()),
+                State::SlowGetUp(state) | State::FastGetUp(state) => {
+                    state.update_parameters(parameters.clone());
+                }
+            }
+        }
+        self.parameters = parameters;
     }
 
     fn validate_update(

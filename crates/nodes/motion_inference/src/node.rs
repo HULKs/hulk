@@ -13,6 +13,7 @@ use ros_z::{
     Message, ServiceTypeInfo,
     entity::TypeInfo,
     message::Service,
+    parameter::NodeParameters,
     prelude::*,
     qos::{QosDurability, QosHistory},
     service::ServiceReply,
@@ -87,18 +88,10 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("motion_inference").build().await?;
     let parameters = node.bind_parameter_as::<Parameters>("motion_inference")?;
-    let snapshot = Arc::new(parameters.snapshot().typed().clone());
-    snapshot
-        .validate()
-        .map_err(|error| color_eyre::eyre::eyre!("{error:#}"))?;
-    let frozen = snapshot.clone();
-    parameters.add_validation_hook(move |candidate| {
-        if candidate != frozen.as_ref() {
-            return Err("motion inference parameters are startup-only; edit startup configuration and restart the process".into());
-        }
-        Ok(())
+    parameters.add_validation_hook(|candidate| {
+        candidate.validate().map_err(|error| format!("{error:#}"))
     })?;
-    let mut runtime = InferenceNode::new(snapshot);
+    let mut runtime = InferenceNode::new(parameters);
     runtime.start_initialization();
     runtime.run(node).await
 }
@@ -172,7 +165,7 @@ struct Worker {
 }
 
 struct InferenceNode {
-    parameters: Arc<Parameters>,
+    parameters: NodeParameters<Parameters>,
     joint_limits: Option<Arc<JointLimits>>,
     controller: Option<Controller>,
     worker: Option<Worker>,
@@ -184,10 +177,10 @@ struct InferenceNode {
 }
 
 impl InferenceNode {
-    fn new(parameters: Arc<Parameters>) -> Self {
+    fn new(parameters: NodeParameters<Parameters>) -> Self {
         Self {
             joint_limits: None,
-            controller: Some(Controller::new(parameters.clone())),
+            controller: Some(Controller::new(parameters.snapshot().typed.clone())),
             parameters,
             worker: None,
             pending: VecDeque::with_capacity(REQUEST_QUEUE_CAPACITY),
@@ -332,9 +325,10 @@ impl InferenceNode {
                 received = sensors.recv_with_metadata() => {
                     let received = received?;
                     if self.initialized() && self.first_fault.is_none() {
+                        let parameters = self.parameters.snapshot();
                         let result = sensor_frame(&received.message, received.source_time).and_then(|sensor| {
-                            sensor.validate(&self.parameters)?;
-                            self.velocity.update(&sensor, &self.parameters)?;
+                            sensor.validate(parameters.typed())?;
+                            self.velocity.update(&sensor, parameters.typed())?;
                             Ok(sensor)
                         });
                         match result {
@@ -368,7 +362,8 @@ impl InferenceNode {
                     };
                     let mut sensor = sensor.clone();
                     sensor.last_commanded_position = self.last_inferred_position.unwrap_or(sensor.position);
-                    if let Err(error) = sensor.validate(&self.parameters) {
+                    let parameters = self.parameters.snapshot().typed.clone();
+                    if let Err(error) = sensor.validate(&parameters) {
                         let reason = format!("{error:#}");
                         statuses.publish(&fault_status(&mut self.first_fault, node.clock().now(), error)).await?;
                         queued.deny(&reason).await;
@@ -378,7 +373,7 @@ impl InferenceNode {
                     let mut controller = self.controller.take().expect("idle controller exists");
                     let clock = node.clock().clone();
                     let handle = tokio::task::spawn_blocking(move || {
-                        let result = controller.execute(clock.now(), &sensor, request, velocity, &joints)
+                        let result = controller.execute(clock.now(), &sensor, request, velocity, &joints, parameters)
                             .map(Completion::Inference);
                         (controller, result)
                     });
@@ -498,14 +493,14 @@ fn sensor_frame(low_state: &LowState, timestamp: Time) -> anyhow::Result<observa
 }
 
 struct Controller {
-    parameters: Arc<Parameters>,
+    startup_parameters: Arc<Parameters>,
     inference: Option<Inference>,
 }
 
 impl Controller {
     fn new(parameters: Arc<Parameters>) -> Self {
         Self {
-            parameters,
+            startup_parameters: parameters,
             inference: None,
         }
     }
@@ -516,9 +511,9 @@ impl Controller {
 
     fn initialize(&mut self) -> anyhow::Result<()> {
         self.inference = Some(Inference::new(
-            &self.parameters.neural_networks_folder,
+            &self.startup_parameters.neural_networks_folder,
             &Policy::ALL,
-            self.parameters.clone(),
+            self.startup_parameters.clone(),
         )?);
         Ok(())
     }
@@ -530,12 +525,13 @@ impl Controller {
         command: InferenceCommand,
         velocity: VelocityEstimator,
         joints: &JointLimits,
+        parameters: Arc<Parameters>,
     ) -> anyhow::Result<InferenceOutput> {
         let inference = self
             .inference
             .as_mut()
             .ok_or_else(|| anyhow!("inference is initializing"))?;
-        inference.execute_request(now, sensor, command, velocity, joints)
+        inference.execute_request(now, sensor, command, velocity, joints, parameters)
     }
 }
 

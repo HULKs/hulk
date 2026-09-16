@@ -71,6 +71,21 @@ impl Locomotion {
         }
     }
 
+    pub(crate) fn update_parameters(&mut self, parameters: std::sync::Arc<Parameters>) {
+        let old_offset = Policy::Walk.offset(&self.parameters);
+        let new_offset = Policy::Walk.offset(&parameters);
+        for (index, joint) in LEGS.into_iter().enumerate() {
+            if old_offset[joint] == new_offset[joint] {
+                continue;
+            }
+            for frame in &mut self.history {
+                frame[6 + index] = (frame[6 + index] + old_offset[joint]) - new_offset[joint];
+                frame[18 + index] = (frame[18 + index] + old_offset[joint]) - new_offset[joint];
+            }
+        }
+        self.parameters = parameters;
+    }
+
     pub fn advance(&mut self, seconds: f32, standing: bool) {
         if standing {
             self.phase = 0.0;

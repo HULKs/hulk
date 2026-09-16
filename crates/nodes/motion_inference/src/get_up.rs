@@ -33,6 +33,10 @@ impl GetUp {
         }
     }
 
+    pub(crate) fn update_parameters(&mut self, parameters: std::sync::Arc<Parameters>) {
+        self.parameters = parameters;
+    }
+
     pub fn decode(
         &mut self,
         policy: Policy,
