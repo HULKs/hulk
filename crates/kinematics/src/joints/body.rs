@@ -1,4 +1,8 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::{
+    array::IntoIter,
+    iter::Chain,
+    ops::{Add, Div, Mul, Sub},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -30,6 +34,13 @@ impl<T> BodyJoints<T> {
             right_arm: upper.right_arm,
             left_leg: lower.left_leg,
             right_leg: lower.right_leg,
+        }
+    }
+
+    pub fn upper(self) -> UpperBodyJoints<T> {
+        UpperBodyJoints {
+            left_arm: self.left_arm,
+            right_arm: self.right_arm,
         }
     }
 }
@@ -160,6 +171,26 @@ impl<T> From<BodyJoints<T>> for LowerBodyJoints<T> {
     }
 }
 
+impl<T> IntoIterator for LowerBodyJoints<T> {
+    type Item = T;
+
+    type IntoIter = Chain<IntoIter<T, 6>, IntoIter<T, 6>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.left_leg.into_iter().chain(self.right_leg)
+    }
+}
+
+impl<'a, T> IntoIterator for &'a LowerBodyJoints<T> {
+    type Item = &'a T;
+
+    type IntoIter = Chain<IntoIter<&'a T, 6>, IntoIter<&'a T, 6>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.left_leg).into_iter().chain(&self.right_leg)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, ros_z::Message)]
 pub struct UpperBodyJoints<T> {
     pub left_arm: ArmJoints<T>,
@@ -174,6 +205,15 @@ where
         Self {
             left_arm: ArmJoints::fill(value.clone()),
             right_arm: ArmJoints::fill(value),
+        }
+    }
+}
+
+impl<T> UpperBodyJoints<T> {
+    pub fn map<U>(self, f: impl Fn(T) -> U) -> UpperBodyJoints<U> {
+        UpperBodyJoints {
+            left_arm: self.left_arm.map(&f),
+            right_arm: self.right_arm.map(&f),
         }
     }
 }

@@ -1,10 +1,10 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use bevy::prelude::*;
-use booster::walking::step_from_motion_command;
 use coordinate_systems::{Ground, World};
 use hsl_network_messages::{GameState, Team};
 use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, vector};
+use motion::walking::step_from_walk_command;
 use types::{
     motion_command::{HeadMotion, KickPower, MotionCommand},
     step::Step,
@@ -97,8 +97,22 @@ pub fn move_robots(
         };
 
         match &frame.motion_command {
-            MotionCommand::Walk { .. } => {
-                let step = step_from_motion_command(&frame.motion_command, &parameters.walking);
+            MotionCommand::Walk {
+                path,
+                orientation_mode,
+                target_orientation,
+                distance_to_be_aligned,
+                speed,
+                ..
+            } => {
+                let step = step_from_walk_command(
+                    path,
+                    *orientation_mode,
+                    *target_orientation,
+                    *distance_to_be_aligned,
+                    *speed,
+                    &parameters.walking,
+                );
                 ground_to_world.ground_to_world = apply_walk_to_pose(
                     ground_to_world.ground_to_world,
                     step,
@@ -474,10 +488,10 @@ mod tests {
         time::{Duration, SystemTime},
     };
 
-    use booster::walking::WalkingParameters;
     use coordinate_systems::{Ground, World};
     use hsl_network_messages::{PlayerNumber, Team};
     use linear_algebra::{Isometry2, Orientation2, point, vector};
+    use motion::walking::WalkingParameters;
     use types::{
         behavior_tree::{NodeTrace, Status},
         field_dimensions::{FieldDimensions, Side},

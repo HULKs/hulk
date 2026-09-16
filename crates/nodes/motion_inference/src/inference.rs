@@ -29,6 +29,15 @@ pub struct WalkCommand {
     pub angular_velocity: f32,
 }
 
+impl WalkCommand {
+    pub fn stand() -> Self {
+        Self {
+            velocity: Vector2::zeros(),
+            angular_velocity: 0.0,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, ros_z::Message)]
 pub struct GetUpCommand {
     pub fast: bool,

@@ -43,6 +43,19 @@ where
     }
 }
 
+impl<T> LegJoints<T> {
+    pub fn map<U>(self, f: impl Fn(T) -> U) -> LegJoints<U> {
+        LegJoints {
+            hip_pitch: f(self.hip_pitch),
+            hip_roll: f(self.hip_roll),
+            hip_yaw: f(self.hip_yaw),
+            knee: f(self.knee),
+            ankle_up: f(self.ankle_up),
+            ankle_down: f(self.ankle_down),
+        }
+    }
+}
+
 impl LegJoints<f32> {
     pub fn clamp(self, min: Self, max: Self) -> Self {
         Self {

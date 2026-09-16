@@ -84,7 +84,6 @@ pub struct PolicyParameters {
 pub struct TimingParameters {
     pub policy_period: Duration,
     pub sensor_period: Duration,
-    pub arm_blend_duration: Duration,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ros_z::Message)]
@@ -105,12 +104,6 @@ pub struct LocomotionParameters {
     pub base_frequency: f32,
     pub initial_frequency_offset: f32,
     pub frequency_offset_limit: f32,
-    pub shoulder_pitch_scale: f32,
-    pub shoulder_roll_degrees: f32,
-    pub shoulder_roll_scale: f32,
-    pub knee_lateral_offset: f32,
-    pub elbow_degrees: f32,
-    pub elbow_scale: f32,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ros_z::Message)]
@@ -170,7 +163,7 @@ impl Parameters {
         }
         let t = &self.timing;
         ensure!(
-            [t.policy_period, t.sensor_period, t.arm_blend_duration]
+            [t.policy_period, t.sensor_period]
                 .into_iter()
                 .all(|value| !value.is_zero() && value.as_secs_f32().is_finite()),
             "invalid inference timing"
@@ -192,10 +185,6 @@ impl Parameters {
                 l.angular_velocity_limit,
                 l.base_frequency,
                 l.frequency_offset_limit,
-                l.shoulder_pitch_scale,
-                l.shoulder_roll_scale,
-                l.knee_lateral_offset,
-                l.elbow_scale,
                 k.ball_position_limit,
                 k.ball_velocity_limit,
                 k.ball_jump_distance,
@@ -210,13 +199,9 @@ impl Parameters {
             "invalid inference coefficient"
         );
         ensure!(
-            [
-                l.initial_frequency_offset,
-                l.shoulder_roll_degrees,
-                l.elbow_degrees
-            ]
-            .into_iter()
-            .all(f32::is_finite),
+            [l.initial_frequency_offset,]
+                .into_iter()
+                .all(f32::is_finite),
             "non-finite locomotion coefficient"
         );
         ensure!(

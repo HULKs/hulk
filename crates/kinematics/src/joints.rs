@@ -143,6 +143,16 @@ impl<T> Joints<T> {
             right_leg: self.right_leg,
         }
     }
+
+    pub fn map<U>(self, f: impl Fn(T) -> U) -> Joints<U> {
+        Joints {
+            head: self.head.map(&f),
+            left_arm: self.left_arm.map(&f),
+            right_arm: self.right_arm.map(&f),
+            left_leg: self.left_leg.map(&f),
+            right_leg: self.right_leg.map(&f),
+        }
+    }
 }
 
 impl<T> Index<JointsName> for Joints<T> {

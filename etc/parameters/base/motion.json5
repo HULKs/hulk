@@ -1,0 +1,18 @@
+{
+  arms: {
+    arm_blend_duration: { secs: 1, nanos: 0 },
+    shoulder_pitch_scale: 1.5,
+    shoulder_roll_degrees: -78.0,
+    shoulder_roll_scale: 2.5,
+    knee_lateral_offset: 0.096,
+    elbow_degrees: -30.0,
+    elbow_scale: 1.3,
+    kp: 40.0,
+    kd: 1.0,
+  },
+  walking: {
+    hybrid_align_distance: 1.0,
+    max_alignment_rate: 1.0,
+    deceleration_distance: 0.5,
+  },
+}

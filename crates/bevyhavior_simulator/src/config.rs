@@ -1,7 +1,7 @@
 use std::{net::SocketAddr, time::Duration};
 
-use booster::walking::WalkingParameters;
 use color_eyre::{Result, eyre::Context};
+use motion::walking::WalkingParameters;
 use types::parameters::BehaviorParameters;
 
 pub const DEFAULT_TICK_DURATION: Duration = Duration::from_millis(10);
@@ -60,10 +60,18 @@ pub fn default_behavior_parameters() -> Result<BehaviorParameters> {
     .wrap_err("failed to parse behavior parameters")
 }
 
-pub fn default_walking_parameters() -> Result<WalkingParameters> {
-    let file: WalkingParameters =
-        json5::from_str(include_str!("../../../etc/parameters/base/walking.json5"))
-            .wrap_err("failed to parse walking parameters")?;
+#[derive(Deserialize)]
+struct MotionParametersFile {
+    walking: WalkingParameters,
+}
 
-    Ok(file)
+pub fn default_walking_parameters() -> Result<WalkingParameters> {
+    let file: MotionParametersFile =
+        json5::from_str(include_str!("../../../etc/parameters/base/motion.json5"))
+            .wrap_err("failed to parse walking parameters")?;
+    Ok(WalkingParameters {
+        hybrid_align_distance: file.walking.hybrid_align_distance,
+        max_alignment_rate: file.walking.max_alignment_rate,
+        deceleration_distance: file.walking.deceleration_distance,
+    })
 }
