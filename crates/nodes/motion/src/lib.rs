@@ -336,7 +336,14 @@ impl MotionState {
 
                 let head = head_motion_result.unwrap();
                 let lower_body = inference_result.unwrap().unwrap();
-                let arms = UpperBodyJoints::fill(MotorCommand::zeros());
+                let arms = self
+                    .generate_walking_arm_joints(
+                        lower_body.as_ref(),
+                        clock,
+                        &parameters.arms,
+                        joint_limits,
+                    )
+                    .unwrap();
 
                 let body = BodyJoints::from_lower_and_upper(lower_body.as_ref().clone(), arms);
 
