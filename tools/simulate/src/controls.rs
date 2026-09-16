@@ -135,6 +135,8 @@ struct ParameterTab(&'static str);
 struct ParameterText(String);
 #[derive(Component)]
 struct MotionNumber(String);
+#[derive(Component)]
+struct MotionReadout(String);
 
 pub struct ControlsPlugin;
 impl Plugin for ControlsPlugin {
@@ -151,6 +153,7 @@ impl Plugin for ControlsPlugin {
                     sync_parameter_text,
                     synchronize_parameters,
                     rebuild_form,
+                    update_motion_readouts,
                     update_status,
                     style_actions,
                     style_panel_text,
@@ -673,18 +676,6 @@ fn update_ball_target(
                 let ball = point![ball.x, ball.y];
                 if draft_kick {
                     editor.draft["motion"]["VisualKick"]["ball_position"] = value(ball);
-                    for (entity, path, input) in &numbers {
-                        if path.0.starts_with("/motion/VisualKick/ball_position/")
-                            && let Some(number) =
-                                editor.draft.pointer(&path.0).and_then(Value::as_f64)
-                        {
-                            let displayed =
-                                NumberInputValue::F64((number * 1000.0).round() / 1000.0);
-                            if *input != displayed {
-                                commands.entity(entity).insert(displayed);
-                            }
-                        }
-                    }
                 }
                 if let MotionCommand::VisualKick { ball_position, .. } = &mut io.input_motion
                     && *ball_position != ball
@@ -736,6 +727,14 @@ fn update_ball_target(
         editor.track_ball = false;
         editor.message_error = true;
         editor.message = format!("Ball tracking stopped: {error}");
+    }
+}
+
+fn update_motion_readouts(editor: Res<Editor>, mut readouts: Query<(&MotionReadout, &mut Text)>) {
+    for (path, mut text) in &mut readouts {
+        if let Some(number) = editor.draft.pointer(&path.0).and_then(Value::as_f64) {
+            text.set_if_neq(Text::new(format!("{number:.3}")));
+        }
     }
 }
 
@@ -1261,12 +1260,32 @@ enum Numeric {
     Duration,
 }
 fn number(commands: &mut Commands, parent: Entity, path: &str, initial: f64, kind: Numeric) {
-    let ground_truth = path.starts_with("/motion/VisualKick/ball_position/");
-    let initial = if ground_truth {
-        (initial * 1000.0).round() / 1000.0
-    } else {
-        initial
-    };
+    if path.starts_with("/motion/VisualKick/ball_position/") {
+        // Ground truth is display-only. Disabled Feathers number inputs enqueue
+        // child updates on removal, which panic when rebuilding their parent form.
+        let container = commands
+            .spawn((
+                ChildOf(parent),
+                Node {
+                    width: percent(100),
+                    min_height: px(30),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                BackgroundColor(rgb(0x17212e)),
+            ))
+            .id();
+        commands.spawn((
+            ChildOf(container),
+            Text::new(format!("{initial:.3}")),
+            PanelText,
+            MotionReadout(path.to_owned()),
+            TextFont::from_font_size(14.0),
+            TextColor(rgb(0xb4c5da)),
+        ));
+        return;
+    }
     let motion_path = path.starts_with("/motion/").then(|| path.to_owned());
     let path = path.to_owned();
     let units = match kind {
@@ -1298,9 +1317,6 @@ fn number(commands: &mut Commands, parent: Entity, path: &str, initial: f64, kin
             commands.entity(event.event_target()).insert(NumberInputValue::F64(n));
         })
     }).id();
-    if ground_truth {
-        commands.entity(input).insert(InteractionDisabled);
-    }
     if let Some(path) = motion_path {
         commands.entity(input).insert(MotionNumber(path));
     }
@@ -1331,6 +1347,79 @@ mod tests {
         parameters::BallParameters,
         scene::ball::{self, Ball},
     };
+
+    #[test]
+    fn changing_kick_power_rebuilds_the_form_without_stale_widget_commands() {
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            bevy::asset::AssetPlugin::default(),
+            bevy::scene::ScenePlugin,
+            NumberInputPlugin,
+        ))
+        .init_asset::<Font>()
+        .init_asset::<Image>()
+        .init_resource::<InputFocus>()
+        .insert_resource(UiTheme(panel_theme()))
+        .init_resource::<Editor>()
+        .add_systems(Update, (rebuild_form, update_motion_readouts).chain());
+        app.world_mut().spawn((Form, Node::default()));
+        app.world_mut().resource_mut::<Editor>().draft["motion"] = choices("/motion")
+            .unwrap()
+            .into_iter()
+            .find(|option| option.get("VisualKick").is_some())
+            .unwrap();
+        app.update();
+
+        for power in ["Schlong", "Rumpelstilzchen", "Schlong"] {
+            let button = app
+                .world_mut()
+                .query::<(&Text, &ChildOf)>()
+                .iter(app.world())
+                .find_map(|(text, parent)| (text.0 == power).then_some(parent.parent()))
+                .unwrap();
+            app.world_mut().trigger(Activate { entity: button });
+            app.update();
+            assert_eq!(
+                app.world().resource::<Editor>().draft["motion"]["VisualKick"]["kick_power"],
+                power
+            );
+            assert!(app.world().get_entity(button).is_err());
+        }
+
+        // Moving the ball must still update both coordinates without rebuilding.
+        let readouts: Vec<_> = app
+            .world_mut()
+            .query_filtered::<Entity, With<MotionReadout>>()
+            .iter(app.world())
+            .collect();
+        assert_eq!(readouts.len(), 2);
+        app.world_mut().resource_mut::<Editor>().draft["motion"]["VisualKick"]["ball_position"] =
+            json!([1.23456, -2.34567]);
+        app.update();
+        for entity in readouts {
+            let path = &app.world().get::<MotionReadout>(entity).unwrap().0;
+            let expected = if path.ends_with("/0") {
+                "1.235"
+            } else {
+                "-2.346"
+            };
+            assert_eq!(app.world().get::<Text>(entity).unwrap().0, expected);
+        }
+
+        // Leaving the kick form also removes all of its live readouts safely.
+        let mut editor = app.world_mut().resource_mut::<Editor>();
+        editor.draft["motion"] = value(MotionCommand::Damping);
+        editor.rebuild = true;
+        app.update();
+        assert_eq!(
+            app.world_mut()
+                .query::<&MotionReadout>()
+                .iter(app.world())
+                .count(),
+            0
+        );
+    }
 
     #[test]
     fn head_and_kick_track_ground_truth_ball_positions_while_paused() {
