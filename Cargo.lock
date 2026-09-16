@@ -5495,6 +5495,7 @@ dependencies = [
  "message_filter",
  "message_handler",
  "microphone_recorder",
+ "motion",
  "motion_inference",
  "motor_commands_collector",
  "obstacle_filter",
