@@ -4,7 +4,7 @@ use std::{mem::take, time::Duration};
 
 use color_eyre::Report;
 use ros_z::time::Time;
-use tracing::warn;
+use tracing::{Level, event, warn};
 use types::motion_command::HeadMotion;
 
 use crate::{
@@ -98,7 +98,8 @@ impl NodeLogger {
 }
 
 /// Logs constraint episodes from the pure joint controller. Call once for each evaluated
-/// output, including unconstrained outputs so completed episodes are cleared.
+/// output, including unconstrained outputs so completed episodes are cleared
+/// after their logging cooldown. Brief interruptions keep the same throttle.
 #[derive(Default)]
 pub struct ConstraintLogger {
     episodes: Vec<ConstraintEpisode>,
@@ -127,10 +128,11 @@ impl ConstraintLogger {
         }
         self.last_log = Some(now);
         self.episodes.retain(|episode| {
-            output
-                .diagnostics
-                .iter()
-                .any(|diagnostic| same_constraint_episode(&episode.diagnostic, diagnostic))
+            now.duration_since(episode.last_warning) < parameters.warning_interval
+                || output
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| same_constraint_episode(&episode.diagnostic, diagnostic))
         });
         for diagnostic in &output.diagnostics {
             let excess = (diagnostic.bounds[0] - diagnostic.value)
@@ -175,16 +177,27 @@ impl ConstraintLogger {
                 }
             };
             let joint = diagnostic.joint;
-            warn!(
-                ?request, ?joint, constraint = ?diagnostic.constraint, cause = ?diagnostic.cause,
-                value = diagnostic.value, effective_value = diagnostic.effective_value,
-                bounds = ?diagnostic.bounds, maximum_excess, action,
-                measured_position_rad = observation.positions[joint],
-                measured_velocity_rad_s = observation.velocities[joint],
-                reference = ?output.reference[joint], progress = ?output.progress,
-                reseeded = output.reseeded, episode_seconds = duration.as_secs_f64(), suppressed,
-                "head joint constraint active (SI units: rad, rad/s, rad/s^2, rad/s^3)"
-            );
+            // tracing requires a static level per callsite; share the structured
+            // fields while keeping normal trajectory saturation out of warnings.
+            macro_rules! log_constraint {
+                ($level:expr) => {
+                    event!(
+                        $level,
+                        ?request, ?joint, constraint = ?diagnostic.constraint, cause = ?diagnostic.cause,
+                        value = diagnostic.value, effective_value = diagnostic.effective_value,
+                        bounds = ?diagnostic.bounds, maximum_excess, action,
+                        measured_position_rad = observation.positions[joint],
+                        measured_velocity_rad_s = observation.velocities[joint],
+                        reference = ?output.reference[joint], progress = ?output.progress,
+                        reseeded = output.reseeded, episode_seconds = duration.as_secs_f64(), suppressed,
+                        "head joint constraint active (SI units: rad, rad/s, rad/s^2, rad/s^3)"
+                    )
+                };
+            }
+            match diagnostic.cause {
+                ConstraintCause::ReferenceAtBound => log_constraint!(Level::DEBUG),
+                _ => log_constraint!(Level::WARN),
+            }
         }
     }
 }
@@ -412,7 +425,49 @@ mod tests {
             &parameters.joint_control,
             Time::zero() + Duration::from_millis(1200),
         );
+        assert_eq!(logger.episodes.len(), 1);
+        logger.log(
+            &HeadMotion::ZeroAngles,
+            &observation,
+            &output,
+            &parameters.joint_control,
+            Time::zero() + Duration::from_secs(2),
+        );
         assert!(logger.episodes.is_empty());
+    }
+
+    #[test]
+    fn brief_constraint_interruptions_preserve_throttling() {
+        let (parameters, observation, mut output) = fixture();
+        let diagnostic = output.diagnostics[0];
+        let mut logger = ConstraintLogger::default();
+        for (millis, active) in [
+            (0, true),
+            (200, false),
+            (400, true),
+            (600, false),
+            (800, true),
+            (1000, true),
+        ] {
+            output.diagnostics = if active { vec![diagnostic] } else { vec![] };
+            logger.log(
+                &HeadMotion::ZeroAngles,
+                &observation,
+                &output,
+                &parameters.joint_control,
+                Time::zero() + Duration::from_millis(millis),
+            );
+            let episode = &logger.episodes[0];
+            if millis < 1000 {
+                assert_eq!(episode.last_warning, Time::zero());
+            } else {
+                assert_eq!(episode.last_warning, Time::zero() + Duration::from_secs(1));
+                assert_eq!(episode.suppressed, 0);
+            }
+            if millis == 800 {
+                assert_eq!(episode.suppressed, 2);
+            }
+        }
     }
 
     #[test]

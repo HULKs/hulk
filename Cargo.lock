@@ -5309,6 +5309,7 @@ dependencies = [
  "serde",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "types",
 ]
 
