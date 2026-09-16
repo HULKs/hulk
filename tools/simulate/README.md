@@ -91,6 +91,22 @@ editing or sending a motion command, or pressing **Damp robot**, also stops trac
 If the first ball is removed, tracking follows the oldest remaining ball. With no ball,
 tracking stops with a message and leaves the last command unchanged.
 
+**Visual kick** uses the first spawned ball's actual MuJoCo position, transformed
+into the controlled robot's Ground frame. Its ball-position fields are read-only
+and update live, including while paused or dragging. The sent kick keeps tracking
+the ball even while editing another draft. With no ball, sending a kick is rejected;
+removing the last ball stops an active kick by sending Damping.
+
+Sent commands have solid scene arrows, inspired by
+[MJLab's velocity visualization](https://github.com/mujocolab/mjlab/blob/main/src/mjlab/tasks/velocity/mdp/velocity_command.py).
+For **Walk with velocity**, blue shows planar velocity and green shows signed yaw
+rate, both starting above the robot's torso. Length is 1 m per m/s or rad/s; a
+negative yaw rate points downward. For **Visual kick**, an amber 1 m arrow starts
+at the ball and shows `kick_direction` (a direction, not a speed or predicted path).
+Directions use the robot's Ground-frame yaw and follow its current world pose.
+Zero vectors are hidden. Unsent draft edits do not change the arrows; the panel
+legend identifies the sent command. Arrows do not intercept ball picking or dragging.
+
 `hardware_interface` publishes raw CDR `LowCommand` messages on `rt/joint_ctrl`.
 MuJoCo applies `tau + kp * (q_target - q) + kd * (dq_target - dq)` every physics
 step, clamped to each actuator's torque limits. Commands are serial and must

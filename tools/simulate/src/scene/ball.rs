@@ -8,7 +8,7 @@ use mujoco_rs::prelude::{MjSpec, MjtGeom, MjtJoint, SpecItem};
 
 use super::{object::ObjectKind, visual::ObjectVisualAssets};
 use crate::{
-    bevy_mujoco::{MjcfObject, MujocoBody},
+    bevy_mujoco::{MjcfObject, MujocoBody, MujocoWorld},
     parameters::{BallParameters, CurrentSimulatorParameters},
 };
 
@@ -21,6 +21,18 @@ pub struct Ball;
 /// Live balls in insertion order, independent of entity index reuse.
 #[derive(Default, Resource)]
 pub struct SpawnedBalls(pub Vec<Entity>);
+
+pub fn first_position(world: &MujocoWorld, balls: &SpawnedBalls) -> color_eyre::Result<[f64; 3]> {
+    let ball = balls.0.first().ok_or_else(|| {
+        color_eyre::eyre::eyre!("No ball in the scene. Drag a ball onto the field first.")
+    })?;
+    let data = world.data();
+    let ball = data
+        .body(&format!("object_{}_ball", ball.to_bits()))
+        .ok_or_else(|| color_eyre::eyre::eyre!("The first ball is not ready in MuJoCo yet."))?;
+    let position = ball.view(data).xpos;
+    Ok([position[0], position[1], position[2]])
+}
 
 pub fn record_spawn(event: On<Add<Ball>>, mut balls: ResMut<SpawnedBalls>) {
     balls.0.push(event.entity);

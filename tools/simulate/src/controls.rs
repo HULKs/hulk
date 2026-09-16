@@ -37,16 +37,7 @@ fn look_at_first_ball(
     balls: &SpawnedBalls,
     robot: Entity,
 ) -> color_eyre::Result<MotionCommand> {
-    let ball = balls.0.first().ok_or_else(|| {
-        color_eyre::eyre::eyre!("No ball in the scene. Drag a ball onto the field first.")
-    })?;
-    let data = world.data();
-    let ball = data
-        .body(&format!("object_{}_ball", ball.to_bits()))
-        .ok_or_else(|| color_eyre::eyre::eyre!("The first ball is not ready in MuJoCo yet."))?
-        .view(data);
-    let robot = RobotBinding::new(data, &format!("object_{}_", robot.to_bits()))?;
-    let target = robot.point_in_ground(data, [ball.xpos[0], ball.xpos[1], ball.xpos[2]]);
+    let target = first_ball_in_ground(world, balls, robot)?;
     Ok(MotionCommand::Stand {
         head: HeadMotion::LookAt {
             target: point![target.x, target.y],
@@ -54,6 +45,29 @@ fn look_at_first_ball(
             image_region_target: ImageRegion::Center,
         },
     })
+}
+
+fn first_ball_in_ground(
+    world: &MujocoWorld,
+    balls: &SpawnedBalls,
+    robot: Entity,
+) -> color_eyre::Result<nalgebra::Point3<f32>> {
+    let position = crate::scene::ball::first_position(world, balls)?;
+    let binding = RobotBinding::new(world.data(), &format!("object_{}_", robot.to_bits()))?;
+    Ok(binding.point_in_ground(world.data(), position))
+}
+
+fn fill_kick_ball(
+    command: &mut MotionCommand,
+    world: &MujocoWorld,
+    balls: &SpawnedBalls,
+    robot: Entity,
+) -> color_eyre::Result<()> {
+    if let MotionCommand::VisualKick { ball_position, .. } = command {
+        let ball = first_ball_in_ground(world, balls, robot)?;
+        *ball_position = point![ball.x, ball.y];
+    }
+    Ok(())
 }
 
 #[derive(Resource)]
@@ -105,6 +119,8 @@ enum PanelLabel {
     Draft,
     Status,
     TrackBall,
+    Vectors,
+    KickBallOrigin,
     ParameterGroup(&'static str),
 }
 #[derive(Component, Clone)]
@@ -248,6 +264,7 @@ fn setup(mut commands: Commands) {
         });
     }
     panel_label(&mut commands, root, PanelLabel::Details);
+    panel_label(&mut commands, root, PanelLabel::Vectors);
     commands
         .spawn((
             ChildOf(root),
@@ -317,7 +334,7 @@ fn setup(mut commands: Commands) {
         @FeathersButton { @variant: ButtonVariant::Primary }
         ChildOf(actions) SubmitButton Node { height: px(36), flex_grow: 1.0 }
         Children[Text::new("Send command") PanelText template_value(PanelLabel::Submit)]
-        on(|_: On<Activate>, mut editor: ResMut<Editor>, mut io: ResMut<Robotics>, inputs: Query<(&ParameterText, &bevy::text::EditableText)>| {
+        on(|_: On<Activate>, mut editor: ResMut<Editor>, mut io: ResMut<Robotics>, inputs: Query<(&ParameterText, &bevy::text::EditableText)>, world: Res<MujocoWorld>, balls: Res<SpawnedBalls>, robot: Single<Entity, With<ControlledRobot>>| {
             if editor.tab == "motion" && matches!(serde_json::from_value::<MotionCommand>(editor.draft["motion"].clone()), Ok(MotionCommand::Walk { .. })) {
                 editor.message_error = true;
                 editor.message = "Path-based walking is not implemented in motion yet. Use Walk with velocity.".into();
@@ -335,12 +352,17 @@ fn setup(mut commands: Commands) {
                 } else { Err(color_eyre::eyre::eyre!("Waiting for the node's parameter service")) }
             } else {
                 let decoded = if editor.tab == "motion" {
-                    editor.track_ball = false;
-                    serde_json::from_value::<MotionCommand>(editor.draft["motion"].clone()).map(|command| io.input_motion = command)
+                    serde_json::from_value::<MotionCommand>(editor.draft["motion"].clone()).map_err(color_eyre::Report::from).and_then(|mut command| {
+                        fill_kick_ball(&mut command, &world, &balls, *robot)?;
+                        editor.track_ball = false;
+                        editor.draft["motion"] = value(&command);
+                        io.input_motion = command;
+                        Ok(())
+                    })
                 } else {
-                    serde_json::from_value::<FilteredGameControllerState>(editor.draft["game"].clone()).map(|game| io.input_game = game)
+                    serde_json::from_value::<FilteredGameControllerState>(editor.draft["game"].clone()).map(|game| io.input_game = game).map_err(color_eyre::Report::from)
                 };
-                decoded.map_err(color_eyre::Report::from).and_then(|()| io.publish_inputs()).map(|()| "Published".to_owned())
+                decoded.and_then(|()| io.publish_inputs()).map(|()| "Published".to_owned())
             };
             editor.message_error = result.is_err();
             editor.message = result.unwrap_or_else(|e| format!("{e:#}"));
@@ -466,6 +488,7 @@ fn update_status(
     io: Res<Robotics>,
     world: Res<MujocoWorld>,
     mode: Res<SimulationMode>,
+    balls: Res<SpawnedBalls>,
     mut labels: Query<(&PanelLabel, &mut Text, &mut TextColor)>,
 ) {
     if let Some(message) = control.message.take() {
@@ -487,6 +510,21 @@ fn update_status(
     let busy = state.busy || editor.pending.is_some();
     for (kind, mut label, mut color) in &mut labels {
         label.0 = match kind {
+            PanelLabel::Vectors => match &io.input_motion {
+                MotionCommand::WalkWithVelocity { .. } => {
+                    "Sent vectors: blue = velocity, green = yaw rate\n1 m = 1 m/s or 1 rad/s".into()
+                }
+                MotionCommand::VisualKick { .. } => {
+                    "Sent vector: amber = kick direction from ball (1 m)".into()
+                }
+                _ => "Command vectors appear after sending a walk or kick.".into(),
+            },
+            PanelLabel::KickBallOrigin => if balls.0.is_empty() {
+                "No ball — spawn one before sending a kick"
+            } else {
+                "Ground truth · first ball · updated live"
+            }
+            .into(),
             PanelLabel::TrackBall => if editor.track_ball {
                 "Stop tracking ball"
             } else {
@@ -627,6 +665,51 @@ fn update_ball_target(
     mut editor: ResMut<Editor>,
     numbers: Query<(Entity, &MotionNumber, &NumberInputValue)>,
 ) {
+    let draft_kick = editor.draft["motion"].get("VisualKick").is_some();
+    let active_kick = matches!(io.input_motion, MotionCommand::VisualKick { .. });
+    if draft_kick || active_kick {
+        match first_ball_in_ground(&world, &balls, *robot) {
+            Ok(ball) => {
+                let ball = point![ball.x, ball.y];
+                if draft_kick {
+                    editor.draft["motion"]["VisualKick"]["ball_position"] = value(ball);
+                    for (entity, path, input) in &numbers {
+                        if path.0.starts_with("/motion/VisualKick/ball_position/")
+                            && let Some(number) =
+                                editor.draft.pointer(&path.0).and_then(Value::as_f64)
+                        {
+                            let displayed =
+                                NumberInputValue::F64((number * 1000.0).round() / 1000.0);
+                            if *input != displayed {
+                                commands.entity(entity).insert(displayed);
+                            }
+                        }
+                    }
+                }
+                if let MotionCommand::VisualKick { ball_position, .. } = &mut io.input_motion
+                    && *ball_position != ball
+                {
+                    *ball_position = ball;
+                    if let Err(error) = io.publish_inputs() {
+                        editor.message_error = true;
+                        editor.message = format!("Could not update kick ball position: {error}");
+                    }
+                }
+            }
+            Err(error) if active_kick => {
+                io.input_motion = MotionCommand::Damping;
+                let result = io.publish_inputs();
+                editor.message_error = true;
+                editor.message = match result {
+                    Ok(()) => format!("Kick stopped: {error}"),
+                    Err(publish_error) => {
+                        format!("Kick stopped: {error}; publishing failed: {publish_error}")
+                    }
+                };
+            }
+            Err(_) => {}
+        }
+    }
     if !editor.track_ball {
         return;
     }
@@ -794,6 +877,9 @@ fn build_field(
     allow_choices: bool,
     expanded: &HashSet<String>,
 ) {
+    if path == "/motion/VisualKick/ball_position" {
+        panel_label(commands, parent, PanelLabel::KickBallOrigin);
+    }
     let parameter = path.starts_with("/parameters/");
     let title = readable(title);
     if let Some((initial, kind)) = numeric_value(path, current) {
@@ -1175,6 +1261,12 @@ enum Numeric {
     Duration,
 }
 fn number(commands: &mut Commands, parent: Entity, path: &str, initial: f64, kind: Numeric) {
+    let ground_truth = path.starts_with("/motion/VisualKick/ball_position/");
+    let initial = if ground_truth {
+        (initial * 1000.0).round() / 1000.0
+    } else {
+        initial
+    };
     let motion_path = path.starts_with("/motion/").then(|| path.to_owned());
     let path = path.to_owned();
     let units = match kind {
@@ -1206,6 +1298,9 @@ fn number(commands: &mut Commands, parent: Entity, path: &str, initial: f64, kin
             commands.entity(event.event_target()).insert(NumberInputValue::F64(n));
         })
     }).id();
+    if ground_truth {
+        commands.entity(input).insert(InteractionDisabled);
+    }
     if let Some(path) = motion_path {
         commands.entity(input).insert(MotionNumber(path));
     }
@@ -1238,7 +1333,7 @@ mod tests {
     };
 
     #[test]
-    fn first_ball_target_uses_current_ground_coordinates_and_spawn_order() {
+    fn head_and_kick_track_ground_truth_ball_positions_while_paused() {
         use ros_z::{
             context::ContextBuilder,
             time::{Clock, Time},
@@ -1477,6 +1572,75 @@ mod tests {
         assert_eq!(
             value(&app.world().resource::<Robotics>().input_motion),
             held
+        );
+
+        let mut kick = MotionCommand::VisualKick {
+            head: HeadMotion::ZeroAngles,
+            ball_position: point![99.0, 99.0],
+            kick_direction: Orientation2::new(0.3),
+            target_position: point![2.0, 0.0],
+            robot_theta_to_field: Orientation2::identity(),
+            kick_power: types::motion_command::KickPower::Schlong,
+        };
+        assert!(
+            fill_kick_ball(
+                &mut kick,
+                app.world().resource::<MujocoWorld>(),
+                app.world().resource::<SpawnedBalls>(),
+                robot
+            )
+            .is_err()
+        );
+        let ball = app
+            .world_mut()
+            .spawn((
+                Ball,
+                ball_object(),
+                Transform::from_xyz(origin.x - 1.0, 0.105, -(origin.y + 2.0)),
+            ))
+            .id();
+        app.update();
+        app.world_mut().resource_mut::<Editor>().draft["motion"] = value(&kick);
+        app.world_mut().resource_mut::<Robotics>().input_motion = kick.clone();
+        app.update();
+        let received = receive();
+        let MotionCommand::VisualKick {
+            ball_position,
+            kick_direction,
+            kick_power,
+            ..
+        } = &received
+        else {
+            panic!("expected a kick");
+        };
+        assert!((ball_position.x() - 2.0).abs() < 1e-5 && (ball_position.y() - 1.0).abs() < 1e-5);
+        assert!((kick_direction.angle() - 0.3).abs() < 1e-6);
+        assert_eq!(*kick_power, types::motion_command::KickPower::Schlong);
+        assert_eq!(
+            app.world().resource::<Editor>().draft["motion"],
+            value(&received)
+        );
+        app.world_mut()
+            .resource_mut::<MujocoWorld>()
+            .set_object_pose(
+                ball,
+                Transform::from_xyz(origin.x - 2.0, 0.105, -(origin.y + 3.0)),
+            )
+            .unwrap();
+        app.update();
+        let received = receive();
+        let MotionCommand::VisualKick { ball_position, .. } = received else {
+            panic!("expected a kick");
+        };
+        assert!((ball_position.x() - 3.0).abs() < 1e-5 && (ball_position.y() - 2.0).abs() < 1e-5);
+        app.world_mut().despawn(ball);
+        app.update();
+        assert_eq!(receive(), MotionCommand::Damping);
+        assert!(
+            app.world()
+                .resource::<Editor>()
+                .message
+                .contains("Kick stopped")
         );
         drop(app);
         drop(server);
