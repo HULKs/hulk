@@ -1,0 +1,17 @@
+{
+  "tree": {
+    "id": 1,
+    "root": 2,
+    "tiles": {
+      "next_tile_id": 3,
+      "tiles": {
+        "1": { "Pane": { "kind": "parameter", "state": {} } },
+        "2": { "Container": { "Tabs": { "children": [1], "active": 1 } } }
+      },
+      "invisible": []
+    },
+    "height": null,
+    "width": null
+  },
+  "focused": 1
+}
