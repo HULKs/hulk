@@ -50,9 +50,11 @@ The launcher currently starts:
 - `head_motion`
 - `motion_inference`
 - `hardware_interface`
-- `simulator_joint_limits`: publishes retained `joint_limits` from the robotics
-  `global` parameters. The simulator publishes retained `field_dimensions` from
-  the actual simulated field, including parameter changes and stack resets.
+- `global_parameter_provider`: publishes retained `joint_limits`, `player_number`,
+  and `field_dimensions` from the robotics `global` parameters. The default
+  `etc/parameters/location/simulator` layer matches the simulated field. Live field
+  edits update the provider through the temporary parameter layer, including after
+  stack resets. With `--no-robotics`, the simulator publishes field dimensions directly.
 
 To test the head, select **Stand** and **LookAround** in the Motion command form,
 click **Send command**, then **Run / Pause**. **ZeroAngles** returns the head
@@ -128,6 +130,7 @@ ROS-Z topics below are relative to `--robot-namespace` (default
 | Publish | `filtered_game_controller_state` | `FilteredGameControllerState`, UI |
 | Publish | `field_dimensions` | `FieldDimensions`, actual simulator parameters, retained |
 | Publish | `joint_limits` | `JointLimits`, robotics global parameters, retained |
+| Publish | `player_number` | `PlayerNumber`, robotics global parameters, retained |
 | Receive, raw Zenoh | `rt/joint_ctrl` | CDR little-endian `booster::LowCommand` |
 
 Physics uses MuJoCo's fixed timestep (currently 2 ms). Each step publishes measured
@@ -216,7 +219,8 @@ disabled. To use an existing router:
 
 - `--parameter-root`: simulator parameter directory, default `tools/simulate/parameters`.
 - `--robotics-parameter-root`: robotics parameter root, default `etc/parameters`.
-- `--location` and `--robot`: optional location/robot parameter layers over `base`.
+- `--location`: location layer over `base`, default `simulator`.
+- `--robot`: optional robot parameter layer over the location layer.
   Simulator-local defaults (including `hardware_interface`) are loaded first, so
   robotics base/location/robot layers can override them.
 - `--robot-namespace`: namespace shared by the robotics nodes and UI publishers.

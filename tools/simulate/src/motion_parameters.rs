@@ -20,7 +20,7 @@ pub const GROUPS: [(&str, &str, &str, &str); 4] = [
     (
         "joint_limits",
         "Joint limits",
-        "simulator_joint_limits",
+        "global_parameter_provider",
         "joint_limits",
     ),
 ];

@@ -42,8 +42,8 @@ struct Args {
     /// Robotics parameter root containing base/, location/, and robot/ layers.
     #[arg(long, default_value = "etc/parameters")]
     robotics_parameter_root: PathBuf,
-    #[arg(long)]
-    location: Option<String>,
+    #[arg(long, default_value = "simulator")]
+    location: String,
     #[arg(long)]
     robot: Option<String>,
     #[arg(long, default_value = "/simulator/robot")]
@@ -90,9 +90,9 @@ fn main() -> Result<()> {
     })?;
 
     let mut parameter_layers = vec![parameter_root, args.robotics_parameter_root.join("base")];
-    if let Some(location) = args.location {
-        parameter_layers.push(args.robotics_parameter_root.join("location").join(location));
-    }
+    parameter_layers.push(
+        args.robotics_parameter_root.join("location").join(args.location),
+    );
     if let Some(robot) = args.robot {
         parameter_layers.push(args.robotics_parameter_root.join("robot").join(robot));
     }

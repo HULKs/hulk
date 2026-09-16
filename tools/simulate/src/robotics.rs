@@ -8,6 +8,7 @@ use coordinate_systems::{Ground, Robot};
 use linear_algebra::Isometry3;
 use projection::camera_matrix::CameraMatrix;
 use ros_z::{
+    parameter::RemoteParameterClient,
     prelude::*,
     qos::{QosDurability, QosHistory},
     time::{Clock, Time},
@@ -19,7 +20,7 @@ use tokio::{
 };
 use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
-    joint_limits::JointLimits, motion_command::MotionCommand, time_wrapper::TimeWrapper,
+    motion_command::MotionCommand, time_wrapper::TimeWrapper,
 };
 
 use crate::robot_io::{Observation, RobotBinding};
@@ -46,7 +47,8 @@ pub struct Robotics {
     ground: Publisher<TimeWrapper<Option<Isometry3<Ground, Robot>>>>,
     motion: Publisher<MotionCommand>,
     game: Publisher<FilteredGameControllerState>,
-    field: Publisher<FieldDimensions>,
+    field: Option<Publisher<FieldDimensions>>,
+    field_updates: watch::Sender<Option<FieldDimensions>>,
     commands: watch::Receiver<Option<LowCommand>>,
     command_task: JoinHandle<()>,
     stack_task: JoinHandle<()>,
@@ -126,11 +128,30 @@ impl Robotics {
             .qos(retained)
             .build()
             .await?;
-        let field = node
-            .publisher("field_dimensions")
+        let field = if configuration.launch_nodes {
+            None
+        } else {
+            Some(
+                node.publisher("field_dimensions")
+                    .qos(retained)
+                    .build()
+                    .await?,
+            )
+        };
+        let (field_updates, field_receiver) = watch::channel(None);
+        let global_parameters = RemoteParameterClient::new(
+            node.clone(),
+            format!(
+                "{}/global_parameter_provider",
+                configuration.namespace.trim_end_matches('/')
+            ),
+        )?;
+        let global_fields = node
+            .subscriber::<FieldDimensions>("field_dimensions")
             .qos(retained)
             .build()
             .await?;
+        let field_layer = parameter_overrides.path().to_string_lossy().into_owned();
         let sub = context
             .session()
             .declare_subscriber("rt/joint_ctrl")
@@ -179,7 +200,13 @@ impl Robotics {
             }
             let mut tasks = JoinSet::new();
             tasks.spawn(motion::run_boxed(ctx.clone()));
-            tasks.spawn(publish_joint_limits(ctx.clone()));
+            tasks.spawn(global_parameter_provider::run_boxed(ctx.clone()));
+            tasks.spawn(synchronize_field_dimensions(
+                global_parameters,
+                global_fields,
+                field_receiver,
+                field_layer,
+            ));
             tasks.spawn(head_motion::node::run_boxed(ctx.clone()));
             tasks.spawn(motion_inference::run_boxed(ctx.clone()));
             tasks.spawn(hardware_interface::run_boxed(ctx));
@@ -208,6 +235,7 @@ impl Robotics {
             motion,
             game,
             field,
+            field_updates,
             commands,
             command_task,
             stack_task,
@@ -239,7 +267,11 @@ impl Robotics {
     }
 
     pub fn publish_field_dimensions(&self, dimensions: &FieldDimensions) -> Result<()> {
-        self.runtime.block_on(self.field.publish(dimensions))?;
+        if let Some(field) = &self.field {
+            self.runtime.block_on(field.publish(dimensions))?;
+        } else {
+            self.field_updates.send_replace(Some(dimensions.clone()));
+        }
         Ok(())
     }
 
@@ -296,25 +328,32 @@ impl Robotics {
     }
 }
 
-async fn publish_joint_limits(context: Arc<Context>) -> Result<()> {
-    let node = context
-        .create_node("simulator_joint_limits")
-        .build()
-        .await?;
-    let parameters = node.bind_parameter_as::<global_parameter_provider::Parameters>("global")?;
-    parameters.add_validation_hook(|parameters| parameters.joint_limits.validate())?;
-    let publisher = node
-        .publisher::<JointLimits>("joint_limits")
-        .qos(QosProfile {
-            durability: QosDurability::TransientLocal,
-            ..Default::default()
-        })
-        .build()
-        .await?;
-    let mut updates = parameters.subscribe();
+async fn synchronize_field_dimensions(
+    parameters: RemoteParameterClient,
+    fields: Subscriber<FieldDimensions>,
+    mut updates: watch::Receiver<Option<FieldDimensions>>,
+    layer: String,
+) -> Result<()> {
+    // The provider publishes its initial field after registering its parameter services.
+    fields.recv().await?;
     loop {
-        let snapshot = updates.borrow_and_update().clone();
-        publisher.publish(&snapshot.typed().joint_limits).await?;
+        let dimensions = updates.borrow_and_update().clone();
+        if let Some(dimensions) = dimensions {
+            let response = parameters
+                .set_json(
+                    "field_dimensions",
+                    &serde_json::to_value(dimensions)?,
+                    layer.clone(),
+                    None,
+                )
+                .await?;
+            if !response.success {
+                return Err(eyre!(
+                    "Cannot update global field dimensions: {}",
+                    response.message
+                ));
+            }
+        }
         updates.changed().await?;
     }
 }
@@ -334,6 +373,101 @@ mod tests {
     use booster::MotorState;
     use std::time::Duration;
     use types::motion_command::HeadMotion;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn global_parameters_publish_simulator_layer_and_live_field_updates() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../etc/parameters");
+        let overrides = tempfile::tempdir().unwrap();
+        let context = Arc::new(
+            ContextBuilder::default()
+                .with_namespace("/global_parameters_test")
+                .with_mode("peer")
+                .disable_multicast_scouting()
+                .with_connect_endpoints(std::iter::empty::<&str>())
+                .with_listen_endpoints(std::iter::empty::<&str>())
+                .with_parameter_layers([
+                    root.join("base"),
+                    root.join("location/simulator"),
+                    overrides.path().to_owned(),
+                ])
+                .build()
+                .await
+                .unwrap(),
+        );
+        let node = Arc::new(context.create_node("observer").build().await.unwrap());
+        let retained = QosProfile {
+            durability: QosDurability::TransientLocal,
+            history: QosHistory::from_depth(1),
+            ..Default::default()
+        };
+        let fields = node
+            .subscriber::<FieldDimensions>("field_dimensions")
+            .qos(retained)
+            .build()
+            .await
+            .unwrap();
+        let readiness = node
+            .subscriber::<FieldDimensions>("field_dimensions")
+            .qos(retained)
+            .build()
+            .await
+            .unwrap();
+        let limits = node
+            .subscriber::<types::joint_limits::JointLimits>("joint_limits")
+            .qos(retained)
+            .build()
+            .await
+            .unwrap();
+        let players = node
+            .subscriber::<hsl_network_messages::PlayerNumber>("player_number")
+            .qos(retained)
+            .build()
+            .await
+            .unwrap();
+        let client = RemoteParameterClient::new(
+            node.clone(),
+            "/global_parameters_test/global_parameter_provider",
+        )
+        .unwrap();
+        let (updates, receiver) = watch::channel(None);
+        let mut tasks = JoinSet::new();
+        tasks.spawn(global_parameter_provider::run_boxed(context.clone()));
+        tasks.spawn(synchronize_field_dimensions(
+            client.clone(),
+            readiness,
+            receiver,
+            overrides.path().to_string_lossy().into_owned(),
+        ));
+        tokio::time::timeout(Duration::from_secs(5), async {
+            let mut dimensions = fields.recv().await.unwrap();
+            assert_eq!(dimensions.length, 9.0);
+            assert_eq!(dimensions.width, 6.0);
+            limits.recv().await.unwrap().validate().unwrap();
+            assert_eq!(
+                players.recv().await.unwrap(),
+                hsl_network_messages::PlayerNumber::Three
+            );
+            dimensions.width = 7.0;
+            updates.send_replace(Some(dimensions));
+            assert_eq!(fields.recv().await.unwrap().width, 7.0);
+            let snapshot = client.get_snapshot().await.unwrap();
+            assert!(snapshot.success);
+            let value: serde_json::Value = serde_json::from_str(&snapshot.value_json).unwrap();
+            assert_eq!(value["field_dimensions"]["width"], 7.0);
+            let late = node
+                .subscriber::<FieldDimensions>("field_dimensions")
+                .qos(retained)
+                .build()
+                .await
+                .unwrap();
+            assert_eq!(late.recv().await.unwrap().width, 7.0);
+        })
+        .await
+        .unwrap();
+        tasks.abort_all();
+        while tasks.join_next().await.is_some() {}
+        context.shutdown().unwrap();
+    }
 
     #[test]
     fn external_topics_preserve_types_source_time_and_raw_command_encoding() {
@@ -642,7 +776,7 @@ mod tests {
                     reply.reply_async(&result).await?;
                 }
             });
-            tasks.spawn(publish_joint_limits(io.context.clone()));
+            tasks.spawn(global_parameter_provider::run_boxed(io.context.clone()));
             tasks.spawn(hardware_interface::run_boxed(io.context.clone()));
             tasks.spawn(motion::run_boxed(io.context.clone()));
             tasks.spawn(head_motion::node::run_boxed(io.context.clone()));
