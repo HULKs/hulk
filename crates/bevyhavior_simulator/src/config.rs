@@ -1,6 +1,8 @@
 use std::{net::SocketAddr, time::Duration};
 
 use color_eyre::{Result, eyre::Context};
+use serde::Deserialize;
+
 use motion::walking::WalkingParameters;
 use types::parameters::BehaviorParameters;
 

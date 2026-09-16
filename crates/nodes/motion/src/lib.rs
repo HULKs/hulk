@@ -33,13 +33,15 @@ use ros_z::{
 use types::{
     joint_limits::JointLimits,
     motion_command::{HeadMotion, KickPower, MotionCommand},
-    robot_command::{JointsCommand, MotorCommand},
+    robot_command::{DesiredMode, JointsCommand, MotorCommand},
     time_wrapper::TimeWrapper,
 };
 
 use crate::walking::{WalkingParameters, step_from_walk_command};
 
 pub mod walking;
+
+pub const MOTION_COMMAND_TOPIC: &str = "commands/motion_command";
 
 #[derive(Serialize, Deserialize, Message)]
 struct ArmParameters {
@@ -83,8 +85,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .wrap_err("failed to build motion_command subscriber")?;
 
-    let joints_command_pub = node
-        .publisher::<JointsCommand>("commands/joints_command")
+    let motion_command_pub = node
+        .publisher::<types::robot_command::MotionCommand>(MOTION_COMMAND_TOPIC)
         .build()
         .await
         .wrap_err("failed to build joints_command publisher")?;
@@ -155,12 +157,24 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         });
 
         let motion_plan = MotionPlan::from_action_request(&action_request, &parameters.walking);
+        let desired_mode = match &motion_plan {
+            MotionPlan::Damping => DesiredMode::Damping,
+            MotionPlan::Prepare => DesiredMode::Prepare,
+            MotionPlan::GetUp { .. } => DesiredMode::Custom,
+            MotionPlan::Walk { .. } => DesiredMode::Custom,
+            MotionPlan::Kick { .. } => DesiredMode::Custom,
+        };
 
         let joints_command = motion_state
             .infer(motion_plan, clock, parameters, &joint_limits)
             .await;
 
-        joints_command_pub.publish(&joints_command).await?;
+        let motion_command = types::robot_command::MotionCommand {
+            desired_mode,
+            joints_command,
+        };
+
+        motion_command_pub.publish(&motion_command).await?;
     }
 }
 
@@ -173,7 +187,8 @@ struct MotionState {
 }
 
 enum MotionPlan {
-    DoNothing,
+    Damping,
+    Prepare,
     GetUp {
         command: GetUpCommand,
     },
@@ -190,7 +205,8 @@ enum MotionPlan {
 impl MotionPlan {
     fn from_action_request(action_request: &MotionCommand, parameters: &WalkingParameters) -> Self {
         match action_request {
-            MotionCommand::Damping | MotionCommand::Prepare => Self::DoNothing,
+            MotionCommand::Damping => Self::Damping,
+            MotionCommand::Prepare => Self::Prepare,
             MotionCommand::Stand { head } => Self::Walk {
                 head_motion: *head,
                 command: WalkCommand::stand(),
@@ -273,7 +289,7 @@ impl MotionState {
         let now = clock.now();
 
         let joints_command = match motion_plan {
-            MotionPlan::DoNothing => JointsCommand::fill(MotorCommand::zeros()),
+            MotionPlan::Damping | MotionPlan::Prepare => JointsCommand::fill(MotorCommand::zeros()),
             MotionPlan::GetUp { command } => self
                 .get_up_inference_client
                 .call_async(&command)

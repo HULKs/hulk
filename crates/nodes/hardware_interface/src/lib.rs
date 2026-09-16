@@ -18,7 +18,7 @@ use tracing::{error, info};
 use booster::{LedColor, LowCommand, RobotMode};
 use retry_worker::{RetryCommand, run_retrying_rpc_worker};
 use ros_z::{parameter::NodeParameters, prelude::*};
-use types::robot_command::{JointsCommand, MotionCommand, MotionType};
+use types::robot_command::{DesiredMode, JointsCommand, MotionCommand};
 
 mod joint_control;
 mod light_client;
@@ -189,7 +189,7 @@ async fn joints_command_worker(
 
     loop {
         let MotionCommand {
-            motion_type,
+            desired_mode,
             joints_command,
         } = motion_command_sub.recv().await?;
 
@@ -197,7 +197,7 @@ async fn joints_command_worker(
 
         let low_command = low_command_from_joints_command(joints_command);
 
-        let robot_mode = booster_mode_from_motion_type(motion_type);
+        let robot_mode = booster_mode_from_desired_mode(desired_mode);
 
         if assumed_robot_mode != robot_mode {
             send_retry_command(&mode_command_sender, robot_mode, timeout, "change_mode");
@@ -228,11 +228,11 @@ fn low_command_from_joints_command(joints_command: JointsCommand) -> LowCommand 
     }
 }
 
-fn booster_mode_from_motion_type(motion_type: MotionType) -> RobotMode {
-    match motion_type {
-        MotionType::Damping => RobotMode::Damping,
-        MotionType::Stand => RobotMode::Prepare,
-        _ => RobotMode::Custom,
+fn booster_mode_from_desired_mode(desired_mode: DesiredMode) -> RobotMode {
+    match desired_mode {
+        DesiredMode::Damping => RobotMode::Damping,
+        DesiredMode::Prepare => RobotMode::Prepare,
+        DesiredMode::Custom => RobotMode::Custom,
     }
 }
 

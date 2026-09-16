@@ -33,15 +33,8 @@ pub enum DesiredMode {
     Custom,
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, Message, PartialEq)]
-pub enum MotionType {
-    Stand,
-    Damping,
-    Walk,
-}
-
 #[derive(Serialize, Deserialize, Message)]
 pub struct MotionCommand {
-    pub motion_type: MotionType,
+    pub desired_mode: DesiredMode,
     pub joints_command: JointsCommand,
 }
