@@ -2,7 +2,7 @@ use std::{pin::Pin, sync::Arc, time::Duration};
 
 use color_eyre::{
     Result,
-    eyre::{ContextCompat, WrapErr, ensure},
+    eyre::{WrapErr, ensure},
 };
 use serde::{Deserialize, Serialize};
 use tracing::warn;
@@ -115,19 +115,19 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .wrap_err("failed to build head motion service client")?;
 
-    let joint_limits_cache = node
+    let joint_limits_sub = node
         .subscriber::<JointLimits>("joint_limits")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
-        .cache(1)
         .build()
         .await?;
 
-    let joint_limits = joint_limits_cache
-        .get_latest()
-        .wrap_err("no joint limits were provided")?;
+    let joint_limits = joint_limits_sub
+        .recv()
+        .await
+        .wrap_err("failed to receive joint limits")?;
 
     let clock = node.clock();
 
