@@ -11,6 +11,7 @@ use head_motion::node::{HEAD_MOTION_SERVICE_TOPIC, HeadMotionService};
 use kinematics::joints::{
     Joints,
     body::{BodyJoints, LowerBodyJoints, UpperBodyJoints},
+    leg::LegJoints,
 };
 use linear_algebra::{Vector2, vector};
 use motion_inference::{
@@ -364,30 +365,81 @@ impl MotionState {
     ) -> Result<UpperBodyJoints<MotorCommand>> {
         let elapsed = clock.now().duration_since(self.last_arms.time);
 
-        let positions = legs
-            .into_iter()
-            .zip(joint_limits.position)
-            .map(|(value, [minimum, maximum])| value.position.clamp(minimum, maximum))
-            .collect();
+        let legs: LowerBodyJoints = LowerBodyJoints {
+            left_leg: LegJoints {
+                hip_pitch: legs.left_leg.hip_pitch.position.clamp(
+                    joint_limits.position.left_leg.hip_pitch[0],
+                    joint_limits.position.left_leg.hip_pitch[1],
+                ),
+                hip_roll: legs.left_leg.hip_roll.position.clamp(
+                    joint_limits.position.left_leg.hip_roll[0],
+                    joint_limits.position.left_leg.hip_roll[1],
+                ),
+                hip_yaw: legs.left_leg.hip_yaw.position.clamp(
+                    joint_limits.position.left_leg.hip_yaw[0],
+                    joint_limits.position.left_leg.hip_yaw[1],
+                ),
+                knee: legs.left_leg.knee.position.clamp(
+                    joint_limits.position.left_leg.knee[0],
+                    joint_limits.position.left_leg.knee[1],
+                ),
+                ankle_up: legs.left_leg.ankle_up.position.clamp(
+                    joint_limits.position.left_leg.ankle_up[0],
+                    joint_limits.position.left_leg.ankle_up[1],
+                ),
+                ankle_down: legs.left_leg.ankle_down.position.clamp(
+                    joint_limits.position.left_leg.ankle_down[0],
+                    joint_limits.position.left_leg.ankle_down[1],
+                ),
+            },
+            right_leg: LegJoints {
+                hip_pitch: legs.right_leg.hip_pitch.position.clamp(
+                    joint_limits.position.right_leg.hip_pitch[0],
+                    joint_limits.position.right_leg.hip_pitch[1],
+                ),
+                hip_roll: legs.right_leg.hip_roll.position.clamp(
+                    joint_limits.position.right_leg.hip_roll[0],
+                    joint_limits.position.right_leg.hip_roll[1],
+                ),
+                hip_yaw: legs.right_leg.hip_yaw.position.clamp(
+                    joint_limits.position.right_leg.hip_yaw[0],
+                    joint_limits.position.right_leg.hip_yaw[1],
+                ),
+                knee: legs.right_leg.knee.position.clamp(
+                    joint_limits.position.right_leg.knee[0],
+                    joint_limits.position.right_leg.knee[1],
+                ),
+                ankle_up: legs.right_leg.ankle_up.position.clamp(
+                    joint_limits.position.right_leg.ankle_up[0],
+                    joint_limits.position.right_leg.ankle_up[1],
+                ),
+                ankle_down: legs.right_leg.ankle_down.position.clamp(
+                    joint_limits.position.right_leg.ankle_down[0],
+                    joint_limits.position.right_leg.ankle_down[1],
+                ),
+            },
+        };
 
         let ratio =
             (elapsed.as_secs_f32() / parameters.arm_blend_duration.as_secs_f32()).clamp(0.0, 1.0);
         let mut target = Joints::fill(0.0);
-        for (left, arm, initial, sign) in [
+        for (left, arm, leg_angles, initial, sign) in [
             (
                 true,
                 &mut target.left_arm,
+                &legs.left_leg,
                 self.last_arms.inner.left_arm,
                 1.0,
             ),
             (
                 false,
                 &mut target.right_arm,
+                &legs.right_leg,
                 self.last_arms.inner.right_arm,
                 -1.0,
             ),
         ] {
-            let (sole, knee) = leg(&positions, left);
+            let (sole, knee) = leg(leg_angles, left);
             arm.shoulder_pitch = sole.x() * parameters.shoulder_pitch_scale;
             arm.shoulder_roll = sign
                 * (parameters.shoulder_roll_degrees.to_radians()

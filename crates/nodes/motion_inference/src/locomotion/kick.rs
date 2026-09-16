@@ -130,8 +130,10 @@ pub(super) fn shifted_ball(
     let to_kick_direction = UnitComplex::new(-kick.direction);
     let (roll, pitch, _) = sensor.rotation().euler_angles();
     let level = UnitQuaternion::from_euler_angles(roll, pitch, 0.0);
-    let left = to_kick_direction * (level * leg(&sensor.position, true).0.inner.coords).xy();
-    let right = to_kick_direction * (level * leg(&sensor.position, false).0.inner.coords).xy();
+    let left =
+        to_kick_direction * (level * leg(&sensor.position.left_leg, true).0.inner.coords).xy();
+    let right =
+        to_kick_direction * (level * leg(&sensor.position.right_leg, false).0.inner.coords).xy();
     let mut ball = to_kick_direction * kick.ball_position.inner.coords;
     let angle_weight = 1.0
         - ramp(

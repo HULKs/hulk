@@ -1,7 +1,10 @@
 use std::{collections::VecDeque, f32::consts::TAU};
 
 use coordinate_systems::{Ground, Robot};
-use kinematics::{forward, joints::Joints};
+use kinematics::{
+    forward,
+    joints::{Joints, leg::LegJoints},
+};
 use linear_algebra::{Point2, Point3, Vector2, point};
 use types::{joint_limits::JointLimits, robot_command::MotorCommand};
 
@@ -160,9 +163,8 @@ impl Locomotion {
     }
 }
 
-pub fn leg(position: &Joints<f32>, left: bool) -> (Point3<Robot>, Point3<Robot>) {
+pub fn leg(angles: &LegJoints<f32>, left: bool) -> (Point3<Robot>, Point3<Robot>) {
     if left {
-        let angles = &position.left_leg;
         let tibia_to_robot = forward::left_pelvis_to_robot(angles)
             * forward::left_hip_to_left_pelvis(angles)
             * forward::left_thigh_to_left_hip(angles)
@@ -175,7 +177,6 @@ pub fn leg(position: &Joints<f32>, left: bool) -> (Point3<Robot>, Point3<Robot>)
             tibia_to_robot.translation(),
         )
     } else {
-        let angles = &position.right_leg;
         let tibia_to_robot = forward::right_pelvis_to_robot(angles)
             * forward::right_hip_to_right_pelvis(angles)
             * forward::right_thigh_to_right_hip(angles)
