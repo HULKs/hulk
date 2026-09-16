@@ -297,9 +297,13 @@ fn target_player_position(
     let mut candidates = Vec::new();
 
     for (point, ownership) in map.cells() {
-        if ownership != Ownership::Robot(player) {
+        if ownership != Ownership::Robot(player)
+            || point.x().abs() > field_dimensions.length / 2.0
+            || point.y().abs() > field_dimensions.width / 2.0
+        {
             continue;
         }
+
         candidates.push(point);
 
         sum_x += point.x();
