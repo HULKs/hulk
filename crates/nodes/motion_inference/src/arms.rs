@@ -1,9 +1,8 @@
 use std::time::Duration;
 
 use anyhow::{Result, ensure};
-use booster::MotorCommand;
 use kinematics::joints::{Joints, body::UpperBodyJoints};
-use types::joint_limits::JointLimits;
+use types::{joint_limits::JointLimits, robot_command::MotorCommand};
 
 use crate::{
     config::{Parameters, Policy, clip_measurement},
@@ -18,9 +17,9 @@ pub fn generate_walking_arm_joints(
     initial_position: UpperBodyJoints<f32>,
     elapsed: Duration,
     parameters: &Parameters,
-    joints: &JointLimits,
+    joint_limits: &JointLimits,
 ) -> Result<UpperBodyJoints<MotorCommand>> {
-    let position = clip_measurement(*position, joints.position);
+    let position = clip_measurement(*position, joint_limits.position);
     let ratio = (elapsed.as_secs_f32() / parameters.timing.arm_blend_duration.as_secs_f32())
         .clamp(0.0, 1.0);
     let locomotion = &parameters.locomotion;
@@ -48,7 +47,10 @@ pub fn generate_walking_arm_joints(
     }
     let (kp, kd) = Policy::Walk.gains(parameters);
     let joints = position_targets(target, kp, kd);
-    ensure!(joints_are_finite(joints), "non-finite generated arm joints");
+    ensure!(
+        joints_are_finite(&joints),
+        "non-finite generated arm joints"
+    );
     Ok(UpperBodyJoints {
         left_arm: joints.left_arm,
         right_arm: joints.right_arm,

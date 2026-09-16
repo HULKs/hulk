@@ -1,3 +1,14 @@
+use std::{collections::HashMap, path::Path, sync::Arc};
+
+use anyhow::{Result, ensure};
+use serde::{Deserialize, Serialize};
+
+use coordinate_systems::Ground;
+use kinematics::joints::Joints;
+use linear_algebra::Vector2;
+use ros_z::{Message, time::Time};
+use types::{joint_limits::JointLimits, robot_command::MotorCommand};
+
 use crate::{
     config::{Parameters, Policy},
     get_up::{GetUp, fast, slow},
@@ -5,15 +16,6 @@ use crate::{
     network::Network,
     observation::{SensorFrame, VelocityEstimator},
 };
-use ::kinematics::joints::Joints;
-use anyhow::{Result, ensure};
-use booster::{CommandType, MotorCommand};
-use coordinate_systems::Ground;
-use linear_algebra::Vector2;
-use ros_z::{Message, time::Time};
-use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::Path, sync::Arc};
-use types::joint_limits::JointLimits;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, ros_z::Message)]
 pub struct KickCommand {
@@ -209,7 +211,7 @@ impl Inference {
             .expect("policy validated before activation")
             .run(&observation)?;
         let joints = active.decode(sensor, &raw_output, joints);
-        ensure!(joints_are_finite(joints), "non-finite decoded joints");
+        ensure!(joints_are_finite(&joints), "non-finite decoded joints");
         Ok(InferenceOutput {
             joints: Box::new(joints),
             mode: if policy.is_locomotion() {
@@ -338,17 +340,15 @@ pub fn position_targets(
     position
         .enumerate()
         .map(|(joint, position)| MotorCommand {
-            command_type: CommandType::Serial,
             position,
             kp: kp[joint],
             kd: kd[joint],
-            weight: 1.0,
-            ..MotorCommand::default()
+            ..MotorCommand::zeros()
         })
         .collect()
 }
 
-pub fn joints_are_finite(joints: Joints<MotorCommand>) -> bool {
+pub fn joints_are_finite(joints: &Joints<MotorCommand>) -> bool {
     joints
         .into_iter()
         .flat_map(|joint| {
@@ -358,7 +358,6 @@ pub fn joints_are_finite(joints: Joints<MotorCommand>) -> bool {
                 joint.torque,
                 joint.kp,
                 joint.kd,
-                joint.weight,
             ]
         })
         .all(f32::is_finite)

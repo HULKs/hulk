@@ -12,6 +12,18 @@ pub struct MotorCommand {
     pub kd: f32,
 }
 
+impl MotorCommand {
+    pub fn zeros() -> Self {
+        Self {
+            position: 0.0,
+            velocity: 0.0,
+            torque: 0.0,
+            kp: 0.0,
+            kd: 0.0,
+        }
+    }
+}
+
 pub type JointsCommand = Joints<MotorCommand>;
 
 #[derive(Clone, Copy, Serialize, Deserialize, Message, PartialEq)]

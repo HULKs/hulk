@@ -12,6 +12,8 @@ color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
 kinematics = { workspace = true }
 linear_algebra = { workspace = true }
+head_motion = { workspace = true }
+motion_inference = { workspace = true }
 ros-z = { workspace = true }
 ros-z-schema = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

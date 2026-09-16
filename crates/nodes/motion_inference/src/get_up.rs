@@ -1,7 +1,6 @@
-use ::kinematics::joints::Joints;
-use booster::MotorCommand;
+use kinematics::joints::Joints;
 use ros_z::time::Time;
-use types::joint_limits::JointLimits;
+use types::{joint_limits::JointLimits, robot_command::MotorCommand};
 
 use crate::{
     config::{JOINT_COUNT, Parameters, Policy, clip_measurement},

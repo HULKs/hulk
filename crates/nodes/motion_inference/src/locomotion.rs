@@ -1,14 +1,15 @@
+use std::{collections::VecDeque, f32::consts::TAU};
+
+use coordinate_systems::{Ground, Robot};
+use kinematics::{forward, joints::Joints};
+use linear_algebra::{Point2, Point3, Vector2, point};
+use types::{joint_limits::JointLimits, robot_command::MotorCommand};
+
 use crate::{
     config::{HISTORY_FRAME_SIZE, HISTORY_LENGTH, LEGS, Parameters, Policy},
     inference::position_targets,
     observation::SensorFrame,
 };
-use ::kinematics::{forward, joints::Joints};
-use booster::MotorCommand;
-use coordinate_systems::{Ground, Robot};
-use linear_algebra::{Point2, Point3, Vector2, point};
-use std::{collections::VecDeque, f32::consts::TAU};
-use types::joint_limits::JointLimits;
 
 pub mod kick;
 pub mod walk;

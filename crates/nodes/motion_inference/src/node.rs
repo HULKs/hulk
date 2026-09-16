@@ -1,8 +1,8 @@
 use std::{collections::VecDeque, future::Future, pin::Pin, sync::Arc};
-use types::joint_limits::JointLimits;
+use types::{joint_limits::JointLimits, robot_command::MotorCommand};
 
 use anyhow::anyhow;
-use booster::{JointsMotorState, LowState, MotorCommand};
+use booster::{JointsMotorState, LowState};
 use color_eyre::Result;
 use kinematics::joints::{
     Joints,
@@ -316,7 +316,7 @@ impl InferenceNode {
                             statuses.publish(&Status { time: node.clock().now(), state: State::Initialized }).await?;
                         }
                         Ok(Completion::Inference(output)) => {
-                            self.last_inferred_position = Some((*output.joints).into_iter().map(|joint| joint.position).collect());
+                            self.last_inferred_position = Some(output.joints.as_ref().into_iter().map(|joint| joint.position).collect());
                             worker.request.take().expect("active request has a reply").respond(Ok(output.joints)).await;
                         }
                         Err(error) => self.fail_job(&node, &statuses, worker.request.take(), &format!("{error:#}")).await?,

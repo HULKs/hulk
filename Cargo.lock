@@ -6942,8 +6942,10 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "coordinate_systems",
+ "head_motion",
  "kinematics",
  "linear_algebra",
+ "motion_inference",
  "ros-z",
  "ros-z-schema",
  "serde",
