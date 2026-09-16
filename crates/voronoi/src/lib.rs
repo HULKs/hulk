@@ -77,12 +77,16 @@ pub struct VoronoiGrid {
 }
 
 impl VoronoiGrid {
-    pub fn new(bounds: VoronoiBounds, parameters: VoronoiParameters) -> Self {
+    pub fn new(mut bounds: VoronoiBounds, parameters: VoronoiParameters) -> Self {
         let resolution = parameters.grid_resolution;
-        let width_tiles =
-            ((bounds.grid_max.x() - bounds.grid_min.x()) / resolution).round() as usize;
-        let height_tiles =
-            ((bounds.grid_max.y() - bounds.grid_min.y()) / resolution).round() as usize;
+        let min_cell = bounds.grid_min.map(|min| (min / resolution + 0.5).floor());
+        let max_cell = bounds.grid_max.map(|max| (max / resolution - 0.5).ceil());
+
+        bounds.grid_min = min_cell.map(|min| (min - 0.5) * resolution);
+        bounds.grid_max = max_cell.map(|max| (max + 0.5) * resolution);
+
+        let width_tiles = (max_cell.x() - min_cell.x() + 1.0) as usize;
+        let height_tiles = (max_cell.y() - min_cell.y() + 1.0) as usize;
         let tile_count = (width_tiles) * (height_tiles);
 
         Self {
@@ -297,10 +301,13 @@ impl VoronoiGrid {
     }
 
     fn point_to_index(&self, p: Point2<Field>) -> Option<usize> {
-        let ix =
-            ((p.x() - self.bounds.grid_min.x()) / self.parameters.grid_resolution).floor() as isize;
-        let iy =
-            ((p.y() - self.bounds.grid_min.y()) / self.parameters.grid_resolution).floor() as isize;
+        let resolution = self.parameters.grid_resolution;
+        let min_cell = self
+            .bounds
+            .grid_min
+            .map(|min| (min / resolution + 0.5).round());
+        let ix = ((p.x() / resolution + 0.5).floor() - min_cell.x()) as isize;
+        let iy = ((p.y() / resolution + 0.5).floor() - min_cell.y()) as isize;
 
         if (0..self.width_tiles as isize).contains(&ix)
             && (0..self.height_tiles as isize).contains(&iy)
@@ -314,20 +321,24 @@ impl VoronoiGrid {
     pub fn index_to_point(&self, index: usize) -> Point2<Field> {
         let (x, y) = xy_from_index(self.width_tiles, index);
         let resolution = self.parameters.grid_resolution;
+        let min_cell = self
+            .bounds
+            .grid_min
+            .map(|min| (min / resolution + 0.5).round());
         point!(
-            self.bounds.grid_min.x() + (x as f32) * resolution + resolution / 2.0,
-            self.bounds.grid_min.y() + (y as f32) * resolution + resolution / 2.0
+            (min_cell.x() + x as f32) * resolution,
+            (min_cell.y() + y as f32) * resolution
         )
     }
 
     pub fn cell_overlaps_centroid_bounds(&self, index: usize) -> bool {
-        let (x, y) = xy_from_index(self.width_tiles, index);
-        let resolution = self.parameters.grid_resolution;
+        let center = self.index_to_point(index);
+        let half_resolution = self.parameters.grid_resolution / 2.0;
 
-        let min_x = self.bounds.grid_min.x() + (x as f32) * resolution;
-        let max_x = min_x + resolution;
-        let min_y = self.bounds.grid_min.y() + (y as f32) * resolution;
-        let max_y = min_y + resolution;
+        let min_x = center.x() - half_resolution;
+        let max_x = center.x() + half_resolution;
+        let min_y = center.y() - half_resolution;
+        let max_y = center.y() + half_resolution;
 
         min_x < self.bounds.centroid_max.x()
             && max_x > self.bounds.centroid_min.x()
