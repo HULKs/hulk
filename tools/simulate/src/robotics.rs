@@ -153,7 +153,7 @@ impl Robotics {
             }
         });
         let (status_tx, status) = watch::channel(if configuration.launch_nodes {
-            "UI controls head; walking inference requests (0, 0, 0)".to_owned()
+            "Main motion node controls body and head".to_owned()
         } else {
             "External I/O only (robotics nodes disabled)".to_owned()
         });
@@ -178,8 +178,8 @@ impl Robotics {
                 return;
             }
             let mut tasks = JoinSet::new();
-            tasks.spawn(crate::motion_dummy::run(ctx.clone()));
-            tasks.spawn(motion::run_simulator_boxed(ctx.clone()));
+            tasks.spawn(forward_joint_commands(ctx.clone()));
+            tasks.spawn(motion::run_boxed(ctx.clone()));
             tasks.spawn(publish_joint_limits(ctx.clone()));
             tasks.spawn(head_motion::node::run_boxed(ctx.clone()));
             tasks.spawn(motion_inference::run_boxed(ctx.clone()));
@@ -293,6 +293,45 @@ impl Robotics {
         replacement.input_game = self.input_game.clone();
         *self = replacement;
         self.publish_inputs()
+    }
+}
+
+// The upstream motion node publishes bare joints, whereas hardware_interface
+// expects a motion envelope. Keep that transport adaptation in the simulator;
+// all joint positions, velocities, torques and gains pass through unchanged.
+async fn forward_joint_commands(context: Arc<Context>) -> Result<()> {
+    use types::robot_command::{JointsCommand, MotionCommand as RobotCommand, MotionType};
+
+    let node = context
+        .create_node("simulator_joint_commands")
+        .build()
+        .await?;
+    let joints = node
+        .subscriber::<JointsCommand>("commands/joints_command")
+        .build()
+        .await?;
+    let requests = node
+        .subscriber::<MotionCommand>("behavior/motion_command")
+        .cache(1)
+        .build()
+        .await?;
+    let commands = node
+        .publisher::<RobotCommand>("commands/motion_command")
+        .build()
+        .await?;
+    loop {
+        let joints_command = joints.recv().await?;
+        let motion_type = match requests.get_latest().as_deref() {
+            Some(MotionCommand::Prepare) => MotionType::Stand,
+            Some(MotionCommand::Damping) | None => MotionType::Damping,
+            _ => MotionType::Walk,
+        };
+        commands
+            .publish(&RobotCommand {
+                motion_type,
+                joints_command,
+            })
+            .await?;
     }
 }
 
@@ -476,6 +515,13 @@ mod tests {
     fn exercise_head_motion(runtime: &tokio::runtime::Runtime, io: &mut Robotics, clock: &Clock) {
         use crate::bevy_mujoco::{MjcfObject, MujocoWorld, MujocoWorldPlugin, SimulationMode};
         use bevy::prelude::*;
+        use kinematics::joints::{Joints, body::LowerBodyJoints};
+        use motion_inference::node::{
+            GETUP_INFERENCE_SERVICE, GetUpInferenceService, InferenceResult,
+            KICK_INFERENCE_SERVICE, KickInferenceService, WALK_INFERENCE_SERVICE,
+            WalkInferenceService,
+        };
+        use types::robot_command::MotorCommand;
 
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, MujocoWorldPlugin));
@@ -498,24 +544,93 @@ mod tests {
             &format!("object_{}_", robot.to_bits()),
         )
         .unwrap();
-        let dimensions = FieldDimensions {
+        io.publish_field_dimensions(&FieldDimensions {
             width: 6.0,
             ..Default::default()
-        };
-        // Publish before the head node starts to exercise retained inputs.
-        io.publish_field_dimensions(&dimensions).unwrap();
-        let (mut tasks, head) = runtime.block_on(async {
+        })
+        .unwrap();
+        let (walk_tx, mut walks) = tokio::sync::mpsc::unbounded_channel();
+        let (kick_tx, mut kicks) = tokio::sync::mpsc::unbounded_channel();
+        let (getup_tx, mut getups) = tokio::sync::mpsc::unbounded_channel();
+        let (mut tasks, inference_node) = runtime.block_on(async {
             let mut tasks = JoinSet::new();
+            let node = Arc::new(
+                io.context
+                    .create_node("motion_inference")
+                    .build()
+                    .await
+                    .unwrap(),
+            );
+            let mut walk = node
+                .service_server::<WalkInferenceService>(WALK_INFERENCE_SERVICE)
+                .build()
+                .await
+                .unwrap();
+            let mut kick = node
+                .service_server::<KickInferenceService>(KICK_INFERENCE_SERVICE)
+                .build()
+                .await
+                .unwrap();
+            let mut getup = node
+                .service_server::<GetUpInferenceService>(GETUP_INFERENCE_SERVICE)
+                .build()
+                .await
+                .unwrap();
+            tasks.spawn(async move {
+                loop {
+                    let (request, reply) = walk.take_request_async().await?.into_parts();
+                    walk_tx.send(request).unwrap();
+                    let result: InferenceResult<_> =
+                        Ok(Box::new(LowerBodyJoints::fill(MotorCommand {
+                            position: request.velocity.x(),
+                            velocity: 0.2,
+                            torque: 0.3,
+                            kp: 80.0,
+                            kd: 4.0,
+                        })));
+                    reply.reply_async(&result).await?;
+                }
+            });
+            tasks.spawn(async move {
+                loop {
+                    let (request, reply) = kick.take_request_async().await?.into_parts();
+                    kick_tx.send(request).unwrap();
+                    let result: InferenceResult<_> =
+                        Ok(Box::new(LowerBodyJoints::fill(MotorCommand {
+                            position: 0.12,
+                            kp: 22.0,
+                            ..MotorCommand::zeros()
+                        })));
+                    reply.reply_async(&result).await?;
+                }
+            });
+            tasks.spawn(async move {
+                loop {
+                    let (request, reply) = getup.take_request_async().await?.into_parts();
+                    getup_tx.send(request).unwrap();
+                    let result: InferenceResult<_> = Ok(Box::new(Joints::fill(MotorCommand {
+                        position: 0.03,
+                        kp: 30.0,
+                        ..MotorCommand::zeros()
+                    })));
+                    reply.reply_async(&result).await?;
+                }
+            });
             tasks.spawn(publish_joint_limits(io.context.clone()));
             tasks.spawn(hardware_interface::run_boxed(io.context.clone()));
-            tasks.spawn(crate::motion_dummy::run(io.context.clone()));
-            tasks.spawn(motion::run_simulator_boxed(io.context.clone()));
-            let head = tasks.spawn(head_motion::node::run_boxed(io.context.clone()));
-            (tasks, head)
+            tasks.spawn(forward_joint_commands(io.context.clone()));
+            tasks.spawn(motion::run_boxed(io.context.clone()));
+            tasks.spawn(head_motion::node::run_boxed(io.context.clone()));
+            (tasks, node)
         });
-        let mut step = |io: &mut Robotics, inferred: bool| {
+        let mut step = |io: &mut Robotics| {
             let observation = {
                 let mut world = app.world_mut().resource_mut::<MujocoWorld>();
+                // The service stub tests routing, not balance. Support the torso
+                // above the floor while exercising real head-joint physics.
+                world
+                    .set_object_pose(robot, Transform::from_xyz(0.0, 1.0, 0.0))
+                    .unwrap();
                 let data = world.data_mut();
                 for _ in 0..10 {
                     binding.apply(data, io.latest_command().as_ref());
@@ -529,24 +644,14 @@ mod tests {
             io.publish_observation(observation, clock.now() + Duration::from_millis(20))
                 .unwrap();
             runtime.block_on(async {
+                // Nodes can finish startup after this logical tick. Let the next
+                // tick drive them; the assertions below require actual outputs.
                 let _ =
                     tokio::time::timeout(Duration::from_millis(100), io.commands.changed()).await;
-            });
-            if let Some(command) = io.latest_command() {
-                assert_eq!(command.motor_commands.len(), 22);
-                for (index, motor) in command.motor_commands.iter().enumerate().skip(2) {
-                    let expected = match index {
-                        3 => -78.0_f32.to_radians(),
-                        5 => -30.0_f32.to_radians(),
-                        7 => 78.0_f32.to_radians(),
-                        9 => 30.0_f32.to_radians(),
-                        10..=21 if inferred => 0.1,
-                        _ => 0.0,
-                    };
-                    assert!((motor.position - expected).abs() < 1e-6);
-                    assert!(motor.kp > 0.0 && motor.kd > 0.0);
+                if let Some(result) = tasks.try_join_next() {
+                    panic!("motion stack task exited: {result:?}");
                 }
-            }
+            });
             measured
         };
         io.input_motion = MotionCommand::Stand {
@@ -555,7 +660,7 @@ mod tests {
         let mut maximum_yaw = 0.0_f32;
         let mut maximum_pitch = 0.0_f32;
         for _ in 0..250 {
-            let head = step(io, false);
+            let head = step(io);
             maximum_yaw = maximum_yaw.max(head[0].position.abs());
             maximum_pitch = maximum_pitch.max(head[1].position);
         }
@@ -564,103 +669,115 @@ mod tests {
             maximum_pitch > 0.3,
             "scan did not move pitch: {maximum_pitch}"
         );
-        // The request remains unchanged throughout each phase, so this also
-        // requires central motion to reevaluate it on simulation-clock ticks.
+        while let Ok(request) = walks.try_recv() {
+            assert_eq!(request.velocity, linear_algebra::Vector2::zeros());
+            assert_eq!(request.angular_velocity, 0.0);
+        }
         io.input_motion = MotionCommand::Stand {
             head: HeadMotion::ZeroAngles,
         };
         for _ in 0..150 {
-            step(io, false);
+            step(io);
         }
-        let measured = step(io, false);
+        let measured = step(io);
         assert!(
             measured.iter().all(|motor| motor.position.abs() < 0.05),
-            "ZeroAngles did not return the head to zero"
+            "head did not return to zero: {:?}",
+            measured
+                .iter()
+                .map(|motor| motor.position)
+                .collect::<Vec<_>>()
         );
-        // No logical clock advance means neither commands nor the head move.
         runtime.block_on(async { tokio::time::sleep(Duration::from_millis(30)).await });
         io.commands.borrow_and_update();
         runtime.block_on(async { tokio::time::sleep(Duration::from_millis(30)).await });
-        assert!(!io.commands.has_changed().unwrap());
-        io.input_motion = MotionCommand::Damping;
-        for _ in 0..3 {
-            step(io, false);
-        }
-        assert_eq!(io.latest_command().unwrap().motor_commands[0].kp, 0.0);
-        // A missing head service must not stop the dummy body commands or leave
-        // the last active head target running.
-        io.input_motion = MotionCommand::Stand {
-            head: HeadMotion::LookAround,
+        assert!(
+            !io.commands.has_changed().unwrap(),
+            "commands must stop with logical time"
+        );
+
+        // Real central motion must forward UI velocities instead of forcing zero walking.
+        while walks.try_recv().is_ok() {}
+        io.input_motion = MotionCommand::WalkWithVelocity {
+            head: HeadMotion::ZeroAngles,
+            velocity: linear_algebra::vector![0.25, -0.1],
+            angular_velocity: 0.4,
         };
         for _ in 0..5 {
-            step(io, false);
+            step(io);
         }
-        assert!(io.latest_command().unwrap().motor_commands[0].kp > 0.0);
-        head.abort();
-        for _ in 0..3 {
-            step(io, false);
+        let mut last = None;
+        while let Ok(request) = walks.try_recv() {
+            last = Some(request);
         }
+        let request = last.unwrap();
+        assert_eq!(request.velocity, linear_algebra::vector![0.25, -0.1]);
+        assert_eq!(request.angular_velocity, 0.4);
         let command = io.latest_command().unwrap();
-        assert_eq!(command.motor_commands[0].kp, 0.0);
-        assert!(command.motor_commands[0].kd > 0.0);
-        assert_eq!(command.motor_commands[10].kp, 80.0);
-        // Exercise the walking service contract separately from ONNX execution:
-        // requests must be exactly (0, 0, 0), and all leg command fields must
-        // survive composition with independent arm and head commands.
-        let walking = runtime.block_on(async {
-            use motion_inference::node::{WALK_INFERENCE_SERVICE, WalkInferenceService};
-            let node = io
-                .context
-                .create_node("walking_test")
-                .build()
-                .await
-                .unwrap();
-            let mut service = node
-                .service_server::<WalkInferenceService>(WALK_INFERENCE_SERVICE)
-                .build()
-                .await
-                .unwrap();
-            tasks.spawn(async move {
-                let _node = node;
-                loop {
-                    let (request, reply) = service.take_request_async().await?.into_parts();
-                    assert_eq!(request.velocity.x(), 0.0);
-                    assert_eq!(request.velocity.y(), 0.0);
-                    assert_eq!(request.angular_velocity, 0.0);
-                    let result: motion_inference::node::InferenceResult<_> = Ok(Box::new(
-                        kinematics::joints::body::LowerBodyJoints::fill(booster::MotorCommand {
-                            position: 0.1,
-                            velocity: 0.2,
-                            torque: 0.3,
-                            kp: 12.0,
-                            kd: 1.0,
-                            ..Default::default()
-                        }),
-                    ));
-                    reply.reply_async(&result).await?;
-                }
-            })
-        });
-        // Allow discovery and drain any in-flight fallback before checking legs.
-        runtime.block_on(async { tokio::time::sleep(Duration::from_millis(30)).await });
-        step(io, true);
-        for _ in 0..3 {
-            step(io, true);
-        }
-        for motor in &io.latest_command().unwrap().motor_commands[10..] {
+        for motor in &command.motor_commands[10..] {
+            assert_eq!(motor.position, 0.25);
             assert_eq!(motor.velocity, 0.2);
             assert_eq!(motor.torque, 0.3);
-            assert_eq!(motor.kp, 12.0);
-            assert_eq!(motor.kd, 1.0);
+            assert_eq!(motor.kp, 80.0);
         }
-        walking.abort();
-        runtime.block_on(async { tokio::time::sleep(Duration::from_millis(30)).await });
+        // Preserve the upstream walking arm controller's configured gains.
+        assert!(
+            command.motor_commands[2..10]
+                .iter()
+                .all(|motor| motor.position.is_finite()
+                    && motor.velocity == 0.0
+                    && motor.torque == 0.0
+                    && motor.kp == 40.0
+                    && motor.kd == 1.0)
+        );
+
+        io.input_motion = MotionCommand::VisualKick {
+            head: HeadMotion::ZeroAngles,
+            ball_position: linear_algebra::point![0.2, -0.1],
+            kick_direction: linear_algebra::Orientation2::new(0.3),
+            target_position: linear_algebra::point![2.0, 0.0],
+            robot_theta_to_field: linear_algebra::Orientation2::identity(),
+            kick_power: types::motion_command::KickPower::Schlong,
+        };
+        for _ in 0..5 {
+            step(io);
+        }
+        let kick = kicks.try_recv().unwrap();
+        assert!(kick.request.strong);
+        assert_eq!(
+            kick.request.ball_position,
+            linear_algebra::point![0.2, -0.1]
+        );
+        assert!((kick.request.direction - 0.3).abs() < 1e-6);
+        assert_eq!(io.latest_command().unwrap().motor_commands[10].kp, 22.0);
+        io.input_motion = MotionCommand::StandUp;
+        for _ in 0..5 {
+            step(io);
+        }
+        assert!(!getups.try_recv().unwrap().fast);
+        assert!(
+            io.latest_command()
+                .unwrap()
+                .motor_commands
+                .iter()
+                .all(|motor| motor.kp == 30.0 && motor.position == 0.03)
+        );
+
+        io.input_motion = MotionCommand::Damping;
         for _ in 0..3 {
-            step(io, false);
+            step(io);
         }
+        assert!(
+            io.latest_command()
+                .unwrap()
+                .motor_commands
+                .iter()
+                .all(|motor| motor.kp == 0.0 && motor.kd == 0.0)
+        );
         runtime.block_on(async {
             tasks.abort_all();
             while tasks.join_next().await.is_some() {}
         });
+        drop(inference_node);
     }
 }

@@ -41,24 +41,16 @@ valid scene position. Click the field to clear the selection.
 
 The launcher currently starts:
 
-- `motion_inference_dummy`: publishes a nominal `JointsCommand` on
-  `motion_inference/dummy_joints` at 50 Hz of simulation time, using the Walk
-  policy's configured gains. Arms use `locomotion.shoulder_roll_degrees` and
-  `locomotion.elbow_degrees`, mirrored for the right arm (currently -78°/-30°
-  left and +78°/+30° right); shoulder pitch/yaw stay zero. Legs start at zero
-  as a fallback until walking inference responds.
-- `motion`: uses the temporary `motion::run_simulator_boxed` entry point. Every
-  20 ms of simulation time it extracts `MotionCommand::head_motion()` from the
-  latest UI/behavior request and calls `services/head_motion`. In parallel, it
-  calls `motion_inference/infer_walk` with forward/lateral/angular velocity
-  exactly `(0, 0, 0)`. It merges the returned twelve leg commands and the head
-  reply into the nominal pose, retaining the configured arm targets.
-  It publishes the resulting `robot_command::MotionCommand`
-  on `commands/motion_command` in Custom mode. A missing head request, including
-  body Damping or StandUp, requests head damping. A failed service call also damps
-  the head. If walking inference is unavailable or rejects a request, the legs
-  fall back to the dummy's zero pose and a warning is logged. Both service calls
-  have a 20 ms wall-clock timeout and cannot block each other.
+- `motion`: the main `motion::run_boxed` entry point. Every 20 ms of simulation
+  time it dispatches the UI/behavior request to the real head and inference services,
+  composes their outputs, and publishes `JointsCommand` on
+  `commands/joints_command`. The motion crate is unchanged from
+  `rmburg/motion-inference`; there is no dummy node or simulator-specific coordinator.
+- `simulator_joint_commands`: forwards those joints unchanged inside the
+  `robot_command::MotionCommand` envelope consumed by `hardware_interface` on
+  `commands/motion_command`. The mode tag follows the latest behavior request:
+  Damping, Prepare, or Custom for other requests. This only adapts the topic and
+  message types; it does not infer, override, or generate joint commands.
 - `head_motion`
 - `motion_inference`
 - `hardware_interface`
@@ -71,10 +63,23 @@ click **Send command**, then **Run / Pause**. **ZeroAngles** returns the head
 to zero; **LookAt** and **LookLeftAndRightOf** expose target position and height.
 The game-controller form controls the field side used by head scan patterns.
 
-Walking velocity stays fixed at zero for every UI behavior request, including
-walk, kick, damping, and stand-up; the real walking policy controls the legs.
-The original central motion entry point and its pending body coordination remain
-unchanged.
+**Stand** runs walking inference at zero velocity with the chosen head request.
+**Walk with velocity** forwards the requested forward/lateral velocity and yaw rate.
+**Visual kick** uses kick inference and the selected head request; **Stand up**
+uses full-body slow get-up inference. Arm commands come directly from the main
+node: walking uses its configured arm controller, kicking sends zero arm commands
+and gains, and get-up controls all joints. The simulator does not replace those with a nominal pose.
+**Damping** (also the **Damp robot** shortcut) currently sends zero commands and
+gains, following upstream behavior. **Prepare** requests Booster's preparation
+mode, whose RPC is not simulated.
+
+The editor still refuses path-based **Walk** and suggests **Walk with velocity**.
+External path requests use the upstream walking controller. Kick mapping retains upstream
+limitations: target speed is fixed at 3.4 m/s, ball velocity is zero, and the
+soft/quick flags are false; target position and robot-to-field heading are not used.
+Head and body services run concurrently using the main node's service clients.
+Service errors and inference rejections retain upstream behavior, including its
+current `unwrap()` calls; the simulator does not add a fallback controller.
 
 **Look at first ball** immediately sends `Stand { head: LookAt { ... } }` for the first
 spawned ball still in the scene and opens the constructed command in the form.
@@ -82,7 +87,7 @@ It continuously samples the ball's current MuJoCo center, converts it into the c
 robot's Ground frame, and includes its height above ground with image region
 Center. Moving the ball or robot updates the published target and displayed coordinates,
 including while paused or dragging. **Stop tracking ball** holds the last target;
-editing or sending a motion command, or pressing **Damp head**, also stops tracking.
+editing or sending a motion command, or pressing **Damp robot**, also stops tracking.
 If the first ball is removed, tracking follows the oldest remaining ball. With no ball,
 tracking stops with a message and leaves the last command unchanged.
 
@@ -168,8 +173,9 @@ Inference consumes new tuning at request boundaries, preserving gait phase and
 controller history. Model filenames, model directory, or thread-count changes
 reload networks on the inference worker; service requests can temporarily time out
 while loading. Failed reloads appear in the panel, retain the previous networks,
-and can be corrected with another parameter update. The dummy listens for inference
-parameter events and reloads the shared layer, so its arms also follow ROS-Z edits.
+and can be corrected with another parameter update. The main node currently
+unwraps rejected inference replies, so an inference fault can also stop the motion
+stack and require **Reset robot & stack** after correcting the parameters.
 Shared joint limits and head settings use their existing live parameter handling.
 
 The simulator adds a temporary writable parameter layer, so UI edits survive
@@ -177,8 +183,8 @@ The simulator adds a temporary writable parameter layer, so UI edits survive
 discarded when the simulator closes. With `--no-robotics`, the editor contacts the
 external nodes in the configured namespace and writes to their last reported layer.
 Field geometry and ball physics remain available through the simulator parameter
-service below. The temporary central motion coordinator has no parameter binding;
-its walking request stays `(0, 0, 0)`.
+service below. Arm handling remains owned by the upstream motion node; inference
+arm-angle edits do not override its current zero arm commands during walking or kicking.
 
 The right panel uses a fixed simulation toolbar, selected tabs, a scrolling form,
 and a fixed feedback/action area. Its visual pass follows

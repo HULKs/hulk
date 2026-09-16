@@ -225,7 +225,7 @@ mod tests {
     use serde_json::json;
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn live_writes_update_nodes_and_dummy_without_advancing_time_and_reject_stale_edits() {
+    async fn live_writes_update_nodes_without_advancing_time_and_reject_stale_edits() {
         let layer = tempfile::tempdir().unwrap();
         let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let clock = Clock::logical(Time::from_nanos(4_000_000_000));
@@ -262,16 +262,6 @@ mod tests {
             .bind_parameter_as::<motion_inference::config::Parameters>("motion_inference")
             .unwrap();
         let ui = Arc::new(context.create_node("ui").build().await.unwrap());
-        let dummy_joints = ui
-            .subscriber::<types::robot_command::JointsCommand>("motion_inference/dummy_joints")
-            .build()
-            .await
-            .unwrap();
-        let dummy = tokio::spawn(crate::motion_dummy::run(context.clone()));
-        tokio::time::timeout(Duration::from_secs(3), dummy_joints.recv())
-            .await
-            .unwrap()
-            .unwrap();
         let client = ParameterClient::start(&Handle::current(), ui.clone(), "/live_parameter_test");
         let client_ref = &client;
         let wait = |completion| async move {
@@ -312,7 +302,7 @@ mod tests {
             head_parameters.snapshot().typed().joint_control.kp.yaw,
             17.0
         );
-        // A rosz write to inference also updates the simulator's nominal arms, while paused.
+        // Inference parameters also update while the logical clock is paused.
         let remote =
             RemoteParameterClient::new(ui, "/live_parameter_test/motion_inference").unwrap();
         let response = remote
@@ -325,16 +315,6 @@ mod tests {
             .await
             .unwrap();
         assert!(response.success);
-        tokio::time::timeout(Duration::from_secs(3), async {
-            loop {
-                let joints = dummy_joints.recv().await.unwrap();
-                if (joints.left_arm.elbow.position - (-20.0_f32).to_radians()).abs() < 1e-6 {
-                    break;
-                }
-            }
-        })
-        .await
-        .unwrap();
         assert_eq!(
             inference_parameters
                 .snapshot()
@@ -343,7 +323,6 @@ mod tests {
                 .base_frequency,
             1.5
         );
-        dummy.abort();
         drop(client);
         context.shutdown().unwrap();
     }

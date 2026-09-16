@@ -318,6 +318,11 @@ fn setup(mut commands: Commands) {
         ChildOf(actions) SubmitButton Node { height: px(36), flex_grow: 1.0 }
         Children[Text::new("Send command") PanelText template_value(PanelLabel::Submit)]
         on(|_: On<Activate>, mut editor: ResMut<Editor>, mut io: ResMut<Robotics>, inputs: Query<(&ParameterText, &bevy::text::EditableText)>| {
+            if editor.tab == "motion" && matches!(serde_json::from_value::<MotionCommand>(editor.draft["motion"].clone()), Ok(MotionCommand::Walk { .. })) {
+                editor.message_error = true;
+                editor.message = "Path-based walking is not implemented in motion yet. Use Walk with velocity.".into();
+                return;
+            }
             copy_parameter_text(&mut editor, &inputs);
             let result = if editor.tab == "parameters" {
                 let group = editor.parameter_group;
@@ -529,7 +534,7 @@ fn update_status(
             }
             .into(),
             PanelLabel::Details => match editor.tab {
-                "motion" => "Head follows this request. Walking stays at (0, 0, 0).".into(),
+                "motion" => "Controls body and head. Use Walk with velocity for walking.".into(),
                 "game" => "Set match state and field side for head-motion tests.".into(),
                 _ => "Tune the running nodes. Applying keeps the robot and simulation running."
                     .into(),
@@ -713,12 +718,12 @@ fn rebuild_form(
             });
             commands.spawn_scene(bsn! {
                 @FeathersButton ChildOf(shortcuts) Node { height: px(32), flex_grow: 1.0 }
-                Children[label("Damp head")]
+                Children[label("Damp robot")]
                 on(|_: On<Activate>, mut io: ResMut<Robotics>, mut editor: ResMut<Editor>| {
                     editor.track_ball = false;
                     io.input_motion = MotionCommand::Damping; editor.draft["motion"] = value(&io.input_motion); editor.rebuild = true;
                     let result = io.publish_inputs(); editor.message_error = result.is_err();
-                    editor.message = result.map_or_else(|e| e.to_string(), |()| "Head damping sent; walking remains active".into());
+                    editor.message = result.map_or_else(|e| e.to_string(), |()| "Robot damping sent".into());
                 })
             });
         }
