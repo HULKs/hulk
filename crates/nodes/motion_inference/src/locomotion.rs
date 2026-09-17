@@ -158,8 +158,7 @@ impl Locomotion {
             // RLWalkPhase::calcJoints retains these targets before downstream composition/clipping.
             self.previous_target[joint] = position[joint];
         }
-        let limit = self.parameters.locomotion.frequency_offset_limit;
-        self.frequency_offset = actions[LEGS.len()].clamp(-limit, limit);
+        self.frequency_offset = actions[LEGS.len()].clamp(-action_limit, action_limit);
         position_targets(position, kp, kd)
     }
 }

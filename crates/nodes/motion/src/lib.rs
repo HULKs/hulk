@@ -227,6 +227,8 @@ impl MotionPlan {
                     request: KickRequest {
                         ball_position: *ball_position,
                         ball_velocity: *ball_velocity,
+                        // TODO: use timestamped odometry to compensate stale ball coordinates
+                        // and kick direction for robot motion before inference.
                         direction: kick_direction.angle(),
                         target_speed: *target_speed,
                         strong: *strong,
