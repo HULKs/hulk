@@ -51,6 +51,7 @@ pub struct Blackboard {
     pub parameters: BehaviorParameters,
     pub world_state: WorldState,
     pub controller_input: Option<ControllerInput>,
+    pub remote_control_enabled: bool,
 
     pub path_obstacles_output: Vec<PathObstacle>,
     pub time_since_last_switch: Duration,
@@ -274,6 +275,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         parameters: parameters.snapshot().typed().clone(),
         world_state: WorldState::default(),
         controller_input: None,
+        remote_control_enabled: false,
 
         path_obstacles_output: Vec::new(),
         time_since_last_switch: Duration::ZERO,
@@ -325,10 +327,22 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .map(|n| *n)
             .unwrap_or_default();
         blackboard.parameters = parameters.snapshot().typed().clone();
+
+        let was_north_pressed = blackboard
+            .controller_input
+            .as_ref()
+            .is_some_and(|input| input.is_pressed("North"));
         blackboard.controller_input = controller_input_cache
             .get_after(Time::from_wallclock(SystemTime::now()) - Duration::from_millis(250))
             .filter(|input| input.connected)
             .map(|input| input.as_ref().clone());
+        if let Some(input) = &blackboard.controller_input {
+            if input.is_pressed("North") && !was_north_pressed {
+                blackboard.remote_control_enabled = !blackboard.remote_control_enabled;
+            }
+        } else {
+            blackboard.remote_control_enabled = false;
+        }
 
         let player_states = player_states_cache
             .get_latest()

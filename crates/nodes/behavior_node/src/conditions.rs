@@ -153,10 +153,11 @@ pub fn is_primary_state(blackboard: &mut Blackboard, primary_state: PrimaryState
 }
 
 pub fn is_remote_controlled(blackboard: &mut Blackboard) -> bool {
-    blackboard
-        .controller_input
-        .as_ref()
-        .is_some_and(|controller| controller.connected)
+    blackboard.remote_control_enabled
+        && blackboard
+            .controller_input
+            .as_ref()
+            .is_some_and(|controller| controller.connected)
 }
 
 pub fn is_remote_kick_mode(blackboard: &mut Blackboard, button: &str) -> bool {

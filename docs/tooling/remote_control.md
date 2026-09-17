@@ -7,6 +7,7 @@
 
 | Control | Action |
 | --- | --- |
+| Press North, Y/Triangle | Toggle remote control on/off (starts off) |
 | Left stick up/down | Walk forward/backward |
 | Left stick left/right | Walk sideways |
 | Right stick left/right | Turn the robot |
