@@ -12,8 +12,8 @@ use smallvec::SmallVec;
 
 use coordinate_systems::{Field, Ground};
 use types::{
+    behavior_command::BehaviorCommand,
     field_dimensions::FieldDimensions,
-    motion_command::MotionCommand,
     obstacles::Obstacle,
     path::{Path, PathSegment, traits::EndPoints},
     path_obstacles::{PathObstacle, PathObstacleShape},
@@ -54,11 +54,11 @@ pub struct PathPlanner {
 impl PathPlanner {
     pub fn with_last_motion(
         &mut self,
-        last_motion_command: &MotionCommand,
+        last_behavior_command: &BehaviorCommand,
         rotation_penalty_factor: f32,
     ) {
-        self.last_path_direction = match last_motion_command {
-            MotionCommand::Walk { path, .. } => path.segments.first().map(|segment| {
+        self.last_path_direction = match last_behavior_command {
+            BehaviorCommand::Walk { path, .. } => path.segments.first().map(|segment| {
                 let direction = match segment {
                     PathSegment::LineSegment(line_segment) => line_segment.1.coords(),
                     PathSegment::Arc(arc) => {

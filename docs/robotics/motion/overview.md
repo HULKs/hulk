@@ -6,7 +6,7 @@
 
 ## Motion Selection
 
-Motion starts in the `motion_selector` with the motion command from behavior.
+Motion starts in the `motion_selector` with the behavior command from behavior.
 Here the current motion is chosen based on the previous motion, if it is finished or if it can be aborted.
 
 ## Motion Execution
@@ -20,13 +20,13 @@ Motion finishes by collecting and optimizing all motor commands in the `motor_co
 
 ## ROS-Z Booster Path
 
-The ROS-Z Booster stack bypasses the legacy `commands_sender` path. Behavior publishes `behavior/motion_command`, the ROS-Z head nodes publish `head_joints_command`, and `booster_interface` owns Booster Zenoh RPC mode changes, walking commands, head rotation, stand-up requests, LED forwarding, and `rt/kick_ball` publishing.
+The ROS-Z Booster stack bypasses the legacy `commands_sender` path. Behavior publishes `behavior/behavior_command`, the ROS-Z head nodes publish `head_joints_command`, and `booster_interface` owns Booster Zenoh RPC mode changes, walking commands, head rotation, stand-up requests, LED forwarding, and `rt/kick_ball` publishing.
 
-`booster_interface` reads its runtime parameters from `etc/parameters/base/booster_interface.json5`. The removed split ROS-Z nodes no longer consume `commands/high_level_command`, `services/get_robot_mode`, or `command_sender` parameters. Robot mode is now managed internally from `behavior/motion_command` without waiting for SDK mode feedback.
+`booster_interface` reads its runtime parameters from `etc/parameters/base/booster_interface.json5`. The removed split ROS-Z nodes no longer consume `commands/high_level_command`, `services/get_robot_mode`, or `command_sender` parameters. Robot mode is now managed internally from `behavior/behavior_command` without waiting for SDK mode feedback.
 
 Manual validation on a Booster robot should check these behaviors:
 
-- Before the first `behavior/motion_command` arrives, `booster_interface` does not send Booster Zenoh RPC motion requests.
+- Before the first `behavior/behavior_command` arrives, `booster_interface` does not send Booster Zenoh RPC motion requests.
 - Mode changes send one Booster Zenoh RPC `change_mode` request when the locally desired motion mode changes.
 - `Damping` commands request Booster Zenoh RPC `Damping` mode.
 - `Prepare` and stand-up commands request Booster Zenoh RPC `Prepare` mode.

@@ -1,5 +1,5 @@
 use linear_algebra::vector;
-use types::{behavior_tree::Status, motion_command::BodyMotion};
+use types::{behavior_command::BodyMotion, behavior_tree::Status};
 
 use crate::node::Blackboard;
 
@@ -8,14 +8,14 @@ pub fn damping(blackboard: &mut Blackboard) -> Status {
     Status::Success
 }
 
-pub fn injected_motion_command(blackboard: &mut Blackboard) -> Status {
+pub fn injected_behavior_command(blackboard: &mut Blackboard) -> Status {
     if blackboard
         .parameters
         .control
-        .injected_motion_command
+        .injected_behavior_command
         .is_some()
     {
-        blackboard.is_injected_motion_command = true;
+        blackboard.is_injected_behavior_command = true;
         Status::Success
     } else {
         Status::Failure
@@ -29,11 +29,11 @@ pub fn prepare(blackboard: &mut Blackboard) -> Status {
 
 pub fn remote_control(blackboard: &mut Blackboard) -> Status {
     let parameters = &blackboard.parameters.control.remote_control;
-    let remote_control_motion_command = BodyMotion::WalkWithVelocity {
+    let remote_control_body_motion = BodyMotion::WalkWithVelocity {
         velocity: vector![parameters.walk.forward, parameters.walk.left,],
         angular_velocity: parameters.walk.turn,
     };
-    blackboard.body_motion = Some(remote_control_motion_command);
+    blackboard.body_motion = Some(remote_control_body_motion);
     Status::Success
 }
 

@@ -9,8 +9,8 @@ use eframe::{
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{IntoFramed, Isometry2, Point2};
 use types::{
-    ball_position::SimulatorBallState, field_dimensions::FieldDimensions,
-    motion_command::MotionCommand,
+    ball_position::SimulatorBallState, behavior_command::BehaviorCommand,
+    field_dimensions::FieldDimensions,
 };
 
 use crate::{
@@ -23,7 +23,7 @@ const TRANSPARENT_LIGHT_BLUE: Color32 = Color32::from_rgba_premultiplied(136, 17
 
 pub struct BehaviorSimulator {
     ground_to_field: PlayersBufferHandle<Option<Isometry2<Ground, Field>>>,
-    motion_command: PlayersBufferHandle<MotionCommand>,
+    behavior_command: PlayersBufferHandle<BehaviorCommand>,
     head_yaw: PlayersBufferHandle<f32>,
     ball: BufferHandle<Option<SimulatorBallState>>,
 }
@@ -38,10 +38,10 @@ impl Layer<Field> for BehaviorSimulator {
             "main_outputs.ground_to_field",
         )
         .unwrap();
-        let motion_command = PlayersBufferHandle::try_new(
+        let behavior_command = PlayersBufferHandle::try_new(
             robot.clone(),
             "BehaviorSimulator.main_outputs.databases",
-            "main_outputs.motion_command",
+            "main_outputs.behavior_command",
         )
         .unwrap();
         let sensor_data = PlayersBufferHandle::try_new(
@@ -53,7 +53,7 @@ impl Layer<Field> for BehaviorSimulator {
         let ball = robot.subscribe_value("BehaviorSimulator.main_outputs.ball");
         Self {
             ground_to_field,
-            motion_command,
+            behavior_command,
             head_yaw: sensor_data,
             ball,
         }
@@ -79,9 +79,9 @@ impl Layer<Field> for BehaviorSimulator {
                 color: Color32::BLACK,
             };
 
-            if let Some(MotionCommand::Walk { path, .. }) = self.motion_command.0[player_number]
+            if let Some(BehaviorCommand::Walk { path, .. }) = self.behavior_command.0[player_number]
                 .get_last_value()
-                .wrap_err("motion_command")?
+                .wrap_err("behavior_command")?
             {
                 let ground_painter = painter.transform_painter(ground_to_field.inverse());
                 ground_painter.path(path, TRANSPARENT_BLUE, TRANSPARENT_LIGHT_BLUE, 0.025);

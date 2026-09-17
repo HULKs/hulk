@@ -12,11 +12,11 @@ use tokio::task::block_in_place;
 use tracing::info;
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
+    behavior_command::{BehaviorCommand, BodyMotion, HeadMotion},
     behavior_tree::NodeTrace,
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     messages::OutgoingMessage,
-    motion_command::{BodyMotion, HeadMotion, MotionCommand},
     motion_type::MotionType,
     obstacles::Obstacle,
     parameters::BehaviorParameters,
@@ -29,7 +29,7 @@ use types::{
 };
 use voronoi::VoronoiGrid;
 
-use crate::{motion_assembler::assemble_motion_command, tree::create_tree};
+use crate::{behavior_command_assembler::assemble_behavior_command, tree::create_tree};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 pub struct LastBall {
@@ -55,7 +55,7 @@ pub struct Blackboard {
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
     pub last_kick_target: Option<Point2<Field>>,
-    pub last_motion_command: MotionCommand,
+    pub last_behavior_command: BehaviorCommand,
     pub last_motion_switch_time: Time,
     pub last_motion_type: Option<MotionType>,
     pub last_sent_game_controller_return_message_time: Option<Time>,
@@ -64,7 +64,7 @@ pub struct Blackboard {
     pub closest_to_ball_entered_area_since: Option<Time>,
     pub closest_to_ball_left_area_since: Option<Time>,
 
-    pub is_injected_motion_command: bool,
+    pub is_injected_behavior_command: bool,
     pub walk_position: Option<Point2<Ground>>,
     pub body_motion: Option<BodyMotion>,
     pub head_motion: Option<HeadMotion>,
@@ -242,8 +242,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .publisher::<OutgoingMessage>("outputs/message")
         .build()
         .await?;
-    let motion_command_pub = node
-        .publisher::<MotionCommand>("behavior/motion_command")
+    let behavior_command_pub = node
+        .publisher::<BehaviorCommand>("behavior/behavior_command")
         .build()
         .await?;
 
@@ -272,7 +272,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         last_ball: None,
         last_close_enough_to_kick: false,
         last_kick_target: None,
-        last_motion_command: MotionCommand::default(),
+        last_behavior_command: BehaviorCommand::default(),
         last_motion_switch_time: Time::zero(),
         last_motion_type: None,
         last_sent_game_controller_return_message_time: None,
@@ -281,7 +281,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         closest_to_ball_entered_area_since: None,
         closest_to_ball_left_area_since: None,
 
-        is_injected_motion_command: false,
+        is_injected_behavior_command: false,
         walk_position: None,
         body_motion: None,
         head_motion: None,
@@ -301,7 +301,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         blackboard.direction_difference = 0.0;
         blackboard.voronoi_inputs.clear();
 
-        blackboard.is_injected_motion_command = false;
+        blackboard.is_injected_behavior_command = false;
         blackboard.walk_position = None;
         blackboard.body_motion = None;
         blackboard.head_motion = None;
@@ -384,29 +384,31 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         }
 
         let (status, trace) = block_in_place(|| tree.tick_with_trace(&mut blackboard));
-        let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
+        let behavior_command: BehaviorCommand = assemble_behavior_command(&blackboard, status)?;
 
-        let previous_motion_command = blackboard.last_motion_command.clone();
-        blackboard.last_motion_command = motion_command.clone();
+        let previous_behavior_command = blackboard.last_behavior_command.clone();
+        blackboard.last_behavior_command = behavior_command.clone();
 
-        let motion_type = match &motion_command {
-            MotionCommand::Damping => Some(MotionType::Damping),
-            MotionCommand::VisualKick { .. } => Some(MotionType::Kick),
-            MotionCommand::Walk { .. } | MotionCommand::WalkWithVelocity { .. } => {
+        let motion_type = match &behavior_command {
+            BehaviorCommand::Damping => Some(MotionType::Damping),
+            BehaviorCommand::VisualKick { .. } => Some(MotionType::Kick),
+            BehaviorCommand::Walk { .. } | BehaviorCommand::WalkWithVelocity { .. } => {
                 Some(MotionType::Walk)
             }
-            MotionCommand::Stand { .. } => Some(MotionType::Stand),
-            MotionCommand::StandUp => Some(MotionType::StandUp),
-            MotionCommand::Prepare => Some(MotionType::Prepare),
+            BehaviorCommand::Stand { .. } => Some(MotionType::Stand),
+            BehaviorCommand::StandUp => Some(MotionType::StandUp),
+            BehaviorCommand::Prepare => Some(MotionType::Prepare),
         };
 
-        if previous_motion_command != motion_command || motion_type != blackboard.last_motion_type {
+        if previous_behavior_command != behavior_command
+            || motion_type != blackboard.last_motion_type
+        {
             info!(
                 target: "behavior_node::motion",
-                ?motion_command,
+                ?behavior_command,
                 ?motion_type,
                 previous_motion_type = ?blackboard.last_motion_type,
-                "behavior motion command changed"
+                "behavior command changed"
             );
         }
 
@@ -434,6 +436,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         additional_black_board_pub
             .publish_if_subscribed(|| async { blackboard.clone() })
             .await?;
-        motion_command_pub.publish(&motion_command).await?;
+        behavior_command_pub.publish(&behavior_command).await?;
     }
 }

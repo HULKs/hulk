@@ -6,13 +6,13 @@ use eframe::{egui::Stroke, epaint::Color32};
 use coordinate_systems::Ground;
 use ros_z_debug::{SampleRecord, TopicObservation};
 use types::{
-    field_dimensions::FieldDimensions, motion_command::MotionCommand, path::traits::EndPoints,
+    behavior_command::BehaviorCommand, field_dimensions::FieldDimensions, path::traits::EndPoints,
 };
 
 use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
 
 pub struct Path {
-    motion_command: TopicObservation<MotionCommand>,
+    behavior_command: TopicObservation<BehaviorCommand>,
 }
 
 impl Layer<Ground> for Path {
@@ -21,13 +21,13 @@ impl Layer<Ground> for Path {
     fn new(backend: Arc<RobotBackend>) -> Self {
         let _runtime_handle = backend.runtime_handle().enter();
 
-        let motion_command = backend
+        let behavior_command = backend
             .observer()
-            .observe_typed("behavior/motion_command")
-            .expect("failed to construct motion command observer")
+            .observe_typed("behavior/behavior_command")
+            .expect("failed to construct behavior command observer")
             .spawn();
 
-        Self { motion_command }
+        Self { behavior_command }
     }
 
     fn paint(
@@ -37,13 +37,13 @@ impl Layer<Ground> for Path {
     ) -> Result<()> {
         if let Some(SampleRecord {
             value:
-                MotionCommand::Walk {
+                BehaviorCommand::Walk {
                     path,
                     target_orientation,
                     ..
                 },
             ..
-        }) = self.motion_command.latest().as_deref()
+        }) = self.behavior_command.latest().as_deref()
         {
             let path_end_point = path.end_point();
             let target_direction = target_orientation.as_unit_vector();

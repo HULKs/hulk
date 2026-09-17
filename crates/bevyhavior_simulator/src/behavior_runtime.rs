@@ -1,7 +1,7 @@
 use std::{net::SocketAddr, time::Duration};
 
 use behavior_node::{
-    behavior_tree::Node as BehaviorNodeTree, motion_assembler::assemble_motion_command,
+    behavior_command_assembler::assemble_behavior_command, behavior_tree::Node as BehaviorNodeTree,
     node::Blackboard as BehaviorBlackboard, tree::create_tree as create_behavior_tree,
 };
 use bevy::{app::AppExit, prelude::*};
@@ -10,10 +10,10 @@ use coordinate_systems::{Field, Ground};
 use linear_algebra::{Point2, Pose2, Vector2};
 use types::{
     ball_position::BallPosition,
+    behavior_command::BehaviorCommand,
     behavior_tree::NodeTrace,
     field_dimensions::FieldDimensions,
     messages::OutgoingMessage,
-    motion_command::MotionCommand,
     parameters::{BehaviorParameters, HslNetworkParameters},
     path_obstacles::PathObstacle,
     world_state::WorldState,
@@ -58,7 +58,7 @@ impl SimulatorRobotBehavior {
         self.blackboard.time_since_last_switch = Duration::ZERO;
         self.blackboard.direction_difference = 0.0;
         self.blackboard.voronoi_inputs.clear();
-        self.blackboard.is_injected_motion_command = false;
+        self.blackboard.is_injected_behavior_command = false;
         self.blackboard.walk_position = None;
         self.blackboard.body_motion = None;
         self.blackboard.head_motion = None;
@@ -84,16 +84,16 @@ impl SimulatorRobotBehavior {
         }
 
         let (status, trace) = self.tree.tick_with_trace(&mut self.blackboard);
-        let motion_command = assemble_motion_command(&self.blackboard, status)?;
-        self.blackboard.last_motion_command = motion_command.clone();
+        let behavior_command = assemble_behavior_command(&self.blackboard, status)?;
+        self.blackboard.last_behavior_command = behavior_command.clone();
 
-        let motion_type = match motion_command.clone() {
-            MotionCommand::VisualKick { .. } => Some(types::motion_type::MotionType::Kick),
-            MotionCommand::Walk { .. } => Some(types::motion_type::MotionType::Walk),
-            MotionCommand::Stand { .. } => Some(types::motion_type::MotionType::Stand),
-            MotionCommand::StandUp => Some(types::motion_type::MotionType::StandUp),
-            MotionCommand::Prepare => Some(types::motion_type::MotionType::Prepare),
-            MotionCommand::Damping => Some(types::motion_type::MotionType::Damping),
+        let motion_type = match behavior_command.clone() {
+            BehaviorCommand::VisualKick { .. } => Some(types::motion_type::MotionType::Kick),
+            BehaviorCommand::Walk { .. } => Some(types::motion_type::MotionType::Walk),
+            BehaviorCommand::Stand { .. } => Some(types::motion_type::MotionType::Stand),
+            BehaviorCommand::StandUp => Some(types::motion_type::MotionType::StandUp),
+            BehaviorCommand::Prepare => Some(types::motion_type::MotionType::Prepare),
+            BehaviorCommand::Damping => Some(types::motion_type::MotionType::Damping),
             _ => None,
         };
 
@@ -103,7 +103,7 @@ impl SimulatorRobotBehavior {
         }
 
         Ok(SimulatorBehaviorTickOutput {
-            motion_command,
+            behavior_command,
             trace,
             static_layout: self.static_layout.clone(),
             path_obstacles: self.blackboard.path_obstacles_output.clone(),
@@ -146,7 +146,7 @@ pub struct SimulatorBehaviorTickInput {
 }
 
 pub struct SimulatorBehaviorTickOutput {
-    pub motion_command: MotionCommand,
+    pub behavior_command: BehaviorCommand,
     pub trace: NodeTrace,
     pub static_layout: NodeTrace,
     pub path_obstacles: Vec<PathObstacle>,
@@ -171,7 +171,7 @@ fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackbo
         last_ball: None,
         last_close_enough_to_kick: false,
         last_kick_target: None,
-        last_motion_command: MotionCommand::default(),
+        last_behavior_command: BehaviorCommand::default(),
         last_motion_switch_time: ros_z::time::Time::zero(),
         last_motion_type: None,
         last_sent_game_controller_return_message_time: None,
@@ -179,7 +179,7 @@ fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackbo
         last_closest_to_ball: false,
         closest_to_ball_entered_area_since: None,
         closest_to_ball_left_area_since: None,
-        is_injected_motion_command: false,
+        is_injected_behavior_command: false,
         walk_position: None,
         body_motion: None,
         head_motion: None,

@@ -2,8 +2,8 @@ use coordinate_systems::Field;
 use hsl_network_messages::SubState;
 use linear_algebra::{Orientation2, Pose2, Vector2, point};
 use types::{
+    behavior_command::{KickPower, OrientationMode},
     behavior_tree::Status,
-    motion_command::{KickPower, OrientationMode},
     motion_type::MotionType,
 };
 

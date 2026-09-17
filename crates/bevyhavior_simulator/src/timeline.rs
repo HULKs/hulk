@@ -11,8 +11,9 @@ use eframe::egui::Color32;
 use linear_algebra::{Point2, Pose2};
 use serde::Serialize;
 use types::{
-    behavior_tree::NodeTrace, filtered_game_state::FilteredGameState, messages::OutgoingMessage,
-    motion_command::MotionCommand, path_obstacles::PathObstacle, world_state::WorldState,
+    behavior_command::BehaviorCommand, behavior_tree::NodeTrace,
+    filtered_game_state::FilteredGameState, messages::OutgoingMessage,
+    path_obstacles::PathObstacle, world_state::WorldState,
 };
 use voronoi::VoronoiGrid;
 
@@ -87,7 +88,7 @@ pub struct TimelineFrame {
 #[derive(Clone, Debug, Serialize)]
 pub struct RobotFrame {
     pub world_state: WorldState,
-    pub motion_command: MotionCommand,
+    pub behavior_command: BehaviorCommand,
     pub trace: NodeTrace,
     pub static_layout: NodeTrace,
     pub path_obstacles: Vec<PathObstacle>,
@@ -107,7 +108,7 @@ impl RobotFrame {
     ) -> Self {
         Self {
             world_state,
-            motion_command: tick_output.motion_command,
+            behavior_command: tick_output.behavior_command,
             trace: tick_output.trace,
             static_layout: tick_output.static_layout,
             path_obstacles: tick_output.path_obstacles,

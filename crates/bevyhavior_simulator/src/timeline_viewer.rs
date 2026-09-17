@@ -25,8 +25,8 @@ use twix_visualization::{
     zoom_and_pan::ZoomAndPanTransform,
 };
 use types::{
-    field_dimensions::FieldDimensions, filtered_game_state::FilteredGameState,
-    motion_command::MotionCommand, obstacles::ObstacleKind, path::traits::EndPoints,
+    behavior_command::BehaviorCommand, field_dimensions::FieldDimensions,
+    filtered_game_state::FilteredGameState, obstacles::ObstacleKind, path::traits::EndPoints,
 };
 
 use crate::behavior_tree_simulator::{
@@ -328,7 +328,7 @@ impl TimelineViewerApp {
                     for (robot_id, robot_frame) in &frame.robot_frames {
                         ui.label(format!(
                             "robot {robot_id}: {}",
-                            motion_name(&robot_frame.motion_command)
+                            motion_name(&robot_frame.behavior_command)
                         ));
                     }
 
@@ -829,7 +829,7 @@ fn show_map(
             let pose = pose_world_to_field(robot.ground_to_world.as_pose());
             let color = robot_color(*robot_id);
             if let Some(robot_frame) = frame.robot_frames.get(robot_id) {
-                paint_walk_path(&painter, pose, &robot_frame.motion_command);
+                paint_walk_path(&painter, pose, &robot_frame.behavior_command);
             }
             paint_view_cone(&painter, pose, robot.head_yaw, &data.config, color);
             painter.pose(
@@ -870,13 +870,13 @@ fn scenario_obstacle_color(kind: ObstacleKind) -> Color32 {
 fn paint_walk_path(
     painter: &TwixPainter<Field>,
     pose: Pose2<Field>,
-    motion_command: &MotionCommand,
+    behavior_command: &BehaviorCommand,
 ) {
-    let MotionCommand::Walk {
+    let BehaviorCommand::Walk {
         path,
         target_orientation,
         ..
-    } = motion_command
+    } = behavior_command
     else {
         return;
     };
@@ -1104,14 +1104,14 @@ fn frame_duration_seconds(current: &TimelineFrame, next: &TimelineFrame) -> f64 
         .as_secs_f64()
 }
 
-fn motion_name(motion_command: &MotionCommand) -> &'static str {
-    match motion_command {
-        MotionCommand::Damping => "damping",
-        MotionCommand::Prepare => "prepare",
-        MotionCommand::Stand { .. } => "stand",
-        MotionCommand::StandUp => "stand_up",
-        MotionCommand::VisualKick { .. } => "visual_kick",
-        MotionCommand::Walk { .. } => "walk",
-        MotionCommand::WalkWithVelocity { .. } => "walk_with_velocity",
+fn motion_name(behavior_command: &BehaviorCommand) -> &'static str {
+    match behavior_command {
+        BehaviorCommand::Damping => "damping",
+        BehaviorCommand::Prepare => "prepare",
+        BehaviorCommand::Stand { .. } => "stand",
+        BehaviorCommand::StandUp => "stand_up",
+        BehaviorCommand::VisualKick { .. } => "visual_kick",
+        BehaviorCommand::Walk { .. } => "walk",
+        BehaviorCommand::WalkWithVelocity { .. } => "walk_with_velocity",
     }
 }

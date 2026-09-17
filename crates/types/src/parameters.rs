@@ -9,7 +9,8 @@ use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
 use linear_algebra::{Framed, Point2, Vector2, Vector3};
 
 use crate::{
-    field_color::FieldColorParameters, motion_command::MotionCommand, players::Players, step::Step,
+    behavior_command::BehaviorCommand, field_color::FieldColorParameters, players::Players,
+    step::Step,
 };
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
@@ -59,7 +60,7 @@ pub struct BehaviorParameters {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct BehaviorControlParameters {
     pub allow_switch: AllowSwitchParameters,
-    pub injected_motion_command: Option<MotionCommand>,
+    pub injected_behavior_command: Option<BehaviorCommand>,
     pub remote_control: RemoteControlParameters,
     pub is_simple: bool,
 }

@@ -2,11 +2,11 @@
 
 Robot behavior runs in the ROS-Z `behavior_node`. The node receives the latest
 game, robot, localization, ball, obstacle, and team state, ticks the behavior
-tree every 20 ms, and publishes the resulting motion command and network
+tree every 20 ms, and publishes the resulting behavior command and network
 messages.
 
 The behavior tree chooses *what* the robot should do. Motion execution is
-handled by the Booster interface, which consumes `behavior/motion_command` as
+handled by the Booster interface, which consumes `behavior/behavior_command` as
 described in [motion](../motion/overview.md#ros-z-booster-path).
 
 ## Behavior Tree
@@ -36,7 +36,7 @@ branches first check the robot's `PrimaryState`:
 - **`Stop`** stands.
 - **Remote control**, when enabled, takes control before normal game behavior.
   It can command walking velocity or a kick.
-- **Injected motion command**, when configured, provides a direct behavior
+- **Injected behavior command**, when configured, provides a direct behavior
   output. It is mainly useful for development and testing.
 - **`Finished`** and **`Penalized`** stand.
 - **`Initial`** stands and looks around.
@@ -120,10 +120,10 @@ ball information.
 ## Motion Output
 
 Behavior actions choose body and head motion independently. After each
-successful tree tick, the motion assembler combines both into one
-`MotionCommand`. If an action does not select body or head motion, standing and
+successful tree tick, the behavior command assembler combines both into one
+`BehaviorCommand`. If an action does not select body or head motion, standing and
 looking forward are used as defaults. The command is published on
-`behavior/motion_command` for the Booster interface.
+`behavior/behavior_command` for the Booster interface.
 
 ## Configuration and Inspection
 

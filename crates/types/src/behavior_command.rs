@@ -21,7 +21,7 @@ pub enum OrientationMode {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Message)]
-pub enum MotionCommand {
+pub enum BehaviorCommand {
     #[default]
     Damping,
     Prepare,
@@ -52,33 +52,33 @@ pub enum MotionCommand {
     },
 }
 
-impl MotionCommand {
+impl BehaviorCommand {
     pub fn head_motion(&self) -> Option<HeadMotion> {
         match self {
-            MotionCommand::Stand { head, .. }
-            | MotionCommand::Walk { head, .. }
-            | MotionCommand::WalkWithVelocity { head, .. }
-            | MotionCommand::VisualKick { head, .. } => Some(*head),
-            MotionCommand::Prepare => Some(HeadMotion::Center {
+            BehaviorCommand::Stand { head, .. }
+            | BehaviorCommand::Walk { head, .. }
+            | BehaviorCommand::WalkWithVelocity { head, .. }
+            | BehaviorCommand::VisualKick { head, .. } => Some(*head),
+            BehaviorCommand::Prepare => Some(HeadMotion::Center {
                 image_region_target: ImageRegion::Top,
             }),
-            MotionCommand::Damping | MotionCommand::StandUp => None,
+            BehaviorCommand::Damping | BehaviorCommand::StandUp => None,
         }
     }
 
     pub fn from_partial_motions(body: BodyMotion, head: HeadMotion) -> Self {
         match body {
-            BodyMotion::Damping => MotionCommand::Damping,
-            BodyMotion::Prepare => MotionCommand::Prepare,
-            BodyMotion::Stand => MotionCommand::Stand { head },
-            BodyMotion::StandUp => MotionCommand::StandUp,
+            BodyMotion::Damping => BehaviorCommand::Damping,
+            BodyMotion::Prepare => BehaviorCommand::Prepare,
+            BodyMotion::Stand => BehaviorCommand::Stand { head },
+            BodyMotion::StandUp => BehaviorCommand::StandUp,
             BodyMotion::VisualKick {
                 ball_position,
                 kick_direction,
                 target_position,
                 robot_theta_to_field,
                 kick_power,
-            } => MotionCommand::VisualKick {
+            } => BehaviorCommand::VisualKick {
                 head,
                 ball_position,
                 kick_direction,
@@ -92,7 +92,7 @@ impl MotionCommand {
                 target_orientation,
                 distance_to_be_aligned,
                 speed,
-            } => MotionCommand::Walk {
+            } => BehaviorCommand::Walk {
                 head,
                 path,
                 orientation_mode,
@@ -103,7 +103,7 @@ impl MotionCommand {
             BodyMotion::WalkWithVelocity {
                 velocity,
                 angular_velocity,
-            } => MotionCommand::WalkWithVelocity {
+            } => BehaviorCommand::WalkWithVelocity {
                 head,
                 velocity,
                 angular_velocity,
@@ -185,18 +185,18 @@ mod tests {
 
     #[test]
     fn damping_has_no_head_motion() {
-        assert_eq!(MotionCommand::Damping.head_motion(), None);
+        assert_eq!(BehaviorCommand::Damping.head_motion(), None);
     }
 
     #[test]
-    fn body_damping_assembles_to_motion_damping() {
-        let motion = MotionCommand::from_partial_motions(
+    fn body_damping_assembles_to_behavior_damping() {
+        let command = BehaviorCommand::from_partial_motions(
             BodyMotion::Damping,
             HeadMotion::Center {
                 image_region_target: ImageRegion::Center,
             },
         );
 
-        assert_eq!(motion, MotionCommand::Damping);
+        assert_eq!(command, BehaviorCommand::Damping);
     }
 }

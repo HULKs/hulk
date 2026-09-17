@@ -1,8 +1,8 @@
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Orientation2, Point2, Rotation2, point};
 use types::{
+    behavior_command::{BehaviorCommand, BodyMotion, HeadMotion, ImageRegion, KickPower},
     behavior_tree::Status,
-    motion_command::{BodyMotion, HeadMotion, ImageRegion, KickPower, MotionCommand},
     motion_type::MotionType,
 };
 
@@ -133,10 +133,10 @@ pub fn allow_schlong(blackboard: &mut Blackboard) -> bool {
 }
 
 pub fn use_last_kick_power(blackboard: &mut Blackboard) -> Status {
-    if let MotionCommand::VisualKick {
+    if let BehaviorCommand::VisualKick {
         kick_power: last_kick_power,
         ..
-    } = blackboard.last_motion_command
+    } = blackboard.last_behavior_command
         && let Some(BodyMotion::VisualKick {
             kick_power: motion_kick_power,
             ..

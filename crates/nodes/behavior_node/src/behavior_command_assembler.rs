@@ -1,19 +1,22 @@
 use color_eyre::eyre::{Result, eyre};
 use types::{
+    behavior_command::{BehaviorCommand, BodyMotion, HeadMotion, ImageRegion},
     behavior_tree::Status,
-    motion_command::{BodyMotion, HeadMotion, ImageRegion, MotionCommand},
 };
 
 use crate::node::Blackboard;
 
-pub fn assemble_motion_command(blackboard: &Blackboard, status: Status) -> Result<MotionCommand> {
+pub fn assemble_behavior_command(
+    blackboard: &Blackboard,
+    status: Status,
+) -> Result<BehaviorCommand> {
     match status {
         Status::Success => {
-            if blackboard.is_injected_motion_command
-                && let Some(injected_motion_command) =
-                    &blackboard.parameters.control.injected_motion_command
+            if blackboard.is_injected_behavior_command
+                && let Some(injected_behavior_command) =
+                    &blackboard.parameters.control.injected_behavior_command
             {
-                return Ok(injected_motion_command.clone());
+                return Ok(injected_behavior_command.clone());
             }
             let head = if let Some(head_motion) = &blackboard.head_motion {
                 *head_motion
@@ -27,9 +30,9 @@ pub fn assemble_motion_command(blackboard: &Blackboard, status: Status) -> Resul
             } else {
                 BodyMotion::Stand
             };
-            Ok(MotionCommand::from_partial_motions(body, head))
+            Ok(BehaviorCommand::from_partial_motions(body, head))
         }
-        Status::Failure => Ok(MotionCommand::Stand {
+        Status::Failure => Ok(BehaviorCommand::Stand {
             head: HeadMotion::Center {
                 image_region_target: ImageRegion::Center,
             },

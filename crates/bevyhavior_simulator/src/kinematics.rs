@@ -1,12 +1,12 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use bevy::prelude::*;
-use booster::walking::step_from_motion_command;
+use booster::walking::step_from_behavior_command;
 use coordinate_systems::{Ground, World};
 use hsl_network_messages::{GameState, Team};
 use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, vector};
 use types::{
-    motion_command::{HeadMotion, KickPower, MotionCommand},
+    behavior_command::{BehaviorCommand, HeadMotion, KickPower},
     step::Step,
 };
 
@@ -96,9 +96,9 @@ pub fn move_robots(
             continue;
         };
 
-        match &frame.motion_command {
-            MotionCommand::Walk { .. } => {
-                let step = step_from_motion_command(&frame.motion_command, &parameters.walking);
+        match &frame.behavior_command {
+            BehaviorCommand::Walk { .. } => {
+                let step = step_from_behavior_command(&frame.behavior_command, &parameters.walking);
                 ground_to_world.ground_to_world = apply_walk_to_pose(
                     ground_to_world.ground_to_world,
                     step,
@@ -106,7 +106,7 @@ pub fn move_robots(
                     &config,
                 );
             }
-            MotionCommand::WalkWithVelocity {
+            BehaviorCommand::WalkWithVelocity {
                 velocity,
                 angular_velocity,
                 ..
@@ -119,7 +119,7 @@ pub fn move_robots(
                     &config,
                 );
             }
-            MotionCommand::VisualKick {
+            BehaviorCommand::VisualKick {
                 ball_position,
                 kick_direction,
                 kick_power,
@@ -141,13 +141,14 @@ pub fn move_robots(
                     *kick_power,
                 )
             }
-            MotionCommand::StandUp => fall_down_state.fall_down_state = None,
-            MotionCommand::Damping | MotionCommand::Prepare | MotionCommand::Stand { .. } => {}
+            BehaviorCommand::StandUp => fall_down_state.fall_down_state = None,
+            BehaviorCommand::Damping | BehaviorCommand::Prepare | BehaviorCommand::Stand { .. } => {
+            }
         }
 
         head_yaw.yaw = apply_head_motion(
             head_yaw.yaw,
-            frame.motion_command.head_motion(),
+            frame.behavior_command.head_motion(),
             clock.now,
             clock.tick_duration,
             &config,
@@ -473,9 +474,9 @@ mod tests {
     use hsl_network_messages::{PlayerNumber, Team};
     use linear_algebra::{Isometry2, Orientation2, point, vector};
     use types::{
+        behavior_command::{BehaviorCommand, HeadMotion, KickPower, OrientationMode},
         behavior_tree::{NodeTrace, Status},
         field_dimensions::{FieldDimensions, Side},
-        motion_command::{HeadMotion, KickPower, MotionCommand, OrientationMode},
         parameters::BehaviorParameters,
         path::direct_path,
         world_state::WorldState,
@@ -504,7 +505,7 @@ mod tests {
             robot_id,
             RobotFrame {
                 world_state: WorldState::default(),
-                motion_command: MotionCommand::Walk {
+                behavior_command: BehaviorCommand::Walk {
                     head: HeadMotion::ZeroAngles,
                     path: direct_path(point![0.0, 0.0], point![2.0, 0.0]),
                     orientation_mode: OrientationMode::AlignWithPath,

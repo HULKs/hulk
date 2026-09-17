@@ -2,7 +2,7 @@ use booster::Kick;
 use ros_z::time::Time;
 use ros2::std_msgs::header::Header;
 use types::{
-    motion_command::{KickPower, MotionCommand},
+    behavior_command::{BehaviorCommand, KickPower},
     parameters::BoosterKickingParameters,
 };
 
@@ -13,24 +13,24 @@ pub enum DesiredMode {
     Soccer,
 }
 
-pub fn desired_mode_for(command: &MotionCommand) -> DesiredMode {
+pub fn desired_mode_for(command: &BehaviorCommand) -> DesiredMode {
     match command {
-        MotionCommand::Damping => DesiredMode::Damping,
-        MotionCommand::Prepare => DesiredMode::Prepare,
-        MotionCommand::Stand { .. }
-        | MotionCommand::VisualKick { .. }
-        | MotionCommand::Walk { .. }
-        | MotionCommand::WalkWithVelocity { .. }
-        | MotionCommand::StandUp => DesiredMode::Soccer,
+        BehaviorCommand::Damping => DesiredMode::Damping,
+        BehaviorCommand::Prepare => DesiredMode::Prepare,
+        BehaviorCommand::Stand { .. }
+        | BehaviorCommand::VisualKick { .. }
+        | BehaviorCommand::Walk { .. }
+        | BehaviorCommand::WalkWithVelocity { .. }
+        | BehaviorCommand::StandUp => DesiredMode::Soccer,
     }
 }
 
-pub fn kick_from_motion_command(
-    command: &MotionCommand,
+pub fn kick_from_behavior_command(
+    command: &BehaviorCommand,
     stamp: Time,
     parameters: &BoosterKickingParameters,
 ) -> Option<Kick> {
-    let MotionCommand::VisualKick {
+    let BehaviorCommand::VisualKick {
         ball_position,
         kick_direction,
         target_position,
@@ -66,14 +66,14 @@ pub fn kick_from_motion_command(
 mod tests {
     use super::*;
     use linear_algebra::{Orientation2, point, vector};
-    use types::motion_command::HeadMotion;
+    use types::behavior_command::HeadMotion;
 
     #[test]
     fn visual_kick_command_builds_booster_kick_message() {
-        use types::motion_command::KickPower;
+        use types::behavior_command::KickPower;
         use types::parameters::{BoosterKickingParameters, KickPowerParameters};
 
-        let command = MotionCommand::VisualKick {
+        let command = BehaviorCommand::VisualKick {
             head: HeadMotion::ZeroAngles,
             ball_position: point![1.0, -0.5],
             kick_direction: Orientation2::new(0.25),
@@ -89,7 +89,7 @@ mod tests {
             },
         };
 
-        let kick = kick_from_motion_command(&command, Time::zero(), &parameters).unwrap();
+        let kick = kick_from_behavior_command(&command, Time::zero(), &parameters).unwrap();
 
         assert_eq!(kick.ball_position_x, 1.0);
         assert_eq!(kick.ball_position_y, -0.5);
@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn walking_commands_request_soccer_mode() {
-        let command = MotionCommand::WalkWithVelocity {
+        let command = BehaviorCommand::WalkWithVelocity {
             head: HeadMotion::ZeroAngles,
             velocity: vector![1.0, 0.0],
             angular_velocity: 0.0,
@@ -112,7 +112,7 @@ mod tests {
     #[test]
     fn prepare_requests_prepare_mode() {
         assert_eq!(
-            desired_mode_for(&MotionCommand::Prepare),
+            desired_mode_for(&BehaviorCommand::Prepare),
             DesiredMode::Prepare
         );
     }
@@ -120,7 +120,7 @@ mod tests {
     #[test]
     fn stand_up_requests_soccer_mode() {
         assert_eq!(
-            desired_mode_for(&MotionCommand::StandUp),
+            desired_mode_for(&BehaviorCommand::StandUp),
             DesiredMode::Soccer
         );
     }
@@ -128,7 +128,7 @@ mod tests {
     #[test]
     fn damping_requests_damping_mode() {
         assert_eq!(
-            desired_mode_for(&MotionCommand::Damping),
+            desired_mode_for(&BehaviorCommand::Damping),
             DesiredMode::Damping
         );
     }

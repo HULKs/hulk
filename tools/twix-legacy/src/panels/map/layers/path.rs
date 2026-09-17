@@ -6,7 +6,7 @@ use eframe::{egui::Stroke, epaint::Color32};
 use coordinate_systems::Ground;
 
 use types::{
-    field_dimensions::FieldDimensions, motion_command::MotionCommand, path::traits::EndPoints,
+    behavior_command::BehaviorCommand, field_dimensions::FieldDimensions, path::traits::EndPoints,
 };
 
 use crate::{
@@ -14,15 +14,15 @@ use crate::{
 };
 
 pub struct Path {
-    motion_command: BufferHandle<MotionCommand>,
+    behavior_command: BufferHandle<BehaviorCommand>,
 }
 
 impl Layer<Ground> for Path {
     const NAME: &'static str = "Path";
 
     fn new(robot: Arc<Robot>) -> Self {
-        let motion_command = robot.subscribe_value("WorldState.main_outputs.motion_command");
-        Self { motion_command }
+        let behavior_command = robot.subscribe_value("WorldState.main_outputs.behavior_command");
+        Self { behavior_command }
     }
 
     fn paint(
@@ -30,11 +30,11 @@ impl Layer<Ground> for Path {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        if let Some(MotionCommand::Walk {
+        if let Some(BehaviorCommand::Walk {
             path,
             target_orientation,
             ..
-        }) = self.motion_command.get_last_value()?
+        }) = self.behavior_command.get_last_value()?
         {
             let path_end_point = path.end_point();
             let target_direction = target_orientation.as_unit_vector();

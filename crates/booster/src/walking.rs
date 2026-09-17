@@ -4,7 +4,7 @@ use linear_algebra::{Orientation2, Point2};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 use types::{
-    motion_command::{MotionCommand, OrientationMode},
+    behavior_command::{BehaviorCommand, OrientationMode},
     path::traits::{Length, PathProgress},
     step::Step,
 };
@@ -32,9 +32,12 @@ pub fn target_alignment_importance(
     }
 }
 
-pub fn step_from_motion_command(command: &MotionCommand, parameters: &WalkingParameters) -> Step {
+pub fn step_from_behavior_command(
+    command: &BehaviorCommand,
+    parameters: &WalkingParameters,
+) -> Step {
     match command {
-        MotionCommand::Walk {
+        BehaviorCommand::Walk {
             path,
             orientation_mode,
             target_orientation,
@@ -74,7 +77,7 @@ pub fn step_from_motion_command(command: &MotionCommand, parameters: &WalkingPar
                 turn: angular_velocity,
             }
         }
-        MotionCommand::WalkWithVelocity {
+        BehaviorCommand::WalkWithVelocity {
             velocity,
             angular_velocity,
             ..
@@ -83,18 +86,18 @@ pub fn step_from_motion_command(command: &MotionCommand, parameters: &WalkingPar
             left: velocity.y(),
             turn: *angular_velocity,
         },
-        MotionCommand::Stand { .. }
-        | MotionCommand::Damping
-        | MotionCommand::Prepare
-        | MotionCommand::StandUp
-        | MotionCommand::VisualKick { .. } => Step::ZERO,
+        BehaviorCommand::Stand { .. }
+        | BehaviorCommand::Damping
+        | BehaviorCommand::Prepare
+        | BehaviorCommand::StandUp
+        | BehaviorCommand::VisualKick { .. } => Step::ZERO,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use linear_algebra::{Orientation2, point, vector};
-    use types::{motion_command::HeadMotion, path::direct_path};
+    use types::{behavior_command::HeadMotion, path::direct_path};
 
     use super::*;
 
@@ -108,13 +111,13 @@ mod tests {
 
     #[test]
     fn walk_with_velocity_maps_directly_to_step() {
-        let command = MotionCommand::WalkWithVelocity {
+        let command = BehaviorCommand::WalkWithVelocity {
             head: HeadMotion::ZeroAngles,
             velocity: vector![0.3, -0.2],
             angular_velocity: 0.4,
         };
 
-        let step = step_from_motion_command(&command, &walking_parameters());
+        let step = step_from_behavior_command(&command, &walking_parameters());
 
         assert_eq!(step.forward, 0.3);
         assert_eq!(step.left, -0.2);
@@ -123,11 +126,11 @@ mod tests {
 
     #[test]
     fn stand_maps_to_zero_step() {
-        let command = MotionCommand::Stand {
+        let command = BehaviorCommand::Stand {
             head: HeadMotion::ZeroAngles,
         };
 
-        let step = step_from_motion_command(&command, &walking_parameters());
+        let step = step_from_behavior_command(&command, &walking_parameters());
 
         assert_eq!(step.forward, 0.0);
         assert_eq!(step.left, 0.0);
@@ -152,7 +155,7 @@ mod tests {
 
     #[test]
     fn walk_path_decelerates_near_target() {
-        let command = MotionCommand::Walk {
+        let command = BehaviorCommand::Walk {
             head: HeadMotion::ZeroAngles,
             path: direct_path(point![0.0, 0.0], point![0.25, 0.0]),
             orientation_mode: OrientationMode::AlignWithPath,
@@ -161,7 +164,7 @@ mod tests {
             speed: 1.0,
         };
 
-        let step = step_from_motion_command(&command, &walking_parameters());
+        let step = step_from_behavior_command(&command, &walking_parameters());
 
         assert!((step.forward - 0.5).abs() < 0.001);
     }

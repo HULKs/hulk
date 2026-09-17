@@ -9,8 +9,8 @@ use linear_algebra::{Isometry2, Orientation2, Point2};
 use serde::Serialize;
 use types::path::traits::EndPoints;
 use types::{
-    field_dimensions::FieldDimensions, motion_command::MotionCommand, primary_state::PrimaryState,
-    rule_obstacles::RuleObstacle,
+    behavior_command::BehaviorCommand, field_dimensions::FieldDimensions,
+    primary_state::PrimaryState, rule_obstacles::RuleObstacle,
 };
 
 use crate::behavior_tree_simulator::{
@@ -194,7 +194,7 @@ fn is_inside_field_with_border_margin(
 }
 
 fn motion_target_in_field(frame: &RobotFrame) -> Option<Point2<Field>> {
-    let MotionCommand::Walk { path, .. } = &frame.motion_command else {
+    let BehaviorCommand::Walk { path, .. } = &frame.behavior_command else {
         return None;
     };
     let ground_to_field = frame.world_state.robot.ground_to_field?;

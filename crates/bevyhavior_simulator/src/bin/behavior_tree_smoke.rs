@@ -9,7 +9,7 @@ use bevyhavior_simulator::behavior_tree_simulator::{
 use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{Isometry2, point, vector};
 use scenario::scenario;
-use types::{motion_command::MotionCommand, primary_state::PrimaryState};
+use types::{behavior_command::BehaviorCommand, primary_state::PrimaryState};
 
 #[scenario]
 fn behavior_tree_smoke(app: &mut App) {
@@ -72,7 +72,7 @@ fn update(
         for (player_number, robot_frame) in &frame.robot_frames {
             println!(
                 "  robot={player_number} motion={}",
-                motion_name(&robot_frame.motion_command)
+                motion_name(&robot_frame.behavior_command)
             );
         }
         for violation in &frame.invariant_violations {
@@ -107,14 +107,14 @@ fn update(
     }
 }
 
-fn motion_name(motion_command: &MotionCommand) -> &str {
-    match motion_command {
-        MotionCommand::Damping => "damping",
-        MotionCommand::Prepare => "prepare",
-        MotionCommand::Stand { .. } => "stand",
-        MotionCommand::StandUp => "stand_up",
-        MotionCommand::VisualKick { .. } => "visual_kick",
-        MotionCommand::Walk { .. } => "walk",
-        MotionCommand::WalkWithVelocity { .. } => "walk_with_velocity",
+fn motion_name(behavior_command: &BehaviorCommand) -> &str {
+    match behavior_command {
+        BehaviorCommand::Damping => "damping",
+        BehaviorCommand::Prepare => "prepare",
+        BehaviorCommand::Stand { .. } => "stand",
+        BehaviorCommand::StandUp => "stand_up",
+        BehaviorCommand::VisualKick { .. } => "visual_kick",
+        BehaviorCommand::Walk { .. } => "walk",
+        BehaviorCommand::WalkWithVelocity { .. } => "walk_with_velocity",
     }
 }

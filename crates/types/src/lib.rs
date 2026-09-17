@@ -2,6 +2,7 @@
 pub mod audio;
 pub mod ball_detection;
 pub mod ball_position;
+pub mod behavior_command;
 pub mod behavior_tree;
 pub mod bounding_box;
 pub mod buttons;
@@ -33,7 +34,6 @@ pub mod line_data;
 pub mod localization;
 pub mod message_event;
 pub mod messages;
-pub mod motion_command;
 pub mod motion_runtime;
 pub mod motion_type;
 pub mod multivariate_normal_distribution;

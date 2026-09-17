@@ -14,7 +14,7 @@
     "camera_matrix",
     "detected_objects",
     "detected_objects/announce",
-    "behavior/motion_command",
+    "behavior/behavior_command",
     "look_at",
     "look_around_target_joints",
     "head_joints_command",

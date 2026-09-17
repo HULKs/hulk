@@ -13,12 +13,12 @@ use linear_algebra::{Isometry3, Point2, distance, point, vector};
 use projection::camera_matrix::CameraMatrix;
 use ros_z::{prelude::*, time::Time};
 use types::{
-    motion_command::{GlanceDirection, HeadMotion, ImageRegion, MotionCommand},
+    behavior_command::{BehaviorCommand, GlanceDirection, HeadMotion, ImageRegion},
     parameters::ImageRegionParameters,
     time_wrapper::TimeWrapper,
 };
 
-const MOTION_COMMAND_TOPIC: &str = "behavior/motion_command";
+const BEHAVIOR_COMMAND_TOPIC: &str = "behavior/behavior_command";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
@@ -48,8 +48,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .with_stamp(|wrapper: &TimeWrapper<Option<Isometry3<Ground, Robot>>>| wrapper.time)
         .build()
         .await?;
-    let motion_command_cache = node
-        .subscriber::<MotionCommand>(MOTION_COMMAND_TOPIC)
+    let behavior_command_cache = node
+        .subscriber::<BehaviorCommand>(BEHAVIOR_COMMAND_TOPIC)
         .cache(1)
         .build()
         .await?;
@@ -71,7 +71,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         };
         let camera_matrix = camera_matrix_cache.get_latest();
         let ground_to_robot = ground_to_robot_cache.get_latest();
-        let motion_command = motion_command_cache.get_latest();
+        let behavior_command = behavior_command_cache.get_latest();
 
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
@@ -79,7 +79,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             now,
             camera_matrix.as_deref().map(|wrapper| &wrapper.inner),
             ground_to_robot.as_deref().and_then(|wrapper| wrapper.inner),
-            motion_command.as_deref(),
+            behavior_command.as_deref(),
             &serial_motor_states,
             parameters,
         );
@@ -106,7 +106,7 @@ impl LookAtState {
         now: Time,
         camera_matrix: Option<&CameraMatrix>,
         ground_to_robot: Option<Isometry3<Ground, Robot>>,
-        motion_command: Option<&MotionCommand>,
+        behavior_command: Option<&BehaviorCommand>,
         serial_motor_states: &Joints<MotorState>,
         parameters: &Parameters,
     ) -> HeadJoints<f32> {
@@ -118,7 +118,7 @@ impl LookAtState {
         let Some(ground_to_robot) = ground_to_robot else {
             return measured_head_angles;
         };
-        let Some(head_motion) = motion_command.and_then(MotionCommand::head_motion) else {
+        let Some(head_motion) = behavior_command.and_then(BehaviorCommand::head_motion) else {
             return measured_head_angles;
         };
 
@@ -226,7 +226,7 @@ mod tests {
     use kinematics::joints::head::HeadJoints;
     use linear_algebra::{Isometry3, nalgebra, point};
     use projection::camera_matrix::CameraMatrix;
-    use types::{motion_command::ImageRegion, parameters::ImageRegionParameters};
+    use types::{behavior_command::ImageRegion, parameters::ImageRegionParameters};
 
     use super::*;
 

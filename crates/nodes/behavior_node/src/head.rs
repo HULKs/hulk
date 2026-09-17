@@ -1,6 +1,6 @@
 use types::{
+    behavior_command::{HeadMotion, ImageRegion},
     behavior_tree::Status,
-    motion_command::{HeadMotion, ImageRegion},
 };
 
 use crate::{

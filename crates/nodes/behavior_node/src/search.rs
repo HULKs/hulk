@@ -1,7 +1,7 @@
 use linear_algebra::{Pose2, vector};
 use types::{
+    behavior_command::{BehaviorCommand, BodyMotion, OrientationMode},
     behavior_tree::Status,
-    motion_command::{BodyMotion, MotionCommand, OrientationMode},
 };
 
 use crate::{node::Blackboard, walk::walk_to};
@@ -21,9 +21,9 @@ pub fn leuchtturm(blackboard: &mut Blackboard) -> Status {
 }
 
 fn get_leuchtturm_direction(blackboard: &Blackboard) -> f32 {
-    if let MotionCommand::WalkWithVelocity {
+    if let BehaviorCommand::WalkWithVelocity {
         angular_velocity, ..
-    } = blackboard.last_motion_command
+    } = blackboard.last_behavior_command
         && angular_velocity.abs() > f32::EPSILON
     {
         return angular_velocity.signum();

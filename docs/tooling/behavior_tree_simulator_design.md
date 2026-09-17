@@ -7,12 +7,12 @@ The simulator initializes the behavior blackboard, repeatedly evaluates the beha
 # Goals
 
 - Run the exact behavior tree returned by `create_tree()`.
-- Reuse the production blackboard construction, communication planning, and motion command assembly semantics from `crates/nodes/behavior_node/src/node.rs`.
+- Reuse the production blackboard construction, communication planning, and behavior command assembly semantics from `crates/nodes/behavior_node/src/node.rs`.
 - Simulate multiple robots from the start.
 - Update world state with simple deterministic kinematics after each behavior tick.
 - Support Rust scenario programs first.
 - Support an interactive viewer for inspecting recorded field state, behavior traces, and scenario results.
-- Record behavior traces, motion commands, world states, blackboard-derived debug outputs, invariant violations, and timeline markers.
+- Record behavior traces, behavior commands, world states, blackboard-derived debug outputs, invariant violations, and timeline markers.
 - Check simulator invariants every cycle with access to complete simulation state.
 - Provide an extensible auto-referee that can update game-controller state from simulated events.
 
@@ -34,7 +34,7 @@ The production behavior cycle already has the shape the simulator needs:
 - The behavior node updates persistent ball memory on its `Blackboard`.
 - The behavior node fills a `Blackboard` from parameters, `WorldState`, and previous blackboard state.
 - `Node::tick_with_trace()` evaluates the tree and mutates the blackboard.
-- `assemble_motion_command()` converts behavior status plus blackboard partial motions into a `MotionCommand`.
+- `assemble_behavior_command()` converts behavior status plus blackboard partial motions into a `BehaviorCommand`.
 - The persistent `Blackboard` keeps selected state between cycles.
 - The behavior node publishes trace and debug outputs.
 
@@ -67,7 +67,7 @@ pub struct SimulatorBehaviorTickInput {
 }
 
 pub struct SimulatorBehaviorTickOutput {
-    pub motion_command: MotionCommand,
+    pub behavior_command: BehaviorCommand,
     pub trace: NodeTrace,
     pub static_layout: NodeTrace,
     pub path_obstacles: Vec<PathObstacle>,
@@ -91,7 +91,7 @@ The production behavior node remains the ROS adapter:
 - Plan outgoing communication through `Blackboard` methods.
 - Send planned network messages through the production hardware interface.
 - Publish ROS node outputs.
-- Store `last_motion_command` on the `Blackboard`.
+- Store `last_behavior_command` on the `Blackboard`.
 
 The simulator should call its adapter directly and avoid ROS node/cache construction.
 
@@ -129,7 +129,7 @@ Each simulated robot owns one `SimulatorRobotBehavior` with one `behavior_node::
 - `last_sent_game_controller_return_message_time`
 - `last_sent_hsl_message_time`
 
-The simulator also stores `last_motion_command` per robot because production keeps it as cycler state.
+The simulator also stores `last_behavior_command` per robot because production keeps it as cycler state.
 
 # Simulation State Model
 
@@ -306,15 +306,15 @@ Each simulation tick runs these steps in order through Bevy systems:
 4. Apply routed incoming HSL network messages from the previous tick to per-robot receive state.
 5. For each robot, derive robot-local perception inputs from shared simulation state and received teammate messages.
 6. For each robot, build a `WorldState` and tick `behavior_node::tree::create_tree()` through `SimulatorRobotBehavior`.
-7. Store each robot's `MotionCommand`, `NodeTrace`, and debug outputs.
+7. Store each robot's `BehaviorCommand`, `NodeTrace`, and debug outputs.
 8. Plan outgoing communication with `behavior_node::node::Blackboard` communication methods using the live message budget in `WorldState.filtered_game_controller_state`.
 9. Route planned HSL messages to teammates and decrement the live game-controller message budget.
 10. Run invariant checks with access to the full pre-kinematics tick state and all behavior outputs.
-11. Apply simple kinematic effects of each `MotionCommand` to robot poses and ball state.
+11. Apply simple kinematic effects of each `BehaviorCommand` to robot poses and ball state.
 12. Record a frame for scenarios and future viewers, including filtered game state and any invariant failures.
 13. Run scenario systems/hooks.
 
-Tree ticking should be logically simultaneous for all robots. Kinematic updates should use the motion commands from the same tick after all robots have evaluated behavior.
+Tree ticking should be logically simultaneous for all robots. Kinematic updates should use the behavior commands from the same tick after all robots have evaluated behavior.
 
 # Bevy Plugin and System Sets
 
@@ -605,8 +605,8 @@ Blackboard initialization should stay inside `SimulatorRobotBehavior::tick_behav
 
 - Copy `field_dimensions`, parameters, and `WorldState` into the blackboard.
 - Initialize transient debug outputs to empty or zero.
-- Keep persistent behavior state on the blackboard: `ball`, `last_ball`, `last_close_enough_to_kick`, `last_kick_target`, `last_motion_switch_time`, `last_motion_type`, communication cooldowns, and `last_motion_command`.
-- Reset transient command fields: `is_injected_motion_command`, `walk_position`, `body_motion`, `head_motion`, and `voronoi_map`.
+- Keep persistent behavior state on the blackboard: `ball`, `last_ball`, `last_close_enough_to_kick`, `last_kick_target`, `last_motion_switch_time`, `last_motion_type`, communication cooldowns, and `last_behavior_command`.
+- Reset transient command fields: `is_injected_behavior_command`, `walk_position`, `body_motion`, `head_motion`, and `voronoi_map`.
 
 After the tick, leave persistent fields on the blackboard as production does.
 
@@ -679,7 +679,7 @@ impl Default for SimulationConfig {
 }
 ```
 
-`MotionCommand::Walk`:
+`BehaviorCommand::Walk`:
 
 - Move the robot along the first usable segment of the path in ground coordinates.
 - Clamp translation by `walk_translation_speed * dt`.
@@ -687,18 +687,18 @@ impl Default for SimulationConfig {
 - Clamp rotation by `walk_rotation_speed * dt`.
 - Transform the pose delta into world coordinates and update `ground_to_world`.
 
-`MotionCommand::WalkWithVelocity`:
+`BehaviorCommand::WalkWithVelocity`:
 
 - Integrate commanded local velocity and angular velocity for `dt`.
 - Clamp by simulator speed limits.
 
-`MotionCommand::VisualKick`:
+`BehaviorCommand::VisualKick`:
 
 - If the shared ball is within a configured kick radius of the expected ball position, set ball velocity along the kick direction.
 - Map `KickPower` to velocity through `SimulationConfig`.
 - Enforce `kick_cooldown` per robot to avoid applying a kick every tick while the command remains active.
 
-`MotionCommand::Stand`, `Prepare`, and `StandUp`:
+`BehaviorCommand::Stand`, `Prepare`, and `StandUp`:
 
 - Do not move the robot.
 - `StandUp` clears simulated recovery state after a configured duration or immediately in the first version.
@@ -706,7 +706,7 @@ impl Default for SimulationConfig {
 Head motion:
 
 - Store head yaw in `SimulatorHeadYaw` as `Orientation2<Ground>` relative to the robot ground frame.
-- Derive target yaw from `MotionCommand::head_motion()`.
+- Derive target yaw from `BehaviorCommand::head_motion()`.
 - `ZeroAngles` and `Center` target yaw `0.0`.
 - `LookAt` targets the commanded ground point direction.
 - `LookLeftAndRightOf` adds a deterministic glance offset around the commanded ground point direction.
@@ -770,7 +770,7 @@ The API should support:
 - Set goalkeeper number and behavior parameters per robot.
 - Register systems in any public simulator system set.
 - Wait until a predicate is true by writing normal Bevy systems that send `AppExit`.
-- Assert last motion command, trace path, robot pose, ball pose, communication, or role behavior.
+- Assert last behavior command, trace path, robot pose, ball pose, communication, or role behavior.
 - Inject per-tick hooks for dynamic events.
 - Add colored timeline markers through `SimulatorTimelineMarkers`.
 - Disable default physics, kinematics, communication routing, or invariant checks when a scenario provides custom systems.
@@ -825,7 +825,7 @@ Invariant checks must have access to the complete simulator state:
 - Shared ball state.
 - All robot poses and persistent robot simulation state.
 - Per-robot `WorldState` inputs built for this tick.
-- Per-robot behavior outputs, including `MotionCommand`, `NodeTrace`, path obstacles, walk target, Voronoi output, and planned communication.
+- Per-robot behavior outputs, including `BehaviorCommand`, `NodeTrace`, path obstacles, walk target, Voronoi output, and planned communication.
 - Field dimensions, rule obstacles, scenario configuration, and `SimulationConfig`.
 
 The API should be simple Rust code:
@@ -876,7 +876,7 @@ Each recorded frame should include:
 - Shared ball state.
 - Robot poses and primary states.
 - Per-robot perceived `WorldState` summary.
-- Per-robot `MotionCommand`.
+- Per-robot `BehaviorCommand`.
 - Per-robot planned outgoing communication.
 - Per-robot `NodeTrace`.
 - Invariant violations for the frame.
@@ -896,7 +896,7 @@ Scenario failures must still produce a viewable timeline. The runner should alwa
 
 Keep the `crates/bevyhavior_simulator` crate name and the old Bevy scenario ergonomics, but replace the old internals:
 
-- `behavior_node` owns behavior-tree semantics, blackboard state, motion command assembly, and communication planning.
+- `behavior_node` owns behavior-tree semantics, blackboard state, behavior command assembly, and communication planning.
 - `crates/bevyhavior_simulator` owns Bevy resources, components, systems, scenario results, deterministic world updates, communication routing, invariant checks, timeline recording, and scenario binaries.
 - Old generated cycler/database code should not be restored.
 - Existing scenario binaries can migrate gradually to the new `BehaviorTreeSimulatorPlugin` and `SimulatorRobotBundle` APIs.

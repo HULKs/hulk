@@ -12,7 +12,7 @@ use std::{
 
 use booster::{
     LedColor, RobotMode,
-    walking::{WalkingParameters, step_from_motion_command},
+    walking::{WalkingParameters, step_from_behavior_command},
 };
 use color_eyre::{Result, eyre::WrapErr};
 use kinematics::joints::head::HeadJoints;
@@ -21,7 +21,7 @@ use ros_z::prelude::*;
 use serde::{Deserialize, Serialize};
 use tokio::sync::watch;
 use tracing::{error, info};
-use types::motion_command::MotionCommand;
+use types::behavior_command::BehaviorCommand;
 
 mod control;
 mod kick_transport;
@@ -34,7 +34,7 @@ pub use light_client::LightClient;
 pub use loco_client::LocoClient;
 pub use rpc_transport::ZenohRpcClient;
 
-const MOTION_COMMAND_TOPIC: &str = "behavior/motion_command";
+const BEHAVIOR_COMMAND_TOPIC: &str = "behavior/behavior_command";
 
 #[derive(Debug, Serialize, Deserialize, Message)]
 pub enum LedCommand {
@@ -53,7 +53,7 @@ pub struct Parameters {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-enum MotionCommandKind {
+enum BehaviorCommandKind {
     Damping,
     Prepare,
     Stand,
@@ -62,15 +62,15 @@ enum MotionCommandKind {
     Walk,
 }
 
-impl MotionCommandKind {
-    fn from_command(command: &MotionCommand) -> Self {
+impl BehaviorCommandKind {
+    fn from_command(command: &BehaviorCommand) -> Self {
         match command {
-            MotionCommand::Damping => Self::Damping,
-            MotionCommand::Prepare => Self::Prepare,
-            MotionCommand::Stand { .. } => Self::Stand,
-            MotionCommand::StandUp => Self::StandUp,
-            MotionCommand::VisualKick { .. } => Self::VisualKick,
-            MotionCommand::Walk { .. } | MotionCommand::WalkWithVelocity { .. } => Self::Walk,
+            BehaviorCommand::Damping => Self::Damping,
+            BehaviorCommand::Prepare => Self::Prepare,
+            BehaviorCommand::Stand { .. } => Self::Stand,
+            BehaviorCommand::StandUp => Self::StandUp,
+            BehaviorCommand::VisualKick { .. } => Self::VisualKick,
+            BehaviorCommand::Walk { .. } | BehaviorCommand::WalkWithVelocity { .. } => Self::Walk,
         }
     }
 }
@@ -170,14 +170,14 @@ impl RpcAttempt {
 
 struct InterfaceState {
     assumed_mode: control::DesiredMode,
-    last_motion_kind: MotionCommandKind,
+    last_motion_kind: BehaviorCommandKind,
     visual_kick_active: bool,
     active_get_up_request: Option<GetUpRequest>,
     next_get_up_request: u64,
     last_move_robot: std::time::Instant,
     last_rotate_head: std::time::Instant,
     last_kick: std::time::Instant,
-    last_logged_motion_kind: Option<MotionCommandKind>,
+    last_logged_motion_kind: Option<BehaviorCommandKind>,
     last_logged_desired_mode: Option<control::DesiredMode>,
     last_logged_assumed_mode: Option<control::DesiredMode>,
     last_logged_visual_kick_active: Option<bool>,
@@ -188,7 +188,7 @@ impl InterfaceState {
     fn new(now: std::time::Instant) -> Self {
         Self {
             assumed_mode: control::DesiredMode::Damping,
-            last_motion_kind: MotionCommandKind::Damping,
+            last_motion_kind: BehaviorCommandKind::Damping,
             visual_kick_active: false,
             active_get_up_request: None,
             next_get_up_request: 0,
@@ -228,12 +228,12 @@ fn due(last: std::time::Instant, now: std::time::Instant, interval: Duration) ->
     now.duration_since(last) >= interval
 }
 
-fn should_send_move(command: &MotionCommand) -> bool {
+fn should_send_move(command: &BehaviorCommand) -> bool {
     matches!(
         command,
-        MotionCommand::Stand { .. }
-            | MotionCommand::Walk { .. }
-            | MotionCommand::WalkWithVelocity { .. }
+        BehaviorCommand::Stand { .. }
+            | BehaviorCommand::Walk { .. }
+            | BehaviorCommand::WalkWithVelocity { .. }
     )
 }
 
@@ -264,12 +264,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .wrap_err("failed to create kick ball publisher")?;
 
-    let motion_command_cache = node
-        .subscriber::<MotionCommand>(MOTION_COMMAND_TOPIC)
+    let behavior_command_cache = node
+        .subscriber::<BehaviorCommand>(BEHAVIOR_COMMAND_TOPIC)
         .cache(1)
         .build()
         .await
-        .wrap_err("failed to build motion_command cache")?;
+        .wrap_err("failed to build behavior_command cache")?;
     let head_joints_cache = node
         .subscriber::<HeadJoints<f32>>("head_joints_command")
         .cache(1)
@@ -305,25 +305,25 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             _ = tick.tick() => {
                 let parameters_snapshot = parameters.snapshot();
                 let parameters = parameters_snapshot.typed();
-                let Some(motion_command) = motion_command_cache.get_latest() else {
+                let Some(behavior_command) = behavior_command_cache.get_latest() else {
                     continue;
                 };
-                let motion_command = motion_command.as_ref();
+                let behavior_command = behavior_command.as_ref();
                 let head_joints = head_joints_cache
                     .get_latest()
                     .map(|head_joints| *head_joints);
                 let now = std::time::Instant::now();
                 let timeout = parameters.sdk_request_timeout;
-                let motion_kind = MotionCommandKind::from_command(motion_command);
+                let motion_kind = BehaviorCommandKind::from_command(behavior_command);
 
-                if state.visual_kick_active && motion_kind != MotionCommandKind::VisualKick {
+                if state.visual_kick_active && motion_kind != BehaviorCommandKind::VisualKick {
                     if state.assumed_mode == control::DesiredMode::Soccer {
                         send_retry_command(&visual_kick_command_sender, false, timeout, "visual_kick");
                     }
                     state.visual_kick_active = false;
                 }
 
-                let desired_mode = control::desired_mode_for(motion_command);
+                let desired_mode = control::desired_mode_for(behavior_command);
                 let head_present = head_joints.is_some();
                 if state.last_logged_motion_kind != Some(motion_kind)
                     || state.last_logged_desired_mode != Some(desired_mode)
@@ -353,28 +353,28 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     state.assumed_mode = desired_mode;
                 }
 
-                if motion_kind == MotionCommandKind::StandUp
-                    && state.last_motion_kind != MotionCommandKind::StandUp
+                if motion_kind == BehaviorCommandKind::StandUp
+                    && state.last_motion_kind != BehaviorCommandKind::StandUp
                     && state.assumed_mode == control::DesiredMode::Soccer
                 {
                     let request = state.start_get_up_request();
                     send_retry_command(&get_up_command_sender, request, timeout, "get_up");
-                } else if (motion_kind != MotionCommandKind::StandUp
+                } else if (motion_kind != BehaviorCommandKind::StandUp
                     || state.assumed_mode != control::DesiredMode::Soccer)
                     && state.clear_get_up_request()
                 {
                     clear_retry_command(&get_up_command_sender, "get_up");
                 }
 
-                if motion_kind == MotionCommandKind::VisualKick
+                if motion_kind == BehaviorCommandKind::VisualKick
                     && state.assumed_mode == control::DesiredMode::Soccer
                 {
                     let entering_visual_kick = !state.visual_kick_active;
                     if entering_visual_kick
                         || due(state.last_kick, now, parameters.kicking.kick_message_interval)
                     {
-                        if let Some(kick) = control::kick_from_motion_command(
-                            motion_command,
+                        if let Some(kick) = control::kick_from_behavior_command(
+                            behavior_command,
                             node.clock().now(),
                             &parameters.kicking,
                         ) {
@@ -406,11 +406,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     }
                 }
 
-                if should_send_move(motion_command)
+                if should_send_move(behavior_command)
                     && state.assumed_mode == control::DesiredMode::Soccer
                     && due(state.last_move_robot, now, parameters.move_robot_message_interval)
                 {
-                    let step = step_from_motion_command(motion_command, &parameters.walking);
+                    let step = step_from_behavior_command(behavior_command, &parameters.walking);
                     let attempt = rpc_diagnostics.begin(RpcActionKind::MoveRobot);
                     info!(
                         target: "booster_interface::rpc",

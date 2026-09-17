@@ -8,11 +8,11 @@ use filtering::low_pass_filter::LowPassFilter;
 use kinematics::joints::{Joints, head::HeadJoints};
 use ros_z::{prelude::*, time::Time};
 use types::{
-    motion_command::{HeadMotion, ImageRegion, MotionCommand},
+    behavior_command::{BehaviorCommand, HeadMotion, ImageRegion},
     parameters::HeadMotionParameters,
 };
 
-const MOTION_COMMAND_TOPIC: &str = "behavior/motion_command";
+const BEHAVIOR_COMMAND_TOPIC: &str = "behavior/behavior_command";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
@@ -43,8 +43,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-    let motion_command_cache = node
-        .subscriber::<MotionCommand>(MOTION_COMMAND_TOPIC)
+    let behavior_command_cache = node
+        .subscriber::<BehaviorCommand>(BEHAVIOR_COMMAND_TOPIC)
         .cache(1)
         .build()
         .await?;
@@ -56,7 +56,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut state = HeadMotionState::new();
     let mut last_update = None;
     let mut tick = node.create_timer(Duration::from_millis(10));
-    let default_motion_command = MotionCommand::default();
+    let default_behavior_command = BehaviorCommand::default();
 
     loop {
         tick.tick().await;
@@ -75,8 +75,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         };
 
-        let motion_command = motion_command_cache.get_latest();
-        let motion_command = motion_command.as_deref().unwrap_or(&default_motion_command);
+        let behavior_command = behavior_command_cache.get_latest();
+        let behavior_command = behavior_command
+            .as_deref()
+            .unwrap_or(&default_behavior_command);
         let last_cycle_duration = cycle_duration_since_last_update(&mut last_update, now);
         let parameters_snapshot = parameters.snapshot();
         let parameters = &parameters_snapshot.typed().parameters;
@@ -86,7 +88,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             look_at,
             &motor_states,
             last_cycle_duration,
-            motion_command,
+            behavior_command,
         );
 
         head_joints_command_pub.publish(&head_joints).await?;
@@ -122,7 +124,7 @@ impl HeadMotionState {
         look_at: HeadJoints<f32>,
         motor_states: &Joints<MotorState>,
         last_cycle_duration: Duration,
-        motion_command: &MotionCommand,
+        behavior_command: &BehaviorCommand,
     ) -> HeadJoints<f32> {
         if let Some(injected_head_joints) = parameters.injected_head_joints {
             self.lowpass_filter.update(injected_head_joints);
@@ -136,7 +138,7 @@ impl HeadMotionState {
             look_around_target_joints,
             look_at,
             motor_states,
-            motion_command,
+            behavior_command,
         );
         let maximum_movement = parameters.maximum_velocity * last_cycle_duration.as_secs_f32();
 
@@ -167,9 +169,9 @@ fn joints_from_motion(
     look_around_target_joints: HeadJoints<f32>,
     look_at: HeadJoints<f32>,
     motor_states: &Joints<MotorState>,
-    motion_command: &MotionCommand,
+    behavior_command: &BehaviorCommand,
 ) -> HeadJoints<f32> {
-    match motion_command.head_motion() {
+    match behavior_command.head_motion() {
         Some(HeadMotion::Center {
             image_region_target: ImageRegion::Top,
         }) => HeadJoints {
@@ -193,7 +195,7 @@ fn joints_from_motion(
 mod tests {
     use std::time::Duration;
 
-    use types::motion_command::{HeadMotion, ImageRegion};
+    use types::behavior_command::{HeadMotion, ImageRegion};
 
     use super::*;
 
@@ -212,7 +214,7 @@ mod tests {
             HeadJoints::default(),
             &Joints::default(),
             Duration::from_secs(1),
-            &MotionCommand::Stand {
+            &BehaviorCommand::Stand {
                 head: HeadMotion::Center {
                     image_region_target: ImageRegion::Top,
                 },
@@ -243,7 +245,7 @@ mod tests {
             HeadJoints::default(),
             &motor_states,
             Duration::from_secs(1),
-            &MotionCommand::Stand {
+            &BehaviorCommand::Stand {
                 head: HeadMotion::Unstiff,
             },
         );
@@ -285,7 +287,7 @@ mod tests {
             HeadJoints::default(),
             &Joints::default(),
             Duration::from_secs(1),
-            &MotionCommand::default(),
+            &BehaviorCommand::default(),
         );
         let after_injection = state.update(
             &normal_parameters,
@@ -296,7 +298,7 @@ mod tests {
             HeadJoints::default(),
             &Joints::default(),
             Duration::from_secs(1),
-            &MotionCommand::Stand {
+            &BehaviorCommand::Stand {
                 head: HeadMotion::LookAround,
             },
         );

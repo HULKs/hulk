@@ -1,7 +1,7 @@
 use hsl_network_messages::GamePhase;
 use linear_algebra::point;
 use rand::{Rng, SeedableRng, rngs::StdRng};
-use types::{behavior_tree::Status, motion_command::KickPower, motion_type::MotionType};
+use types::{behavior_command::KickPower, behavior_tree::Status, motion_type::MotionType};
 
 use crate::{
     action,

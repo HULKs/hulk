@@ -447,7 +447,7 @@ mod tests {
     use hsl_network_messages::{PlayerNumber, Team};
     use linear_algebra::{Isometry2, point, vector};
     use types::{
-        field_dimensions::Side, motion_command::MotionCommand, primary_state::PrimaryState,
+        behavior_command::BehaviorCommand, field_dimensions::Side, primary_state::PrimaryState,
     };
 
     #[test]
@@ -520,8 +520,8 @@ mod tests {
             .get(&SimulatorRobotId::new(Team::Hulks, PlayerNumber::Three))
             .expect("robot should have ticked behavior");
         assert!(matches!(
-            robot_frame.motion_command,
-            MotionCommand::Walk { .. }
+            robot_frame.behavior_command,
+            BehaviorCommand::Walk { .. }
         ));
     }
 }

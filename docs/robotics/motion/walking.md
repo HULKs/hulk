@@ -1,7 +1,7 @@
 The whole process to let the robot walk is organized in three steps.
 
 1.  The step planner creates the planned step.
-    This includes x, y, and rotation depending on the motion command.
+    This includes x, y, and rotation depending on the behavior command.
 
     !!! warning
 
@@ -10,7 +10,7 @@ The whole process to let the robot walk is organized in three steps.
         At the time of writing, only individual steps are planned, but not the whole step sequence.
         This is subject to change.
 
-2.  The walk manager uses the planned step and the motion command to create the walk command, which defines the walking mode, such as standing, walking, or others.
+2.  The walk manager uses the planned step and the behavior command to create the walk command, which defines the walking mode, such as standing, walking, or others.
 
 3.  The walking engine uses the walk command and computes the according motor comamands.
 

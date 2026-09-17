@@ -5,17 +5,17 @@ use color_eyre::Result;
 use kinematics::joints::head::HeadJoints;
 use ros_z::{prelude::*, time::Time};
 use types::{
+    behavior_command::{BehaviorCommand, HeadMotion},
     field_dimensions::GlobalFieldSide,
     filtered_game_controller_state::FilteredGameControllerState,
     initial_look_around::{
         BallSearchLookAround, InitialLookAround, LookAroundMode, QuickLookAround,
     },
-    motion_command::{HeadMotion, MotionCommand},
     parameters::LookAroundParameters,
     support_foot::Side,
 };
 
-const MOTION_COMMAND_TOPIC: &str = "behavior/motion_command";
+const BEHAVIOR_COMMAND_TOPIC: &str = "behavior/behavior_command";
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -25,8 +25,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("look_around").build().await?;
 
     let parameters = node.bind_parameter_as::<LookAroundParameters>("look_around")?;
-    let motion_command_cache = node
-        .subscriber::<MotionCommand>(MOTION_COMMAND_TOPIC)
+    let behavior_command_cache = node
+        .subscriber::<BehaviorCommand>(BEHAVIOR_COMMAND_TOPIC)
         .cache(1)
         .build()
         .await?;
@@ -50,10 +50,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         tick.tick().await;
         let now = node.clock().now();
-        let head_motion = motion_command_cache
+        let head_motion = behavior_command_cache
             .get_latest()
             .as_deref()
-            .and_then(MotionCommand::head_motion);
+            .and_then(BehaviorCommand::head_motion);
         let filtered_game_controller_state = filtered_game_controller_state_cache.get_latest();
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
@@ -259,9 +259,9 @@ mod tests {
     use std::time::Duration;
 
     use types::{
+        behavior_command::{HeadMotion, ImageRegion},
         field_dimensions::GlobalFieldSide,
         initial_look_around::{BallSearchLookAround, InitialLookAround, QuickLookAround},
-        motion_command::{HeadMotion, ImageRegion},
         support_foot::Side,
     };
 
