@@ -64,8 +64,8 @@ The game-controller form controls the field side used by head scan patterns.
 **Stand** runs walking inference at zero velocity with the chosen head request.
 **Walk with velocity** forwards the requested forward/lateral velocity and yaw rate.
 **Kick** uses kick inference and the selected head request. Its form exposes target
-speed (m/s), ball velocity (Ground, m/s), and soft/quick/strong flags. Defaults are
-3.4 m/s, zero ball velocity, and all flags disabled. The soft policy ignores strong
+speed (m/s) and soft/quick/strong flags, plus live ball and target readouts. Defaults
+are 3.4 m/s and all flags disabled. The soft policy ignores strong
 and quick. **Stand up** exposes the fast flag, disabled by default, for full-body
 get-up inference. Arm commands come directly from the main node: walking and
 kicking use its configured arm controller, and get-up controls all joints.
@@ -76,7 +76,6 @@ mode, whose RPC is not simulated.
 The editor still refuses path-based **Walk** and suggests **Walk with velocity**.
 External path requests use the upstream walking controller. Kick speed, ball velocity,
 and policy flags are forwarded to inference, which applies its policy limits.
-Target position and robot-to-field heading are still not used by kick inference.
 Head and body services run concurrently using the main node's service clients.
 Service errors and inference rejections retain upstream behavior, including its
 current `unwrap()` calls; the simulator does not add a fallback controller.
@@ -91,12 +90,15 @@ editing or sending a motion command, or pressing **Damp robot**, also stops trac
 If the first ball is removed, tracking follows the oldest remaining ball. With no ball,
 tracking stops with a message and leaves the last command unchanged.
 
-**Kick** uses the first spawned ball's actual MuJoCo position, transformed
-into the controlled robot's Ground frame. Its ball-position fields are read-only
-and update live, including while paused or dragging. The sent kick keeps tracking
-the ball even while editing another draft. With no ball, sending a kick is rejected;
-removing the last ball stops an active kick by sending Damping. Ball velocity remains
-an editable command input; it is not derived from the simulated ball's motion.
+**Kick** uses the first spawned ball's actual MuJoCo position and linear velocity,
+transformed into the controlled robot's Ground frame. Kick direction automatically
+aims from the ball toward the center of the right goal (field +X goal line).
+These fields are read-only and update live as the ball or robot moves, including
+while paused or dragging; resizing the field updates the aim too. Velocity is
+measured in m/s, with world motion rotated into Ground axes. Dragging resets ball
+velocity to zero. The sent kick keeps tracking even while editing another draft.
+With no ball, sending a kick is rejected; removing the last ball stops an active
+kick by sending Damping.
 
 Sent commands have solid scene arrows, inspired by
 [MJLab's velocity visualization](https://github.com/mujocolab/mjlab/blob/main/src/mjlab/tasks/velocity/mdp/velocity_command.py).

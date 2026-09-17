@@ -228,8 +228,6 @@ mod tests {
             head: HeadMotion::ZeroAngles,
             ball_position: point![1.0, 2.0],
             kick_direction: Orientation2::new(-std::f32::consts::FRAC_PI_2),
-            target_position: point![0.0, 0.0],
-            robot_theta_to_field: Orientation2::identity(),
             target_speed: 3.4,
             ball_velocity: vector![0.0, 0.0],
             soft: false,

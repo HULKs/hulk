@@ -34,6 +34,20 @@ pub fn first_position(world: &MujocoWorld, balls: &SpawnedBalls) -> color_eyre::
     Ok([position[0], position[1], position[2]])
 }
 
+/// Linear velocity of the first ball in MuJoCo's world frame (m/s).
+pub fn first_velocity(world: &MujocoWorld, balls: &SpawnedBalls) -> color_eyre::Result<[f64; 3]> {
+    let ball = balls.0.first().ok_or_else(|| {
+        color_eyre::eyre::eyre!("No ball in the scene. Drag a ball onto the field first.")
+    })?;
+    let data = world.data();
+    let joint = data
+        .joint(&format!("object_{}_ball_free_joint", ball.to_bits()))
+        .ok_or_else(|| color_eyre::eyre::eyre!("The first ball is not ready in MuJoCo yet."))?;
+    // The translational DOFs of a free joint are expressed in world coordinates.
+    let velocity = joint.view(data).qvel;
+    Ok([velocity[0], velocity[1], velocity[2]])
+}
+
 pub fn record_spawn(event: On<Add<Ball>>, mut balls: ResMut<SpawnedBalls>) {
     balls.0.push(event.entity);
 }

@@ -42,8 +42,6 @@ pub fn motion_choices() -> Vec<Value> {
             head,
             ball_position: point![0.2, 0.0],
             kick_direction: Orientation2::identity(),
-            target_position: point![2.0, 0.0],
-            robot_theta_to_field: Orientation2::identity(),
             target_speed: 3.4,
             ball_velocity: vector![0.0, 0.0],
             soft: false,
@@ -218,12 +216,7 @@ pub fn is_angle(path: &str, current: &Value) -> bool {
     let name = path.rsplit('/').next().unwrap_or(path);
     matches!(
         name,
-        "kick_direction"
-            | "target_orientation"
-            | "robot_theta_to_field"
-            | "start"
-            | "end"
-            | "direction"
+        "kick_direction" | "target_orientation" | "start" | "end" | "direction"
     ) && serde_json::from_value::<Orientation2<Ground>>(current.clone()).is_ok()
 }
 

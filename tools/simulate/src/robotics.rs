@@ -894,8 +894,6 @@ mod tests {
             head: HeadMotion::ZeroAngles,
             ball_position: linear_algebra::point![0.2, -0.1],
             kick_direction: linear_algebra::Orientation2::new(0.3),
-            target_position: linear_algebra::point![2.0, 0.0],
-            robot_theta_to_field: linear_algebra::Orientation2::identity(),
             target_speed: 2.7,
             ball_velocity: linear_algebra::vector![0.15, -0.2],
             soft: true,

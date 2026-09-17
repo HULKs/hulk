@@ -14,7 +14,7 @@ use bevy::{
     ui_widgets::{Activate, ValueChange},
 };
 use coordinate_systems::Ground;
-use linear_algebra::{Orientation2, point};
+use linear_algebra::{Orientation2, Point2, Vector2, point, vector};
 use serde_json::{Value, json};
 use types::{
     filtered_game_controller_state::FilteredGameControllerState,
@@ -23,6 +23,7 @@ use types::{
 
 use crate::{
     bevy_mujoco::{MujocoWorld, SimulationMode},
+    parameters::CurrentSimulatorParameters,
     robot_io::RobotBinding,
     robotics::Robotics,
     scene::ball::SpawnedBalls,
@@ -57,15 +58,59 @@ fn first_ball_in_ground(
     Ok(binding.point_in_ground(world.data(), position))
 }
 
-fn fill_kick_ball(
+struct KickGroundTruth {
+    ball_position: Point2<Ground>,
+    ball_velocity: Vector2<Ground>,
+    kick_direction: Orientation2<Ground>,
+}
+
+impl KickGroundTruth {
+    fn sample(
+        world: &MujocoWorld,
+        balls: &SpawnedBalls,
+        robot: Entity,
+        field_length: f32,
+    ) -> color_eyre::Result<Self> {
+        let position = crate::scene::ball::first_position(world, balls)?;
+        let velocity = crate::scene::ball::first_velocity(world, balls)?;
+        let binding = RobotBinding::new(world.data(), &format!("object_{}_", robot.to_bits()))?;
+        let ground_to_world = binding.ground_to_world(world.data());
+        let world_to_ground = ground_to_world.inverse();
+        let position = world_to_ground * nalgebra::Point3::from(position.map(|v| v as f32));
+        let velocity =
+            world_to_ground.rotation * nalgebra::Vector3::from(velocity.map(|v| v as f32));
+        let goal = world_to_ground * nalgebra::point![field_length / 2.0, 0.0, 0.0];
+        Ok(Self {
+            ball_position: point![position.x, position.y],
+            ball_velocity: vector![velocity.x, velocity.y],
+            kick_direction: Orientation2::new((goal.y - position.y).atan2(goal.x - position.x)),
+        })
+    }
+
+    fn apply(&self, command: &mut MotionCommand) {
+        if let MotionCommand::Kick {
+            ball_position,
+            ball_velocity,
+            kick_direction,
+            ..
+        } = command
+        {
+            *ball_position = self.ball_position;
+            *ball_velocity = self.ball_velocity;
+            *kick_direction = self.kick_direction;
+        }
+    }
+}
+
+fn fill_kick_ground_truth(
     command: &mut MotionCommand,
     world: &MujocoWorld,
     balls: &SpawnedBalls,
     robot: Entity,
+    field_length: f32,
 ) -> color_eyre::Result<()> {
-    if let MotionCommand::Kick { ball_position, .. } = command {
-        let ball = first_ball_in_ground(world, balls, robot)?;
-        *ball_position = point![ball.x, ball.y];
+    if matches!(command, MotionCommand::Kick { .. }) {
+        KickGroundTruth::sample(world, balls, robot, field_length)?.apply(command);
     }
     Ok(())
 }
@@ -149,6 +194,7 @@ impl Plugin for ControlsPlugin {
             .add_systems(
                 Update,
                 (
+                    update_kick_ground_truth,
                     update_ball_target,
                     sync_parameter_text,
                     synchronize_parameters,
@@ -337,7 +383,7 @@ fn setup(mut commands: Commands) {
         @FeathersButton { @variant: ButtonVariant::Primary }
         ChildOf(actions) SubmitButton Node { height: px(36), flex_grow: 1.0 }
         Children[Text::new("Send command") PanelText template_value(PanelLabel::Submit)]
-        on(|_: On<Activate>, mut editor: ResMut<Editor>, mut io: ResMut<Robotics>, inputs: Query<(&ParameterText, &bevy::text::EditableText)>, world: Res<MujocoWorld>, balls: Res<SpawnedBalls>, robot: Single<Entity, With<ControlledRobot>>| {
+        on(|_: On<Activate>, mut editor: ResMut<Editor>, mut io: ResMut<Robotics>, inputs: Query<(&ParameterText, &bevy::text::EditableText)>, parameters: Res<CurrentSimulatorParameters>, world: Res<MujocoWorld>, balls: Res<SpawnedBalls>, robot: Single<Entity, With<ControlledRobot>>| {
             if editor.tab == "motion" && matches!(serde_json::from_value::<MotionCommand>(editor.draft["motion"].clone()), Ok(MotionCommand::Walk { .. })) {
                 editor.message_error = true;
                 editor.message = "Path-based walking is not implemented in motion yet. Use Walk with velocity.".into();
@@ -356,7 +402,7 @@ fn setup(mut commands: Commands) {
             } else {
                 let decoded = if editor.tab == "motion" {
                     serde_json::from_value::<MotionCommand>(editor.draft["motion"].clone()).map_err(color_eyre::Report::from).and_then(|mut command| {
-                        fill_kick_ball(&mut command, &world, &balls, *robot)?;
+                        fill_kick_ground_truth(&mut command, &world, &balls, *robot, parameters.parameters.field_dimensions.length)?;
                         editor.track_ball = false;
                         editor.draft["motion"] = value(&command);
                         io.input_motion = command;
@@ -659,32 +705,37 @@ fn synchronize_parameters(
     }
 }
 
-fn update_ball_target(
-    mut commands: Commands,
+fn update_kick_ground_truth(
     world: Res<MujocoWorld>,
     balls: Res<SpawnedBalls>,
+    parameters: Res<CurrentSimulatorParameters>,
     robot: Single<Entity, With<ControlledRobot>>,
     mut io: ResMut<Robotics>,
     mut editor: ResMut<Editor>,
-    numbers: Query<(Entity, &MotionNumber, &NumberInputValue)>,
 ) {
     let draft_kick = editor.draft["motion"].get("Kick").is_some();
     let active_kick = matches!(io.input_motion, MotionCommand::Kick { .. });
     if draft_kick || active_kick {
-        match first_ball_in_ground(&world, &balls, *robot) {
-            Ok(ball) => {
-                let ball = point![ball.x, ball.y];
+        match KickGroundTruth::sample(
+            &world,
+            &balls,
+            *robot,
+            parameters.parameters.field_dimensions.length,
+        ) {
+            Ok(state) => {
                 if draft_kick {
-                    editor.draft["motion"]["Kick"]["ball_position"] = value(ball);
+                    let draft = &mut editor.draft["motion"]["Kick"];
+                    draft["ball_position"] = value(state.ball_position);
+                    draft["ball_velocity"] = value(state.ball_velocity);
+                    draft["kick_direction"] = value(state.kick_direction);
                 }
-                if let MotionCommand::Kick { ball_position, .. } = &mut io.input_motion
-                    && *ball_position != ball
+                let previous = io.input_motion.clone();
+                state.apply(&mut io.input_motion);
+                if io.input_motion != previous
+                    && let Err(error) = io.publish_inputs()
                 {
-                    *ball_position = ball;
-                    if let Err(error) = io.publish_inputs() {
-                        editor.message_error = true;
-                        editor.message = format!("Could not update kick ball position: {error}");
-                    }
+                    editor.message_error = true;
+                    editor.message = format!("Could not update kick ground truth: {error}");
                 }
             }
             Err(error) if active_kick => {
@@ -701,6 +752,17 @@ fn update_ball_target(
             Err(_) => {}
         }
     }
+}
+
+fn update_ball_target(
+    mut commands: Commands,
+    world: Res<MujocoWorld>,
+    balls: Res<SpawnedBalls>,
+    robot: Single<Entity, With<ControlledRobot>>,
+    mut io: ResMut<Robotics>,
+    mut editor: ResMut<Editor>,
+    numbers: Query<(Entity, &MotionNumber, &NumberInputValue)>,
+) {
     if !editor.track_ball {
         return;
     }
@@ -732,7 +794,11 @@ fn update_ball_target(
 
 fn update_motion_readouts(editor: Res<Editor>, mut readouts: Query<(&MotionReadout, &mut Text)>) {
     for (path, mut text) in &mut readouts {
-        if let Some(number) = editor.draft.pointer(&path.0).and_then(Value::as_f64) {
+        if let Some((number, _)) = editor
+            .draft
+            .pointer(&path.0)
+            .and_then(|value| numeric_value(&path.0, value))
+        {
             text.set_if_neq(Text::new(format!("{number:.3}")));
         }
     }
@@ -876,8 +942,14 @@ fn build_field(
     allow_choices: bool,
     expanded: &HashSet<String>,
 ) {
-    if path == "/motion/Kick/ball_position" {
+    if matches!(
+        path,
+        "/motion/Kick/ball_position" | "/motion/Kick/ball_velocity"
+    ) {
         panel_label(commands, parent, PanelLabel::KickBallOrigin);
+    }
+    if path == "/motion/Kick/kick_direction" {
+        text(commands, parent, "Aim at right goal · updated live");
     }
     let parameter = path.starts_with("/parameters/");
     let title = readable(title);
@@ -1260,7 +1332,11 @@ enum Numeric {
     Duration,
 }
 fn number(commands: &mut Commands, parent: Entity, path: &str, initial: f64, kind: Numeric) {
-    if path.starts_with("/motion/Kick/ball_position/") {
+    if path == "/motion/Kick/kick_direction"
+        || ["ball_position", "ball_velocity"]
+            .iter()
+            .any(|field| path.starts_with(&format!("/motion/Kick/{field}/")))
+    {
         // Ground truth is display-only. Disabled Feathers number inputs enqueue
         // child updates on removal, which panic when rebuilding their parent form.
         let container = commands
@@ -1328,10 +1404,9 @@ fn field_label(name: &str) -> String {
         "ball_velocity" => "ball velocity (Ground, m/s)",
         "target_speed" => "target speed (m/s)",
         "angular_velocity" => "angular velocity (rad/s)",
-        "ball_position" | "target_position" | "target" | "center" => {
+        "ball_position" | "target" | "center" => {
             return format!("{} (Ground, m)", name.replace('_', " "));
         }
-        "robot_theta_to_field" => "robot theta to field (Field, rad)",
         "kick_direction" | "target_orientation" | "direction" | "tolerance" => {
             return format!("{} (rad)", name.replace('_', " "));
         }
@@ -1395,19 +1470,31 @@ mod tests {
             assert!(app.world().get_entity(button).is_err());
         }
 
-        // Moving the ball must still update both coordinates without rebuilding.
+        // Ground-truth fields must update without rebuilding the form.
         let readouts: Vec<_> = app
             .world_mut()
             .query_filtered::<Entity, With<MotionReadout>>()
             .iter(app.world())
             .collect();
-        assert_eq!(readouts.len(), 2);
-        app.world_mut().resource_mut::<Editor>().draft["motion"]["Kick"]["ball_position"] =
-            json!([1.23456, -2.34567]);
+        assert_eq!(readouts.len(), 5);
+        assert!(
+            !app.world_mut()
+                .query::<&Text>()
+                .iter(app.world())
+                .any(|text| text.0.contains("Target position") || text.0.contains("Robot theta"))
+        );
+        for field in ["ball_position", "ball_velocity"] {
+            app.world_mut().resource_mut::<Editor>().draft["motion"]["Kick"][field] =
+                json!([1.23456, -2.34567]);
+        }
+        app.world_mut().resource_mut::<Editor>().draft["motion"]["Kick"]["kick_direction"] =
+            value(Orientation2::<Ground>::new(0.75));
         app.update();
         for entity in readouts {
             let path = &app.world().get::<MotionReadout>(entity).unwrap().0;
-            let expected = if path.ends_with("/0") {
+            let expected = if path.ends_with("kick_direction") {
+                "0.750"
+            } else if path.ends_with("/0") {
                 "1.235"
             } else {
                 "-2.346"
@@ -1430,7 +1517,7 @@ mod tests {
     }
 
     #[test]
-    fn head_and_kick_track_ground_truth_ball_positions_while_paused() {
+    fn head_and_kick_track_ground_truth_while_paused() {
         use ros_z::{
             context::ContextBuilder,
             time::{Clock, Time},
@@ -1481,8 +1568,25 @@ mod tests {
         app.add_plugins((MinimalPlugins, MujocoWorldPlugin));
         app.insert_resource(io)
             .init_resource::<Editor>()
-            .add_systems(Update, update_ball_target);
+            .add_systems(
+                Update,
+                (update_kick_ground_truth, update_ball_target).chain(),
+            );
         app.insert_resource(SimulationMode::Paused);
+        app.insert_resource(CurrentSimulatorParameters {
+            revision: 0,
+            parameters: std::sync::Arc::new(crate::parameters::SimulatorParameters {
+                field_dimensions: types::field_dimensions::FieldDimensions::SPL_2025,
+                ball: BallParameters {
+                    mass: 0.45,
+                    joint_damping: 0.002,
+                    joint_friction_loss: 0.0,
+                    friction: [1.0, 0.005, 0.0001],
+                    solref: [0.08, 0.25],
+                    solimp: [0.9, 0.95, 0.001, 0.5, 2.0],
+                },
+            }),
+        });
         app.init_resource::<SpawnedBalls>()
             .add_observer(ball::record_spawn)
             .add_observer(ball::record_removal);
@@ -1675,8 +1779,6 @@ mod tests {
             head: HeadMotion::ZeroAngles,
             ball_position: point![99.0, 99.0],
             kick_direction: Orientation2::new(0.3),
-            target_position: point![2.0, 0.0],
-            robot_theta_to_field: Orientation2::identity(),
             target_speed: 2.7,
             ball_velocity: linear_algebra::vector![0.15, -0.2],
             soft: true,
@@ -1684,11 +1786,12 @@ mod tests {
             strong: true,
         };
         assert!(
-            fill_kick_ball(
+            fill_kick_ground_truth(
                 &mut kick,
                 app.world().resource::<MujocoWorld>(),
                 app.world().resource::<SpawnedBalls>(),
-                robot
+                robot,
+                9.0,
             )
             .is_err()
         );
@@ -1701,7 +1804,39 @@ mod tests {
             ))
             .id();
         app.update();
+        let set_velocity = |app: &mut App, velocity: [f64; 6]| {
+            let mut world = app.world_mut().resource_mut::<MujocoWorld>();
+            let data = world.data_mut();
+            data.joint(&format!("object_{}_ball_free_joint", ball.to_bits()))
+                .unwrap()
+                .view_mut(data)
+                .qvel
+                .copy_from_slice(&velocity);
+        };
+        set_velocity(&mut app, [0.4, -0.6, 0.8, 9.0, 8.0, 7.0]);
         app.world_mut().resource_mut::<Editor>().draft["motion"] = value(&kick);
+        fill_kick_ground_truth(
+            &mut kick,
+            app.world().resource::<MujocoWorld>(),
+            app.world().resource::<SpawnedBalls>(),
+            robot,
+            9.0,
+        )
+        .unwrap();
+        // Sending fills all fields immediately, and the next update refreshes the draft.
+        let MotionCommand::Kick {
+            ball_velocity,
+            kick_direction,
+            ..
+        } = &kick
+        else {
+            unreachable!()
+        };
+        assert!((ball_velocity.x() + 0.6).abs() < 1e-5 && (ball_velocity.y() + 0.4).abs() < 1e-5);
+        let expected_direction = (origin.x - 4.5 - 1.0).atan2(-origin.y - 2.0);
+        assert!((kick_direction.angle() - expected_direction).abs() < 1e-5);
+        // Force a velocity-only change to verify live publication even at a fixed position.
+        set_velocity(&mut app, [0.2, 0.3, 0.8, 9.0, 8.0, 7.0]);
         app.world_mut().resource_mut::<Robotics>().input_motion = kick.clone();
         app.update();
         let received = receive();
@@ -1719,9 +1854,9 @@ mod tests {
             panic!("expected a kick");
         };
         assert!((ball_position.x() - 2.0).abs() < 1e-5 && (ball_position.y() - 1.0).abs() < 1e-5);
-        assert!((kick_direction.angle() - 0.3).abs() < 1e-6);
+        assert!((kick_direction.angle() - expected_direction).abs() < 1e-5);
         assert_eq!(*target_speed, 2.7);
-        assert_eq!(*ball_velocity, linear_algebra::vector![0.15, -0.2]);
+        assert!((ball_velocity.x() - 0.3).abs() < 1e-5 && (ball_velocity.y() + 0.2).abs() < 1e-5);
         assert!(*soft && *quick && *strong);
         assert_eq!(
             app.world().resource::<Editor>().draft["motion"],
@@ -1736,10 +1871,62 @@ mod tests {
             .unwrap();
         app.update();
         let received = receive();
-        let MotionCommand::Kick { ball_position, .. } = received else {
+        let MotionCommand::Kick {
+            ball_position,
+            ball_velocity,
+            kick_direction,
+            ..
+        } = received
+        else {
             panic!("expected a kick");
         };
         assert!((ball_position.x() - 3.0).abs() < 1e-5 && (ball_position.y() - 2.0).abs() < 1e-5);
+        assert_eq!(
+            ball_velocity,
+            Vector2::zeros(),
+            "dragging resets the ball velocity"
+        );
+        assert!(
+            (kick_direction.angle() - (origin.x - 4.5 - 2.0).atan2(-origin.y - 3.0)).abs() < 1e-5
+        );
+        // A live field resize updates the aim, even while paused.
+        {
+            let mut parameters = app.world_mut().resource_mut::<CurrentSimulatorParameters>();
+            std::sync::Arc::make_mut(&mut parameters.parameters)
+                .field_dimensions
+                .length = 12.0;
+        }
+        app.update();
+        let MotionCommand::Kick { kick_direction, .. } = receive() else {
+            panic!("expected a kick")
+        };
+        assert!(
+            (kick_direction.angle() - (origin.x - 6.0 - 2.0).atan2(-origin.y - 3.0)).abs() < 1e-5
+        );
+        app.world_mut()
+            .resource_mut::<MujocoWorld>()
+            .set_object_pose(
+                robot,
+                Transform::from_xyz(2.0, 0.8, -3.0).with_rotation(Quat::from_rotation_y(-0.4)),
+            )
+            .unwrap();
+        app.update();
+        let MotionCommand::Kick { kick_direction, .. } = receive() else {
+            panic!("expected a kick")
+        };
+        let ball_world = crate::scene::ball::first_position(
+            app.world().resource::<MujocoWorld>(),
+            app.world().resource::<SpawnedBalls>(),
+        )
+        .unwrap();
+        let expected_world_angle = (-ball_world[1]).atan2(6.0 - ball_world[0]) as f32;
+        let world_angle = kick_direction.angle() - 0.4;
+        assert!((world_angle.cos() - expected_world_angle.cos()).abs() < 1e-5);
+        assert!((world_angle.sin() - expected_world_angle.sin()).abs() < 1e-5);
+        assert_eq!(
+            app.world().resource::<Editor>().draft["motion"]["Kick"]["kick_direction"],
+            value(kick_direction)
+        );
         app.world_mut().despawn(ball);
         app.update();
         assert_eq!(receive(), MotionCommand::Damping);
