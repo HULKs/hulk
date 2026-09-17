@@ -17,8 +17,8 @@ use tracing::{error, info};
 
 use booster::{LedColor, LowCommand, RobotMode};
 use motion::{
-    MOTION_COMMAND_TOPIC,
-    command::{DesiredMode, JointsCommand, MotionCommand},
+    ROBOT_COMMAND_TOPIC,
+    command::{DesiredMode, JointsCommand, RobotCommand},
 };
 use retry_worker::{RetryCommand, run_retrying_rpc_worker};
 use ros_z::{parameter::NodeParameters, prelude::*};
@@ -171,11 +171,11 @@ async fn joints_command_worker(
     parameters: Arc<NodeParameters<Parameters>>,
     rpc_diagnostics: Arc<RpcDiagnostics>,
 ) -> Result<()> {
-    let motion_command_sub = node
-        .subscriber::<MotionCommand>(MOTION_COMMAND_TOPIC)
+    let robot_command_sub = node
+        .subscriber::<RobotCommand>(ROBOT_COMMAND_TOPIC)
         .build()
         .await
-        .wrap_err("failed to build motion_command cache")?;
+        .wrap_err("failed to build robot_command cache")?;
     let joint_control_publisher = JointControlPublisher::new(ctx.session())
         .await
         .wrap_err("failed to create joint control publisher")?;
@@ -189,10 +189,10 @@ async fn joints_command_worker(
     let mut assumed_robot_mode = RobotMode::Damping;
 
     loop {
-        let MotionCommand {
+        let RobotCommand {
             desired_mode,
             joints_command,
-        } = motion_command_sub.recv().await?;
+        } = robot_command_sub.recv().await?;
 
         let timeout = parameters.snapshot().typed().sdk_request_timeout;
 

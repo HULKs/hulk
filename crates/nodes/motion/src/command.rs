@@ -13,7 +13,7 @@ pub enum DesiredMode {
 }
 
 #[derive(Serialize, Deserialize, Message)]
-pub struct MotionCommand {
+pub struct RobotCommand {
     pub desired_mode: DesiredMode,
     pub joints_command: JointsCommand,
 }

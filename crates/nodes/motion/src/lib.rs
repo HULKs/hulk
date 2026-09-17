@@ -39,14 +39,14 @@ use types::{
 };
 
 use crate::{
-    command::{DesiredMode, JointsCommand, MotionCommand as HardwareMotionCommand},
+    command::{DesiredMode, JointsCommand, RobotCommand},
     walking::{WalkingParameters, step_from_walk_command},
 };
 
 pub mod command;
 pub mod walking;
 
-pub const MOTION_COMMAND_TOPIC: &str = "commands/motion_command";
+pub const ROBOT_COMMAND_TOPIC: &str = "commands/robot_command";
 
 #[derive(Serialize, Deserialize, Message)]
 struct ArmParameters {
@@ -90,11 +90,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .wrap_err("failed to build motion_command subscriber")?;
 
-    let motion_command_pub = node
-        .publisher::<HardwareMotionCommand>(MOTION_COMMAND_TOPIC)
+    let robot_command_pub = node
+        .publisher::<RobotCommand>(ROBOT_COMMAND_TOPIC)
         .build()
         .await
-        .wrap_err("failed to build joints_command publisher")?;
+        .wrap_err("failed to build robot_command publisher")?;
 
     let walk_inference_client = node
         .service_client::<WalkInferenceService>(WALK_INFERENCE_SERVICE)
@@ -175,12 +175,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .infer(motion_plan, clock, parameters, &joint_limits)
             .await;
 
-        let hardware_motion_command = HardwareMotionCommand {
+        let robot_command = RobotCommand {
             desired_mode,
             joints_command,
         };
 
-        motion_command_pub.publish(&hardware_motion_command).await?;
+        robot_command_pub.publish(&robot_command).await?;
     }
 }
 
