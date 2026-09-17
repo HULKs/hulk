@@ -151,6 +151,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         timer.tick().await;
         let parameters = &parameters.snapshot().typed;
 
+        // TODO: Expire motion command after certain duration
         let action_request = motion_command_cache.get_latest().unwrap_or_else(|| {
             warn!("behavior did not provide a motion command (yet)!");
 
@@ -291,26 +292,34 @@ impl MotionState {
 
         let joints_command = match motion_plan {
             MotionPlan::Damping | MotionPlan::Prepare => JointsCommand::fill(MotorCommand::zeros()),
-            MotionPlan::GetUp { command } => self
-                .get_up_inference_client
-                .call_async(&command)
-                .await
-                .expect("failed to call inference service")
-                .unwrap()
-                .as_ref()
-                .clone(),
+            MotionPlan::GetUp { command } =>
+            // TODO call_with_timeout_async() -> Damping on timeout
+            {
+                self.get_up_inference_client
+                    .call_async(&command)
+                    .await
+                    .expect("failed to call inference service")
+                    // TODO Damping on Error
+                    .unwrap()
+                    .as_ref()
+                    .clone()
+            }
             MotionPlan::Walk {
                 head_motion,
                 command,
             } => {
+                // TODO call_with_timeout_async() -> Damping on timeout
                 let inference_fut = self.walk_inference_client.call_async(&command);
                 let head_motion_fut = self.head_motion_client.call_async(&head_motion);
 
                 let (inference_result, head_motion_result) =
                     tokio::join!(inference_fut, head_motion_fut);
 
+                // TODO zeros() on timeout
                 let head = head_motion_result.unwrap();
+                // TODO Damping on Error
                 let lower_body = inference_result.unwrap().unwrap();
+                // TODO Damping on Error
                 let arms = self
                     .generate_walking_arm_joints(
                         lower_body.as_ref(),
@@ -328,14 +337,19 @@ impl MotionState {
                 head_motion,
                 command,
             } => {
+                // TODO call_with_timeout_async() -> Damping on timeout
                 let inference_fut = self.kick_inference_client.call_async(&command);
+                // TODO zeros() on timeout
                 let head_motion_fut = self.head_motion_client.call_async(&head_motion);
 
                 let (inference_result, head_motion_result) =
                     tokio::join!(inference_fut, head_motion_fut);
 
+                // TODO zeros() on timeout
                 let head = head_motion_result.unwrap();
+                // TODO Damping on Error
                 let lower_body = inference_result.unwrap().unwrap();
+                // TODO Damping on Error
                 let arms = self
                     .generate_walking_arm_joints(
                         lower_body.as_ref(),
