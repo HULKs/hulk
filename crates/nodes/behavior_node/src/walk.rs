@@ -17,7 +17,7 @@ use crate::{
     behavior_tree::Node,
     condition,
     conditions::hulks_is_kicking_team,
-    kick::{kick, select_kick_target, use_last_kick_power},
+    kick::{kick, select_kick_target, use_last_kick_settings},
     node::Blackboard,
     selection, sequence, subtree,
     switch_motion_type::{is_last_motion_type, switch_motion_type},
@@ -176,7 +176,7 @@ pub fn walk_alternatives_subtree() -> Node<Blackboard> {
             sequence!(
                 action!(kick),
                 action!(select_kick_target),
-                action!(use_last_kick_power),
+                action!(use_last_kick_settings),
             )
         ),
         action!(stand)

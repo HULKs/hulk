@@ -1,11 +1,7 @@
 use coordinate_systems::Field;
 use hsl_network_messages::SubState;
 use linear_algebra::{Orientation2, Pose2, Vector2, point};
-use types::{
-    behavior_tree::Status,
-    motion_command::{KickPower, OrientationMode},
-    motion_type::MotionType,
-};
+use types::{behavior_tree::Status, motion_command::OrientationMode, motion_type::MotionType};
 
 use crate::{
     action,
@@ -13,7 +9,7 @@ use crate::{
     condition,
     conditions::{hulks_is_kicking_team, is_closest_to_ball},
     head::look_at_ball_subtree,
-    kick::{apply_visual_kick_target, intercept, kick, kick_alternatives_subtree, use_kick_power},
+    kick::{apply_visual_kick_target, intercept, kick, kick_alternatives_subtree, use_weak_kick},
     negation,
     node::Blackboard,
     selection, sequence,
@@ -40,7 +36,7 @@ pub fn goalkeeper_subtree() -> Node<Blackboard> {
                     sequence!(
                         action!(kick),
                         action!(select_goalkeeper_kick_away_target),
-                        action!(use_kick_power, KickPower::Rumpelstilzchen),
+                        action!(use_weak_kick),
                     ),
                     subtree!(kick_alternatives_subtree),
                 )
@@ -49,11 +45,7 @@ pub fn goalkeeper_subtree() -> Node<Blackboard> {
                 condition!(is_goalkeeper_interception_candidate),
                 switch_motion_type(
                     MotionType::Kick,
-                    sequence!(
-                        action!(kick),
-                        action!(intercept),
-                        action!(use_kick_power, KickPower::Rumpelstilzchen),
-                    ),
+                    sequence!(action!(kick), action!(intercept), action!(use_weak_kick),),
                     subtree!(kick_alternatives_subtree),
                 )
             ),

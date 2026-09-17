@@ -32,7 +32,7 @@ Manual validation on a Booster robot should check these behaviors:
 - Mode changes send one Booster Zenoh RPC `change_mode` request when the locally desired motion mode changes.
 - `Damping` commands request Booster Zenoh RPC `Damping` mode.
 - `Prepare` and stand-up commands request Booster Zenoh RPC `Prepare` mode.
-- `Stand`, `Walk`, `WalkWithVelocity`, and `VisualKick` commands request Booster Zenoh RPC `Soccer` mode, not Booster Zenoh RPC `Walking` mode.
+- `Stand`, `Walk`, `WalkWithVelocity`, and `Kick` commands request Booster Zenoh RPC `Soccer` mode, not Booster Zenoh RPC `Walking` mode.
 - Walking commands produce periodic Booster Zenoh RPC `move_robot` calls at about `50 Hz` while locally assuming `Soccer`.
 - `Stand` commands produce periodic zero-velocity Booster Zenoh RPC `move_robot` calls at about `50 Hz` while locally assuming `Soccer`.
 - Stand-up commands produce one Booster Zenoh RPC `get_up` request on entry while locally assuming `Prepare`.

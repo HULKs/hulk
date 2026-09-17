@@ -125,6 +125,10 @@ fn validate_behavior_parameters(
         }
     }
 
+    if !parameters.kicking.target_speed.is_finite() || parameters.kicking.target_speed < 0.0 {
+        errors.push("kicking.target_speed must be finite and non-negative".to_owned());
+    }
+
     if errors.is_empty() {
         Ok(())
     } else {
@@ -426,12 +430,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let motion_type = match &motion_command {
             MotionCommand::Damping => Some(MotionType::Damping),
-            MotionCommand::VisualKick { .. } => Some(MotionType::Kick),
+            MotionCommand::Kick { .. } => Some(MotionType::Kick),
             MotionCommand::Walk { .. } | MotionCommand::WalkWithVelocity { .. } => {
                 Some(MotionType::Walk)
             }
             MotionCommand::Stand { .. } => Some(MotionType::Stand),
-            MotionCommand::StandUp => Some(MotionType::StandUp),
+            MotionCommand::StandUp { .. } => Some(MotionType::StandUp),
             MotionCommand::Prepare => Some(MotionType::Prepare),
         };
 
@@ -441,7 +445,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 ?motion_command,
                 ?motion_type,
                 previous_motion_type = ?blackboard.last_motion_type,
-                "behavior motion command changed"
+                "motion command changed"
             );
         }
 

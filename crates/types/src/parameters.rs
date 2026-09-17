@@ -42,6 +42,7 @@ pub struct BehaviorParameters {
     pub ball: BallBehaviorParameters,
     pub walking: WalkingBehaviorParameters,
     pub kicking: KickingParameters,
+    pub stand_up: StandUpParameters,
     pub goalkeeper: GoalkeeperParameters,
     pub search: SearchParameters,
     pub substates: SubstatesParameters,
@@ -343,14 +344,39 @@ impl Default for WalkSpeedParameters {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+#[derive(Clone, Debug, Deserialize, Serialize, ros_z::Message)]
 pub struct KickingParameters {
+    pub soft: bool,
+    pub quick: bool,
+    /// Desired outgoing ball speed in m/s.
+    pub target_speed: f32,
     pub allow_schlong: bool,
     pub distance_for_kick: f32,
     pub distance_for_kick_hysteresis: f32,
     pub kick_target_offset_angle: f32,
     pub target_distance_kick_power_threshold: f32,
     pub kick_position_ball_distance: f32,
+}
+
+impl Default for KickingParameters {
+    fn default() -> Self {
+        Self {
+            soft: false,
+            quick: false,
+            target_speed: 3.4,
+            allow_schlong: false,
+            distance_for_kick: 0.0,
+            distance_for_kick_hysteresis: 0.0,
+            kick_target_offset_angle: 0.0,
+            target_distance_kick_power_threshold: 0.0,
+            kick_position_ball_distance: 0.0,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+pub struct StandUpParameters {
+    pub fast: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]

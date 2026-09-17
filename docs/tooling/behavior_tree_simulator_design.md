@@ -694,10 +694,10 @@ impl Default for SimulationConfig {
 - Integrate commanded local velocity and angular velocity for `dt`.
 - Clamp by simulator speed limits.
 
-`MotionCommand::VisualKick`:
+`MotionCommand::Kick`:
 
 - If the shared ball is within a configured kick radius of the expected ball position, set ball velocity along the kick direction.
-- Map `KickPower` to velocity through `SimulationConfig`.
+- Clamp `target_speed` to the normal or soft speed limits in `SimulationConfig`; strong normal kicks use the maximum speed. Soft kicks ignore the strong flag.
 - Enforce `kick_cooldown` per robot to avoid applying a kick every tick while the command remains active.
 
 `MotionCommand::Stand`, `Prepare`, and `StandUp`:

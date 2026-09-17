@@ -28,14 +28,23 @@ pub enum MotionCommand {
     Stand {
         head: HeadMotion,
     },
-    StandUp,
-    VisualKick {
+    StandUp {
+        fast: bool,
+    },
+    Kick {
         head: HeadMotion,
+        /// Desired outgoing ball speed in m/s; inference applies policy limits.
+        target_speed: f32,
+        /// Select the soft-kick policy, which ignores strong and quick flags.
+        soft: bool,
+        quick: bool,
+        strong: bool,
         ball_position: Point2<Ground>,
+        /// Current ball velocity in Ground coordinates, in m/s.
+        ball_velocity: Vector2<Ground>,
         kick_direction: Orientation2<Ground>,
         target_position: Point2<Ground>,
         robot_theta_to_field: Orientation2<Field>,
-        kick_power: KickPower,
     },
     Walk {
         head: HeadMotion,
@@ -58,11 +67,11 @@ impl MotionCommand {
             MotionCommand::Stand { head, .. }
             | MotionCommand::Walk { head, .. }
             | MotionCommand::WalkWithVelocity { head, .. }
-            | MotionCommand::VisualKick { head, .. } => Some(*head),
+            | MotionCommand::Kick { head, .. } => Some(*head),
             MotionCommand::Prepare => Some(HeadMotion::Center {
                 image_region_target: ImageRegion::Top,
             }),
-            MotionCommand::Damping | MotionCommand::StandUp => None,
+            MotionCommand::Damping | MotionCommand::StandUp { .. } => None,
         }
     }
 
@@ -71,20 +80,28 @@ impl MotionCommand {
             BodyMotion::Damping => MotionCommand::Damping,
             BodyMotion::Prepare => MotionCommand::Prepare,
             BodyMotion::Stand => MotionCommand::Stand { head },
-            BodyMotion::StandUp => MotionCommand::StandUp,
-            BodyMotion::VisualKick {
+            BodyMotion::StandUp { fast } => MotionCommand::StandUp { fast },
+            BodyMotion::Kick {
                 ball_position,
+                ball_velocity,
+                target_speed,
+                soft,
+                quick,
                 kick_direction,
                 target_position,
                 robot_theta_to_field,
-                kick_power,
-            } => MotionCommand::VisualKick {
+                strong,
+            } => MotionCommand::Kick {
                 head,
                 ball_position,
+                ball_velocity,
+                target_speed,
+                soft,
+                quick,
                 kick_direction,
                 target_position,
                 robot_theta_to_field,
-                kick_power,
+                strong,
             },
             BodyMotion::Walk {
                 path,
@@ -118,13 +135,22 @@ pub enum BodyMotion {
     Damping,
     Prepare,
     Stand,
-    StandUp,
-    VisualKick {
+    StandUp {
+        fast: bool,
+    },
+    Kick {
         ball_position: Point2<Ground>,
+        /// Current ball velocity in Ground coordinates, in m/s.
+        ball_velocity: Vector2<Ground>,
+        /// Desired outgoing ball speed in m/s; inference applies policy limits.
+        target_speed: f32,
+        /// Select the soft-kick policy, which ignores strong and quick flags.
+        soft: bool,
+        quick: bool,
+        strong: bool,
         kick_direction: Orientation2<Ground>,
         target_position: Point2<Ground>,
         robot_theta_to_field: Orientation2<Field>,
-        kick_power: KickPower,
     },
     Walk {
         path: Path,
@@ -174,13 +200,6 @@ pub enum ImageRegion {
     Top,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, Message)]
-pub enum KickPower {
-    #[default]
-    Rumpelstilzchen,
-    Schlong,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -192,13 +211,13 @@ mod tests {
 
     #[test]
     fn body_damping_assembles_to_motion_damping() {
-        let motion = MotionCommand::from_partial_motions(
+        let command = MotionCommand::from_partial_motions(
             BodyMotion::Damping,
             HeadMotion::Center {
                 image_region_target: ImageRegion::Center,
             },
         );
 
-        assert_eq!(motion, MotionCommand::Damping);
+        assert_eq!(command, MotionCommand::Damping);
     }
 }

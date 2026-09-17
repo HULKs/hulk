@@ -88,10 +88,10 @@ impl SimulatorRobotBehavior {
         self.blackboard.last_motion_command = motion_command.clone();
 
         let motion_type = match motion_command.clone() {
-            MotionCommand::VisualKick { .. } => Some(types::motion_type::MotionType::Kick),
+            MotionCommand::Kick { .. } => Some(types::motion_type::MotionType::Kick),
             MotionCommand::Walk { .. } => Some(types::motion_type::MotionType::Walk),
             MotionCommand::Stand { .. } => Some(types::motion_type::MotionType::Stand),
-            MotionCommand::StandUp => Some(types::motion_type::MotionType::StandUp),
+            MotionCommand::StandUp { .. } => Some(types::motion_type::MotionType::StandUp),
             MotionCommand::Prepare => Some(types::motion_type::MotionType::Prepare),
             MotionCommand::Damping => Some(types::motion_type::MotionType::Damping),
             _ => None,

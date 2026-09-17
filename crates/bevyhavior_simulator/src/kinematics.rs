@@ -6,7 +6,7 @@ use hsl_network_messages::{GameState, Team};
 use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, vector};
 use motion::walking::step_from_walk_command;
 use types::{
-    motion_command::{HeadMotion, KickPower, MotionCommand},
+    motion_command::{HeadMotion, MotionCommand},
     step::Step,
 };
 
@@ -133,10 +133,12 @@ pub fn move_robots(
                     &config,
                 );
             }
-            MotionCommand::VisualKick {
+            MotionCommand::Kick {
                 ball_position,
                 kick_direction,
-                kick_power,
+                strong,
+                soft,
+                target_speed,
                 ..
             } => {
                 let ball = &mut *ball;
@@ -152,10 +154,10 @@ pub fn move_robots(
                     &mut last_kick_time.last_kick_time,
                     *ball_position,
                     *kick_direction,
-                    *kick_power,
+                    kick_ball_speed(&config, *strong, *soft, *target_speed),
                 )
             }
-            MotionCommand::StandUp => fall_down_state.fall_down_state = None,
+            MotionCommand::StandUp { .. } => fall_down_state.fall_down_state = None,
             MotionCommand::Damping | MotionCommand::Prepare | MotionCommand::Stand { .. } => {}
         }
 
@@ -373,6 +375,20 @@ enum KickAttempt {
     NotInRange,
 }
 
+// This models the requested ball speed, not the learned quick-kick motion.
+fn kick_ball_speed(config: &SimulationConfig, strong: bool, soft: bool, target_speed: f32) -> f32 {
+    let [minimum, maximum] = if soft {
+        config.soft_kick_speed_limits
+    } else {
+        config.kick_speed_limits
+    };
+    if !soft && strong {
+        maximum
+    } else {
+        target_speed.clamp(minimum, maximum)
+    }
+}
+
 fn apply_kick_to_ball(
     now: SystemTime,
     ball: &mut Option<SimulatedBall>,
@@ -383,7 +399,7 @@ fn apply_kick_to_ball(
     last_kick_time: &mut SystemTime,
     expected_ball_position: Point2<Ground>,
     kick_direction: Orientation2<Ground>,
-    kick_power: KickPower,
+    kick_speed: f32,
 ) -> KickAttempt {
     let Some(ball) = ball else {
         return KickAttempt::NotInRange;
@@ -402,11 +418,7 @@ fn apply_kick_to_ball(
         return KickAttempt::NotInRange;
     }
 
-    let speed = match kick_power {
-        KickPower::Rumpelstilzchen => config.kick_ball_speed_rumpelstilzchen,
-        KickPower::Schlong => config.kick_ball_speed_schlong,
-    };
-    ball.velocity = ground_to_world * (kick_direction.as_unit_vector() * speed);
+    ball.velocity = ground_to_world * (kick_direction.as_unit_vector() * kick_speed);
     *last_touched_by = Some(kicking_team);
     *last_kick_time = now;
     KickAttempt::Kicked
@@ -424,7 +436,7 @@ fn apply_visual_kick_kinematics(
     last_kick_time: &mut SystemTime,
     ball_position: Point2<Ground>,
     kick_direction: Orientation2<Ground>,
-    kick_power: KickPower,
+    kick_speed: f32,
 ) {
     let kick_direction_vector = kick_direction.as_unit_vector();
     match apply_kick_to_ball(
@@ -437,7 +449,7 @@ fn apply_visual_kick_kinematics(
         last_kick_time,
         ball_position,
         kick_direction,
-        kick_power,
+        kick_speed,
     ) {
         KickAttempt::Kicked | KickAttempt::CoolingDown => return,
         KickAttempt::NotInRange => {}
@@ -495,7 +507,7 @@ mod tests {
     use types::{
         behavior_tree::{NodeTrace, Status},
         field_dimensions::{FieldDimensions, Side},
-        motion_command::{HeadMotion, KickPower, MotionCommand, OrientationMode},
+        motion_command::{HeadMotion, MotionCommand, OrientationMode},
         parameters::BehaviorParameters,
         path::direct_path,
         world_state::WorldState,
@@ -577,6 +589,22 @@ mod tests {
     }
 
     #[test]
+    fn kick_speed_respects_soft_policy_and_strong_override() {
+        let config = SimulationConfig::default();
+        for (strong, soft, requested, expected) in [
+            (false, false, 1.2, 1.2),
+            (false, false, 0.0, 0.5),
+            (false, false, 9.0, 3.4),
+            (true, false, 1.2, 3.4),
+            (true, true, 1.2, 1.2),
+            (false, true, 0.0, 0.1),
+            (false, true, 9.0, 1.7),
+        ] {
+            assert_eq!(kick_ball_speed(&config, strong, soft, requested), expected);
+        }
+    }
+
+    #[test]
     fn kick_does_not_move_ball_outside_contact_range() {
         let mut ball = Some(SimulatedBall {
             position: point![1.0, 0.0],
@@ -596,7 +624,7 @@ mod tests {
             &mut last_kick_time,
             point![1.0, 0.0],
             Orientation2::identity(),
-            KickPower::Rumpelstilzchen,
+            1.2,
         );
 
         assert_eq!(
@@ -626,15 +654,12 @@ mod tests {
             &mut last_kick_time,
             point![0.2, 0.0],
             Orientation2::identity(),
-            KickPower::Rumpelstilzchen,
+            1.2,
         );
 
         assert_eq!(
             ball.expect("ball should still exist").velocity,
-            vector![
-                SimulationConfig::default().kick_ball_speed_rumpelstilzchen,
-                0.0
-            ]
+            vector![1.2, 0.0]
         );
         assert_eq!(last_touched_by, Some(Team::Hulks));
     }
@@ -662,7 +687,7 @@ mod tests {
             &mut last_kick_time,
             point![1.0, 0.0],
             Orientation2::identity(),
-            KickPower::Rumpelstilzchen,
+            1.2,
         );
 
         assert!(ground_to_field.translation().x() > 0.0);

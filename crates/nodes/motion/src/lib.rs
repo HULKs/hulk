@@ -13,7 +13,7 @@ use kinematics::joints::{
     body::{BodyJoints, LowerBodyJoints, UpperBodyJoints},
     leg::LegJoints,
 };
-use linear_algebra::{Vector2, vector};
+use linear_algebra::vector;
 use motion_inference::{
     inference::{GetUpCommand, KickCommand, WalkCommand, joints_are_finite},
     locomotion::{KickRequest, leg},
@@ -33,7 +33,7 @@ use ros_z::{
 };
 use types::{
     joint_limits::JointLimits,
-    motion_command::{HeadMotion, KickPower, MotionCommand},
+    motion_command::{HeadMotion, MotionCommand},
     motor_command::MotorCommand,
     time_wrapper::TimeWrapper,
 };
@@ -155,9 +155,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         timer.tick().await;
         let parameters = &parameters.snapshot().typed;
 
-        // TODO: Expire behavior command after certain duration
+        // TODO: Expire motion command after certain duration
         let motion_command = motion_command_cache.get_latest().unwrap_or_else(|| {
-            warn!("behavior did not provide a behavior command (yet)!");
+            warn!("behavior did not provide a motion command (yet)!");
 
             Arc::new(MotionCommand::Damping)
         });
@@ -217,30 +217,31 @@ impl MotionPlan {
                 head_motion: *head,
                 command: WalkCommand::stand(),
             },
-            MotionCommand::StandUp => Self::GetUp {
-                command: GetUpCommand { fast: false }, // TODO behavior should decide this
+            MotionCommand::StandUp { fast } => Self::GetUp {
+                command: GetUpCommand { fast: *fast },
             },
-            MotionCommand::VisualKick {
+            MotionCommand::Kick {
                 head,
                 ball_position,
+                ball_velocity,
+                target_speed,
+                soft,
+                quick,
                 kick_direction,
                 target_position: _,
                 robot_theta_to_field: _,
-                kick_power,
+                strong,
             } => Self::Kick {
                 head_motion: *head,
                 command: KickCommand {
-                    soft: false, // TODO
+                    soft: *soft,
                     request: KickRequest {
                         ball_position: *ball_position,
-                        ball_velocity: Vector2::zeros(),   // TODO
-                        direction: kick_direction.angle(), // TODO verify
-                        target_speed: 3.4,                 // TODO
-                        strong: match kick_power {
-                            KickPower::Rumpelstilzchen => false,
-                            KickPower::Schlong => true,
-                        },
-                        quick: false, // TODO
+                        ball_velocity: *ball_velocity,
+                        direction: kick_direction.angle(),
+                        target_speed: *target_speed,
+                        strong: *strong,
+                        quick: *quick,
                     },
                 },
             },
