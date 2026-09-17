@@ -300,7 +300,7 @@ mod tests {
 
     use json5::from_str;
     use kinematics::joints::head::{HeadJoint, HeadJoints};
-    use types::robot_command::MotorCommand;
+    use types::motor_command::MotorCommand;
 
     use super::*;
     use crate::joint_control::{

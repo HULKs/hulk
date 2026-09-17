@@ -1,5 +1,6 @@
 use std::{collections::VecDeque, future::Future, pin::Pin, sync::Arc};
-use types::{joint_limits::JointLimits, robot_command::MotorCommand};
+use types::joint_limits::JointLimits;
+use types::motor_command::MotorCommand;
 
 use anyhow::anyhow;
 use booster::{JointsMotorState, LowState};

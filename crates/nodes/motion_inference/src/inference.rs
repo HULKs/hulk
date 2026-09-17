@@ -7,7 +7,8 @@ use coordinate_systems::Ground;
 use kinematics::joints::Joints;
 use linear_algebra::Vector2;
 use ros_z::{Message, time::Time};
-use types::{joint_limits::JointLimits, robot_command::MotorCommand};
+use types::joint_limits::JointLimits;
+use types::motor_command::MotorCommand;
 
 use crate::{
     config::{Parameters, Policy},

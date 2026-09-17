@@ -13,7 +13,8 @@ use kinematics::joints::head::{HeadJoint, HeadJoints};
 use ros_z::time::Time;
 use tracing::Level;
 use tracing_subscriber::{Layer, layer::SubscriberExt};
-use types::{motion_command::HeadMotion, robot_command::MotorCommand};
+use types::motion_command::HeadMotion;
+use types::motor_command::MotorCommand;
 
 struct Capture(Arc<Mutex<Vec<Level>>>);
 impl<S: tracing::Subscriber> Layer<S> for Capture {

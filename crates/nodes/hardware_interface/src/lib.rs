@@ -16,9 +16,12 @@ use tokio::{sync::watch, task::JoinSet};
 use tracing::{error, info};
 
 use booster::{LedColor, LowCommand, RobotMode};
+use motion::{
+    MOTION_COMMAND_TOPIC,
+    command::{DesiredMode, JointsCommand, MotionCommand},
+};
 use retry_worker::{RetryCommand, run_retrying_rpc_worker};
 use ros_z::{parameter::NodeParameters, prelude::*};
-use types::robot_command::{DesiredMode, JointsCommand, MotionCommand};
 
 mod joint_control;
 mod light_client;
@@ -30,8 +33,6 @@ pub use light_client::LightClient;
 pub use rpc_transport::ZenohRpcClient;
 
 use crate::joint_control::JointControlPublisher;
-
-const MOTION_COMMAND_TOPIC: &str = "commands/motion_command";
 
 #[derive(Debug, Serialize, Deserialize, Message)]
 pub enum LedCommand {

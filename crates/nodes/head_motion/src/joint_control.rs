@@ -8,7 +8,8 @@ use color_eyre::{
 };
 use kinematics::joints::head::{HeadJoint, HeadJoints};
 use ros_z::time::Time;
-use types::{joint_limits::JointLimits, robot_command::MotorCommand};
+use types::joint_limits::JointLimits;
+use types::motor_command::MotorCommand;
 
 use crate::parameters::JointControlParameters;
 pub use diagnostics::{Constraint, ConstraintCause, ConstraintDiagnostic};

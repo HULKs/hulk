@@ -1,7 +1,5 @@
-use serde::{Deserialize, Serialize};
-
-use kinematics::joints::Joints;
 use ros_z::Message;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Message, Clone)]
 pub struct MotorCommand {
@@ -22,19 +20,4 @@ impl MotorCommand {
             kd: 0.0,
         }
     }
-}
-
-pub type JointsCommand = Joints<MotorCommand>;
-
-#[derive(Clone, Copy, Serialize, Deserialize, Message, PartialEq)]
-pub enum DesiredMode {
-    Damping,
-    Prepare,
-    Custom,
-}
-
-#[derive(Serialize, Deserialize, Message)]
-pub struct MotionCommand {
-    pub desired_mode: DesiredMode,
-    pub joints_command: JointsCommand,
 }

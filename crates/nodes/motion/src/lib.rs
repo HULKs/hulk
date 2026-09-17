@@ -34,12 +34,16 @@ use ros_z::{
 use types::{
     joint_limits::JointLimits,
     motion_command::{HeadMotion, KickPower, MotionCommand},
-    robot_command::{DesiredMode, JointsCommand, MotorCommand},
+    motor_command::MotorCommand,
     time_wrapper::TimeWrapper,
 };
 
-use crate::walking::{WalkingParameters, step_from_walk_command};
+use crate::{
+    command::{DesiredMode, JointsCommand, MotionCommand as HardwareMotionCommand},
+    walking::{WalkingParameters, step_from_walk_command},
+};
 
+pub mod command;
 pub mod walking;
 
 pub const MOTION_COMMAND_TOPIC: &str = "commands/motion_command";
@@ -87,7 +91,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .wrap_err("failed to build motion_command subscriber")?;
 
     let motion_command_pub = node
-        .publisher::<types::robot_command::MotionCommand>(MOTION_COMMAND_TOPIC)
+        .publisher::<HardwareMotionCommand>(MOTION_COMMAND_TOPIC)
         .build()
         .await
         .wrap_err("failed to build joints_command publisher")?;
@@ -151,14 +155,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         timer.tick().await;
         let parameters = &parameters.snapshot().typed;
 
-        // TODO: Expire motion command after certain duration
-        let action_request = motion_command_cache.get_latest().unwrap_or_else(|| {
-            warn!("behavior did not provide a motion command (yet)!");
+        // TODO: Expire behavior command after certain duration
+        let motion_command = motion_command_cache.get_latest().unwrap_or_else(|| {
+            warn!("behavior did not provide a behavior command (yet)!");
 
             Arc::new(MotionCommand::Damping)
         });
 
-        let motion_plan = MotionPlan::from_action_request(&action_request, &parameters.walking);
+        let motion_plan = MotionPlan::from_action_request(&motion_command, &parameters.walking);
         let desired_mode = match &motion_plan {
             MotionPlan::Damping => DesiredMode::Damping,
             MotionPlan::Prepare => DesiredMode::Prepare,
@@ -171,12 +175,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .infer(motion_plan, clock, parameters, &joint_limits)
             .await;
 
-        let motion_command = types::robot_command::MotionCommand {
+        let hardware_motion_command = HardwareMotionCommand {
             desired_mode,
             joints_command,
         };
 
-        motion_command_pub.publish(&motion_command).await?;
+        motion_command_pub.publish(&hardware_motion_command).await?;
     }
 }
 
@@ -205,8 +209,8 @@ enum MotionPlan {
 }
 
 impl MotionPlan {
-    fn from_action_request(action_request: &MotionCommand, parameters: &WalkingParameters) -> Self {
-        match action_request {
+    fn from_action_request(motion_command: &MotionCommand, parameters: &WalkingParameters) -> Self {
+        match motion_command {
             MotionCommand::Damping => Self::Damping,
             MotionCommand::Prepare => Self::Prepare,
             MotionCommand::Stand { head } => Self::Walk {

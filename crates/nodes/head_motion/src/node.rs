@@ -14,10 +14,10 @@ use ros_z::{
     time::Time,
 };
 use ros_z_schema::{ServiceDef, compute_hash};
+use types::motor_command::MotorCommand;
 use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
-    joint_limits::JointLimits, motion_command::HeadMotion, robot_command::MotorCommand,
-    time_wrapper::TimeWrapper,
+    joint_limits::JointLimits, motion_command::HeadMotion, time_wrapper::TimeWrapper,
 };
 
 use crate::{
