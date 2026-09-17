@@ -336,10 +336,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .get_after(Time::from_wallclock(SystemTime::now()) - Duration::from_millis(250))
             .filter(|input| input.connected)
             .map(|input| input.as_ref().clone());
-        if let Some(input) = &blackboard.controller_input {
-            if input.is_pressed("Start") && !was_start_pressed {
-                blackboard.remote_control_enabled = !blackboard.remote_control_enabled;
-            }
+        if let Some(input) = &blackboard.controller_input
+            && input.is_pressed("Start")
+            && !was_start_pressed
+        {
+            blackboard.remote_control_enabled = !blackboard.remote_control_enabled;
         }
 
         let player_states = player_states_cache
