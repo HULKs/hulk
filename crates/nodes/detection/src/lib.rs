@@ -11,7 +11,7 @@ use ort::{
 use ros_z_streams::CreateAnnouncingPublisher;
 use ros2::sensor_msgs::image::Image;
 
-use ros_z::prelude::*;
+use ros_z::{prelude::*, qos::QosHistory};
 use tokio::{task::block_in_place, time::Instant};
 use types::{
     bounding_box::BoundingBox,
@@ -71,6 +71,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let image_sub = node
         .subscriber::<Image>("inputs/left_image")
+        .qos(QosProfile {
+            history: QosHistory::from_depth(1),
+            ..Default::default()
+        })
         .build()
         .await?;
     let inference_duration_pub = node
