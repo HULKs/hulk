@@ -162,7 +162,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             Arc::new(MotionCommand::Damping)
         });
 
-        let motion_plan = MotionPlan::from_action_request(&motion_command, &parameters.walking);
+        let motion_plan = MotionPlan::from_motion_command(&motion_command, &parameters.walking);
         let desired_mode = match &motion_plan {
             MotionPlan::Damping => DesiredMode::Damping,
             MotionPlan::Prepare => DesiredMode::Prepare,
@@ -209,7 +209,7 @@ enum MotionPlan {
 }
 
 impl MotionPlan {
-    fn from_action_request(motion_command: &MotionCommand, parameters: &WalkingParameters) -> Self {
+    fn from_motion_command(motion_command: &MotionCommand, parameters: &WalkingParameters) -> Self {
         match motion_command {
             MotionCommand::Damping => Self::Damping,
             MotionCommand::Prepare => Self::Prepare,
