@@ -228,8 +228,6 @@ impl MotionPlan {
                 soft,
                 quick,
                 kick_direction,
-                target_position: _,
-                robot_theta_to_field: _,
                 strong,
             } => Self::Kick {
                 head_motion: *head,

@@ -40,11 +40,10 @@ pub fn kick_alternatives_subtree() -> Node<Blackboard> {
 }
 
 pub fn kick(blackboard: &mut Blackboard) -> Status {
+    blackboard.kick_target = None;
     if let Some(ground_to_field) = &blackboard.world_state.robot.ground_to_field
         && let Some(ball_in_ground) = kick_ball_position_in_ground(blackboard, ground_to_field)
     {
-        let robot_theta_to_field: Orientation2<Field> = ground_to_field.orientation();
-
         blackboard.body_motion = Some(BodyMotion::Kick {
             ball_position: ball_in_ground,
             ball_velocity: blackboard
@@ -55,8 +54,6 @@ pub fn kick(blackboard: &mut Blackboard) -> Status {
             soft: blackboard.parameters.kicking.soft,
             quick: blackboard.parameters.kicking.quick,
             kick_direction: Default::default(),
-            target_position: Default::default(),
-            robot_theta_to_field,
             strong: false,
         });
         if blackboard.last_motion_type == Some(MotionType::Kick) {
@@ -85,23 +82,16 @@ pub fn apply_kick_target(
     target_position_in_field: Point2<Field>,
 ) -> Status {
     if let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field
-        && let Some(ball_in_ground) = kick_ball_position_in_ground(blackboard, &ground_to_field)
-    {
-        let field_to_ground = ground_to_field.inverse();
-        let target_position = field_to_ground * target_position_in_field;
-        let kick_direction = Orientation2::from_vector(target_position - ball_in_ground);
-
-        if let Some(BodyMotion::Kick {
-            target_position: motion_target_position,
-            kick_direction: motion_kick_direction,
+        && let Some(BodyMotion::Kick {
+            ball_position,
+            kick_direction,
             ..
         }) = blackboard.body_motion.as_mut()
-        {
-            *motion_target_position = target_position;
-            *motion_kick_direction = kick_direction;
-
-            return Status::Success;
-        }
+    {
+        let target_position = ground_to_field.inverse() * target_position_in_field;
+        *kick_direction = Orientation2::from_vector(target_position - *ball_position);
+        blackboard.kick_target = Some(target_position);
+        return Status::Success;
     }
 
     Status::Failure
@@ -123,13 +113,10 @@ pub fn kick_strength_subtree() -> Node<Blackboard> {
 }
 
 pub fn is_target_in_strong_kick_range(blackboard: &mut Blackboard) -> bool {
-    if let Some(BodyMotion::Kick {
-        ball_position,
-        target_position,
-        ..
-    }) = &blackboard.body_motion
+    if let Some(target_position) = blackboard.kick_target
+        && let Some(BodyMotion::Kick { ball_position, .. }) = &blackboard.body_motion
     {
-        (*target_position - *ball_position).norm()
+        (target_position - *ball_position).norm()
             >= blackboard
                 .parameters
                 .kicking
@@ -231,14 +218,13 @@ pub fn intercept(blackboard: &mut Blackboard) -> Status {
         let kick_direction = Orientation2::from_vector(ball_in_ground - interception_point);
 
         if let Some(BodyMotion::Kick {
-            target_position: motion_target_position,
             kick_direction: motion_kick_direction,
             ..
         }) = blackboard.body_motion.as_mut()
         {
             // The policy needs the observed position and velocity together.
             // Use the predicted interception point only to choose kick direction.
-            *motion_target_position = ball_in_ground;
+            blackboard.kick_target = Some(ball_in_ground);
             *motion_kick_direction = kick_direction;
             return Status::Success;
         }
@@ -249,7 +235,6 @@ pub fn set_kick_target_beyond_ball(blackboard: &mut Blackboard) -> Status {
     if let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field
         && let Some(ball_in_ground) = kick_ball_position_in_ground(blackboard, &ground_to_field)
         && let Some(BodyMotion::Kick {
-            target_position: motion_target_position,
             kick_direction: motion_kick_direction,
             ..
         }) = blackboard.body_motion.as_mut()
@@ -267,7 +252,7 @@ pub fn set_kick_target_beyond_ball(blackboard: &mut Blackboard) -> Status {
             let target_position = field_to_ground * target_in_field;
             let kick_direction = Orientation2::from_vector(target_position - ball_in_ground);
 
-            *motion_target_position = target_position;
+            blackboard.kick_target = Some(target_position);
             *motion_kick_direction = kick_direction;
 
             return Status::Success;

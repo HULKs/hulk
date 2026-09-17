@@ -17,8 +17,10 @@ through the motion node to inference. Motion publishes `RobotCommand` on
 - `quick`: enable the normal kick policy's quick flag.
 - `strong`: enable the normal kick policy's strong flag, requesting maximum speed.
 
-`target_position` and `robot_theta_to_field` are available to behavior and
-tooling; motion does not pass them to inference.
+Behavior stores its selected target in `Blackboard::kick_target` for strength
+selection. The kick command carries the resulting direction and inference
+inputs. `last_kick_target` holds the Field target across ticks for remote and
+penalty kicks.
 
 The behavior `kick` action prefers the visual percept for position and uses
 `world_state.ball.ball_in_ground_velocity` for velocity. The visual selector

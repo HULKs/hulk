@@ -60,6 +60,7 @@ impl SimulatorRobotBehavior {
         self.blackboard.voronoi_inputs.clear();
         self.blackboard.is_injected_motion_command = false;
         self.blackboard.walk_position = None;
+        self.blackboard.kick_target = None;
         self.blackboard.body_motion = None;
         self.blackboard.head_motion = None;
         self.blackboard.voronoi_map = None;
@@ -172,6 +173,7 @@ fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackbo
         visual_kick_ball_position: None,
         last_ball: None,
         last_close_enough_to_kick: false,
+        kick_target: None,
         last_kick_target: None,
         last_motion_command: MotionCommand::default(),
         last_motion_switch_time: ros_z::time::Time::zero(),
@@ -323,7 +325,6 @@ mod tests {
             let Some(BodyMotion::Kick {
                 strong,
                 target_speed,
-                target_position,
                 kick_direction,
                 ..
             }) = blackboard.body_motion
@@ -332,7 +333,7 @@ mod tests {
             };
             assert_eq!(strong, expected_strong);
             assert_eq!(target_speed, 1.2);
-            assert_eq!(target_position, point![target_x, 0.0]);
+            assert_eq!(blackboard.kick_target, Some(point![target_x, 0.0]));
             assert_eq!(kick_direction.angle(), 0.0);
 
             blackboard.parameters.kicking.allow_strong_kicks = false;
@@ -346,6 +347,31 @@ mod tests {
                 })
             ));
         }
+    }
+
+    #[test]
+    fn kick_target_stays_in_behavior_and_is_reset_for_a_new_request() {
+        use behavior_node::kick::{apply_kick_target, is_target_in_strong_kick_range, kick};
+        use linear_algebra::point;
+
+        let mut blackboard = kick_blackboard(point![0.3, 0.1]);
+        assert_eq!(kick(&mut blackboard), Status::Success);
+        assert_eq!(
+            apply_kick_target(&mut blackboard, point![8.0, 0.0]),
+            Status::Success
+        );
+        assert!(is_target_in_strong_kick_range(&mut blackboard));
+        let command = assemble_motion_command(&blackboard, Status::Success).unwrap();
+        let serialized = serde_json::to_value(command).unwrap();
+        let kick_fields = serialized["Kick"].as_object().unwrap();
+        assert!(kick_fields.contains_key("kick_direction"));
+        assert!(!kick_fields.contains_key("target_position"));
+        assert!(!kick_fields.contains_key("robot_theta_to_field"));
+        assert_eq!(blackboard.kick_target, Some(point![8.0, 0.0]));
+
+        assert_eq!(kick(&mut blackboard), Status::Success);
+        assert_eq!(blackboard.kick_target, None);
+        assert!(!is_target_in_strong_kick_range(&mut blackboard));
     }
 
     #[test]

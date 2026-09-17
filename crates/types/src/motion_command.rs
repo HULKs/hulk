@@ -1,7 +1,7 @@
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::Ground;
 use linear_algebra::{Orientation2, Point2, Vector2};
 
 use crate::path::Path;
@@ -43,8 +43,6 @@ pub enum MotionCommand {
         /// Current ball velocity in Ground coordinates, in m/s.
         ball_velocity: Vector2<Ground>,
         kick_direction: Orientation2<Ground>,
-        target_position: Point2<Ground>,
-        robot_theta_to_field: Orientation2<Field>,
     },
     Walk {
         head: HeadMotion,
@@ -88,8 +86,6 @@ impl MotionCommand {
                 soft,
                 quick,
                 kick_direction,
-                target_position,
-                robot_theta_to_field,
                 strong,
             } => MotionCommand::Kick {
                 head,
@@ -99,8 +95,6 @@ impl MotionCommand {
                 soft,
                 quick,
                 kick_direction,
-                target_position,
-                robot_theta_to_field,
                 strong,
             },
             BodyMotion::Walk {
@@ -149,8 +143,6 @@ pub enum BodyMotion {
         quick: bool,
         strong: bool,
         kick_direction: Orientation2<Ground>,
-        target_position: Point2<Ground>,
-        robot_theta_to_field: Orientation2<Field>,
     },
     Walk {
         path: Path,
