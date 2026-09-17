@@ -1,5 +1,5 @@
 use coordinate_systems::{Field, Ground};
-use linear_algebra::{Isometry2, Orientation2, Point2, Rotation2, Vector2, point};
+use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, point};
 use types::{
     behavior_tree::Status,
     motion_command::{BodyMotion, HeadMotion, ImageRegion, MotionCommand},
@@ -10,7 +10,7 @@ use crate::{
     action,
     actions::stand,
     behavior_tree::Node,
-    condition, negation,
+    condition,
     node::Blackboard,
     selection, sequence, subtree,
     switch_motion_type::{is_last_motion_type, switch_motion_type},
@@ -23,7 +23,7 @@ pub fn kick_subtree() -> Node<Blackboard> {
         sequence!(
             action!(kick),
             action!(select_kick_target),
-            subtree!(kick_power_subtree),
+            subtree!(kick_strength_subtree),
         ),
         subtree!(kick_alternatives_subtree),
     )
@@ -76,15 +76,13 @@ pub fn kick(blackboard: &mut Blackboard) -> Status {
 
 pub fn select_kick_target(blackboard: &mut Blackboard) -> Status {
     let goal_position: Point2<Field> = point!(blackboard.field_dimensions.length / 2.0, 0.0);
-    let target_offset_angle = blackboard.parameters.kicking.kick_target_offset_angle;
 
-    apply_visual_kick_target(blackboard, goal_position, target_offset_angle)
+    apply_kick_target(blackboard, goal_position)
 }
 
-pub fn apply_visual_kick_target(
+pub fn apply_kick_target(
     blackboard: &mut Blackboard,
     target_position_in_field: Point2<Field>,
-    target_offset_angle: f32,
 ) -> Status {
     if let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field
         && let Some(ball_in_ground) = kick_ball_position_in_ground(blackboard, &ground_to_field)
@@ -99,7 +97,7 @@ pub fn apply_visual_kick_target(
             ..
         }) = blackboard.body_motion.as_mut()
         {
-            *motion_target_position = Rotation2::new(target_offset_angle) * target_position;
+            *motion_target_position = target_position;
             *motion_kick_direction = kick_direction;
 
             return Status::Success;
@@ -109,38 +107,40 @@ pub fn apply_visual_kick_target(
     Status::Failure
 }
 
-pub fn kick_power_subtree() -> Node<Blackboard> {
+pub fn kick_strength_subtree() -> Node<Blackboard> {
     selection!(
         sequence!(
             condition!(is_last_motion_type, MotionType::Kick),
             action!(use_last_kick_settings)
         ),
         sequence!(
-            negation!(condition!(is_close_to_target)),
-            condition!(allow_schlong),
+            condition!(is_target_in_strong_kick_range),
+            condition!(allow_strong_kicks),
             action!(use_strong_kick)
         ),
-        action!(use_weak_kick)
+        action!(disable_strong_kick)
     )
 }
 
-pub fn is_close_to_target(blackboard: &mut Blackboard) -> bool {
+pub fn is_target_in_strong_kick_range(blackboard: &mut Blackboard) -> bool {
     if let Some(BodyMotion::Kick {
-        target_position, ..
+        ball_position,
+        target_position,
+        ..
     }) = &blackboard.body_motion
     {
-        target_position.coords().norm()
-            < blackboard
+        (*target_position - *ball_position).norm()
+            >= blackboard
                 .parameters
                 .kicking
-                .target_distance_kick_power_threshold
+                .strong_kick_min_target_distance
     } else {
         false
     }
 }
 
-pub fn allow_schlong(blackboard: &mut Blackboard) -> bool {
-    blackboard.parameters.kicking.allow_schlong
+pub fn allow_strong_kicks(blackboard: &mut Blackboard) -> bool {
+    blackboard.parameters.kicking.allow_strong_kicks
 }
 
 pub fn use_last_kick_settings(blackboard: &mut Blackboard) -> Status {
@@ -186,7 +186,7 @@ pub fn use_strong_kick(blackboard: &mut Blackboard) -> Status {
     use_kick(blackboard, true)
 }
 
-pub fn use_weak_kick(blackboard: &mut Blackboard) -> Status {
+pub fn disable_strong_kick(blackboard: &mut Blackboard) -> Status {
     use_kick(blackboard, false)
 }
 
@@ -209,7 +209,12 @@ pub fn intercept(blackboard: &mut Blackboard) -> Status {
         }
 
         let interception_point = ball_in_ground + velocity * time_to_closest_approach;
-        if interception_point.x() < blackboard.parameters.kicking.kick_position_ball_distance {
+        if interception_point.x()
+            < blackboard
+                .parameters
+                .kicking
+                .minimum_interception_forward_distance
+        {
             return Status::Failure;
         }
 

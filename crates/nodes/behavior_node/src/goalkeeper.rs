@@ -9,7 +9,7 @@ use crate::{
     condition,
     conditions::{hulks_is_kicking_team, is_closest_to_ball},
     head::look_at_ball_subtree,
-    kick::{apply_visual_kick_target, intercept, kick, kick_alternatives_subtree, use_weak_kick},
+    kick::{apply_kick_target, disable_strong_kick, intercept, kick, kick_alternatives_subtree},
     negation,
     node::Blackboard,
     selection, sequence,
@@ -36,7 +36,7 @@ pub fn goalkeeper_subtree() -> Node<Blackboard> {
                     sequence!(
                         action!(kick),
                         action!(select_goalkeeper_kick_away_target),
-                        action!(use_weak_kick),
+                        action!(disable_strong_kick),
                     ),
                     subtree!(kick_alternatives_subtree),
                 )
@@ -45,7 +45,11 @@ pub fn goalkeeper_subtree() -> Node<Blackboard> {
                 condition!(is_goalkeeper_interception_candidate),
                 switch_motion_type(
                     MotionType::Kick,
-                    sequence!(action!(kick), action!(intercept), action!(use_weak_kick),),
+                    sequence!(
+                        action!(kick),
+                        action!(intercept),
+                        action!(disable_strong_kick),
+                    ),
                     subtree!(kick_alternatives_subtree),
                 )
             ),
@@ -169,7 +173,11 @@ fn is_goalkeeper_interception_candidate(blackboard: &mut Blackboard) -> bool {
         }
 
         let interception_point = ball_in_ground + velocity * time_to_closest_approach;
-        interception_point.x() >= blackboard.parameters.kicking.kick_position_ball_distance
+        interception_point.x()
+            >= blackboard
+                .parameters
+                .kicking
+                .minimum_interception_forward_distance
             && interception_point.coords().norm()
                 <= blackboard
                     .parameters
@@ -346,7 +354,7 @@ fn select_goalkeeper_kick_away_target(blackboard: &mut Blackboard) -> Status {
             -blackboard.field_dimensions.width / 4.0
         };
 
-        apply_visual_kick_target(blackboard, point!(0.0, target_y), 0.0)
+        apply_kick_target(blackboard, point!(0.0, target_y))
     } else {
         Status::Failure
     }

@@ -65,12 +65,12 @@
     soft: false,
     quick: false,
     target_speed: 3.4, // Desired outgoing ball speed in m/s.
-    allow_schlong: false,
-    distance_for_kick: 2.0,
-    distance_for_kick_hysteresis: 0.5,
-    kick_target_offset_angle: 0.1,
-    target_distance_kick_power_threshold: 6.0,
-    kick_position_ball_distance: 0.3,
+    allow_strong_kicks: false,
+    kick_activation_distance: 2.0,
+    kick_activation_hysteresis: 0.5,
+    strong_kick_min_target_distance: 6.0,
+    approach_ball_standoff: 0.3,
+    minimum_interception_forward_distance: 0.3,
   },
   goalkeeper: {
     player_number: "One",

@@ -49,8 +49,8 @@ pub fn is_close_to_ball(blackboard: &mut Blackboard) -> bool {
         is_close = less_than_with_hysteresis(
             blackboard.last_close_enough_to_kick,
             distance_to_ball,
-            parameters.distance_for_kick,
-            parameters.distance_for_kick_hysteresis,
+            parameters.kick_activation_distance,
+            parameters.kick_activation_hysteresis,
         );
         blackboard.last_close_enough_to_kick = is_close;
     }
@@ -69,7 +69,7 @@ pub fn is_close_to_ball_aligned(blackboard: &mut Blackboard) -> bool {
             ground_to_field.inverse() * point!(blackboard.field_dimensions.length / 2.0, 0.0);
         let target_kick_position = ball_in_ground
             - (goal_position - ball_in_ground).normalize()
-                * blackboard.parameters.kicking.kick_position_ball_distance;
+                * blackboard.parameters.kicking.approach_ball_standoff;
 
         let parameters = &blackboard.parameters.substates;
         let distance_to_ball = target_kick_position.coords().norm();
