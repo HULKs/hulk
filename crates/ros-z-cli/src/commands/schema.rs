@@ -81,7 +81,7 @@ fn verify_schema_capability_from_services(
         return Ok(());
     }
 
-    bail!("node exists but does not expose schema inspection service: {node_fqn}")
+    bail!("node exists but does not expose schema inspection service: {node_fqn}");
 }
 
 fn schema_service_name(node_fqn: &str) -> String {
