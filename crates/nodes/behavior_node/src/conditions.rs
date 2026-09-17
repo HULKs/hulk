@@ -152,12 +152,15 @@ pub fn is_primary_state(blackboard: &mut Blackboard, primary_state: PrimaryState
     blackboard.world_state.robot.primary_state == primary_state
 }
 
-pub fn is_remote_controlled(blackboard: &mut Blackboard) -> bool {
+pub fn is_remote_control_enabled(blackboard: &mut Blackboard) -> bool {
     blackboard.remote_control_enabled
-        && blackboard
-            .controller_input
-            .as_ref()
-            .is_some_and(|controller| controller.connected)
+}
+
+pub fn is_controller_connected(blackboard: &mut Blackboard) -> bool {
+    blackboard
+        .controller_input
+        .as_ref()
+        .is_some_and(|controller| controller.connected)
 }
 
 pub fn is_remote_kick_mode(blackboard: &mut Blackboard, button: &str) -> bool {
