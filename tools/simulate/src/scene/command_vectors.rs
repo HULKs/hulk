@@ -105,7 +105,7 @@ fn vectors(
                 vector: Vec3::Y * *angular_velocity,
             });
         }
-        MotionCommand::VisualKick {
+        MotionCommand::Kick {
             ball_position,
             kick_direction,
             ..
@@ -174,7 +174,7 @@ fn update(
             let height = ball::first_position(&world, &balls)
                 .ok()
                 .map(|position| position[2] as f32);
-            if matches!(io.input_motion, MotionCommand::VisualKick { .. }) && height.is_none() {
+            if matches!(io.input_motion, MotionCommand::Kick { .. }) && height.is_none() {
                 return None;
             }
             Some(vectors(
@@ -204,7 +204,7 @@ fn update(
 mod tests {
     use super::*;
     use linear_algebra::{Orientation2, point, vector};
-    use types::motion_command::{HeadMotion, KickPower};
+    use types::motion_command::HeadMotion;
 
     #[test]
     fn vectors_follow_ground_yaw_and_keep_their_respective_origins() {
@@ -224,13 +224,17 @@ mod tests {
         assert!(linear.vector.distance(Vec3::new(0.2, 0.0, -0.4)) < 1e-6);
         assert_eq!(arrows[1].unwrap().vector, Vec3::new(0.0, -0.5, 0.0));
         assert!(arrows[2].is_none());
-        let kick = MotionCommand::VisualKick {
+        let kick = MotionCommand::Kick {
             head: HeadMotion::ZeroAngles,
             ball_position: point![1.0, 2.0],
             kick_direction: Orientation2::new(-std::f32::consts::FRAC_PI_2),
             target_position: point![0.0, 0.0],
             robot_theta_to_field: Orientation2::identity(),
-            kick_power: KickPower::default(),
+            target_speed: 3.4,
+            ball_velocity: vector![0.0, 0.0],
+            soft: false,
+            quick: false,
+            strong: false,
         };
         let arrow = vectors(&kick, ground, robot, 0.105)[2].unwrap();
         assert!(arrow.origin.distance(Vec3::new(0.0, 0.105, -4.0)) < 1e-6);

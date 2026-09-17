@@ -63,7 +63,7 @@ fn fill_kick_ball(
     balls: &SpawnedBalls,
     robot: Entity,
 ) -> color_eyre::Result<()> {
-    if let MotionCommand::VisualKick { ball_position, .. } = command {
+    if let MotionCommand::Kick { ball_position, .. } = command {
         let ball = first_ball_in_ground(world, balls, robot)?;
         *ball_position = point![ball.x, ball.y];
     }
@@ -517,7 +517,7 @@ fn update_status(
                 MotionCommand::WalkWithVelocity { .. } => {
                     "Sent vectors: blue = velocity, green = yaw rate\n1 m = 1 m/s or 1 rad/s".into()
                 }
-                MotionCommand::VisualKick { .. } => {
+                MotionCommand::Kick { .. } => {
                     "Sent vector: amber = kick direction from ball (1 m)".into()
                 }
                 _ => "Command vectors appear after sending a walk or kick.".into(),
@@ -668,16 +668,16 @@ fn update_ball_target(
     mut editor: ResMut<Editor>,
     numbers: Query<(Entity, &MotionNumber, &NumberInputValue)>,
 ) {
-    let draft_kick = editor.draft["motion"].get("VisualKick").is_some();
-    let active_kick = matches!(io.input_motion, MotionCommand::VisualKick { .. });
+    let draft_kick = editor.draft["motion"].get("Kick").is_some();
+    let active_kick = matches!(io.input_motion, MotionCommand::Kick { .. });
     if draft_kick || active_kick {
         match first_ball_in_ground(&world, &balls, *robot) {
             Ok(ball) => {
                 let ball = point![ball.x, ball.y];
                 if draft_kick {
-                    editor.draft["motion"]["VisualKick"]["ball_position"] = value(ball);
+                    editor.draft["motion"]["Kick"]["ball_position"] = value(ball);
                 }
-                if let MotionCommand::VisualKick { ball_position, .. } = &mut io.input_motion
+                if let MotionCommand::Kick { ball_position, .. } = &mut io.input_motion
                     && *ball_position != ball
                 {
                     *ball_position = ball;
@@ -876,7 +876,7 @@ fn build_field(
     allow_choices: bool,
     expanded: &HashSet<String>,
 ) {
-    if path == "/motion/VisualKick/ball_position" {
+    if path == "/motion/Kick/ball_position" {
         panel_label(commands, parent, PanelLabel::KickBallOrigin);
     }
     let parameter = path.starts_with("/parameters/");
@@ -1260,7 +1260,7 @@ enum Numeric {
     Duration,
 }
 fn number(commands: &mut Commands, parent: Entity, path: &str, initial: f64, kind: Numeric) {
-    if path.starts_with("/motion/VisualKick/ball_position/") {
+    if path.starts_with("/motion/Kick/ball_position/") {
         // Ground truth is display-only. Disabled Feathers number inputs enqueue
         // child updates on removal, which panic when rebuilding their parent form.
         let container = commands
@@ -1325,6 +1325,8 @@ fn number(commands: &mut Commands, parent: Entity, path: &str, initial: f64, kin
 fn field_label(name: &str) -> String {
     match name {
         "velocity" => "velocity (Ground, m/s)",
+        "ball_velocity" => "ball velocity (Ground, m/s)",
+        "target_speed" => "target speed (m/s)",
         "angular_velocity" => "angular velocity (rad/s)",
         "ball_position" | "target_position" | "target" | "center" => {
             return format!("{} (Ground, m)", name.replace('_', " "));
@@ -1349,7 +1351,7 @@ mod tests {
     };
 
     #[test]
-    fn changing_kick_power_rebuilds_the_form_without_stale_widget_commands() {
+    fn changing_kick_options_rebuilds_the_form_without_stale_widget_commands() {
         let mut app = App::new();
         app.add_plugins((
             MinimalPlugins,
@@ -1367,22 +1369,28 @@ mod tests {
         app.world_mut().resource_mut::<Editor>().draft["motion"] = choices("/motion")
             .unwrap()
             .into_iter()
-            .find(|option| option.get("VisualKick").is_some())
+            .find(|option| option.get("Kick").is_some())
             .unwrap();
         app.update();
 
-        for power in ["Schlong", "Rumpelstilzchen", "Schlong"] {
-            let button = app
+        for strong in [true, false, true] {
+            let group = app
                 .world_mut()
                 .query::<(&Text, &ChildOf)>()
                 .iter(app.world())
-                .find_map(|(text, parent)| (text.0 == power).then_some(parent.parent()))
+                .find_map(|(text, parent)| (text.0 == "Strong").then_some(parent.parent()))
+                .unwrap();
+            let button = app
+                .world_mut()
+                .query_filtered::<(Entity, &ChildOf), With<FeathersButton>>()
+                .iter(app.world())
+                .find_map(|(entity, parent)| (parent.parent() == group).then_some(entity))
                 .unwrap();
             app.world_mut().trigger(Activate { entity: button });
             app.update();
             assert_eq!(
-                app.world().resource::<Editor>().draft["motion"]["VisualKick"]["kick_power"],
-                power
+                app.world().resource::<Editor>().draft["motion"]["Kick"]["strong"],
+                strong
             );
             assert!(app.world().get_entity(button).is_err());
         }
@@ -1394,7 +1402,7 @@ mod tests {
             .iter(app.world())
             .collect();
         assert_eq!(readouts.len(), 2);
-        app.world_mut().resource_mut::<Editor>().draft["motion"]["VisualKick"]["ball_position"] =
+        app.world_mut().resource_mut::<Editor>().draft["motion"]["Kick"]["ball_position"] =
             json!([1.23456, -2.34567]);
         app.update();
         for entity in readouts {
@@ -1663,13 +1671,17 @@ mod tests {
             held
         );
 
-        let mut kick = MotionCommand::VisualKick {
+        let mut kick = MotionCommand::Kick {
             head: HeadMotion::ZeroAngles,
             ball_position: point![99.0, 99.0],
             kick_direction: Orientation2::new(0.3),
             target_position: point![2.0, 0.0],
             robot_theta_to_field: Orientation2::identity(),
-            kick_power: types::motion_command::KickPower::Schlong,
+            target_speed: 2.7,
+            ball_velocity: linear_algebra::vector![0.15, -0.2],
+            soft: true,
+            quick: true,
+            strong: true,
         };
         assert!(
             fill_kick_ball(
@@ -1693,10 +1705,14 @@ mod tests {
         app.world_mut().resource_mut::<Robotics>().input_motion = kick.clone();
         app.update();
         let received = receive();
-        let MotionCommand::VisualKick {
+        let MotionCommand::Kick {
             ball_position,
             kick_direction,
-            kick_power,
+            target_speed,
+            ball_velocity,
+            soft,
+            quick,
+            strong,
             ..
         } = &received
         else {
@@ -1704,7 +1720,9 @@ mod tests {
         };
         assert!((ball_position.x() - 2.0).abs() < 1e-5 && (ball_position.y() - 1.0).abs() < 1e-5);
         assert!((kick_direction.angle() - 0.3).abs() < 1e-6);
-        assert_eq!(*kick_power, types::motion_command::KickPower::Schlong);
+        assert_eq!(*target_speed, 2.7);
+        assert_eq!(*ball_velocity, linear_algebra::vector![0.15, -0.2]);
+        assert!(*soft && *quick && *strong);
         assert_eq!(
             app.world().resource::<Editor>().draft["motion"],
             value(&received)
@@ -1718,7 +1736,7 @@ mod tests {
             .unwrap();
         app.update();
         let received = receive();
-        let MotionCommand::VisualKick { ball_position, .. } = received else {
+        let MotionCommand::Kick { ball_position, .. } = received else {
             panic!("expected a kick");
         };
         assert!((ball_position.x() - 3.0).abs() < 1e-5 && (ball_position.y() - 2.0).abs() < 1e-5);

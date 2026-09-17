@@ -10,7 +10,7 @@ use serde_json::Value;
 use types::{
     field_dimensions::GlobalFieldSide,
     filtered_game_state::FilteredGameState,
-    motion_command::{HeadMotion, ImageRegion, KickPower, MotionCommand, OrientationMode},
+    motion_command::{HeadMotion, ImageRegion, MotionCommand, OrientationMode},
     path::{PathSegment, direct_path},
 };
 
@@ -24,7 +24,7 @@ pub fn motion_choices() -> Vec<Value> {
         MotionCommand::Damping,
         MotionCommand::Prepare,
         MotionCommand::Stand { head },
-        MotionCommand::StandUp,
+        MotionCommand::StandUp { fast: false },
         MotionCommand::WalkWithVelocity {
             head,
             velocity: vector![0.0, 0.0],
@@ -38,13 +38,17 @@ pub fn motion_choices() -> Vec<Value> {
             distance_to_be_aligned: 0.5,
             speed: 0.3,
         },
-        MotionCommand::VisualKick {
+        MotionCommand::Kick {
             head,
             ball_position: point![0.2, 0.0],
             kick_direction: Orientation2::identity(),
             target_position: point![2.0, 0.0],
             robot_theta_to_field: Orientation2::identity(),
-            kick_power: KickPower::default(),
+            target_speed: 3.4,
+            ball_velocity: vector![0.0, 0.0],
+            soft: false,
+            quick: false,
+            strong: false,
         },
     ]
     .into_iter()
@@ -114,10 +118,6 @@ pub fn choices(path: &str) -> Option<Vec<Value>> {
         .into_iter()
         .map(value)
         .collect(),
-        "kick_power" => [KickPower::Rumpelstilzchen, KickPower::Schlong]
-            .into_iter()
-            .map(value)
-            .collect(),
         "direction" if path.contains("/Arc/") => {
             [Direction::Clockwise, Direction::Counterclockwise]
                 .into_iter()
@@ -269,9 +269,9 @@ mod tests {
             serde_json::from_value::<PathSegment>(segment).unwrap();
         }
         let angle = value(Orientation2::<Ground>::new(0.75));
-        assert!(is_angle("/motion/VisualKick/kick_direction", &angle));
+        assert!(is_angle("/motion/Kick/kick_direction", &angle));
         assert!(!is_angle(
-            "/motion/VisualKick/ball_position",
+            "/motion/Kick/ball_position",
             &value(point![<Ground>, 0.2, 0.1])
         ));
     }

@@ -43,8 +43,8 @@ The launcher currently starts:
 
 - `motion`: the main `motion::run_boxed` entry point. Every 20 ms of simulation
   time it dispatches the UI/behavior request to the real head and inference services,
-  composes their outputs, and publishes `robot_command::MotionCommand` directly on
-  `commands/motion_command`, which `hardware_interface` consumes. The motion crate
+  composes their outputs, and publishes `motion::command::RobotCommand` directly on
+  `commands/robot_command`, which `hardware_interface` consumes. The motion crate
   is unchanged from `rmburg/motion-inference`; there is no dummy node or
   simulator-specific coordinator.
 - `head_motion`
@@ -63,18 +63,20 @@ The game-controller form controls the field side used by head scan patterns.
 
 **Stand** runs walking inference at zero velocity with the chosen head request.
 **Walk with velocity** forwards the requested forward/lateral velocity and yaw rate.
-**Visual kick** uses kick inference and the selected head request; **Stand up**
-uses full-body slow get-up inference. Arm commands come directly from the main
-node: walking uses its configured arm controller, kicking sends zero arm commands
-and gains, and get-up controls all joints. The simulator does not replace those with a nominal pose.
+**Kick** uses kick inference and the selected head request. Its form exposes target
+speed (m/s), ball velocity (Ground, m/s), and soft/quick/strong flags. Defaults are
+3.4 m/s, zero ball velocity, and all flags disabled. The soft policy ignores strong
+and quick. **Stand up** exposes the fast flag, disabled by default, for full-body
+get-up inference. Arm commands come directly from the main node: walking and
+kicking use its configured arm controller, and get-up controls all joints.
 **Damping** (also the **Damp robot** shortcut) currently sends zero commands and
 gains, following upstream behavior. **Prepare** requests Booster's preparation
 mode, whose RPC is not simulated.
 
 The editor still refuses path-based **Walk** and suggests **Walk with velocity**.
-External path requests use the upstream walking controller. Kick mapping retains upstream
-limitations: target speed is fixed at 3.4 m/s, ball velocity is zero, and the
-soft/quick flags are false; target position and robot-to-field heading are not used.
+External path requests use the upstream walking controller. Kick speed, ball velocity,
+and policy flags are forwarded to inference, which applies its policy limits.
+Target position and robot-to-field heading are still not used by kick inference.
 Head and body services run concurrently using the main node's service clients.
 Service errors and inference rejections retain upstream behavior, including its
 current `unwrap()` calls; the simulator does not add a fallback controller.
@@ -89,17 +91,18 @@ editing or sending a motion command, or pressing **Damp robot**, also stops trac
 If the first ball is removed, tracking follows the oldest remaining ball. With no ball,
 tracking stops with a message and leaves the last command unchanged.
 
-**Visual kick** uses the first spawned ball's actual MuJoCo position, transformed
+**Kick** uses the first spawned ball's actual MuJoCo position, transformed
 into the controlled robot's Ground frame. Its ball-position fields are read-only
 and update live, including while paused or dragging. The sent kick keeps tracking
 the ball even while editing another draft. With no ball, sending a kick is rejected;
-removing the last ball stops an active kick by sending Damping.
+removing the last ball stops an active kick by sending Damping. Ball velocity remains
+an editable command input; it is not derived from the simulated ball's motion.
 
 Sent commands have solid scene arrows, inspired by
 [MJLab's velocity visualization](https://github.com/mujocolab/mjlab/blob/main/src/mjlab/tasks/velocity/mdp/velocity_command.py).
 For **Walk with velocity**, blue shows planar velocity and green shows signed yaw
 rate, both starting above the robot's torso. Length is 1 m per m/s or rad/s; a
-negative yaw rate points downward. For **Visual kick**, an amber 1 m arrow starts
+negative yaw rate points downward. For **Kick**, an amber 1 m arrow starts
 at the ball and shows `kick_direction` (a direction, not a speed or predicted path).
 Directions use the robot's Ground-frame yaw and follow its current world pose.
 Zero vectors are hidden. Unsent draft edits do not change the arrows; the panel

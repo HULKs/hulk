@@ -681,7 +681,7 @@ mod tests {
             KICK_INFERENCE_SERVICE, KickInferenceService, WALK_INFERENCE_SERVICE,
             WalkInferenceService,
         };
-        use types::robot_command::MotorCommand;
+        use types::motor_command::MotorCommand;
 
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, MujocoWorldPlugin));
@@ -890,30 +890,41 @@ mod tests {
                     && motor.kd == 1.0)
         );
 
-        io.input_motion = MotionCommand::VisualKick {
+        io.input_motion = MotionCommand::Kick {
             head: HeadMotion::ZeroAngles,
             ball_position: linear_algebra::point![0.2, -0.1],
             kick_direction: linear_algebra::Orientation2::new(0.3),
             target_position: linear_algebra::point![2.0, 0.0],
             robot_theta_to_field: linear_algebra::Orientation2::identity(),
-            kick_power: types::motion_command::KickPower::Schlong,
+            target_speed: 2.7,
+            ball_velocity: linear_algebra::vector![0.15, -0.2],
+            soft: true,
+            quick: true,
+            strong: true,
         };
         for _ in 0..5 {
             step(io);
         }
         let kick = kicks.try_recv().unwrap();
+        assert!(kick.soft);
         assert!(kick.request.strong);
+        assert!(kick.request.quick);
+        assert_eq!(kick.request.target_speed, 2.7);
+        assert_eq!(
+            kick.request.ball_velocity,
+            linear_algebra::vector![0.15, -0.2]
+        );
         assert_eq!(
             kick.request.ball_position,
             linear_algebra::point![0.2, -0.1]
         );
         assert!((kick.request.direction - 0.3).abs() < 1e-6);
         assert_eq!(io.latest_command().unwrap().motor_commands[10].kp, 22.0);
-        io.input_motion = MotionCommand::StandUp;
+        io.input_motion = MotionCommand::StandUp { fast: true };
         for _ in 0..5 {
             step(io);
         }
-        assert!(!getups.try_recv().unwrap().fast);
+        assert!(getups.try_recv().unwrap().fast);
         assert!(
             io.latest_command()
                 .unwrap()
