@@ -328,16 +328,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .unwrap_or_default();
         blackboard.parameters = parameters.snapshot().typed().clone();
 
-        let was_north_pressed = blackboard
+        let was_start_pressed = blackboard
             .controller_input
             .as_ref()
-            .is_some_and(|input| input.is_pressed("North"));
+            .is_some_and(|input| input.is_pressed("Start"));
         blackboard.controller_input = controller_input_cache
             .get_after(Time::from_wallclock(SystemTime::now()) - Duration::from_millis(250))
             .filter(|input| input.connected)
             .map(|input| input.as_ref().clone());
         if let Some(input) = &blackboard.controller_input {
-            if input.is_pressed("North") && !was_north_pressed {
+            if input.is_pressed("Start") && !was_start_pressed {
                 blackboard.remote_control_enabled = !blackboard.remote_control_enabled;
             }
         } else {
