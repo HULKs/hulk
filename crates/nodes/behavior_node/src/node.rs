@@ -352,15 +352,20 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             })
             .unwrap_or_default();
 
+        let primary_state = primary_state_cache
+            .get_latest()
+            .map(|state| *state)
+            .unwrap_or_default();
+        if primary_state != blackboard.world_state.robot.primary_state {
+            blackboard.remote_control_enabled = false;
+        }
+
         blackboard.world_state.robot = RobotState {
             ground_to_field: ground_to_field_cache
                 .get_latest()
                 .map(|ground_to_field| *ground_to_field),
             player_number,
-            primary_state: primary_state_cache
-                .get_latest()
-                .map(|s| *s)
-                .unwrap_or_default(),
+            primary_state,
         };
 
         blackboard.world_state.ball = ball_state_cache.get_latest().and_then(|ball| *ball);

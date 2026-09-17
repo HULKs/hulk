@@ -8,6 +8,7 @@
 | Control | Action |
 | --- | --- |
 | Press Start | Toggle remote control on/off (starts off) |
+| Primary state changes | Disable remote control |
 | Controller disconnected or input stale | Stand while remote control remains enabled |
 | Left stick up/down | Walk forward/backward |
 | Left stick left/right | Walk sideways |
