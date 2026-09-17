@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path, sync::Arc};
 
-use anyhow::{Result, ensure};
+use color_eyre::eyre::{Result, ensure};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Ground;

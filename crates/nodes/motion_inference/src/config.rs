@@ -1,5 +1,5 @@
 use ::kinematics::joints::{Joints, JointsName, arm::ArmJoint, leg::LegJoint};
-use anyhow::{Result, ensure};
+use color_eyre::eyre::{Result, ensure, eyre};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, time::Duration};
 
@@ -141,7 +141,7 @@ impl Parameters {
             let p = self
                 .policies
                 .get(&policy)
-                .ok_or_else(|| anyhow::anyhow!("missing parameters for {policy:?}"))?;
+                .ok_or_else(|| eyre!("missing parameters for {policy:?}"))?;
             ensure!(
                 !p.model_file.is_empty(),
                 "missing model file for {policy:?}"

@@ -2,9 +2,8 @@ use std::{collections::VecDeque, future::Future, pin::Pin, sync::Arc};
 use types::joint_limits::JointLimits;
 use types::motor_command::MotorCommand;
 
-use anyhow::anyhow;
 use booster::{JointsMotorState, LowState};
-use color_eyre::Result;
+use color_eyre::{Report, Result, eyre::eyre};
 use kinematics::joints::{
     Joints,
     body::{BodyJoints, LowerBodyJoints},
@@ -139,11 +138,8 @@ impl QueuedRequest {
         }
     }
 
-    async fn deny(self, reason: &str) {
-        self.respond(Err(InferenceError {
-            reason: reason.to_owned(),
-        }))
-        .await;
+    async fn deny(self, error: InferenceError) {
+        self.respond(Err(error)).await;
     }
 }
 
@@ -159,7 +155,7 @@ enum Completion {
 }
 
 struct Worker {
-    handle: JoinHandle<(Controller, anyhow::Result<Completion>)>,
+    handle: JoinHandle<(Controller, Result<Completion>)>,
     job: Job,
     request: Option<QueuedRequest>,
     response_sent: bool,
@@ -171,7 +167,7 @@ struct InferenceNode {
     controller: Option<Controller>,
     worker: Option<Worker>,
     pending: VecDeque<QueuedRequest>,
-    first_fault: Option<String>,
+    first_fault: Option<InferenceError>,
     sensor: Option<SensorFrame>,
     last_inferred_position: Option<Joints<f32>>,
     velocity: VelocityEstimator,
@@ -275,16 +271,16 @@ impl InferenceNode {
             .await?;
 
         loop {
-            if let Some(reason) = self.first_fault.clone() {
+            if let Some(error) = self.first_fault.clone() {
                 if let Some(worker) = &mut self.worker
                     && !worker.response_sent
                 {
                     worker.response_sent = true;
                     if let Some(request) = worker.request.take() {
-                        request.deny(&reason).await;
+                        request.deny(error.clone()).await;
                     }
                 }
-                self.reject_pending(&reason).await;
+                self.reject_pending(&error).await;
             }
             tokio::select! {
                 completed = async { (&mut self.worker.as_mut().expect("worker exists").handle).await }, if self.worker.is_some() => {
@@ -292,12 +288,12 @@ impl InferenceNode {
                     let (controller, result) = match completed {
                         Ok(completed) => completed,
                         Err(error) => {
-                            let reason = format!("motion inference worker failed: {error}");
+                            let error = InferenceError::WorkerFailed { source: Arc::new(Report::new(error)) };
                             if !worker.response_sent {
-                                self.fail_job(&node, &statuses, worker.request.take(), &reason).await?;
+                                self.fail_job(&node, &statuses, worker.request.take(), error.clone()).await?;
                             }
-                            self.reject_pending(&reason).await;
-                            return Err(color_eyre::eyre::eyre!(reason));
+                            self.reject_pending(&error).await;
+                            return Err(error.into());
                         }
                     };
                     self.controller = Some(controller);
@@ -313,14 +309,21 @@ impl InferenceNode {
                             self.last_inferred_position = Some(output.joints.as_ref().into_iter().map(|joint| joint.position).collect());
                             worker.request.take().expect("active request has a reply").respond(Ok(output.joints)).await;
                         }
-                        Err(error) => self.fail_job(&node, &statuses, worker.request.take(), &format!("{error:#}")).await?,
+                        Err(error) => {
+                            let source = Arc::new(error);
+                            let error = match worker.job {
+                                Job::Initialize => InferenceError::InitializationFailed { source },
+                                Job::Inference => InferenceError::InferenceFailed { source },
+                            };
+                            self.fail_job(&node, &statuses, worker.request.take(), error).await?;
+                        }
                     }
                 }
                 received = joint_limits.recv() => {
                     let received = received?;
                     match received.validate() {
                         Ok(()) => self.joint_limits = Some(Arc::new(received)),
-                        Err(reason) => statuses.publish(&fault_status(&mut self.first_fault, node.clock().now(), anyhow!(reason))).await?,
+                        Err(reason) => statuses.publish(&fault_status(&mut self.first_fault, node.clock().now(), InferenceError::InvalidJointLimits { source: Arc::new(Report::msg(reason)) })).await?,
                     }
                 }
                 received = sensors.recv_with_metadata() => {
@@ -334,7 +337,7 @@ impl InferenceNode {
                         });
                         match result {
                             Ok(sensor) => self.sensor = Some(sensor),
-                            Err(error) => statuses.publish(&fault_status(&mut self.first_fault, node.clock().now(), error)).await?,
+                            Err(error) => statuses.publish(&fault_status(&mut self.first_fault, node.clock().now(), InferenceError::InvalidSensorFrame { source: Arc::new(error) })).await?,
                         }
                     }
                 }
@@ -354,20 +357,18 @@ impl InferenceNode {
                     let queued = self.pending.pop_front().expect("queued request exists");
                     let request = queued.command();
                     let Some(joints) = self.joint_limits.clone() else {
-                        queued.deny("global joint limits are missing").await;
+                        queued.deny(InferenceError::MissingJointLimits).await;
                         continue;
                     };
                     let Some(sensor) = &self.sensor else {
-                        queued.deny("sensor frame is missing").await;
+                        queued.deny(InferenceError::MissingSensorFrame).await;
                         continue;
                     };
                     let mut sensor = sensor.clone();
                     sensor.last_commanded_position = self.last_inferred_position.unwrap_or(sensor.position);
                     let parameters = self.parameters.snapshot().typed.clone();
                     if let Err(error) = sensor.validate(&parameters) {
-                        let reason = format!("{error:#}");
-                        statuses.publish(&fault_status(&mut self.first_fault, node.clock().now(), error)).await?;
-                        queued.deny(&reason).await;
+                        self.fail_job(&node, &statuses, Some(queued), InferenceError::InvalidSensorFrame { source: Arc::new(error) }).await?;
                         continue;
                     }
                     let velocity = self.velocity.clone();
@@ -385,18 +386,18 @@ impl InferenceNode {
     }
 
     async fn enqueue(&mut self, request: QueuedRequest) {
-        if let Some(reason) = &self.first_fault {
-            request.deny(reason).await;
+        if let Some(error) = &self.first_fault {
+            request.deny(error.clone()).await;
         } else if !self.initialized() {
-            request.deny("inference is initializing").await;
+            request.deny(InferenceError::Initializing).await;
         } else if let Some(oldest) = enqueue_request(&mut self.pending, request) {
-            oldest.deny("inference request queue is full").await;
+            oldest.deny(InferenceError::SorryQueueVol).await;
         }
     }
 
-    async fn reject_pending(&mut self, reason: &str) {
+    async fn reject_pending(&mut self, error: &InferenceError) {
         while let Some(queued) = self.pending.pop_front() {
-            queued.deny(reason).await;
+            queued.deny(error.clone()).await;
         }
     }
 
@@ -405,17 +406,17 @@ impl InferenceNode {
         node: &Node,
         statuses: &Publisher<Status>,
         request: Option<QueuedRequest>,
-        reason: &str,
+        error: InferenceError,
     ) -> Result<()> {
         statuses
             .publish(&fault_status(
                 &mut self.first_fault,
                 node.clock().now(),
-                anyhow!("{reason}"),
+                error.clone(),
             ))
             .await?;
         if let Some(request) = request {
-            request.deny(reason).await;
+            request.deny(error).await;
         }
         Ok(())
     }
@@ -431,10 +432,12 @@ fn enqueue_request<T>(pending: &mut VecDeque<T>, request: T) -> Option<T> {
     denied
 }
 
-fn fault_status(first_fault: &mut Option<String>, time: Time, error: anyhow::Error) -> Status {
-    let reason = first_fault
-        .get_or_insert_with(|| format!("{error:#}"))
-        .clone();
+fn fault_status(
+    first_fault: &mut Option<InferenceError>,
+    time: Time,
+    error: InferenceError,
+) -> Status {
+    let reason = first_fault.get_or_insert(error).to_string();
     Status {
         time,
         state: State::Fault { reason },
@@ -446,18 +449,51 @@ mod messages {
     pub type InferenceResult<T> = Result<T, InferenceError>;
 
     use super::*;
-    #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Message)]
-    pub struct InferenceError {
-        pub reason: String,
+    /// Shared sources keep the native cause intact when a fault rejects multiple requests.
+    #[derive(Clone, Debug, Serialize, Deserialize, Message, thiserror::Error)]
+    pub enum InferenceError {
+        #[error("cannot serve motion inference requests while policy models are initializing")]
+        Initializing,
+        #[error(
+            "motion inference request queue is full (capacity: {}); the oldest pending request was denied to accept a newer request",
+            REQUEST_QUEUE_CAPACITY
+        )]
+        SorryQueueVol,
+        #[error("cannot run motion inference: global joint limits have not been received")]
+        MissingJointLimits,
+        #[error("cannot run motion inference: no valid sensor frame has been received")]
+        MissingSensorFrame,
+        #[error("received invalid global joint limits for motion inference: {source:#}")]
+        InvalidJointLimits {
+            #[source]
+            #[serde(with = "ros_z::message::report")]
+            source: Arc<Report>,
+        },
+        #[error("failed to process a motion inference sensor frame: {source:#}")]
+        InvalidSensorFrame {
+            #[source]
+            #[serde(with = "ros_z::message::report")]
+            source: Arc<Report>,
+        },
+        #[error("failed to initialize motion inference policy models: {source:#}")]
+        InitializationFailed {
+            #[source]
+            #[serde(with = "ros_z::message::report")]
+            source: Arc<Report>,
+        },
+        #[error("failed to execute the motion inference request: {source:#}")]
+        InferenceFailed {
+            #[source]
+            #[serde(with = "ros_z::message::report")]
+            source: Arc<Report>,
+        },
+        #[error("motion inference worker task failed: {source:#}")]
+        WorkerFailed {
+            #[source]
+            #[serde(with = "ros_z::message::report")]
+            source: Arc<Report>,
+        },
     }
-
-    impl std::fmt::Display for InferenceError {
-        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            formatter.write_str(&self.reason)
-        }
-    }
-
-    impl std::error::Error for InferenceError {}
 
     #[derive(Clone, Serialize, Deserialize, Message)]
     pub struct Status {
@@ -476,10 +512,8 @@ mod messages {
 pub use crate::config::Parameters;
 pub use messages::{InferenceError, InferenceResult, State, Status};
 
-fn sensor_frame(low_state: &LowState, timestamp: Time) -> anyhow::Result<observation::SensorFrame> {
-    let motors = low_state
-        .serial_motor_states()
-        .map_err(|error| anyhow!("{error:#}"))?;
+fn sensor_frame(low_state: &LowState, timestamp: Time) -> Result<observation::SensorFrame> {
+    let motors = low_state.serial_motor_states()?;
     let angles = low_state.imu_state.roll_pitch_yaw;
     let orientation = UnitQuaternion::from_euler_angles(angles.x(), angles.y(), angles.z());
     let position = motors.positions();
@@ -510,7 +544,7 @@ impl Controller {
         self.inference.is_some()
     }
 
-    fn initialize(&mut self) -> anyhow::Result<()> {
+    fn initialize(&mut self) -> Result<()> {
         self.inference = Some(Inference::new(
             &self.startup_parameters.neural_networks_folder,
             &Policy::ALL,
@@ -527,11 +561,11 @@ impl Controller {
         velocity: VelocityEstimator,
         joints: &JointLimits,
         parameters: Arc<Parameters>,
-    ) -> anyhow::Result<InferenceOutput> {
+    ) -> Result<InferenceOutput> {
         let inference = self
             .inference
             .as_mut()
-            .ok_or_else(|| anyhow!("inference is initializing"))?;
+            .ok_or_else(|| eyre!("inference policy models have not been initialized"))?;
         inference.execute_request(now, sensor, command, velocity, joints, parameters)
     }
 }

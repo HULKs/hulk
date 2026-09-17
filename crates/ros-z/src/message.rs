@@ -20,6 +20,8 @@ use crate::entity::TypeInfo;
 use crate::schema::{MessageSchema, SchemaBuilder};
 use crate::shm::ShmWriter;
 
+pub mod report;
+
 /// Error returned when CDR bytes cannot be decoded into the requested type.
 #[derive(Debug, thiserror::Error)]
 pub enum CdrError {

@@ -7,7 +7,6 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-anyhow = "1"
 booster.workspace = true
 color-eyre.workspace = true
 coordinate_systems.workspace = true
@@ -18,5 +17,6 @@ ort = { workspace = true, features = ["load-dynamic"] }
 ros-z.workspace = true
 ros-z-schema.workspace = true
 serde = { workspace = true, features = ["derive"] }
+thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "macros", "time"] }
 types.workspace = true

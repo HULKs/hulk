@@ -1,5 +1,5 @@
 use ::kinematics::joints::Joints;
-use anyhow::{Result, ensure};
+use color_eyre::eyre::{Result, ensure};
 use coordinate_systems::Robot;
 use linear_algebra::Vector3;
 use nalgebra::{Quaternion, UnitQuaternion};
