@@ -12,7 +12,7 @@ use std::{
 
 use color_eyre::{Result, eyre::WrapErr};
 use serde::{Deserialize, Serialize};
-use tokio::{sync::watch, task::JoinSet};
+use tokio::sync::watch;
 use tracing::{error, info};
 
 use booster::{LedColor, LowCommand, RobotMode};
@@ -145,22 +145,24 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let rpc_diagnostics = Arc::new(RpcDiagnostics::default());
 
-    let mut join_set = JoinSet::new();
-
-    join_set.spawn(joints_command_worker(
+    let joints_worker_result = tokio::spawn(joints_command_worker(
         ctx.clone(),
         node.clone(),
         parameters.clone(),
         rpc_diagnostics.clone(),
     ));
-    join_set.spawn(led_command_worker(
+    let led_worker_result = tokio::spawn(led_command_worker(
         ctx,
         node,
         parameters,
         rpc_diagnostics.clone(),
     ));
 
-    join_set.join_all().await;
+    let (joints_worker_result, led_worker_result) =
+        tokio::try_join!(joints_worker_result, led_worker_result)?;
+
+    joints_worker_result?;
+    led_worker_result?;
 
     Ok(())
 }
