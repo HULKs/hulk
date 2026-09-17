@@ -12,8 +12,10 @@ pub enum DesiredMode {
     Custom,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize, Message)]
-pub struct RobotCommand {
-    pub desired_mode: DesiredMode,
-    pub joints_command: JointsCommand,
+pub enum RobotCommand {
+    Damping,
+    Prepare,
+    Custom { joints_command: JointsCommand },
 }

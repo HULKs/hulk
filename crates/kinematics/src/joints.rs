@@ -15,6 +15,8 @@ use mirror::SwapSides;
 use serde::{Deserialize, Serialize};
 use splines::impl_Interpolate;
 
+use crate::joints::body::UpperBodyJoints;
+
 use self::{
     arm::{ArmJoint, ArmJoints},
     body::BodyJoints,
@@ -151,6 +153,62 @@ impl<T> Joints<T> {
             right_arm: self.right_arm.map(&f),
             left_leg: self.left_leg.map(&f),
             right_leg: self.right_leg.map(&f),
+        }
+    }
+
+    pub fn body_as_ref(&self) -> BodyJoints<&T> {
+        BodyJoints {
+            left_arm: self.left_arm_as_ref(),
+            right_arm: self.right_arm_as_ref(),
+            left_leg: self.left_leg_as_ref(),
+            right_leg: self.right_leg_as_ref(),
+        }
+    }
+
+    pub fn upper_body_as_ref(&self) -> UpperBodyJoints<&T> {
+        UpperBodyJoints {
+            left_arm: self.left_arm_as_ref(),
+            right_arm: self.right_arm_as_ref(),
+        }
+    }
+
+    pub fn left_arm_as_ref(&self) -> ArmJoints<&T> {
+        ArmJoints {
+            shoulder_pitch: &self.left_arm.shoulder_pitch,
+            shoulder_roll: &self.left_arm.shoulder_roll,
+            shoulder_yaw: &self.left_arm.shoulder_yaw,
+            elbow: &self.left_arm.elbow,
+        }
+    }
+
+    pub fn right_arm_as_ref(&self) -> ArmJoints<&T> {
+        ArmJoints {
+            shoulder_pitch: &self.right_arm.shoulder_pitch,
+            shoulder_roll: &self.right_arm.shoulder_roll,
+            shoulder_yaw: &self.right_arm.shoulder_yaw,
+            elbow: &self.right_arm.elbow,
+        }
+    }
+
+    pub fn left_leg_as_ref(&self) -> LegJoints<&T> {
+        LegJoints {
+            hip_pitch: &self.left_leg.hip_pitch,
+            hip_roll: &self.left_leg.hip_roll,
+            hip_yaw: &self.left_leg.hip_yaw,
+            knee: &self.left_leg.knee,
+            ankle_up: &self.left_leg.ankle_up,
+            ankle_down: &self.left_leg.ankle_down,
+        }
+    }
+
+    pub fn right_leg_as_ref(&self) -> LegJoints<&T> {
+        LegJoints {
+            hip_pitch: &self.right_leg.hip_pitch,
+            hip_roll: &self.right_leg.hip_roll,
+            hip_yaw: &self.right_leg.hip_yaw,
+            knee: &self.right_leg.knee,
+            ankle_up: &self.right_leg.ankle_up,
+            ankle_down: &self.right_leg.ankle_down,
         }
     }
 }

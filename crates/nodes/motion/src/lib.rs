@@ -5,12 +5,13 @@ use color_eyre::{
     eyre::{WrapErr, ensure},
 };
 use serde::{Deserialize, Serialize};
-use tracing::warn;
+use tracing::{error, warn};
 
 use head_motion::node::{HEAD_MOTION_SERVICE_TOPIC, HeadMotionService};
 use kinematics::joints::{
     Joints,
     body::{BodyJoints, LowerBodyJoints, UpperBodyJoints},
+    head::HeadJoints,
     leg::LegJoints,
 };
 use linear_algebra::vector;
@@ -39,7 +40,7 @@ use types::{
 };
 
 use crate::{
-    command::{DesiredMode, JointsCommand, RobotCommand},
+    command::RobotCommand,
     walking::{WalkingParameters, step_from_walk_command},
 };
 
@@ -67,6 +68,8 @@ struct ArmParameters {
 struct Parameters {
     arms: ArmParameters,
     walking: WalkingParameters,
+    inference_timeout: Duration,
+    head_motion_timeout: Duration,
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -163,22 +166,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         });
 
         let motion_plan = MotionPlan::from_motion_command(&motion_command, &parameters.walking);
-        let desired_mode = match &motion_plan {
-            MotionPlan::Damping => DesiredMode::Damping,
-            MotionPlan::Prepare => DesiredMode::Prepare,
-            MotionPlan::GetUp { .. } => DesiredMode::Custom,
-            MotionPlan::Walk { .. } => DesiredMode::Custom,
-            MotionPlan::Kick { .. } => DesiredMode::Custom,
-        };
 
-        let joints_command = motion_state
+        let robot_command = motion_state
             .infer(motion_plan, clock, parameters, &joint_limits)
             .await;
-
-        let robot_command = RobotCommand {
-            desired_mode,
-            joints_command,
-        };
 
         robot_command_pub.publish(&robot_command).await?;
     }
@@ -290,94 +281,200 @@ impl MotionState {
         clock: &Clock,
         parameters: &Parameters,
         joint_limits: &JointLimits,
-    ) -> JointsCommand {
+    ) -> RobotCommand {
         let now = clock.now();
 
-        let joints_command = match motion_plan {
-            MotionPlan::Damping | MotionPlan::Prepare => JointsCommand::fill(MotorCommand::zeros()),
+        let robot_command = match motion_plan {
+            MotionPlan::Damping => RobotCommand::Damping,
+            MotionPlan::Prepare => RobotCommand::Prepare,
             MotionPlan::GetUp { command } =>
             // TODO call_with_timeout_async() -> Damping on timeout
             {
-                self.get_up_inference_client
-                    .call_async(&command)
-                    .await
-                    .expect("failed to call inference service")
-                    // TODO Damping on Error
-                    .unwrap()
-                    .as_ref()
-                    .clone()
+                let inference_result = self
+                    .get_up_inference_client
+                    .call_with_timeout_async(&command, parameters.inference_timeout)
+                    .await;
+
+                match inference_result {
+                    Ok(Ok(joints_command)) => RobotCommand::Custom {
+                        joints_command: joints_command.as_ref().clone(),
+                    },
+                    Ok(Err(inference_error)) => {
+                        error!(
+                            "GetUp Inference failed, sending RobotCommand::Damping: {inference_error}"
+                        );
+
+                        RobotCommand::Damping
+                    }
+                    Err(ros_z_error) => {
+                        error!(
+                            "Failed to call GetUp inference service, sending RobotCommand::Damping! {ros_z_error}"
+                        );
+
+                        RobotCommand::Damping
+                    }
+                }
             }
             MotionPlan::Walk {
                 head_motion,
                 command,
             } => {
-                // TODO call_with_timeout_async() -> Damping on timeout
-                let inference_fut = self.walk_inference_client.call_async(&command);
-                let head_motion_fut = self.head_motion_client.call_async(&head_motion);
+                let inference_fut = self
+                    .walk_inference_client
+                    .call_with_timeout_async(&command, parameters.inference_timeout);
+                let head_motion_fut = self
+                    .head_motion_client
+                    .call_with_timeout_async(&head_motion, parameters.head_motion_timeout);
 
                 let (inference_result, head_motion_result) =
                     tokio::join!(inference_fut, head_motion_fut);
 
-                // TODO zeros() on timeout
-                let head = head_motion_result.unwrap();
-                // TODO Damping on Error
-                let lower_body = inference_result.unwrap().unwrap();
-                // TODO Damping on Error
-                let arms = self
-                    .generate_walking_arm_joints(
-                        lower_body.as_ref(),
-                        clock,
-                        &parameters.arms,
-                        joint_limits,
-                    )
-                    .unwrap();
+                let head = head_motion_result.unwrap_or_else(|ros_z_error| {
+                    error!(
+                        "Failed to call head motion service, using fallback joints: {ros_z_error}"
+                    );
 
-                let body = BodyJoints::from_lower_and_upper(lower_body.as_ref().clone(), arms);
+                    HeadJoints::fill(MotorCommand::damping())
+                });
 
-                Joints::from_head_and_body(head, body)
+                let lower_body_command = match inference_result {
+                    Ok(Ok(joints_command)) => LowerRobotCommand::Custom {
+                        lower_body_joints_command: joints_command.as_ref().clone(),
+                    },
+                    Ok(Err(inference_error)) => {
+                        error!(
+                            "Walk inference failed, sending RobotCommand::Damping: {inference_error}"
+                        );
+
+                        LowerRobotCommand::Damping
+                    }
+                    Err(ros_z_error) => {
+                        error!(
+                            "Failed to call GetUp inference service, sending RobotCommand::Damping! {ros_z_error}"
+                        );
+
+                        LowerRobotCommand::Damping
+                    }
+                };
+
+                match lower_body_command {
+                    LowerRobotCommand::Custom {
+                        lower_body_joints_command,
+                    } => {
+                        let arms_result = self.generate_walking_arm_joints(
+                            &lower_body_joints_command,
+                            clock,
+                            &parameters.arms,
+                            joint_limits,
+                        );
+
+                        let arms = match arms_result {
+                            Ok(arms) => arms,
+                            Err(error) => {
+                                error!(
+                                    "Failed to generate arm joints, using fallback joints: {error}"
+                                );
+
+                                UpperBodyJoints::fill(MotorCommand::damping())
+                            }
+                        };
+
+                        let body =
+                            BodyJoints::from_lower_and_upper(lower_body_joints_command, arms);
+
+                        RobotCommand::Custom {
+                            joints_command: Joints::from_head_and_body(head, body),
+                        }
+                    }
+                    LowerRobotCommand::Damping => RobotCommand::Damping,
+                }
             }
             MotionPlan::Kick {
                 head_motion,
                 command,
             } => {
-                // TODO call_with_timeout_async() -> Damping on timeout
-                let inference_fut = self.kick_inference_client.call_async(&command);
-                // TODO zeros() on timeout
-                let head_motion_fut = self.head_motion_client.call_async(&head_motion);
+                let inference_fut = self
+                    .kick_inference_client
+                    .call_with_timeout_async(&command, parameters.inference_timeout);
+                let head_motion_fut = self
+                    .head_motion_client
+                    .call_with_timeout_async(&head_motion, parameters.head_motion_timeout);
 
                 let (inference_result, head_motion_result) =
                     tokio::join!(inference_fut, head_motion_fut);
 
-                // TODO zeros() on timeout
-                let head = head_motion_result.unwrap();
-                // TODO Damping on Error
-                let lower_body = inference_result.unwrap().unwrap();
-                // TODO Damping on Error
-                let arms = self
-                    .generate_walking_arm_joints(
-                        lower_body.as_ref(),
-                        clock,
-                        &parameters.arms,
-                        joint_limits,
-                    )
-                    .unwrap();
+                let head = head_motion_result.unwrap_or_else(|ros_z_error| {
+                    error!(
+                        "Failed to call head motion service, using fallback joints: {ros_z_error}"
+                    );
 
-                let body = BodyJoints::from_lower_and_upper(lower_body.as_ref().clone(), arms);
+                    HeadJoints::fill(MotorCommand::damping())
+                });
 
-                Joints::from_head_and_body(head, body)
+                let lower_body_command = match inference_result {
+                    Ok(Ok(joints_command)) => LowerRobotCommand::Custom {
+                        lower_body_joints_command: joints_command.as_ref().clone(),
+                    },
+                    Ok(Err(inference_error)) => {
+                        error!(
+                            "Walk inference failed, sending RobotCommand::Damping: {inference_error}"
+                        );
+
+                        LowerRobotCommand::Damping
+                    }
+                    Err(ros_z_error) => {
+                        error!(
+                            "Failed to call GetUp inference service, sending RobotCommand::Damping! {ros_z_error}"
+                        );
+
+                        LowerRobotCommand::Damping
+                    }
+                };
+
+                match lower_body_command {
+                    LowerRobotCommand::Custom {
+                        lower_body_joints_command,
+                    } => {
+                        let arms_result = self.generate_walking_arm_joints(
+                            &lower_body_joints_command,
+                            clock,
+                            &parameters.arms,
+                            joint_limits,
+                        );
+
+                        let arms = match arms_result {
+                            Ok(arms) => arms,
+                            Err(error) => {
+                                error!(
+                                    "Failed to generate arm joints, using fallback joints: {error}"
+                                );
+
+                                UpperBodyJoints::fill(MotorCommand::damping())
+                            }
+                        };
+
+                        let body =
+                            BodyJoints::from_lower_and_upper(lower_body_joints_command, arms);
+
+                        RobotCommand::Custom {
+                            joints_command: Joints::from_head_and_body(head, body),
+                        }
+                    }
+                    LowerRobotCommand::Damping => RobotCommand::Damping,
+                }
             }
         };
 
-        self.last_arms = TimeWrapper {
-            time: now,
-            inner: joints_command
-                .clone()
-                .body()
-                .upper()
-                .map(|motor_command| motor_command.position),
-        };
+        if let RobotCommand::Custom { joints_command } = &robot_command {
+            self.last_arms = TimeWrapper {
+                time: now,
+                inner: joints_command
+                    .upper_body_as_ref()
+                    .map(|motor_command| motor_command.position),
+            };
+        }
 
-        joints_command
+        robot_command
     }
 
     fn generate_walking_arm_joints(
@@ -491,4 +588,12 @@ impl MotionState {
             right_arm: joints.right_arm,
         })
     }
+}
+
+#[allow(clippy::large_enum_variant)]
+enum LowerRobotCommand {
+    Custom {
+        lower_body_joints_command: LowerBodyJoints<MotorCommand>,
+    },
+    Damping,
 }

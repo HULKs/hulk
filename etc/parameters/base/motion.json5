@@ -15,4 +15,6 @@
     max_alignment_rate: 1.0,
     deceleration_distance: 0.5,
   },
+  inference_timeout: { secs: 0, nanos: 40000000 },
+  head_motion_timeout: { secs: 0, nanos: 40000000 },
 }

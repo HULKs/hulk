@@ -20,4 +20,14 @@ impl MotorCommand {
             kd: 0.0,
         }
     }
+
+    pub fn damping() -> Self {
+        Self {
+            position: 0.0,
+            velocity: 0.0,
+            torque: 0.0,
+            kp: 0.0,
+            kd: 1.0,
+        }
+    }
 }

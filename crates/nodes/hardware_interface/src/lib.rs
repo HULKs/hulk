@@ -189,14 +189,21 @@ async fn joints_command_worker(
     let mut assumed_robot_mode = RobotMode::Damping;
 
     loop {
-        let RobotCommand {
-            desired_mode,
-            joints_command,
-        } = robot_command_sub.recv().await?;
+        let robot_command = robot_command_sub.recv().await?;
 
         let timeout = parameters.snapshot().typed().sdk_request_timeout;
 
-        let low_command = low_command_from_joints_command(joints_command);
+        let desired_mode = match robot_command {
+            RobotCommand::Damping => DesiredMode::Damping,
+            RobotCommand::Prepare => DesiredMode::Prepare,
+            RobotCommand::Custom { joints_command } => {
+                let low_command = low_command_from_joints_command(joints_command);
+
+                joint_control_publisher.publish(&low_command).await?;
+
+                DesiredMode::Custom
+            }
+        };
 
         let robot_mode = booster_mode_from_desired_mode(desired_mode);
 
@@ -205,8 +212,6 @@ async fn joints_command_worker(
 
             assumed_robot_mode = robot_mode;
         }
-
-        joint_control_publisher.publish(&low_command).await?;
     }
 }
 
