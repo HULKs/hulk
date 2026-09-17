@@ -8,7 +8,7 @@ use bevy::{
     feathers::{
         FeathersPlugins, controls::*, dark_theme::create_dark_theme, display::label, theme::UiTheme,
     },
-    input_focus::{InputFocus, tab_navigation::TabGroup},
+    input_focus::{InputFocus, InputFocusSystems, tab_navigation::TabGroup},
     prelude::*,
     ui::InteractionDisabled,
     ui_widgets::{Activate, ValueChange},
@@ -192,6 +192,12 @@ impl Plugin for ControlsPlugin {
             .add_systems(Startup, setup)
             .add_systems(PreUpdate, gate_camera_input)
             .add_systems(
+                PreUpdate,
+                toggle_play_pause
+                    .after(bevy::input::InputSystems)
+                    .before(InputFocusSystems::Dispatch),
+            )
+            .add_systems(
                 Update,
                 (
                     update_kick_ground_truth,
@@ -207,6 +213,27 @@ impl Plugin for ControlsPlugin {
                     .chain(),
             );
     }
+}
+
+fn toggle_play_pause(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut focus: ResMut<InputFocus>,
+    editors: Query<(), With<bevy::text::EditableText>>,
+    balls: Res<crate::scene::ball_interaction::BallSelection>,
+    mut mode: ResMut<SimulationMode>,
+) {
+    if !keys.just_pressed(KeyCode::Space)
+        || focus.get().is_some_and(|entity| editors.contains(entity))
+        || balls.is_dragging()
+    {
+        return;
+    }
+    // Prevent Space from also activating the last focused toolbar/form button.
+    focus.clear();
+    *mode = match *mode {
+        SimulationMode::Paused => SimulationMode::Running,
+        SimulationMode::Running => SimulationMode::Paused,
+    };
 }
 
 fn gate_camera_input(

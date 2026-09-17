@@ -57,7 +57,8 @@ The launcher currently starts:
   stack resets. With `--no-robotics`, the simulator publishes field dimensions directly.
 
 To test the head, select **Stand** and **LookAround** in the Motion command form,
-click **Send command**, then **Run / Pause**. **ZeroAngles** returns the head
+click **Send command**, then **Run / Pause**. **Space** toggles play/pause unless you are editing a text
+field or dragging a ball. **ZeroAngles** returns the head
 to zero; **LookAt** and **LookLeftAndRightOf** expose target position and height.
 The game-controller form controls the field side used by head scan patterns.
 
