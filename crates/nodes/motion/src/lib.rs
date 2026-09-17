@@ -2,7 +2,7 @@ use std::{pin::Pin, sync::Arc, time::Duration};
 
 use color_eyre::{
     Result,
-    eyre::{WrapErr, ensure},
+    eyre::{WrapErr, ensure, eyre},
 };
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
@@ -136,6 +136,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .recv()
         .await
         .wrap_err("failed to receive joint limits")?;
+
+    joint_limits.validate().map_err(|reason| eyre!(reason))?;
 
     let clock = node.clock();
 
@@ -466,6 +468,11 @@ impl MotionState {
                 }
             }
         };
+
+        let robot_command = robot_command.clamp(joint_limits).unwrap_or_else(|error| {
+            error!("Invalid final robot command, sending RobotCommand::Damping: {error:#}");
+            RobotCommand::Damping
+        });
 
         if let RobotCommand::Custom { joints_command } = &robot_command {
             self.last_arms = TimeWrapper {
