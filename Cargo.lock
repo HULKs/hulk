@@ -4156,6 +4156,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fall_detection"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "color-eyre",
+ "ros-z",
+ "serde",
+ "tokio",
+ "types",
+]
+
+[[package]]
 name = "fall_down_state_receiver"
 version = "0.1.0"
 dependencies = [

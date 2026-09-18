@@ -1,0 +1,16 @@
+{
+  maximum_sensor_age: { secs: 0, nanos: 50000000 },
+  // Radians. Early prediction is deliberately not an actuator intervention rule.
+  upright_tilt: 0.349066,
+  falling_tilt: 0.785398,
+  fallen_tilt: 1.047198,
+  falling_duration: { secs: 0, nanos: 20000000 },
+  fallen_duration: { secs: 0, nanos: 150000000 },
+  upright_duration: { secs: 0, nanos: 100000000 },
+  maximum_recovery_angular_speed: 2.5,
+  maximum_ready_angular_speed: 4.0,
+  maximum_ready_joint_speed: 5.0,
+  maximum_ready_hip_pitch: 1.2,
+  maximum_ready_hip_roll: 0.5,
+  maximum_ready_knee: 1.5,
+}
