@@ -181,6 +181,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
+    let motion_execution_cache = node
+        .subscriber::<types::motion_execution::MotionExecution>(
+            types::motion_execution::MOTION_EXECUTION_TOPIC,
+        )
+        .qos(QosProfile {
+            reliability: ros_z::qos::QosReliability::BestEffort,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
     let ball_state_cache = node
         .subscriber::<Option<BallState>>("ball_state")
         .cache(1)
@@ -381,6 +392,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             primary_state,
         };
 
+        blackboard.world_state.motion_execution = motion_execution_cache
+            .get_latest()
+            .map(|s| s.as_ref().clone());
         blackboard.world_state.ball = ball_state_cache.get_latest().and_then(|ball| *ball);
         blackboard.visual_kick_ball_position = visual_kick_ball_position_cache
             .get_latest()

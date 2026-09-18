@@ -47,6 +47,7 @@ use crate::{
 pub mod command;
 mod inputs;
 mod node;
+mod recovery;
 pub mod walking;
 
 pub const ROBOT_COMMAND_TOPIC: &str = "commands/robot_command";
@@ -75,10 +76,12 @@ struct Parameters {
     maximum_command_age: Duration,
     maximum_sensor_age: Duration,
     maximum_hardware_age: Duration,
+    recovery: recovery::RecoveryParameters,
 }
 
 impl Parameters {
     fn validate(&self) -> std::result::Result<(), String> {
+        self.recovery.validate()?;
         let a = &self.arms;
         let w = &self.walking;
         if [

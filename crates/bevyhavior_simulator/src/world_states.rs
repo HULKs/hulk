@@ -133,6 +133,7 @@ pub fn build_world_states(
                         ..Default::default()
                     })
                 }),
+                motion_execution: None,
                 suggested_search_position: suggested_search_position.position,
             },
         );

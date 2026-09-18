@@ -5,12 +5,12 @@ use types::{
 
 use crate::{
     action,
-    actions::{damping, injected_motion_command, prepare, remote_control, stand, stand_up},
+    actions::{damping, injected_motion_command, prepare, remote_control, safety_motion, stand},
     behavior_tree::Node,
     condition,
     conditions::{
         has_ball_position, is_ball_interception_candidate, is_close_to_ball, is_closest_to_ball,
-        is_controller_connected, is_fallen, is_falling, is_goalkeeper, is_last_hulk_standing, is_primary_state,
+        is_controller_connected, is_goalkeeper, is_last_hulk_standing, is_primary_state,
         is_remote_control_enabled, is_remote_kick_mode, is_simple,
     },
     goalkeeper::goalkeeper_subtree,
@@ -39,14 +39,9 @@ pub fn create_tree() -> Node<Blackboard> {
         ),
         sequence!(
             condition!(is_primary_state, PrimaryState::Prepare),
-            switch_motion_type(
-                MotionType::Prepare,
-                action!(prepare),
-                sequence!(action!(look_straight_ahead), action!(stand))
-            )
+            action!(prepare)
         ),
-        sequence!(condition!(is_falling), action!(damping)),
-        sequence!(condition!(is_fallen), action!(stand_up)),
+        action!(safety_motion),
         sequence!(
             condition!(is_primary_state, PrimaryState::Stop),
             action!(stand)
@@ -164,7 +159,6 @@ fn remote_control_subtree() -> Node<Blackboard> {
     sequence!(
         condition!(is_remote_control_enabled),
         selection!(
-            sequence!(condition!(is_fallen), action!(stand_up)),
             sequence!(
                 condition!(is_controller_connected),
                 selection!(

@@ -1,5 +1,6 @@
 use super::*;
 use crate::inputs::{Latest, Sample};
+use crate::recovery::Recovery;
 use booster::{JointsMotorState, LowState};
 use ros_z::{
     prelude::*,
@@ -8,11 +9,14 @@ use ros_z::{
 };
 use std::time::Instant;
 use tracing::{error, warn};
+use types::fall_detection::{FALL_DETECTION_TOPIC, FallDetection};
 use types::hardware_status::{ControlMode, HARDWARE_STATUS_TOPIC, HardwareStatus};
+use types::motion_execution::{MOTION_EXECUTION_TOPIC, MotionExecution, MotionPhase};
 
 struct Inputs {
     commands: Latest<MotionCommand>,
     sensors: Latest<LowState>,
+    falls: Latest<FallDetection>,
     limits: Latest<JointLimits>,
     hardware: Latest<HardwareStatus>,
     inference: Latest<motion_inference::node::Status>,
@@ -21,6 +25,7 @@ struct Frame {
     time: Time,
     command: Arc<Sample<MotionCommand>>,
     position: Joints<f32>,
+    fall: FallDetection,
     limits: Arc<Sample<JointLimits>>,
     hardware: Arc<Sample<HardwareStatus>>,
 }
@@ -33,6 +38,7 @@ impl Inputs {
         Ok(Self {
             commands: Latest::subscribe(node, "behavior/motion_command", qos).await?,
             sensors: Latest::subscribe(node, "inputs/low_state", qos).await?,
+            falls: Latest::subscribe(node, FALL_DETECTION_TOPIC, qos).await?,
             limits: Latest::subscribe(node, "joint_limits", retained).await?,
             hardware: Latest::subscribe(node, HARDWARE_STATUS_TOPIC, qos).await?,
             inference: Latest::subscribe(node, motion_inference::node::STATUS_TOPIC, retained)
@@ -43,6 +49,7 @@ impl Inputs {
         let command = self.commands.snapshot().wrap_err("behavior command")?;
         let sensor = self.sensors.snapshot().wrap_err("body sensors")?;
         let hardware = self.hardware.snapshot().wrap_err("hardware state")?;
+        let fall = self.falls.snapshot().wrap_err("fall detection")?;
         let limits = self
             .limits
             .latest()
@@ -58,9 +65,16 @@ impl Inputs {
         hardware
             .validate_freshness(now, p.maximum_hardware_age)
             .wrap_err("hardware state")?;
+        fall.validate_freshness(now, p.maximum_sensor_age)
+            .wrap_err("fall detection")?;
+        ensure!(
+            fall.received.is_fresh(now, p.maximum_sensor_age),
+            "fall estimate unavailable or stale"
+        );
         limits.received.validate().map_err(|e| eyre!(e))?;
         Ok(Frame {
             time: now,
+            fall: fall.received.message,
             position: body_position(&sensor.received)?,
             command,
             limits,
@@ -99,6 +113,11 @@ pub(super) async fn run(ctx: Arc<Context>) -> Result<()> {
         .qos(qos)
         .build()
         .await?;
+    let statuses = node
+        .publisher::<MotionExecution>(MOTION_EXECUTION_TOPIC)
+        .qos(qos)
+        .build()
+        .await?;
     let mut motion = MotionState {
         walk_inference_client: node
             .service_client::<WalkInferenceService>(WALK_INFERENCE_SERVICE)
@@ -134,6 +153,9 @@ pub(super) async fn run(ctx: Arc<Context>) -> Result<()> {
         let p = parameters.snapshot();
         let command = cycle(&node, &inputs, &mut motion, &mut safety, p.typed()).await;
         outputs.publish(&command).await?;
+        statuses
+            .publish(&safety.status(&command, &motion, node.clock().now()))
+            .await?;
     }
 }
 
@@ -143,8 +165,34 @@ struct ControlSafety {
     saw_damping: bool,
     has_actuated: bool,
     last_input_warning: Option<Instant>,
+    recovery: Recovery,
 }
 impl ControlSafety {
+    fn stop(&mut self, motion: &mut MotionState) {
+        motion.deactivate();
+        self.recovery.reset();
+    }
+    fn status(&self, command: &RobotCommand, motion: &MotionState, now: Time) -> MotionExecution {
+        let phase = if self.fault.is_some() {
+            MotionPhase::Fault
+        } else {
+            match command {
+                RobotCommand::Damping => MotionPhase::Damping,
+                RobotCommand::Prepare => MotionPhase::Preparing,
+                _ => self.recovery.phase(),
+            }
+        };
+        let execution = self.recovery.execution();
+        MotionExecution {
+            time: now,
+            generation: motion.generation,
+            phase,
+            recovery_started_at: execution.map(|e| e.started_at),
+            recovery_progress: execution.and_then(|e| e.progress),
+            fault: self.fault.clone(),
+        }
+    }
+
     fn fail(&mut self, error: impl std::fmt::Display) {
         if self.fault.is_none() {
             error!("motion safety fault: {error:#}");
@@ -187,8 +235,7 @@ async fn cycle(
     safety: &mut ControlSafety,
     p: &Parameters,
 ) -> RobotCommand {
-    let request = inputs.commands.fresh(node.clock(), p.maximum_command_age);
-    if let Ok(request) = &request
+    if let Ok(request) = inputs.commands.fresh(node.clock(), p.maximum_command_age)
         && matches!(request.received.message, MotionCommand::Damping)
     {
         if safety.has_actuated
@@ -199,47 +246,77 @@ async fn cycle(
         if safety.fault.is_some() {
             safety.rearm(&request.received);
         }
-        motion.deactivate();
+        safety.stop(motion);
         return RobotCommand::Damping;
     }
     let frame = match inputs.frame(node.clock(), p) {
         Ok(frame) => frame,
         Err(error) => {
             safety.reject_input(error);
-            motion.deactivate();
+            safety.stop(motion);
             return RobotCommand::Damping;
         }
     };
     if safety.fault.is_some() && !safety.rearm(&frame.command.received) {
-        motion.deactivate();
+        safety.stop(motion);
         return RobotCommand::Damping;
     }
     if matches!(frame.command.received.message, MotionCommand::Prepare) {
-        motion.deactivate();
+        safety.stop(motion);
         return RobotCommand::Prepare;
     }
+    match run_policy(node, inputs, motion, safety, &frame, p).await {
+        Ok(command) => {
+            safety.has_actuated |= matches!(command, RobotCommand::Custom { .. });
+            command
+        }
+        Err(error) => {
+            safety.fail(error);
+            safety.stop(motion);
+            RobotCommand::Damping
+        }
+    }
+}
+
+async fn run_policy(
+    node: &Node,
+    inputs: &Inputs,
+    motion: &mut MotionState,
+    safety: &mut ControlSafety,
+    frame: &Frame,
+    p: &Parameters,
+) -> Result<RobotCommand> {
     if let Some(fault) = &frame.hardware.received.fault {
-        safety.fail(fault);
-        motion.deactivate();
-        return RobotCommand::Damping;
+        return Err(eyre!("hardware fault: {fault}"));
     }
     let initialized = inputs
         .inference
         .latest()
         .is_some_and(|s| !matches!(s.received.state, motion_inference::node::State::Idle));
     if !initialized {
+        safety.stop(motion);
+        return Ok(RobotCommand::Damping);
+    }
+    let previous_phase = safety.recovery.phase();
+    let plan = safety.recovery.select(
+        &frame.command.received,
+        frame.command.received.source_time,
+        &frame.fall,
+        frame.time,
+        p,
+    )?;
+    if previous_phase != safety.recovery.phase() && safety.recovery.phase() != MotionPhase::Normal {
         motion.deactivate();
-        return RobotCommand::Damping;
+    }
+    if matches!(plan, MotionPlan::Damping) {
+        safety.stop(motion);
+        return Ok(RobotCommand::Damping);
     }
     if frame.hardware.received.acknowledged != Some(ControlMode::Custom)
         || frame.hardware.received.desired != ControlMode::Custom
     {
-        if motion.active {
-            safety.fail("lost Custom mode acknowledgement");
-            motion.deactivate();
-            return RobotCommand::Damping;
-        }
-        return RobotCommand::EnableCustom;
+        ensure!(!motion.active, "lost Custom mode acknowledgement");
+        return Ok(RobotCommand::EnableCustom);
     }
     if !motion.active {
         motion.last_arms = TimeWrapper {
@@ -247,27 +324,18 @@ async fn cycle(
             inner: frame.position.upper_body_as_ref().map(|v| *v),
         };
     }
-    match infer_and_validate(node, inputs, motion, &frame, p).await {
-        Ok(command) => {
-            safety.has_actuated |= matches!(command, RobotCommand::Custom { .. });
-            command
-        }
-        Err(error) => {
-            safety.fail(error);
-            motion.deactivate();
-            RobotCommand::Damping
-        }
-    }
+    infer_and_validate(node, inputs, motion, safety, frame, plan, p).await
 }
 
 async fn infer_and_validate(
     node: &Node,
     inputs: &Inputs,
     motion: &mut MotionState,
+    safety: &mut ControlSafety,
     frame: &Frame,
+    plan: MotionPlan,
     p: &Parameters,
 ) -> Result<RobotCommand> {
-    let plan = MotionPlan::from_motion_command(&frame.command.received, &p.walking)?;
     let command = motion
         .infer(plan, node.clock(), p, &frame.limits.received)
         .await?;
@@ -276,7 +344,7 @@ async fn infer_and_validate(
         fresh.command.received.message,
         MotionCommand::Damping | MotionCommand::Prepare
     ) {
-        motion.deactivate();
+        safety.stop(motion);
         return Ok(
             if matches!(fresh.command.received.message, MotionCommand::Prepare) {
                 RobotCommand::Prepare
@@ -291,5 +359,13 @@ async fn infer_and_validate(
             && fresh.hardware.received.desired == ControlMode::Custom,
         "hardware no longer authorizes Custom"
     );
-    command.clamp(&fresh.limits.received)
+    if !safety.recovery.allows_output(&fresh.fall) {
+        safety.stop(motion);
+        return Ok(RobotCommand::Damping);
+    }
+    let command = command.clamp(&fresh.limits.received)?;
+    if let Some(execution) = motion.last_policy {
+        safety.recovery.observe(execution, fresh.time);
+    }
+    Ok(command)
 }

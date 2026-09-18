@@ -63,3 +63,40 @@ pub fn stand_up(blackboard: &mut Blackboard) -> Status {
     blackboard.body_motion = Some(BodyMotion::StandUp { fast });
     Status::Success
 }
+
+/// Safety precedes remote control and injected commands. Motion independently enforces the same gate.
+pub fn safety_motion(blackboard: &mut Blackboard) -> Status {
+    use types::{
+        fall_detection::{MAXIMUM_FALL_DETECTION_AGE, Posture},
+        motion_execution::MotionPhase,
+    };
+    let now = blackboard.world_state.now;
+    let Some(fall) = blackboard
+        .world_state
+        .fall_detection
+        .filter(|s| s.is_fresh(now, MAXIMUM_FALL_DETECTION_AGE))
+    else {
+        return damping(blackboard);
+    };
+    if let Some(execution) = blackboard
+        .world_state
+        .motion_execution
+        .as_ref()
+        .filter(|s| s.is_fresh(now))
+    {
+        match execution.phase {
+            MotionPhase::Fault => return damping(blackboard),
+            MotionPhase::Recovering { fast } => {
+                blackboard.body_motion = Some(BodyMotion::StandUp { fast });
+                return Status::Success;
+            }
+            MotionPhase::Settling => return stand(blackboard),
+            _ => {}
+        }
+    }
+    match fall.posture {
+        Posture::Fallen => stand_up(blackboard),
+        Posture::Falling | Posture::Unknown => damping(blackboard),
+        Posture::Upright => Status::Failure,
+    }
+}

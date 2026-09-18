@@ -31,6 +31,7 @@ pub struct WorldState {
     pub rule_ball: Option<BallState>,
     pub rule_obstacles: Vec<RuleObstacle>,
     pub fall_detection: Option<FallDetection>,
+    pub motion_execution: Option<crate::motion_execution::MotionExecution>,
     pub suggested_search_position: Option<Point2<Field>>,
 }
 
@@ -49,6 +50,7 @@ impl Default for WorldState {
             rule_ball: Default::default(),
             rule_obstacles: Default::default(),
             fall_detection: Default::default(),
+            motion_execution: None,
             suggested_search_position: Default::default(),
         }
     }

@@ -38,7 +38,14 @@ pub fn is_allowed_to_switch(blackboard: &mut Blackboard) -> bool {
         Some(MotionType::Kick) => parameters.kick < time_since_last_switch,
         Some(MotionType::Prepare) => parameters.prepare < time_since_last_switch,
         Some(MotionType::Stand) => parameters.stand < time_since_last_switch,
-        Some(MotionType::StandUp) => parameters.stand_up < time_since_last_switch,
+        Some(MotionType::StandUp) => blackboard
+            .world_state
+            .motion_execution
+            .as_ref()
+            .is_some_and(|s| {
+                s.is_fresh(blackboard.world_state.now)
+                    && matches!(s.phase, types::motion_execution::MotionPhase::Normal)
+            }),
         Some(MotionType::Walk) => parameters.walk < time_since_last_switch,
         None => true,
     }
