@@ -8,6 +8,10 @@
   topics: [
     "inputs/low_state",
     "inputs/fall_down_state",
+    "fall_detection/status",
+    "motion/execution",
+    "hardware_interface/status",
+    "motion_inference/timing",
     "joint_limits",
     "robot_kinematics",
     "inputs/odometry",
