@@ -10,13 +10,13 @@ use na::Matrix2;
 use nalgebra as na;
 use serde::{Deserialize, Serialize};
 
-use booster::{FallDownState, FallDownStateType};
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{IntoFramed, Isometry2, Point2, point};
 use projection::{Projection, camera_matrix::CameraMatrix};
 use ros_z::{prelude::*, qos::QosDurability, time::Time};
 use ros_z_streams::CreateFutureMapBuilder;
 use tokio::task::block_in_place;
+use types::fall_detection::FallDetection;
 use types::{
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
@@ -115,8 +115,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(10)
         .build()
         .await?;
-    let fall_down_state_cache = node
-        .subscriber::<FallDownState>("inputs/fall_down_state")
+    let fall_detection_cache = node
+        .subscriber::<FallDetection>(types::fall_detection::FALL_DETECTION_TOPIC)
+        .qos(ros_z::qos::QosProfile {
+            reliability: ros_z::qos::QosReliability::BestEffort,
+            ..Default::default()
+        })
         .cache(10)
         .build()
         .await?;
@@ -171,7 +175,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                             .get_latest()
                             .map(|primary_state| *primary_state)
                             .unwrap_or_default();
-                        let fall_down_state = fall_down_state_cache.get_latest();
+                        let fall_detection = fall_detection_cache.get_latest();
 
                         let obstacles = obstacle_filter.compose_outputs(
                             node.clock().now(),
@@ -179,7 +183,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                             field_dimensions.as_ref(),
                             ground_to_field.as_ref().map(Arc::as_ref),
                             primary_state,
-                            fall_down_state.as_ref().map(Arc::as_ref),
+                            fall_detection.as_ref().map(Arc::as_ref),
                         );
                         outputs.push(ObstacleFilterOutput {
                             hypotheses: obstacle_filter.hypotheses.clone(),
@@ -238,7 +242,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         .get_latest()
                         .map(|primary_state| *primary_state)
                         .unwrap_or_default();
-                    let fall_down_state = fall_down_state_cache.get_latest();
+                    let fall_detection = fall_detection_cache.get_latest();
 
                     let obstacles = obstacle_filter.compose_outputs(
                         node.clock().now(),
@@ -246,7 +250,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         field_dimensions.as_ref(),
                         last_ground_to_field.as_ref().map(Arc::as_ref),
                         primary_state,
-                        fall_down_state.as_ref().map(Arc::as_ref),
+                        fall_detection.as_ref().map(Arc::as_ref),
                     );
 
                     Some(ObstacleFilterOutput {
@@ -327,7 +331,7 @@ impl ObstacleFilter {
         field_dimensions: &FieldDimensions,
         ground_to_field: Option<&Isometry2<Ground, Field>>,
         primary_state: PrimaryState,
-        fall_down_state: Option<&FallDownState>,
+        fall_detection: Option<&FallDetection>,
     ) -> Vec<Obstacle> {
         self.remove_hypotheses(
             now,
@@ -338,9 +342,7 @@ impl ObstacleFilter {
         let became_unpenalized = self.last_primary_state == PrimaryState::Penalized
             && primary_state != PrimaryState::Penalized;
 
-        let is_upright = fall_down_state.is_none_or(|fall_down_state| {
-            fall_down_state.fall_down_state != FallDownStateType::IsReady
-        });
+        let is_upright = fall_detection.is_some_and(|state| state.is_upright(now));
 
         self.last_primary_state = primary_state;
 

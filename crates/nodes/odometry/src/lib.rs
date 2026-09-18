@@ -1,12 +1,13 @@
 use std::{boxed::Box, future::Future, pin::Pin, sync::Arc};
 
-use booster::{FallDownState, ImuState};
+use booster::ImuState;
 use color_eyre::Result;
 use coordinate_systems::Odometry;
 use kinematics::robot_kinematics::RobotKinematics;
 use linear_algebra::Pose2;
 use ros_z::prelude::*;
 use ros_z_streams::CreateAnnouncingPublisher;
+use types::fall_detection::FallDetection;
 use types::time_wrapper::TimeWrapper;
 
 mod estimator;
@@ -31,8 +32,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .with_stamp(|wrapper| wrapper.time)
         .build()
         .await?;
-    let fall_down_state_cache = node
-        .subscriber::<FallDownState>("inputs/fall_down_state")
+    let fall_detection_cache = node
+        .subscriber::<FallDetection>(types::fall_detection::FALL_DETECTION_TOPIC)
+        .qos(ros_z::qos::QosProfile {
+            reliability: ros_z::qos::QosReliability::BestEffort,
+            ..Default::default()
+        })
         .cache(10)
         .build()
         .await?;
@@ -47,7 +52,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let imu_state = imu_state_sub.recv_with_metadata().await?;
         let imu_time = imu_state.source_time;
         let maybe_robot_kinematics_wrapper = robot_kinematics_cache.get_nearest(imu_time);
-        let maybe_fall_down_state = fall_down_state_cache.get_nearest(imu_time);
+        let maybe_fall_detection = fall_detection_cache.get_nearest(imu_time);
         let imu_state = imu_state.into_message();
 
         if let Some(pose) = estimator.update(
@@ -57,7 +62,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 robot_kinematics: maybe_robot_kinematics_wrapper
                     .as_deref()
                     .map(|wrapper| &wrapper.inner),
-                fall_down_state: maybe_fall_down_state.as_deref(),
+                fall_detection: maybe_fall_detection.as_deref().filter(|s| {
+                    s.is_fresh(
+                        node.clock().now(),
+                        types::fall_detection::MAXIMUM_FALL_DETECTION_AGE,
+                    )
+                }),
             },
             &parameters,
         ) {

@@ -9,7 +9,7 @@ use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
 
 use crate::{
     ball_position::{BallPosition, HypotheticalBallPosition},
-    fall_down_state::FallDownState,
+    fall_detection::FallDetection,
     field_dimensions::Side,
     filtered_game_controller_state::FilteredGameControllerState,
     obstacles::Obstacle,
@@ -30,7 +30,7 @@ pub struct WorldState {
     pub robot: RobotState,
     pub rule_ball: Option<BallState>,
     pub rule_obstacles: Vec<RuleObstacle>,
-    pub fall_down_state: Option<FallDownState>,
+    pub fall_detection: Option<FallDetection>,
     pub suggested_search_position: Option<Point2<Field>>,
 }
 
@@ -48,7 +48,7 @@ impl Default for WorldState {
             robot: Default::default(),
             rule_ball: Default::default(),
             rule_obstacles: Default::default(),
-            fall_down_state: Default::default(),
+            fall_detection: Default::default(),
             suggested_search_position: Default::default(),
         }
     }

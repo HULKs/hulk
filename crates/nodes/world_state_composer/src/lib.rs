@@ -3,11 +3,11 @@ use std::{future::pending, sync::Arc};
 
 use color_eyre::Result;
 
-use booster::FallDownState;
 use coordinate_systems::{Field, Ground};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Point2};
 use ros_z::{prelude::*, qos::QosDurability};
+use types::fall_detection::FallDetection;
 use types::{
     ball_position::HypotheticalBallPosition,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -32,8 +32,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
-    let _fall_down_state_sub = node
-        .subscriber::<FallDownState>("inputs/fall_down_state")
+    let _fall_detection_sub = node
+        .subscriber::<FallDetection>(types::fall_detection::FALL_DETECTION_TOPIC)
+        .qos(QosProfile {
+            reliability: ros_z::qos::QosReliability::BestEffort,
+            ..Default::default()
+        })
         .build()
         .await?;
     let _ball_sub = node.subscriber::<BallState>("ball_state").build().await?;

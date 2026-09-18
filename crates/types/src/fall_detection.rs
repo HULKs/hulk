@@ -12,8 +12,11 @@ pub enum Posture {
     Fallen,
 }
 
+pub const FALL_DETECTION_TOPIC: &str = "fall_detection/status";
+pub const MAXIMUM_FALL_DETECTION_AGE: Duration = Duration::from_millis(100);
+
 /// Physical estimate. Recovery authorization belongs to Motion, not this message.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Message)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, Message)]
 pub struct FallDetection {
     pub time: Time,
     pub sample_time: Time,
@@ -24,6 +27,10 @@ pub struct FallDetection {
 }
 
 impl FallDetection {
+    pub fn is_upright(&self, now: Time) -> bool {
+        self.is_fresh(now, MAXIMUM_FALL_DETECTION_AGE) && self.posture == Posture::Upright
+    }
+
     pub fn is_fresh(&self, now: Time, maximum_age: Duration) -> bool {
         self.time <= now
             && self.sample_time <= now

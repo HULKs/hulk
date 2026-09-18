@@ -45,6 +45,8 @@ pub fn create_tree() -> Node<Blackboard> {
                 sequence!(action!(look_straight_ahead), action!(stand))
             )
         ),
+        sequence!(condition!(is_falling), action!(damping)),
+        sequence!(condition!(is_fallen), action!(stand_up)),
         sequence!(
             condition!(is_primary_state, PrimaryState::Stop),
             action!(stand)
@@ -67,8 +69,6 @@ pub fn create_tree() -> Node<Blackboard> {
             action!(look_around),
             action!(stand)
         ),
-        sequence!(condition!(is_falling), action!(damping)),
-        sequence!(condition!(is_fallen), action!(stand_up)),
         sequence!(
             condition!(is_primary_state, PrimaryState::Set),
             sequence!(subtree!(look_at_ball_subtree), action!(stand))

@@ -1,4 +1,5 @@
 use std::{collections::BTreeMap, time::SystemTime};
+use types::fall_detection::{FallDetection, Posture};
 
 use bevy::prelude::*;
 use coordinate_systems::{Ground, World};
@@ -11,7 +12,7 @@ use types::{
 
 use crate::{
     behavior_tree_simulator::{
-        SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDownState,
+        SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDetection,
         SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorObstacle,
         SimulatorPrimaryState, SimulatorReceivedHslMessages, SimulatorRobot, SimulatorRobotId,
         SimulatorRuleObstacles, SimulatorScenarioObstacles, SimulatorSuggestedSearchPosition,
@@ -37,7 +38,7 @@ pub fn build_world_states(
         &SimulatorGroundToWorld,
         &SimulatorHeadYaw,
         &SimulatorPrimaryState,
-        &SimulatorFallDownState,
+        &SimulatorFallDetection,
         &SimulatorSuggestedSearchPosition,
     )>,
     mut world_states: ResMut<SimulatorWorldStates>,
@@ -54,7 +55,7 @@ pub fn build_world_states(
         ground_to_world,
         head_yaw,
         primary_state,
-        fall_down_state,
+        fall_detection,
         suggested_search_position,
     ) in &robots
     {
@@ -123,7 +124,15 @@ pub fn build_world_states(
                     )
                 }),
                 rule_obstacles,
-                fall_down_state: fall_down_state.fall_down_state,
+                fall_detection: Some(FallDetection {
+                    time: ros_z::time::Time::from_wallclock(clock.now),
+                    sample_time: ros_z::time::Time::from_wallclock(clock.now),
+                    ..fall_detection.fall_detection.unwrap_or(FallDetection {
+                        posture: Posture::Upright,
+                        ready_for_walk: true,
+                        ..Default::default()
+                    })
+                }),
                 suggested_search_position: suggested_search_position.position,
             },
         );
@@ -244,7 +253,7 @@ mod tests {
     use crate::{
         behavior_tree_simulator::{
             DEFAULT_TICK_DURATION, SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock,
-            SimulatorFallDownState, SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw,
+            SimulatorFallDetection, SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw,
             SimulatorIncomingMessage, SimulatorIncomingMessages, SimulatorPrimaryState,
             SimulatorReceivedHslMessage, SimulatorReceivedHslMessages, SimulatorRobot,
             SimulatorRuleObstacles, SimulatorScenarioObstacles, SimulatorSuggestedSearchPosition,
@@ -354,7 +363,7 @@ mod tests {
                 SimulatorPrimaryState {
                     primary_state: PrimaryState::Playing,
                 },
-                SimulatorFallDownState::default(),
+                SimulatorFallDetection::default(),
                 SimulatorSuggestedSearchPosition::default(),
             ));
         }
@@ -432,7 +441,7 @@ mod tests {
             SimulatorPrimaryState {
                 primary_state: PrimaryState::Playing,
             },
-            SimulatorFallDownState::default(),
+            SimulatorFallDetection::default(),
             SimulatorSuggestedSearchPosition::default(),
         ));
 
@@ -498,7 +507,7 @@ mod tests {
             SimulatorPrimaryState {
                 primary_state: PrimaryState::Playing,
             },
-            SimulatorFallDownState::default(),
+            SimulatorFallDetection::default(),
             SimulatorSuggestedSearchPosition::default(),
         ));
 
@@ -563,7 +572,7 @@ mod tests {
             SimulatorPrimaryState {
                 primary_state: PrimaryState::Playing,
             },
-            SimulatorFallDownState::default(),
+            SimulatorFallDetection::default(),
             SimulatorSuggestedSearchPosition::default(),
         ));
 
@@ -623,7 +632,7 @@ mod tests {
                 SimulatorPrimaryState {
                     primary_state: PrimaryState::Playing,
                 },
-                SimulatorFallDownState::default(),
+                SimulatorFallDetection::default(),
                 SimulatorSuggestedSearchPosition::default(),
             ));
         }

@@ -8,13 +8,7 @@ use ros_z::{
     time::Time,
 };
 use serde::{Deserialize, Serialize};
-use types::{
-    fall_detection::{FallDetection, Posture},
-    fall_down_state::{FallDownState, FallDownStateType},
-};
-
-pub const STATUS_TOPIC: &str = "fall_detection/status";
-pub const STATE_TOPIC: &str = "fall_detection/state";
+use types::fall_detection::{FALL_DETECTION_TOPIC, FallDetection, Posture};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
@@ -239,12 +233,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let statuses = node
-        .publisher::<FallDetection>(STATUS_TOPIC)
-        .qos(qos)
-        .build()
-        .await?;
-    let states = node
-        .publisher::<FallDownState>(STATE_TOPIC)
+        .publisher::<FallDetection>(FALL_DETECTION_TOPIC)
         .qos(qos)
         .build()
         .await?;
@@ -261,13 +250,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             }
             _ = timer.tick() => {
                 let status = detector.status(node.clock().now(), parameters.snapshot().typed());
-                let (fall_down_state, is_recovery_available) = match status.posture {
-                    Posture::Upright => (FallDownStateType::IsReady, false),
-                    Posture::Fallen => (FallDownStateType::HasFallen, true),
-                    Posture::Falling | Posture::Unknown => (FallDownStateType::IsFalling, false),
-                };
                 statuses.publish(&status).await?;
-                states.publish(&FallDownState { fall_down_state, is_recovery_available }).await?;
             }
         }
     }

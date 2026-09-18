@@ -1,7 +1,7 @@
-use booster::{FallDownState, FallDownStateType};
 use filtering::hysteresis::less_than_with_hysteresis;
 use hsl_network_messages::Team;
 use linear_algebra::{point, vector};
+use types::fall_detection::Posture;
 use types::{
     controller_input::Button, filtered_game_controller_state::FilteredGameControllerState,
     primary_state::PrimaryState,
@@ -140,20 +140,21 @@ pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
 }
 
 pub fn is_fallen(blackboard: &mut Blackboard) -> bool {
-    blackboard
-        .world_state
-        .fall_down_state
-        .is_some_and(|fall_down_state| fall_down_state.is_recovery_available)
+    blackboard.world_state.fall_detection.is_some_and(|state| {
+        state.is_fresh(
+            blackboard.world_state.now,
+            types::fall_detection::MAXIMUM_FALL_DETECTION_AGE,
+        ) && state.posture == Posture::Fallen
+    })
 }
 
 pub fn is_falling(blackboard: &mut Blackboard) -> bool {
-    matches!(
-        blackboard.world_state.fall_down_state,
-        Some(FallDownState {
-            fall_down_state: FallDownStateType::IsFalling | FallDownStateType::HasFallen,
-            is_recovery_available: false
-        })
-    )
+    blackboard.world_state.fall_detection.is_none_or(|state| {
+        !state.is_fresh(
+            blackboard.world_state.now,
+            types::fall_detection::MAXIMUM_FALL_DETECTION_AGE,
+        ) || state.posture == Posture::Falling
+    })
 }
 
 pub fn is_goalkeeper(blackboard: &mut Blackboard) -> bool {
