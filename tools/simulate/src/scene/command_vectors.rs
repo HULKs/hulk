@@ -174,11 +174,11 @@ fn update(
             let height = ball::first_position(&world, &balls)
                 .ok()
                 .map(|position| position[2] as f32);
-            if matches!(io.input_motion, MotionCommand::Kick { .. }) && height.is_none() {
+            if matches!(io.active_motion(), MotionCommand::Kick { .. }) && height.is_none() {
                 return None;
             }
             Some(vectors(
-                &io.input_motion,
+                &io.active_motion(),
                 binding.ground_to_world(data),
                 nalgebra::point![position[0] as f32, position[1] as f32, position[2] as f32],
                 height.unwrap_or(0.0),

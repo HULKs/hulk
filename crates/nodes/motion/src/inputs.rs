@@ -55,7 +55,10 @@ where
         let task = tokio::spawn(async move {
             let mut last = None;
             while let Ok(received) = subscriber.recv_with_metadata().await {
-                if last.is_some_and(|time| received.source_time <= time) {
+                // Logical time can be paused while lifecycle states change (e.g.
+                // inference Idle -> Initialized). Keep arrival order for equal
+                // timestamps; freshness still checks the original source time.
+                if last.is_some_and(|time| received.source_time < time) {
                     continue;
                 }
                 last = Some(received.source_time);
@@ -84,5 +87,90 @@ where
 impl<T> Drop for Latest<T> {
     fn drop(&mut self) {
         self.task.abort();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use motion_inference::node::{State, Status};
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn accepts_state_changes_while_paused_without_renewing_source_freshness() {
+        let time = Time::from_nanos(1_000_000);
+        let clock = Clock::logical(time);
+        let context = ContextBuilder::default()
+            .with_mode("peer")
+            .disable_multicast_scouting()
+            .with_connect_endpoints(std::iter::empty::<&str>())
+            .with_listen_endpoints(std::iter::empty::<&str>())
+            .with_clock(clock.clone())
+            .build()
+            .await
+            .unwrap();
+        let node = context
+            .create_node("paused_state_test")
+            .build()
+            .await
+            .unwrap();
+        let status = node.publisher::<Status>("status").build().await.unwrap();
+        let latest = Latest::<Status>::subscribe(&node, "status", QosProfile::default())
+            .await
+            .unwrap();
+        let mut changes = latest.values.clone();
+
+        for state in [State::Idle, State::Initialized] {
+            status.publish(&Status { time, state }).await.unwrap();
+            tokio::time::timeout(Duration::from_secs(2), changes.changed())
+                .await
+                .unwrap()
+                .unwrap();
+        }
+        assert!(matches!(
+            latest.snapshot().unwrap().received.state,
+            State::Initialized
+        ));
+        assert_eq!(clock.now(), time);
+
+        status
+            .publish_with_source_time(
+                &Status {
+                    time: Time::zero(),
+                    state: State::Idle,
+                },
+                Time::zero(),
+            )
+            .await
+            .unwrap();
+        assert!(
+            tokio::time::timeout(Duration::from_millis(30), changes.changed())
+                .await
+                .is_err()
+        );
+        assert!(matches!(
+            latest.snapshot().unwrap().received.state,
+            State::Initialized
+        ));
+
+        clock.set_time(time + Duration::from_millis(20)).unwrap();
+        status
+            .publish_with_source_time(
+                &Status {
+                    time,
+                    state: State::Initialized,
+                },
+                time,
+            )
+            .await
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(2), changes.changed())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            latest.fresh(&clock, Duration::from_millis(10)).is_err(),
+            "retransmission must not renew an expired source sample"
+        );
+        context.shutdown().unwrap();
     }
 }

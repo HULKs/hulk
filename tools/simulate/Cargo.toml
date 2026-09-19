@@ -6,6 +6,10 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+behavior_node = { workspace = true }
+fall_detection = { workspace = true }
+ball_state_composer = { workspace = true }
+rule_obstacle_composer = { workspace = true }
 mujoco-rs = { version = "5.0.0", features = ["auto-download-mujoco"] }
 color-eyre = { workspace = true }
 bevy = { workspace = true, features = ["3d", "ui", "free_camera", "bevy_dev_tools", "bevy_feathers"] }

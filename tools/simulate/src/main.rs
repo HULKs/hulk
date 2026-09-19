@@ -22,6 +22,7 @@ use crate::{
     },
 };
 
+mod behavior_inputs;
 mod bevy_mujoco;
 mod controls;
 mod motion_parameters;
@@ -29,6 +30,7 @@ mod parameters;
 mod robot_io;
 mod robotics;
 mod scene;
+mod simulated_sdk;
 mod simulation;
 
 const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
@@ -91,7 +93,9 @@ fn main() -> Result<()> {
 
     let mut parameter_layers = vec![parameter_root, args.robotics_parameter_root.join("base")];
     parameter_layers.push(
-        args.robotics_parameter_root.join("location").join(args.location),
+        args.robotics_parameter_root
+            .join("location")
+            .join(args.location),
     );
     if let Some(robot) = args.robot {
         parameter_layers.push(args.robotics_parameter_root.join("robot").join(robot));

@@ -409,7 +409,7 @@ fn setup(mut commands: Commands) {
     commands.spawn_scene(bsn! {
         @FeathersButton { @variant: ButtonVariant::Primary }
         ChildOf(actions) SubmitButton Node { height: px(36), flex_grow: 1.0 }
-        Children[Text::new("Send command") PanelText template_value(PanelLabel::Submit)]
+        Children[Text::new("Inject command") PanelText template_value(PanelLabel::Submit)]
         on(|_: On<Activate>, mut editor: ResMut<Editor>, mut io: ResMut<Robotics>, inputs: Query<(&ParameterText, &bevy::text::EditableText)>, parameters: Res<CurrentSimulatorParameters>, world: Res<MujocoWorld>, balls: Res<SpawnedBalls>, robot: Single<Entity, With<ControlledRobot>>| {
             if editor.tab == "motion" && matches!(serde_json::from_value::<MotionCommand>(editor.draft["motion"].clone()), Ok(MotionCommand::Walk { .. })) {
                 editor.message_error = true;
@@ -432,13 +432,13 @@ fn setup(mut commands: Commands) {
                         fill_kick_ground_truth(&mut command, &world, &balls, *robot, parameters.parameters.field_dimensions.length)?;
                         editor.track_ball = false;
                         editor.draft["motion"] = value(&command);
-                        io.input_motion = command;
+                        io.injection_enabled = true; io.input_motion = command;
                         Ok(())
                     })
                 } else {
                     serde_json::from_value::<FilteredGameControllerState>(editor.draft["game"].clone()).map(|game| io.input_game = game).map_err(color_eyre::Report::from)
                 };
-                decoded.and_then(|()| io.publish_inputs()).map(|()| "Published".to_owned())
+                decoded.and_then(|()| if editor.tab == "motion" { io.inject_current_motion() } else { io.publish_inputs() }).map(|()| "Submitted".to_owned())
             };
             editor.message_error = result.is_err();
             editor.message = result.unwrap_or_else(|e| format!("{e:#}"));
@@ -586,14 +586,15 @@ fn update_status(
     let busy = state.busy || editor.pending.is_some();
     for (kind, mut label, mut color) in &mut labels {
         label.0 = match kind {
-            PanelLabel::Vectors => match &io.input_motion {
+            PanelLabel::Vectors => match &io.active_motion() {
                 MotionCommand::WalkWithVelocity { .. } => {
-                    "Sent vectors: blue = velocity, green = yaw rate\n1 m = 1 m/s or 1 rad/s".into()
+                    "Active vectors: blue = velocity, green = yaw rate\n1 m = 1 m/s or 1 rad/s"
+                        .into()
                 }
                 MotionCommand::Kick { .. } => {
-                    "Sent vector: amber = kick direction from ball (1 m)".into()
+                    "Active vector: amber = kick direction from ball (1 m)".into()
                 }
-                _ => "Command vectors appear after sending a walk or kick.".into(),
+                _ => "Command vectors appear when behavior outputs a walk or kick.".into(),
             },
             PanelLabel::KickBallOrigin => if balls.0.is_empty() {
                 "No ball — spawn one before sending a kick"
@@ -626,7 +627,7 @@ fn update_status(
             }
             .into(),
             PanelLabel::Telemetry => format!(
-                "{}     {:.3} s     Joints: {}",
+                "{}     {:.3} s     Joints: {}\nBehavior output: {}",
                 if *mode == SimulationMode::Paused {
                     "Paused"
                 } else {
@@ -637,19 +638,20 @@ fn update_status(
                     "connected"
                 } else {
                     "waiting"
-                }
+                },
+                variant(&value(io.active_motion()))
             ),
             PanelLabel::Submit => if editor.tab == "parameters" {
                 if busy { "Applying..." } else { "Apply live" }
             } else if editor.tab == "motion" {
-                "Send command"
+                "Inject command"
             } else {
                 "Send game state"
             }
             .into(),
             PanelLabel::Details => match editor.tab {
-                "motion" => "Controls body and head. Use Walk with velocity for walking.".into(),
-                "game" => "Set match state and field side for head-motion tests.".into(),
+                "motion" => "Inject a body/head override, or clear it to run behavior.".into(),
+                "game" => "Match state and field side drive autonomous behavior.".into(),
                 _ => "Tune the running nodes. Applying keeps the robot and simulation running."
                     .into(),
             },
@@ -675,6 +677,8 @@ fn update_status(
                 let message = if stack.contains("failed")
                     || stack.contains("exited")
                     || stack.contains("fault")
+                    || stack.contains("pending")
+                    || stack.contains("Applying motion")
                 {
                     stack
                 } else if editor.tab == "parameters" && disconnected {
@@ -741,7 +745,7 @@ fn update_kick_ground_truth(
     mut editor: ResMut<Editor>,
 ) {
     let draft_kick = editor.draft["motion"].get("Kick").is_some();
-    let active_kick = matches!(io.input_motion, MotionCommand::Kick { .. });
+    let active_kick = io.injection_enabled && matches!(io.input_motion, MotionCommand::Kick { .. });
     if draft_kick || active_kick {
         match KickGroundTruth::sample(
             &world,
@@ -757,7 +761,9 @@ fn update_kick_ground_truth(
                     draft["kick_direction"] = value(state.kick_direction);
                 }
                 let previous = io.input_motion.clone();
-                state.apply(&mut io.input_motion);
+                if active_kick {
+                    state.apply(&mut io.input_motion);
+                }
                 if io.input_motion != previous
                     && let Err(error) = io.publish_inputs()
                 {
@@ -766,6 +772,7 @@ fn update_kick_ground_truth(
                 }
             }
             Err(error) if active_kick => {
+                io.injection_enabled = true;
                 io.input_motion = MotionCommand::Damping;
                 let result = io.publish_inputs();
                 editor.message_error = true;
@@ -796,6 +803,7 @@ fn update_ball_target(
     let result = look_at_first_ball(&world, &balls, *robot).and_then(|command| {
         let next = value(&command);
         if next != value(&io.input_motion) {
+            io.injection_enabled = true;
             io.input_motion = command;
             io.publish_inputs()?;
         }
@@ -872,6 +880,16 @@ fn rebuild_form(
         }
     } else {
         if editor.tab == "motion" {
+            commands.spawn_scene(bsn! {
+                @FeathersButton ChildOf(form) Node { height: px(32), width: percent(100) }
+                Children[label("Clear injected motion — let behavior control")]
+                on(|_: On<Activate>, mut io: ResMut<Robotics>, mut editor: ResMut<Editor>| {
+                    editor.track_ball = false;
+                    let result = io.clear_injection();
+                    editor.message_error = result.is_err();
+                    editor.message = result.map_or_else(|e| e.to_string(), |()| "Clearing motion override; behavior follows Game settings.".into());
+                })
+            });
             let shortcuts = row(&mut commands, form);
             commands.spawn_scene(bsn! {
                 @FeathersButton ChildOf(shortcuts) Node { height: px(32), flex_grow: 1.0 }
@@ -884,7 +902,7 @@ fn rebuild_form(
                         return;
                     }
                     let result = look_at_first_ball(&world, &balls, *robot).and_then(|command| {
-                        editor.draft["motion"] = value(&command); editor.rebuild = true; io.input_motion = command; io.publish_inputs()
+                        editor.draft["motion"] = value(&command); editor.rebuild = true; io.injection_enabled = true; io.input_motion = command; io.inject_current_motion()
                     });
                     editor.track_ball = result.is_ok();
                     editor.message_error = result.is_err();
@@ -896,8 +914,8 @@ fn rebuild_form(
                 Children[label("Damp robot")]
                 on(|_: On<Activate>, mut io: ResMut<Robotics>, mut editor: ResMut<Editor>| {
                     editor.track_ball = false;
-                    io.input_motion = MotionCommand::Damping; editor.draft["motion"] = value(&io.input_motion); editor.rebuild = true;
-                    let result = io.publish_inputs(); editor.message_error = result.is_err();
+                    io.injection_enabled = true; io.input_motion = MotionCommand::Damping; editor.draft["motion"] = value(&io.input_motion); editor.rebuild = true;
+                    let result = io.inject_current_motion(); editor.message_error = result.is_err();
                     editor.message = result.map_or_else(|e| e.to_string(), |()| "Robot damping sent".into());
                 })
             });
@@ -1547,6 +1565,7 @@ mod tests {
     fn head_and_kick_track_ground_truth_while_paused() {
         use ros_z::{
             context::ContextBuilder,
+            parameter::NodeParametersExt,
             time::{Clock, Time},
         };
         use std::{path::PathBuf, time::Duration};
@@ -1555,8 +1574,21 @@ mod tests {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let endpoint = format!("tcp/127.0.0.1:{}", listener.local_addr().unwrap().port());
         drop(listener);
-        let (server, io, motion) = runtime.block_on(async {
+        let layer = tempfile::tempdir().unwrap();
+        std::fs::create_dir(layer.path().join("live")).unwrap();
+        std::fs::write(
+            layer.path().join("behavior_node.json5"),
+            "{control: {injected_motion_command: null}}",
+        )
+        .unwrap();
+        let (server, io, motion, _behavior) = runtime.block_on(async {
             let server = ContextBuilder::default()
+                .with_namespace("/ball_tracking")
+                .with_parameter_layers([
+                    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../etc/parameters/base"),
+                    layer.path().to_owned(),
+                    layer.path().join("live"),
+                ])
                 .with_mode("router")
                 .disable_multicast_scouting()
                 .with_connect_endpoints(std::iter::empty::<&str>())
@@ -1564,15 +1596,9 @@ mod tests {
                 .build()
                 .await
                 .unwrap();
-            let observer = server
-                .create_node("ball_tracking_test")
-                .build()
-                .await
-                .unwrap();
-            let motion = observer
-                .subscriber::<MotionCommand>("/ball_tracking/behavior/motion_command")
-                .build()
-                .await
+            let behavior = server.create_node("behavior_node").build().await.unwrap();
+            let motion = behavior
+                .bind_parameter_as::<types::parameters::BehaviorParameters>("behavior_node")
                 .unwrap();
             let io = Robotics::new(
                 runtime.handle().clone(),
@@ -1589,8 +1615,10 @@ mod tests {
             )
             .await
             .unwrap();
-            (server, io, motion)
+            (server, io, motion, behavior)
         });
+        let mut updates = motion.subscribe();
+        updates.borrow_and_update();
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, MujocoWorldPlugin));
         app.insert_resource(io)
@@ -1696,11 +1724,18 @@ mod tests {
             ))
             .id();
         app.update();
-        let receive = || {
+        let mut receive = || {
             runtime.block_on(async {
-                tokio::time::timeout(Duration::from_secs(2), motion.recv())
+                tokio::time::timeout(Duration::from_secs(3), updates.changed())
                     .await
                     .unwrap()
+                    .unwrap();
+                updates
+                    .borrow_and_update()
+                    .typed()
+                    .control
+                    .injected_motion_command
+                    .clone()
                     .unwrap()
             })
         };
@@ -1864,6 +1899,7 @@ mod tests {
         assert!((kick_direction.angle() - expected_direction).abs() < 1e-5);
         // Force a velocity-only change to verify live publication even at a fixed position.
         set_velocity(&mut app, [0.2, 0.3, 0.8, 9.0, 8.0, 7.0]);
+        app.world_mut().resource_mut::<Robotics>().injection_enabled = true;
         app.world_mut().resource_mut::<Robotics>().input_motion = kick.clone();
         app.update();
         let received = receive();
@@ -1963,6 +1999,37 @@ mod tests {
                 .message
                 .contains("Kick stopped")
         );
+        app.world_mut().resource_mut::<Editor>().track_ball = false;
+        app.world_mut()
+            .resource_mut::<Robotics>()
+            .clear_injection()
+            .unwrap();
+        runtime.block_on(async {
+            tokio::time::timeout(Duration::from_secs(3), async {
+                while motion
+                    .snapshot()
+                    .typed()
+                    .control
+                    .injected_motion_command
+                    .is_some()
+                {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            })
+            .await
+            .unwrap();
+        });
+        app.update();
+        runtime.block_on(async { tokio::time::sleep(Duration::from_millis(30)).await });
+        assert!(
+            motion
+                .snapshot()
+                .typed()
+                .control
+                .injected_motion_command
+                .is_none()
+        );
+        assert!(!app.world().resource::<Robotics>().injection_enabled);
         drop(app);
         drop(server);
     }

@@ -45,7 +45,16 @@ impl Plugin for MotionSimulationPlugin {
                 PreUpdate,
                 publish_field_dimensions.after(SimulatorParameterSyncSet),
             )
-            .add_systems(FixedUpdate, publish_observation.after(MujocoStepSet));
+            .add_systems(
+                FixedUpdate,
+                (publish_observation, publish_world)
+                    .chain()
+                    .after(MujocoStepSet),
+            )
+            .add_systems(
+                Update,
+                publish_world.run_if(|mode: Res<SimulationMode>| *mode == SimulationMode::Paused),
+            );
     }
 }
 
@@ -163,4 +172,36 @@ fn reset_robot(
 
 fn simulation_time(seconds: f64) -> RosTime {
     RosTime::from_nanos(Duration::from_secs_f64(seconds).as_nanos() as i64)
+}
+
+fn publish_world(
+    world: Res<MujocoWorld>,
+    binding: Res<Binding>,
+    io: Res<Robotics>,
+    balls: Res<crate::scene::ball::SpawnedBalls>,
+    objects: Query<(Entity, &crate::scene::object::ObjectKind), Without<ControlledRobot>>,
+) {
+    let Some(robot) = &binding.robot else {
+        return;
+    };
+    let ball = crate::scene::ball::first_position(&world, &balls)
+        .ok()
+        .zip(crate::scene::ball::first_velocity(&world, &balls).ok());
+    let data = world.data();
+    let obstacles = objects
+        .iter()
+        .filter(|(_, kind)| **kind == crate::scene::object::ObjectKind::Robot)
+        .filter_map(|(entity, _)| {
+            let body = data.body(&format!("object_{}_Trunk", entity.to_bits()))?;
+            let p = body.view(data).xpos;
+            Some([p[0], p[1], p[2]])
+        })
+        .collect();
+    io.publish_world(
+        robot.ground_to_world(data),
+        ball,
+        obstacles,
+        simulation_time(data.time()),
+    )
+    .expect("publish behavior ground truth");
 }
