@@ -33,9 +33,7 @@ impl Observation {
             joint_velocity_scale: state.parameters.observation.joint_velocity_scale,
             gravity: Vector3::wrap(sensor.gravity().into()),
             angular_velocity: sensor.gyro,
-            progress: now.duration_since(state.start).as_secs_f32()
-                * state.parameters.get_up.progress_rate
-                / state.reference_duration_seconds,
+            progress: state.progress(now),
             position_offsets: clip_measurement(sensor.position, joints.position) - offset,
             joint_velocity: *joint_velocity,
             previous_target_offsets: sensor.last_commanded_position - offset,

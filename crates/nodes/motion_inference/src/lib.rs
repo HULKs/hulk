@@ -7,3 +7,5 @@ pub mod inference;
 pub mod locomotion;
 pub mod network;
 pub mod observation;
+
+mod services;

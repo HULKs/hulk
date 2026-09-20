@@ -34,6 +34,12 @@ impl GetUp {
         }
     }
 
+    pub fn progress(&self, now: Time) -> f32 {
+        (now.duration_since(self.start).as_secs_f32() * self.parameters.get_up.progress_rate
+            / self.reference_duration_seconds)
+            .clamp(0.0, 1.0)
+    }
+
     pub(crate) fn update_parameters(&mut self, parameters: std::sync::Arc<Parameters>) {
         self.parameters = parameters;
     }
