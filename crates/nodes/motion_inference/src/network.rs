@@ -2,8 +2,7 @@ use crate::config::{Parameters, Policy};
 use color_eyre::eyre::{Result, WrapErr, ensure, eyre};
 use ort::{
     session::Session,
-    tensor::TensorElementType,
-    value::{Tensor, ValueType},
+    value::{Tensor, TensorElementType, ValueType},
 };
 use std::path::Path;
 
@@ -24,24 +23,26 @@ impl Network {
         );
         let path = root.join(&configured.model_file);
         let session = Session::builder()?
-            .with_intra_threads(parameters.inference_threads)?
-            .with_inter_threads(parameters.inference_threads)?
+            .with_intra_threads(parameters.inference_threads)
+            .map_err(ort::Error::<()>::from)?
+            .with_inter_threads(parameters.inference_threads)
+            .map_err(ort::Error::<()>::from)?
             .commit_from_file(&path)
             .wrap_err_with(|| format!("loading {}", path.display()))?;
         ensure!(
-            session.inputs.len() == 1 && session.outputs.len() == 1,
+            session.inputs().len() == 1 && session.outputs().len() == 1,
             "{policy:?}: expected one input and output"
         );
         let (input, output) = policy.dimensions();
         for (name, dtype, width) in [
             (
-                &session.inputs[0].name,
-                &session.inputs[0].input_type,
+                session.inputs()[0].name(),
+                session.inputs()[0].dtype(),
                 input,
             ),
             (
-                &session.outputs[0].name,
-                &session.outputs[0].output_type,
+                session.outputs()[0].name(),
+                session.outputs()[0].dtype(),
                 output,
             ),
         ] {
