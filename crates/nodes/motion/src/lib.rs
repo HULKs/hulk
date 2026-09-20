@@ -72,6 +72,40 @@ struct Parameters {
     head_motion_timeout: Duration,
 }
 
+impl Parameters {
+    fn validate(&self) -> std::result::Result<(), String> {
+        let a = &self.arms;
+        let w = &self.walking;
+        if [
+            a.shoulder_pitch_scale,
+            a.shoulder_roll_degrees,
+            a.shoulder_roll_scale,
+            a.knee_lateral_offset,
+            a.elbow_degrees,
+            a.elbow_scale,
+        ]
+        .into_iter()
+        .any(|v| !v.is_finite())
+            || [a.kp, a.kd, w.max_alignment_rate]
+                .into_iter()
+                .any(|v| !v.is_finite() || v < 0.0)
+            || [w.hybrid_align_distance, w.deceleration_distance]
+                .into_iter()
+                .any(|v| !v.is_finite() || v <= 0.0)
+            || [
+                a.arm_blend_duration,
+                self.inference_timeout,
+                self.head_motion_timeout,
+            ]
+            .into_iter()
+            .any(|v| v.is_zero())
+        {
+            return Err("invalid motion coefficients, gains, or durations".into());
+        }
+        Ok(())
+    }
+}
+
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
 }
@@ -85,6 +119,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     );
 
     let parameters = node.bind_parameter_as::<Parameters>("motion")?;
+    parameters.add_validation_hook(Parameters::validate)?;
 
     let motion_command_cache = node
         .subscriber::<MotionCommand>("behavior/motion_command")

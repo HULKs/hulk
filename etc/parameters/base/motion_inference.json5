@@ -2,6 +2,7 @@
   neural_networks_folder: "etc/neural_networks",
   inference_threads: 1,
   timing: {
+    maximum_sensor_age: { secs: 0, nanos: 50000000 },
     policy_period: { secs: 0, nanos: 20000000 },
     sensor_period: { secs: 0, nanos: 2000000 },
   },

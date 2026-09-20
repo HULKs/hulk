@@ -158,7 +158,13 @@ impl ZenohRpcClient {
                     service_topic: self.service_topic,
                 })?;
 
-                let status = parse_status_from_header(&response.header).unwrap_or(0);
+                let status = parse_status_from_header(&response.header).ok_or_else(|| {
+                    eyre!(
+                        "invalid RPC status for {} api {api_id} request {request_uuid}: {}",
+                        self.service_topic,
+                        response.header
+                    )
+                })?;
                 if status == -1 {
                     continue;
                 }

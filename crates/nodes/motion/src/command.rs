@@ -29,6 +29,10 @@ impl RobotCommand {
                 for (joint, [minimum, maximum]) in joint_limits.position.enumerate() {
                     let command = &mut joints_command[joint];
                     ensure!(
+                        command.kp >= 0.0 && command.kd >= 0.0,
+                        "negative motor gain for {joint:?}"
+                    );
+                    ensure!(
                         [
                             command.position,
                             command.velocity,

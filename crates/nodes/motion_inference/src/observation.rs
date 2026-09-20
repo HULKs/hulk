@@ -18,6 +18,16 @@ pub struct SensorFrame {
 }
 
 impl SensorFrame {
+    pub fn validate_at(&self, now: Time, parameters: &Parameters) -> Result<()> {
+        self.validate(parameters)?;
+        ensure!(self.timestamp <= now, "sensor timestamp is in the future");
+        ensure!(
+            now.duration_since(self.timestamp) <= parameters.timing.maximum_sensor_age,
+            "sensor frame expired"
+        );
+        Ok(())
+    }
+
     pub fn validate(&self, parameters: &Parameters) -> Result<()> {
         ensure!(
             self.position

@@ -167,7 +167,7 @@ impl Inference {
         sensor: &SensorFrame,
         request: InferenceCommand,
     ) -> Result<()> {
-        sensor.validate(&self.parameters)?;
+        sensor.validate_at(now, &self.parameters)?;
         request.validate(&self.parameters)?;
         let policy = request.policy();
         ensure!(
