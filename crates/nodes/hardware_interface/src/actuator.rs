@@ -188,6 +188,7 @@ impl Actuator {
         modes: &mut ModeWorker,
         publisher: &JointControlPublisher,
         statuses: &Publisher<HardwareStatus>,
+        sent_commands: &Publisher<LowCommand>,
     ) -> Result<()> {
         let now = node.clock().now();
         let acknowledged = modes.acknowledged();
@@ -210,14 +211,16 @@ impl Actuator {
         }
         let acknowledged = modes.acknowledged();
         // Protective targets are streamed immediately, including while an older mode RPC is in flight.
-        if desired == ControlMode::Custom
+        let command = if desired == ControlMode::Custom
             && acknowledged == Some(ControlMode::Custom)
             && self.fault.is_none()
         {
-            publisher.publish(&command).await?;
+            command
         } else {
-            publisher.publish(&protective_command()).await?;
-        }
+            protective_command()
+        };
+        publisher.publish(&command).await?;
+        sent_commands.publish(&command).await?;
         statuses
             .publish(&HardwareStatus {
                 time: now,
@@ -260,6 +263,11 @@ pub(super) async fn run(
         .qos(qos)
         .build()
         .await?;
+    let sent_commands = node
+        .publisher::<LowCommand>("hardware_interface/joint_command")
+        .qos(qos)
+        .build()
+        .await?;
     let publisher = JointControlPublisher::new(ctx.session()).await?;
     let client = Arc::new(loco_client::LocoClient::new(ctx.session()).await?);
     let mut modes = ModeWorker::new(client, diagnostics);
@@ -277,7 +285,7 @@ pub(super) async fn run(
                 let limits=received?;
                 match limits.validate() {Ok(())=>actuator.limits=Some(limits),Err(reason)=>{actuator.limits=None;actuator.fail(reason);}}
             }
-            _=timer.tick()=>actuator.tick(&node,parameters.snapshot().typed(),&mut modes,&publisher,&statuses).await?,
+            _=timer.tick()=>actuator.tick(&node,parameters.snapshot().typed(),&mut modes,&publisher,&statuses,&sent_commands).await?,
         }
     }
 }
