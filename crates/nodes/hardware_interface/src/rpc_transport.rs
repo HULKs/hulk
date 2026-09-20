@@ -56,6 +56,7 @@ impl ZenohRpcClient {
         let response_topic = format!("{service_topic}Resp");
         let request_publisher = session
             .declare_publisher(request_topic.clone())
+            .congestion_control(zenoh::qos::CongestionControl::Drop)
             .await
             .map_err(|error| eyre!("failed to declare `{request_topic}` publisher: {error}"))?;
         let response_subscriber = session

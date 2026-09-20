@@ -6,25 +6,22 @@ use types::{joint_limits::JointLimits, motor_command::MotorCommand};
 
 pub type JointsCommand = Joints<MotorCommand>;
 
-#[derive(Clone, Copy, Serialize, Deserialize, Message, PartialEq)]
-pub enum DesiredMode {
-    Damping,
-    Prepare,
-    Custom,
-}
-
 #[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize, Message)]
 pub enum RobotCommand {
     Damping,
+    /// Request Custom mode while hardware continues protective damping targets.
+    EnableCustom,
     Prepare,
-    Custom { joints_command: JointsCommand },
+    Custom {
+        joints_command: JointsCommand,
+    },
 }
 
 impl RobotCommand {
     pub fn clamp(self, joint_limits: &JointLimits) -> Result<Self> {
         match self {
-            Self::Damping | Self::Prepare => Ok(self),
+            Self::Damping | Self::Prepare | Self::EnableCustom => Ok(self),
             Self::Custom { mut joints_command } => {
                 for (joint, [minimum, maximum]) in joint_limits.position.enumerate() {
                     let command = &mut joints_command[joint];

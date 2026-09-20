@@ -18,11 +18,12 @@ use tracing::{error, info};
 use booster::{LedColor, LowCommand, RobotMode};
 use motion::{
     ROBOT_COMMAND_TOPIC,
-    command::{DesiredMode, JointsCommand, RobotCommand},
+    command::{JointsCommand, RobotCommand},
 };
 use retry_worker::{RetryCommand, run_retrying_rpc_worker};
 use ros_z::{parameter::NodeParameters, prelude::*};
 
+mod actuator;
 mod joint_control;
 mod light_client;
 mod loco_client;
@@ -46,6 +47,8 @@ pub struct Parameters {
     pub joint_control_message_interval: std::time::Duration,
     pub rotate_head_message_interval: std::time::Duration,
     pub sdk_request_timeout: std::time::Duration,
+    pub command_timeout: Duration,
+    pub mode_transition_timeout: Duration,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -143,78 +146,46 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .wrap_err("failed to bind hardware_interface parameters")?,
     );
 
+    let output_period = parameters.snapshot().typed().joint_control_message_interval;
+    parameters.add_validation_hook(move |p| {
+        if p.joint_control_message_interval != output_period {
+            return Err("changing the actuator output period requires a restart".into());
+        }
+        if [
+            p.joint_control_message_interval,
+            p.rotate_head_message_interval,
+            p.sdk_request_timeout,
+            p.command_timeout,
+            p.mode_transition_timeout,
+        ]
+        .into_iter()
+        .any(|v| v.is_zero())
+        {
+            return Err("hardware timeouts and periods must be positive".into());
+        }
+        if p.command_timeout <= p.joint_control_message_interval {
+            return Err("command timeout must exceed the output period".into());
+        }
+        Ok(())
+    })?;
     let rpc_diagnostics = Arc::new(RpcDiagnostics::default());
 
-    let joints_worker_result = tokio::spawn(joints_command_worker(
-        ctx.clone(),
-        node.clone(),
-        parameters.clone(),
-        rpc_diagnostics.clone(),
-    ));
-    let led_worker_result = tokio::spawn(led_command_worker(
-        ctx,
-        node,
-        parameters,
-        rpc_diagnostics.clone(),
-    ));
-
-    let (joints_worker_result, led_worker_result) =
-        tokio::try_join!(joints_worker_result, led_worker_result)?;
-
-    joints_worker_result?;
-    led_worker_result?;
-
-    Ok(())
-}
-
-async fn joints_command_worker(
-    ctx: Arc<Context>,
-    node: Arc<Node>,
-    parameters: Arc<NodeParameters<Parameters>>,
-    rpc_diagnostics: Arc<RpcDiagnostics>,
-) -> Result<()> {
-    let robot_command_sub = node
-        .subscriber::<RobotCommand>(ROBOT_COMMAND_TOPIC)
-        .build()
-        .await
-        .wrap_err("failed to build robot_command cache")?;
-    let joint_control_publisher = JointControlPublisher::new(ctx.session())
-        .await
-        .wrap_err("failed to create joint control publisher")?;
-    let loco_client = Arc::new(
-        loco_client::LocoClient::new(ctx.session())
-            .await
-            .wrap_err("failed to create LocoClient")?,
+    let result = tokio::try_join!(
+        actuator::run(
+            ctx.clone(),
+            node.clone(),
+            parameters.clone(),
+            rpc_diagnostics.clone()
+        ),
+        led_command_worker(ctx.clone(), node, parameters.clone(), rpc_diagnostics),
     );
-    let mode_command_sender = spawn_mode_worker(loco_client.clone(), rpc_diagnostics.clone());
-
-    let mut assumed_robot_mode = RobotMode::Damping;
-
-    loop {
-        let robot_command = robot_command_sub.recv().await?;
-
+    if result.is_err() {
         let timeout = parameters.snapshot().typed().sdk_request_timeout;
-
-        let desired_mode = match robot_command {
-            RobotCommand::Damping => DesiredMode::Damping,
-            RobotCommand::Prepare => DesiredMode::Prepare,
-            RobotCommand::Custom { joints_command } => {
-                let low_command = low_command_from_joints_command(joints_command);
-
-                joint_control_publisher.publish(&low_command).await?;
-
-                DesiredMode::Custom
-            }
-        };
-
-        let robot_mode = booster_mode_from_desired_mode(desired_mode);
-
-        if assumed_robot_mode != robot_mode {
-            send_retry_command(&mode_command_sender, robot_mode, timeout, "change_mode");
-
-            assumed_robot_mode = robot_mode;
+        if let Err(error) = actuator::protect(ctx.session(), timeout).await {
+            error!("failed to protect hardware after worker failure: {error:#}");
         }
     }
+    result.map(|_| ())
 }
 
 fn low_command_from_joints_command(joints_command: JointsCommand) -> LowCommand {
@@ -233,14 +204,6 @@ fn low_command_from_joints_command(joints_command: JointsCommand) -> LowCommand 
                 weight: 1.0,
             })
             .collect(),
-    }
-}
-
-fn booster_mode_from_desired_mode(desired_mode: DesiredMode) -> RobotMode {
-    match desired_mode {
-        DesiredMode::Damping => RobotMode::Damping,
-        DesiredMode::Prepare => RobotMode::Prepare,
-        DesiredMode::Custom => RobotMode::Custom,
     }
 }
 
@@ -278,36 +241,6 @@ fn desired_led_for(led_command: LedCommand) -> DesiredLed {
         LedCommand::SetParam { r, g, b } => DesiredLed::Set(LedColor { r, g, b }),
         LedCommand::Stop => DesiredLed::Stop,
     }
-}
-
-fn spawn_mode_worker(
-    loco_client: Arc<loco_client::LocoClient>,
-    rpc_diagnostics: Arc<RpcDiagnostics>,
-) -> watch::Sender<Option<RetryCommand<RobotMode>>> {
-    let (sender, receiver) = watch::channel(None::<RetryCommand<RobotMode>>);
-    tokio::spawn(run_retrying_rpc_worker(receiver, move |command| {
-        let loco_client = loco_client.clone();
-        let rpc_diagnostics = rpc_diagnostics.clone();
-        async move {
-            let mode = command.target;
-            let attempt = rpc_diagnostics.begin(RpcActionKind::ChangeMode);
-            info!(
-                target: "hardware_interface::rpc",
-                sequence = attempt.sequence,
-                action = "change_mode",
-                ?mode,
-                in_flight = attempt.in_flight_at_start,
-                "booster rpc scheduled"
-            );
-            retryable_rpc_call(
-                loco_client.change_mode(mode, command.timeout),
-                format!("request booster mode {mode:?}"),
-                attempt,
-            )
-            .await
-        }
-    }));
-    sender
 }
 
 fn spawn_led_worker(

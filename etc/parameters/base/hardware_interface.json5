@@ -1,4 +1,6 @@
 {
+  command_timeout: { secs: 0, nanos: 100000000 },
+  mode_transition_timeout: { secs: 2, nanos: 0 },
   joint_control_message_interval: { secs: 0, nanos: 20000000 },
   rotate_head_message_interval: { secs: 0, nanos: 20000000 },
   sdk_request_timeout: { secs: 0, nanos: 100000000 },

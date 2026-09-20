@@ -13,6 +13,7 @@ impl JointControlPublisher {
     pub async fn new(session: &zenoh::Session) -> Result<Self> {
         let publisher = session
             .declare_publisher(JOINT_CONTROL_TOPIC)
+            .congestion_control(zenoh::qos::CongestionControl::Drop)
             .await
             .map_err(|error| {
                 eyre!(error).wrap_err(format!(
