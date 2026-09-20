@@ -7,7 +7,7 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-# booster = { workspace = true }
+booster = { workspace = true }
 color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
 head_motion = { workspace = true }

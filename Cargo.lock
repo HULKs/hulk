@@ -6944,6 +6944,7 @@ dependencies = [
 name = "motion"
 version = "0.1.0"
 dependencies = [
+ "booster",
  "color-eyre",
  "coordinate_systems",
  "head_motion",

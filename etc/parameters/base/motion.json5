@@ -1,4 +1,7 @@
 {
+  maximum_command_age: { secs: 0, nanos: 100000000 },
+  maximum_sensor_age: { secs: 0, nanos: 50000000 },
+  maximum_hardware_age: { secs: 0, nanos: 100000000 },
   arms: {
     arm_blend_duration: { secs: 1, nanos: 0 },
     shoulder_pitch_scale: 1.5,

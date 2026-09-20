@@ -5,7 +5,6 @@ use color_eyre::{
     eyre::{WrapErr, ensure, eyre},
 };
 use serde::{Deserialize, Serialize};
-use tracing::{error, warn};
 
 use head_motion::node::{HEAD_MOTION_SERVICE_TOPIC, HeadMotionService};
 use kinematics::joints::{
@@ -28,7 +27,6 @@ use motion_inference::{
 use ros_z::{
     Message,
     context::Context,
-    node::Node,
     parameter::NodeParametersExt,
     qos::{QosDurability, QosProfile},
     service::ServiceClient,
@@ -47,6 +45,8 @@ use crate::{
 };
 
 pub mod command;
+mod inputs;
+mod node;
 pub mod walking;
 
 pub const ROBOT_COMMAND_TOPIC: &str = "commands/robot_command";
@@ -72,6 +72,9 @@ struct Parameters {
     walking: WalkingParameters,
     inference_timeout: Duration,
     head_motion_timeout: Duration,
+    maximum_command_age: Duration,
+    maximum_sensor_age: Duration,
+    maximum_hardware_age: Duration,
 }
 
 impl Parameters {
@@ -98,6 +101,9 @@ impl Parameters {
                 a.arm_blend_duration,
                 self.inference_timeout,
                 self.head_motion_timeout,
+                self.maximum_command_age,
+                self.maximum_sensor_age,
+                self.maximum_hardware_age,
             ]
             .into_iter()
             .any(|v| v.is_zero())
@@ -109,115 +115,7 @@ impl Parameters {
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
-    Box::pin(run(ctx))
-}
-
-async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node: Arc<Node> = Arc::new(
-        ctx.create_node("motion")
-            .build()
-            .await
-            .wrap_err("failed to create motion node")?,
-    );
-
-    let parameters = node.bind_parameter_as::<Parameters>("motion")?;
-    parameters.add_validation_hook(Parameters::validate)?;
-
-    let motion_command_cache = node
-        .subscriber::<MotionCommand>("behavior/motion_command")
-        .cache(1)
-        .build()
-        .await
-        .wrap_err("failed to build motion_command subscriber")?;
-
-    let robot_command_pub = node
-        .publisher::<RobotCommand>(ROBOT_COMMAND_TOPIC)
-        .build()
-        .await
-        .wrap_err("failed to build robot_command publisher")?;
-
-    let walk_inference_client = node
-        .service_client::<WalkInferenceService>(WALK_INFERENCE_SERVICE)
-        .build()
-        .await?;
-    let kick_inference_client = node
-        .service_client::<KickInferenceService>(KICK_INFERENCE_SERVICE)
-        .build()
-        .await?;
-    let get_up_inference_client = node
-        .service_client::<GetUpInferenceService>(GETUP_INFERENCE_SERVICE)
-        .build()
-        .await?;
-
-    let head_motion_client = node
-        .service_client::<HeadMotionService>(HEAD_MOTION_SERVICE_TOPIC)
-        .build()
-        .await
-        .wrap_err("failed to build head motion service client")?;
-
-    let joint_limits_sub = node
-        .subscriber::<JointLimits>("joint_limits")
-        .qos(QosProfile {
-            durability: QosDurability::TransientLocal,
-            ..Default::default()
-        })
-        .build()
-        .await?;
-
-    let joint_limits = joint_limits_sub
-        .recv()
-        .await
-        .wrap_err("failed to receive joint limits")?;
-
-    joint_limits.validate().map_err(|reason| eyre!(reason))?;
-
-    let clock = node.clock();
-
-    let mut motion_state = MotionState {
-        head_motion_client,
-        walk_inference_client,
-        kick_inference_client,
-        get_up_inference_client,
-        generation: clock.now().as_nanos() as u64,
-        active: false,
-        last_policy: None,
-
-        // TODO probably bad defaults
-        last_arms: TimeWrapper {
-            time: clock.now(),
-            inner: UpperBodyJoints::fill(0.0),
-        },
-    };
-
-    let mut timer = node.create_timer(Duration::from_millis(20));
-
-    loop {
-        timer.tick().await;
-        let parameters = &parameters.snapshot().typed;
-
-        // TODO: Expire motion command after certain duration
-        let motion_command = motion_command_cache.get_latest().unwrap_or_else(|| {
-            warn!("behavior did not provide a motion command (yet)!");
-
-            Arc::new(MotionCommand::Damping)
-        });
-
-        let motion_plan = MotionPlan::from_motion_command(&motion_command, &parameters.walking)
-            .unwrap_or_else(|error| {
-                error!("invalid motion request: {error:#}");
-                MotionPlan::Damping
-            });
-
-        let robot_command = motion_state
-            .infer(motion_plan, clock, parameters, &joint_limits)
-            .await
-            .unwrap_or_else(|error| {
-                error!("motion failed: {error:#}");
-                RobotCommand::Damping
-            });
-
-        robot_command_pub.publish(&robot_command).await?;
-    }
+    Box::pin(node::run(ctx))
 }
 
 struct MotionState {
