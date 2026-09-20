@@ -13,7 +13,7 @@ use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::Twix
 pub struct BallPosition {
     ground_to_field: TopicObservation<Isometry2<Ground, Field>>,
     ball_position: TopicObservation<Option<types::ball_position::BallPosition<Ground>>>,
-    team_ball: TopicObservation<types::ball_position::BallPosition<Field>>,
+    team_ball: TopicObservation<Option<types::ball_position::BallPosition<Field>>>,
 }
 
 impl Layer<Field> for BallPosition {
@@ -77,7 +77,10 @@ impl Layer<Field> for BallPosition {
             );
         }
 
-        if let Some(SampleRecord { value: ball, .. }) = self.team_ball.latest().as_deref() {
+        if let Some(SampleRecord {
+            value: Some(ball), ..
+        }) = self.team_ball.latest().as_deref()
+        {
             painter.ball(ball.position, field_dimensions.ball_radius, Color32::RED);
         }
 
