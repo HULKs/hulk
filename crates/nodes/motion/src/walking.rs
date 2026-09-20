@@ -1,3 +1,4 @@
+use color_eyre::eyre::{Result, ensure};
 use std::f32::consts::PI;
 
 use coordinate_systems::Ground;
@@ -7,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     motion_command::OrientationMode,
     path::{
-        Path,
+        Path, PathSegment,
         traits::{Length, PathProgress},
     },
     step::Step,
@@ -43,7 +44,54 @@ pub fn step_from_walk_command(
     distance_to_be_aligned: f32,
     speed: f32,
     parameters: &WalkingParameters,
-) -> Step {
+) -> Result<Step> {
+    ensure!(!path.segments.is_empty(), "empty walking path");
+    ensure!(
+        speed.is_finite()
+            && speed >= 0.0
+            && distance_to_be_aligned.is_finite()
+            && distance_to_be_aligned >= 0.0,
+        "invalid walking speed or alignment distance"
+    );
+    for segment in &path.segments {
+        let valid = match segment {
+            PathSegment::LineSegment(line) => line
+                .0
+                .inner
+                .iter()
+                .chain(line.1.inner.iter())
+                .all(|v| v.is_finite()),
+            PathSegment::Arc(arc) => {
+                arc.circle.center.inner.iter().all(|v| v.is_finite())
+                    && arc.circle.radius.is_finite()
+                    && arc.circle.radius > 0.0
+                    && arc
+                        .start
+                        .as_unit_vector()
+                        .inner
+                        .iter()
+                        .chain(arc.end.as_unit_vector().inner.iter())
+                        .all(|v| v.is_finite())
+            }
+        };
+        ensure!(valid, "invalid walking path geometry");
+    }
+    ensure!(
+        target_orientation.angle().is_finite(),
+        "invalid target orientation"
+    );
+    let length = path.length();
+    ensure!(
+        length.is_finite() && length >= 0.0,
+        "invalid walking path length"
+    );
+    if length <= f32::EPSILON {
+        return Ok(Step {
+            forward: 0.0,
+            left: 0.0,
+            turn: target_orientation.as_unit_vector().y() * parameters.max_alignment_rate,
+        });
+    }
     let forward = path.forward(Point2::origin());
     let distance_to_target = path.length();
     let deceleration_factor =
@@ -69,11 +117,17 @@ pub fn step_from_walk_command(
     let orientation = walk_orientation.slerp(target_orientation, target_alignment_importance);
     let angular_velocity = orientation.as_unit_vector().y() * parameters.max_alignment_rate;
 
-    Step {
+    ensure!(
+        [velocity.x(), velocity.y(), angular_velocity]
+            .into_iter()
+            .all(f32::is_finite),
+        "invalid walking step"
+    );
+    Ok(Step {
         forward: velocity.x(),
         left: velocity.y(),
         turn: angular_velocity,
-    }
+    })
 }
 
 #[cfg(test)]
@@ -116,7 +170,8 @@ mod tests {
             0.0,
             1.0,
             &walking_parameters(),
-        );
+        )
+        .unwrap();
 
         assert!((step.forward - 0.5).abs() < 0.001);
     }

@@ -113,6 +113,10 @@ pub fn move_robots(
                     *speed,
                     &parameters.walking,
                 );
+                let Ok(step) = step else {
+                    eprintln!("invalid walking path for {:?}", robot.id());
+                    continue;
+                };
                 ground_to_world.ground_to_world = apply_walk_to_pose(
                     ground_to_world.ground_to_world,
                     step,

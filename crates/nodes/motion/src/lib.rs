@@ -202,7 +202,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             Arc::new(MotionCommand::Damping)
         });
 
-        let motion_plan = MotionPlan::from_motion_command(&motion_command, &parameters.walking);
+        let motion_plan = MotionPlan::from_motion_command(&motion_command, &parameters.walking)
+            .unwrap_or_else(|error| {
+                error!("invalid motion request: {error:#}");
+                MotionPlan::Damping
+            });
 
         let robot_command = motion_state
             .infer(motion_plan, clock, parameters, &joint_limits)
@@ -244,8 +248,11 @@ enum MotionPlan {
 }
 
 impl MotionPlan {
-    fn from_motion_command(motion_command: &MotionCommand, parameters: &WalkingParameters) -> Self {
-        match motion_command {
+    fn from_motion_command(
+        motion_command: &MotionCommand,
+        parameters: &WalkingParameters,
+    ) -> Result<Self> {
+        Ok(match motion_command {
             MotionCommand::Damping => Self::Damping,
             MotionCommand::Prepare => Self::Prepare,
             MotionCommand::Stand { head } => Self::Walk {
@@ -295,7 +302,7 @@ impl MotionPlan {
                     *distance_to_be_aligned,
                     *speed,
                     parameters,
-                );
+                )?;
 
                 Self::Walk {
                     head_motion: *head,
@@ -316,7 +323,7 @@ impl MotionPlan {
                     angular_velocity: *angular_velocity,
                 },
             },
-        }
+        })
     }
 }
 
