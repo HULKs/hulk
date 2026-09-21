@@ -67,3 +67,6 @@ whistle_detection = { workspace = true }
 whistle_filter = { workspace = true }
 world_state_composer = { workspace = true }
 world_to_field_provider = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = { workspace = true }

@@ -218,6 +218,7 @@ nalgebra = { version = "0.34.2", features = [
 ndarray = { version = "0.16.1", features = ["serde"] }
 ndarray-conv = "0.4.1"
 notify = "8"
+nix = { version = "0.31.3", features = ["sched"] }
 nucleo-matcher = "0.3.1"
 num-traits = "0.2"
 obstacle_filter = { path = "crates/nodes/obstacle_filter" }
