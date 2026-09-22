@@ -8,7 +8,7 @@ use ros_z::Message;
 use serde::{Deserialize, Serialize};
 use types::{obstacles::Obstacle, rule_obstacles::RuleObstacle};
 
-type QueueItem = Reverse<(NotNan<f32>, usize, usize)>;
+type QueueItem = Reverse<(NotNan<f32>, usize, PlayerNumber)>;
 type Queue = BinaryHeap<QueueItem>;
 
 const STRAIGHT_COST: f32 = 1.0;
@@ -147,13 +147,13 @@ impl VoronoiGrid {
         }
         let (mut distance, mut queue) = self.prepare_dijkstra(robots);
 
-        while let Some(Reverse((current_cost, current_index, robot_index))) = queue.pop() {
+        while let Some(Reverse((current_cost, current_index, player_number))) = queue.pop() {
             let current_cost = current_cost.into_inner();
-            if current_cost > distance[current_index] {
+            if current_cost > distance[current_index]
+                || self.tiles[current_index] != Ownership::Robot(player_number)
+            {
                 continue;
             }
-
-            let player_number = robots[robot_index].1;
 
             for (neighbor_index, neighbor) in self.neighbor_indices(current_index) {
                 if self.tiles[neighbor_index] == Ownership::Blocked {
@@ -162,16 +162,32 @@ impl VoronoiGrid {
 
                 let new_cost = current_cost + neighbor.step_cost;
 
-                if new_cost < distance[neighbor_index] {
-                    distance[neighbor_index] = new_cost;
-                    self.tiles[neighbor_index] = Ownership::Robot(player_number);
-                    queue.push(Reverse((
-                        NotNan::new(new_cost).unwrap(),
-                        neighbor_index,
-                        robot_index,
-                    )));
-                }
+                self.relax(
+                    neighbor_index,
+                    new_cost,
+                    player_number,
+                    &mut distance,
+                    &mut queue,
+                );
             }
+        }
+    }
+
+    fn relax(
+        &mut self,
+        index: usize,
+        cost: f32,
+        player_number: PlayerNumber,
+        distance: &mut [f32],
+        queue: &mut Queue,
+    ) {
+        // Equal-cost claims use the same tie-break on every robot, including at sources.
+        let wins_tie = cost == distance[index]
+            && matches!(self.tiles[index], Ownership::Robot(owner) if player_number < owner);
+        if cost < distance[index] || wins_tie {
+            distance[index] = cost;
+            self.tiles[index] = Ownership::Robot(player_number);
+            queue.push(Reverse((NotNan::new(cost).unwrap(), index, player_number)));
         }
     }
 
@@ -198,21 +214,20 @@ impl VoronoiGrid {
         let mut seed_distance = vec![f32::INFINITY; self.tiles.len()];
         let mut seed_queue = BinaryHeap::new();
 
-        for (robot_index, (robot_pose, player_number)) in robots.iter().enumerate() {
+        for (robot_pose, player_number) in robots {
             if let Some(seed_cell) = self.nearest_matching_cell(
                 robot_pose.position(),
-                |ownership| ownership == Ownership::Free,
+                |ownership| ownership != Ownership::Blocked,
                 &mut seed_distance,
                 &mut seed_queue,
-            ) && seed_cell.cost < distance[seed_cell.index]
-            {
-                distance[seed_cell.index] = seed_cell.cost;
-                self.tiles[seed_cell.index] = Ownership::Robot(*player_number);
-                queue.push(Reverse((
-                    NotNan::new(seed_cell.cost).unwrap(),
+            ) {
+                self.relax(
                     seed_cell.index,
-                    robot_index,
-                )));
+                    seed_cell.cost,
+                    *player_number,
+                    distance,
+                    queue,
+                );
             }
         }
     }
@@ -422,4 +437,51 @@ fn xy_from_index(width_tiles: usize, index: usize) -> (usize, usize) {
     let x = index % width_tiles;
     let y = index / width_tiles;
     (x, y)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn coincident_sources_do_not_create_artificial_territory() {
+        let robots = [
+            (Pose2::from(point!(0.1, 0.1)), PlayerNumber::Three),
+            (Pose2::from(point!(-0.1, -0.1)), PlayerNumber::Two),
+        ];
+        let mut grid = VoronoiGrid::new(point!(-3.0, -3.0), point!(3.0, 3.0), 1.0);
+        grid.multi_source_dijkstra(&robots);
+
+        let mut reversed = VoronoiGrid::new(point!(-3.0, -3.0), point!(3.0, 3.0), 1.0);
+        reversed.multi_source_dijkstra(&[robots[1], robots[0]]);
+
+        assert_eq!(grid, reversed);
+        assert!(
+            grid.cells()
+                .all(|(_, owner)| owner == Ownership::Robot(PlayerNumber::Two))
+        );
+    }
+
+    #[test]
+    fn equal_distance_claims_prefer_player_number_over_grid_index() {
+        let robots = [
+            (Pose2::from(point!(-1.0, 0.0)), PlayerNumber::Three),
+            (Pose2::from(point!(1.0, 0.0)), PlayerNumber::Two),
+        ];
+        let mut grid = VoronoiGrid::new(point!(-3.0, -3.0), point!(3.0, 3.0), 1.0);
+        grid.multi_source_dijkstra(&robots);
+
+        let mut reversed = VoronoiGrid::new(point!(-3.0, -3.0), point!(3.0, 3.0), 1.0);
+        reversed.multi_source_dijkstra(&[robots[1], robots[0]]);
+
+        assert_eq!(grid, reversed);
+        assert_eq!(
+            grid.ownership_at(point!(0.0, 0.0)),
+            Some(Ownership::Robot(PlayerNumber::Two))
+        );
+        assert_eq!(
+            grid.ownership_at(point!(-1.0, 0.0)),
+            Some(Ownership::Robot(PlayerNumber::Three))
+        );
+    }
 }
