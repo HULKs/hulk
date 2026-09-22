@@ -25,7 +25,9 @@
       //// localhost_only: If set to true, the DDS discovery and traffic will occur only on the localhost interface (127.0.0.1).
       ////                 By default set to false, unless the "ROS_LOCALHOST_ONLY=1" environment variable is defined.
       ////
-      // localhost_only: true,
+      // Booster's DDS endpoints are available on loopback. Pin discovery here so
+      // automatic interface selection cannot isolate the bridge from them.
+      localhost_only: true,
 
       ////
       //// shm_enabled: If set to true, the DDS implementation will be configured to use the Iceoryx PSMX plugin.
