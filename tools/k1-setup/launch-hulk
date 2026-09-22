@@ -14,7 +14,7 @@ chown -R booster:booster /home/booster/hulk
   --user "$(id -u booster)" \
   hulk \
   /home/booster/hulk/bin/hulk_ros_z \
-  --location default-location \
+  --location default_location \
   --parameter-root etc/parameters \
   --router tcp/127.0.0.1:7447 \
   --log-path "${INTERNAL_LOG_PATH}" \
