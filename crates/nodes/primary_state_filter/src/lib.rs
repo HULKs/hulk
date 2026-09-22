@@ -142,9 +142,16 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     }
 }
 
-#[derive(Default)]
 struct PrimaryStateFilter {
     pub primary_state: PrimaryState,
+}
+
+impl Default for PrimaryStateFilter {
+    fn default() -> Self {
+        Self {
+            primary_state: PrimaryState::Damping,
+        }
+    }
 }
 
 impl PrimaryStateFilter {

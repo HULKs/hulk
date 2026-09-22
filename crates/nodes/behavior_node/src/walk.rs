@@ -37,7 +37,7 @@ pub fn plan(
         ..Default::default()
     };
     planner.with_last_motion(
-        &blackboard.last_motion_command,
+        blackboard.last_motion_command.as_ref(),
         parameters.rotation_penalty_factor,
     );
     planner.with_obstacles(&blackboard.world_state.obstacles, parameters.robot_radius);
@@ -92,8 +92,10 @@ pub fn walk_to(
         let parameters = &blackboard.parameters.walking.walk_and_stand;
         let distance_to_walk = target_pose.position().coords().norm();
         let angle_to_walk = target_pose.orientation().angle();
-        let was_standing_last_cycle =
-            matches!(blackboard.last_motion_command, MotionCommand::Stand { .. });
+        let was_standing_last_cycle = matches!(
+            blackboard.last_motion_command,
+            Some(MotionCommand::Stand { .. })
+        );
         let is_reached = less_than_with_relative_hysteresis(
             was_standing_last_cycle,
             distance_to_walk,
@@ -211,7 +213,7 @@ pub fn walk_to_block_position(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
-    if let (Some(ground_to_field), player_number) = (
+    if let (Some(ground_to_field), Some(player_number)) = (
         blackboard.world_state.robot.ground_to_field,
         blackboard.world_state.robot.player_number,
     ) {
@@ -251,11 +253,13 @@ pub fn walk_to_voronoi_position(blackboard: &mut Blackboard) -> Status {
     if let (Some(ground_to_field), Some(map)) = (
         blackboard.world_state.robot.ground_to_field,
         &blackboard.voronoi_map,
-    ) && let Some(target_position) = target_player_position(
-        map,
-        blackboard.world_state.robot.player_number,
-        blackboard.ball.as_ref().map(|ball| ball.position),
-    ) {
+    ) && let Some(player_number) = blackboard.world_state.robot.player_number
+        && let Some(target_position) = target_player_position(
+            map,
+            player_number,
+            blackboard.ball.as_ref().map(|ball| ball.position),
+        )
+    {
         let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
         let kicking_speed = blackboard.parameters.walking.speed.kicking;
         let orientation_mode = if let Some(ball) = &blackboard.ball {

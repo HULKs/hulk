@@ -56,8 +56,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut state = HeadMotionState::new();
     let mut last_update = None;
     let mut tick = node.create_timer(Duration::from_millis(10));
-    let default_motion_command = MotionCommand::default();
-
     loop {
         tick.tick().await;
         let now = node.clock().now();
@@ -76,7 +74,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         };
 
         let motion_command = motion_command_cache.get_latest();
-        let motion_command = motion_command.as_deref().unwrap_or(&default_motion_command);
         let last_cycle_duration = cycle_duration_since_last_update(&mut last_update, now);
         let parameters_snapshot = parameters.snapshot();
         let parameters = &parameters_snapshot.typed().parameters;
@@ -86,7 +83,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             look_at,
             &motor_states,
             last_cycle_duration,
-            motion_command,
+            motion_command.as_deref(),
         );
 
         head_joints_command_pub.publish(&head_joints).await?;
@@ -122,7 +119,7 @@ impl HeadMotionState {
         look_at: HeadJoints<f32>,
         motor_states: &Joints<MotorState>,
         last_cycle_duration: Duration,
-        motion_command: &MotionCommand,
+        motion_command: Option<&MotionCommand>,
     ) -> HeadJoints<f32> {
         if let Some(injected_head_joints) = parameters.injected_head_joints {
             self.lowpass_filter.update(injected_head_joints);
@@ -167,9 +164,9 @@ fn joints_from_motion(
     look_around_target_joints: HeadJoints<f32>,
     look_at: HeadJoints<f32>,
     motor_states: &Joints<MotorState>,
-    motion_command: &MotionCommand,
+    motion_command: Option<&MotionCommand>,
 ) -> HeadJoints<f32> {
-    match motion_command.head_motion() {
+    match motion_command.and_then(MotionCommand::head_motion) {
         Some(HeadMotion::Center {
             image_region_target: ImageRegion::Top,
         }) => HeadJoints {
@@ -212,11 +209,11 @@ mod tests {
             HeadJoints::default(),
             &Joints::default(),
             Duration::from_secs(1),
-            &MotionCommand::Stand {
+            Some(&MotionCommand::Stand {
                 head: HeadMotion::Center {
                     image_region_target: ImageRegion::Top,
                 },
-            },
+            }),
         );
 
         assert_eq!(
@@ -243,9 +240,9 @@ mod tests {
             HeadJoints::default(),
             &motor_states,
             Duration::from_secs(1),
-            &MotionCommand::Stand {
+            Some(&MotionCommand::Stand {
                 head: HeadMotion::Unstiff,
-            },
+            }),
         );
 
         assert_eq!(head_joints, measured_head);
@@ -285,7 +282,7 @@ mod tests {
             HeadJoints::default(),
             &Joints::default(),
             Duration::from_secs(1),
-            &MotionCommand::default(),
+            None,
         );
         let after_injection = state.update(
             &normal_parameters,
@@ -296,9 +293,9 @@ mod tests {
             HeadJoints::default(),
             &Joints::default(),
             Duration::from_secs(1),
-            &MotionCommand::Stand {
+            Some(&MotionCommand::Stand {
                 head: HeadMotion::LookAround,
-            },
+            }),
         );
 
         assert_eq!(after_injection, injected_output);
