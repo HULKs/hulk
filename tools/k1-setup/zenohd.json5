@@ -136,6 +136,22 @@
     },
   },
 
+  // A disconnected viewer must not block forwarding to the local DDS bridge.
+  // Drop congested topic samples only on the K1's external Ethernet/Wi-Fi links.
+  // Loopback traffic and service queries/replies keep their original QoS.
+  qos: {
+    network: [
+      {
+        id: "external-topic-samples",
+        interfaces: ["enP9p1s0", "wlP1p1s0"],
+        flows: ["egress"],
+        messages: ["put"],
+        key_exprs: ["rt/**"],
+        overwrite: { congestion_control: "drop" },
+      },
+    ],
+  },
+
   ///
   /// Plugins configurations
   ///
