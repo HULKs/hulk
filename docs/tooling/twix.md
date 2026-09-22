@@ -18,12 +18,6 @@ To connect through a specific Zenoh router endpoint at startup, pass `--router`:
 
 To start with one blank workspace instead of restoring the saved session, run Twix with `--clear`. User presets are retained.
 
-The K1 router configuration in `tools/k1-setup/zenohd.json5` makes outgoing ROS topic samples (`rt/**`) droppable under congestion on the external Ethernet and Wi-Fi interfaces. A slow or disconnected viewer can therefore lose samples without blocking local forwarding. This applies to all subscribers reached through those interfaces, including remote recorders. Loopback consumers and service queries/replies retain their existing QoS.
-
-This policy belongs on the robot's router: changing Twix's subscriber reliability or local queue size does not change the congestion policy of incoming publications. The interface names in the rule must match the robot's external links. Existing robots need the updated router configuration deployed and the router restarted during a coordinated maintenance window; rebuilding Twix alone does not apply it.
-
-The policy mitigates publication backpressure in Zenoh 1.9.0. It does not fix every non-droppable protocol path covered by [Zenoh issue #1876](https://github.com/eclipse-zenoh/zenoh/issues/1876). Validate a deployment with Twix displaying images during Ethernet removal: local manufacturer RPCs should continue, and Twix should recover after reconnection without a bridge restart.
-
 Twix checks the local repository version at startup and warns when the running binary is older than the checked-out `tools/twix/Cargo.toml` version. Use `--repository-root <path>` to point that check at a different checkout.
 
 ## Workspaces and presets
