@@ -1,4 +1,7 @@
-use types::{motion_command::KickPower, motion_type::MotionType, primary_state::PrimaryState};
+use types::{
+    controller_input::Button, motion_command::KickPower, motion_type::MotionType,
+    primary_state::PrimaryState,
+};
 
 use crate::{
     action,
@@ -165,10 +168,14 @@ fn remote_control_subtree() -> Node<Blackboard> {
                 selection!(
                     subtree!(
                         remote_kick_subtree,
-                        "LeftTrigger",
+                        Button::LeftTrigger,
                         KickPower::Rumpelstilzchen
                     ),
-                    subtree!(remote_kick_subtree, "RightTrigger", KickPower::Schlong),
+                    subtree!(
+                        remote_kick_subtree,
+                        Button::RightTrigger,
+                        KickPower::Schlong
+                    ),
                     action!(remote_control)
                 )
             ),
@@ -177,7 +184,7 @@ fn remote_control_subtree() -> Node<Blackboard> {
     )
 }
 
-fn remote_kick_subtree(button: &'static str, kick_power: KickPower) -> Node<Blackboard> {
+fn remote_kick_subtree(button: Button, kick_power: KickPower) -> Node<Blackboard> {
     sequence!(
         condition!(is_remote_kick_mode, button),
         subtree!(look_at_ball_subtree),

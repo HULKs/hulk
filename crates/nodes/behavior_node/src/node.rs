@@ -18,7 +18,7 @@ use tracing::info;
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     behavior_tree::NodeTrace,
-    controller_input::ControllerInput,
+    controller_input::{Button, ControllerInput},
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     messages::OutgoingMessage,
@@ -331,13 +331,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let was_start_pressed = blackboard
             .controller_input
             .as_ref()
-            .is_some_and(|input| input.is_pressed("Start"));
+            .is_some_and(|input| input.is_pressed(Button::Start));
         blackboard.controller_input = controller_input_cache
             .get_after(Time::from_wallclock(SystemTime::now()) - Duration::from_millis(250))
             .filter(|input| input.connected)
             .map(|input| input.as_ref().clone());
         if let Some(input) = &blackboard.controller_input
-            && input.is_pressed("Start")
+            && input.is_pressed(Button::Start)
             && !was_start_pressed
         {
             blackboard.remote_control_enabled = !blackboard.remote_control_enabled;

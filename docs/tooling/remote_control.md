@@ -5,6 +5,9 @@
 
 ## Controls
 
+Put the robot in `Initial`, then press Start on the controller to enable remote control.
+Remote control cannot override `Damping`, `Prepare`, or `Stop`.
+
 | Control | Action |
 | --- | --- |
 | Press Start | Toggle remote control on/off (starts off) |

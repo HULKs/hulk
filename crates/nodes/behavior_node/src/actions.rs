@@ -1,6 +1,7 @@
 use linear_algebra::vector;
 use types::{
     behavior_tree::Status,
+    controller_input::{Axis, Button},
     motion_command::{BodyMotion, HeadMotion},
 };
 
@@ -37,14 +38,14 @@ pub fn remote_control(blackboard: &mut Blackboard) -> Status {
 
     blackboard.body_motion = Some(BodyMotion::WalkWithVelocity {
         velocity: vector![
-            input.axis_value("LeftStickY"),
-            -input.axis_value("LeftStickX")
+            input.axis_value(Axis::LeftStickY),
+            -input.axis_value(Axis::LeftStickX)
         ],
-        angular_velocity: -input.axis_value("RightStickX"),
+        angular_velocity: -input.axis_value(Axis::RightStickX),
     });
     blackboard.head_motion = Some(HeadMotion::MoveWithVelocity {
-        yaw: input.button_value("DPadLeft") - input.button_value("DPadRight"),
-        pitch: input.button_value("DPadDown") - input.button_value("DPadUp"),
+        yaw: input.button_value(Button::DPadLeft) - input.button_value(Button::DPadRight),
+        pitch: input.button_value(Button::DPadDown) - input.button_value(Button::DPadUp),
     });
     Status::Success
 }

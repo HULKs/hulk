@@ -2,7 +2,8 @@ use filtering::hysteresis::less_than_with_hysteresis;
 use hsl_network_messages::Team;
 use linear_algebra::{point, vector};
 use types::{
-    filtered_game_controller_state::FilteredGameControllerState, primary_state::PrimaryState,
+    controller_input::Button, filtered_game_controller_state::FilteredGameControllerState,
+    primary_state::PrimaryState,
 };
 use voronoi::Ownership;
 
@@ -163,7 +164,7 @@ pub fn is_controller_connected(blackboard: &mut Blackboard) -> bool {
         .is_some_and(|controller| controller.connected)
 }
 
-pub fn is_remote_kick_mode(blackboard: &mut Blackboard, button: &str) -> bool {
+pub fn is_remote_kick_mode(blackboard: &mut Blackboard, button: Button) -> bool {
     blackboard
         .controller_input
         .as_ref()
