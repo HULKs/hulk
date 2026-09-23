@@ -1,5 +1,8 @@
 use linear_algebra::vector;
-use types::{behavior_tree::Status, motion_command::BodyMotion};
+use types::{
+    behavior_tree::Status,
+    motion_command::{BodyMotion, MotionCommand},
+};
 
 use crate::node::Blackboard;
 
@@ -29,11 +32,11 @@ pub fn prepare(blackboard: &mut Blackboard) -> Status {
 
 pub fn remote_control(blackboard: &mut Blackboard) -> Status {
     let parameters = &blackboard.parameters.control.remote_control;
-    let remote_control_motion_command = BodyMotion::WalkWithVelocity {
+    let remote_control_body_motion = BodyMotion::WalkWithVelocity {
         velocity: vector![parameters.walk.forward, parameters.walk.left,],
         angular_velocity: parameters.walk.turn,
     };
-    blackboard.body_motion = Some(remote_control_motion_command);
+    blackboard.body_motion = Some(remote_control_body_motion);
     Status::Success
 }
 
@@ -43,6 +46,10 @@ pub fn stand(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn stand_up(blackboard: &mut Blackboard) -> Status {
-    blackboard.body_motion = Some(BodyMotion::StandUp);
+    let fast = match blackboard.last_motion_command {
+        MotionCommand::StandUp { fast } => fast,
+        _ => blackboard.parameters.stand_up.fast,
+    };
+    blackboard.body_motion = Some(BodyMotion::StandUp { fast });
     Status::Success
 }

@@ -54,6 +54,8 @@ pub struct Blackboard {
     pub visual_kick_ball_position: Option<BallPosition<Ground>>,
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
+    /// Target selected for this tick, used to choose kick strength.
+    pub kick_target: Option<Point2<Ground>>,
     pub last_kick_target: Option<Point2<Field>>,
     pub last_motion_command: MotionCommand,
     pub last_motion_switch_time: Time,
@@ -115,6 +117,10 @@ fn validate_behavior_parameters(
                 walk_speed.minimum_speed
             ));
         }
+    }
+
+    if !parameters.kicking.target_speed.is_finite() || parameters.kicking.target_speed < 0.0 {
+        errors.push("kicking.target_speed must be finite and non-negative".to_owned());
     }
 
     if errors.is_empty() {
@@ -271,6 +277,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         visual_kick_ball_position: None,
         last_ball: None,
         last_close_enough_to_kick: false,
+        kick_target: None,
         last_kick_target: None,
         last_motion_command: MotionCommand::default(),
         last_motion_switch_time: Time::zero(),
@@ -303,6 +310,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         blackboard.is_injected_motion_command = false;
         blackboard.walk_position = None;
+        blackboard.kick_target = None;
         blackboard.body_motion = None;
         blackboard.head_motion = None;
         blackboard.voronoi_map = None;
@@ -391,12 +399,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let motion_type = match &motion_command {
             MotionCommand::Damping => Some(MotionType::Damping),
-            MotionCommand::VisualKick { .. } => Some(MotionType::Kick),
+            MotionCommand::Kick { .. } => Some(MotionType::Kick),
             MotionCommand::Walk { .. } | MotionCommand::WalkWithVelocity { .. } => {
                 Some(MotionType::Walk)
             }
             MotionCommand::Stand { .. } => Some(MotionType::Stand),
-            MotionCommand::StandUp => Some(MotionType::StandUp),
+            MotionCommand::StandUp { .. } => Some(MotionType::StandUp),
             MotionCommand::Prepare => Some(MotionType::Prepare),
         };
 
@@ -406,7 +414,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 ?motion_command,
                 ?motion_type,
                 previous_motion_type = ?blackboard.last_motion_type,
-                "behavior motion command changed"
+                "motion command changed"
             );
         }
 

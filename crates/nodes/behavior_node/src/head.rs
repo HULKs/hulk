@@ -33,6 +33,7 @@ pub fn look_at_ball(blackboard: &mut Blackboard) -> Status {
     if let Some(ball) = &blackboard.world_state.ball {
         blackboard.head_motion = Some(HeadMotion::LookAt {
             target: ball.ball_in_ground,
+            height_above_ground: blackboard.field_dimensions.ball_radius,
             image_region_target: ImageRegion::Center,
         });
         Status::Success
@@ -67,6 +68,7 @@ pub fn look_at_hypothetical_ball_position(blackboard: &mut Blackboard) -> Status
     if let Some(hypothesis) = best_hypothetical_ball_position {
         blackboard.head_motion = Some(HeadMotion::LookAt {
             target: hypothesis.position,
+            height_above_ground: blackboard.field_dimensions.ball_radius,
             image_region_target: ImageRegion::Center,
         });
         Status::Success

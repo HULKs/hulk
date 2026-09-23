@@ -6,8 +6,6 @@ use ros_z::Message;
 use ros2::{geometry_msgs::transform_stamped::TransformStamped, std_msgs::header::Header};
 use serde::{Deserialize, Serialize};
 
-pub mod walking;
-
 pub use types::{
     buttons::ButtonEventType,
     fall_down_state::{FallDownState, FallDownStateType},
@@ -294,7 +292,7 @@ impl LowCommand {
                 .zip(motor_command_parameters.derivative_coefficients)
                 .map(|((joint_position, kp), kd)| MotorCommand {
                     command_type,
-                    position: joint_position,
+                    position: *joint_position,
                     velocity: 0.0,
                     torque: 0.0,
                     kp,

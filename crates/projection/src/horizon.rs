@@ -1,4 +1,4 @@
-use coordinate_systems::{Camera, Ground, Pixel};
+use coordinate_systems::{Ground, LeftCamera, Pixel};
 use linear_algebra::{Isometry3, Point2, Vector2, Vector3, point, vector};
 use serde::{Deserialize, Serialize};
 
@@ -35,7 +35,7 @@ impl Horizon {
     }
 
     fn find_vanishing_point(
-        ground_to_camera: Isometry3<Ground, Camera>,
+        ground_to_camera: Isometry3<Ground, LeftCamera>,
         intrinsics: &Intrinsic,
     ) -> Option<Point2<Pixel>> {
         let camera_front = Vector3::z_axis();
@@ -49,12 +49,12 @@ impl Horizon {
     }
 
     fn find_horizon_normal(
-        ground_to_camera: Isometry3<Ground, Camera>,
+        ground_to_camera: Isometry3<Ground, LeftCamera>,
         intrinsics: &Intrinsic,
     ) -> Option<Vector2<Pixel>> {
         let up = Vector3::z_axis();
         let up_in_camera = ground_to_camera * up;
-        let horizon_normal_camera: Vector3<Camera> =
+        let horizon_normal_camera: Vector3<LeftCamera> =
             vector![up_in_camera.x(), up_in_camera.y(), 0.0].try_normalize(0.001)?;
         let horizon_normal_image = intrinsics.transform(horizon_normal_camera).inner;
 
@@ -62,7 +62,7 @@ impl Horizon {
     }
 
     pub fn from_parameters(
-        ground_to_camera: Isometry3<Ground, Camera>,
+        ground_to_camera: Isometry3<Ground, LeftCamera>,
         intrinsics: &Intrinsic,
     ) -> Option<Self> {
         let vanishing_point = Self::find_vanishing_point(ground_to_camera, intrinsics)?;

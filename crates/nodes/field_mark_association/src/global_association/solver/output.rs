@@ -260,14 +260,14 @@ pub(super) fn detailed_debug_from_result(
 }
 
 pub(super) fn field_to_camera_from_robot_to_field(
-    robot_to_camera: Isometry3<Robot, Camera>,
+    robot_to_camera: Isometry3<Robot, LeftCamera>,
     robot_to_field: Isometry3<Robot, Field>,
-) -> Isometry3<Field, Camera> {
+) -> Isometry3<Field, LeftCamera> {
     robot_to_camera * robot_to_field.inverse()
 }
 
 pub(super) fn project_field_point(
-    field_to_camera: Isometry3<Field, Camera>,
+    field_to_camera: Isometry3<Field, LeftCamera>,
     intrinsic: Intrinsic,
     field_point: Point2<Field>,
 ) -> Option<Point2<Pixel>> {

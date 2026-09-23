@@ -2080,6 +2080,7 @@ dependencies = [
  "hsl_network_messages",
  "json5",
  "linear_algebra",
+ "motion",
  "nalgebra 0.34.2",
  "ros-z",
  "scenario",
@@ -2306,27 +2307,6 @@ dependencies = [
  "ros2",
  "serde",
  "types",
-]
-
-[[package]]
-name = "booster_sdk_interface"
-version = "0.1.0"
-dependencies = [
- "booster",
- "cdr",
- "color-eyre",
- "kinematics",
- "linear_algebra",
- "ros-z",
- "ros2",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "types",
- "uuid",
- "zenoh",
 ]
 
 [[package]]
@@ -5190,6 +5170,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "hardware_interface"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "cdr",
+ "color-eyre",
+ "kinematics",
+ "linear_algebra",
+ "motion",
+ "ros-z",
+ "ros2",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "types",
+ "uuid",
+ "zenoh",
+]
+
+[[package]]
 name = "harfrust"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5263,10 +5265,18 @@ version = "0.1.0"
 dependencies = [
  "booster",
  "color-eyre",
- "filtering",
+ "coordinate_systems",
+ "json5",
  "kinematics",
+ "linear_algebra",
+ "projection",
  "ros-z",
+ "ros-z-schema",
+ "rsruckig",
  "serde",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
  "types",
 ]
 
@@ -5427,7 +5437,6 @@ dependencies = [
  "ball_filter",
  "ball_state_composer",
  "behavior_node",
- "booster_sdk_interface",
  "button_event_bridge",
  "button_event_handler",
  "camera_matrix_calculator",
@@ -5441,19 +5450,20 @@ dependencies = [
  "game_controller_state_filter",
  "global_parameter_provider",
  "ground_provider",
+ "hardware_interface",
  "head_motion",
  "image_receiver",
  "kinematics_provider",
  "led_handler",
  "localization-2d",
  "localization-3d",
- "look_around",
- "look_at",
  "low_state_bridge",
  "mcap_recorder",
  "message_filter",
  "message_handler",
  "microphone_recorder",
+ "motion",
+ "motion_inference",
  "motor_commands_collector",
  "obstacle_filter",
  "odometer_bridge",
@@ -6322,8 +6332,8 @@ name = "led_handler"
 version = "0.1.0"
 dependencies = [
  "booster",
- "booster_sdk_interface",
  "color-eyre",
+ "hardware_interface",
  "ros-z",
  "types",
 ]
@@ -6620,32 +6630,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "look_around"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "kinematics",
- "ros-z",
- "serde",
- "types",
-]
-
-[[package]]
-name = "look_at"
-version = "0.1.0"
-dependencies = [
- "booster",
- "color-eyre",
- "coordinate_systems",
- "kinematics",
- "linear_algebra",
- "projection",
- "ros-z",
- "serde",
- "types",
-]
-
-[[package]]
 name = "loom"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6899,6 +6883,44 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "motion"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "color-eyre",
+ "coordinate_systems",
+ "head_motion",
+ "kinematics",
+ "linear_algebra",
+ "motion_inference",
+ "ros-z",
+ "ros-z-schema",
+ "serde",
+ "tokio",
+ "tracing",
+ "types",
+]
+
+[[package]]
+name = "motion_inference"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "color-eyre",
+ "coordinate_systems",
+ "kinematics",
+ "linear_algebra",
+ "nalgebra 0.34.2",
+ "ort",
+ "ros-z",
+ "ros-z-schema",
+ "serde",
+ "thiserror 2.0.18",
+ "tokio",
+ "types",
 ]
 
 [[package]]
@@ -8747,6 +8769,7 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "coordinate_systems",
+ "kinematics",
  "linear_algebra",
  "nalgebra 0.34.2",
  "ros-z",
@@ -9674,6 +9697,17 @@ dependencies = [
  "spki",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "rsruckig"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8302f2de93029610200d16b3e4b5b630b543522d10369ddbf415ce9ccbd80b9"
+dependencies = [
+ "arrayvec",
+ "num-traits",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

@@ -131,7 +131,7 @@ pub(super) fn valid_intrinsic(intrinsic: Intrinsic) -> bool {
 pub(super) fn detection_points(
     features: &DetectedVisualFeatures,
     map: &LandmarkMap,
-    camera_to_ground: &Isometry3<Camera, Ground>,
+    camera_to_ground: &Isometry3<LeftCamera, Ground>,
     intrinsic: Intrinsic,
     cfg: GlobalAssociationConfig,
 ) -> DetectionSet {

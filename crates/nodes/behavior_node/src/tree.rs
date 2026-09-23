@@ -7,12 +7,12 @@ use crate::{
     condition,
     conditions::{
         has_ball_position, is_ball_interception_candidate, is_close_to_ball, is_closest_to_ball,
-        is_fallen, is_goalkeeper, is_last_hulk_standing, is_primary_state, is_remote_controlled,
-        is_remote_kick_mode, is_simple,
+        is_fallen, is_falling, is_goalkeeper, is_last_hulk_standing, is_primary_state,
+        is_remote_controlled, is_remote_kick_mode, is_simple,
     },
     goalkeeper::goalkeeper_subtree,
     head::{look_around, look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
-    kick::{intercept, kick, kick_power_subtree, kick_subtree, set_kick_target_in_front},
+    kick::{intercept, kick, kick_strength_subtree, kick_subtree, set_kick_target_in_front},
     negation,
     node::Blackboard,
     penalty_shootout::{is_penalty_shootout, penalty_shootout_subtree},
@@ -64,6 +64,7 @@ pub fn create_tree() -> Node<Blackboard> {
             action!(look_around),
             action!(stand)
         ),
+        sequence!(condition!(is_falling), action!(damping)),
         sequence!(condition!(is_fallen), action!(stand_up)),
         sequence!(
             condition!(is_primary_state, PrimaryState::Set),
@@ -166,7 +167,7 @@ fn remote_control_subtree() -> Node<Blackboard> {
                 sequence!(
                     action!(kick),
                     action!(set_kick_target_in_front),
-                    subtree!(kick_power_subtree),
+                    subtree!(kick_strength_subtree),
                 )
             ),
             sequence!(action!(look_straight_ahead), action!(remote_control))

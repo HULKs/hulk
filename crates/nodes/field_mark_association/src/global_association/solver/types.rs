@@ -36,7 +36,7 @@ pub(crate) struct GlobalLocalizationInput<'a> {
     /// Current ground-to-robot transform from the camera matrix.
     pub ground_to_robot: Isometry3<Ground, Robot>,
     /// Current robot-to-camera transform from the camera matrix.
-    pub robot_to_camera: Isometry3<Robot, Camera>,
+    pub robot_to_camera: Isometry3<Robot, LeftCamera>,
     /// Camera intrinsics used for projection and back-projection.
     pub camera_intrinsic: Intrinsic,
     /// Optional backend pose used only to choose the final 180-degree symmetry branch.
@@ -55,7 +55,7 @@ pub(super) struct Problem {
     pub(super) cfg: GlobalAssociationConfig,
     pub(super) k: Intrinsic,
     pub(super) ground_to_robot: Isometry3<Ground, Robot>,
-    pub(super) robot_to_camera: Isometry3<Robot, Camera>,
+    pub(super) robot_to_camera: Isometry3<Robot, LeftCamera>,
     pub(super) pose_hint: Option<Isometry3<Robot, Field>>,
     pub(super) map: Arc<LandmarkMap>,
     pub(super) detections: Vec<DetectionPoint>,

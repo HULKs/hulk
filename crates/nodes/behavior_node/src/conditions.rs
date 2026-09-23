@@ -1,3 +1,4 @@
+use booster::{FallDownState, FallDownStateType};
 use filtering::hysteresis::less_than_with_hysteresis;
 use hsl_network_messages::Team;
 use linear_algebra::{point, vector};
@@ -47,8 +48,8 @@ pub fn is_close_to_ball(blackboard: &mut Blackboard) -> bool {
         is_close = less_than_with_hysteresis(
             blackboard.last_close_enough_to_kick,
             distance_to_ball,
-            parameters.distance_for_kick,
-            parameters.distance_for_kick_hysteresis,
+            parameters.kick_activation_distance,
+            parameters.kick_activation_hysteresis,
         );
         blackboard.last_close_enough_to_kick = is_close;
     }
@@ -67,7 +68,7 @@ pub fn is_close_to_ball_aligned(blackboard: &mut Blackboard) -> bool {
             ground_to_field.inverse() * point!(blackboard.field_dimensions.length / 2.0, 0.0);
         let target_kick_position = ball_in_ground
             - (goal_position - ball_in_ground).normalize()
-                * blackboard.parameters.kicking.kick_position_ball_distance;
+                * blackboard.parameters.kicking.approach_ball_standoff;
 
         let parameters = &blackboard.parameters.substates;
         let distance_to_ball = target_kick_position.coords().norm();
@@ -142,6 +143,16 @@ pub fn is_fallen(blackboard: &mut Blackboard) -> bool {
         .world_state
         .fall_down_state
         .is_some_and(|fall_down_state| fall_down_state.is_recovery_available)
+}
+
+pub fn is_falling(blackboard: &mut Blackboard) -> bool {
+    matches!(
+        blackboard.world_state.fall_down_state,
+        Some(FallDownState {
+            fall_down_state: FallDownStateType::IsFalling | FallDownStateType::HasFallen,
+            is_recovery_available: false
+        })
+    )
 }
 
 pub fn is_goalkeeper(blackboard: &mut Blackboard) -> bool {

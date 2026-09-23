@@ -43,6 +43,19 @@ where
     }
 }
 
+impl<T> LegJoints<T> {
+    pub fn map<U>(self, f: impl Fn(T) -> U) -> LegJoints<U> {
+        LegJoints {
+            hip_pitch: f(self.hip_pitch),
+            hip_roll: f(self.hip_roll),
+            hip_yaw: f(self.hip_yaw),
+            knee: f(self.knee),
+            ankle_up: f(self.ankle_up),
+            ankle_down: f(self.ankle_down),
+        }
+    }
+}
+
 impl LegJoints<f32> {
     pub fn clamp(self, min: Self, max: Self) -> Self {
         Self {
@@ -53,6 +66,24 @@ impl LegJoints<f32> {
             ankle_up: self.ankle_up.clamp(min.ankle_up, max.ankle_up),
             ankle_down: self.ankle_down.clamp(min.ankle_down, max.ankle_down),
         }
+    }
+}
+
+impl<'a, T> IntoIterator for &'a LegJoints<T> {
+    type Item = &'a T;
+
+    type IntoIter = std::array::IntoIter<&'a T, 6>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        [
+            &self.hip_pitch,
+            &self.hip_roll,
+            &self.hip_yaw,
+            &self.knee,
+            &self.ankle_up,
+            &self.ankle_down,
+        ]
+        .into_iter()
     }
 }
 
