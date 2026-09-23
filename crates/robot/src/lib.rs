@@ -448,7 +448,11 @@ impl Robot {
                     true
                 fi"#
                 .to_string(),
-                _ => format!("sudo nmcli connection up {network}"),
+                // Zenoh caches interface addresses. Refresh that cache after NetworkManager
+                // activates the selected network so interface-based QoS rules match its IP.
+                _ => format!(
+                    "sudo nmcli connection up {network} && sudo systemctl restart zenohd.service"
+                ),
             }
         );
         let output = self
@@ -456,17 +460,19 @@ impl Robot {
             .arg(command_string)
             .output()
             .await
-            .wrap_err("failed to execute nmcli ssh command")?;
+            .wrap_err("failed to execute Wi-Fi setup ssh command")?;
 
         if !output.status.success() {
             let error_message = String::from_utf8(output.stderr).wrap_err_with(|| {
                 format!(
-                    "nmcli ssh command exited with {} but the stderr was not valid UTF-8",
+                    "Wi-Fi setup ssh command exited with {} but the stderr was not valid UTF-8",
                     output.status
                 )
             })?;
-            return Err(eyre!(error_message)
-                .wrap_err(format!("nmcli ssh command exited with {}", output.status)));
+            return Err(eyre!(error_message).wrap_err(format!(
+                "Wi-Fi setup ssh command exited with {}",
+                output.status
+            )));
         }
 
         Ok(())
