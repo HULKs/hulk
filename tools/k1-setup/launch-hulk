@@ -11,6 +11,7 @@ chown -R booster:booster /home/booster/hulk
 
 /usr/local/bin/podman exec \
   --env RUST_BACKTRACE=1 \
+  --env RUST_LOG=info,ros_z=error,ort=error,factrs=error,localization_factrs=error,stereo_visual_odometry=error \
   --user "$(id -u booster)" \
   hulk \
   /home/booster/hulk/bin/hulk_ros_z \
