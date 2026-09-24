@@ -1,6 +1,10 @@
 //! Shared topic and field selection controls for dynamic panels.
 
-use eframe::egui::Ui;
+use eframe::egui::{
+    Ui,
+    text::{CCursor, CCursorRange},
+    text_edit::TextEditState,
+};
 use hulk_widgets::CompletionEdit;
 use ros_z::{
     dynamic::{
@@ -13,18 +17,16 @@ use ros_z::{
 use crate::{backend::RobotBackend, graph::TopicCompletionQuery};
 
 pub struct TopicSourceEditor {
-    topic_editor: String,
+    editor: String,
     topic: String,
-    field_editor: String,
     field_path: String,
 }
 
 impl TopicSourceEditor {
     pub fn new(topic: String, field_path: String) -> Self {
         Self {
-            topic_editor: topic.clone(),
+            editor: source_path(&topic, &field_path),
             topic,
-            field_editor: field_path.clone(),
             field_path,
         }
     }
@@ -45,62 +47,150 @@ impl TopicSourceEditor {
         backend: &RobotBackend,
         sample: Option<&DynamicPayload>,
     ) -> bool {
-        let mut topic_changed = false;
-        ui.horizontal(|ui| {
-            ui.label("Topic");
-            let namespace = backend.namespace();
-            let completions = {
-                let graph = backend.graph().lock();
-                TopicCompletionQuery::new(&namespace, &self.topic_editor)
-                    .endpoint_kind(EndpointKind::Publisher)
-                    .complete(graph.publishers())
-            };
-            let response = ui.add(CompletionEdit::new(
-                ui.id().with("topic"),
-                &completions,
-                &mut self.topic_editor,
+        ui.label("Topic");
+        let namespace = backend.namespace();
+        let topics = {
+            let graph = backend.graph().lock();
+            TopicCompletionQuery::new(&namespace, &self.editor)
+                .endpoint_kind(EndpointKind::Publisher)
+                .complete(graph.publishers())
+        };
+        let completions = source_completions(&topics, &self.topic, sample, &self.editor);
+        let response = ui
+            .add(
+                CompletionEdit::new(ui.id().with("topic"), &completions, &mut self.editor)
+                    .select_all_on_focus(false),
+            )
+            .on_hover_text(concat!(
+                "Topic followed by a field path, for example ",
+                "detected_objects.inner[2].bounding_box.confidence. ",
+                "Enter only the topic for the whole message. Press Enter to apply.",
             ));
-            if response.changed() {
-                let topic = self.topic_editor.trim();
-                if topic != self.topic {
-                    self.topic = topic.to_owned();
-                    topic_changed = true;
-                }
-            }
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("Field");
-            let completions = sample
-                .filter(|_| !topic_changed)
-                .map(|sample| field_completions(sample, &self.field_editor))
-                .unwrap_or_default();
-            let response =
-                CompletionEdit::new(ui.id().with("field"), &completions, &mut self.field_editor)
-                    .ui(ui, |ui, highlighted, path| {
-                        ui.selectable_label(
-                            highlighted,
-                            if path.is_empty() {
-                                "Whole message"
-                            } else {
-                                path
-                            },
-                        )
-                    })
-                    .on_hover_text(concat!(
-                        "Empty selects the whole message. Examples: pose.x, joints[3].position, ",
-                        "state::Walking.speed. Press Enter to apply.",
-                    ));
-            if response.changed() {
-                self.field_path = self.field_editor.trim().to_owned();
-            }
-        });
-        if !self.field_path.is_empty() && ui.small_button("Whole message").clicked() {
-            self.field_editor.clear();
-            self.field_path.clear();
+        if !response.changed() {
+            return false;
         }
+        if let Some(sample) = sample
+            && let Some(range) = array_template_range(&self.editor, &topics, &self.topic, sample)
+        {
+            // A template is an editing aid, not a subscription or value path.
+            response.request_focus();
+            if let Some(mut state) = TextEditState::load(ui.ctx(), response.id) {
+                state.cursor.set_char_range(Some(CCursorRange::two(
+                    CCursor::new(range.start),
+                    CCursor::new(range.end),
+                )));
+                state.store(ui.ctx(), response.id);
+            }
+            return false;
+        }
+        self.commit(&topics)
+    }
+
+    fn commit(&mut self, topics: &[String]) -> bool {
+        let (topic, field_path) = split_source(self.editor.trim(), topics, &self.topic);
+        let topic_changed = topic != self.topic;
+        self.topic = topic.to_owned();
+        self.field_path = field_path.to_owned();
         topic_changed
     }
+}
+
+fn source_path(topic: &str, field_path: &str) -> String {
+    if field_path.is_empty() {
+        topic.to_owned()
+    } else if field_path.starts_with('[') || field_path.starts_with("::") {
+        format!("{topic}{field_path}")
+    } else {
+        format!("{topic}.{field_path}")
+    }
+}
+
+fn strip_topic<'a>(input: &'a str, topic: &str) -> Option<&'a str> {
+    let suffix = input.strip_prefix(topic)?;
+    if let Some(field_path) = suffix.strip_prefix('.') {
+        Some(field_path)
+    } else if suffix.is_empty() || suffix.starts_with('[') || suffix.starts_with("::") {
+        Some(suffix)
+    } else {
+        None
+    }
+}
+
+fn split_source<'a>(input: &'a str, topics: &[String], current_topic: &str) -> (&'a str, &'a str) {
+    // ROS-Z permits dots in topic names. Prefer the longest discovered topic,
+    // also retaining the current topic when its publisher has disappeared.
+    if let Some(source) = topics
+        .iter()
+        .map(String::as_str)
+        .chain([current_topic])
+        .filter(|topic| !topic.is_empty())
+        .filter_map(|topic| strip_topic(input, topic).map(|field| (&input[..topic.len()], field)))
+        .max_by_key(|(topic, _)| topic.len())
+    {
+        return source;
+    }
+    // Permit entering a complete source before discovering its publisher.
+    for (index, character) in input.char_indices() {
+        match character {
+            '.' => return (&input[..index], &input[index + 1..]),
+            '[' => return (&input[..index], &input[index..]),
+            ':' if input[index..].starts_with("::") => return (&input[..index], &input[index..]),
+            _ => {}
+        }
+    }
+    (input, "")
+}
+
+fn source_completions(
+    topics: &[String],
+    current_topic: &str,
+    sample: Option<&DynamicPayload>,
+    input: &str,
+) -> Vec<String> {
+    let (topic, field_path) = split_source(input, topics, current_topic);
+    let mut completions = topics.to_vec();
+    if topic == current_topic
+        && !topic.is_empty()
+        && let Some(sample) = sample
+    {
+        for path in field_completions(sample, field_path) {
+            let source = source_path(topic, &path);
+            if !completions.contains(&source) {
+                completions.push(source);
+            }
+        }
+    }
+    completions
+}
+
+fn array_template_range(
+    input: &str,
+    topics: &[String],
+    current_topic: &str,
+    sample: &DynamicPayload,
+) -> Option<std::ops::Range<usize>> {
+    let (topic, field_path) = split_source(input, topics, current_topic);
+    if topic != current_topic {
+        return None;
+    }
+    for (index, _) in field_path.match_indices("[...]") {
+        let Ok(path) = field_path[..index].parse::<ValuePath>() else {
+            continue;
+        };
+        if path.resolve_type(&sample.schema).is_ok_and(is_sequence) {
+            let byte_start = input.len() - field_path.len() + index + 1;
+            let start = input[..byte_start].chars().count();
+            return Some(start..start + 3);
+        }
+    }
+    None
+}
+
+fn is_sequence(mut shape: SelectedType<'_>) -> bool {
+    while let SelectedType::Value(TypeDef::Optional(inner)) = shape {
+        shape = SelectedType::Value(inner);
+    }
+    matches!(shape, SelectedType::Value(TypeDef::Sequence { .. }))
 }
 
 // Complete one level at a time, so recursive schemas and large arrays cannot
@@ -132,13 +222,23 @@ fn field_completions(sample: &DynamicPayload, query: &str) -> Vec<String> {
             continue;
         };
         let children = child_steps(shape, sample, &path);
-        if children.is_empty() && end != 0 {
+        if children.is_empty() && !is_sequence(shape) && end != 0 {
             continue;
         }
+        if is_sequence(shape) {
+            suggestions.push(format!("{path}[...]"));
+        }
         for step in children {
-            let child = path.child(step).to_string();
-            if !suggestions.contains(&child) {
-                suggestions.push(child);
+            let child_path = path.child(step);
+            let child_text = child_path.to_string();
+            if !suggestions.contains(&child_text) {
+                suggestions.push(child_text);
+            }
+            if child_path
+                .resolve_type(&sample.schema)
+                .is_ok_and(is_sequence)
+            {
+                suggestions.push(format!("{child_path}[...]"));
             }
         }
         return suggestions;
@@ -292,7 +392,7 @@ mod tests {
         assert!(!root.contains(&"next.next".to_owned()));
         assert_eq!(
             field_completions(&sample, "fixed[").len(),
-            MAX_INDEX_SUGGESTIONS
+            MAX_INDEX_SUGGESTIONS + 1
         );
         let DynamicValue::Struct(value) = &mut sample.value else {
             unreachable!();
@@ -305,7 +405,359 @@ mod tests {
             .unwrap();
         assert_eq!(
             field_completions(&sample, "joints["),
-            ["joints[0]", "joints[1]"]
+            ["joints[...]", "joints[0]", "joints[1]"]
+        );
+    }
+
+    #[test]
+    fn inline_sources_split_at_the_topic_boundary() {
+        let topics = vec![
+            "detected_objects".to_owned(),
+            "robot.v2/detected_objects".to_owned(),
+        ];
+        for (input, topic, field) in [
+            ("detected_objects", "detected_objects", ""),
+            (
+                "detected_objects.inner[2].confidence",
+                "detected_objects",
+                "inner[2].confidence",
+            ),
+            (
+                "detected_objects_other.inner",
+                "detected_objects_other",
+                "inner",
+            ),
+            (
+                "robot.v2/detected_objects.inner",
+                "robot.v2/detected_objects",
+                "inner",
+            ),
+            (
+                "/42/detected_objects.inner[2].area.min",
+                "/42/detected_objects",
+                "inner[2].area.min",
+            ),
+            ("~detected_objects.inner", "~detected_objects", "inner"),
+            ("values[2]", "values", "[2]"),
+            ("state::Walking.speed", "state", "::Walking.speed"),
+        ] {
+            assert_eq!(split_source(input, &topics, ""), (topic, field));
+            assert_eq!(source_path(topic, field), input);
+        }
+        assert_eq!(
+            split_source(
+                "robot.v2/detected_objects.inner",
+                &[],
+                "robot.v2/detected_objects"
+            ),
+            ("robot.v2/detected_objects", "inner")
+        );
+    }
+
+    #[test]
+    fn inline_field_changes_preserve_the_subscription_topic() {
+        let mut source = TopicSourceEditor::new("detected_objects".into(), "inner".into());
+        assert_eq!(source.editor, "detected_objects.inner");
+        source.editor = "detected_objects.inner[2].confidence".into();
+        assert!(!source.commit(&[]));
+        assert_eq!(source.topic(), "detected_objects");
+        assert_eq!(source.field_path(), "inner[2].confidence");
+        source.editor = "detected_objects".into();
+        assert!(!source.commit(&[]));
+        assert_eq!(source.field_path(), "");
+        source.editor = "other_topic.inner[1].area".into();
+        assert!(source.commit(&[]));
+        assert_eq!(source.topic(), "other_topic");
+        assert_eq!(source.field_path(), "inner[1].area");
+    }
+
+    fn detection_sample(objects: bool) -> DynamicPayload {
+        use ros_z::{Message, dynamic::DynamicCdrCodec, message::WireEncoder, time::Time};
+        use types::{
+            object_detection::{Object, RobocupObjectLabel},
+            time_wrapper::TimeWrapper,
+        };
+        fn decode<T: Message>(value: &T) -> DynamicPayload {
+            let bytes = T::Codec::serialize(value).unwrap();
+            DynamicCdrCodec::decode(&bytes, &Arc::new(T::schema())).unwrap()
+        }
+        let detections =
+            vec![Object::<RobocupObjectLabel>::from([1.0, 2.0, 3.0, 4.0, 0.75, 0.0]); 3];
+        if objects {
+            decode(&TimeWrapper {
+                time: Time::zero(),
+                inner: detections,
+            })
+        } else {
+            decode(&TimeWrapper {
+                time: Time::zero(),
+                inner: detections
+                    .into_iter()
+                    .map(|object| object.bounding_box)
+                    .collect::<Vec<_>>(),
+            })
+        }
+    }
+
+    #[test]
+    fn inline_completion_and_selection_reach_fields_inside_array_elements() {
+        let topics = vec!["detected_objects".to_owned()];
+        for objects in [false, true] {
+            let sample = detection_sample(objects);
+            let parent = if objects {
+                "detected_objects.inner[2].bounding_box"
+            } else {
+                "detected_objects.inner[2]"
+            };
+            let completions = source_completions(
+                &topics,
+                "detected_objects",
+                Some(&sample),
+                &format!("{parent}."),
+            );
+            assert!(
+                completions.contains(&format!("{parent}.confidence")),
+                "{completions:?}"
+            );
+            assert!(
+                completions.contains(&format!("{parent}.area")),
+                "{completions:?}"
+            );
+            let input = format!("{parent}.confidence");
+            let (_, path) = split_source(&input, &topics, "detected_objects");
+            let selected = path.parse::<ValuePath>().unwrap().select(&sample).unwrap();
+            assert_eq!(
+                selected.to_json(Default::default()),
+                serde_json::json!(0.75)
+            );
+            let area = format!("{parent}.area.");
+            assert!(
+                source_completions(&topics, "detected_objects", Some(&sample), &area)
+                    .contains(&format!("{parent}.area.min"))
+            );
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn choosing_array_completion_keeps_editing_the_index_and_then_nested_fields() {
+        use eframe::egui::{
+            CentralPanel, Context, Event, FullOutput, Key, Modifiers, PointerButton, Pos2,
+            RawInput, Rect, epaint::Shape, vec2,
+        };
+
+        fn frame(
+            context: &Context,
+            backend: &RobotBackend,
+            sample: &DynamicPayload,
+            source: &mut TopicSourceEditor,
+            events: Vec<Event>,
+        ) -> FullOutput {
+            context.run_ui(
+                RawInput {
+                    screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(800.0, 600.0))),
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    CentralPanel::default().show(ui, |ui| {
+                        ui.spacing_mut().text_edit_width = 700.0;
+                        ui.horizontal(|ui| {
+                            assert!(!source.ui(ui, backend, Some(sample)));
+                        });
+                    });
+                },
+            )
+        }
+        fn text_position(output: &FullOutput, label: &str) -> Pos2 {
+            output
+                .shapes
+                .iter()
+                .find_map(|shape| match &shape.shape {
+                    Shape::Text(text) if text.galley.text() == label => {
+                        Some(text.pos + vec2(10.0, 5.0))
+                    }
+                    _ => None,
+                })
+                .unwrap_or_else(|| {
+                    panic!(
+                        "missing UI text {label}: {:?}",
+                        output
+                            .shapes
+                            .iter()
+                            .filter_map(|shape| match &shape.shape {
+                                Shape::Text(text) => Some(text.galley.text()),
+                                _ => None,
+                            })
+                            .collect::<Vec<_>>()
+                    )
+                })
+        }
+        fn click(pos: Pos2) -> Vec<Event> {
+            vec![
+                Event::PointerMoved(pos),
+                Event::PointerButton {
+                    pos,
+                    button: PointerButton::Primary,
+                    pressed: true,
+                    modifiers: Modifiers::NONE,
+                },
+                Event::PointerButton {
+                    pos,
+                    button: PointerButton::Primary,
+                    pressed: false,
+                    modifiers: Modifiers::NONE,
+                },
+            ]
+        }
+        fn key(key: Key, modifiers: Modifiers) -> Event {
+            Event::Key {
+                key,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers,
+            }
+        }
+
+        let backend = RobotBackend::new(tokio::runtime::Handle::current(), None, "/".into())
+            .await
+            .unwrap();
+        let context = Context::default();
+        let sample = detection_sample(false);
+        let mut source = TopicSourceEditor::new("detected_objects".into(), "inner".into());
+        let output = frame(&context, &backend, &sample, &mut source, vec![]);
+        let position = text_position(&output, "detected_objects.inner");
+        frame(&context, &backend, &sample, &mut source, click(position));
+        frame(
+            &context,
+            &backend,
+            &sample,
+            &mut source,
+            vec![key(
+                Key::A,
+                Modifiers {
+                    ctrl: true,
+                    command: true,
+                    ..Default::default()
+                },
+            )],
+        );
+        frame(
+            &context,
+            &backend,
+            &sample,
+            &mut source,
+            vec![Event::Text("detected_objects.inner[".into())],
+        );
+        assert_eq!(source.editor, "detected_objects.inner[");
+        // Popups use their first visible frame to measure the suggestion list.
+        frame(&context, &backend, &sample, &mut source, vec![]);
+        let output = frame(&context, &backend, &sample, &mut source, vec![]);
+        let position = text_position(&output, "detected_objects.inner[...]");
+        frame(&context, &backend, &sample, &mut source, click(position));
+        assert_eq!(source.editor, "detected_objects.inner[...]");
+        assert_eq!(
+            source.field_path(),
+            "inner",
+            "template must not become a committed path"
+        );
+        frame(
+            &context,
+            &backend,
+            &sample,
+            &mut source,
+            vec![Event::Text("2".into())],
+        );
+        assert_eq!(source.editor, "detected_objects.inner[2]");
+        frame(
+            &context,
+            &backend,
+            &sample,
+            &mut source,
+            vec![
+                key(Key::ArrowRight, Modifiers::NONE),
+                Event::Text(".conf".into()),
+            ],
+        );
+        frame(
+            &context,
+            &backend,
+            &sample,
+            &mut source,
+            vec![key(Key::Enter, Modifiers::NONE)],
+        );
+        assert_eq!(source.topic(), "detected_objects");
+        assert_eq!(source.field_path(), "inner[2].confidence");
+        assert_eq!(
+            source
+                .field_path()
+                .parse::<ValuePath>()
+                .unwrap()
+                .select(&sample)
+                .unwrap()
+                .to_json(Default::default()),
+            serde_json::json!(0.75)
+        );
+    }
+
+    #[test]
+    fn inline_array_templates_work_for_empty_arrays_and_select_only_the_index() {
+        let mut sample = detection_sample(false);
+        let topics = vec!["detected_objects".into()];
+        let input = "detected_objects.inner[...]";
+        for empty in [false, true] {
+            if empty {
+                let DynamicValue::Struct(value) = &mut sample.value else {
+                    unreachable!();
+                };
+                value
+                    .set_dynamic("inner", DynamicValue::Sequence(vec![]))
+                    .unwrap();
+            }
+            let completions = source_completions(
+                &topics,
+                "detected_objects",
+                Some(&sample),
+                "detected_objects.in",
+            );
+            assert!(completions.contains(&input.to_owned()));
+            let range = array_template_range(input, &topics, "detected_objects", &sample).unwrap();
+            assert_eq!(
+                input
+                    .chars()
+                    .skip(range.start)
+                    .take(range.len())
+                    .collect::<String>(),
+                "..."
+            );
+            // Element fields come from the schema even when the array is empty.
+            assert!(
+                source_completions(
+                    &topics,
+                    "detected_objects",
+                    Some(&sample),
+                    "detected_objects.inner[2]."
+                )
+                .contains(&"detected_objects.inner[2].confidence".to_owned())
+            );
+        }
+        assert!(
+            array_template_range(
+                "detected_objects.inner[2]",
+                &topics,
+                "detected_objects",
+                &sample
+            )
+            .is_none()
+        );
+        assert!(
+            array_template_range(
+                "other_topic.inner[...]",
+                &topics,
+                "detected_objects",
+                &sample
+            )
+            .is_none()
         );
     }
 }
