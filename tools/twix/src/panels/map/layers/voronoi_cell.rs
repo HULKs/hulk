@@ -62,8 +62,7 @@ impl Layer<Field> for VoronoiCell {
             Color32::from_rgb(188, 189, 34),  // Olive
         ];
 
-        for (index, ownership) in grid.tiles.iter().copied().enumerate() {
-            let point = grid.index_to_point(index);
+        for (point, ownership) in grid.cells() {
             let color = match ownership {
                 Ownership::Blocked => Color32::from_gray(40),
                 Ownership::Robot(player_number) => {
