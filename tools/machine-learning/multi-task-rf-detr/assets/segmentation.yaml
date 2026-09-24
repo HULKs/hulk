@@ -1,0 +1,55 @@
+# RF-DETR Segmentation Training Config
+# Task: instance segmentation on RoboCup soccer classes
+# Variant: RFDETRSegSmall
+# Resolution: 448 (consistent with detection for shared backbone init)
+
+model:
+  variant: "RFDETRSegSmall"
+  pretrained: true              # Initialize from COCO-pretrained backbone (or detection checkpoint if available)
+  num_classes: 7
+  class_names:
+    - ball
+    - goalpost
+    - robot_red
+    - robot_blue
+    - field_line
+    - penalty_mark
+    - center_mark
+  # Optional: warm-start backbone from Phase-1 detection checkpoint
+  # warm_start_backbone: "./models/rf-detr-small-det/checkpoint_best.pth"
+
+data:
+  dataset_dir: "./data/processed/coco_format"
+  # NOTE: requires polygon/RLE mask annotations in COCO JSON.
+  # If only bbox labels exist, Phase 2 is BLOCKED until masks are added.
+
+training:
+  output_dir: "./models/rf-detr-segsmall"
+  epochs: 50
+  batch_size: 4                 # Segmentation is heavier than detection
+  grad_accum_steps: 4           # Effective batch = 16
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+  resolution: 448
+  early_stopping_patience: 10
+  early_stopping_min_delta: 0.001
+  fp16: true
+  dataloader_num_workers: 0
+  tensorboard: true
+  logging_dir: "./outputs/logs"
+  save_total_limit: 3
+
+augmentation:
+  enabled: true
+  horizontal_flip_p: 0.5
+  rotate_limit: 10
+  brightness_limit: 0.2
+  contrast_limit: 0.2
+  motion_blur_p: 0.2
+  gaussian_noise_p: 0.2
+
+export:
+  output_path: "./exports/rf-detr-seg-448.onnx"
+  simplify: true
+  static_batch: true
+  parity_tolerance: 1.0e-3
