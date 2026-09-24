@@ -632,30 +632,31 @@ mod tests {
             .unwrap();
         let context = Context::default();
         let sample = detection_sample(false);
-        let mut source = TopicSourceEditor::new("detected_objects".into(), "inner".into());
-        let output = frame(&context, &backend, &sample, &mut source, vec![]);
-        let position = text_position(&output, "detected_objects.inner");
-        frame(&context, &backend, &sample, &mut source, click(position));
+        let mut source = TopicSourceEditor::new("detected_objects".into(), "in".into());
+        source.request_focus();
+        frame(&context, &backend, &sample, &mut source, vec![]);
         frame(
             &context,
             &backend,
             &sample,
             &mut source,
-            vec![key(
-                Key::A,
-                Modifiers {
-                    ctrl: true,
-                    command: true,
-                    ..Default::default()
-                },
-            )],
+            vec![key(Key::ArrowDown, Modifiers::NONE)],
         );
         frame(
             &context,
             &backend,
             &sample,
             &mut source,
-            vec![Event::Text("detected_objects.inner[".into())],
+            vec![key(Key::Enter, Modifiers::NONE)],
+        );
+        assert_eq!(source.editor, "detected_objects.inner");
+        assert_eq!(source.field_path(), "inner");
+        frame(
+            &context,
+            &backend,
+            &sample,
+            &mut source,
+            vec![Event::Text("[".into())],
         );
         assert_eq!(source.editor, "detected_objects.inner[");
         // Popups use their first visible frame to measure the suggestion list.
