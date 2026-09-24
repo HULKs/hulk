@@ -123,6 +123,9 @@ impl App for TwixApp {
         if context.keybind_pressed(KeybindAction::FocusRight) {
             self.layout.focus(FocusDirection::Right, &context);
         }
+        if context.keybind_pressed(KeybindAction::FocusTopic) {
+            self.layout.focus_topic(&context);
+        }
 
         EguiPanel::top("top_bar").show(ui, |ui| {
             ui.horizontal(|ui| {

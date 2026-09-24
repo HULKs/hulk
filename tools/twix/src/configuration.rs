@@ -13,6 +13,7 @@ C-T = "open_tab"
 
 C-o = "focus_namespace"
 C-p = "focus_panel"
+C-f = "focus_topic"
 
 C-h = "focus_left"
 C-j = "focus_below"
@@ -138,6 +139,10 @@ mod tests {
         assert_eq!(
             keys.get("C-o").and_then(toml::Value::as_str),
             Some("focus_namespace")
+        );
+        assert_eq!(
+            keys.get("C-f").and_then(toml::Value::as_str),
+            Some("focus_topic")
         );
         assert!(
             !keys

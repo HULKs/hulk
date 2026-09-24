@@ -87,6 +87,10 @@ impl Panel for TextPanel {
         panel
     }
 
+    fn focus_topic(&mut self) {
+        self.source.request_focus();
+    }
+
     fn header_ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
         let sample = match &self.observation {
             ObservationState::Observing(observed) => observed.observation.latest(),

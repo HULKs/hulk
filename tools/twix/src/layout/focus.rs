@@ -14,6 +14,15 @@ pub enum FocusDirection {
 }
 
 impl TwixLayout {
+    pub fn focus_topic(&mut self, egui_context: &Context) {
+        self.repair_focus(egui_context);
+        if let Some(focused) = self.focused
+            && let Some(Tile::Pane(panel)) = self.tree.tiles.get_mut(focused)
+        {
+            panel.focus_topic();
+        }
+    }
+
     pub fn focus(&mut self, direction: FocusDirection, egui_context: &Context) {
         let Some(current_id) = self.focused else {
             return;
@@ -113,4 +122,130 @@ fn compare_scores(left: (bool, f32, f32, f32), right: (bool, f32, f32, f32)) -> 
         .then_with(|| left.1.total_cmp(&right.1))
         .then_with(|| left.2.total_cmp(&right.2))
         .then_with(|| left.3.total_cmp(&right.3))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        PanelKind,
+        backend::RobotBackend,
+        configuration::{
+            Configuration,
+            keybind_plugin::{self, KeybindSystem},
+            keys::KeybindAction,
+        },
+        layout::tree::LayoutRequest,
+    };
+    use eframe::egui::{
+        CentralPanel, Event, Key, Modifiers, Pos2, RawInput, Rect, text_edit::TextEditState, vec2,
+    };
+    use std::sync::Arc;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn topic_shortcut_targets_the_active_panel_across_splits_and_panel_types() {
+        fn frame(
+            context: &Context,
+            backend: &Arc<RobotBackend>,
+            layout: &mut TwixLayout,
+            shortcut: bool,
+        ) {
+            let events = if shortcut {
+                vec![Event::Key {
+                    key: Key::F,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: Modifiers {
+                        ctrl: true,
+                        command: true,
+                        ..Default::default()
+                    },
+                }]
+            } else {
+                vec![]
+            };
+            let _ = context.run_ui(
+                RawInput {
+                    screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(1000.0, 600.0))),
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    if context.keybind_pressed(KeybindAction::FocusTopic) {
+                        layout.focus_topic(context);
+                    }
+                    CentralPanel::default().show(ui, |ui| layout.ui(ui, backend));
+                },
+            );
+        }
+
+        let backend = Arc::new(
+            RobotBackend::new(tokio::runtime::Handle::current(), None, "/".into())
+                .await
+                .unwrap(),
+        );
+        let context = Context::default();
+        let config: Configuration = toml::from_str("[keys]\nC-f = \"focus_topic\"\n").unwrap();
+        keybind_plugin::register(&context);
+        context.set_keybinds(Arc::new(config.keys));
+        let mut layout = TwixLayout::new(&context, &backend);
+        let left = layout.focused.unwrap();
+        layout.open_split(&backend, &context);
+        let right = layout.focused.unwrap();
+        frame(&context, &backend, &mut layout, false);
+        for (pane, kind) in [
+            (left, PanelKind::TextPanel),
+            (right, PanelKind::TextPanel),
+            (right, PanelKind::ImagePanel),
+        ] {
+            layout.apply_request(
+                LayoutRequest::Replace { pane, panel: kind },
+                &backend,
+                &context,
+            );
+            layout.set_focus(pane, &context);
+            frame(&context, &backend, &mut layout, false);
+            frame(&context, &backend, &mut layout, true);
+            let focused = context
+                .memory(|memory| memory.focused())
+                .expect("topic input should have focus");
+            assert!(
+                TextEditState::load(&context, focused).is_some(),
+                "focused widget should be a text input"
+            );
+            let response = context.read_response(focused).unwrap();
+            assert!(
+                layout
+                    .tree
+                    .tiles
+                    .rect(pane)
+                    .unwrap()
+                    .contains(response.rect.center()),
+                "another panel stole topic focus"
+            );
+            frame(&context, &backend, &mut layout, false);
+            assert_eq!(
+                context.memory(|memory| memory.focused()),
+                Some(focused),
+                "focus should persist"
+            );
+        }
+        layout.apply_request(
+            LayoutRequest::Replace {
+                pane: right,
+                panel: PanelKind::ParameterPanel,
+            },
+            &backend,
+            &context,
+        );
+        layout.set_focus(right, &context);
+        frame(&context, &backend, &mut layout, false);
+        frame(&context, &backend, &mut layout, true);
+        assert_eq!(
+            context.memory(|memory| memory.focused()),
+            Some(pane_focus_id(right)),
+            "panels without topics should leave focus alone"
+        );
+    }
 }

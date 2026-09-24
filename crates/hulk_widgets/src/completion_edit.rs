@@ -1,8 +1,8 @@
 use std::{hash::Hash, sync::Arc};
 
 use egui::{
-    Color32, Context, Id, Key, Popup, PopupCloseBehavior, Response, ScrollArea, TextEdit,
-    TextStyle, Ui, Widget,
+    Color32, Context, Id, Key, Modifiers, Popup, PopupCloseBehavior, Response, ScrollArea,
+    TextEdit, TextStyle, Ui, Widget,
     cache::{ComputerMut, FrameCache},
     response::Flags,
     text::{CCursor, CCursorRange},
@@ -21,6 +21,7 @@ pub struct CompletionEdit<'a, T> {
     suggestions: &'a [T],
     selected: &'a mut String,
     select_all_on_focus: bool,
+    request_focus: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -85,6 +86,7 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
             suggestions: items,
             selected,
             select_all_on_focus: true,
+            request_focus: false,
         }
     }
 
@@ -92,6 +94,12 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
     /// a specific cursor selection, such as an array-index placeholder.
     pub fn select_all_on_focus(mut self, enabled: bool) -> Self {
         self.select_all_on_focus = enabled;
+        self
+    }
+
+    /// Request keyboard focus and select the input for replacement this frame.
+    pub fn request_focus(mut self, requested: bool) -> Self {
+        self.request_focus = requested;
         self
     }
 
@@ -112,6 +120,9 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
         state: &mut CompletionEditState,
         mut show_value: impl FnMut(&mut Ui, bool, &T) -> Response,
     ) -> Response {
+        if self.request_focus {
+            state.selection.clear();
+        }
         let mut matching_items = get_matching_items(ui, self.selected, self.suggestions);
         state.selection.clamp(matching_items.len());
         let popup_id = self.id.with("popup");
@@ -156,6 +167,9 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
             })
             .inner;
         let mut response = response.response;
+        if self.request_focus {
+            response.request_focus();
+        }
 
         let text_changed = response.changed();
         if text_changed {
@@ -164,7 +178,9 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
             matching_items = get_matching_items(ui, self.selected, self.suggestions);
         }
         state.selection.clamp(matching_items.len());
-        if self.select_all_on_focus && !state.textedit_was_focused && response.has_focus() {
+        if self.request_focus
+            || self.select_all_on_focus && !state.textedit_was_focused && response.has_focus()
+        {
             // Select all
             set_cursor(
                 ui.ctx(),
@@ -175,6 +191,12 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
             );
         }
         state.textedit_was_focused = response.has_focus();
+        if response.has_focus()
+            && ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::Space))
+        {
+            state.typed_since_focused = true;
+            Popup::open_id(ui.ctx(), popup_id);
+        }
         // Report changes only when the user commits the edited value.
         response.flags.set(Flags::CHANGED, false);
 
@@ -260,5 +282,79 @@ impl<T: ToString + Hash> Widget for CompletionEdit<'_, T> {
         self.ui(ui, |ui, highlight, item| {
             ui.selectable_label(highlight, item.to_string())
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use egui::{CentralPanel, Event, Pos2, RawInput, Rect, vec2};
+
+    #[test]
+    fn control_space_opens_only_the_focused_completion_without_editing() {
+        fn frame(
+            context: &Context,
+            values: &mut [String; 2],
+            focus: bool,
+            events: Vec<Event>,
+        ) -> Vec<Response> {
+            let mut responses = Vec::new();
+            let _ = context.run_ui(
+                RawInput {
+                    screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(800.0, 600.0))),
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    responses.clear();
+                    CentralPanel::default().show(ui, |ui| {
+                        for (index, value) in values.iter_mut().enumerate() {
+                            responses.push(
+                                ui.add(
+                                    CompletionEdit::new(Id::new(index), &["alpha", "beta"], value)
+                                        .request_focus(focus && index == 0),
+                                ),
+                            );
+                        }
+                    });
+                },
+            );
+            responses
+        }
+        fn shortcut() -> Vec<Event> {
+            vec![Event::Key {
+                key: Key::Space,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: Modifiers {
+                    ctrl: true,
+                    command: true,
+                    ..Default::default()
+                },
+            }]
+        }
+        for initial in ["", "al"] {
+            let context = Context::default();
+            let mut values = [initial.to_owned(), String::new()];
+            let responses = frame(&context, &mut values, true, vec![]);
+            assert_eq!(
+                context.memory(|memory| memory.focused()),
+                Some(responses[0].id)
+            );
+            assert!(!Popup::is_any_open(&context));
+            let responses = frame(&context, &mut values, false, shortcut());
+            assert!(Popup::is_id_open(&context, Id::new(0usize).with("popup")));
+            assert!(!Popup::is_id_open(&context, Id::new(1usize).with("popup")));
+            assert!(responses.iter().all(|response| !response.changed()));
+            assert_eq!(values, [initial.to_owned(), String::new()]);
+            frame(&context, &mut values, false, shortcut());
+            assert!(Popup::is_id_open(&context, Id::new(0usize).with("popup")));
+
+            Popup::close_all(&context);
+            context.memory_mut(|memory| memory.surrender_focus(responses[0].id));
+            frame(&context, &mut values, false, shortcut());
+            assert!(!Popup::is_any_open(&context));
+        }
     }
 }

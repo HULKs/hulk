@@ -20,6 +20,7 @@ pub struct TopicSourceEditor {
     editor: String,
     topic: String,
     field_path: String,
+    focus_requested: bool,
 }
 
 impl TopicSourceEditor {
@@ -28,6 +29,7 @@ impl TopicSourceEditor {
             editor: source_path(&topic, &field_path),
             topic,
             field_path,
+            focus_requested: false,
         }
     }
 
@@ -37,6 +39,10 @@ impl TopicSourceEditor {
 
     pub fn field_path(&self) -> &str {
         &self.field_path
+    }
+
+    pub fn request_focus(&mut self) {
+        self.focus_requested = true;
     }
 
     /// Returns true only when the topic changes. Field changes never reconnect.
@@ -59,12 +65,14 @@ impl TopicSourceEditor {
         let response = ui
             .add(
                 CompletionEdit::new(ui.id().with("topic"), &completions, &mut self.editor)
-                    .select_all_on_focus(false),
+                    .select_all_on_focus(false)
+                    .request_focus(std::mem::take(&mut self.focus_requested)),
             )
             .on_hover_text(concat!(
                 "Topic followed by a field path, for example ",
                 "detected_objects.inner[2].bounding_box.confidence. ",
-                "Enter only the topic for the whole message. Press Enter to apply.",
+                "Enter only the topic for the whole message. ",
+                "Ctrl+Space opens completions. Press Enter to apply.",
             ));
         if !response.changed() {
             return false;
