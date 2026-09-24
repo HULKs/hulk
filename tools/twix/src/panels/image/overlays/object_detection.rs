@@ -1,5 +1,4 @@
 use color_eyre::Report;
-use eframe::egui::{Align2, Color32, Stroke};
 use ros_z::time::Time;
 use types::{
     object_detection::{Object, RobocupObjectLabel},
@@ -8,7 +7,18 @@ use types::{
 
 use crate::repaint::ObservationContext;
 
-use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
+use super::super::image_overlay::{
+    ConfidenceThresholdDefinition, ConfidenceThresholdKind, ConfidenceThresholds, ImageOverlay,
+    ImageOverlayPainter, OverlayObservation,
+};
+use super::prediction_colors;
+
+const OBJECT_CONFIDENCE_THRESHOLDS: [ConfidenceThresholdDefinition; 1] =
+    [ConfidenceThresholdDefinition::new(
+        ConfidenceThresholdKind::BoundingBox,
+        "Confidence",
+        "confidence_threshold",
+    )];
 
 pub(in crate::panels::image) struct ObjectDetectionOverlay {
     object_detections: OverlayObservation<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>,
@@ -17,6 +27,8 @@ pub(in crate::panels::image) struct ObjectDetectionOverlay {
 impl ImageOverlay for ObjectDetectionOverlay {
     const NAME: &'static str = "Object Detection";
     const STORAGE_KEY: &'static str = "object_detection";
+    const CONFIDENCE_THRESHOLDS: &'static [ConfidenceThresholdDefinition] =
+        &OBJECT_CONFIDENCE_THRESHOLDS;
 
     fn new<C>(context: &C) -> Result<Self, Report>
     where
@@ -27,11 +39,20 @@ impl ImageOverlay for ObjectDetectionOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter, image_time: Time) {
+    fn paint(
+        &self,
+        painter: &ImageOverlayPainter,
+        image_time: Time,
+        confidence_thresholds: &ConfidenceThresholds,
+    ) {
         let Some(object_detections) = self.object_detections.at_time(image_time) else {
             return;
         };
-        paint_bounding_boxes(painter, &object_detections.value.inner, Color32::LIGHT_RED);
+        paint_bounding_boxes(
+            painter,
+            &object_detections.value.inner,
+            confidence_thresholds.bounding_box,
+        );
     }
 
     fn latest_time(&self) -> Option<Time> {
@@ -42,26 +63,17 @@ impl ImageOverlay for ObjectDetectionOverlay {
 fn paint_bounding_boxes(
     painter: &ImageOverlayPainter,
     detections: &[Object<RobocupObjectLabel>],
-    line_color: Color32,
+    confidence_threshold: f32,
 ) {
     for detection in detections {
         let bounding_box = detection.bounding_box;
-        painter.rect_stroke(
-            bounding_box.area.min,
-            bounding_box.area.max,
-            Stroke::new(1.0, line_color),
-        );
-        painter.floating_text(
-            bounding_box.area.min,
-            Align2::RIGHT_BOTTOM,
-            format!("{:.2}", bounding_box.confidence),
-            Color32::WHITE,
-        );
-        painter.floating_text(
-            bounding_box.area.max,
-            Align2::RIGHT_TOP,
+        if bounding_box.confidence < confidence_threshold {
+            continue;
+        }
+        painter.detection_box(
+            bounding_box,
             detection.label.into(),
-            Color32::WHITE,
+            prediction_colors::robocup_object(detection.label),
         );
     }
 }
