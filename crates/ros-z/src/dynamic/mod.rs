@@ -69,6 +69,7 @@ pub(crate) mod discovery;
 pub mod error;
 pub mod json;
 pub mod message;
+pub mod path;
 pub mod registry;
 pub mod schema;
 pub mod schema_query;
@@ -91,6 +92,7 @@ pub use json::{
     dynamic_value_to_json,
 };
 pub use message::{DynamicStruct, DynamicStructBuilder};
+pub use path::{SelectedType, SelectedValue, SelectionError, ValuePath, ValuePathStep};
 pub use registry::{SchemaRegistry, get_root_schema_with_hash, has_schema, register_root_schema};
 pub use schema::{
     EnumDef, EnumPayloadDef, EnumVariantDef, FieldDef, PrimitiveTypeDef, Schema, SchemaBundle,

@@ -2,22 +2,23 @@ use std::sync::Arc;
 
 use color_eyre::{Report, eyre::Context as _};
 use eframe::egui::{ScrollArea, TextEdit, Ui};
-use hulk_widgets::CompletionEdit;
-use ros_z::entity::EndpointKind;
-use ros_z::{dynamic::DynamicPayload, pubsub::PublicationId, time::Time};
+use ros_z::{
+    dynamic::{DynamicPayload, SelectionError, ValuePath},
+    pubsub::PublicationId,
+    time::Time,
+};
 use ros_z_debug::{DynamicTopicObservation, SampleRecord, TopicObservationStatus};
 use serde_json::{Value, json};
 
 use crate::{
-    graph::TopicCompletionQuery,
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
     status::format_topic_observation_status,
+    topic_source::TopicSourceEditor,
 };
 
 pub struct TextPanel {
-    topic_editor: String,
-    topic: String,
+    source: TopicSourceEditor,
     pretty: bool,
     observation: ObservationState,
 }
@@ -37,6 +38,8 @@ struct ObservedTopic {
 #[derive(Default)]
 struct RenderedRecordCache {
     sample: Option<Arc<SampleRecord<DynamicPayload>>>,
+    field_path: String,
+    selection_error: Option<SelectionError>,
     metadata: Option<RenderedMetadata>,
     value: Option<Value>,
     pretty: Option<String>,
@@ -68,10 +71,15 @@ impl Panel for TextPanel {
             .and_then(|value| value.get("pretty"))
             .and_then(Value::as_bool)
             .unwrap_or(true);
+        let field_path = context
+            .value
+            .and_then(|value| value.get("field_path"))
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
 
         let mut panel = Self {
-            topic_editor: topic.clone(),
-            topic,
+            source: TopicSourceEditor::new(topic, field_path),
             pretty,
             observation: ObservationState::Idle,
         };
@@ -80,27 +88,30 @@ impl Panel for TextPanel {
     }
 
     fn header_ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
-        ui.label("Topic");
-        let namespace = context.backend.namespace();
-        let completions = {
-            let graph = context.backend.graph().lock();
-            TopicCompletionQuery::new(&namespace, &self.topic_editor)
-                .endpoint_kind(EndpointKind::Publisher)
-                .complete(graph.publishers())
+        let sample = match &self.observation {
+            ObservationState::Observing(observed) => observed.observation.latest(),
+            _ => None,
         };
-        let response = ui.add(CompletionEdit::new(
-            ui.id().with("topic"),
-            &completions,
-            &mut self.topic_editor,
-        ));
-        if response.changed() {
-            self.commit_topic(&context);
-        }
-        ui.checkbox(&mut self.pretty, "Pretty");
+        ui.vertical(|ui| {
+            ui.spacing_mut().text_edit_width = ui
+                .spacing()
+                .text_edit_width
+                .min(((ui.available_width() - 120.0) / 2.0).max(0.0));
+            ui.horizontal_wrapped(|ui| {
+                if self.source.ui(
+                    ui,
+                    context.backend,
+                    sample.as_ref().map(|sample| &sample.value),
+                ) {
+                    self.recreate_observation(&context);
+                }
+                ui.checkbox(&mut self.pretty, "Pretty");
+            });
+        });
     }
 
     fn ui(&mut self, ui: &mut Ui, _context: PanelUiContext<'_>) {
-        if self.topic.is_empty() {
+        if self.source.topic().is_empty() {
             ui.label("Enter a topic.");
             return;
         }
@@ -117,7 +128,9 @@ impl Panel for TextPanel {
                 }
                 ObservationState::Observing(observed) => {
                     Self::render_status(ui, observed.observation.status());
-                    observed.render_cache.refresh(&observed.observation);
+                    observed
+                        .render_cache
+                        .refresh(observed.observation.latest(), self.source.field_path());
 
                     let Some(metadata) = observed.render_cache.metadata() else {
                         ui.label("Waiting for first sample.");
@@ -125,6 +138,15 @@ impl Panel for TextPanel {
                     };
                     Self::render_metadata(ui, metadata);
                     ui.separator();
+
+                    if let Some(error) = &observed.render_cache.selection_error {
+                        let color = if error.is_unavailable() {
+                            ui.visuals().warn_fg_color
+                        } else {
+                            ui.visuals().error_fg_color
+                        };
+                        ui.colored_label(color, error.to_string());
+                    }
 
                     if let Some(rendered) = observed.render_cache.rendered_json_buffer(self.pretty)
                     {
@@ -141,7 +163,8 @@ impl Panel for TextPanel {
 
     fn save(&self) -> Value {
         json!({
-            "topic": self.topic,
+            "topic": self.source.topic(),
+            "field_path": self.source.field_path(),
             "pretty": self.pretty,
         })
     }
@@ -154,11 +177,11 @@ impl TextPanel {
     {
         self.observation = ObservationState::Idle;
 
-        if self.topic.is_empty() {
+        if self.source.topic().is_empty() {
             return;
         }
 
-        match create_observation(context, &self.topic) {
+        match create_observation(context, self.source.topic()) {
             Ok((observation, repaint)) => {
                 self.observation = ObservationState::Observing(Box::new(ObservedTopic {
                     observation,
@@ -170,18 +193,6 @@ impl TextPanel {
                 self.observation = ObservationState::Error(format!("{error:#}"));
             }
         }
-    }
-
-    fn commit_topic<C>(&mut self, context: &C)
-    where
-        C: ObservationContext,
-    {
-        let next_topic = self.topic_editor.trim().to_string();
-        if next_topic == self.topic {
-            return;
-        }
-        self.topic = next_topic;
-        self.recreate_observation(context);
     }
 
     fn render_metadata(ui: &mut Ui, metadata: &RenderedMetadata) {
@@ -212,27 +223,29 @@ impl TextPanel {
 }
 
 impl RenderedRecordCache {
-    fn refresh(&mut self, observation: &DynamicTopicObservation) {
-        let sample = observation.latest();
-        if same_sample(self.sample.as_ref(), sample.as_ref()) {
+    fn refresh(&mut self, sample: Option<Arc<SampleRecord<DynamicPayload>>>, field_path: &str) {
+        if same_sample(self.sample.as_ref(), sample.as_ref()) && self.field_path == field_path {
             return;
         }
 
         self.sample = sample;
+        self.field_path = field_path.to_owned();
+        self.selection_error = None;
         self.metadata = None;
         self.value = None;
         self.pretty = None;
         self.compact = None;
 
-        if self.sample.is_none() {
+        let Some(record) = &self.sample else {
             return;
-        }
-
-        if let Some(record) = observation.latest_json_record() {
-            self.metadata = Some(RenderedMetadata::from(&record));
-            self.value = Some(record.value);
-        } else {
-            self.sample = None;
+        };
+        self.metadata = Some(RenderedMetadata::from(record.as_ref()));
+        match field_path
+            .parse::<ValuePath>()
+            .and_then(|path| path.select(&record.value))
+        {
+            Ok(value) => self.value = Some(value.to_json(Default::default())),
+            Err(error) => self.selection_error = Some(error),
         }
     }
 
@@ -263,8 +276,8 @@ impl RenderedRecordCache {
     }
 }
 
-impl From<&SampleRecord<Value>> for RenderedMetadata {
-    fn from(record: &SampleRecord<Value>) -> Self {
+impl From<&SampleRecord<DynamicPayload>> for RenderedMetadata {
+    fn from(record: &SampleRecord<DynamicPayload>) -> Self {
         Self {
             resolved_topic: record.metadata.resolved_topic.clone(),
             type_name: record.metadata.type_info.name.to_string(),
@@ -385,10 +398,12 @@ mod tests {
     }
 
     #[test]
-    fn save_preserves_topic_and_pretty_flag() {
+    fn save_preserves_topic_field_and_pretty_flag() {
         let panel = TextPanel {
-            topic_editor: "/draft/topic".to_string(),
-            topic: "/output/text".to_string(),
+            source: crate::topic_source::TopicSourceEditor::new(
+                "/output/text".to_owned(),
+                "pose.x".to_owned(),
+            ),
             pretty: false,
             observation: ObservationState::Idle,
         };
@@ -397,12 +412,13 @@ mod tests {
             panel.save(),
             json!({
                 "topic": "/output/text",
+                "field_path": "pose.x",
                 "pretty": false,
             })
         );
         assert_eq!(
             serde_json::to_value(crate::SelectablePanel::TextPanel(Box::new(panel))).unwrap(),
-            json!({"kind": "text", "state": {"topic": "/output/text", "pretty": false}})
+            json!({"kind": "text", "state": {"topic": "/output/text", "field_path": "pose.x", "pretty": false}})
         );
     }
 
@@ -421,17 +437,135 @@ mod tests {
                 ))
                 .expect("backend should build"),
         );
-        let saved = json!({
-            "topic": "/output/text",
-            "pretty": true,
-        });
+        for field_path in [None, Some("pose.x")] {
+            let mut saved = json!({
+                "topic": "/output/text",
+                "pretty": true,
+            });
+            if let Some(path) = field_path {
+                saved["field_path"] = path.into();
+            }
+            let panel = TextPanel::new(PanelCreationContext {
+                backend: Arc::clone(&backend),
+                value: Some(&saved),
+                egui_context: Context::default(),
+            });
+            assert_eq!(panel.source.topic(), "/output/text");
+            assert_eq!(panel.source.field_path(), field_path.unwrap_or_default());
+        }
+    }
 
-        let panel = TextPanel::new(PanelCreationContext {
-            backend,
-            value: Some(&saved),
-            egui_context: Context::default(),
-        });
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn source_controls_fit_narrow_panel_headers() {
+        use crate::panel::PanelUiContext;
+        use eframe::egui::{CentralPanel, RawInput, Rect, vec2};
+        let backend = Arc::new(
+            RobotBackend::new(tokio::runtime::Handle::current(), None, "/".into())
+                .await
+                .unwrap(),
+        );
+        for width in [240.0, 800.0] {
+            let context = Context::default();
+            let mut panel = TextPanel {
+                source: crate::topic_source::TopicSourceEditor::new(
+                    "/topic".into(),
+                    "pose.x".into(),
+                ),
+                pretty: true,
+                observation: ObservationState::Idle,
+            };
+            let _ = context.run_ui(
+                RawInput {
+                    screen_rect: Some(Rect::from_min_size(Default::default(), vec2(width, 600.0))),
+                    ..Default::default()
+                },
+                |ui| {
+                    CentralPanel::default().show(ui, |ui| {
+                        let available = ui.available_width();
+                        let response = ui.horizontal(|ui| {
+                            panel.header_ui(
+                                ui,
+                                PanelUiContext {
+                                    backend: &backend,
+                                    egui_context: &context,
+                                },
+                            )
+                        });
+                        assert!(
+                            response.response.rect.width() <= available + 1.0,
+                            "width={width}, actual={:?}",
+                            response.response.rect
+                        );
+                    });
+                },
+            );
+        }
+    }
 
-        assert_eq!(panel.topic, "/output/text");
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn changing_selection_reuses_sample_and_metadata_and_clears_stale_rendering() {
+        use ros_z::context::ContextBuilder;
+        use ros_z_debug::{TopicObserver, TopicObserverOptions};
+        use std::time::Duration;
+
+        let context = ContextBuilder::default()
+            .disable_multicast_scouting()
+            .with_json("connect/endpoints", json!([]))
+            .build()
+            .await
+            .unwrap();
+        let node = Arc::new(
+            context
+                .create_node("twix_selection_test")
+                .build()
+                .await
+                .unwrap(),
+        );
+        let publisher = node
+            .publisher::<Vec<f64>>("/twix_selection_test")
+            .build()
+            .await
+            .unwrap();
+        let observer = TopicObserver::new(node, TopicObserverOptions::with_namespace("/").unwrap());
+        let observation = observer
+            .observe_dynamic("/twix_selection_test")
+            .unwrap()
+            .spawn();
+        let sample = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                publisher.publish(&vec![7.0, 9.0]).await.unwrap();
+                if let Some(sample) = observation.latest() {
+                    break sample;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("should receive a sample");
+
+        let mut cache = RenderedRecordCache::default();
+        cache.refresh(Some(Arc::clone(&sample)), "[0]");
+        assert_eq!(cache.rendered_json_buffer(false).unwrap(), "7.0");
+        cache.refresh(Some(Arc::clone(&sample)), "[1]");
+        assert_eq!(cache.rendered_json_buffer(false).unwrap(), "9.0");
+        assert!(Arc::ptr_eq(cache.sample.as_ref().unwrap(), &sample));
+        assert_eq!(
+            cache.metadata().unwrap().publication_id,
+            format_publication_id(sample.publication_id)
+        );
+        assert_eq!(
+            cache.metadata().unwrap().source_time,
+            super::format_time(sample.source_time)
+        );
+
+        cache.refresh(Some(Arc::clone(&sample)), "[9]");
+        assert!(cache.selection_error.as_ref().unwrap().is_unavailable());
+        assert!(cache.rendered_json_buffer(false).is_none());
+        assert!(cache.metadata().is_some());
+        cache.refresh(Some(Arc::clone(&sample)), "typo");
+        assert!(!cache.selection_error.as_ref().unwrap().is_unavailable());
+        cache.refresh(Some(Arc::clone(&sample)), "");
+        assert_eq!(cache.value, Some(json!([7.0, 9.0])));
+        assert!(cache.selection_error.is_none());
     }
 }

@@ -22,6 +22,17 @@ Twix checks the local repository version at startup and warns when the running b
 
 ROS-Z Twix currently contains Text, Image, and Parameter panels. The Text panel observes one ROS-Z topic through `ros-z-debug`, renders the latest dynamic payload as JSON, and shows sample metadata. The Image panel observes `TimeWrapper<ros2::sensor_msgs::image::Image>` topics, defaults to `inputs/left_image`, and renders the latest raw camera frame. The Parameter panel discovers ROS-Z nodes with remote parameter services, shows full snapshots or selected paths as JSON, and writes selected paths to active layers with revision checks.
 
+The Text panel's **Field** selector displays a subtree of the subscribed message. Leave it empty or choose **Whole message** to display the entire payload. Enter a path and press Enter, or choose a completion:
+
+- `pose.x` selects a nested field.
+- `joints[3].position` selects a field inside an array or sequence element. Indices start at zero.
+- `state::Walking.speed` selects a field in an enum variant's payload. The selected value is unavailable while another variant is active.
+- `"field.with.dots"` selects a field whose name contains punctuation. Field and variant names can be JSON-quoted.
+
+Present optionals are unwrapped when continuing through a path. Absent optionals and missing sequence elements appear as unavailable values; invalid paths show an error. Selecting an optional or enum itself displays its full value. Map entries are not traversable in this first version, but the whole map can be displayed.
+
+Completions use the schema from the latest received sample, including fields in absent optionals and inactive enum variants. Sequence index suggestions use the current length and show at most 64 indices; larger indices can be entered manually. Changing the field does not reconnect the topic subscription. The topic and field path are saved separately with the panel layout, and displayed timestamps and publication metadata still refer to the original message.
+
 ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`. Legacy Twix keeps using `hulks/twix.toml`, so the two tools do not share incompatible keybinding schemas. The default ROS-Z keybindings are:
 
 | Key | Action |
