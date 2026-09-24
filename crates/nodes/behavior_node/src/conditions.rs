@@ -2,7 +2,8 @@ use filtering::hysteresis::less_than_with_hysteresis;
 use hsl_network_messages::Team;
 use linear_algebra::{point, vector};
 use types::{
-    filtered_game_controller_state::FilteredGameControllerState, primary_state::PrimaryState,
+    controller_input::Button, filtered_game_controller_state::FilteredGameControllerState,
+    primary_state::PrimaryState,
 };
 use voronoi::Ownership;
 
@@ -152,16 +153,22 @@ pub fn is_primary_state(blackboard: &mut Blackboard, primary_state: PrimaryState
     blackboard.world_state.robot.primary_state == primary_state
 }
 
-pub fn is_remote_controlled(blackboard: &mut Blackboard) -> bool {
-    blackboard.parameters.control.remote_control.enable
+pub fn is_remote_control_enabled(blackboard: &mut Blackboard) -> bool {
+    blackboard.remote_control_enabled
 }
 
-pub fn is_remote_kick_mode(blackboard: &mut Blackboard) -> bool {
+pub fn is_controller_connected(blackboard: &mut Blackboard) -> bool {
     blackboard
-        .parameters
-        .control
-        .remote_control
-        .kick_mode_toggle
+        .controller_input
+        .as_ref()
+        .is_some_and(|controller| controller.connected)
+}
+
+pub fn is_remote_kick_mode(blackboard: &mut Blackboard, button: Button) -> bool {
+    blackboard
+        .controller_input
+        .as_ref()
+        .is_some_and(|controller| controller.is_pressed(button))
 }
 
 pub fn has_ball_position(blackboard: &mut Blackboard) -> bool {

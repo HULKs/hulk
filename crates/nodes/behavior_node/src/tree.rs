@@ -1,4 +1,7 @@
-use types::{motion_type::MotionType, primary_state::PrimaryState};
+use types::{
+    controller_input::Button, motion_command::KickPower, motion_type::MotionType,
+    primary_state::PrimaryState,
+};
 
 use crate::{
     action,
@@ -7,12 +10,12 @@ use crate::{
     condition,
     conditions::{
         has_ball_position, is_ball_interception_candidate, is_close_to_ball, is_closest_to_ball,
-        is_fallen, is_goalkeeper, is_last_hulk_standing, is_primary_state, is_remote_controlled,
-        is_remote_kick_mode, is_simple,
+        is_controller_connected, is_fallen, is_goalkeeper, is_last_hulk_standing, is_primary_state,
+        is_remote_control_enabled, is_remote_kick_mode, is_simple,
     },
     goalkeeper::goalkeeper_subtree,
     head::{look_around, look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
-    kick::{intercept, kick, kick_power_subtree, kick_subtree, set_kick_target_in_front},
+    kick::{intercept, kick, kick_subtree, set_kick_target_beyond_ball, use_kick_power},
     negation,
     node::Blackboard,
     penalty_shootout::{is_penalty_shootout, penalty_shootout_subtree},
@@ -158,18 +161,35 @@ fn supporter_subtree() -> Node<Blackboard> {
 
 fn remote_control_subtree() -> Node<Blackboard> {
     sequence!(
-        condition!(is_remote_controlled),
+        condition!(is_remote_control_enabled),
         selection!(
             sequence!(
-                condition!(is_remote_kick_mode),
-                subtree!(look_at_ball_subtree),
-                sequence!(
-                    action!(kick),
-                    action!(set_kick_target_in_front),
-                    subtree!(kick_power_subtree),
+                condition!(is_controller_connected),
+                selection!(
+                    subtree!(
+                        remote_kick_subtree,
+                        Button::LeftTrigger,
+                        KickPower::Rumpelstilzchen
+                    ),
+                    subtree!(
+                        remote_kick_subtree,
+                        Button::RightTrigger,
+                        KickPower::Schlong
+                    ),
+                    action!(remote_control)
                 )
             ),
-            sequence!(action!(look_straight_ahead), action!(remote_control))
+            action!(stand)
         )
+    )
+}
+
+fn remote_kick_subtree(button: Button, kick_power: KickPower) -> Node<Blackboard> {
+    sequence!(
+        condition!(is_remote_kick_mode, button),
+        subtree!(look_at_ball_subtree),
+        action!(kick),
+        action!(set_kick_target_beyond_ball),
+        action!(use_kick_power, kick_power),
     )
 }

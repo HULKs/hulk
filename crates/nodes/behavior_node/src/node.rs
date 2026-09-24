@@ -1,4 +1,9 @@
-use std::{net::SocketAddr, pin::Pin, sync::Arc, time::Duration};
+use std::{
+    net::SocketAddr,
+    pin::Pin,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use booster::FallDownState;
 use color_eyre::Result;
@@ -13,6 +18,7 @@ use tracing::info;
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     behavior_tree::NodeTrace,
+    controller_input::{Button, ControllerInput},
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     messages::OutgoingMessage,
@@ -44,6 +50,8 @@ pub struct Blackboard {
     pub field_dimensions: FieldDimensions,
     pub parameters: BehaviorParameters,
     pub world_state: WorldState,
+    pub controller_input: Option<ControllerInput>,
+    pub remote_control_enabled: bool,
 
     pub path_obstacles_output: Vec<PathObstacle>,
     pub time_since_last_switch: Duration,
@@ -158,6 +166,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
+    let controller_input_cache = node
+        .subscriber::<ControllerInput>("inputs/controller_input")
+        .cache(1)
+        .build()
+        .await?;
     let ball_state_cache = node
         .subscriber::<Option<BallState>>("ball_state")
         .cache(1)
@@ -261,6 +274,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .unwrap_or_default(),
         parameters: parameters.snapshot().typed().clone(),
         world_state: WorldState::default(),
+        controller_input: None,
+        remote_control_enabled: false,
 
         path_obstacles_output: Vec::new(),
         time_since_last_switch: Duration::ZERO,
@@ -313,6 +328,21 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .unwrap_or_default();
         blackboard.parameters = parameters.snapshot().typed().clone();
 
+        let was_start_pressed = blackboard
+            .controller_input
+            .as_ref()
+            .is_some_and(|input| input.is_pressed(Button::Start));
+        blackboard.controller_input = controller_input_cache
+            .get_after(Time::from_wallclock(SystemTime::now()) - Duration::from_millis(250))
+            .filter(|input| input.connected)
+            .map(|input| input.as_ref().clone());
+        if let Some(input) = &blackboard.controller_input
+            && input.is_pressed(Button::Start)
+            && !was_start_pressed
+        {
+            blackboard.remote_control_enabled = !blackboard.remote_control_enabled;
+        }
+
         let player_states = player_states_cache
             .get_latest()
             .map(|player_states| {
@@ -323,15 +353,20 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             })
             .unwrap_or_default();
 
+        let primary_state = primary_state_cache
+            .get_latest()
+            .map(|state| *state)
+            .unwrap_or_default();
+        if primary_state != blackboard.world_state.robot.primary_state {
+            blackboard.remote_control_enabled = false;
+        }
+
         blackboard.world_state.robot = RobotState {
             ground_to_field: ground_to_field_cache
                 .get_latest()
                 .map(|ground_to_field| *ground_to_field),
             player_number,
-            primary_state: primary_state_cache
-                .get_latest()
-                .map(|s| *s)
-                .unwrap_or_default(),
+            primary_state,
         };
 
         blackboard.world_state.ball = ball_state_cache.get_latest().and_then(|ball| *ball);

@@ -132,12 +132,17 @@ impl HeadMotionState {
             return filtered_head_joints;
         }
 
-        let raw_positions = joints_from_motion(
-            look_around_target_joints,
-            look_at,
-            motor_states,
-            motion_command,
-        );
+        let raw_positions = match motion_command.head_motion() {
+            Some(HeadMotion::MoveWithVelocity { yaw, pitch }) => {
+                self.last_positions + HeadJoints { yaw, pitch } * last_cycle_duration.as_secs_f32()
+            }
+            _ => joints_from_motion(
+                look_around_target_joints,
+                look_at,
+                motor_states,
+                motion_command,
+            ),
+        };
         let maximum_movement = parameters.maximum_velocity * last_cycle_duration.as_secs_f32();
 
         let controlled_positions = HeadJoints {

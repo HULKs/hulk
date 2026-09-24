@@ -48,7 +48,8 @@ Many subcommands can act on multiple robots concurrently.
 
 `logs` or and `postgame` can be used after a (test-)game to download logs, the latter also shuts down the HULKs binary and disables wifi.
 
-`gammaray` is used for flashing a HULKs-OS image to one or more robots.
+On K1 robots, `gammaray` configures HULK and disables manufacturer controller programs; `boosterize` restores manufacturer control.
+See [Remote Control](remote_control.md) for setup, gamepad bindings, and restoration instructions.
 
 ## Build Options
 

@@ -155,6 +155,10 @@ pub enum HeadMotion {
         target: Point2<Ground>,
     },
     Unstiff,
+    MoveWithVelocity {
+        yaw: f32,
+        pitch: f32,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, Message)]
