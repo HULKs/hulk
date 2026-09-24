@@ -20,6 +20,7 @@ pub struct CompletionEdit<'a, T> {
     id: Id,
     suggestions: &'a [T],
     selected: &'a mut String,
+    select_all_on_focus: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -83,7 +84,15 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
             id: id_salt.into(),
             suggestions: items,
             selected,
+            select_all_on_focus: true,
         }
+    }
+
+    /// Disable automatic selection of the entire input when restoring focus with
+    /// a specific cursor selection, such as an array-index placeholder.
+    pub fn select_all_on_focus(mut self, enabled: bool) -> Self {
+        self.select_all_on_focus = enabled;
+        self
     }
 
     pub fn ui(
@@ -155,7 +164,7 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
             matching_items = get_matching_items(ui, self.selected, self.suggestions);
         }
         state.selection.clamp(matching_items.len());
-        if !state.textedit_was_focused && response.has_focus() {
+        if self.select_all_on_focus && !state.textedit_was_focused && response.has_focus() {
             // Select all
             set_cursor(
                 ui.ctx(),
