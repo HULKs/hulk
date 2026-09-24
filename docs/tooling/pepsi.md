@@ -51,6 +51,22 @@ Many subcommands can act on multiple robots concurrently.
 On K1 robots, `gammaray` configures HULK and disables manufacturer controller programs; `boosterize` restores manufacturer control.
 See [Remote Control](remote_control.md) for setup, gamepad bindings, and restoration instructions.
 
+## K1 Wi-Fi
+
+`pepsi wifi set <network> <robot>` activates the selected NetworkManager connection, then restarts `zenohd.service` to refresh Zenoh's cached interface addresses. The restart runs only if activation succeeds. Selecting `None` only disconnects Wi-Fi. Pre-game setup uses the same operation when selecting a network.
+
+The router restart briefly interrupts local Zenoh communication, so change networks while the robot is safely stopped. Wi-Fi does not need to be connected for normal startup.
+
+### Router QoS and address changes
+
+The router configuration in `tools/k1-setup/zenohd.json5` makes outgoing ROS topic samples (`rt/**`) droppable under congestion on the external Ethernet and Wi-Fi interfaces. A slow or disconnected viewer can therefore lose samples without blocking local forwarding. This applies to all subscribers reached through those interfaces, including remote recorders. Loopback consumers and service queries/replies retain their existing QoS.
+
+This policy belongs on the robot's router: changing a viewer's subscriber reliability or local queue size does not change the congestion policy of incoming publications. The interface names in the rule must match the robot's external links. Existing robots need the updated router configuration deployed and the router restarted while safely stopped; rebuilding Twix alone does not apply it.
+
+Zenoh 1.9 caches interface addresses, so changing a network's IP after the router starts can bypass this rule. `pepsi wifi set` refreshes that cache by restarting `zenohd` after activating the network. Changes made outside this command, including later DHCP address changes, still require a router restart after the new address is assigned. Restarting only `zenoh-bridge-dds` does not refresh the router's cache.
+
+The policy mitigates publication backpressure in Zenoh 1.9.0. It does not fix every non-droppable protocol path covered by [Zenoh issue #1876](https://github.com/eclipse-zenoh/zenoh/issues/1876). Validate a deployment with Twix displaying images during Ethernet removal: local manufacturer RPCs should continue, and Twix should recover after reconnection without a bridge restart.
+
 ## Build Options
 
 For subcommands that build a binary, you can specify a target and a build profile.
