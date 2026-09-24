@@ -198,6 +198,7 @@ mod tests {
             (left, PanelKind::TextPanel),
             (right, PanelKind::TextPanel),
             (right, PanelKind::ImagePanel),
+            (right, PanelKind::PlotPanel),
         ] {
             layout.apply_request(
                 LayoutRequest::Replace { pane, panel: kind },

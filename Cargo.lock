@@ -11661,6 +11661,7 @@ dependencies = [
  "eframe",
  "egui_extras",
  "egui_material_icons",
+ "egui_plot",
  "egui_tiles",
  "geometry",
  "hsl_network_messages",
