@@ -31,7 +31,7 @@ The Text panel's **Topic** input accepts both a topic and a nested field path. E
 
 Topics and fields autocomplete in the same input. Array completions include templates such as `detected_objects.inner[...]`. Selecting a template highlights `...` so you can replace it with an index, move past the closing bracket, and continue into the element's fields. Templates also work when the current array is empty. For a topic whose root is an array, use `topic[2]`.
 
-Press **Ctrl+F** to focus and select the topic input in the active Text or Image panel. Press **Ctrl+Space** in a completion input to open its dropdown without changing the text, including when the input is empty. Use the arrow keys to choose a completion and Enter to apply it.
+Press **Ctrl+F** to focus and select the topic input in the active Text or Image panel. Press **Ctrl+Space** or **Arrow Down** in a completion input to open its dropdown, including when the input is empty. Arrow Down also highlights the first suggestion. Use the arrow keys to choose a completion and Enter to apply it. The input keeps focus with the cursor after the completion, so you can continue typing the path.
 
 Present optionals are unwrapped when continuing through a path. Absent optionals and missing sequence elements appear as unavailable values; invalid paths show an error. Selecting an optional or enum itself displays its full value. Map entries are not traversable in this first version, but the whole map can be displayed.
 
