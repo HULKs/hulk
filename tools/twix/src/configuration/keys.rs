@@ -32,6 +32,7 @@ pub enum KeybindAction {
     FocusNamespace,
     FocusPanel,
     FocusRight,
+    FocusTopic,
     NoOp,
     OpenSplit,
     OpenTab,
@@ -173,10 +174,13 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_current_namespace_focus_action() {
+    fn deserialize_focus_actions() {
         let config: ActionConfig = toml::from_str(r#"action = "focus_namespace""#).unwrap();
 
         assert_eq!(config.action, KeybindAction::FocusNamespace);
+
+        let config: ActionConfig = toml::from_str(r#"action = "focus_topic""#).unwrap();
+        assert_eq!(config.action, KeybindAction::FocusTopic);
     }
 
     #[test]
