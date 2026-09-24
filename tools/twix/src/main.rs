@@ -161,6 +161,9 @@ impl App for TwixApp {
                         layout.focus(direction, &context);
                     }
                 }
+                if context.keybind_pressed(KeybindAction::FocusTopic) {
+                    layout.focus_topic(&context);
+                }
                 if context.keybind_pressed(KeybindAction::OpenSplit) {
                     layout.open_split(&self.backend, &context);
                 }
