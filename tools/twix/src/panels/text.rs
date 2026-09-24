@@ -96,7 +96,7 @@ impl Panel for TextPanel {
             ui.spacing_mut().text_edit_width = ui
                 .spacing()
                 .text_edit_width
-                .min(((ui.available_width() - 120.0) / 2.0).max(0.0));
+                .min((ui.available_width() - 55.0).max(0.0));
             ui.horizontal_wrapped(|ui| {
                 if self.source.ui(
                     ui,
