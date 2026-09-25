@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeMap,
     fmt::{self, Display, Formatter},
+    sync::Arc,
     time::Duration,
     time::SystemTime,
 };
@@ -89,7 +90,7 @@ pub struct RobotFrame {
     pub world_state: WorldState,
     pub motion_command: MotionCommand,
     pub trace: NodeTrace,
-    pub static_layout: NodeTrace,
+    pub static_layout: Arc<NodeTrace>,
     pub path_obstacles: Vec<PathObstacle>,
     pub time_since_last_switch: Duration,
     pub direction_difference: f32,

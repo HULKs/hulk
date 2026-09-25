@@ -518,7 +518,7 @@ mod tests {
                     speed: 1.0,
                 },
                 trace: empty_trace(),
-                static_layout: empty_trace(),
+                static_layout: empty_trace().into(),
                 path_obstacles: Vec::new(),
                 time_since_last_switch: Duration::ZERO,
                 direction_difference: 0.0,

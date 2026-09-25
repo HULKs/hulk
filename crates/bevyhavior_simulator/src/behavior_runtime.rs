@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, time::Duration};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use behavior_node::{
     behavior_tree::Node as BehaviorNodeTree, motion_assembler::assemble_motion_command,
@@ -31,13 +31,13 @@ use crate::invariant_checks::BEHAVIOR_TICK_ERROR_CHECK_NAME;
 pub struct SimulatorRobotBehavior {
     pub tree: BehaviorNodeTree<BehaviorBlackboard>,
     pub blackboard: BehaviorBlackboard,
-    pub static_layout: NodeTrace,
+    pub static_layout: Arc<NodeTrace>,
 }
 
 impl SimulatorRobotBehavior {
     pub fn new(parameters: BehaviorParameters) -> Self {
         let tree = create_behavior_tree();
-        let static_layout = tree.static_layout_trace();
+        let static_layout = Arc::new(tree.static_layout_trace());
         Self {
             tree,
             blackboard: create_behavior_blackboard(parameters),
@@ -105,7 +105,7 @@ impl SimulatorRobotBehavior {
         Ok(SimulatorBehaviorTickOutput {
             motion_command,
             trace,
-            static_layout: self.static_layout.clone(),
+            static_layout: Arc::clone(&self.static_layout),
             path_obstacles: self.blackboard.path_obstacles_output.clone(),
             time_since_last_switch: self.blackboard.time_since_last_switch,
             direction_difference: self.blackboard.direction_difference,
@@ -148,7 +148,7 @@ pub struct SimulatorBehaviorTickInput {
 pub struct SimulatorBehaviorTickOutput {
     pub motion_command: MotionCommand,
     pub trace: NodeTrace,
-    pub static_layout: NodeTrace,
+    pub static_layout: Arc<NodeTrace>,
     pub path_obstacles: Vec<PathObstacle>,
     pub time_since_last_switch: Duration,
     pub direction_difference: f32,
@@ -274,7 +274,7 @@ fn behavior_tick_failure_message(
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, time::Duration, time::SystemTime};
+    use std::{collections::BTreeMap, time::SystemTime};
 
     use bevy::{app::App, ecs::message::Messages};
     use hsl_network_messages::{PlayerNumber, Team};
@@ -291,7 +291,7 @@ mod tests {
         let mut app = App::new();
         app.add_message::<AppExit>()
             .insert_resource(SimulatorClock {
-                now: SystemTime::UNIX_EPOCH + Duration::from_millis(30),
+                now: SystemTime::UNIX_EPOCH + DEFAULT_TICK_DURATION * 3,
                 tick_duration: DEFAULT_TICK_DURATION,
             })
             .insert_resource(SimulatorFieldDimensions(FieldDimensions::SPL_2025))
