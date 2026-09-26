@@ -23,7 +23,7 @@ use repository::{Repository, inspect_version::check_for_update};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use visuals::Visuals;
 
-use crate::backend::RobotBackend;
+use crate::{backend::RobotBackend, panels::AudioPanel};
 
 mod backend;
 mod configuration;
@@ -39,7 +39,7 @@ mod twix_painter;
 mod visuals;
 mod zoom_and_pan;
 
-impl_selectable_panel!(TextPanel, ImagePanel, MapPanel, ParameterPanel);
+impl_selectable_panel!(TextPanel, ImagePanel, MapPanel, ParameterPanel, AudioPanel);
 
 #[derive(Debug, Clone, clap::Parser)]
 struct Arguments {
