@@ -139,118 +139,146 @@ impl Parameters {
             "inference_threads must be positive"
         );
         for policy in Policy::ALL {
-            let p = self
+            let policy_parameters = self
                 .policies
                 .get(&policy)
                 .ok_or_else(|| eyre!("missing parameters for {policy:?}"))?;
             ensure!(
-                !p.model_file.is_empty(),
+                !policy_parameters.model_file.is_empty(),
                 "missing model file for {policy:?}"
             );
             ensure!(
-                p.offset.into_iter().all(f32::is_finite),
+                policy_parameters.offset.into_iter().all(f32::is_finite),
                 "invalid offset for {policy:?}"
             );
             ensure!(
-                p.kp.into_iter()
-                    .chain(p.kd)
+                policy_parameters
+                    .kp
+                    .into_iter()
+                    .chain(policy_parameters.kd)
                     .all(|value| value.is_finite() && value >= 0.0),
                 "invalid gains for {policy:?}"
             );
             ensure!(
-                p.action_limit.is_finite() && p.action_limit > 0.0,
+                policy_parameters.action_limit.is_finite() && policy_parameters.action_limit > 0.0,
                 "invalid action limit for {policy:?}"
             );
         }
-        let t = &self.timing;
+        let timing = &self.timing;
         ensure!(
-            [t.policy_period, t.sensor_period, t.maximum_sensor_age]
-                .into_iter()
-                .all(|value| !value.is_zero() && value.as_secs_f32().is_finite()),
+            [
+                timing.policy_period,
+                timing.sensor_period,
+                timing.maximum_sensor_age
+            ]
+            .into_iter()
+            .all(|value| !value.is_zero() && value.as_secs_f32().is_finite()),
             "invalid inference timing"
         );
-        let o = &self.observation;
+        let observation = &self.observation;
         ensure!(
-            o.quaternion_norm_tolerance > 0.0 && o.quaternion_norm_tolerance <= 1.0,
+            observation.quaternion_norm_tolerance > 0.0
+                && observation.quaternion_norm_tolerance <= 1.0,
             "quaternion norm tolerance must be in (0, 1]"
         );
-        let l = &self.locomotion;
-        let k = &self.kick;
-        let g = &self.get_up;
+        let locomotion = &self.locomotion;
+        let kick = &self.kick;
+        let get_up = &self.get_up;
         ensure!(
-            g.progress_rate.is_finite() && g.progress_rate > 0.0,
+            get_up.progress_rate.is_finite() && get_up.progress_rate > 0.0,
             "get-up progress rate must be finite and positive"
         );
         ensure!(
             [
-                g.front_duration_seconds / g.progress_rate,
-                g.back_duration_seconds / g.progress_rate
+                get_up.front_duration_seconds / get_up.progress_rate,
+                get_up.back_duration_seconds / get_up.progress_rate
             ]
             .into_iter()
-            .all(|v| v.is_finite() && v > 0.0),
+            .all(|duration| duration.is_finite() && duration > 0.0),
             "invalid effective get-up duration"
         );
+        for (name, value) in [
+            (
+                "observation.quaternion_norm_tolerance",
+                observation.quaternion_norm_tolerance,
+            ),
+            (
+                "observation.maximum_walking_velocity_change_degrees",
+                observation.maximum_walking_velocity_change_degrees,
+            ),
+            (
+                "observation.joint_velocity_scale",
+                observation.joint_velocity_scale,
+            ),
+            (
+                "locomotion.lateral_velocity_limit",
+                locomotion.lateral_velocity_limit,
+            ),
+            (
+                "locomotion.angular_velocity_limit",
+                locomotion.angular_velocity_limit,
+            ),
+            ("locomotion.base_frequency", locomotion.base_frequency),
+            (
+                "locomotion.frequency_offset_limit",
+                locomotion.frequency_offset_limit,
+            ),
+            ("kick.ball_position_limit", kick.ball_position_limit),
+            ("kick.ball_velocity_limit", kick.ball_velocity_limit),
+            ("kick.ball_jump_distance", kick.ball_jump_distance),
+            ("kick.ball_position_scale", kick.ball_position_scale),
+            ("kick.ball_velocity_scale", kick.ball_velocity_scale),
+            ("kick.target_speed_scale", kick.target_speed_scale),
+            ("kick.shift_distance", kick.shift_distance),
+            ("get_up.progress_rate", get_up.progress_rate),
+        ] {
+            ensure!(
+                value.is_finite() && value >= 0.0,
+                "{name} must be finite and nonnegative, got {value}"
+            );
+        }
         ensure!(
-            [
-                o.quaternion_norm_tolerance,
-                o.maximum_walking_velocity_change_degrees,
-                o.joint_velocity_scale,
-                l.lateral_velocity_limit,
-                l.angular_velocity_limit,
-                l.base_frequency,
-                l.frequency_offset_limit,
-                k.ball_position_limit,
-                k.ball_velocity_limit,
-                k.ball_jump_distance,
-                k.ball_position_scale,
-                k.ball_velocity_scale,
-                k.target_speed_scale,
-                k.shift_distance,
-                g.progress_rate,
-            ]
-            .into_iter()
-            .all(|value| value.is_finite() && value >= 0.0),
-            "invalid inference coefficient"
-        );
-        ensure!(
-            [l.initial_frequency_offset,]
+            [locomotion.initial_frequency_offset,]
                 .into_iter()
                 .all(f32::is_finite),
             "non-finite locomotion coefficient"
         );
         ensure!(
-            [g.front_duration_seconds, g.back_duration_seconds]
+            [get_up.front_duration_seconds, get_up.back_duration_seconds]
                 .into_iter()
                 .all(|value| value.is_finite() && value > 0.0),
             "invalid get-up duration"
         );
         ensure!(
-            o.maximum_velocity_sample_gap_frames.is_finite()
-                && o.maximum_velocity_sample_gap_frames >= 1.0,
+            observation.maximum_velocity_sample_gap_frames.is_finite()
+                && observation.maximum_velocity_sample_gap_frames >= 1.0,
             "invalid velocity sample gap"
         );
         ensure!(
-            k.speed_limits[0] >= 0.0 && k.soft_speed_limits[0] >= 0.0,
+            kick.speed_limits[0] >= 0.0 && kick.soft_speed_limits[0] >= 0.0,
             "kick speed limits must be nonnegative"
         );
-        for [minimum, maximum] in [
-            l.forward_velocity_limits,
-            k.speed_limits,
-            k.soft_speed_limits,
+        for (name, [minimum, maximum]) in [
+            (
+                "locomotion.forward_velocity_limits",
+                locomotion.forward_velocity_limits,
+            ),
+            ("kick.speed_limits", kick.speed_limits),
+            ("kick.soft_speed_limits", kick.soft_speed_limits),
         ] {
             ensure!(
                 minimum.is_finite() && maximum.is_finite() && minimum <= maximum,
-                "invalid command range"
+                "{name} must have finite bounds with minimum <= maximum, got [{minimum}, {maximum}]"
             );
         }
-        for [minimum, maximum] in [
-            k.shift_direction_degrees,
-            k.shift_foot_distance,
-            k.shift_ball_distance,
+        for (name, [minimum, maximum]) in [
+            ("kick.shift_direction_degrees", kick.shift_direction_degrees),
+            ("kick.shift_foot_distance", kick.shift_foot_distance),
+            ("kick.shift_ball_distance", kick.shift_ball_distance),
         ] {
             ensure!(
                 minimum.is_finite() && maximum.is_finite() && minimum < maximum,
-                "invalid kick ramp range"
+                "{name} must have finite bounds with minimum < maximum, got [{minimum}, {maximum}]"
             );
         }
         Ok(())

@@ -136,7 +136,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let parameters = node.bind_parameter_as::<Parameters>("motion_inference")?;
     let startup = parameters.snapshot().typed.clone();
     parameters.add_validation_hook(move |candidate| {
-        candidate.validate().map_err(|e| format!("{e:#}"))?;
+        candidate.validate().map_err(|error| format!("{error:#}"))?;
         if candidate != startup.as_ref() {
             return Err("motion inference parameter changes require a restart".into());
         }
@@ -166,9 +166,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             state: State::Idle,
         })
         .await?;
-    let p = parameters.snapshot().typed.clone();
+    let inference_parameters = parameters.snapshot().typed.clone();
     let initialized = tokio::task::spawn_blocking(move || {
-        Inference::new(&p.neural_networks_folder, &Policy::ALL, p.clone())
+        Inference::new(
+            &inference_parameters.neural_networks_folder,
+            &Policy::ALL,
+            inference_parameters.clone(),
+        )
     })
     .await?;
     let controller = match initialized {
@@ -226,7 +230,7 @@ struct Runtime {
     sensor: Option<SensorFrame>,
     joint_limits: Option<Arc<JointLimits>>,
     velocity: VelocityEstimator,
-    last_position: Option<Joints<f32>>,
+    last_position: Option<(Policy, Joints<f32>)>,
     generation: u64,
     fault: Option<Arc<Report>>,
 }
@@ -261,57 +265,86 @@ impl Runtime {
         statuses: &Publisher<Status>,
         timings: &Publisher<Timing>,
     ) -> Result<()> {
+        let mut published_fault: Option<String> = None;
         loop {
             tokio::select! {
                 received = sensors.recv_with_metadata() => {
-                    let received=received?;
-                    self.receive_sensor(&received,received.source_time);
+                    let received = received?;
+                    self.receive_sensor(&received, received.source_time);
                 }
-                received = limits.recv() => { self.receive_limits(received?); }
+                received = limits.recv() => {
+                    self.receive_limits(received?);
+                }
                 received = requests.receive() => {
-                    let (request,reply)=received?;
-                    self.enqueue(Pending {request,reply,received_at:self.clock.now()}).await;
+                    let (request, reply) = received?;
+                    self.enqueue(Pending {
+                        request,
+                        reply,
+                        received_at: self.clock.now(),
+                    })
+                    .await;
                 }
                 completed = async { self.worker.as_mut().expect("active worker").await }, if self.worker.is_some() => {
-                    self.complete(completed?, statuses, timings).await?;
+                    self.complete(completed?, timings).await?;
                 }
-                _ = std::future::ready(()), if self.worker.is_none() && self.pending.is_some() => { self.dispatch().await; }
+                _ = std::future::ready(()), if self.worker.is_none() && self.pending.is_some() => {
+                    self.dispatch().await;
+                }
+            }
+            let fault = self.fault.as_ref().map(|error| format!("{error:#}"));
+
+            if fault != published_fault {
+                let state = match &fault {
+                    Some(reason) => State::Fault {
+                        reason: reason.clone(),
+                    },
+                    None => State::Initialized,
+                };
+
+                statuses
+                    .publish(&Status {
+                        time: self.clock.now(),
+                        state,
+                    })
+                    .await?;
+
+                published_fault = fault;
             }
         }
     }
 
     fn receive_sensor(&mut self, low: &LowState, time: Time) {
-        let s = match sensor_frame(low, time) {
-            Ok(s) => s,
+        let sensor = match sensor_frame(low, time) {
+            Ok(sensor) => sensor,
             Err(error) => {
                 self.sensor = None;
                 self.fault = Some(Arc::new(error));
                 return;
             }
         };
-        if let Err(error) = s.validate(&self.parameters) {
+        if let Err(error) = sensor.validate(&self.parameters) {
             self.sensor = None;
             self.fault = Some(Arc::new(error));
             return;
         }
         let now = self.clock.now();
-        if s.timestamp > now {
+        if sensor.timestamp > now {
             self.sensor = None;
             self.fault = Some(Arc::new(Report::msg("sensor timestamp is in the future")));
             return;
         }
-        if now.duration_since(s.timestamp) > self.parameters.timing.maximum_sensor_age
+        if now.duration_since(sensor.timestamp) > self.parameters.timing.maximum_sensor_age
             || self
                 .sensor
                 .as_ref()
-                .is_some_and(|old| s.timestamp <= old.timestamp)
+                .is_some_and(|old| sensor.timestamp <= old.timestamp)
         {
             return;
         }
-        if let Err(error) = self.velocity.update(&s, &self.parameters) {
+        if let Err(error) = self.velocity.update(&sensor, &self.parameters) {
             self.fault = Some(Arc::new(error));
         }
-        self.sensor = Some(s);
+        self.sensor = Some(sensor);
     }
 
     fn receive_limits(&mut self, limits: JointLimits) {
@@ -324,97 +357,105 @@ impl Runtime {
         }
     }
 
-    async fn enqueue(&mut self, p: Pending) {
-        let request = p.request;
+    async fn enqueue(&mut self, pending: Pending) {
+        let request = pending.request;
         if request.generation < self.generation {
-            p.reject(InferenceError::Superseded).await;
+            pending.reject(InferenceError::Superseded).await;
             return;
         }
         if request.requested_at > self.clock.now() || self.clock.now() >= request.valid_until {
-            p.reject(InferenceError::Expired).await;
+            pending.reject(InferenceError::Expired).await;
             return;
         }
         if request.generation > self.generation {
             self.generation = request.generation;
-            if let Some(c) = &mut self.controller {
-                c.reset();
+            if let Some(controller) = &mut self.controller {
+                controller.reset();
             }
             self.last_position = None;
-            self.velocity = VelocityEstimator::default();
             self.fault = None;
         }
-        if let Some(old) = self.pending.replace(p) {
+        if let Some(old) = self.pending.replace(pending) {
             old.reject(InferenceError::Superseded).await;
         }
     }
 
     async fn dispatch(&mut self) {
-        let p = self.pending.take().expect("pending request");
+        let pending = self.pending.take().expect("pending request");
         let now = self.clock.now();
-        if now >= p.request.valid_until {
-            p.reject(InferenceError::Expired).await;
+        if now >= pending.request.valid_until {
+            pending.reject(InferenceError::Expired).await;
             return;
         }
         if let Some(source) = &self.fault {
-            p.reject(InferenceError::Fault {
-                source: source.clone(),
-            })
-            .await;
+            pending
+                .reject(InferenceError::Fault {
+                    source: source.clone(),
+                })
+                .await;
             return;
         }
-        let (Some(s), Some(limits)) = (&self.sensor, &self.joint_limits) else {
-            p.reject(InferenceError::Unavailable).await;
+        let (Some(sensor), Some(limits)) = (&self.sensor, &self.joint_limits) else {
+            pending.reject(InferenceError::Unavailable).await;
             return;
         };
-        if s.validate_at(now, &self.parameters).is_err() {
-            p.reject(InferenceError::Expired).await;
+        if sensor.validate_at(now, &self.parameters).is_err() {
+            pending.reject(InferenceError::Expired).await;
             return;
         }
-        let mut s = s.clone();
-        s.last_commanded_position = self.last_position.unwrap_or(s.position);
+        let mut sensor = sensor.clone();
+        sensor.last_commanded_position = match self.last_position {
+            Some((policy, _))
+                if policy.is_locomotion()
+                    && matches!(pending.request.command, InferenceCommand::GetUp(_)) =>
+            {
+                sensor.position
+            }
+            Some((_, position)) => position,
+            None => sensor.position,
+        };
         let limits = limits.clone();
         let velocity = self.velocity.clone();
-        let request = p.request;
-        let mut c = self.controller.take().expect("idle controller");
+        let request = pending.request;
+        let mut controller = self.controller.take().expect("idle controller");
         let clock = self.clock.clone();
         let parameters = self.parameters.clone();
-        self.active = Some((p, now, s.timestamp));
+        self.active = Some((pending, now, sensor.timestamp));
         self.worker = Some(tokio::task::spawn_blocking(move || {
             let start = Instant::now();
-            let result = c.execute_request(
+            let result = controller.execute_request(
                 clock.now(),
-                &s,
+                &sensor,
                 request.command,
                 velocity,
                 &limits,
                 parameters,
             );
-            (c, result, start.elapsed())
+            (controller, result, start.elapsed())
         }));
     }
 
     async fn complete(
         &mut self,
         completed: WorkerResult,
-        statuses: &Publisher<Status>,
         timings: &Publisher<Timing>,
     ) -> Result<()> {
         self.worker = None;
-        let (p, started_at, sensor_time) = self.active.take().expect("active request");
-        let (mut c, result, compute_duration) = completed;
+        let (pending, started_at, sensor_time) = self.active.take().expect("active request");
+        let (mut controller, result, compute_duration) = completed;
         let now = self.clock.now();
-        let valid = p.request.generation == self.generation
-            && now < p.request.valid_until
+        let valid = pending.request.generation == self.generation
+            && now < pending.request.valid_until
             && now >= sensor_time
             && now.duration_since(sensor_time) <= self.parameters.timing.maximum_sensor_age;
         let result = if let Some(source) = &self.fault {
-            c.reset();
+            controller.reset();
             self.last_position = None;
             Err(InferenceError::Fault {
                 source: source.clone(),
             })
         } else if !valid {
-            c.reset();
+            controller.reset();
             self.last_position = None;
             Err(InferenceError::Expired)
         } else {
@@ -425,32 +466,23 @@ impl Runtime {
             })
         };
         if let Ok(output) = &result {
-            self.last_position = Some(
+            self.last_position = Some((
+                output.execution.policy,
                 output
                     .joints
                     .as_ref()
                     .into_iter()
-                    .map(|j| j.position)
+                    .map(|joint| joint.position)
                     .collect(),
-            );
+            ));
         }
-        if let Err(InferenceError::Fault { source }) = &result {
-            statuses
-                .publish(&Status {
-                    time: now,
-                    state: State::Fault {
-                        reason: format!("{source:#}"),
-                    },
-                })
-                .await?;
-        }
-        self.controller = Some(c);
+        self.controller = Some(controller);
         timings
             .publish(&Timing {
-                generation: p.request.generation,
-                policy: p.request.command.policy(),
-                requested_at: p.request.requested_at,
-                received_at: p.received_at,
+                generation: pending.request.generation,
+                policy: pending.request.command.policy(),
+                requested_at: pending.request.requested_at,
+                received_at: pending.received_at,
                 started_at,
                 completed_at: now,
                 sensor_time,
@@ -459,7 +491,7 @@ impl Runtime {
                 error: result.as_ref().err().map(ToString::to_string),
             })
             .await?;
-        p.reply.respond(result).await;
+        pending.reply.respond(result).await;
         Ok(())
     }
 }
