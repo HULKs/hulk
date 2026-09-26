@@ -1,4 +1,4 @@
-use coordinate_systems::{Camera, NormalizedDeviceCoordinates, Pixel};
+use coordinate_systems::{LeftCamera, NormalizedDeviceCoordinates, Pixel};
 use linear_algebra::{Isometry3, Point2, Point3, Transform, Vector3, point};
 use serde::{Deserialize, Serialize};
 
@@ -6,12 +6,12 @@ use crate::intrinsic::Intrinsic;
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, ros_z::Message)]
 pub struct CameraProjection<From> {
-    extrinsic: Isometry3<From, Camera>,
+    extrinsic: Isometry3<From, LeftCamera>,
     intrinsic: Intrinsic,
 }
 
 impl<From> CameraProjection<From> {
-    pub fn new(extrinsic: Isometry3<From, Camera>, intrinsic: Intrinsic) -> Self {
+    pub fn new(extrinsic: Isometry3<From, LeftCamera>, intrinsic: Intrinsic) -> Self {
         Self {
             extrinsic,
             intrinsic,

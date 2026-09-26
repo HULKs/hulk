@@ -2,7 +2,7 @@ use linear_algebra::vector;
 use types::{
     behavior_tree::Status,
     controller_input::{Axis, Button},
-    motion_command::{BodyMotion, HeadMotion},
+    motion_command::{BodyMotion, HeadMotion, MotionCommand},
 };
 
 use crate::node::Blackboard;
@@ -56,6 +56,10 @@ pub fn stand(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn stand_up(blackboard: &mut Blackboard) -> Status {
-    blackboard.body_motion = Some(BodyMotion::StandUp);
+    let fast = match blackboard.last_motion_command {
+        MotionCommand::StandUp { fast } => fast,
+        _ => blackboard.parameters.stand_up.fast,
+    };
+    blackboard.body_motion = Some(BodyMotion::StandUp { fast });
     Status::Success
 }

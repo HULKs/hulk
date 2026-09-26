@@ -31,6 +31,15 @@ where
     }
 }
 
+impl<T> HeadJoints<T> {
+    pub fn map<U>(self, f: impl Fn(T) -> U) -> HeadJoints<U> {
+        HeadJoints {
+            yaw: f(self.yaw),
+            pitch: f(self.pitch),
+        }
+    }
+}
+
 impl<T> IntoIterator for HeadJoints<T> {
     type Item = T;
 
@@ -38,6 +47,16 @@ impl<T> IntoIterator for HeadJoints<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         [self.yaw, self.pitch].into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a HeadJoints<T> {
+    type Item = &'a T;
+
+    type IntoIter = std::array::IntoIter<&'a T, 2>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        [&self.yaw, &self.pitch].into_iter()
     }
 }
 

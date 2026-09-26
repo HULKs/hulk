@@ -15,7 +15,7 @@ use ros_z::{
     dynamic::DiscoveredTopicSchema,
     prelude::*,
     pubsub::RawSubscriber,
-    qos::{QosHistory, QosReliability},
+    qos::{QosDurability, QosHistory, QosReliability},
     time::Time,
 };
 use serde::{Deserialize, Serialize};
@@ -180,7 +180,7 @@ async fn subscribe_topic(
         .wrap_err_with(|| format!("failed to discover schema for {topic}"))?;
     let subscriber = node
         .dynamic_raw_subscriber(topic, discovered.type_info())
-        .qos(recorder_qos(queue_depth))
+        .qos(recorder_qos(node, &discovered.qualified_topic, queue_depth))
         .build()
         .await
         .wrap_err_with(|| format!("failed to subscribe to {topic}"))?;
@@ -201,12 +201,23 @@ async fn subscribe_topic(
     Ok(())
 }
 
-fn recorder_qos(queue_depth: usize) -> QosProfile {
-    QosProfile {
+fn recorder_qos(node: &Node, qualified_topic: &str, queue_depth: usize) -> QosProfile {
+    let mut qos = QosProfile {
         reliability: QosReliability::BestEffort,
+        durability: QosDurability::TransientLocal,
         history: QosHistory::KeepLast(NonZeroUsize::new(queue_depth).unwrap_or(NonZeroUsize::MIN)),
         ..Default::default()
+    };
+    // Replay retained startup values such as joint limits and inference status.
+    // Request volatile durability if any publisher cannot provide retained data.
+    let graph = node.graph().lock();
+    let mut publishers = graph.publishers_on(qualified_topic).peekable();
+    if publishers.peek().is_none()
+        || publishers.any(|publisher| publisher.qos.durability != qos.to_protocol_qos().durability)
+    {
+        qos.durability = QosDurability::Volatile;
     }
+    qos
 }
 
 fn receive_sample(mut recorder: TopicRecorder) -> BoxFuture<'static, Result<RecordedSample>> {

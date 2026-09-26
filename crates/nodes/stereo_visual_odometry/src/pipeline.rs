@@ -7,7 +7,7 @@ use crate::{
     triangulator::StereoTriangulator,
 };
 
-use coordinate_systems::Camera;
+use coordinate_systems::LeftCamera;
 use linear_algebra::{Point3, point};
 use types::{stereo_camera_info::StereoCameraInfo, stereo_image_pair::StereoImagePair};
 
@@ -127,7 +127,7 @@ impl VisualOdometryPipeline {
     /// Return the stereo points triangulated from the most recently processed frame.
     ///
     /// Points are expressed in the current left-camera frame.
-    pub fn triangulated_features(&self) -> Vec<Point3<Camera>> {
+    pub fn triangulated_features(&self) -> Vec<Point3<LeftCamera>> {
         self.current_points
             .iter()
             .map(|point| {

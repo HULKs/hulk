@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use booster::ImuState;
-use coordinate_systems::{Camera, Field, Robot};
+use coordinate_systems::{Field, LeftCamera, Robot};
 use factrs::{
     core::{SE3, SO3},
     traits::Variable,
@@ -120,7 +120,7 @@ impl VinsFrontend {
         &mut self,
         time: SystemTime,
         associations: impl IntoIterator<Item = VisualReprojectionAssociation>,
-        robot_to_camera: Isometry3<Robot, Camera>,
+        robot_to_camera: Isometry3<Robot, LeftCamera>,
     ) -> Result<(), VinsFrontendError> {
         let robot_to_camera = isometry3_to_se3(robot_to_camera.inner);
         let mut global_measurements = Vec::new();
@@ -152,8 +152,8 @@ impl VinsFrontend {
         &mut self,
         previous_time: SystemTime,
         current_time: SystemTime,
-        previous_robot_to_left_camera: Isometry3<Robot, Camera>,
-        current_robot_to_left_camera: Isometry3<Robot, Camera>,
+        previous_robot_to_left_camera: Isometry3<Robot, LeftCamera>,
+        current_robot_to_left_camera: Isometry3<Robot, LeftCamera>,
         current_left_camera_to_previous_left_camera: nalgebra::Isometry3<f32>,
     ) -> Result<(), VinsFrontendError> {
         let current_robot_to_previous_robot = previous_robot_to_left_camera.inner.inverse()
@@ -262,7 +262,7 @@ mod tests {
 
     use super::*;
 
-    fn translation(x: f32, y: f32, z: f32) -> Isometry3<Robot, Camera> {
+    fn translation(x: f32, y: f32, z: f32) -> Isometry3<Robot, LeftCamera> {
         Isometry3::from_translation(x, y, z)
     }
 

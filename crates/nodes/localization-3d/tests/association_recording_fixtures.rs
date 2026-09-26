@@ -5,7 +5,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use coordinate_systems::{Camera, Field, Pixel, Robot};
+use coordinate_systems::{Field, LeftCamera, Pixel, Robot};
 use field_mark_association::{
     DetectedVisualFeature, GlobalLocalizationDebugStatus, GlobalLocalizerParameters,
     find_detected_visual_features, localize_global_visual_features,
@@ -508,7 +508,7 @@ fn push_landmark(
 }
 
 fn project_landmark(
-    field_to_camera: Isometry3<Field, Camera>,
+    field_to_camera: Isometry3<Field, LeftCamera>,
     intrinsics: Intrinsic,
     landmark: Point2<Field>,
 ) -> Option<Point2<Pixel>> {
@@ -548,7 +548,7 @@ fn system_time_from_nanos(nanos: u64) -> SystemTime {
     UNIX_EPOCH + Duration::from_nanos(nanos)
 }
 
-fn robot_to_camera(camera_matrix: &CameraMatrix) -> Isometry3<Robot, Camera> {
+fn robot_to_camera(camera_matrix: &CameraMatrix) -> Isometry3<Robot, LeftCamera> {
     camera_matrix.head_to_camera * camera_matrix.robot_to_head
 }
 
