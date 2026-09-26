@@ -6,7 +6,7 @@ use std::{
 use color_eyre::{Report, eyre::Context as _};
 use eframe::egui::{self, Color32, DragValue, Ui, Vec2};
 use hulk_widgets::CompletionEdit;
-use ros_z::entity::EndpointKind;
+use ros_z::{entity::EndpointKind, pubsub::PublicationId};
 use ros_z_debug::DynamicTopicObservation;
 use serde_json::{Value, json};
 
@@ -28,6 +28,7 @@ pub struct AudioPanel {
     topic_editor: String,
     topic: String,
     observation: ObservationState,
+    last_processed_sample: Option<PublicationId>,
     waterfall_history: VecDeque<Vec<f32>>,
     waterfall_texture: Option<eframe::egui::TextureHandle>,
     max_frequency: f32,
@@ -80,6 +81,7 @@ impl Panel for AudioPanel {
             topic_editor: topic.clone(),
             topic,
             observation: ObservationState::Idle,
+            last_processed_sample: None,
             waterfall_history: VecDeque::with_capacity(history_frames),
             waterfall_texture: None,
             max_frequency: 8000.0,
@@ -123,7 +125,7 @@ impl Panel for AudioPanel {
             return;
         }
 
-        let current_spectra: Option<Spectra> = match &mut self.observation {
+        let (current_spectra, publication_id) = match &mut self.observation {
             ObservationState::Idle => {
                 ui.label("No observation.");
                 return;
@@ -156,7 +158,7 @@ impl Panel for AudioPanel {
                 ui.separator();
 
                 match parse_spectra_value(&record.value) {
-                    Ok(spectra) => spectra,
+                    Ok(spectra) => (spectra, record.publication_id),
                     Err(error) => {
                         ui.colored_label(ui.visuals().error_fg_color, error);
                         return;
@@ -165,7 +167,9 @@ impl Panel for AudioPanel {
             }
         };
 
-        if let Some(ref spectra) = current_spectra {
+        if self.last_processed_sample != Some(publication_id)
+            && let Some(ref spectra) = current_spectra
+        {
             if spectra.is_empty() {
                 self.waterfall_history.clear();
             } else {
@@ -210,6 +214,7 @@ impl Panel for AudioPanel {
                 }
             }
         }
+        self.last_processed_sample = Some(publication_id);
 
         let current_y_max = current_spectra
             .as_ref()
@@ -273,6 +278,7 @@ impl Panel for AudioPanel {
                 current_max_magnitude: self.current_max_magnitude,
                 history_seconds: &mut self.history_seconds,
                 time_per_frame: self.time_per_frame,
+                last_processed_sample: &mut self.last_processed_sample,
                 waterfall_history: &mut self.waterfall_history,
                 selected_waterfall_channel: &mut self.selected_waterfall_channel,
             },
@@ -295,6 +301,7 @@ impl AudioPanel {
         C: ObservationContext,
     {
         self.observation = ObservationState::Idle;
+        self.last_processed_sample = None;
         self.waterfall_history.clear();
 
         if self.topic.is_empty() {
@@ -341,6 +348,7 @@ struct AudioBehavior<'a> {
     current_max_magnitude: f32,
     history_seconds: &'a mut f32,
     time_per_frame: Duration,
+    last_processed_sample: &'a mut Option<PublicationId>,
     waterfall_history: &'a mut VecDeque<Vec<f32>>,
     selected_waterfall_channel: &'a mut usize,
 }
@@ -492,6 +500,7 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
                                 }
                             });
                         if *self.selected_waterfall_channel != previous_channel {
+                            *self.last_processed_sample = None;
                             self.waterfall_history.clear();
                             self.texture = None;
                             self.total_time = 0.0;
