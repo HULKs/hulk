@@ -1,7 +1,7 @@
 use std::{boxed::Box, future::Future, pin::Pin};
 use std::{f32::consts::PI, sync::Arc};
 
-use color_eyre::Result;
+use color_eyre::{Result, eyre::ensure};
 use filtering::statistics::{mean, standard_deviation};
 use log::warn;
 use rustfft::{
@@ -22,10 +22,38 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
     Box::pin(run(ctx))
 }
 
+fn validate_whistle_detection_parameters(parameters: &WhistleDetectionParameters) -> Result<()> {
+    ensure!(
+        parameters.number_of_chunks > 0,
+        "number_of_chunks must be greater than zero"
+    );
+    ensure!(
+        parameters.number_audio_samples >= 2,
+        "number_audio_samples must be at least 2"
+    );
+
+    ensure!(
+        parameters.audio_sample_rate > 0,
+        "audio_sample_rate must be greater than zero"
+    );
+    ensure!(
+        parameters.detection_band.start.is_finite()
+            && parameters.detection_band.end.is_finite()
+            && parameters.detection_band.start >= 0.0
+            && parameters.detection_band.start < parameters.detection_band.end,
+        "detection_band must have finite bounds with 0 <= start < end"
+    );
+
+    Ok(())
+}
+
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("whistle_detection").build().await?;
 
     let parameters = node.bind_parameter_as::<WhistleDetectionParameters>("whistle_detection")?;
+    parameters.add_validation_hook(|parameters| {
+        validate_whistle_detection_parameters(parameters).map_err(|error| error.to_string())
+    })?;
     let samples_sub = node
         .subscriber::<Samples>("inputs/microphones_samples")
         .build()
@@ -164,7 +192,12 @@ fn spectrum_contains_whistle(
         (detection_parameters.detection_band.start / frequency_resolution).ceil() as usize;
     let max_frequency_index =
         (detection_parameters.detection_band.end / frequency_resolution).ceil() as usize;
-    let band_size = max_frequency_index - min_frequency_index;
+    let band_size = max_frequency_index
+        .min(absolute_values.len())
+        .saturating_sub(min_frequency_index);
+    let chunk_size = band_size / detection_parameters.number_of_chunks;
+    let band_size = chunk_size * detection_parameters.number_of_chunks;
+    let max_frequency_index = min_frequency_index + band_size;
     let band_values: Vec<_> = absolute_values
         .iter()
         .skip(min_frequency_index)
@@ -172,7 +205,6 @@ fn spectrum_contains_whistle(
         .cloned()
         .collect();
     let band_mean = mean(&band_values);
-    let chunk_size = band_size / detection_parameters.number_of_chunks;
     let mut detection_info = DetectionInfo {
         overall_mean,
         std_deviation: overall_standard_deviation,
