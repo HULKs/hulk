@@ -1,4 +1,4 @@
-FROM docker.io/rust:1.98.0
+FROM docker.io/rust:1.98.1
 
 RUN apt-get update && apt-get install --no-install-recommends --yes \
     buildah \
