@@ -2,7 +2,8 @@
 
 ## Interactive K1 viewer
 
-From this directory, run `uv run viewer.py` to open the standalone viewer.
+From the repository root, run `./pepsi mujoco-viewer` to open the standalone viewer.
+From this directory, you can also run `uv run viewer.py` directly.
 Press **F2** (or enable **Option → Info**) to show FPS.
 
 On WSL, the script automatically launches Windows Python with native NVIDIA/AMD/
@@ -19,7 +20,6 @@ the Linux environment and lockfile are unchanged. The first launch downloads
 MuJoCo 3.3.6 and its Python dependencies. Shadows and reflections stay enabled.
 
 This bypasses the [slow WSL rendering reported upstream](https://github.com/google-deepmind/mujoco/issues/1008).
-To explicitly use the WSL renderer instead, run `uv run viewer.py --local`.
 On native Linux, Windows, and macOS, the script uses the current Python runtime.
 
 This opens a standalone simulation, not a client of the WebSocket server below.

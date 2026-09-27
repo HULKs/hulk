@@ -6,6 +6,17 @@ It can be used to build the code, set up configuration parameters for a game, de
 This page is only meant as a general overview of pepsi's subcommands.
 For detailed usage instructions, run `pepsi --help` or `pepsi <subcommand> --help`.
 
+## K1 MuJoCo Viewer
+
+Run `./pepsi mujoco-viewer` from the repository root to open the standalone K1 viewer.
+Pepsi locates the simulator directory and runs `viewer.py` through `uv`.
+On WSL, the script automatically uses Windows Python and native OpenGL;
+Windows `uv.exe` must be on your `PATH`.
+Native Linux and macOS use their local Python runtime.
+
+Press **F2** in the viewer to display FPS.
+This is a standalone simulation, not a connection to the MuJoCo WebSocket server.
+
 ## Typical Webots Workflow
 
 This is pretty simple. Open Webots, load the `webots/worlds/penalized_extern.wbt` world file and execute

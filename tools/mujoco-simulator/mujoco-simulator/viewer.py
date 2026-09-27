@@ -7,21 +7,19 @@ from pathlib import Path
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Open the K1 MuJoCo viewer.")
-    parser.add_argument(
-        "--local",
-        action="store_true",
-        help="Use the current Python runtime instead of Windows on WSL.",
-    )
-    args = parser.parse_args()
+    parser.parse_args()
     script = Path(__file__).resolve()
 
-    if not args.local and "microsoft" in platform.release().lower():
+    if (
+        platform.system() == "Linux"
+        and "microsoft" in platform.release().lower()
+    ):
         uv = shutil.which("uv.exe")
         wslpath = shutil.which("wslpath")
         if uv is None or wslpath is None:
             parser.error(
                 "WSL GPU rendering needs Windows uv.exe and wslpath on PATH. "
-                "Install Windows uv, or pass --local to use the WSL renderer."
+                "Install Windows uv and ensure WSL interoperability is enabled."
             )
         windows_script = subprocess.check_output(  # noqa: S603
             [wslpath, "-w", str(script)], text=True
@@ -38,7 +36,6 @@ def main() -> int:
                 "mujoco==3.3.6",
                 "python",
                 windows_script,
-                "--local",
             ],
             cwd=script.parent,
             check=False,

@@ -18,6 +18,7 @@ use hulk::hulk;
 use hydra_bench::hydra_bench;
 use location::location;
 use log::logs;
+use mujoco_viewer::mujoco_viewer;
 use ping::ping;
 use player_number::player_number;
 use post_game::post_game;
@@ -44,6 +45,7 @@ mod hulk;
 mod hydra_bench;
 mod location;
 mod log;
+mod mujoco_viewer;
 mod ping;
 mod player_number;
 mod post_game;
@@ -116,6 +118,8 @@ enum Command {
         visible_alias = "baumstamm"
     )]
     Log(log::Arguments),
+    /// Open the standalone K1 MuJoCo viewer
+    MujocoViewer,
     /// Run cargo nextest
     #[command(visible_alias = "nächstprüf")]
     Nextest(cargo::Arguments<nextest::Arguments>),
@@ -245,6 +249,9 @@ async fn main() -> Result<()> {
         Command::Log(arguments) => logs(arguments)
             .await
             .wrap_err("failed to execute logs command")?,
+        Command::MujocoViewer => mujoco_viewer(&repository?)
+            .await
+            .wrap_err("failed to execute mujoco-viewer command")?,
         Command::Nextest(arguments) => cargo(arguments, &repository?, &[] as &[&str])
             .await
             .wrap_err("failed to execute nextest command")?,
