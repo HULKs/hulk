@@ -1,5 +1,31 @@
 # MuJoCo Simulator
 
+## Interactive K1 viewer
+
+From this directory, run `uv run viewer.py` to open the standalone viewer.
+Press **F2** (or enable **Option → Info**) to show FPS.
+
+On WSL, the script automatically launches Windows Python with native NVIDIA/AMD/
+Intel OpenGL instead of Mesa/D3D12. Use the same command:
+
+```sh
+uv run viewer.py
+```
+
+This requires Windows `uv.exe` on your WSL `PATH`. It starts Windows Python
+with native OpenGL, reading the same `viewer.py` and K1 model through WSL's
+shared filesystem. Dependencies are managed in a separate Windows uv cache;
+the Linux environment and lockfile are unchanged. The first launch downloads
+MuJoCo 3.3.6 and its Python dependencies. Shadows and reflections stay enabled.
+
+This bypasses the [slow WSL rendering reported upstream](https://github.com/google-deepmind/mujoco/issues/1008).
+To explicitly use the WSL renderer instead, run `uv run viewer.py --local`.
+On native Linux, Windows, and macOS, the script uses the current Python runtime.
+
+This opens a standalone simulation, not a client of the WebSocket server below.
+
+## Simulation server
+
 This project contains a simulator using mujoco to simulate a K1 robot.
 To start the simulator, execute
 ```bash
