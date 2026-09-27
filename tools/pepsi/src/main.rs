@@ -1,6 +1,6 @@
 use std::{env::current_dir, path::PathBuf};
 
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use color_eyre::{
     Result,
     config::HookBuilder,
@@ -41,6 +41,7 @@ mod format;
 mod game_branch;
 mod gammaray;
 mod git;
+mod help;
 mod hulk;
 mod hydra_bench;
 mod location;
@@ -155,8 +156,7 @@ enum Command {
     ///   pepsi shell 38 39 whoami
     #[command(verbatim_doc_comment, visible_alias = "muschel")]
     Shell(shell::Arguments),
-    /// Execute all unit and integration tests
-    #[command()]
+    /// Compile ONNX models to TensorRT engines on a robot
     TensorRTCompile(tensorrt_compile::Arguments),
     #[command(visible_alias = "prüf")]
     Test(cargo::Arguments<test::Arguments>),
@@ -176,7 +176,8 @@ enum Command {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let arguments = Arguments::parse();
+    let matches = help::grouped(Arguments::command()).get_matches();
+    let arguments = Arguments::from_arg_matches(&matches).unwrap_or_else(|error| error.exit());
     let level = if arguments.verbose {
         tracing::Level::TRACE
     } else {
