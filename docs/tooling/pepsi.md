@@ -11,7 +11,8 @@ For detailed usage instructions, run `pepsi --help` or `pepsi <subcommand> --hel
 Run `./pepsi mujoco-viewer` from the repository root to open the standalone K1 viewer.
 Pepsi locates the simulator directory and runs `viewer.py` through `uv`.
 On WSL, the script automatically uses Windows Python and native OpenGL;
-Windows `uv.exe` must be on your `PATH`.
+Both Linux `uv` and Windows `uv.exe` must be on your WSL `PATH`: Pepsi starts
+Linux `uv`, then the script launches Windows Python through `uv.exe`.
 Native Linux and macOS use their local Python runtime.
 
 Press **F2** in the viewer to display FPS.
