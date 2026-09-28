@@ -136,6 +136,28 @@
     },
   },
 
+  qos: {
+    network: [
+      // drop on congestion on all interfaces
+      {
+        id: "topic-default-drop",
+        flows: ["egress"],
+        messages: ["put"],
+        key_exprs: ["rt/**"],
+        overwrite: { congestion_control: "drop" },
+      },
+      // Override with blocking for loopback interface
+      {
+        id: "topic-loopback-block",
+        interfaces: ["lo"],
+        flows: ["egress"],
+        messages: ["put"],
+        key_exprs: ["rt/**"],
+        overwrite: { congestion_control: "block" },
+      },
+    ],
+  },
+
   ///
   /// Plugins configurations
   ///
