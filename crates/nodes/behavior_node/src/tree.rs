@@ -163,6 +163,7 @@ fn remote_control_subtree() -> Node<Blackboard> {
     sequence!(
         condition!(is_remote_control_enabled),
         selection!(
+            sequence!(condition!(is_fallen), action!(stand_up)),
             sequence!(
                 condition!(is_controller_connected),
                 selection!(
