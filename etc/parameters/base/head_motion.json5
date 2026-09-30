@@ -1,11 +1,51 @@
 {
-  parameters: {
-    maximum_velocity: { yaw: 1.0, pitch: 1.0 },
-    maximum_defender_velocity: { yaw: 2.0, pitch: 0.8 },
-    maximum_pitch: 1.0,
-    minimum_pitch: -0.3,
-    maximum_yaw: 0.785,
-    minimum_yaw: -0.785,
-    injected_head_joints: null,
+  joint_control: {
+    // Position feedback and damping gains, local to head motion.
+    kp: { yaw: 12.0, pitch: 10.0 },
+    kd: { yaw: 1.0, pitch: 1.2 },
+    // rad/s. The velocity ceiling is pi for each joint.
+    maximum_velocity: { yaw: 3.141592654, pitch: 3.141592654 },
+    damping_kd: { yaw: 1.2, pitch: 1.2 },
+    reseed_after: { secs: 0, nanos: 100000000 },
+    warning_interval: { secs: 1, nanos: 0 },
+  },
+
+  // Limits apply to position changes; acceleration and jerk are not limited.
+  direct_travel_speed: { yaw: 3.141592654, pitch: 3.141592654 },
+  // 500 Hz observations normally arrive every 2 ms. Reject stale request inputs.
+  maximum_observation_age: { secs: 0, nanos: 50000000 },
+  // Allow processing delay in the IMU/kinematics ground-pose pipeline.
+  maximum_ground_pose_age: { secs: 0, nanos: 100000000 },
+
+  injected_head_joints: null,
+
+  image_region_parameters: {
+    bottom: [0.5, 0.85],
+    center: [0.5, 0.5],
+    top: [0.5, 0.15],
+  },
+  glance: {
+    angle: 0.25,
+    travel_speed: { yaw: 3.14, pitch: 1.67 },
+    // Switch sides on a timer, independently of measured arrival.
+    phase_duration: { secs: 2, nanos: 0 },
+  },
+
+  look_around: {
+    // Localization: side -> center -> opposite side -> center.
+    center: { yaw: 0.0, pitch: 0.7 },
+    left: { yaw: 0.95, pitch: 0.5 },
+    right: { yaw: -0.95, pitch: 0.5 },
+    // Travel speeds in rad/s; waypoint duration includes travel and settling.
+    travel_speed: { yaw: 1.5, pitch: 0.5 },
+    waypoint_duration: { secs: 2, nanos: 0 },
+  },
+  search_for_lost_ball: {
+    // Center once, then alternate sides without stopping at center.
+    center: { yaw: 0.0, pitch: 0.7 },
+    left: { yaw: 0.95, pitch: 0.7 },
+    right: { yaw: -0.95, pitch: 0.7 },
+    travel_speed: { yaw: 1.5, pitch: 0.5 },
+    waypoint_duration: { secs: 2, nanos: 500000000 },
   },
 }

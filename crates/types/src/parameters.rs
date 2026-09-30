@@ -1,7 +1,7 @@
 use std::{ops::Range, path::PathBuf, time::Duration};
 
 use hsl_network_messages::PlayerNumber;
-use kinematics::joints::{Joints, head::HeadJoints};
+use kinematics::joints::Joints;
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
@@ -162,30 +162,6 @@ pub struct ImageRegionParameters {
     pub bottom: Point2<NormalizedPixel>,
     pub center: Point2<NormalizedPixel>,
     pub top: Point2<NormalizedPixel>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub struct LookAroundParameters {
-    pub look_around_timeout: Duration,
-    pub quick_search_timeout: Duration,
-    pub middle_positions: HeadJoints<f32>,
-    pub left_positions: HeadJoints<f32>,
-    pub right_positions: HeadJoints<f32>,
-    pub halfway_left_positions: HeadJoints<f32>,
-    pub halfway_right_positions: HeadJoints<f32>,
-    pub initial_left_positions: HeadJoints<f32>,
-    pub initial_right_positions: HeadJoints<f32>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub struct HeadMotionParameters {
-    pub maximum_pitch: f32,
-    pub minimum_pitch: f32,
-    pub maximum_velocity: HeadJoints<f32>,
-    pub maximum_defender_velocity: HeadJoints<f32>,
-    pub maximum_yaw: f32,
-    pub minimum_yaw: f32,
-    pub injected_head_joints: Option<HeadJoints<f32>>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
