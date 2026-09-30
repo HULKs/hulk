@@ -9,7 +9,7 @@
     "inputs/low_state",
     "inputs/odometry",
     "inputs/booster_odometry",
-    "support_foot",
+    "support_foot_state",
     "ground_to_robot",
     "camera_matrix",
     "detected_objects",

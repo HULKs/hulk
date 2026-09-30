@@ -6,9 +6,9 @@ use color_eyre::Result;
 use booster::ImuState;
 use coordinate_systems::{Ground, Robot};
 use kinematics::robot_kinematics::RobotKinematics;
-use linear_algebra::{Isometry3, Orientation3, vector};
+use linear_algebra::{Isometry3, Orientation3, center, vector};
 use ros_z::{prelude::*, qos::QosDurability};
-use types::{support_foot::Side, time_wrapper::TimeWrapper};
+use types::{support_foot::SupportFootState, time_wrapper::TimeWrapper};
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -29,7 +29,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let support_foot_cache = node
-        .subscriber::<TimeWrapper<Option<Side>>>("support_foot")
+        .subscriber::<TimeWrapper<Option<SupportFootState>>>("support_foot_state")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -62,15 +62,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         };
 
-        let ground_to_robot = if let Some(support_foot) = support_foot_wrapper.inner {
-            compute_ground_to_robot(
-                &imu_state.into_message(),
-                &robot_kinematics_wrapper.inner,
-                &support_foot,
-            )
-        } else {
-            None
-        };
+        let ground_to_robot = compute_ground_to_robot(
+            &imu_state.into_message(),
+            &robot_kinematics_wrapper.inner,
+            support_foot_wrapper.inner,
+        );
         let robot_to_ground = ground_to_robot.map(|ground_to_robot| ground_to_robot.inverse());
 
         let robot_to_ground_message = TimeWrapper {
@@ -94,8 +90,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 fn compute_ground_to_robot(
     imu_state: &ImuState,
     robot_kinematics: &RobotKinematics,
-    support_foot: &Side,
+    support_foot: Option<SupportFootState>,
 ) -> Option<Isometry3<Ground, Robot>> {
+    let support_foot = support_foot?;
     struct LeftSoleHorizontal;
     struct RightSoleHorizontal;
 
@@ -124,6 +121,8 @@ fn compute_ground_to_robot(
     let left_sole_in_robot = robot_kinematics.left_leg.sole_to_robot.translation();
     let right_sole_in_robot = robot_kinematics.right_leg.sole_to_robot.translation();
 
+    let ground_to_robot_translation = center(left_sole_in_robot, right_sole_in_robot).coords();
+
     let robot_to_horizontal = imu_orientation.rotation::<Ground>().inverse();
     let left_sole_to_right_sole = robot_to_horizontal * (right_sole_in_robot - left_sole_in_robot);
     let ground_to_left_sole = Isometry3::<Ground, LeftSoleHorizontal>::from(
@@ -140,10 +139,12 @@ fn compute_ground_to_robot(
             0.0
         ] / 2.0,
     );
+    let ground_to_robot = Isometry3::from_parts(ground_to_robot_translation, imu_orientation);
 
     let ground_to_robot = match support_foot {
-        Side::Left => left_sole_horizontal_to_robot * ground_to_left_sole,
-        Side::Right => right_sole_horizontal_to_robot * ground_to_right_sole,
+        SupportFootState::Left => left_sole_horizontal_to_robot * ground_to_left_sole,
+        SupportFootState::Right => right_sole_horizontal_to_robot * ground_to_right_sole,
+        SupportFootState::Both => ground_to_robot,
     };
 
     Some(ground_to_robot)

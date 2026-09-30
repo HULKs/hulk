@@ -21,3 +21,10 @@ pub struct SupportFoot {
     pub support_side: Option<Side>,
     pub changed_this_cycle: bool,
 }
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ros_z::Message)]
+pub enum SupportFootState {
+    Left,
+    Right,
+    Both,
+}

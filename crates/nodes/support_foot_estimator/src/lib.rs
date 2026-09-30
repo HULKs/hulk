@@ -13,7 +13,7 @@ use linear_algebra::Point3;
 use serde::{Deserialize, Serialize};
 
 use ros_z::{prelude::*, qos::QosDurability};
-use types::{support_foot::Side, time_wrapper::TimeWrapper};
+use types::{support_foot::SupportFootState, time_wrapper::TimeWrapper};
 
 pub const ACTUAL_IMAGE_HEIGHT: f32 = 448.0;
 pub const ACTUAL_IMAGE_WIDTH: f32 = 544.0;
@@ -53,7 +53,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let support_foot_pub = node
-        .publisher::<TimeWrapper<Option<Side>>>("support_foot")
+        .publisher::<TimeWrapper<Option<SupportFootState>>>("support_foot_state")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -90,15 +90,17 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let support_foot = if matches!(fall_down_state.fall_down_state, FallDownStateType::IsReady)
         {
-            if let Some(current_support_foot) = current_support_foot {
-                last_support_foot = current_support_foot;
+            match current_support_foot {
+                Some(SupportFootState::Left) => last_support_foot = SoleSide::Left,
+                Some(SupportFootState::Right) => last_support_foot = SoleSide::Right,
+                Some(SupportFootState::Both) | None => {}
             }
-            current_support_foot.map(side_from_sole_side)
+            current_support_foot
         } else {
             None
         };
 
-        if support_foot != last_maybe_support_side {
+        if Some(support_foot) != last_maybe_support_side {
             let message = TimeWrapper {
                 time: imu_source_time,
                 inner: support_foot,
@@ -107,7 +109,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             support_foot_pub.publish(&message).await?;
         }
 
-        last_maybe_support_side = support_foot;
+        last_maybe_support_side = Some(support_foot);
     }
 }
 
@@ -117,7 +119,7 @@ fn estimate_support_foot(
     pitch: f32,
     robot_kinematics: &RobotKinematics,
     last_support_foot: SoleSide,
-) -> Option<SoleSide> {
+) -> Option<SupportFootState> {
     let left_contact = estimate_sole_contact(
         robot_kinematics.left_leg.sole_to_robot,
         roll,
@@ -133,22 +135,21 @@ fn estimate_support_foot(
         parameters.contact_height_epsilon,
     )?;
 
-    select_support_side(
-        left_contact,
-        right_contact,
-        Some(last_support_foot),
-        SupportSelectionParameters {
-            double_support_deadband: parameters.double_support_deadband,
-            support_switch_hysteresis: parameters.support_switch_hysteresis,
+    Some(
+        match select_support_side(
+            left_contact,
+            right_contact,
+            Some(last_support_foot),
+            SupportSelectionParameters {
+                double_support_deadband: parameters.double_support_deadband,
+                support_switch_hysteresis: parameters.support_switch_hysteresis,
+            },
+        ) {
+            Some(SoleSide::Left) => SupportFootState::Left,
+            Some(SoleSide::Right) => SupportFootState::Right,
+            None => SupportFootState::Both,
         },
     )
-}
-
-fn side_from_sole_side(side: SoleSide) -> Side {
-    match side {
-        SoleSide::Left => Side::Left,
-        SoleSide::Right => Side::Right,
-    }
 }
 
 #[cfg(test)]
@@ -199,11 +200,11 @@ mod tests {
         let support =
             estimate_support_foot(&parameters(), 0.0, 0.0, &robot_kinematics, SoleSide::Right);
 
-        assert_eq!(support, Some(SoleSide::Left));
+        assert_eq!(support, Some(SupportFootState::Left));
     }
 
     #[test]
-    fn double_support_deadband_returns_none() {
+    fn double_support_deadband_returns_both() {
         let robot_kinematics = RobotKinematics {
             left_leg: RobotLeftLegKinematics {
                 sole_to_robot: nalgebra::Isometry3::translation(0.0, 0.05, 0.0).framed_transform(),
@@ -220,6 +221,22 @@ mod tests {
         let support =
             estimate_support_foot(&parameters(), 0.0, 0.0, &robot_kinematics, SoleSide::Left);
 
-        assert_eq!(support, None);
+        assert_eq!(support, Some(SupportFootState::Both));
+    }
+
+    #[test]
+    fn missing_contact_geometry_is_unavailable() {
+        let mut parameters = parameters();
+        parameters.left_sole_contact_vertices.clear();
+        assert_eq!(
+            estimate_support_foot(
+                &parameters,
+                0.0,
+                0.0,
+                &RobotKinematics::default(),
+                SoleSide::Left,
+            ),
+            None,
+        );
     }
 }
