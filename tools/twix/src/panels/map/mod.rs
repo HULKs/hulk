@@ -1,5 +1,5 @@
 use coordinate_systems::{Field, Ground};
-use eframe::egui::{ComboBox, Ui};
+use eframe::egui::{ComboBox, Popup, PopupCloseBehavior, Ui};
 use linear_algebra::{Isometry2, point, vector};
 use ros_z::qos::{QosDurability, QosProfile};
 use ros_z_debug::{ObservationPolicy, TopicObservation};
@@ -175,21 +175,23 @@ impl Panel for MapPanel {
     }
 
     fn header_ui(&mut self, ui: &mut Ui, _context: PanelUiContext<'_>) {
-        ui.menu_button("Overlays", |ui| {
-            self.field.checkbox(ui);
-            self.ball_search_heatmap.checkbox(ui);
-            self.path_obstacles.checkbox(ui);
-            self.obstacles.checkbox(ui);
-            self.path.checkbox(ui);
-            self.robot_pose.checkbox(ui);
-            self.odometry.checkbox(ui);
-            self.ball_percept.checkbox(ui);
-            self.ball_position.checkbox(ui);
-            self.ball_filter.checkbox(ui);
-            self.obstacle_filter.checkbox(ui);
-            self.localization.checkbox(ui);
-            self.voronoi_cells.checkbox(ui);
-        });
+        Popup::menu(&ui.button("Overlays"))
+            .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
+            .show(|ui| {
+                self.field.checkbox(ui);
+                self.ball_search_heatmap.checkbox(ui);
+                self.path_obstacles.checkbox(ui);
+                self.obstacles.checkbox(ui);
+                self.path.checkbox(ui);
+                self.robot_pose.checkbox(ui);
+                self.odometry.checkbox(ui);
+                self.ball_percept.checkbox(ui);
+                self.ball_position.checkbox(ui);
+                self.ball_filter.checkbox(ui);
+                self.obstacle_filter.checkbox(ui);
+                self.localization.checkbox(ui);
+                self.voronoi_cells.checkbox(ui);
+            });
         ComboBox::from_id_salt("plot_type_selector")
             .selected_text(format!("{:?}", self.current_plot_type))
             .show_ui(ui, |ui| {
