@@ -11748,7 +11748,7 @@ dependencies = [
 
 [[package]]
 name = "twix"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "ball_filter",
  "behavior_node",
@@ -11782,6 +11782,7 @@ dependencies = [
  "tokio-util",
  "toml 0.8.23",
  "tracing-subscriber",
+ "twix_visualization",
  "types",
  "uuid",
  "voronoi",
