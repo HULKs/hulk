@@ -268,6 +268,7 @@ fn desired_head_yaw(
     tick_duration: Duration,
     config: &SimulationConfig,
 ) -> f32 {
+    // This simulation models head yaw only; target height affects pitch on the robot.
     match head_motion {
         Some(HeadMotion::MoveWithVelocity { yaw, .. }) => {
             current_yaw.angle() + yaw * tick_duration.as_secs_f32()
@@ -275,7 +276,7 @@ fn desired_head_yaw(
         Some(HeadMotion::LookAt { target, .. }) => {
             Orientation2::from_vector(target.coords()).angle()
         }
-        Some(HeadMotion::LookLeftAndRightOf { target }) => {
+        Some(HeadMotion::GlanceLeftAndRightOf { target, .. }) => {
             let elapsed = now
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
@@ -301,7 +302,7 @@ fn desired_head_yaw(
         }
         Some(HeadMotion::ZeroAngles)
         | Some(HeadMotion::Center { .. })
-        | Some(HeadMotion::Unstiff)
+        | Some(HeadMotion::Damping)
         | None => 0.0,
     }
 }
@@ -681,6 +682,7 @@ mod tests {
             Orientation2::identity(),
             Some(HeadMotion::LookAt {
                 target: point![0.0, 1.0],
+                height_above_ground: 0.0,
                 image_region_target: Default::default(),
             }),
             SystemTime::UNIX_EPOCH,
