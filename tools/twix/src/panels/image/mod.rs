@@ -11,6 +11,7 @@ use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation, TopicObservat
 use ros2::sensor_msgs::image::Image as RosImage;
 use serde_json::{Value, json};
 use thiserror::Error;
+use twix_visualization::twix_painter::{Orientation, TwixPainter};
 use uuid::Uuid;
 
 use crate::{
@@ -18,9 +19,10 @@ use crate::{
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
     status::format_topic_observation_status,
+    zoom_and_pan::ZoomAndPanTransform,
 };
 
-use self::image_overlay::{ImageOverlayPainter, ImageOverlays};
+use self::image_overlay::ImageOverlays;
 
 mod image_overlay;
 mod overlays;
@@ -56,6 +58,7 @@ pub struct ImagePanel {
     topic: String,
     observation: ObservationState,
     overlays: Box<ImageOverlays>,
+    zoom_and_pan: ZoomAndPanTransform,
 }
 
 enum ObservationState {
@@ -100,6 +103,11 @@ impl Panel for ImagePanel {
                 context.value.and_then(|value| value.get("overlays")),
                 &context,
             )),
+            zoom_and_pan: context
+                .value
+                .and_then(|value| value.get("zoom_and_pan"))
+                .and_then(|value| serde_json::from_value::<ZoomAndPanTransform>(value.clone()).ok())
+                .unwrap_or_default(),
         };
         panel.recreate_observation(&context);
         panel
@@ -163,12 +171,13 @@ impl Panel for ImagePanel {
                 if let Some(texture) = observed.render_cache.texture() {
                     let [width, height] =
                         observed.render_cache.dimensions().unwrap_or(texture.size());
-                    let (_response, painter) = TwixPainter::<Pixel>::allocate(
+                    let (response, mut painter) = TwixPainter::<Pixel>::allocate(
                         ui,
                         vector![width as f32, height as f32],
                         point![0.0, 0.0],
                         Orientation::LeftHanded,
                     );
+                    self.zoom_and_pan.apply(ui, &mut painter, &response);
                     painter.image(
                         texture.id(),
                         geometry::rectangle::Rectangle {
@@ -183,6 +192,14 @@ impl Panel for ImagePanel {
                             .image_time()
                             .unwrap_or_else(Time::zero),
                     );
+                    if let Some(position) = response.hover_pos() {
+                        let pixel = painter.transform_pixel_to_world(position);
+                        response.on_hover_text_at_pointer(format!(
+                            "x: {:.1}, y: {:.1}",
+                            pixel.x(),
+                            pixel.y()
+                        ));
+                    }
                 }
             }
         };
@@ -192,6 +209,8 @@ impl Panel for ImagePanel {
         json!({
             "topic": self.topic,
             "overlays": self.overlays.save(),
+            "zoom_and_pan": serde_json::to_value(&self.zoom_and_pan)
+                .expect("failed to serialize image zoom and pan"),
         })
     }
 }
