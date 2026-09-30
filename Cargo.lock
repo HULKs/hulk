@@ -2080,6 +2080,7 @@ dependencies = [
  "hsl_network_messages",
  "json5",
  "linear_algebra",
+ "motion",
  "nalgebra 0.34.2",
  "ros-z",
  "scenario",
@@ -5485,6 +5486,7 @@ dependencies = [
  "message_filter",
  "message_handler",
  "microphone_recorder",
+ "motion",
  "motion_inference",
  "motor_commands_collector",
  "obstacle_filter",
@@ -6926,6 +6928,25 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "motion"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "color-eyre",
+ "coordinate_systems",
+ "head_motion",
+ "kinematics",
+ "linear_algebra",
+ "motion_inference",
+ "ros-z",
+ "ros-z-schema",
+ "serde",
+ "tokio",
+ "tracing",
+ "types",
 ]
 
 [[package]]
