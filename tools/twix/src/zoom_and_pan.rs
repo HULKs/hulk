@@ -4,7 +4,7 @@ use linear_algebra::{IntoTransform, Transform, point};
 use nalgebra::{Similarity2, Translation2, vector};
 use serde::{Deserialize, Serialize};
 
-use crate::twix_painter::TwixPainter;
+use twix_visualization::twix_painter::TwixPainter;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct ZoomAndPanTransform {

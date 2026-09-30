@@ -8,7 +8,8 @@ use projection::camera_matrix::CameraMatrix;
 use ros_z::time::Time;
 use types::time_wrapper::TimeWrapper;
 
-use crate::{repaint::ObservationContext, twix_painter::TwixPainter};
+use crate::repaint::ObservationContext;
+use twix_visualization::twix_painter::TwixPainter;
 
 use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 

@@ -9,9 +9,9 @@ use types::field_dimensions::FieldDimensions;
 
 use crate::{
     panel::{Panel, PanelCreationContext, PanelUiContext},
-    twix_painter::{Orientation, TwixPainter},
     zoom_and_pan::ZoomAndPanTransform,
 };
+use twix_visualization::twix_painter::{Orientation, TwixPainter};
 
 use self::layer::{EnabledLayer, Layer};
 

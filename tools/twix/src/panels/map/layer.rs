@@ -8,7 +8,8 @@ use serde_json::{Value, json};
 
 use types::field_dimensions::FieldDimensions;
 
-use crate::{backend::RobotBackend, twix_painter::TwixPainter};
+use crate::backend::RobotBackend;
+use twix_visualization::twix_painter::TwixPainter;
 
 pub trait Layer<Frame> {
     const NAME: &'static str;

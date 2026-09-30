@@ -8,7 +8,8 @@ use coordinate_systems::Ground;
 use ros_z_debug::{SampleRecord, TopicObservation};
 use types::{field_dimensions::FieldDimensions, path_obstacles::PathObstacleShape};
 
-use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
+use crate::{backend::RobotBackend, panels::map::layer::Layer};
+use twix_visualization::twix_painter::TwixPainter;
 
 pub struct PathObstacles {
     blackboard: TopicObservation<Blackboard>,

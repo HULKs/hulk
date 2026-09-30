@@ -35,7 +35,6 @@ mod presets;
 mod repaint;
 mod selectable_panel_macro;
 mod status;
-mod twix_painter;
 mod visuals;
 mod zoom_and_pan;
 

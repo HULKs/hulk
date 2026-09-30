@@ -9,7 +9,8 @@ use types::{
     field_dimensions::FieldDimensions, motion_command::MotionCommand, path::traits::EndPoints,
 };
 
-use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
+use crate::{backend::RobotBackend, panels::map::layer::Layer};
+use twix_visualization::twix_painter::TwixPainter;
 
 pub struct Path {
     motion_command: TopicObservation<MotionCommand>,

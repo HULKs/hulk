@@ -8,10 +8,8 @@ use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
 use serde_json::{Value, json};
 use types::time_wrapper::TimeWrapper;
 
-use crate::{
-    repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
-    twix_painter::TwixPainter,
-};
+use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
+use twix_visualization::twix_painter::TwixPainter;
 
 use super::overlays::{
     BallDetectionOverlay, FieldBorderOverlay, HorizonOverlay, LineDetectionOverlay,

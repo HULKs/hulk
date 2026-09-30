@@ -9,7 +9,8 @@ use linear_algebra::{Point, vector};
 use ros_z_debug::TopicObservation;
 use types::field_dimensions::FieldDimensions;
 
-use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
+use crate::{backend::RobotBackend, panels::map::layer::Layer};
+use twix_visualization::twix_painter::TwixPainter;
 
 pub struct BallFilter {
     filter: TopicObservation<BallFiltering>,

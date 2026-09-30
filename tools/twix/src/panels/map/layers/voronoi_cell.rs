@@ -8,7 +8,8 @@ use hsl_network_messages::PlayerNumber;
 use ros_z_debug::{SampleRecord, TopicObservation};
 use voronoi::Ownership;
 
-use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
+use crate::{backend::RobotBackend, panels::map::layer::Layer};
+use twix_visualization::twix_painter::TwixPainter;
 
 pub struct VoronoiCell {
     blackboard: TopicObservation<Blackboard>,

@@ -8,7 +8,8 @@ use types::{
     line_data::{DiscardedLine, LineDiscardReason},
 };
 
-use crate::{repaint::ObservationContext, twix_painter::TwixPainter};
+use crate::repaint::ObservationContext;
+use twix_visualization::twix_painter::TwixPainter;
 
 use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 

@@ -8,7 +8,8 @@ use linear_algebra::Isometry2;
 use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
 use types::field_dimensions::FieldDimensions;
 
-use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
+use crate::{backend::RobotBackend, panels::map::layer::Layer};
+use twix_visualization::twix_painter::TwixPainter;
 
 pub struct BallPosition {
     ground_to_field: TopicObservation<Isometry2<Ground, Field>>,
