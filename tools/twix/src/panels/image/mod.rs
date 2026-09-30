@@ -142,7 +142,7 @@ impl Panel for ImagePanel {
             ObservationState::Observing(observed) => {
                 let preferred_image_time = self.overlays.preferred_image_time();
                 if let Some(time) = preferred_image_time {
-                    ui.label(format!("{}", format!("{}", time.as_nanos())));
+                    ui.label(time.as_nanos().to_string());
                 }
                 observed.render_cache.refresh(
                     context.egui_context,

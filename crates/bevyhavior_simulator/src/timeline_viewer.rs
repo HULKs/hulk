@@ -883,12 +883,7 @@ fn paint_walk_path(
 
     let ground_to_field = pose.as_transform::<Ground>();
     let ground_painter = painter.transform_painter(ground_to_field.inverse());
-    ground_painter.path(
-        path.clone(),
-        WALK_PATH_LINE_COLOR,
-        WALK_PATH_ARC_COLOR,
-        0.025,
-    );
+    ground_painter.path(path, WALK_PATH_LINE_COLOR, WALK_PATH_ARC_COLOR, 0.025);
 
     let path_end_point = path.end_point();
     let target_direction = target_orientation.as_unit_vector();
