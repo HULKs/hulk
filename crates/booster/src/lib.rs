@@ -294,7 +294,7 @@ impl LowCommand {
                 .zip(motor_command_parameters.derivative_coefficients)
                 .map(|((joint_position, kp), kd)| MotorCommand {
                     command_type,
-                    position: joint_position,
+                    position: *joint_position,
                     velocity: 0.0,
                     torque: 0.0,
                     kp,
