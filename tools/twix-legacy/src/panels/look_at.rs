@@ -217,6 +217,7 @@ fn send_standing_look_at(robot: &Robot, look_at_target: Point2<Ground, f32>) {
     let motion_command = Some(MotionCommand::Stand {
         head: HeadMotion::LookAt {
             target: look_at_target,
+            height_above_ground: 0.0,
             image_region_target: ImageRegion::Center,
         },
     });
