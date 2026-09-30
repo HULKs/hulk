@@ -2,8 +2,8 @@ use std::{boxed::Box, future::Future, pin::Pin};
 use std::{sync::Arc, time::Duration};
 
 use booster::LedColor;
-use booster_sdk_interface::LedCommand;
 use color_eyre::Result;
+use hardware_interface::LedCommand;
 
 use ros_z::{prelude::*, qos::QosDurability};
 use tokio::time::{MissedTickBehavior, interval};

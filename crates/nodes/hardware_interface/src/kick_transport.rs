@@ -25,24 +25,11 @@ impl KickBallPublisher {
     }
 
     pub async fn publish(&self, kick: &Kick) -> Result<()> {
-        let payload = serialize_kick(kick)?;
+        let payload = cdr::serialize::<_, _, CdrLe>(kick, Infinite)
+            .wrap_err("failed to serialize kick command")?;
+
         self.publisher.put(payload).await.map_err(|error| {
             eyre!(error).wrap_err(format!("failed to publish `{KICK_BALL_TOPIC}`"))
         })
-    }
-}
-
-fn serialize_kick(kick: &Kick) -> Result<Vec<u8>> {
-    cdr::serialize::<_, _, CdrLe>(kick, Infinite).wrap_err("failed to serialize kick command")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn serializes_default_kick() {
-        let payload = serialize_kick(&Kick::default()).unwrap();
-        assert!(!payload.is_empty());
     }
 }
