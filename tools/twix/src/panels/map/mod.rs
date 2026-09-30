@@ -7,11 +7,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use types::field_dimensions::FieldDimensions;
 
-use crate::{
-    panel::{Panel, PanelCreationContext, PanelUiContext},
+use crate::panel::{Panel, PanelCreationContext, PanelUiContext};
+use twix_visualization::{
+    twix_painter::{Orientation, TwixPainter},
     zoom_and_pan::ZoomAndPanTransform,
 };
-use twix_visualization::twix_painter::{Orientation, TwixPainter};
 
 use self::layer::{EnabledLayer, Layer};
 

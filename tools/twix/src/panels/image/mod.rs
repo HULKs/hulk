@@ -11,7 +11,10 @@ use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation, TopicObservat
 use ros2::sensor_msgs::image::Image as RosImage;
 use serde_json::{Value, json};
 use thiserror::Error;
-use twix_visualization::twix_painter::{Orientation, TwixPainter};
+use twix_visualization::{
+    twix_painter::{Orientation, TwixPainter},
+    zoom_and_pan::ZoomAndPanTransform,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -19,7 +22,6 @@ use crate::{
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
     status::format_topic_observation_status,
-    zoom_and_pan::ZoomAndPanTransform,
 };
 
 use self::image_overlay::ImageOverlays;
