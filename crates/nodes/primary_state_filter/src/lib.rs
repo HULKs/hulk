@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use hsl_network_messages::{GamePhase, PlayerNumber};
 use ros_z::{prelude::*, qos::QosDurability};
-use tracing::info;
+use tracing::{info, warn};
 use types::{
     buttons::{ButtonPressType, Buttons},
     filtered_game_controller_state::FilteredGameControllerState,
@@ -47,6 +47,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<Buttons<Option<ButtonPressType>>>("buttons")
         .build()
         .await?;
+    let emergency_stop_sub = node
+        .subscriber::<()>("motion/emergency_stop")
+        .build()
+        .await?;
     let is_safe_pose_cache = node
         .subscriber::<bool>("is_safe_pose")
         .cache(1)
@@ -71,6 +75,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
         tokio::select! {
+            _ = emergency_stop_sub.recv() => {
+                warn!("received emergency stop signal, entering damping...");
+                primary_state_filter.primary_state = PrimaryState::Damping;
+            }
             received_filtered_game_controller_state = filtered_game_controller_state_sub.recv() => {
                 let Some(player_number) = player_number_cache.get_latest() else {continue};
 
