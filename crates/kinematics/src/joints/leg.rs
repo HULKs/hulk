@@ -56,6 +56,24 @@ impl LegJoints<f32> {
     }
 }
 
+impl<'a, T> IntoIterator for &'a LegJoints<T> {
+    type Item = &'a T;
+
+    type IntoIter = std::array::IntoIter<&'a T, 6>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        [
+            &self.hip_pitch,
+            &self.hip_roll,
+            &self.hip_yaw,
+            &self.knee,
+            &self.ankle_up,
+            &self.ankle_down,
+        ]
+        .into_iter()
+    }
+}
+
 impl<T> IntoIterator for LegJoints<T> {
     type Item = T;
 
