@@ -6,8 +6,8 @@ use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui};
 use hulk_widgets::CompletionEdit;
 use image::RgbImage;
 use linear_algebra::{point, vector};
-use ros_z::{Message, entity::EndpointKind, pubsub::PublicationId, time::Time};
-use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation, TopicObservationStatus};
+use ros_z::{Message, entity::EndpointKind, time::Time};
+use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
 use ros2::sensor_msgs::image::Image as RosImage;
 use serde_json::{Value, json};
 use thiserror::Error;
@@ -21,7 +21,6 @@ use crate::{
     graph::TopicCompletionQuery,
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
-    status::format_topic_observation_status,
 };
 
 use self::image_overlay::ImageOverlays;
@@ -73,15 +72,6 @@ struct ObservedImage {
     observation: TopicObservation<RosImage>,
     _repaint: ObservationRepaint,
     render_cache: RenderedImageCache,
-}
-
-struct RenderedMetadata {
-    resolved_topic: String,
-    type_name: String,
-    source_time: String,
-    transport_time: String,
-    publication_id: String,
-    image_time: String,
 }
 
 impl Panel for ImagePanel {
@@ -150,58 +140,55 @@ impl Panel for ImagePanel {
                 ui.colored_label(ui.visuals().error_fg_color, error);
             }
             ObservationState::Observing(observed) => {
-                Self::render_status(ui, observed.observation.status());
                 let preferred_image_time = self.overlays.preferred_image_time();
+                if let Some(time) = preferred_image_time {
+                    ui.label(format!("{}", format!("{}", time.as_nanos())));
+                }
                 observed.render_cache.refresh(
                     context.egui_context,
                     &observed.observation,
                     preferred_image_time,
                 );
 
-                let Some(metadata) = observed.render_cache.metadata() else {
-                    ui.label("Waiting for first sample.");
-                    return;
-                };
-                Self::render_metadata(ui, metadata);
-                ui.separator();
-
                 if let Some(error) = observed.render_cache.error() {
                     ui.colored_label(ui.visuals().error_fg_color, error);
                     return;
                 }
 
-                if let Some(texture) = observed.render_cache.texture() {
-                    let [width, height] =
-                        observed.render_cache.dimensions().unwrap_or(texture.size());
-                    let (response, mut painter) = TwixPainter::<Pixel>::allocate(
-                        ui,
-                        vector![width as f32, height as f32],
-                        point![0.0, 0.0],
-                        Orientation::LeftHanded,
-                    );
-                    self.zoom_and_pan.apply(ui, &mut painter, &response);
-                    painter.image(
-                        texture.id(),
-                        geometry::rectangle::Rectangle {
-                            min: point![0.0, 0.0],
-                            max: point![width as f32, height as f32],
-                        },
-                    );
-                    self.overlays.paint(
-                        &painter,
-                        observed
-                            .render_cache
-                            .image_time()
-                            .unwrap_or_else(Time::zero),
-                    );
-                    if let Some(position) = response.hover_pos() {
-                        let pixel = painter.transform_pixel_to_world(position);
-                        response.on_hover_text_at_pointer(format!(
-                            "x: {:.1}, y: {:.1}",
-                            pixel.x(),
-                            pixel.y()
-                        ));
-                    }
+                let Some(texture) = observed.render_cache.texture() else {
+                    ui.label("no data yet");
+                    return;
+                };
+
+                let [width, height] = observed.render_cache.dimensions().unwrap_or(texture.size());
+                let (response, mut painter) = TwixPainter::<Pixel>::allocate(
+                    ui,
+                    vector![width as f32, height as f32],
+                    point![0.0, 0.0],
+                    Orientation::LeftHanded,
+                );
+                self.zoom_and_pan.apply(ui, &mut painter, &response);
+                painter.image(
+                    texture.id(),
+                    geometry::rectangle::Rectangle {
+                        min: point![0.0, 0.0],
+                        max: point![width as f32, height as f32],
+                    },
+                );
+                self.overlays.paint(
+                    &painter,
+                    observed
+                        .render_cache
+                        .image_time()
+                        .unwrap_or_else(Time::zero),
+                );
+                if let Some(position) = response.hover_pos() {
+                    let pixel = painter.transform_pixel_to_world(position);
+                    response.on_hover_text_at_pointer(format!(
+                        "x: {:.1}, y: {:.1}",
+                        pixel.x(),
+                        pixel.y()
+                    ));
                 }
             }
         };
@@ -253,40 +240,10 @@ impl ImagePanel {
         self.topic = next_topic;
         self.recreate_observation(context);
     }
-
-    fn render_metadata(ui: &mut Ui, metadata: &RenderedMetadata) {
-        ui.horizontal_wrapped(|ui| {
-            ui.label("topic:");
-            ui.monospace(&metadata.resolved_topic);
-            ui.separator();
-            ui.label("type:");
-            ui.monospace(&metadata.type_name);
-            ui.separator();
-            ui.label("source:");
-            ui.monospace(&metadata.source_time);
-            ui.separator();
-            ui.label("transport:");
-            ui.monospace(&metadata.transport_time);
-            ui.separator();
-            ui.label("publication:");
-            ui.monospace(&metadata.publication_id);
-            ui.separator();
-            ui.label("image:");
-            ui.monospace(&metadata.image_time);
-        });
-    }
-
-    fn render_status(ui: &mut Ui, status: TopicObservationStatus) {
-        ui.horizontal_wrapped(|ui| {
-            ui.label("status:");
-            ui.monospace(format_topic_observation_status(status));
-        });
-    }
 }
 
 struct RenderedImageCache {
     sample: Option<Arc<SampleRecord<RosImage>>>,
-    metadata: Option<RenderedMetadata>,
     texture: Option<TextureHandle>,
     dimensions: Option<[usize; 2]>,
     error: Option<String>,
@@ -301,7 +258,6 @@ impl RenderedImageCache {
     fn new(texture_name: impl Into<String>) -> Self {
         Self {
             sample: None,
-            metadata: None,
             texture: None,
             dimensions: None,
             error: None,
@@ -331,7 +287,6 @@ impl RenderedImageCache {
         }
 
         self.sample = sample;
-        self.metadata = None;
         self.texture = None;
         self.dimensions = None;
         self.error = None;
@@ -340,7 +295,6 @@ impl RenderedImageCache {
             return;
         };
 
-        self.metadata = Some(RenderedMetadata::from(record.as_ref()));
         match decode_color_image(&record.value) {
             Ok(image) => {
                 self.dimensions = Some(image.size);
@@ -354,10 +308,6 @@ impl RenderedImageCache {
                 self.error = Some(error.to_string());
             }
         }
-    }
-
-    fn metadata(&self) -> Option<&RenderedMetadata> {
-        self.metadata.as_ref()
     }
 
     fn texture(&self) -> Option<&TextureHandle> {
@@ -385,22 +335,6 @@ fn same_sample(
         (Some(current), Some(next)) => Arc::ptr_eq(current, next),
         (None, None) => true,
         _ => false,
-    }
-}
-
-impl From<&SampleRecord<RosImage>> for RenderedMetadata {
-    fn from(record: &SampleRecord<RosImage>) -> Self {
-        Self {
-            resolved_topic: record.metadata.resolved_topic.clone(),
-            type_name: record.metadata.type_info.name.to_string(),
-            source_time: format_time(record.source_time),
-            transport_time: record
-                .transport_time
-                .map(format_time)
-                .unwrap_or_else(|| "none".to_string()),
-            publication_id: format_publication_id(record.publication_id),
-            image_time: format_time(image_time(&record.value)),
-        }
     }
 }
 
@@ -436,14 +370,6 @@ fn create_observation(
         .spawn();
     let repaint = observation.repaint_on_updates(context);
     Ok((observation, repaint))
-}
-
-fn format_time(time: Time) -> String {
-    format!("{} ns", time.as_nanos())
-}
-
-fn format_publication_id(publication_id: PublicationId) -> String {
-    format!("{publication_id:#}")
 }
 
 #[cfg(test)]

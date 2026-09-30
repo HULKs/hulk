@@ -34,7 +34,6 @@ mod panels;
 mod presets;
 mod repaint;
 mod selectable_panel_macro;
-mod status;
 mod visuals;
 
 impl_selectable_panel!(TextPanel, ImagePanel, MapPanel, ParameterPanel);

@@ -3,16 +3,15 @@ use std::sync::Arc;
 use color_eyre::{Report, eyre::Context as _};
 use eframe::egui::{ScrollArea, TextEdit, Ui};
 use hulk_widgets::CompletionEdit;
+use ros_z::dynamic::DynamicPayload;
 use ros_z::entity::EndpointKind;
-use ros_z::{dynamic::DynamicPayload, pubsub::PublicationId, time::Time};
-use ros_z_debug::{DynamicTopicObservation, SampleRecord, TopicObservationStatus};
+use ros_z_debug::{DynamicTopicObservation, SampleRecord};
 use serde_json::{Value, json};
 
 use crate::{
     graph::TopicCompletionQuery,
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
-    status::format_topic_observation_status,
 };
 
 pub struct TextPanel {
@@ -37,18 +36,9 @@ struct ObservedTopic {
 #[derive(Default)]
 struct RenderedRecordCache {
     sample: Option<Arc<SampleRecord<DynamicPayload>>>,
-    metadata: Option<RenderedMetadata>,
     value: Option<Value>,
     pretty: Option<String>,
     compact: Option<String>,
-}
-
-struct RenderedMetadata {
-    resolved_topic: String,
-    type_name: String,
-    source_time: String,
-    transport_time: String,
-    publication_id: String,
 }
 
 impl Panel for TextPanel {
@@ -116,25 +106,19 @@ impl Panel for TextPanel {
                     ui.colored_label(ui.visuals().error_fg_color, error);
                 }
                 ObservationState::Observing(observed) => {
-                    Self::render_status(ui, observed.observation.status());
                     observed.render_cache.refresh(&observed.observation);
 
-                    let Some(metadata) = observed.render_cache.metadata() else {
-                        ui.label("Waiting for first sample.");
+                    let Some(rendered) = observed.render_cache.rendered_json_buffer(self.pretty)
+                    else {
+                        ui.label("no data yet");
                         return;
                     };
-                    Self::render_metadata(ui, metadata);
-                    ui.separator();
-
-                    if let Some(rendered) = observed.render_cache.rendered_json_buffer(self.pretty)
-                    {
-                        ui.add(
-                            TextEdit::multiline(rendered)
-                                .font(eframe::egui::TextStyle::Monospace)
-                                .desired_width(f32::INFINITY)
-                                .interactive(false),
-                        );
-                    }
+                    ui.add(
+                        TextEdit::multiline(rendered)
+                            .font(eframe::egui::TextStyle::Monospace)
+                            .desired_width(f32::INFINITY)
+                            .interactive(false),
+                    );
                 }
             });
     }
@@ -183,32 +167,6 @@ impl TextPanel {
         self.topic = next_topic;
         self.recreate_observation(context);
     }
-
-    fn render_metadata(ui: &mut Ui, metadata: &RenderedMetadata) {
-        ui.horizontal_wrapped(|ui| {
-            ui.label("topic:");
-            ui.monospace(&metadata.resolved_topic);
-            ui.separator();
-            ui.label("type:");
-            ui.monospace(&metadata.type_name);
-            ui.separator();
-            ui.label("source:");
-            ui.monospace(&metadata.source_time);
-            ui.separator();
-            ui.label("transport:");
-            ui.monospace(&metadata.transport_time);
-            ui.separator();
-            ui.label("publication:");
-            ui.monospace(&metadata.publication_id);
-        });
-    }
-
-    fn render_status(ui: &mut Ui, status: TopicObservationStatus) {
-        ui.horizontal_wrapped(|ui| {
-            ui.label("status:");
-            ui.monospace(format_topic_observation_status(status));
-        });
-    }
 }
 
 impl RenderedRecordCache {
@@ -219,7 +177,6 @@ impl RenderedRecordCache {
         }
 
         self.sample = sample;
-        self.metadata = None;
         self.value = None;
         self.pretty = None;
         self.compact = None;
@@ -229,15 +186,10 @@ impl RenderedRecordCache {
         }
 
         if let Some(record) = observation.latest_json_record() {
-            self.metadata = Some(RenderedMetadata::from(&record));
             self.value = Some(record.value);
         } else {
             self.sample = None;
         }
-    }
-
-    fn metadata(&self) -> Option<&RenderedMetadata> {
-        self.metadata.as_ref()
     }
 
     fn rendered_json_buffer(&mut self, pretty: bool) -> Option<&mut String> {
@@ -260,21 +212,6 @@ impl RenderedRecordCache {
         self.value = Some(value);
         self.pretty = None;
         self.compact = None;
-    }
-}
-
-impl From<&SampleRecord<Value>> for RenderedMetadata {
-    fn from(record: &SampleRecord<Value>) -> Self {
-        Self {
-            resolved_topic: record.metadata.resolved_topic.clone(),
-            type_name: record.metadata.type_info.name.to_string(),
-            source_time: format_time(record.source_time),
-            transport_time: record
-                .transport_time
-                .map(format_time)
-                .unwrap_or_else(|| "none".to_string()),
-            publication_id: format_publication_id(record.publication_id),
-        }
     }
 }
 
@@ -316,38 +253,16 @@ fn create_observation(
     Ok((observation, repaint))
 }
 
-fn format_time(time: Time) -> String {
-    format!("{} ns", time.as_nanos())
-}
-
-fn format_publication_id(publication_id: PublicationId) -> String {
-    format!("{publication_id:#}")
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
 
     use eframe::egui::Context;
-    use ros_z::{EndpointGlobalId, pubsub::Received, time::Time};
     use serde_json::json;
 
     use crate::{backend::RobotBackend, panel::PanelCreationContext};
 
-    use super::{ObservationState, Panel, RenderedRecordCache, TextPanel, format_publication_id};
-
-    fn publication_id() -> ros_z::pubsub::PublicationId {
-        Received {
-            message: (),
-            transport_time: None,
-            source_time: Time::zero(),
-            sequence_number: 42,
-            source_global_id: EndpointGlobalId::from([
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-            ]),
-        }
-        .publication_id()
-    }
+    use super::{ObservationState, Panel, RenderedRecordCache, TextPanel};
 
     #[test]
     fn render_cache_reuses_serialized_json_for_unchanged_sample_and_format() {
@@ -373,14 +288,6 @@ mod tests {
                 .rendered_json_buffer(true)
                 .unwrap()
                 .ends_with("local display state")
-        );
-    }
-
-    #[test]
-    fn metadata_formats_compact_publication_id() {
-        assert_eq!(
-            format_publication_id(publication_id()),
-            "01020304…0d0e0f10#42"
         );
     }
 
