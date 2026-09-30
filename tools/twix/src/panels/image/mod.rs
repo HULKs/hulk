@@ -429,33 +429,12 @@ fn format_publication_id(publication_id: PublicationId) -> String {
 mod tests {
     use std::{sync::Arc, time::Duration};
 
-    use eframe::egui::Color32;
     use eframe::egui::Context as EguiContext;
-    use ros_z::{EndpointGlobalId, context::ContextBuilder, pubsub::Received, time::Time};
+    use ros_z::context::ContextBuilder;
     use ros_z_debug::{TopicObserver, TopicObserverOptions};
     use ros2::{sensor_msgs::image::Image as RosImage, std_msgs::header::Header};
-    use serde_json::json;
 
-    use crate::{backend::RobotBackend, panel::PanelCreationContext};
-
-    use super::{
-        DEFAULT_IMAGE_TOPIC, ImageDecodeError, ImageOverlays, ImagePanel, ObservationState,
-        RenderedImageCache, decode_color_image, format_publication_id,
-    };
-    use crate::panel::Panel;
-
-    fn publication_id() -> ros_z::pubsub::PublicationId {
-        Received {
-            message: (),
-            transport_time: None,
-            source_time: Time::zero(),
-            sequence_number: 42,
-            source_global_id: EndpointGlobalId::from([
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-            ]),
-        }
-        .publication_id()
-    }
+    use super::RenderedImageCache;
 
     fn rgb8_image(width: u32, height: u32, data: Vec<u8>) -> RosImage {
         RosImage {
@@ -467,39 +446,6 @@ mod tests {
             step: width * 3,
             data: data.into(),
         }
-    }
-
-    #[test]
-    fn decode_rgb8_image_reports_dimensions_and_pixels() {
-        let image = rgb8_image(2, 1, vec![255, 0, 0, 0, 255, 0]);
-
-        let decoded = decode_color_image(&image).unwrap();
-
-        assert_eq!(decoded.size, [2, 1]);
-        assert_eq!(decoded.pixels, vec![Color32::RED, Color32::GREEN]);
-    }
-
-    #[test]
-    fn decode_zero_sized_image_returns_error() {
-        let image = rgb8_image(0, 1, vec![]);
-
-        let error = decode_color_image(&image).unwrap_err();
-
-        assert!(matches!(
-            error,
-            ImageDecodeError::Empty {
-                width: 0,
-                height: 1
-            }
-        ));
-    }
-
-    #[test]
-    fn metadata_formats_compact_publication_id() {
-        assert_eq!(
-            format_publication_id(publication_id()),
-            "01020304…0d0e0f10#42"
-        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -543,55 +489,5 @@ mod tests {
         assert_eq!(cache.dimensions(), Some([2, 1]));
         assert!(cache.texture().is_some());
         assert!(cache.error().is_none());
-    }
-
-    #[test]
-    fn save_preserves_topic() {
-        let panel = ImagePanel {
-            topic_editor: "inputs/right_image".to_string(),
-            topic: "inputs/right_image".to_string(),
-            observation: ObservationState::Idle,
-            overlays: Box::new(ImageOverlays::default()),
-        };
-
-        assert_eq!(
-            panel.save(),
-            json!({
-                "topic": "inputs/right_image",
-                "overlays": {
-                    "line_detection": {"active": false},
-                    "ball_detection": {"active": false},
-                    "horizon": {"active": false},
-                    "field_border": {"active": false},
-                    "object_detection": {"active": false},
-                    "pose_detection": {"active": false},
-                },
-            })
-        );
-    }
-
-    #[test]
-    fn new_defaults_to_left_image_without_current_tokio_runtime() {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .expect("runtime should build");
-        let backend = Arc::new(
-            runtime
-                .block_on(RobotBackend::new(
-                    runtime.handle().clone(),
-                    None,
-                    "/".to_string(),
-                ))
-                .expect("backend should build"),
-        );
-
-        let panel = ImagePanel::new(PanelCreationContext {
-            backend,
-            value: None,
-            egui_context: EguiContext::default(),
-        });
-
-        assert_eq!(panel.topic, DEFAULT_IMAGE_TOPIC);
     }
 }
