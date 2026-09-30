@@ -1,4 +1,5 @@
 use color_eyre::Report;
+use coordinate_systems::Pixel;
 use eframe::egui::{Align2, Color32, Stroke};
 use ros_z::time::Time;
 use types::{
@@ -6,9 +7,9 @@ use types::{
     time_wrapper::TimeWrapper,
 };
 
-use crate::repaint::ObservationContext;
+use crate::{repaint::ObservationContext, twix_painter::TwixPainter};
 
-use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
+use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 
 pub(in crate::panels::image) struct ObjectDetectionOverlay {
     object_detections: OverlayObservation<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>,
@@ -27,7 +28,7 @@ impl ImageOverlay for ObjectDetectionOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter, image_time: Time) {
+    fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
         let Some(object_detections) = self.object_detections.at_time(image_time) else {
             return;
         };
@@ -40,7 +41,7 @@ impl ImageOverlay for ObjectDetectionOverlay {
 }
 
 fn paint_bounding_boxes(
-    painter: &ImageOverlayPainter,
+    painter: &TwixPainter<Pixel>,
     detections: &[Object<RobocupObjectLabel>],
     line_color: Color32,
 ) {
@@ -55,12 +56,14 @@ fn paint_bounding_boxes(
             bounding_box.area.min,
             Align2::RIGHT_BOTTOM,
             format!("{:.2}", bounding_box.confidence),
+            eframe::egui::FontId::default(),
             Color32::WHITE,
         );
         painter.floating_text(
             bounding_box.area.max,
             Align2::RIGHT_TOP,
             detection.label.into(),
+            eframe::egui::FontId::default(),
             Color32::WHITE,
         );
     }

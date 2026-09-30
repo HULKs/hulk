@@ -4,9 +4,9 @@ use eframe::egui::{Color32, Stroke};
 use geometry::circle::Circle;
 use ros_z::time::Time;
 
-use crate::repaint::ObservationContext;
+use crate::{repaint::ObservationContext, twix_painter::TwixPainter};
 
-use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
+use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 
 pub(in crate::panels::image) struct BallDetectionOverlay {
     filtered_balls: OverlayObservation<Vec<Circle<Pixel>>>,
@@ -28,7 +28,7 @@ impl ImageOverlay for BallDetectionOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter, _image_time: Time) {
+    fn paint(&self, painter: &TwixPainter<Pixel>, _image_time: Time) {
         let Some(filtered_balls) = self.filtered_balls.latest() else {
             return;
         };

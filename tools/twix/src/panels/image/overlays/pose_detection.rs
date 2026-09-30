@@ -1,4 +1,5 @@
 use color_eyre::Report;
+use coordinate_systems::Pixel;
 use eframe::egui::{Align2, Color32, Stroke};
 use linear_algebra::point;
 use ros_z::time::Time;
@@ -8,9 +9,9 @@ use types::{
     time_wrapper::TimeWrapper,
 };
 
-use crate::repaint::ObservationContext;
+use crate::{repaint::ObservationContext, twix_painter::TwixPainter};
 
-use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
+use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 
 const POSE_SKELETON_KEYPOINT_LINE_MAPPING: [(usize, usize); 16] = [
     (0, 1),
@@ -49,7 +50,7 @@ impl ImageOverlay for PoseDetectionOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter, image_time: Time) {
+    fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
         let Some(poses) = self.poses.at_time(image_time) else {
             return;
         };
@@ -61,7 +62,7 @@ impl ImageOverlay for PoseDetectionOverlay {
     }
 }
 
-fn paint_poses(painter: &ImageOverlayPainter, poses: &[Pose<YOLOObjectLabel>]) {
+fn paint_poses(painter: &TwixPainter<Pixel>, poses: &[Pose<YOLOObjectLabel>]) {
     for pose in poses {
         let keypoints: [Keypoint; 17] = pose.keypoints.into();
 
@@ -89,6 +90,7 @@ fn paint_poses(painter: &ImageOverlayPainter, poses: &[Pose<YOLOObjectLabel>]) {
                 keypoint.point,
                 Align2::RIGHT_BOTTOM,
                 format!("{:.2}", keypoint.confidence),
+                eframe::egui::FontId::default(),
                 Color32::WHITE,
             );
         }
@@ -103,12 +105,14 @@ fn paint_poses(painter: &ImageOverlayPainter, poses: &[Pose<YOLOObjectLabel>]) {
             point![bounding_box.area.max.x(), bounding_box.area.min.y()],
             Align2::RIGHT_TOP,
             format!("{:.2}", bounding_box.confidence),
+            eframe::egui::FontId::default(),
             Color32::WHITE,
         );
         painter.floating_text(
             point![bounding_box.area.min.x(), bounding_box.area.max.y()],
             Align2::LEFT_BOTTOM,
             format!("{:.2?}", pose.object.label),
+            eframe::egui::FontId::default(),
             Color32::WHITE,
         );
     }

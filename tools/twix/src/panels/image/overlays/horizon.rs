@@ -1,15 +1,16 @@
 use std::time::Duration;
 
 use color_eyre::Report;
+use coordinate_systems::Pixel;
 use eframe::egui::{Color32, Stroke};
 use linear_algebra::point;
 use projection::camera_matrix::CameraMatrix;
 use ros_z::time::Time;
 use types::time_wrapper::TimeWrapper;
 
-use crate::repaint::ObservationContext;
+use crate::{repaint::ObservationContext, twix_painter::TwixPainter};
 
-use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
+use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 
 const CAMERA_MATRIX_ALIGNMENT_TOLERANCE: Duration = Duration::from_millis(100);
 
@@ -30,7 +31,7 @@ impl ImageOverlay for HorizonOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter, image_time: Time) {
+    fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
         let Some(camera_matrix) = self
             .camera_matrix
             .nearest_to_time(image_time, CAMERA_MATRIX_ALIGNMENT_TOLERANCE)
@@ -42,7 +43,7 @@ impl ImageOverlay for HorizonOverlay {
         };
 
         let left_horizon_height = horizon.y_at_x(0.0);
-        let image_width = painter.image_width();
+        let image_width = painter.pixel_rect().width() / painter.scaling();
         let right_horizon_height = horizon.y_at_x(image_width);
 
         painter.line_segment(

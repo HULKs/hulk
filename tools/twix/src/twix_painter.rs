@@ -154,6 +154,10 @@ impl<World> TwixPainter<World> {
         self.world_to_pixel.inner.scaling()
     }
 
+    pub(crate) fn pixel_rect(&self) -> Rect {
+        self.pixel_rect
+    }
+
     pub fn arc(&self, arc: &Arc<World>, stroke: Stroke) {
         let Arc {
             circle: Circle { center, radius },

@@ -2,16 +2,16 @@ use std::{sync::Arc, time::Duration};
 
 use color_eyre::{Report, eyre::Context as _};
 use coordinate_systems::Pixel;
-use eframe::egui::{
-    Align2, Color32, FontId, Painter, Popup, PopupCloseBehavior, Pos2, Rect, Stroke, Ui, pos2,
-};
-use linear_algebra::{Point2, point};
+use eframe::egui::{Popup, PopupCloseBehavior, Ui};
 use ros_z::{Message, time::Time};
 use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
 use serde_json::{Value, json};
 use types::time_wrapper::TimeWrapper;
 
-use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
+use crate::{
+    repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
+    twix_painter::TwixPainter,
+};
 
 use super::overlays::{
     BallDetectionOverlay, FieldBorderOverlay, HorizonOverlay, LineDetectionOverlay,
@@ -60,7 +60,7 @@ impl ImageOverlays {
             });
     }
 
-    pub(super) fn paint(&self, painter: &ImageOverlayPainter, image_time: Time) {
+    pub(super) fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
         self.line_detection.paint(painter, image_time);
         self.ball_detection.paint(painter, image_time);
         self.horizon.paint(painter, image_time);
@@ -172,7 +172,7 @@ where
         }
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter, image_time: Time) {
+    fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
         if let Some(overlay) = &self.overlay {
             overlay.paint(painter, image_time);
         }
@@ -195,7 +195,7 @@ pub(super) trait ImageOverlay: Sized {
     where
         C: ObservationContext;
 
-    fn paint(&self, painter: &ImageOverlayPainter, image_time: Time);
+    fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time);
 
     fn latest_time(&self) -> Option<Time> {
         None
@@ -287,89 +287,4 @@ where
         .spawn();
     let repaint = observation.repaint_on_updates(context);
     Ok((observation, repaint))
-}
-
-pub(super) struct ImageOverlayPainter {
-    painter: Painter,
-    rect: Rect,
-    image_size: [usize; 2],
-    scale: f32,
-}
-
-impl ImageOverlayPainter {
-    pub(super) fn new(painter: Painter, rect: Rect, image_size: [usize; 2]) -> Self {
-        let scale_x = rect.width() / image_size[0].max(1) as f32;
-        let scale_y = rect.height() / image_size[1].max(1) as f32;
-        Self {
-            painter,
-            rect,
-            image_size,
-            scale: scale_x.min(scale_y),
-        }
-    }
-
-    pub(super) fn image_width(&self) -> f32 {
-        self.image_size[0] as f32
-    }
-
-    fn position(&self, point: Point2<Pixel>) -> Pos2 {
-        let scale_x = self.rect.width() / self.image_size[0].max(1) as f32;
-        let scale_y = self.rect.height() / self.image_size[1].max(1) as f32;
-        pos2(
-            self.rect.left() + point.x() * scale_x,
-            self.rect.top() + point.y() * scale_y,
-        )
-    }
-
-    fn stroke(&self, stroke: Stroke) -> Stroke {
-        Stroke {
-            width: stroke.width * self.scale,
-            ..stroke
-        }
-    }
-
-    pub(super) fn line_segment(&self, start: Point2<Pixel>, end: Point2<Pixel>, stroke: Stroke) {
-        self.painter.line_segment(
-            [self.position(start), self.position(end)],
-            self.stroke(stroke),
-        );
-    }
-
-    pub(super) fn rect_stroke(&self, min: Point2<Pixel>, max: Point2<Pixel>, stroke: Stroke) {
-        let top_right = point![max.x(), min.y()];
-        let bottom_left = point![min.x(), max.y()];
-        self.line_segment(min, top_right, stroke);
-        self.line_segment(top_right, max, stroke);
-        self.line_segment(max, bottom_left, stroke);
-        self.line_segment(bottom_left, min, stroke);
-    }
-
-    pub(super) fn circle_filled(&self, center: Point2<Pixel>, radius: f32, fill_color: Color32) {
-        self.painter
-            .circle_filled(self.position(center), radius * self.scale, fill_color);
-    }
-
-    pub(super) fn circle_stroke(&self, center: Point2<Pixel>, radius: f32, stroke: Stroke) {
-        self.painter.circle_stroke(
-            self.position(center),
-            radius * self.scale,
-            self.stroke(stroke),
-        );
-    }
-
-    pub(super) fn floating_text(
-        &self,
-        position: Point2<Pixel>,
-        align: Align2,
-        text: String,
-        color: Color32,
-    ) {
-        self.painter.text(
-            self.position(position),
-            align,
-            text,
-            FontId::default(),
-            color,
-        );
-    }
 }

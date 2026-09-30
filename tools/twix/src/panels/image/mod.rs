@@ -1,9 +1,11 @@
 use std::{sync::Arc, time::Duration};
 
 use color_eyre::{Report, eyre::Context as _};
-use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui, load::SizedTexture};
+use coordinate_systems::Pixel;
+use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui};
 use hulk_widgets::CompletionEdit;
 use image::RgbImage;
+use linear_algebra::{point, vector};
 use ros_z::{Message, entity::EndpointKind, pubsub::PublicationId, time::Time};
 use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation, TopicObservationStatus};
 use ros2::sensor_msgs::image::Image as RosImage;
@@ -159,27 +161,28 @@ impl Panel for ImagePanel {
                 }
 
                 if let Some(texture) = observed.render_cache.texture() {
-                    let size = observed
-                        .render_cache
-                        .dimensions()
-                        .map(|[width, height]| eframe::egui::vec2(width as f32, height as f32))
-                        .unwrap_or_else(|| texture.size_vec2());
-                    let texture = SizedTexture {
-                        id: texture.id(),
-                        size,
-                    };
-                    let response = ui.add(eframe::egui::Image::new(texture).shrink_to_fit());
-                    if let (Some(dimensions), Some(image_time)) = (
-                        observed.render_cache.dimensions(),
-                        observed.render_cache.image_time(),
-                    ) {
-                        let painter = ImageOverlayPainter::new(
-                            ui.painter_at(response.rect),
-                            response.rect,
-                            dimensions,
-                        );
-                        self.overlays.paint(&painter, image_time);
-                    }
+                    let [width, height] =
+                        observed.render_cache.dimensions().unwrap_or(texture.size());
+                    let (_response, painter) = TwixPainter::<Pixel>::allocate(
+                        ui,
+                        vector![width as f32, height as f32],
+                        point![0.0, 0.0],
+                        Orientation::LeftHanded,
+                    );
+                    painter.image(
+                        texture.id(),
+                        geometry::rectangle::Rectangle {
+                            min: point![0.0, 0.0],
+                            max: point![width as f32, height as f32],
+                        },
+                    );
+                    self.overlays.paint(
+                        &painter,
+                        observed
+                            .render_cache
+                            .image_time()
+                            .unwrap_or_else(Time::zero),
+                    );
                 }
             }
         };
