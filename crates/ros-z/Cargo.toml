@@ -36,7 +36,6 @@ zenoh-ext = { workspace = true }
 [dev-dependencies]
 color-eyre = { workspace = true }
 serial_test = { workspace = true }
-trybuild = { workspace = true }
 
 [features]
 nalgebra = ["dep:nalgebra"]
