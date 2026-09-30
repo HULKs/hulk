@@ -181,6 +181,12 @@ impl<T> CacheInner<T> {
         }
     }
 
+    pub fn get_latest_with_stamp(&self) -> Option<(Time, Arc<T>)> {
+        let (time, values) = self.entries.iter().next_back()?;
+
+        Some((*time, values.back()?.clone()))
+    }
+
     pub fn get_nearest(&self, t: Time) -> Option<Arc<T>> {
         self.get_nearest_with_stamp(t).map(|(_, value)| value)
     }
@@ -349,6 +355,10 @@ impl<T> Cache<T> {
         let t = t.into();
         let inner = self.inner.read();
         inner.get_nearest_with_stamp(t)
+    }
+
+    pub fn get_latest_with_stamp(&self) -> Option<(Time, Arc<T>)> {
+        self.inner.read().get_latest_with_stamp()
     }
 
     pub fn get_latest(&self) -> Option<Arc<T>> {
