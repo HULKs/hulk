@@ -6,7 +6,7 @@ use color_eyre::Result;
 use booster::{JointsMotorState, MotorState};
 use kinematics::{
     forward::{
-        head_to_neck, left_ankle_to_left_tibia, left_foot_to_left_ankle,
+        head_to_robot, left_ankle_to_left_tibia, left_foot_to_left_ankle,
         left_forearm_to_left_upper_arm, left_hip_to_left_pelvis, left_inner_shoulder_to_robot,
         left_outer_shoulder_to_left_inner_shoulder, left_pelvis_to_robot, left_thigh_to_left_hip,
         left_tibia_to_left_thigh, left_upper_arm_to_left_outer_shoulder, neck_to_robot,
@@ -59,7 +59,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 fn compute_robot_kinematics(motor_positions: &Joints) -> RobotKinematics {
     // head
     let neck_to_robot = neck_to_robot(&motor_positions.head);
-    let head_to_robot = neck_to_robot * head_to_neck(&motor_positions.head);
+    let head_to_robot = head_to_robot(&motor_positions.head);
     // torso
     let torso_to_robot = Isometry3::from(RobotDimensions::ROBOT_TO_TORSO);
     // left arm
