@@ -20,6 +20,8 @@ use crate::entity::TypeInfo;
 use crate::schema::{MessageSchema, SchemaBuilder};
 use crate::shm::ShmWriter;
 
+pub mod report;
+
 /// Error returned when CDR bytes cannot be decoded into the requested type.
 #[derive(Debug, thiserror::Error)]
 pub enum CdrError {
@@ -462,6 +464,33 @@ impl Message for String {
 impl MessageSchema for String {
     fn build_schema(_builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
         Ok(TypeDef::String)
+    }
+}
+
+impl<T, E> Message for Result<T, E>
+where
+    T: Message + Serialize + DeserializeOwned,
+    E: Message + Serialize + DeserializeOwned,
+{
+    type Codec = SerdeCdrCodec<Self>;
+
+    fn type_name() -> String {
+        format!("Result<{},{}>", T::type_name(), E::type_name())
+    }
+}
+
+impl<T, E> MessageSchema for Result<T, E>
+where
+    T: Message,
+    E: Message,
+{
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        let name = TypeName::new(format!("Result<{},{}>", T::type_name(), E::type_name()))?;
+        builder.define_enum(name, |variants| {
+            variants.newtype::<T>("Ok")?;
+            variants.newtype::<E>("Err")?;
+            Ok(())
+        })
     }
 }
 
