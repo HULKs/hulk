@@ -41,6 +41,16 @@ impl<T> IntoIterator for HeadJoints<T> {
     }
 }
 
+impl<'a, T> IntoIterator for &'a HeadJoints<T> {
+    type Item = &'a T;
+
+    type IntoIter = std::array::IntoIter<&'a T, 2>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        [&self.yaw, &self.pitch].into_iter()
+    }
+}
+
 impl<T> Add for HeadJoints<T>
 where
     T: Add,

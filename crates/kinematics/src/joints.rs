@@ -186,6 +186,27 @@ where
     }
 }
 
+impl<'a, T> IntoIterator for &'a Joints<T> {
+    type Item = &'a T;
+
+    type IntoIter = Chain<
+        Chain<
+            Chain<Chain<IntoIter<&'a T, 2>, IntoIter<&'a T, 4>>, IntoIter<&'a T, 4>>,
+            IntoIter<&'a T, 6>,
+        >,
+        IntoIter<&'a T, 6>,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.head)
+            .into_iter()
+            .chain(&self.left_arm)
+            .chain(&self.right_arm)
+            .chain(&self.left_leg)
+            .chain(&self.right_leg)
+    }
+}
+
 impl<T> IntoIterator for Joints<T> {
     type Item = T;
 
