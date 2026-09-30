@@ -16,6 +16,7 @@ use std::collections::BTreeSet;
 #[derive(Clone, Debug, PartialEq)]
 pub enum DynamicValue {
     // Primitives
+    Unit,
     Bool(bool),
     Int8(i8),
     Int16(i16),
@@ -226,7 +227,8 @@ impl DynamicValue {
         schema: &Schema,
     ) -> Result<(), DynamicError> {
         match (self, shape) {
-            (Self::Bool(_), TypeDef::Primitive(PrimitiveTypeDef::Bool))
+            (Self::Unit, TypeDef::Primitive(PrimitiveTypeDef::Unit))
+            | (Self::Bool(_), TypeDef::Primitive(PrimitiveTypeDef::Bool))
             | (Self::Int8(_), TypeDef::Primitive(PrimitiveTypeDef::I8))
             | (Self::Uint8(_), TypeDef::Primitive(PrimitiveTypeDef::U8))
             | (Self::Int16(_), TypeDef::Primitive(PrimitiveTypeDef::I16))
@@ -488,6 +490,7 @@ pub(crate) fn default_for_shape_with_active(
 ) -> Result<DynamicValue, DynamicError> {
     match shape {
         TypeDef::Primitive(PrimitiveTypeDef::Bool) => Ok(DynamicValue::Bool(false)),
+        TypeDef::Primitive(PrimitiveTypeDef::Unit) => Ok(DynamicValue::Unit),
         TypeDef::Primitive(PrimitiveTypeDef::I8) => Ok(DynamicValue::Int8(0)),
         TypeDef::Primitive(PrimitiveTypeDef::U8) => Ok(DynamicValue::Uint8(0)),
         TypeDef::Primitive(PrimitiveTypeDef::I16) => Ok(DynamicValue::Int16(0)),

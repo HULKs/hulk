@@ -163,6 +163,22 @@ fn primitive_root_json_is_inline() {
 }
 
 #[test]
+fn unit_root_schema_roundtrips_json() {
+    let bundle = SchemaBundle::new(TypeDef::Primitive(PrimitiveTypeDef::Unit)).unwrap();
+    let json = to_json(&bundle).unwrap();
+
+    assert_eq!(
+        json,
+        r#"{"definitions":{},"root":{"kind":"primitive","name":"()"}}"#
+    );
+    let encoded = serde_json::to_string(&bundle).unwrap();
+    assert_eq!(
+        serde_json::from_str::<SchemaBundle>(&encoded).unwrap(),
+        bundle
+    );
+}
+
+#[test]
 fn schema_hash_roundtrips_rzhs02_strings() {
     let hash = SchemaHash([0x12; 32]);
     let encoded = hash.to_hash_string();
