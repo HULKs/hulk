@@ -5485,6 +5485,7 @@ dependencies = [
  "message_filter",
  "message_handler",
  "microphone_recorder",
+ "motion_inference",
  "motor_commands_collector",
  "obstacle_filter",
  "odometer_bridge",
@@ -6925,6 +6926,25 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "motion_inference"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "color-eyre",
+ "coordinate_systems",
+ "kinematics",
+ "linear_algebra",
+ "nalgebra 0.34.2",
+ "ort",
+ "ros-z",
+ "ros-z-schema",
+ "serde",
+ "thiserror 2.0.18",
+ "tokio",
+ "types",
 ]
 
 [[package]]
