@@ -39,6 +39,7 @@ mcap_recorder = { workspace = true }
 message_filter = { workspace = true }
 message_handler = { workspace = true }
 microphone_recorder = { workspace = true }
+motion = { workspace = true }
 motion_inference = { workspace = true }
 motor_commands_collector = { workspace = true }
 obstacle_filter = { workspace = true }

@@ -1,7 +1,7 @@
 use hsl_network_messages::GamePhase;
 use linear_algebra::point;
 use rand::{Rng, SeedableRng, rngs::StdRng};
-use types::{behavior_tree::Status, motion_command::KickPower, motion_type::MotionType};
+use types::{behavior_tree::Status, motion_type::MotionType};
 
 use crate::{
     action,
@@ -9,7 +9,7 @@ use crate::{
     behavior_tree::Node,
     condition,
     conditions::hulks_is_kicking_team,
-    kick::{allow_schlong, apply_visual_kick_target, kick, use_kick_power},
+    kick::{allow_strong_kicks, apply_kick_target, disable_strong_kick, kick, use_strong_kick},
     node::Blackboard,
     selection, sequence, subtree,
 };
@@ -37,11 +37,8 @@ pub fn penalty_kick_striker_subtree() -> Node<Blackboard> {
         action!(kick),
         action!(set_penalty_kick_target),
         selection!(
-            sequence!(
-                condition!(allow_schlong),
-                action!(use_kick_power, KickPower::Schlong),
-            ),
-            action!(use_kick_power, KickPower::Rumpelstilzchen),
+            sequence!(condition!(allow_strong_kicks), action!(use_strong_kick),),
+            action!(disable_strong_kick),
         )
     )
 }
@@ -72,11 +69,7 @@ pub fn set_penalty_kick_target(blackboard: &mut Blackboard) -> Status {
             }
         };
 
-        return apply_visual_kick_target(
-            blackboard,
-            target,
-            blackboard.parameters.kicking.kick_target_offset_angle,
-        );
+        return apply_kick_target(blackboard, target);
     }
     Status::Failure
 }

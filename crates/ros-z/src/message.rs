@@ -280,6 +280,7 @@ impl_primitive_message!(u64, "u64", U64);
 impl_primitive_message!(usize, "usize", U64);
 impl_primitive_message!(f32, "f32", F32);
 impl_primitive_message!(f64, "f64", F64);
+impl_primitive_message!((), "()", Unit);
 
 impl<T> Message for Box<T>
 where

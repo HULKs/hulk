@@ -371,6 +371,7 @@ pub enum PrimitiveTypeDef {
     U64,
     F32,
     F64,
+    Unit,
 }
 
 impl PrimitiveTypeDef {
@@ -388,6 +389,7 @@ impl PrimitiveTypeDef {
             Self::U64 => "u64",
             Self::F32 => "f32",
             Self::F64 => "f64",
+            Self::Unit => "()",
         }
     }
 
