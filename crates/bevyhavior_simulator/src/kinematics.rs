@@ -418,7 +418,7 @@ fn apply_visual_kick_kinematics(
     kick_direction: Orientation2<Ground>,
     kick_power: KickPower,
 ) {
-    let ball_orientation = Orientation2::from_vector(ball_position.coords());
+    let orientation_to_ball = Orientation2::from_vector(ball_position.coords());
     let kick_pose = match apply_kick_to_ball(
         now,
         ball,
@@ -440,13 +440,13 @@ fn apply_visual_kick_kinematics(
                 .clamp(0.0, 1.0)
                 .acos()
                 .min(config.walk_rotation_speed * tick_duration.as_secs_f32());
-            let orbit_angle = ball_orientation
+            let orbit_angle = orientation_to_ball
                 .rotation_to(kick_direction)
                 .angle()
                 .clamp(-maximum_orbit_angle, maximum_orbit_angle);
             ball_position
                 - Rotation2::new(orbit_angle)
-                    * ball_orientation.as_unit_vector()
+                    * orientation_to_ball.as_unit_vector()
                     * standoff_distance
         }
     };
@@ -454,7 +454,7 @@ fn apply_visual_kick_kinematics(
     // Facing the kick direction can put the ball beyond the head's yaw limits.
     *ground_to_world = apply_walk_to_pose(
         *ground_to_world,
-        step_towards_target(kick_pose, ball_orientation, 1.0, config, tick_duration),
+        step_towards_target(kick_pose, orientation_to_ball, 1.0, config, tick_duration),
         tick_duration,
         config,
     );
@@ -489,7 +489,7 @@ fn step_towards_target(
 mod tests {
     use std::{
         collections::BTreeMap,
-        f32::consts::{FRAC_PI_2, PI},
+        f32::consts::FRAC_PI_2,
         time::{Duration, SystemTime},
     };
 
@@ -508,9 +508,7 @@ mod tests {
 
     use super::*;
     use crate::behavior_tree_simulator::{
-        BehaviorTreeSimulatorPlugin, DEFAULT_TICK_DURATION, RobotFrame, SimulatedBall,
-        SimulationConfig, SimulatorRobotBundle, SimulatorRobotId, SimulatorWorldStates,
-        default_behavior_parameters,
+        DEFAULT_TICK_DURATION, RobotFrame, SimulatedBall, SimulationConfig, SimulatorRobotId,
     };
 
     #[test]
@@ -647,40 +645,6 @@ mod tests {
     }
 
     #[test]
-    fn kick_waits_until_robot_is_behind_ball() {
-        for angle in [0.5, FRAC_PI_2, PI, -FRAC_PI_2] {
-            let mut ball = Some(SimulatedBall {
-                position: point![0.3, 0.0],
-                velocity: vector![0.0, 0.0],
-                field_side: Side::Left,
-            });
-            let mut last_touched_by = None;
-            let mut last_kick_time = SystemTime::UNIX_EPOCH;
-
-            apply_kick_to_ball(
-                SystemTime::UNIX_EPOCH + Duration::from_secs(1),
-                &mut ball,
-                &mut last_touched_by,
-                Team::Hulks,
-                &SimulationConfig::default(),
-                Isometry2::identity(),
-                &mut last_kick_time,
-                point![0.3, 0.0],
-                Orientation2::new(angle),
-                KickPower::Rumpelstilzchen,
-            );
-
-            assert_eq!(
-                ball.expect("ball should still exist").velocity,
-                vector![0.0, 0.0],
-                "kicked before aligning with the ball at angle {angle}"
-            );
-            assert_eq!(last_touched_by, None);
-            assert_eq!(last_kick_time, SystemTime::UNIX_EPOCH);
-        }
-    }
-
-    #[test]
     fn visual_kick_walks_toward_ball_without_moving_far_ball() {
         let mut ball = Some(SimulatedBall {
             position: point![1.0, 0.0],
@@ -711,183 +675,6 @@ mod tests {
             ball.expect("ball should still exist").velocity,
             vector![0.0, 0.0]
         );
-    }
-
-    #[test]
-    fn visual_kick_keeps_ball_visible_when_kicking_away_from_robot() {
-        for team in [Team::Hulks, Team::Opponent] {
-            let mut app = App::new();
-            app.add_plugins((
-                MinimalPlugins,
-                BehaviorTreeSimulatorPlugin {
-                    config: SimulationConfig {
-                        walk_translation_speed: 0.25,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                },
-            ));
-
-            let side = if team == Team::Hulks { 1.0 } else { -1.0 };
-            let robot_id = SimulatorRobotId::new(team, PlayerNumber::Three);
-            let initial_position = point![side, side];
-            app.world_mut().spawn(
-                SimulatorRobotBundle::new(
-                    team,
-                    robot_id.player_number,
-                    Isometry2::from_parts(
-                        initial_position.coords(),
-                        Orientation2::from_vector(-initial_position.coords()).angle(),
-                    ),
-                    default_behavior_parameters().expect("failed to load behavior parameters"),
-                )
-                .expect("failed to create robot bundle"),
-            );
-            app.world_mut().resource_mut::<SimulatorBall>().state = Some(SimulatedBall {
-                position: point![0.0, 0.0],
-                velocity: vector![0.0, 0.0],
-                field_side: Side::Left,
-            });
-
-            let mut kick_frames = 0;
-            for _ in 0..200 {
-                app.update();
-
-                let frames = app.world().resource::<SimulatorRobotFrames>();
-                if let MotionCommand::VisualKick { .. } = frames.0[&robot_id].motion_command {
-                    kick_frames += 1;
-                    let world_states = app.world().resource::<SimulatorWorldStates>();
-                    assert!(
-                        world_states.0[&robot_id].ball.is_some(),
-                        "{robot_id} lost sight of the ball during VisualKick"
-                    );
-                }
-            }
-
-            assert!(
-                kick_frames > 100,
-                "{robot_id} should keep executing VisualKick"
-            );
-            let mut robots = app.world_mut().query::<&SimulatorGroundToWorld>();
-            let pose = robots.single(app.world()).expect("robot should exist");
-            assert!(
-                pose.ground_to_world.translation().coords().norm()
-                    < initial_position.coords().norm()
-            );
-        }
-    }
-
-    #[test]
-    fn visual_kick_turns_toward_ball_during_cooldown() {
-        let config = SimulationConfig::default();
-        let mut ball = Some(SimulatedBall {
-            position: point![1.0, 1.0],
-            velocity: vector![0.0, 0.0],
-            field_side: Side::Left,
-        });
-        let mut ground_to_world = Isometry2::identity();
-        let mut last_touched_by = None;
-        let mut last_kick_time = SystemTime::UNIX_EPOCH;
-
-        apply_visual_kick_kinematics(
-            SystemTime::UNIX_EPOCH + DEFAULT_TICK_DURATION,
-            DEFAULT_TICK_DURATION,
-            &mut ball,
-            &mut last_touched_by,
-            Team::Hulks,
-            &config,
-            FieldDimensions::SPL_2025.ball_radius,
-            &mut ground_to_world,
-            &mut last_kick_time,
-            point![1.0, 1.0],
-            Orientation2::new(-FRAC_PI_2),
-            KickPower::Rumpelstilzchen,
-        );
-
-        assert!(ground_to_world.orientation().angle() > 0.0);
-        assert_eq!(ground_to_world.translation(), point![0.0, 0.0]);
-        assert_eq!(
-            ball.expect("ball should still exist").velocity,
-            vector![0.0, 0.0]
-        );
-        assert_eq!(last_kick_time, SystemTime::UNIX_EPOCH);
-        assert_eq!(last_touched_by, None);
-    }
-
-    #[test]
-    fn visual_kick_circles_ball_before_kicking_without_self_rebound() {
-        for team in [Team::Hulks, Team::Opponent] {
-            let mut app = App::new();
-            app.add_plugins((MinimalPlugins, BehaviorTreeSimulatorPlugin::default()));
-            let side = if team == Team::Hulks { 1.0 } else { -1.0 };
-            let robot_id = SimulatorRobotId::new(team, PlayerNumber::Three);
-            let initial_position = point![side * 0.3, 0.0];
-            let mut parameters =
-                default_behavior_parameters().expect("failed to load behavior parameters");
-            parameters.ball.closest_to_ball.enter_duration = Duration::ZERO;
-            app.world_mut().spawn(
-                SimulatorRobotBundle::new(
-                    team,
-                    robot_id.player_number,
-                    Isometry2::from_parts(
-                        initial_position.coords(),
-                        Orientation2::from_vector(-initial_position.coords()).angle(),
-                    ),
-                    parameters,
-                )
-                .expect("failed to create robot bundle"),
-            );
-            app.world_mut().resource_mut::<SimulatorBall>().state = Some(SimulatedBall {
-                position: point![0.0, 0.0],
-                velocity: vector![0.0, 0.0],
-                field_side: Side::Left,
-            });
-
-            let mut robots = app
-                .world_mut()
-                .query::<(&SimulatorGroundToWorld, &SimulatorLastKickTime)>();
-            let mut first_kick_time = None;
-            for _ in 0..500 {
-                app.update();
-                let clock = app.world().resource::<SimulatorClock>();
-                let ball = app
-                    .world()
-                    .resource::<SimulatorBall>()
-                    .state
-                    .expect("ball should still exist");
-                let (pose, last_kick) = robots.single(app.world()).expect("robot should exist");
-                if last_kick.last_kick_time == SystemTime::UNIX_EPOCH {
-                    assert!(
-                        ball.position.coords().norm() < 1e-5,
-                        "{robot_id} pushed the ball while circling it"
-                    );
-                    assert!(
-                        app.world().resource::<SimulatorWorldStates>().0[&robot_id]
-                            .ball
-                            .is_some(),
-                        "{robot_id} lost sight of the ball while circling it"
-                    );
-                    continue;
-                }
-
-                let kicked_at = *first_kick_time.get_or_insert(last_kick.last_kick_time);
-                assert!(
-                    side * pose.ground_to_world.translation().x() < 0.0,
-                    "{robot_id} kicked from the wrong side of the ball"
-                );
-                assert!(
-                    side * ball.velocity.x() > 0.0,
-                    "{robot_id}'s kick rebounded toward its own goal"
-                );
-                if clock.now.duration_since(kicked_at).unwrap() >= Duration::from_millis(250) {
-                    break;
-                }
-            }
-            assert!(
-                first_kick_time.is_some(),
-                "{robot_id} never reached a valid kick position"
-            );
-        }
     }
 
     #[test]

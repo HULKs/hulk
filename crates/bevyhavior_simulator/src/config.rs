@@ -29,7 +29,6 @@ pub struct SimulationConfig {
     pub kick_radius: f32,
     /// Maximum angle between the robot-to-ball vector and kick direction, in radians.
     pub kick_alignment_tolerance: f32,
-    pub remaining_amount_of_messages: Option<u16>,
     pub game_controller_address: Option<SocketAddr>,
 }
 
@@ -53,7 +52,6 @@ impl Default for SimulationConfig {
             robot_radius: 0.16,
             kick_radius: 0.35,
             kick_alignment_tolerance: 0.2,
-            remaining_amount_of_messages: Some(u16::MAX),
             game_controller_address: None,
         }
     }
