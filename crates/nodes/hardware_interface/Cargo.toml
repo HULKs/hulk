@@ -1,5 +1,5 @@
 [package]
-name = "booster_sdk_interface"
+name = "hardware_interface"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
