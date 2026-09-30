@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use color_eyre::Report;
 use coordinate_systems::Pixel;
-use eframe::egui::{Color32, Stroke};
+use eframe::egui::{Color32, Pos2, Stroke};
 use linear_algebra::point;
 use projection::camera_matrix::CameraMatrix;
 use ros_z::time::Time;
@@ -43,13 +43,15 @@ impl ImageOverlay for HorizonOverlay {
             return;
         };
 
-        let left_horizon_height = horizon.y_at_x(0.0);
-        let image_width = painter.pixel_rect().width() / painter.scaling();
-        let right_horizon_height = horizon.y_at_x(image_width);
+        let painter_rect = painter.pixel_rect();
+        let left = painter.transform_pixel_to_world(Pos2::new(painter_rect.left(), 0.0));
+        let left_horizon_height = horizon.y_at_x(left.x());
+        let right = painter.transform_pixel_to_world(Pos2::new(painter_rect.right(), 0.0));
+        let right_horizon_height = horizon.y_at_x(right.x());
 
         painter.line_segment(
-            point![0.0, left_horizon_height],
-            point![image_width, right_horizon_height],
+            point![left.x(), left_horizon_height],
+            point![right.x(), right_horizon_height],
             Stroke::new(3.0, Color32::GREEN),
         );
         painter.circle_stroke(
