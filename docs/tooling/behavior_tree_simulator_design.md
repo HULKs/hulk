@@ -69,7 +69,7 @@ pub struct SimulatorBehaviorTickInput {
 pub struct SimulatorBehaviorTickOutput {
     pub motion_command: MotionCommand,
     pub trace: NodeTrace,
-    pub static_layout: NodeTrace,
+    pub static_layout: Arc<NodeTrace>,
     pub path_obstacles: Vec<PathObstacle>,
     pub time_since_last_switch: Duration,
     pub direction_difference: f32,
@@ -257,7 +257,7 @@ pub struct SimulatorRobotId {
 pub struct SimulatorRobotBehavior {
     pub tree: behavior_node::behavior_tree::Node<behavior_node::node::Blackboard>,
     pub blackboard: behavior_node::node::Blackboard,
-    pub static_layout: NodeTrace,
+    pub static_layout: Arc<NodeTrace>,
 }
 
 pub struct SimulatorRobotParameters {
@@ -882,7 +882,7 @@ Each recorded frame should include:
 - Per-robot planned outgoing communication.
 - Per-robot `NodeTrace`.
 - Invariant violations for the frame.
-- Static behavior tree layout once per run.
+- A shared reference to the robot's static behavior tree layout.
 - Path obstacles.
 - Walk target position.
 - Voronoi map and inputs.
