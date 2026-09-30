@@ -83,7 +83,11 @@ pub fn create_tree() -> Node<Blackboard> {
 }
 
 fn ready_subtree() -> Node<Blackboard> {
-    sequence!(action!(walk_to_kickoff_pose), action!(look_around),)
+    sequence!(
+        action!(calculate_voronoi_grid),
+        action!(walk_to_kickoff_pose),
+        action!(look_around),
+    )
 }
 
 fn playing_subtree() -> Node<Blackboard> {

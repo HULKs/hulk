@@ -157,6 +157,28 @@ fn compose_rule_obstacles(
         }
         (
             FilteredGameControllerState {
+                game_state: FilteredGameState::Ready,
+                ..
+            },
+            _,
+        ) => {
+            let opponent_half_obstacle = RuleObstacle::Rectangle(Rectangle {
+                min: point!(0.0, -field_dimensions.width / 2.0),
+                max: point!(field_dimensions.length / 2.0, field_dimensions.width / 2.0),
+            });
+            rule_obstacles.push(opponent_half_obstacle);
+
+            if filtered_game_controller_state.kicking_team != Some(Team::Hulks) {
+                let center_circle_obstacle = RuleObstacle::Circle(Circle::new(
+                    Point::origin(),
+                    field_dimensions.center_circle_diameter / 2.0
+                        + parameters.center_circle_ballspace_free_obstacle_radius,
+                ));
+                rule_obstacles.push(center_circle_obstacle);
+            }
+        }
+        (
+            FilteredGameControllerState {
                 sub_state: Some(SubState::PenaltyKick),
                 game_state: FilteredGameState::Playing { .. },
                 ..

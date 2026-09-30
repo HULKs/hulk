@@ -63,7 +63,10 @@ impl Blackboard {
     }
 
     pub fn try_sending_state_message(&mut self) -> Option<OutgoingMessage> {
-        if self.world_state.robot.primary_state != PrimaryState::Playing {
+        if !matches!(
+            self.world_state.robot.primary_state,
+            PrimaryState::Ready | PrimaryState::Playing
+        ) {
             return None;
         }
         let now = self.world_state.now;

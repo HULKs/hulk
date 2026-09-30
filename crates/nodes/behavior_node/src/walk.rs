@@ -5,8 +5,10 @@ use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, point};
 use path_planner::path_planner::PathPlanner;
 use types::{
     behavior_tree::Status,
+    field_dimensions::FieldDimensions,
     motion_command::{BodyMotion, MotionCommand, OrientationMode},
     motion_type::MotionType,
+    parameters::VoronoiParameters,
     path::{Path, direct_path},
 };
 use voronoi::{Ownership, VoronoiGrid};
@@ -16,7 +18,6 @@ use crate::{
     actions::stand,
     behavior_tree::Node,
     condition,
-    conditions::hulks_is_kicking_team,
     kick::{kick, select_kick_target, use_last_kick_settings},
     node::Blackboard,
     selection, sequence, subtree,
@@ -211,40 +212,44 @@ pub fn walk_to_block_position(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
-    if let (Some(ground_to_field), player_number) = (
-        blackboard.world_state.robot.ground_to_field,
-        blackboard.world_state.robot.player_number,
-    ) {
-        let field_to_ground = ground_to_field.inverse();
-        let kickoff = &blackboard.parameters.kickoff;
-        let standard_pose = kickoff.standard_positions[player_number];
-        let striker_position = kickoff.striker_position;
-        let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
-        let walk_to_kickoff_speed = blackboard.parameters.walking.speed.walk_to_kickoff;
+    let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field else {
+        return Status::Failure;
+    };
 
-        let mut target_position = standard_pose.position;
+    let player_number = blackboard.world_state.robot.player_number;
+    let standard_pose = blackboard.parameters.kickoff.standard_positions[player_number];
 
-        if hulks_is_kicking_team(blackboard) && player_number == PlayerNumber::Three {
-            target_position = striker_position;
-        }
-
-        let kickoff_pose_in_field =
-            Pose2::from_parts(target_position, Orientation2::new(standard_pose.rotation));
-
-        let kickoff_pose_in_ground = field_to_ground * kickoff_pose_in_field;
-
-        walk_to(
-            blackboard,
-            kickoff_pose_in_ground,
-            walk_to_kickoff_speed,
-            OrientationMode::AlignWithPath,
-            walk_and_stand.normal_distance_to_be_aligned,
-            walk_and_stand.hysteresis,
-        );
-        Status::Success
+    let target_position = if player_number == blackboard.parameters.goalkeeper.player_number {
+        standard_pose.position
     } else {
-        Status::Failure
-    }
+        blackboard
+            .voronoi_map
+            .as_ref()
+            .and_then(|map| {
+                target_player_position(
+                    map,
+                    player_number,
+                    // The ball will be placed at the center spot for kickoff.
+                    Some(Point2::origin()),
+                    &blackboard.field_dimensions,
+                    &blackboard.parameters.voronoi,
+                )
+            })
+            .unwrap_or(standard_pose.position)
+    };
+
+    let target_pose_in_field =
+        Pose2::from_parts(target_position, Orientation2::new(standard_pose.rotation));
+    let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
+
+    walk_to(
+        blackboard,
+        ground_to_field.inverse() * target_pose_in_field,
+        blackboard.parameters.walking.speed.walk_to_kickoff,
+        OrientationMode::AlignWithPath,
+        walk_and_stand.normal_distance_to_be_aligned,
+        walk_and_stand.hysteresis,
+    )
 }
 
 pub fn walk_to_voronoi_position(blackboard: &mut Blackboard) -> Status {
@@ -255,6 +260,8 @@ pub fn walk_to_voronoi_position(blackboard: &mut Blackboard) -> Status {
         map,
         blackboard.world_state.robot.player_number,
         blackboard.ball.as_ref().map(|ball| ball.position),
+        &blackboard.field_dimensions,
+        &blackboard.parameters.voronoi,
     ) {
         let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
         let kicking_speed = blackboard.parameters.walking.speed.kicking;
@@ -284,29 +291,27 @@ fn target_player_position(
     map: &VoronoiGrid,
     player: PlayerNumber,
     ball_position: Option<Point2<Field>>,
+    field_dimensions: &FieldDimensions,
+    parameters: &VoronoiParameters,
 ) -> Option<Point2<Field>> {
     let mut sum_x = 0.0;
     let mut sum_y = 0.0;
     let mut count = 0;
     let mut candidates = Vec::new();
 
-    for (index, ownership) in map.tiles.iter().copied().enumerate() {
-        if ownership != Ownership::Robot(player) {
-            continue;
-        }
-
-        let point = map.index_to_point(index);
-        if !is_in_bounds(map, point) {
+    for (point, ownership) in map.cells() {
+        if ownership != Ownership::Robot(player)
+            || point.x().abs() > field_dimensions.length / 2.0
+            || point.y().abs() > field_dimensions.width / 2.0
+        {
             continue;
         }
 
         candidates.push(point);
 
-        if map.cell_overlaps_centroid_bounds(index) {
-            sum_x += point.x();
-            sum_y += point.y();
-            count += 1;
-        }
+        sum_x += point.x();
+        sum_y += point.y();
+        count += 1;
     }
 
     if count == 0 {
@@ -320,43 +325,35 @@ fn target_player_position(
         return Some(centroid);
     };
 
-    let field_length = map.bounds.grid_max.x() - map.bounds.grid_min.x();
-    let half_length = field_length * 0.5;
+    let half_length = field_dimensions.length / 2.0 + parameters.padding;
     let ball_x = ball_position.x();
     let ball_y = ball_position.y();
     let side_factor = (ball_x / half_length).clamp(-1.0, 1.0);
 
-    let support_distance = map
-        .parameters
-        .ball_support_distance
-        .max(map.parameters.grid_resolution);
-    let support_sigma = map
-        .parameters
-        .ball_support_sigma
-        .max(map.parameters.grid_resolution);
+    let resolution = map.resolution();
+
+    let support_distance = parameters.ball_support_distance.max(resolution);
+    let support_sigma = parameters.ball_support_sigma.max(resolution);
     let inv_two_support_sigma_sq = 1.0 / (2.0 * support_sigma * support_sigma);
 
-    let centroid_sigma = map
-        .parameters
-        .centroid_anchor_sigma
-        .max(map.parameters.grid_resolution);
+    let centroid_sigma = parameters.centroid_anchor_sigma.max(resolution);
 
     let mut best_target = None;
 
     for point in candidates {
         let forward_norm = point.x() / half_length;
-        let forward_term = map.parameters.forward_weight * side_factor * forward_norm;
+        let forward_term = parameters.forward_weight * side_factor * forward_norm;
 
         let dx_ball = point.x() - ball_x;
         let dy_ball = point.y() - ball_y;
         let ball_distance = (dx_ball * dx_ball + dy_ball * dy_ball).sqrt();
         let support_distance_error = ball_distance - support_distance;
-        let ball_term = map.parameters.ball_weight
+        let ball_term = parameters.ball_weight
             * (-(support_distance_error * support_distance_error) * inv_two_support_sigma_sq).exp();
 
         let dx_centroid = point.x() - centroid.x();
         let dy_centroid = point.y() - centroid.y();
-        let centroid_penalty = map.parameters.centroid_anchor_weight
+        let centroid_penalty = parameters.centroid_anchor_weight
             * (dx_centroid * dx_centroid + dy_centroid * dy_centroid).sqrt()
             / centroid_sigma;
 
@@ -367,9 +364,4 @@ fn target_player_position(
     }
 
     best_target.map(|(_, point)| point)
-}
-
-fn is_in_bounds(map: &VoronoiGrid, point: Point2<Field>) -> bool {
-    (map.bounds.centroid_min.x()..=map.bounds.centroid_max.x()).contains(&point.x())
-        && (map.bounds.centroid_min.y()..=map.bounds.centroid_max.y()).contains(&point.y())
 }
