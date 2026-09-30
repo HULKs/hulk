@@ -54,16 +54,20 @@ pub fn resolve_node_target(graph: &ros_z::graph::GraphData, selector: &str) -> R
         .collect();
 
     match matches.as_slice() {
-        [] => bail!("node not found: {selector}"),
+        [] => {
+            bail!("node not found: {selector}");
+        }
         [target] => Ok(target.clone()),
-        _ => bail!(
-            "node name '{selector}' is ambiguous: {}",
-            matches
-                .iter()
-                .map(NodeTarget::fully_qualified_name)
-                .collect::<Vec<_>>()
-                .join(", ")
-        ),
+        _ => {
+            bail!(
+                "node name '{selector}' is ambiguous: {}",
+                matches
+                    .iter()
+                    .map(NodeTarget::fully_qualified_name)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
     }
 }
 

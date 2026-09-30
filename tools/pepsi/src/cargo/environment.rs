@@ -37,7 +37,9 @@ impl FromStr for Environment {
             "docker" => Self::Docker {
                 image: right.map(str::to_owned),
             },
-            _ => bail!("unknown option {left}"),
+            _ => {
+                bail!("unknown option {left}");
+            }
         })
     }
 }

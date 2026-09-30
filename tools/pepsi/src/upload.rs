@@ -113,7 +113,7 @@ async fn upload_with_progress(
                 .retrieve_logs()
                 .await
                 .wrap_err("failed to retrieve logs")?;
-            bail!("failed to restart hulk: {error:#?}\nLogs:\n{logs}")
+            bail!("failed to restart hulk: {error:#?}\nLogs:\n{logs}");
         };
     }
     Ok(())

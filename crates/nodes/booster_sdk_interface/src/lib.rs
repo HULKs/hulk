@@ -655,7 +655,7 @@ async fn retryable_rpc_call<T>(
     if await_rpc_call(future, operation, attempt).await.is_some() {
         Ok(())
     } else {
-        color_eyre::eyre::bail!("retryable rpc call failed")
+        color_eyre::eyre::bail!("retryable rpc call failed");
     }
 }
 

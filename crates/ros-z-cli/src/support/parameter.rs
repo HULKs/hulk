@@ -53,12 +53,16 @@ fn resolve_parameter_node_fqn_from_candidates(
         .collect();
 
     match matches.as_slice() {
-        [] => bail!("node not found: {selector}"),
+        [] => {
+            bail!("node not found: {selector}");
+        }
         [node_fqn] => Ok(node_fqn.clone()),
-        _ => bail!(
-            "node name '{selector}' is ambiguous: {}",
-            matches.join(", ")
-        ),
+        _ => {
+            bail!(
+                "node name '{selector}' is ambiguous: {}",
+                matches.join(", ")
+            );
+        }
     }
 }
 
@@ -71,7 +75,7 @@ fn verify_parameter_capability_from_services(
         return Ok(());
     }
 
-    bail!("node exists but does not expose remote parameter services: {node_fqn}")
+    bail!("node exists but does not expose remote parameter services: {node_fqn}");
 }
 
 fn sorted_node_fqns(graph: &GraphData) -> Vec<String> {
