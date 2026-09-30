@@ -296,6 +296,10 @@ fn parse_name(input: &str) -> Option<(String, &str)> {
         }
         return Some((name, &input[stream.byte_offset()..]));
     }
+    identifier_prefix(input).map(|(name, rest)| (name.to_owned(), rest))
+}
+
+fn identifier_prefix(input: &str) -> Option<(&str, &str)> {
     let length = input
         .bytes()
         .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
@@ -304,11 +308,11 @@ fn parse_name(input: &str) -> Option<(String, &str)> {
     if name.is_empty() || name.as_bytes()[0].is_ascii_digit() {
         return None;
     }
-    Some((name.to_owned(), &input[length..]))
+    Some((name, &input[length..]))
 }
 
 fn write_name(f: &mut fmt::Formatter<'_>, name: &str) -> fmt::Result {
-    if parse_name(name).is_some_and(|(_, rest)| rest.is_empty()) && !name.starts_with('"') {
+    if identifier_prefix(name).is_some_and(|(_, rest)| rest.is_empty()) {
         f.write_str(name)
     } else {
         // Serializing a string cannot fail.
