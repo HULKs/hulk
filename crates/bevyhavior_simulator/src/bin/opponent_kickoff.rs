@@ -224,7 +224,7 @@ fn check_and_advance(
             }
         }
         Phase::Released => {
-            if matches!(frame.motion_command, MotionCommand::VisualKick { .. }) {
+            if matches!(frame.motion_command, MotionCommand::Kick { .. }) {
                 println!(
                     "ok: reached Ready pose, waited through Set and 10s restricted kickoff, resumed kicking"
                 );

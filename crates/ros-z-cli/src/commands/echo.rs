@@ -113,6 +113,7 @@ fn format_value_pretty(output: &mut String, name: &str, value: &DynamicValue, in
     let prefix = "  ".repeat(indent);
 
     match value {
+        DynamicValue::Unit => output.push_str(&format!("{}{}: ()\n", prefix, name)),
         DynamicValue::Bool(value) => output.push_str(&format!("{}{}: {}\n", prefix, name, value)),
         DynamicValue::Int8(value) => output.push_str(&format!("{}{}: {}\n", prefix, name, value)),
         DynamicValue::Int16(value) => output.push_str(&format!("{}{}: {}\n", prefix, name, value)),
