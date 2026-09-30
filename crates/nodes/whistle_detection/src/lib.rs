@@ -44,6 +44,22 @@ fn validate_whistle_detection_parameters(parameters: &WhistleDetectionParameters
         "detection_band must have finite bounds with 0 <= start < end"
     );
 
+    let frequency_resolution =
+        parameters.audio_sample_rate as f32 / parameters.number_audio_samples as f32;
+    let min_frequency_index =
+        (parameters.detection_band.start / frequency_resolution).ceil() as usize;
+    let max_frequency_index =
+        (parameters.detection_band.end / frequency_resolution).ceil() as usize;
+    let band_size = max_frequency_index
+        .min(parameters.number_audio_samples / 2)
+        .saturating_sub(min_frequency_index);
+
+    ensure!(
+        band_size >= parameters.number_of_chunks,
+        "detection_band contains {band_size} frequency bins, but number_of_chunks is {}",
+        parameters.number_of_chunks,
+    );
+
     Ok(())
 }
 
