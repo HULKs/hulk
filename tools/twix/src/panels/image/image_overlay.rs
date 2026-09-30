@@ -2,7 +2,9 @@ use std::{sync::Arc, time::Duration};
 
 use color_eyre::{Report, eyre::Context as _};
 use coordinate_systems::Pixel;
-use eframe::egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Stroke, Ui, pos2};
+use eframe::egui::{
+    Align2, Color32, FontId, Painter, Popup, PopupCloseBehavior, Pos2, Rect, Stroke, Ui, pos2,
+};
 use linear_algebra::{Point2, point};
 use ros_z::{Message, time::Time};
 use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
@@ -46,14 +48,16 @@ impl ImageOverlays {
     where
         C: ObservationContext,
     {
-        ui.menu_button("Overlays", |ui| {
-            self.line_detection.checkbox(ui, context);
-            self.ball_detection.checkbox(ui, context);
-            self.horizon.checkbox(ui, context);
-            self.field_border.checkbox(ui, context);
-            self.object_detection.checkbox(ui, context);
-            self.pose_detection.checkbox(ui, context);
-        });
+        Popup::menu(&ui.button("Overlays"))
+            .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
+            .show(|ui| {
+                self.line_detection.checkbox(ui, context);
+                self.ball_detection.checkbox(ui, context);
+                self.horizon.checkbox(ui, context);
+                self.field_border.checkbox(ui, context);
+                self.object_detection.checkbox(ui, context);
+                self.pose_detection.checkbox(ui, context);
+            });
     }
 
     pub(super) fn paint(&self, painter: &ImageOverlayPainter, image_time: Time) {
