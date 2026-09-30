@@ -16,7 +16,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.98.0
+      image: ghcr.io/hulks/hulk-ci:1.98.1
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -36,7 +36,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.98.0
+      image: ghcr.io/hulks/hulk-ci:1.98.1
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -51,7 +51,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.98.0
+      image: ghcr.io/hulks/hulk-ci:1.98.1
       options: --user=1000:1000
     steps:
       - name: Install uv
@@ -72,7 +72,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.98.0
+      image: ghcr.io/hulks/hulk-ci:1.98.1
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -106,7 +106,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.98.0
+  #     image: ghcr.io/hulks/hulk-ci:1.98.1
   #     options: --user=1000:1000 --privileged --device /dev/fuse:rw
   #   steps:
   #     - uses: actions/checkout@v4
@@ -125,7 +125,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.98.0
+  #     image: ghcr.io/hulks/hulk-ci:1.98.1
   #     options: --user=1000:1000 --privileged --device /dev/fuse:rw
   #   steps:
   #     - uses: actions/checkout@v4
@@ -149,7 +149,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.98.0
+      image: ghcr.io/hulks/hulk-ci:1.98.1
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -157,6 +157,21 @@ jobs:
           lfs: true
       - name: Build
         run: ./pepsi build --locked --release ${{ matrix.tool }}
+
+  build_pepsi_android:
+    name: Build pepsi for Android
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.98.1
+      options: --user=1000:1000
+    env:
+      TARGET: aarch64-linux-android
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: ./pepsi build --locked --release --target ${{ env.TARGET }} pepsi
 
   build_mkdocs:
     name: Build mkdocs
@@ -176,7 +191,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.98.0
+  #     image: ghcr.io/hulks/hulk-ci:1.98.1
   #     options: --user=1000:1000
   #   defaults:
   #     run:
@@ -202,7 +217,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.98.0
+  #     image: ghcr.io/hulks/hulk-ci:1.98.1
   #     options: --user=1000:1000
   #   defaults:
   #     run:
@@ -228,7 +243,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.98.0
+  #     image: ghcr.io/hulks/hulk-ci:1.98.1
   #     options: --user=1000:1000
   #   defaults:
   #     run:
@@ -254,7 +269,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.98.0
+  #     image: ghcr.io/hulks/hulk-ci:1.98.1
   #     options: --user=1000:1000
   #   defaults:
   #     run:

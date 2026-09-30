@@ -1,9 +1,10 @@
-FROM docker.io/rust:1.98.0
+FROM docker.io/rust:1.98.1
 
 RUN apt-get update && apt-get install --no-install-recommends --yes \
     buildah \
     clang \
     cmake \
+    curl \
     git-lfs \
     libasound2-dev \
     libdbus-1-dev \
@@ -20,6 +21,7 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
     python3-git \
     podman \
     rsync \
+    unzip \
     zstd \
     && rm --recursive --force /var/lib/apt/lists/*
 
@@ -27,7 +29,14 @@ RUN useradd -u 1000 hulk && \
     usermod --add-subuids 10000-75535 hulk && \
     usermod --add-subgids 10000-75535 hulk
 
-RUN rustup component add clippy rustfmt
+RUN rustup component add clippy rustfmt && \
+    rustup target add aarch64-linux-android
+
+RUN curl --fail --location https://dl.google.com/android/repository/android-ndk-r27d-linux.zip --output /tmp/android-ndk.zip && \
+    unzip -q /tmp/android-ndk.zip -d /opt && \
+    rm /tmp/android-ndk.zip
+
+ENV CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=/opt/android-ndk-r27d/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang
 
 RUN --mount=type=cache,target=/cargo_home \
     CARGO_HOME=/cargo_home cargo install --locked taplo-cli --root /usr/local
