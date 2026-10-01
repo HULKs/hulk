@@ -11688,7 +11688,7 @@ dependencies = [
 
 [[package]]
 name = "twix"
-version = "0.16.1"
+version = "0.16.2"
 dependencies = [
  "ball_filter",
  "behavior_node",
