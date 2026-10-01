@@ -1,14 +1,17 @@
-use std::{f32::consts::TAU, marker::PhantomData};
+use std::{
+    f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, TAU},
+    marker::PhantomData,
+};
 
 use eframe::{
-    egui::{Painter, Response, Sense, Ui},
+    egui::{Painter, Response, Sense, TextureId, Ui, pos2},
     emath::{Pos2, Rect},
     epaint::{Color32, PathShape, Shape, Stroke},
 };
-use nalgebra::Similarity2;
+use nalgebra::{SMatrix, Similarity2};
 
 use coordinate_systems::{Field, Ground, Screen};
-use geometry::{arc::Arc, circle::Circle, direction::AngleTo};
+use geometry::{arc::Arc, circle::Circle, direction::AngleTo, rectangle::Rectangle};
 use linear_algebra::{
     IntoTransform, Isometry2, Orientation2, Point2, Pose2, Transform, Vector2, point, vector,
 };
@@ -97,6 +100,45 @@ impl<World> TwixPainter<World> {
         }
     }
 
+    pub fn paint_at(ui: &mut Ui, pixel_rect: Rect) -> Self {
+        let painter = ui.painter_at(pixel_rect);
+        let world_to_pixel = Similarity2::new(
+            nalgebra::vector![pixel_rect.left_top().x, -pixel_rect.left_top().y],
+            0.0,
+            1.0,
+        );
+        let world_to_pixel = world_to_pixel.framed_transform();
+        Self {
+            painter,
+            pixel_rect,
+            world_to_pixel,
+            orientation: Orientation::default(),
+            frame: PhantomData,
+        }
+    }
+
+    pub fn with_camera(
+        self,
+        camera_dimensions: Vector2<World, f32>,
+        world_to_camera: Similarity2<f32>,
+        orientation: Orientation,
+    ) -> Self {
+        let width_scale = self.pixel_rect.width() / camera_dimensions.x();
+        let height_scale = self.pixel_rect.height() / camera_dimensions.y();
+        let top_left =
+            nalgebra::vector![self.pixel_rect.left_top().x, self.pixel_rect.left_top().y,];
+        let camera_to_pixel = Similarity2::new(top_left, 0.0, width_scale.min(height_scale));
+        let world_to_pixel = camera_to_pixel * world_to_camera;
+        let world_to_pixel = world_to_pixel.framed_transform();
+        Self {
+            painter: self.painter,
+            pixel_rect: self.pixel_rect,
+            orientation,
+            world_to_pixel,
+            frame: PhantomData,
+        }
+    }
+
     pub fn append_transform(
         &mut self,
         transformation: Transform<Screen, Screen, Similarity2<f32>>,
@@ -106,6 +148,10 @@ impl<World> TwixPainter<World> {
 
     pub fn scaling(&self) -> f32 {
         self.world_to_pixel.inner.scaling()
+    }
+
+    pub fn pixel_rect(&self) -> Rect {
+        self.pixel_rect
     }
 
     pub fn arc(&self, arc: &Arc<World>, stroke: Stroke) {
@@ -174,7 +220,7 @@ impl<World> TwixPainter<World> {
         )));
     }
 
-    pub fn _polygon(&self, points: impl IntoIterator<Item = Point2<World>>, stroke: Stroke) {
+    pub fn polygon(&self, points: impl IntoIterator<Item = Point2<World>>, stroke: Stroke) {
         let points: Vec<_> = points
             .into_iter()
             .map(|point| self.transform_world_to_pixel(point))
@@ -184,7 +230,6 @@ impl<World> TwixPainter<World> {
             .add(Shape::Path(PathShape::closed_line(points, stroke)));
     }
 
-    #[allow(dead_code)]
     pub fn polyline(&self, points: impl IntoIterator<Item = Point2<World>>, stroke: Stroke) {
         let points: Vec<_> = points
             .into_iter()
@@ -287,11 +332,96 @@ impl<World> TwixPainter<World> {
         self.painter.circle(center, radius, fill_color, stroke);
     }
 
+    pub fn circle_filled(&self, center: Point2<World>, radius: f32, fill_color: Color32) {
+        let center = self.transform_world_to_pixel(center);
+        let radius = radius * self.scaling();
+        self.painter.circle_filled(center, radius, fill_color);
+    }
+
     pub fn circle_stroke(&self, center: Point2<World>, radius: f32, stroke: Stroke) {
         let center = self.transform_world_to_pixel(center);
         let radius = radius * self.scaling();
         let stroke = self.transform_stroke(stroke);
         self.painter.circle_stroke(center, radius, stroke);
+    }
+
+    pub fn ellipse(
+        &self,
+        position: Point2<World>,
+        w: f32,
+        h: f32,
+        theta: f32,
+        stroke: Stroke,
+        fill_color: Color32,
+    ) {
+        let samples = 360;
+        let points = (0..samples)
+            .map(|i| {
+                let t = i as f32 * TAU / samples as f32;
+                let x = w * theta.cos() * t.cos() - h * theta.sin() * t.sin();
+                let y = w * theta.sin() * t.cos() + h * theta.cos() * t.sin();
+                self.transform_world_to_pixel(position + vector![x, y])
+            })
+            .collect();
+        let stroke = self.transform_stroke(stroke);
+        self.painter.add(Shape::Path(PathShape::convex_polygon(
+            points, fill_color, stroke,
+        )));
+    }
+
+    pub fn covariance(
+        &self,
+        position: Point2<World>,
+        covariance: SMatrix<f32, 2, 2>,
+        stroke: Stroke,
+        fill_color: Color32,
+    ) {
+        let a = covariance.m11;
+        let b = covariance.m12;
+        let c = covariance.m22;
+        let l1 = (a + c) / 2.0 + (((a - c) / 2.0).powi(2) + b.powi(2)).sqrt();
+        let l2 = (a + c) / 2.0 - (((a - c) / 2.0).powi(2) + b.powi(2)).sqrt();
+        let theta = if b == 0.0 && a >= c {
+            0.0
+        } else if b == 0.0 && a < c {
+            FRAC_PI_2
+        } else {
+            (l1 - a).atan2(b)
+        };
+        self.ellipse(position, l1.sqrt(), l2.sqrt(), theta, stroke, fill_color)
+    }
+
+    pub fn target(
+        &self,
+        position: Point2<World>,
+        radius: f32,
+        stroke: Stroke,
+        fill_color: Color32,
+    ) {
+        self.circle_filled(position, radius, fill_color);
+        self.circle_stroke(position, radius, stroke);
+        self.line_segment(
+            point![
+                position.x() - FRAC_1_SQRT_2 * radius,
+                position.y() + FRAC_1_SQRT_2 * radius
+            ],
+            point![
+                position.x() + FRAC_1_SQRT_2 * radius,
+                position.y() - FRAC_1_SQRT_2 * radius
+            ],
+            stroke,
+        );
+        self.line_segment(
+            point![
+                position.x() + FRAC_1_SQRT_2 * radius,
+                position.y() + FRAC_1_SQRT_2 * radius
+            ],
+            point![
+                position.x() - FRAC_1_SQRT_2 * radius,
+                position.y() - FRAC_1_SQRT_2 * radius
+            ],
+            stroke,
+        );
     }
 
     pub fn floating_text(
@@ -305,9 +435,21 @@ impl<World> TwixPainter<World> {
         let position = self.transform_world_to_pixel(position);
         self.painter.text(position, align, text, font_id, color);
     }
+
+    pub fn image(&self, texture_id: TextureId, rect: Rectangle<World>) {
+        let Rectangle { min, max } = rect;
+        let min = self.transform_world_to_pixel(min);
+        let max = self.transform_world_to_pixel(max);
+        self.painter.image(
+            texture_id,
+            Rect::from_two_pos(min, max),
+            Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+            Color32::WHITE,
+        );
+    }
 }
 impl TwixPainter<Ground> {
-    pub fn path(&self, path: Path, line_color: Color32, arc_color: Color32, width: f32) {
+    pub fn path(&self, path: &Path, line_color: Color32, arc_color: Color32, width: f32) {
         for segment in &path.segments {
             match segment {
                 PathSegment::LineSegment(line_segment) => self.line_segment(

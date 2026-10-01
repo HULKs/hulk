@@ -7,7 +7,8 @@ use ros_z_debug::{SampleRecord, TopicObservation};
 use std::sync::Arc;
 use types::field_dimensions::FieldDimensions;
 
-use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
+use crate::{backend::RobotBackend, panels::map::layer::Layer};
+use twix_visualization::twix_painter::TwixPainter;
 
 pub struct BallSearchHeatmap {
     ball_search_heatmap: TopicObservation<Array2<f32>>,

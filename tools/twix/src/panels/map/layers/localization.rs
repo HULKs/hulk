@@ -11,7 +11,8 @@ use linear_algebra::{Pose2, point};
 use ros_z_debug::{SampleRecord, TopicObservation};
 use types::{field_dimensions::FieldDimensions, localization::ScoredPose};
 
-use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
+use crate::{backend::RobotBackend, panels::map::layer::Layer};
+use twix_visualization::twix_painter::TwixPainter;
 
 pub struct Localization {
     poses: TopicObservation<Vec<ScoredPose>>,

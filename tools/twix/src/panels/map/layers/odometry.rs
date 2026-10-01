@@ -8,7 +8,8 @@ use linear_algebra::{Point2, Pose2, point};
 use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
 use types::field_dimensions::FieldDimensions;
 
-use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
+use crate::{backend::RobotBackend, panels::map::layer::Layer};
+use twix_visualization::twix_painter::TwixPainter;
 
 pub struct Odometry {
     pose: TopicObservation<Pose2<OdometryFrame>>,

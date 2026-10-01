@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use types::field_dimensions::FieldDimensions;
 
-use crate::{
-    panel::{Panel, PanelCreationContext, PanelUiContext},
+use crate::panel::{Panel, PanelCreationContext, PanelUiContext};
+use twix_visualization::{
     twix_painter::{Orientation, TwixPainter},
     zoom_and_pan::ZoomAndPanTransform,
 };
@@ -72,7 +72,7 @@ pub struct MapPanel {
     path: EnabledLayer<layers::Path, Ground>,
     robot_pose: EnabledLayer<layers::RobotPose, Ground>,
     odometry: EnabledLayer<layers::Odometry, Field>,
-    ball_percept: EnabledLayer<layers::BallPercepts, Ground>,
+    ball_percepts: EnabledLayer<layers::BallPercepts, Ground>,
     ball_position: EnabledLayer<layers::BallPosition, Field>,
     ball_filter: EnabledLayer<layers::BallFilter, Ground>,
     obstacle_filter: EnabledLayer<layers::ObstacleFilter, Ground>,
@@ -93,7 +93,7 @@ impl Panel for MapPanel {
         let path = EnabledLayer::new(context.backend.clone(), context.value, false);
         let robot_pose = EnabledLayer::new(context.backend.clone(), context.value, true);
         let odometry = EnabledLayer::new(context.backend.clone(), context.value, false);
-        let ball_percept = EnabledLayer::new(context.backend.clone(), context.value, false);
+        let ball_percepts = EnabledLayer::new(context.backend.clone(), context.value, false);
         let ball_position = EnabledLayer::new(context.backend.clone(), context.value, true);
         let ball_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
         let obstacle_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
@@ -144,7 +144,7 @@ impl Panel for MapPanel {
             path,
             robot_pose,
             odometry,
-            ball_percept,
+            ball_percepts,
             ball_position,
             ball_filter,
             obstacle_filter,
@@ -165,7 +165,7 @@ impl Panel for MapPanel {
             "path": self.path.save(),
             "robot_pose": self.robot_pose.save(),
             "odometry": self.odometry.save(),
-            "ball_percept": self.ball_percept.save(),
+            "ball_percepts": self.ball_percepts.save(),
             "ball_position": self.ball_position.save(),
             "ball_filter": self.ball_filter.save(),
             "obstacle_filter": self.obstacle_filter.save(),
@@ -185,7 +185,7 @@ impl Panel for MapPanel {
                 self.path.checkbox(ui);
                 self.robot_pose.checkbox(ui);
                 self.odometry.checkbox(ui);
-                self.ball_percept.checkbox(ui);
+                self.ball_percepts.checkbox(ui);
                 self.ball_position.checkbox(ui);
                 self.ball_filter.checkbox(ui);
                 self.obstacle_filter.checkbox(ui);
@@ -258,7 +258,7 @@ impl Panel for MapPanel {
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.odometry
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.ball_percept
+        self.ball_percepts
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.ball_position
             .generic_paint(&painter, ground_to_field, &field_dimensions);

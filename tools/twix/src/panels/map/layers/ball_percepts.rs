@@ -8,7 +8,8 @@ use linear_algebra::Point2;
 use ros_z_debug::{SampleRecord, TopicObservation};
 use types::{ball_detection::BallPercept, field_dimensions::FieldDimensions};
 
-use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
+use crate::{backend::RobotBackend, panels::map::layer::Layer};
+use twix_visualization::twix_painter::TwixPainter;
 
 pub struct BallPercepts {
     ball_percepts: TopicObservation<Vec<BallPercept>>,

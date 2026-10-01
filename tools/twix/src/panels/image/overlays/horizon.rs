@@ -1,15 +1,17 @@
 use std::time::Duration;
 
 use color_eyre::Report;
-use eframe::egui::{Color32, Stroke};
+use coordinate_systems::Pixel;
+use eframe::egui::{Color32, Pos2, Stroke};
 use linear_algebra::point;
 use projection::camera_matrix::CameraMatrix;
 use ros_z::time::Time;
 use types::time_wrapper::TimeWrapper;
 
 use crate::repaint::ObservationContext;
+use twix_visualization::twix_painter::TwixPainter;
 
-use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
+use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 
 const CAMERA_MATRIX_ALIGNMENT_TOLERANCE: Duration = Duration::from_millis(100);
 
@@ -30,7 +32,7 @@ impl ImageOverlay for HorizonOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter, image_time: Time) {
+    fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
         let Some(camera_matrix) = self
             .camera_matrix
             .nearest_to_time(image_time, CAMERA_MATRIX_ALIGNMENT_TOLERANCE)
@@ -41,13 +43,15 @@ impl ImageOverlay for HorizonOverlay {
             return;
         };
 
-        let left_horizon_height = horizon.y_at_x(0.0);
-        let image_width = painter.image_width();
-        let right_horizon_height = horizon.y_at_x(image_width);
+        let painter_rect = painter.pixel_rect();
+        let left = painter.transform_pixel_to_world(Pos2::new(painter_rect.left(), 0.0));
+        let left_horizon_height = horizon.y_at_x(left.x());
+        let right = painter.transform_pixel_to_world(Pos2::new(painter_rect.right(), 0.0));
+        let right_horizon_height = horizon.y_at_x(right.x());
 
         painter.line_segment(
-            point![0.0, left_horizon_height],
-            point![image_width, right_horizon_height],
+            point![left.x(), left_horizon_height],
+            point![right.x(), right_horizon_height],
             Stroke::new(3.0, Color32::GREEN),
         );
         painter.circle_stroke(

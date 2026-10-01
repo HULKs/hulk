@@ -6,8 +6,9 @@ use ros_z::time::Time;
 use types::{field_border::FieldBorder as FieldBorderData, time_wrapper::TimeWrapper};
 
 use crate::repaint::ObservationContext;
+use twix_visualization::twix_painter::TwixPainter;
 
-use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
+use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 
 pub(in crate::panels::image) struct FieldBorderOverlay {
     border_lines: OverlayObservation<TimeWrapper<Option<FieldBorderData>>>,
@@ -28,7 +29,7 @@ impl ImageOverlay for FieldBorderOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter, _image_time: Time) {
+    fn paint(&self, painter: &TwixPainter<Pixel>, _image_time: Time) {
         let Some(candidates) = self.candidates.latest() else {
             return;
         };

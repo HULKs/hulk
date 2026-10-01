@@ -9,8 +9,9 @@ use types::{
 };
 
 use crate::repaint::ObservationContext;
+use twix_visualization::twix_painter::TwixPainter;
 
-use super::super::image_overlay::{ImageOverlay, ImageOverlayPainter, OverlayObservation};
+use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 
 pub(in crate::panels::image) struct LineDetectionOverlay {
     lines_in_image: OverlayObservation<Vec<LineSegment<Pixel>>>,
@@ -36,7 +37,7 @@ impl ImageOverlay for LineDetectionOverlay {
         })
     }
 
-    fn paint(&self, painter: &ImageOverlayPainter, _image_time: Time) {
+    fn paint(&self, painter: &TwixPainter<Pixel>, _image_time: Time) {
         let (Some(lines), Some(discarded_lines), Some(filtered_segments)) = (
             self.lines_in_image.latest(),
             self.discarded_lines.latest(),

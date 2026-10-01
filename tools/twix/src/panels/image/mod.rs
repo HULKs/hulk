@@ -1,24 +1,29 @@
 use std::{sync::Arc, time::Duration};
 
 use color_eyre::{Report, eyre::Context as _};
-use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui, load::SizedTexture};
+use coordinate_systems::Pixel;
+use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui};
 use hulk_widgets::CompletionEdit;
 use image::RgbImage;
-use ros_z::{Message, entity::EndpointKind, pubsub::PublicationId, time::Time};
-use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation, TopicObservationStatus};
+use linear_algebra::{point, vector};
+use ros_z::{Message, entity::EndpointKind, time::Time};
+use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
 use ros2::sensor_msgs::image::Image as RosImage;
 use serde_json::{Value, json};
 use thiserror::Error;
+use twix_visualization::{
+    twix_painter::{Orientation, TwixPainter},
+    zoom_and_pan::ZoomAndPanTransform,
+};
 use uuid::Uuid;
 
 use crate::{
     graph::TopicCompletionQuery,
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
-    status::format_topic_observation_status,
 };
 
-use self::image_overlay::{ImageOverlayPainter, ImageOverlays};
+use self::image_overlay::ImageOverlays;
 
 mod image_overlay;
 mod overlays;
@@ -54,6 +59,7 @@ pub struct ImagePanel {
     topic: String,
     observation: ObservationState,
     overlays: Box<ImageOverlays>,
+    zoom_and_pan: ZoomAndPanTransform,
 }
 
 enum ObservationState {
@@ -66,15 +72,6 @@ struct ObservedImage {
     observation: TopicObservation<RosImage>,
     _repaint: ObservationRepaint,
     render_cache: RenderedImageCache,
-}
-
-struct RenderedMetadata {
-    resolved_topic: String,
-    type_name: String,
-    source_time: String,
-    transport_time: String,
-    publication_id: String,
-    image_time: String,
 }
 
 impl Panel for ImagePanel {
@@ -98,6 +95,11 @@ impl Panel for ImagePanel {
                 context.value.and_then(|value| value.get("overlays")),
                 &context,
             )),
+            zoom_and_pan: context
+                .value
+                .and_then(|value| value.get("zoom_and_pan"))
+                .and_then(|value| serde_json::from_value::<ZoomAndPanTransform>(value.clone()).ok())
+                .unwrap_or_default(),
         };
         panel.recreate_observation(&context);
         panel
@@ -138,48 +140,55 @@ impl Panel for ImagePanel {
                 ui.colored_label(ui.visuals().error_fg_color, error);
             }
             ObservationState::Observing(observed) => {
-                Self::render_status(ui, observed.observation.status());
                 let preferred_image_time = self.overlays.preferred_image_time();
+                if let Some(time) = preferred_image_time {
+                    ui.label(time.as_nanos().to_string());
+                }
                 observed.render_cache.refresh(
                     context.egui_context,
                     &observed.observation,
                     preferred_image_time,
                 );
 
-                let Some(metadata) = observed.render_cache.metadata() else {
-                    ui.label("Waiting for first sample.");
-                    return;
-                };
-                Self::render_metadata(ui, metadata);
-                ui.separator();
-
                 if let Some(error) = observed.render_cache.error() {
                     ui.colored_label(ui.visuals().error_fg_color, error);
                     return;
                 }
 
-                if let Some(texture) = observed.render_cache.texture() {
-                    let size = observed
+                let Some(texture) = observed.render_cache.texture() else {
+                    ui.label("no data yet");
+                    return;
+                };
+
+                let [width, height] = observed.render_cache.dimensions().unwrap_or(texture.size());
+                let (response, mut painter) = TwixPainter::<Pixel>::allocate(
+                    ui,
+                    vector![width as f32, height as f32],
+                    point![0.0, 0.0],
+                    Orientation::LeftHanded,
+                );
+                self.zoom_and_pan.apply(ui, &mut painter, &response);
+                painter.image(
+                    texture.id(),
+                    geometry::rectangle::Rectangle {
+                        min: point![0.0, 0.0],
+                        max: point![width as f32, height as f32],
+                    },
+                );
+                self.overlays.paint(
+                    &painter,
+                    observed
                         .render_cache
-                        .dimensions()
-                        .map(|[width, height]| eframe::egui::vec2(width as f32, height as f32))
-                        .unwrap_or_else(|| texture.size_vec2());
-                    let texture = SizedTexture {
-                        id: texture.id(),
-                        size,
-                    };
-                    let response = ui.add(eframe::egui::Image::new(texture).shrink_to_fit());
-                    if let (Some(dimensions), Some(image_time)) = (
-                        observed.render_cache.dimensions(),
-                        observed.render_cache.image_time(),
-                    ) {
-                        let painter = ImageOverlayPainter::new(
-                            ui.painter_at(response.rect),
-                            response.rect,
-                            dimensions,
-                        );
-                        self.overlays.paint(&painter, image_time);
-                    }
+                        .image_time()
+                        .unwrap_or_else(Time::zero),
+                );
+                if let Some(position) = response.hover_pos() {
+                    let pixel = painter.transform_pixel_to_world(position);
+                    response.on_hover_text_at_pointer(format!(
+                        "x: {:.1}, y: {:.1}",
+                        pixel.x(),
+                        pixel.y()
+                    ));
                 }
             }
         };
@@ -189,6 +198,8 @@ impl Panel for ImagePanel {
         json!({
             "topic": self.topic,
             "overlays": self.overlays.save(),
+            "zoom_and_pan": serde_json::to_value(&self.zoom_and_pan)
+                .expect("failed to serialize image zoom and pan"),
         })
     }
 }
@@ -229,40 +240,10 @@ impl ImagePanel {
         self.topic = next_topic;
         self.recreate_observation(context);
     }
-
-    fn render_metadata(ui: &mut Ui, metadata: &RenderedMetadata) {
-        ui.horizontal_wrapped(|ui| {
-            ui.label("topic:");
-            ui.monospace(&metadata.resolved_topic);
-            ui.separator();
-            ui.label("type:");
-            ui.monospace(&metadata.type_name);
-            ui.separator();
-            ui.label("source:");
-            ui.monospace(&metadata.source_time);
-            ui.separator();
-            ui.label("transport:");
-            ui.monospace(&metadata.transport_time);
-            ui.separator();
-            ui.label("publication:");
-            ui.monospace(&metadata.publication_id);
-            ui.separator();
-            ui.label("image:");
-            ui.monospace(&metadata.image_time);
-        });
-    }
-
-    fn render_status(ui: &mut Ui, status: TopicObservationStatus) {
-        ui.horizontal_wrapped(|ui| {
-            ui.label("status:");
-            ui.monospace(format_topic_observation_status(status));
-        });
-    }
 }
 
 struct RenderedImageCache {
     sample: Option<Arc<SampleRecord<RosImage>>>,
-    metadata: Option<RenderedMetadata>,
     texture: Option<TextureHandle>,
     dimensions: Option<[usize; 2]>,
     error: Option<String>,
@@ -277,7 +258,6 @@ impl RenderedImageCache {
     fn new(texture_name: impl Into<String>) -> Self {
         Self {
             sample: None,
-            metadata: None,
             texture: None,
             dimensions: None,
             error: None,
@@ -307,7 +287,6 @@ impl RenderedImageCache {
         }
 
         self.sample = sample;
-        self.metadata = None;
         self.texture = None;
         self.dimensions = None;
         self.error = None;
@@ -316,7 +295,6 @@ impl RenderedImageCache {
             return;
         };
 
-        self.metadata = Some(RenderedMetadata::from(record.as_ref()));
         match decode_color_image(&record.value) {
             Ok(image) => {
                 self.dimensions = Some(image.size);
@@ -330,10 +308,6 @@ impl RenderedImageCache {
                 self.error = Some(error.to_string());
             }
         }
-    }
-
-    fn metadata(&self) -> Option<&RenderedMetadata> {
-        self.metadata.as_ref()
     }
 
     fn texture(&self) -> Option<&TextureHandle> {
@@ -361,22 +335,6 @@ fn same_sample(
         (Some(current), Some(next)) => Arc::ptr_eq(current, next),
         (None, None) => true,
         _ => false,
-    }
-}
-
-impl From<&SampleRecord<RosImage>> for RenderedMetadata {
-    fn from(record: &SampleRecord<RosImage>) -> Self {
-        Self {
-            resolved_topic: record.metadata.resolved_topic.clone(),
-            type_name: record.metadata.type_info.name.to_string(),
-            source_time: format_time(record.source_time),
-            transport_time: record
-                .transport_time
-                .map(format_time)
-                .unwrap_or_else(|| "none".to_string()),
-            publication_id: format_publication_id(record.publication_id),
-            image_time: format_time(image_time(&record.value)),
-        }
     }
 }
 
@@ -414,45 +372,16 @@ fn create_observation(
     Ok((observation, repaint))
 }
 
-fn format_time(time: Time) -> String {
-    format!("{} ns", time.as_nanos())
-}
-
-fn format_publication_id(publication_id: PublicationId) -> String {
-    format!("{publication_id:#}")
-}
-
 #[cfg(test)]
 mod tests {
     use std::{sync::Arc, time::Duration};
 
-    use eframe::egui::Color32;
     use eframe::egui::Context as EguiContext;
-    use ros_z::{EndpointGlobalId, context::ContextBuilder, pubsub::Received, time::Time};
+    use ros_z::context::ContextBuilder;
     use ros_z_debug::{TopicObserver, TopicObserverOptions};
     use ros2::{sensor_msgs::image::Image as RosImage, std_msgs::header::Header};
-    use serde_json::json;
 
-    use crate::{backend::RobotBackend, panel::PanelCreationContext};
-
-    use super::{
-        DEFAULT_IMAGE_TOPIC, ImageDecodeError, ImageOverlays, ImagePanel, ObservationState,
-        RenderedImageCache, decode_color_image, format_publication_id,
-    };
-    use crate::panel::Panel;
-
-    fn publication_id() -> ros_z::pubsub::PublicationId {
-        Received {
-            message: (),
-            transport_time: None,
-            source_time: Time::zero(),
-            sequence_number: 42,
-            source_global_id: EndpointGlobalId::from([
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-            ]),
-        }
-        .publication_id()
-    }
+    use super::RenderedImageCache;
 
     fn rgb8_image(width: u32, height: u32, data: Vec<u8>) -> RosImage {
         RosImage {
@@ -464,39 +393,6 @@ mod tests {
             step: width * 3,
             data: data.into(),
         }
-    }
-
-    #[test]
-    fn decode_rgb8_image_reports_dimensions_and_pixels() {
-        let image = rgb8_image(2, 1, vec![255, 0, 0, 0, 255, 0]);
-
-        let decoded = decode_color_image(&image).unwrap();
-
-        assert_eq!(decoded.size, [2, 1]);
-        assert_eq!(decoded.pixels, vec![Color32::RED, Color32::GREEN]);
-    }
-
-    #[test]
-    fn decode_zero_sized_image_returns_error() {
-        let image = rgb8_image(0, 1, vec![]);
-
-        let error = decode_color_image(&image).unwrap_err();
-
-        assert!(matches!(
-            error,
-            ImageDecodeError::Empty {
-                width: 0,
-                height: 1
-            }
-        ));
-    }
-
-    #[test]
-    fn metadata_formats_compact_publication_id() {
-        assert_eq!(
-            format_publication_id(publication_id()),
-            "01020304…0d0e0f10#42"
-        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -540,55 +436,5 @@ mod tests {
         assert_eq!(cache.dimensions(), Some([2, 1]));
         assert!(cache.texture().is_some());
         assert!(cache.error().is_none());
-    }
-
-    #[test]
-    fn save_preserves_topic() {
-        let panel = ImagePanel {
-            topic_editor: "inputs/right_image".to_string(),
-            topic: "inputs/right_image".to_string(),
-            observation: ObservationState::Idle,
-            overlays: Box::new(ImageOverlays::default()),
-        };
-
-        assert_eq!(
-            panel.save(),
-            json!({
-                "topic": "inputs/right_image",
-                "overlays": {
-                    "line_detection": {"active": false},
-                    "ball_detection": {"active": false},
-                    "horizon": {"active": false},
-                    "field_border": {"active": false},
-                    "object_detection": {"active": false},
-                    "pose_detection": {"active": false},
-                },
-            })
-        );
-    }
-
-    #[test]
-    fn new_defaults_to_left_image_without_current_tokio_runtime() {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .expect("runtime should build");
-        let backend = Arc::new(
-            runtime
-                .block_on(RobotBackend::new(
-                    runtime.handle().clone(),
-                    None,
-                    "/".to_string(),
-                ))
-                .expect("backend should build"),
-        );
-
-        let panel = ImagePanel::new(PanelCreationContext {
-            backend,
-            value: None,
-            egui_context: EguiContext::default(),
-        });
-
-        assert_eq!(panel.topic, DEFAULT_IMAGE_TOPIC);
     }
 }

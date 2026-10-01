@@ -45,8 +45,12 @@ impl ZoomAndPanTransform {
                 reset_transform.unwrap_or_else(|| Similarity2::identity().framed_transform());
         }
 
+        // This is necessary to make sure we zoom IFF we are hovered except when something else is
+        // curretly being dragged, e.g. when panning another image or map panel
+        let owns_input =
+            response.dragged() || (ui.ctx().dragged_id().is_none() && response.hovered());
         let pointer_position = match ui.input(|input| input.pointer.interact_pos()) {
-            Some(position) if response.rect.contains(position) => position,
+            Some(position) if owns_input => position,
             _ => return,
         };
 

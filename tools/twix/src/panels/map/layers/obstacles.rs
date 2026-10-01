@@ -7,7 +7,8 @@ use coordinate_systems::Ground;
 use ros_z_debug::{SampleRecord, TopicObservation};
 use types::{field_dimensions::FieldDimensions, obstacles::Obstacle};
 
-use crate::{backend::RobotBackend, panels::map::layer::Layer, twix_painter::TwixPainter};
+use crate::{backend::RobotBackend, panels::map::layer::Layer};
+use twix_visualization::twix_painter::TwixPainter;
 
 pub struct Obstacles {
     obstacles: TopicObservation<Vec<Obstacle>>,
