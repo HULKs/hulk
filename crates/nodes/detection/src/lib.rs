@@ -15,9 +15,8 @@ use ros_z::{prelude::*, qos::QosHistory};
 use tokio::{task::block_in_place, time::Instant};
 use types::{
     bounding_box::BoundingBox,
-    object_detection::{NUMBER_OF_VALUES_PER_OBJECT, Object, RobocupObjectLabel, YOLOObjectLabel},
+    object_detection::{LabelIndex, NUMBER_OF_VALUES_PER_OBJECT, Object, RobocupObjectLabel},
     parameters::DetectionParameters,
-    pose_detection::{NUMBER_OF_VALUES_PER_POSE, Pose},
     time_wrapper::TimeWrapper,
 };
 
@@ -25,8 +24,8 @@ pub const NUMBER_OF_DETECTIONS: usize = 300;
 
 #[derive(Clone, Copy, Debug)]
 enum TaskHead {
-    ObjectDetection,
-    PoseDetection,
+    HSLVisionObjectDetection,
+    NaoObjectDetection,
 }
 
 struct DetectionOutput {
@@ -34,29 +33,30 @@ struct DetectionOutput {
     post_processing_duration: Duration,
     non_maximum_suppression_duration: Duration,
     detected_objects: Vec<Object<RobocupObjectLabel>>,
-    detected_poses: Vec<Pose<YOLOObjectLabel>>,
 }
 
 impl TaskHead {
     fn output_name(self) -> &'static str {
         match self {
-            TaskHead::ObjectDetection => "object_output",
-            TaskHead::PoseDetection => "pose_output",
+            TaskHead::HSLVisionObjectDetection => "hslvision_output",
+            TaskHead::NaoObjectDetection => "nao_output",
         }
     }
 
     fn expected_shape(self) -> [usize; 3] {
         match self {
-            Self::ObjectDetection => [1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_OBJECT],
-            Self::PoseDetection => [1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_POSE],
+            Self::HSLVisionObjectDetection => {
+                [1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_OBJECT]
+            }
+            Self::NaoObjectDetection => [1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_OBJECT],
         }
     }
 }
 
 #[derive(Debug)]
 struct ModelOutputs<'a> {
-    objects: ArrayView2<'a, f32>,
-    poses: ArrayView2<'a, f32>,
+    hslvision_objects: ArrayView2<'a, f32>,
+    nao_objects: ArrayView2<'a, f32>,
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -91,9 +91,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let detected_objects_pub = node
         .announcing_publisher::<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>("detected_objects")
-        .await?;
-    let detected_poses_pub = node
-        .announcing_publisher::<TimeWrapper<Vec<Pose<YOLOObjectLabel>>>>("detected_poses")
         .await?;
 
     let initial_parameters_snapshot = node_parameters.snapshot();
@@ -133,7 +130,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let image_time = image.header.stamp.into();
         let detected_objects_pending = detected_objects_pub.announce(image_time).await?;
-        let detected_poses_pending = detected_poses_pub.announce(image_time).await?;
 
         check_image(&image)?;
 
@@ -157,24 +153,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     .object_detection_parameters
                     .minimum_candidate_confidence,
             )?;
-            let candidate_human_poses = extract_candidate_pose_detections(
-                &outputs,
-                parameters
-                    .pose_detection_parameters
-                    .minimum_candidate_confidence,
-            )?;
             let post_processing_duration = post_processing_start.elapsed();
             let non_maximum_suppression_start = Instant::now();
             let detected_objects = non_maximum_suppression(
                 candidate_detections,
                 parameters
                     .object_detection_parameters
-                    .maximum_intersection_over_union,
-            );
-            let detected_poses = non_maximum_suppression(
-                candidate_human_poses,
-                parameters
-                    .pose_detection_parameters
                     .maximum_intersection_over_union,
             );
             let non_maximum_suppression_duration = non_maximum_suppression_start.elapsed();
@@ -184,7 +168,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 post_processing_duration,
                 non_maximum_suppression_duration,
                 detected_objects,
-                detected_poses,
             })
         })?;
 
@@ -202,12 +185,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .publish(&TimeWrapper {
                 time: image_time,
                 inner: output.detected_objects,
-            })
-            .await?;
-        detected_poses_pending
-            .publish(&TimeWrapper {
-                time: image_time,
-                inner: output.detected_poses,
             })
             .await?;
     }
@@ -230,29 +207,30 @@ fn check_image(image: &Image) -> Result<()> {
 }
 
 fn extract_outputs<'a>(outputs: &'a SessionOutputs<'_>) -> Result<ModelOutputs<'a>> {
-    let objects_output = extract_output(outputs, TaskHead::ObjectDetection)?;
-    if objects_output.shape() != TaskHead::ObjectDetection.expected_shape() {
+    let hslvision_objects_output = extract_output(outputs, TaskHead::HSLVisionObjectDetection)?;
+    if hslvision_objects_output.shape() != TaskHead::HSLVisionObjectDetection.expected_shape() {
         bail!(
-            "object detection output not of expected shape. Expected: {:?}, got: {:?}",
-            TaskHead::ObjectDetection.expected_shape(),
-            objects_output.shape()
+            "hslvision object detection output not of expected shape. Expected: {:?}, got: {:?}",
+            TaskHead::HSLVisionObjectDetection.expected_shape(),
+            hslvision_objects_output.shape()
         )
     }
-    let reshaped_objects_output = objects_output.squeeze().into_dimensionality()?;
+    let reshaped_hslvision_objects_output =
+        hslvision_objects_output.squeeze().into_dimensionality()?;
 
-    let poses_output = extract_output(outputs, TaskHead::PoseDetection)?;
-    if poses_output.shape() != TaskHead::PoseDetection.expected_shape() {
+    let nao_objects_output = extract_output(outputs, TaskHead::NaoObjectDetection)?;
+    if nao_objects_output.shape() != TaskHead::NaoObjectDetection.expected_shape() {
         bail!(
-            "pose detection output not of expected shape. Expected: {:?}, got: {:?}",
-            TaskHead::PoseDetection.expected_shape(),
-            poses_output.shape()
+            "nao object detection output not of expected shape. Expected: {:?}, got: {:?}",
+            TaskHead::NaoObjectDetection.expected_shape(),
+            nao_objects_output.shape()
         )
     }
-    let reshaped_pose_output = poses_output.squeeze().into_dimensionality()?;
+    let reshaped_nao_objects_output = nao_objects_output.squeeze().into_dimensionality()?;
 
     Ok(ModelOutputs {
-        objects: reshaped_objects_output,
-        poses: reshaped_pose_output,
+        hslvision_objects: reshaped_hslvision_objects_output,
+        nao_objects: reshaped_nao_objects_output,
     })
 }
 
@@ -272,10 +250,15 @@ fn extract_candidate_object_detections(
     outputs: &ModelOutputs,
     confidence_threshold: f32,
 ) -> Result<Vec<Object<RobocupObjectLabel>>> {
-    Ok(outputs
-        .objects
+    let mut object_detections: Vec<Object<RobocupObjectLabel>> = outputs
+        .hslvision_objects
         .axis_iter(Axis(0))
         .filter_map(|row| {
+            let label = RobocupObjectLabel::from_index(row[5] as usize);
+            if matches!(label, RobocupObjectLabel::GoalPost) {
+                return None;
+            }
+
             let confidence = row[4usize];
             if confidence < confidence_threshold {
                 return None;
@@ -291,31 +274,36 @@ fn extract_candidate_object_detections(
 
             Some(Object::from(object_values))
         })
-        .collect())
-}
+        .collect();
 
-fn extract_candidate_pose_detections(
-    outputs: &ModelOutputs,
-    confidence_threshold: f32,
-) -> Result<Vec<Pose<YOLOObjectLabel>>> {
-    Ok(outputs
-        .poses
+    let nao_object_detections: Vec<Object<RobocupObjectLabel>> = outputs
+        .nao_objects
         .axis_iter(Axis(0))
         .filter_map(|row| {
+            let label = RobocupObjectLabel::from_index(row[5] as usize);
+            if !matches!(label, RobocupObjectLabel::GoalPost) {
+                return None;
+            }
+
             let confidence = row[4usize];
             if confidence < confidence_threshold {
                 return None;
             }
 
-            let pose_values: [f32; NUMBER_OF_VALUES_PER_POSE] = row
+            let object_values: [f32; NUMBER_OF_VALUES_PER_OBJECT] = row
                 .as_slice()
                 .expect("slice is not contiguous")
                 .try_into()
-                .unwrap_or_else(|_| panic!("slice is not of length {}", NUMBER_OF_VALUES_PER_POSE));
+                .unwrap_or_else(|_| {
+                    panic!("slice is not of length {}", NUMBER_OF_VALUES_PER_OBJECT)
+                });
 
-            Some(Pose::from(&pose_values))
+            Some(Object::from(object_values))
         })
-        .collect())
+        .collect();
+
+    object_detections.extend(nao_object_detections);
+    Ok(object_detections)
 }
 
 trait HasBoundingBox {
@@ -325,12 +313,6 @@ trait HasBoundingBox {
 impl<T> HasBoundingBox for Object<T> {
     fn bounding_box(&self) -> &BoundingBox {
         &self.bounding_box
-    }
-}
-
-impl<T> HasBoundingBox for Pose<T> {
-    fn bounding_box(&self) -> &BoundingBox {
-        &self.object.bounding_box
     }
 }
 
