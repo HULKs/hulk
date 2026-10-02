@@ -2,6 +2,23 @@
 
 Exports XFeat and LighterGlue to fixed-contract ONNX models for later TensorRT conversion.
 
+## Setup and export
+
+Run the export commands from `tools/machine-learning/xfeat-export` with Python 3.13
+and `uv`:
+
+```bash
+uv sync
+uv run export-xfeat-onnx --help
+uv run export-lighterglue-onnx --help
+uv run export-xfeat-lighterglue-onnx --help
+```
+
+The dependency configuration uses the adjacent `multi-task-yolo` project and the
+configured accelerated-features Git source. Model weights default to that package's
+weights unless an explicit weights path is supplied. Examples below explicitly
+select height 448; the exporters' default height is 488 and default width is 544.
+
 ```bash
 uv run export-xfeat-onnx models/xfeat.onnx --height 448 --width 544 --keypoints 512
 uv run export-xfeat-onnx models/xfeat-b2.onnx --height 448 --width 544 --keypoints 512 --batch-size 2
@@ -18,6 +35,13 @@ It returns normalized keypoints, descriptors, scores, and valid masks. The keypo
 `export-xfeat-lighterglue-onnx` fuses current-frame extraction and matching for visual odometry. It takes two zero-copy NV12 inputs named `current_left` and `current_right`, each shaped `(height / 2, width / 2, 6)`, plus the previous-left feature state: `previous_left_keypoints` shaped `(512, 2)`, `previous_left_descriptors` shaped `(512, 64)`, and `previous_left_valid` shaped `(512)`. It returns current-left/right keypoints, descriptors, valid masks, current-left-to-current-right stereo matches, previous-left-to-current-left temporal matches, and the reverse match directions for diagnostics. The Rust VO node only extracts the CPU-required outputs: current-left state, current-right keypoints, stereo matches, and temporal matches.
 
 For TensorRT compilation of the static fused model, run from the repository root:
+
+The direct Cargo command below requires a host with compatible CUDA, TensorRT and
+ONNX Runtime libraries. On a provisioned K1, use the host-side workflow
+`./pepsi tensor-rt-compile etc/neural_networks/xfeat-lighterglue.onnx 42` instead;
+stop the HULK application first and see `tools/tensorrt-compile/README.md` for its
+clean-upload behavior and subsequent normal-stack deployment. The fused export
+has static inputs, so no input-shape overrides are needed.
 
 ```bash
 cargo run --release -p tensorrt-compile -- \
