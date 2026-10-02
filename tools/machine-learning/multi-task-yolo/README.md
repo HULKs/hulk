@@ -93,6 +93,9 @@ uv run python src/model/train.py --do-tuning
 Runs Ultralytics validation for Hydra heads and can optionally validate the
 original source checkpoints first.
 
+Hydra model names support YOLO26 `n`, `s`, `m`, `l`, and `x` variants, for
+example `yolo26s=f11+yolo26s-pose`.
+
 - Default checkpoints:
   - `--backbone assets/yolo26m.pt`
   - `--detection-model assets/yolo26m.pt`
@@ -193,31 +196,32 @@ Use `--subsample` to enable chroma subsampling behavior in the wrapper.
 
 ### Export Hydra model (`src/utils/export_hydra.py`)
 
-Builds a Hydra model from a backbone checkpoint plus one or more heads,
-then exports ONNX (`--format onnx`) or TorchScript (`--format pt`).
+Builds a Hydra model from a model name and the matching validation/training
+artifacts under `runs/`, then exports ONNX (`--format onnx`) or TorchScript
+(`--format pt`). Finetuned head names (those containing `~`) resolve to
+`runs/train/<backbone>=f<N>+<head>/weights/best.pt`.
 
-- Repeat `--head NAME=MODEL_PATH` for each task head.
 - Optional `--with-nv12-layer` prepends NV12 preprocessing before export.
 - When `--with-nv12-layer` is enabled, `--imgsz` must be even.
+- Multiple heads of the same task type require a unique `--head-output` for
+  each duplicate head.
 
 Examples:
 
 ```bash
-# ONNX export
+# ONNX export with object, person-pose, and robot-pose heads
 uv run -m utils.export_hydra \
-  assets/yolo26m.pt \
-  --head detection=assets/yolo26m.pt \
-  --head pose=assets/yolo26m-pose.pt \
-  assets/output/hydra.onnx
-
-# TorchScript export with NV12 input wrapper
-uv run -m utils.export_hydra \
-  assets/yolo26m.pt \
-  --head detection=assets/yolo26m.pt \
-  --head pose=assets/yolo26m-pose.pt \
-  assets/output/hydra-nv12.pt \
-  --format pt \
+  'yolo26x=f17+yolo26x~objects+yolo26x-pose~person+yolo26x-pose~robot' \
+  assets/output \
+  --head-output 'yolo26x-pose~person=person_pose_output' \
+  --head-output 'yolo26x-pose~robot=robot_pose_output' \
   --with-nv12-layer
+
+# TorchScript export
+uv run -m utils.export_hydra \
+  'yolo26m=f11+yolo26m+yolo26m-pose' \
+  assets/output \
+  --format pt
 ```
 
 ## Local predictor note

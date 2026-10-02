@@ -1,7 +1,46 @@
 from enum import Enum
+from pathlib import Path, PurePath
 from typing import Self
 
 import click
+
+YOLO26_SIZES = ("n", "s", "m", "l", "x")
+
+
+def _yolo26_variant_suffix(stem: str) -> str | None:
+    for size in YOLO26_SIZES:
+        prefix = f"yolo26{size}"
+        if stem == prefix:
+            return ""
+        if stem.startswith(f"{prefix}-"):
+            return stem.removeprefix(prefix)
+    return None
+
+
+def _model_path_candidates(model_path: Path) -> tuple[Path, ...]:
+    if model_path.suffix:
+        return (model_path,)
+    return (
+        model_path,
+        model_path.with_suffix(".pt"),
+        model_path.with_suffix(".yaml"),
+    )
+
+
+def resolve_model_path(model_name: str, assets_dir: Path) -> str | Path:
+    model_path = Path(model_name)
+    if model_path.is_absolute() or model_path.parent != Path("."):
+        candidates = _model_path_candidates(model_path)
+    else:
+        candidates = _model_path_candidates(assets_dir / model_path)
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    if model_path.suffix:
+        return model_name
+    return str(model_path.with_suffix(".pt"))
 
 
 class ModelNameError(Exception):
@@ -19,7 +58,7 @@ class TaskType(Enum):
         return self.value
 
     def output_specs(self) -> list[tuple[str, dict[int, str]]]:
-        base = (f"{self.value}_output", {0: "batch_size", 2: "num_predictions"})
+        base = (f"{self.value}_output", {0: "batch_size", 1: "num_predictions"})
         if self == TaskType.SEGMENTATION:
             return [base, (f"{self.value}_proto", {0: "batch_size"})]
         return [base]
@@ -41,15 +80,16 @@ class ModelName:
         return f"{self.name}"
 
     def task_type(self) -> TaskType:
-        match self.name:
-            case str if str.startswith("yolo26m-pose"):
-                return TaskType.POSE
-            case str if str.startswith("yolo26m-seg"):
-                return TaskType.SEGMENTATION
-            case str if str.startswith("yolo26m"):
-                return TaskType.OBJECT
-            case _:
-                raise ModelNameError(self.name)
+        stem = PurePath(self.name).stem.split("~", maxsplit=1)[0]
+        variant_suffix = _yolo26_variant_suffix(stem)
+        if variant_suffix is None:
+            raise ModelNameError(self.name)
+
+        if variant_suffix.startswith("-pose"):
+            return TaskType.POSE
+        if variant_suffix.startswith("-seg"):
+            return TaskType.SEGMENTATION
+        return TaskType.OBJECT
 
     def is_finetuned_model(self) -> bool:
         return "~" in self.name

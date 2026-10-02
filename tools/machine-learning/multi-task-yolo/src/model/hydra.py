@@ -1,7 +1,8 @@
 import logging
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, cast
-from zipfile import Path
 
 import torch
 import torch.nn as nn
@@ -13,6 +14,18 @@ from utils.model_naming import TaskType
 logger = logging.getLogger(__name__)
 
 ClassNames = Mapping[int, str] | Sequence[str] | None
+OutputSpec = tuple[str, dict[int, str]]
+
+
+@dataclass(frozen=True)
+class HydraHeadSpec:
+    name: str
+    task_type: TaskType
+    path: str | Path
+    output_specs: tuple[OutputSpec, ...]
+
+    def output_names(self) -> tuple[str, ...]:
+        return tuple(name for name, _ in self.output_specs)
 
 
 def get_backbone_length(yaml_config: dict) -> int:
@@ -79,7 +92,7 @@ class Hydra(nn.Module):
     def __init__(
         self,
         backbone_path: str,
-        task_dict: dict[TaskType, Path],
+        heads: Sequence[HydraHeadSpec],
         number_of_frozen_modules: int | None = None,
     ) -> None:
         super().__init__()
@@ -104,32 +117,38 @@ class Hydra(nn.Module):
 
         self.heads = nn.ModuleDict()
         self.branch_saves: dict[str, list[int]] = {}
+        self.head_output_names: dict[str, tuple[str, ...]] = {}
         self.head_class_names: dict[str, Any] = {}
         self.head_model_names: dict[str, Any] = {}
         self.head_strides: dict[str, torch.Tensor] = {}
         self.head_end2end: dict[str, bool] = {}
         self.head_kpt_shapes: dict[str, tuple[int, int] | None] = {}
 
-        for task_type, head_model_path in task_dict.items():
-            task_type = str(task_type)
+        for head in heads:
+            head_name = head.name
+            task_type = str(head.task_type)
             logger.info(
-                "Extracting %s head from: %s", task_type, head_model_path
+                "Extracting %s head %s from: %s",
+                task_type,
+                head_name,
+                head.path,
             )
-            task_yolo = YOLO(head_model_path)
+            task_yolo = YOLO(head.path)
             task_root = cast(DetectionModel, task_yolo.model)
             task_head = task_root.model[-1]
 
-            self.heads[task_type] = get_head(
+            self.heads[head_name] = get_head(
                 task_root,
                 number_of_frozen_modules,
             )
-            self.branch_saves[task_type] = cast(list[int], task_root.save)
-            self.head_class_names[task_type] = getattr(task_root, "names", {})
+            self.branch_saves[head_name] = cast(list[int], task_root.save)
+            self.head_output_names[head_name] = head.output_names()
+            self.head_class_names[head_name] = getattr(task_root, "names", {})
             task_model_name = task_yolo.model_name or "unknown"
-            self.head_model_names[task_type] = Path(task_model_name).stem
+            self.head_model_names[head_name] = Path(task_model_name).stem
             stride = getattr(task_head, "stride", torch.tensor([8, 16, 32]))
-            self.head_strides[task_type] = torch.as_tensor(stride)
-            self.head_end2end[task_type] = bool(
+            self.head_strides[head_name] = torch.as_tensor(stride)
+            self.head_end2end[head_name] = bool(
                 getattr(
                     task_head,
                     "end2end",
@@ -142,12 +161,12 @@ class Hydra(nn.Module):
                 isinstance(raw_kpt_shape, (list, tuple))
                 and len(raw_kpt_shape) >= 2
             ):
-                self.head_kpt_shapes[task_type] = (
+                self.head_kpt_shapes[head_name] = (
                     int(raw_kpt_shape[0]),
                     int(raw_kpt_shape[1]),
                 )
             else:
-                self.head_kpt_shapes[task_type] = None
+                self.head_kpt_shapes[head_name] = None
 
     def forward(self, x: torch.Tensor) -> dict[str, Any]:
         y_backbone: list[torch.Tensor | None] = []
@@ -202,7 +221,7 @@ class Hydra(nn.Module):
                     else None
                 )
 
-            task_output_names = TaskType(head_name).output_names()
+            task_output_names = self.head_output_names[head_name]
             if isinstance(head_activations, torch.Tensor):
                 outputs[task_output_names[0]] = head_activations
             elif isinstance(head_activations, tuple) and all(

@@ -7,4 +7,6 @@
 
 assets/output/
 assets/datasets
-runs
+runs/
+
+wandb/
