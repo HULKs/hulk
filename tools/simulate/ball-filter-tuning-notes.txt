@@ -52,3 +52,46 @@ Other documentation agent works separately on update-docs / PR 2912. Preserve
 its work and existing notes.md. Keep local commits scoped to this feature.
 Subagents must not commit or run competing broad builds; root integrates and
 creates checkpoints. Root owns ball_tuning.rs and live runtime coordination.
+
+
+Follow-up work after initial checkpoint 527843fe9
++ Agent investigations found rejected association penalty, incorrect new-track
+  position initialization and wrong covariance block in moving/resting likelihood.
+  Focused production fixes and regressions are being validated.
++ Added actual opponent shielding/physical kicks and coverage diagnostics.
++ Objective now bounds position cost below missing cost; retains uncapped RMSE,
+  total missing time and longest gap. Objective values change version.
++ User emphasized model lag causes missed foot contact. Measure close-range error
+  and signed along-motion lag, separately from timestamp age. Ball-state composer
+  currently discards source time and pairs delayed state with latest pose.
++ Velocity decay and process noise are per odometry tick; .998 at 500 Hz compounds
+  to .3675 per second. Do not silently change parameter semantics without a
+  migration and fresh captures. Resting-to-moving recovery needs further audit.
+
+Realism backlog, after contested-ball baseline is measured
+- Camera/exposure and detector delivery latency/jitter, retaining acquisition time.
+- Motion blur and partial occlusion rather than binary center-ray occlusion.
+- Correlated encoder zero offsets, camera extrinsic/intrinsic calibration errors,
+  IMU bias and ground estimate errors; retain pristine physical camera/truth.
+- Surface/friction variation and articulated opponent contacts. Current opponent
+  cylinders are kinematic and effectively infinite mass; controlled robot must
+  retain clearance and real fall detection.
+- Timestamp-aware behavior handoff using odometry to bring historical Ground
+  coordinates forward; do not depend on visual localization or extrapolate using
+  last_seen (that is detection time, not filter state time).
+- Capture repeatable held-out contested cases and compare near-foot errors,
+  unseen-kick reacquisition, false tracks and availability together.
+
+Validation update
+- Filter fixes committed as 597f0833a after initial checkpoint 527843fe9.
+- Combined simulate/tuner/Twix/ball_filter tests passed (143 tests), including
+  native physics and live ROS-Z integration. Log: ball-tuning-contested-tests-final.log.
+- Normal combined build passed. Fresh runtime: logs/ball-tuning-20261002-contested,
+  continuous 256-candidate rounds. Twix and 3D viewer are open.
+- First two single-ball captures passed exact live/replay verification via a
+  separate one-candidate smoke run. Each contained a kick both geometrically
+  occluded and inside the camera image. First capture: 12.77 m robot walking,
+  peak ball 6.22 m/s. Full 6-capture validation/continuous rounds still pending.
+- Read ball-filter-timing-audit.txt for unresolved timing and kick selection
+  problems before making claims about foot-contact accuracy. Kick inputs are
+  now included as original ROS-Z topics in captures.

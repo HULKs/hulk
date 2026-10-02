@@ -98,10 +98,19 @@ Recordings mix one, two and three real balls, all moved by MuJoCo impulses. The
 selected filter output is scored against the nearest real ball, rather than the
 first element of a reference vector. Every physical ball has its own green velocity
 arrow in the viewer; the blue ball remains the production filter's selected track.
-Two orange robot-sized cylinders move across the field as MuJoCo mocap obstacles.
+Two orange robot-sized cylinders approach and flank the nearest ball as MuJoCo
+mocap obstacles. The leading opponent tries to shield the ball from the controlled
+robot, then applies a physical sideways kick after reaching a plausible foot
+stance. Pursuit has speed and acceleration limits, robot clearance, wall bounds,
+a kick cooldown and an airborne-ball check. They remain simplified cylinders;
+the opponents do not run articulated walking or a second behavior stack.
 They collide with balls, are published to behavior's obstacle input, and suppress
 synthetic detections when the camera-to-ball center ray crosses their volume.
 Occluded balls remain present in ground truth, so dropping those tracks is penalized.
+Each capture writes a `*.coverage.json` summary of actual opponent kicks, whether
+the camera ray was blocked at the kick, and whether the ball was also inside the
+camera image. Kick events are recorded on the existing ROS-Z scenario topic.
+The summary is diagnostic; optimization inputs remain the original MCAP messages.
 
 The robot runs the normal behavior stack with game state `Playing`, a free ball,
 and no injected motion command. Production behavior controls walking, head tracking,
@@ -143,6 +152,26 @@ the latest completed round's
 training/holdout metrics, including missing ground-transform coverage and the count
 of numerically unstable candidates rejected during search. Parameters
 are saved for review, not automatically applied to robot defaults.
+
+The search objective uses bounded position error, with a missing estimate costing
+more than any finite position error. This prevents improving the score merely by
+suppressing an inaccurate track. Empty scenes still penalize false tracks.
+Unbounded conditional position RMSE and total/longest missing intervals remain
+visible separately. Loss values from different objective versions are not directly
+comparable; the report records the formulas and objective version.
+
+For kicking, distinguish spatial tracking lag from estimate age. Twix shows the
+filter timestamp's age relative to the latest physical sample. The fusion path
+has a 25 ms detection safety window; the current ball-state composer discards that
+source timestamp. At 5 m/s, 25 ms means 12.5 cm of travel. The viewer displays the
+actual timestamped estimate, without inventing a forward prediction.
+The table also reports error for balls within 1 m and signed along-motion spatial
+lag (positive means behind the ball). Lag uses consecutive single-ball references
+in field coordinates at 0.5–15 m/s; its coverage is shown, and multi-ball intervals
+are excluded. It is an average spatial diagnostic, not processing latency.
+The current kick path can combine a raw nearest-percept position with the primary
+filter track's velocity. Recordings include `ball_filter/ball_percepts`,
+`visual_kick/ball_position` and `ball_state` to investigate this separately.
 
 ## Robotics stack
 

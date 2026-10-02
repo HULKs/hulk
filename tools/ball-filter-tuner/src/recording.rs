@@ -145,19 +145,16 @@ impl Recording {
                     );
                 }
                 topic if topic == reference_topic => {
-                    let (time, reference, count) = match frame {
+                    let (time, reference) = match frame {
                         ReferenceFrame::Ground => {
                             let value: TimeWrapper<Vec<Point3<Ground>>> = decode(&message)?;
-                            let count = value.inner.len();
-                            (value.time, Reference::Ground(value.inner), count)
+                            (value.time, Reference::Ground(value.inner))
                         }
                         ReferenceFrame::Field => {
                             let value: TimeWrapper<Vec<Point3<Field>>> = decode(&message)?;
-                            let count = value.inner.len();
-                            (value.time, Reference::Field(value.inner), count)
+                            (value.time, Reference::Field(value.inner))
                         }
                     };
-                    ensure!(count <= 1, "scoring requires a single target ball");
                     references.insert(time, reference);
                 }
                 _ => {}

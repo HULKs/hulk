@@ -1,0 +1,136 @@
+Ball-filter timing and kicking audit, 2026-10-02
+================================================
+Status: read-only audit. The timing issues below are NOT fixed by the current
+association/spawn/covariance checkpoint. Do not tune parameters to hide them.
+Line references describe this checkout and may move after subsequent edits.
+
+1. The state used for a kick is not necessarily the displayed filtered ball.
+
+crates/nodes/visual_kick_ball_selector/src/lib.rs:24-66 consumes
+ball_filter/ball_percepts, selects the nearest raw percept, assigns zero velocity,
+and holds its robot-relative position for up to 250 ms (base configuration).
+It uses the publication source time as last_seen and does not compensate the
+held position for robot motion. The filter batches raw percepts across persistent
+fusion inputs and publishes the vector without exposure timestamps:
+crates/nodes/ball_filter/src/lib.rs:136-157,212.
+Stamping this whole vector with the last image time would not fix a mixed batch.
+
+crates/nodes/behavior_node/src/kick.rs:42-52,264-279 prefers this visual position,
+but gets velocity from world_state.ball, the filtered primary track. With multiple
+balls, position and velocity can describe DIFFERENT physical balls. Even for one
+ball they can describe different times and different Ground frames. The kick
+policy therefore does not simply receive the selector's zero velocity, but the
+result can still be inconsistent. This deserves separate validation before
+claiming that a lower filter RMSE improves actual foot contact.
+
+2. The filtered state loses its timestamp at the behavior handoff.
+
+ball_filter/src/lib.rs:126-129,221-229 publishes filtered_ball with the latest
+persistent input timestamp, after a 25 ms detection fusion safety lag. Its
+last_seen is the last incorporated visual observation, not its prediction time.
+crates/nodes/ball_state_composer/src/lib.rs:90-91 receives via recv(), discarding
+metadata, then uses latest ground_to_field at lines 126-140. Behavior reads the
+latest resulting ball_state at 50 Hz (behavior_node/src/node.rs:289,395-400).
+A delayed Ground position cannot be made current just by multiplying by the
+latest ground_to_field, or by adding velocity while ignoring robot motion.
+
+The shared Tracker predicts on odometry inputs only (tracker.rs:44-52). A camera
+measurement between odometry samples can differ by a tick from the current
+prediction time. The new regression tests aligned 500 Hz odometry and 25 Hz
+images, with 40 ms of prediction after the final image; it does not certify
+arbitrary asynchronous timing or the downstream behavior handoff.
+
+3. Ordinary odometry caches do not currently carry the required sensor time.
+
+crates/nodes/odometry/src/lib.rs:52-53,78-83 announces the IMU exposure time.
+crates/ros-z-streams/src/announce.rs:57-68,118-122 puts that time only in the
+separate announcement, then publishes the payload with default source time.
+PreparedPublication already has publish_with_source_time (ros-z/src/pubsub/
+publisher.rs:185), so preserving announced time is a small possible follow-up.
+
+However, ros-z/src/cache.rs:496 indexes the Zenoh transport timestamp, NOT the
+attachment source time. Merely fixing the publisher and calling get_nearest on
+an ordinary Cache would still be wrong. For a minimal local implementation,
+consume FutureQueueSubscriber<odometry> QueueEvent::Data(time, pose), or maintain
+bounded source-time history using recv_with_metadata after fixing publication.
+The future queue already matches announcement/payload sequence identities.
+A metadata-stamp cache option would be a reusable, broader API improvement.
+Ground-to-field has a correct attachment source time in localization-2d/src/
+lib.rs:49-53, but its ordinary cache still indexes transport time.
+
+4. Minimal correct handoff design, independent of visual localization.
+
+Preserve (state_time, BallPosition<Ground>) when receiving the filtered ball.
+Keep bounded timestamped odometry history. Choose a recent target odometry time,
+not a wall-clock instant for which no pose exists. Interpolate/bracket old and
+new poses within a strict gap bound; do not accept arbitrarily nearest samples.
+For dt = target_time - state_time and D = odometry::previous_to_current(old,new):
+
+  position_current = D * (position_old + velocity_old * dt)
+  velocity_current = D.rotation * velocity_old
+
+The velocity is physical ball velocity expressed in Ground; do not subtract
+robot velocity a second time. Keep last_seen unchanged. Publish the transformed
+state with target_time so consumers know what it describes. Constant velocity is
+only a short-horizon approximation; cap compensation (for example 100 ms), reject
+future/out-of-order timestamps, and expose state age. If decay is included it
+must use the same time-based physical model as the filter, not one application
+of a per-tick coefficient. These operations use odometry only; apply a matching
+ground-to-field afterward for field coordinates, without using visual
+localization deltas to move the relative ball.
+
+For kicking, use a position/velocity pair from the SAME track at the SAME target
+time. Either use the corrected filtered state, or timestamp raw percept batches
+per exposure and explicitly associate a raw close-range position with that
+track's velocity. Define a single-ball selection policy for multi-ball scenes.
+Do not silently mix nearest raw-ball position with another primary track.
+Correctly timestamped perception can also remove avoidable batch/publication lag
+without changing the model; it cannot infer an unseen opponent kick before
+there is sensor evidence of it.
+
+Required focused tests before implementation is claimed complete:
+- Stationary robot, 4 m/s ball, delayed output: compensation advances position
+  by velocity times delay, keeps velocity/last_seen, and stamps target time.
+- Stationary ball, translating and rotating robot: compensation changes relative
+  position and rotates velocity correctly, without phantom ball motion.
+- Combined robot and ball motion with asynchronously bracketed odometry.
+- Out-of-order, future, missing or excessively distant odometry; bounded history.
+- Localization jumps do not change corrected Ground position or velocity.
+- Two balls: selected kick position and velocity have a common identity/time.
+- Raw percept batches with distinct exposure times retain distinct timestamps.
+- Record selected kick inputs, measured ball position/velocity and actual contact
+  outcome; compare errors at decision time and foot-contact time separately.
+
+5. Remaining filter motion-model issues, in priority order.
+
+The moving-to-resting covariance indexing bug is corrected in this checkpoint:
+hypothesis.rs:86 now uses the velocity block (2,2), with a regression that varies
+position and velocity uncertainty independently. This should prevent some
+premature zero-velocity transitions, but it does not fix the next limitation.
+
+A Resting hypothesis can NEVER become Moving directly: hypothesis.rs:74-75 and
+120-121 only update its two-dimensional position. A kicked ball can remain
+associated with that hypothesis while it reports zero velocity and lags behind,
+until a measurement finally fails its gate and spawns a fresh moving hypothesis.
+After preserving unsupported old tracks, a highly valid old resting track can
+also outscore a newly observed moving track for several frames. Measure this
+reacquisition tradeoff; preserving continuity is not proof of rapid switching.
+Next targeted regression should settle a ball, kick it while briefly occluded,
+then feed consistent moving observations; require bounded velocity reacquisition
+and compare with an equally noisy stationary/wobbling-camera sequence. Use the
+result to design a resting-to-moving change detector or competing motion modes,
+not unconditional velocity inference from one false positive.
+
+MovingPredict (hypothesis/moving.rs:37-45) applies velocity_decay_factor per
+odometry sample, independent of dt. Base .998 at 500 Hz retains about 36.8% speed
+after one second. Process noise is also added per tick. A follow-up should define
+rate-independent physical decay/noise with an explicit compatibility migration,
+and test equivalent trajectories at 100/250/500 Hz plus skipped samples. The
+new constant-speed regression uses decay=1 to isolate temporal prediction; it
+must not be described as validating the current friction parameterization.
+
+Association currently uses hypothesis covariance without measurement covariance
+(lib.rs mahalanobis_matrix_of_hypotheses_and_percepts). Innovation-covariance
+gating is a separate statistical improvement requiring noise calibration and
+false-positive evaluation. Numeric covariance robustness in the shared Kalman
+filter also remains open. Neither was changed opportunistically in this pass.

@@ -34,7 +34,7 @@ pub struct Args {
     /// Topic prefix in MCAP. Leave empty for the existing recorder's relative topics.
     #[arg(long, default_value = "")]
     pub namespace: String,
-    /// TimeWrapper<Vec<Point3<Ground>>>: one target, empty=absent, missing=unknown.
+    /// TimeWrapper<Vec<Point3<Ground>>>: labelled balls, empty=absent, missing=unknown.
     #[arg(long, default_value = "simulation/ball_ground_truth")]
     pub reference_topic: String,
     /// Frame of the labelled reference. Field scoring includes recorded ground_to_field.
@@ -44,7 +44,7 @@ pub struct Args {
     pub trials: usize,
     #[arg(long, default_value_t = 7)]
     pub seed: u64,
-    /// Metres-equivalent penalty for a missed ball or a track with no ball present.
+    /// Spatial loss scale: cap=p², missing=1.25p², false track=p². RMSE is uncapped.
     #[arg(long, default_value_t = 2.0)]
     pub penalty_metres: f64,
     #[arg(long)]
@@ -58,6 +58,7 @@ struct Comparison {
 }
 #[derive(Serialize)]
 struct Report<'a> {
+    objective: scoring::Objective,
     training_recordings: &'a [PathBuf],
     validation_recordings: &'a [PathBuf],
     seed: u64,
@@ -274,6 +275,7 @@ pub fn run_with_progress(
     publish(&progress)?;
     let validation_improved = optimized_validation.loss < base_validation.loss;
     let report = Report {
+        objective: scoring::OBJECTIVE,
         training_recordings: &args.train,
         validation_recordings: &args.validation,
         seed: args.seed,

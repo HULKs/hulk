@@ -362,6 +362,7 @@ impl Panel for BallFilterOptimizationPanel {
                         }
                     });
                     ui.collapsing("Fixed values (not searched)", |ui| {
+                        ui.label("maximum_matching_cost_validity_penalty_factor is retained for old configuration compatibility and is no longer used.");
                         if let Ok(json) = serde_json::to_string_pretty(&fixed) {
                             monospace(ui, json);
                         }
@@ -409,6 +410,26 @@ fn scores(ui: &mut Ui, id: &str, baseline: &Metrics, best: &Metrics) {
                 best.position_rmse_metres,
             ),
             (
+                "Close-range RMSE (m)",
+                baseline.close_range_position_rmse_metres,
+                best.close_range_position_rmse_metres,
+            ),
+            (
+                "Close-range missing (s)",
+                Some(baseline.close_range_missing_seconds),
+                Some(best.close_range_missing_seconds),
+            ),
+            (
+                "Along-motion lag (ms)",
+                baseline.motion_lag_seconds.map(|value| value * 1000.0),
+                best.motion_lag_seconds.map(|value| value * 1000.0),
+            ),
+            (
+                "Motion-lag coverage (s)",
+                Some(baseline.moving_reference_seconds),
+                Some(best.moving_reference_seconds),
+            ),
+            (
                 "Missing ball (s)",
                 Some(baseline.missing_seconds),
                 Some(best.missing_seconds),
@@ -419,6 +440,11 @@ fn scores(ui: &mut Ui, id: &str, baseline: &Metrics, best: &Metrics) {
                 Some(best.missing_transform_seconds),
             ),
             (
+                "Longest missing gap (s)",
+                Some(baseline.longest_missing_seconds),
+                Some(best.longest_missing_seconds),
+            ),
+            (
                 "False track (s)",
                 Some(baseline.false_track_seconds),
                 Some(best.false_track_seconds),
@@ -427,6 +453,12 @@ fn scores(ui: &mut Ui, id: &str, baseline: &Metrics, best: &Metrics) {
             let label = ui.label(name);
             if name == "Missing ball (s)" {
                 label.on_hover_text("Total labelled time when a real ball exists but no filter estimate is available in the scoring frame. Includes balls outside the camera view and, for field scoring, estimates without a matching ground-to-field transform. Lower is better.");
+            } else if name == "Longest missing gap (s)" {
+                label.on_hover_text("Longest continuous labelled interval with a real ball but no usable estimate. Includes startup and missing field transforms; this is not specifically the time to recover after a kick.");
+            } else if name == "Along-motion lag (ms)" {
+                label.on_hover_text("Signed along-motion position error divided by reference speed at the same timestamp. Positive means behind the ball. Uses adjacent single-ball references in field coordinates with valid motion; multi-ball and missing estimates are excluded. This measures spatial lag, not message delivery latency.");
+            } else if name == "Close-range RMSE (m)" {
+                label.on_hover_text("Position error against the nearest labelled ball within 1 m of the robot, conditional on an available estimate. Read together with close-range missing time.");
             }
             ui.label(a.map_or_else(|| "—".into(), |v| format!("{v:.4}")));
             ui.label(b.map_or_else(|| "—".into(), |v| format!("{v:.4}")));
@@ -551,6 +583,11 @@ fn live_ball(ui: &mut Ui, connection: &Connection) {
         );
     });
     ui.label("Field coordinates · white: robot · green: true balls · blue: live filter · orange: opponents");
+    if let Some(estimate) = connection.estimate.latest() {
+        let age_ms = (truth.value.time.as_nanos() - estimate.source_time.as_nanos()) as f64 / 1e6;
+        ui.label(format!("Filter state is {age_ms:.0} ms behind the latest physics sample"))
+            .on_hover_text("Timestamp difference, separate from tracking error. The model is displayed at its recorded state time without extrapolation; fusion and transport can contribute to this age.");
+    }
     if robot_pose.is_none() {
         ui.label("Robot pose unavailable: no ground-to-field transform within 20 ms.");
     }

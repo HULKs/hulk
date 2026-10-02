@@ -121,7 +121,7 @@ pub struct Occluder {
     pub height: f32,
 }
 
-fn occludes(camera: &CameraMatrix, ball: Point3<Ground>, obstacle: &Occluder) -> bool {
+pub(crate) fn occludes(camera: &CameraMatrix, ball: Point3<Ground>, obstacle: &Occluder) -> bool {
     let origin = camera.ground_to_camera.inverse().inner.translation.vector;
     let delta = ball.inner.coords - origin;
     let relative = origin - obstacle.center.inner.coords;
@@ -236,7 +236,7 @@ impl Detector {
     }
 }
 
-fn in_image(camera: &CameraMatrix, point: Point2<Pixel>) -> bool {
+pub(crate) fn in_image(camera: &CameraMatrix, point: Point2<Pixel>) -> bool {
     (0.0..camera.image_size.x()).contains(&point.x())
         && (0.0..camera.image_size.y()).contains(&point.y())
 }
@@ -255,7 +255,7 @@ fn detection(center: Point2<Pixel>, radius: f32, confidence: f32) -> Object<Robo
 }
 
 /// Metrics are conditional on an estimate and real ball existing; misses and false tracks
-/// are counted separately so suppressing output cannot appear to improve the filter.
+/// are counted separately because conditional position error alone rewards suppression.
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Message)]
 pub struct Metrics {
     pub time: Time,

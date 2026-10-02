@@ -12,6 +12,7 @@ use color_eyre::{
     eyre::{ensure, eyre},
 };
 use linear_algebra::Point3;
+use projection::Projection;
 use ros_z::{
     parameter::{NodeParameterWriteJson, RemoteParameterClient},
     prelude::*,
@@ -45,6 +46,9 @@ const TOPICS: &[&str] = &[
     "field_dimensions",
     "ball_filter/update_schedule",
     "ball_filter/ball_position",
+    "ball_filter/ball_percepts",
+    "visual_kick/ball_position",
+    "ball_state",
     "simulation/ball_ground_truth",
     "simulation/ball_ground_truth_field",
     "simulation/ball_poses_world",
@@ -675,7 +679,17 @@ fn record(
             },
         ));
     }
-    let obstacles: Vec<_> = crate::scene::tuning_obstacles::positions(0.0, seed)
+    let dimensions = parameters.field_dimensions;
+    let mut challenge = crate::scene::tuning_obstacles::Challenge::new(
+        seed,
+        [
+            f64::from(dimensions.length / 2.0 + dimensions.border_strip_width),
+            f64::from(dimensions.width / 2.0 + dimensions.border_strip_width),
+        ],
+        f64::from(radius),
+    );
+    let obstacles: Vec<_> = challenge
+        .positions()
         .into_iter()
         .map(|position| {
             app.world_mut()
@@ -728,6 +742,12 @@ fn record(
     let mut previous_robot: Option<nalgebra::Vector3<f32>> = None;
     let mut previous_balls = vec![None::<nalgebra::Vector3<f64>>; ball_count];
     let mut pending_impulses = Vec::new();
+    let mut opponent_kicks = 0_u64;
+    let mut occluded_kicks = 0_u64;
+    let mut occluded_in_view_kicks = 0_u64;
+    let mut contest_seconds = 0.0;
+    let mut occluded_in_view_seconds = 0.0;
+
     for frame in 0..2500 {
         ensure!(!stop.load(Ordering::Relaxed), "tuning stopped");
         if let Some(updates) = live.as_mut() {
@@ -839,8 +859,68 @@ fn record(
             MotionCommand::Walk { .. } | MotionCommand::WalkWithVelocity { .. }
         );
         for _ in 0..8 {
-            let obstacle_positions =
-                crate::scene::tuning_obstacles::positions(world.data().time(), seed);
+            let robot_pose = binding.ground_to_world(world.data());
+            let ball_world_positions = balls
+                .iter()
+                .map(|&ball| first_pose(&world, &SpawnedBalls(vec![ball])).map(|(p, _)| p))
+                .collect::<Result<Vec<_>>>()?;
+            let challenge_frame = challenge.step(
+                0.002,
+                [
+                    f64::from(robot_pose.translation.x),
+                    f64::from(robot_pose.translation.y),
+                ],
+                &ball_world_positions,
+            );
+            let obstacle_positions = challenge_frame.positions;
+            if challenge_frame.contesting {
+                contest_seconds += 0.002;
+            }
+            let occluders: Vec<_> = obstacle_positions
+                .iter()
+                .map(|p| crate::ball_perception::Occluder {
+                    center: Point3::wrap(binding.point_in_ground(world.data(), *p)),
+                    radius: crate::scene::tuning_obstacles::RADIUS,
+                    height: crate::scene::tuning_obstacles::HEIGHT,
+                })
+                .collect();
+            let camera = binding.observe(world.data()).camera_matrix;
+            let mut blocked_in_view = false;
+            for (index, &position) in ball_world_positions.iter().enumerate() {
+                let ball = Point3::wrap(binding.point_in_ground(world.data(), position));
+                let in_view = camera
+                    .ground_with_z_to_pixel(ball.xy(), ball.z())
+                    .is_ok_and(|pixel| crate::ball_perception::in_image(&camera, pixel));
+                let blocked = occluders
+                    .iter()
+                    .any(|obstacle| crate::ball_perception::occludes(&camera, ball, obstacle));
+                blocked_in_view |= blocked && in_view;
+                if let Some(kick) = challenge_frame
+                    .kick
+                    .as_ref()
+                    .filter(|kick| kick.ball_index == index)
+                {
+                    opponent_kicks += 1;
+                    occluded_kicks += u64::from(blocked);
+                    occluded_in_view_kicks += u64::from(blocked && in_view);
+                    pending_impulses.push(BallImpulse {
+                        ball: balls[index],
+                        impulse: kick.impulse,
+                        height_above_center: 0.4 * f64::from(radius),
+                    });
+                    let event =
+                        format!("opponent kick / camera blocked={blocked}, in view={in_view}");
+                    eprintln!("{}: {:.3}s {event}", path.display(), world.data().time());
+                    progress.send_modify(|state| state.phase = event.clone());
+                    runtime.block_on(phase_pub.publish(&types::time_wrapper::TimeWrapper {
+                        time: clock.now(),
+                        inner: event,
+                    }))?;
+                }
+            }
+            if blocked_in_view {
+                occluded_in_view_seconds += 0.002;
+            }
             for (&entity, position) in obstacles.iter().zip(obstacle_positions) {
                 world
                     .set_object_pose(entity, crate::scene::tuning_obstacles::transform(position))
@@ -990,6 +1070,27 @@ fn record(
     clock.advance(Duration::from_millis(100))?;
     std::thread::sleep(Duration::from_millis(300));
     let written = runtime.block_on(recording.finish())?;
+    let coverage = serde_json::json!({
+        "seed": seed,
+        "ball_count": ball_count,
+        "opponent_kicks": opponent_kicks,
+        "occluded_kicks": occluded_kicks,
+        "occluded_in_view_kicks": occluded_in_view_kicks,
+        "contest_seconds": contest_seconds,
+        "occluded_in_view_seconds": occluded_in_view_seconds,
+        "robot_walked_metres": walk_distance,
+        "ball_travel_metres": ball_distance,
+        "simultaneous_motion_seconds": simultaneous_motion_seconds,
+        "peak_ball_speed_metres_per_second": peak_ball_speed,
+        "fast_ball_seconds": fast_ball_seconds,
+    });
+    write_checkpoint(
+        &path.with_extension("coverage.json"),
+        &serde_json::to_vec_pretty(&coverage)?,
+    )?;
+    eprintln!(
+        "Contest coverage: {opponent_kicks} opponent kicks, {occluded_kicks} blocked by opponents ({occluded_in_view_kicks} in camera view); {contest_seconds:.2}s contested, {occluded_in_view_seconds:.2}s occluded in view"
+    );
     eprintln!(
         "Recorded {written} messages; robot walked {walk_distance:.3}m, ball rolled {ball_distance:.3}m; simultaneous motion {simultaneous_motion_seconds:.2}s; peak ball speed {peak_ball_speed:.2}m/s, fast ball {fast_ball_seconds:.2}s"
     );
