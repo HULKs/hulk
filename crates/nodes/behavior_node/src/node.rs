@@ -50,6 +50,7 @@ pub struct LastBall {
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 pub struct Blackboard {
     pub field_dimensions: FieldDimensions,
+    pub head_yaw: f32,
     pub parameters: BehaviorParameters,
     pub world_state: WorldState,
     pub controller_input: Option<ControllerInput>,
@@ -286,6 +287,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .get_latest()
             .map(|dimensions| *dimensions)
             .unwrap_or_default(),
+        head_yaw: 0.0,
         parameters: parameters.snapshot().typed().clone(),
         world_state: WorldState::default(),
         controller_input: None,
@@ -339,6 +341,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let player_number = player_number_cache
             .get_latest()
             .map(|n| *n)
+            .unwrap_or_default();
+        blackboard.head_yaw = head_joints_command_cache
+            .get_latest()
+            .map(|head_joints| head_joints.yaw)
             .unwrap_or_default();
         blackboard.parameters = parameters.snapshot().typed().clone();
 
@@ -474,11 +480,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             outgoing_message_pub.publish(&message).await?;
         }
 
-        let head_yaw = head_joints_command_cache
-            .get_latest()
-            .map(|head_joints| head_joints.yaw)
-            .unwrap_or_default();
-        if let Some(message) = blackboard.try_sending_state_message(head_yaw) {
+        if let Some(message) = blackboard.try_sending_state_message() {
             outgoing_message_pub.publish(&message).await?;
         }
 

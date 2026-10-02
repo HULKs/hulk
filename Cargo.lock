@@ -7265,31 +7265,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ndarray-conv"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61a04cd712622c289a7b523d3195e4fb5e2bf30c44de12355463fe58aa12213b"
-dependencies = [
- "ndarray 0.16.1",
- "ndarray-rand",
- "num",
- "realfft",
- "rustfft",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "ndarray-rand"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f093b3db6fd194718dcdeea6bd8c829417deae904e3fcc7732dabcd4416d25d8"
-dependencies = [
- "ndarray 0.16.1",
- "rand 0.8.6",
- "rand_distr 0.4.3",
-]
-
-[[package]]
 name = "ndk"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9321,15 +9296,6 @@ dependencies = [
  "bytemuck",
  "font-types 0.12.4",
  "once_cell",
-]
-
-[[package]]
-name = "realfft"
-version = "3.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f821338fddb99d089116342c46e9f1fbf3828dba077674613e734e01d6ea8677"
-dependencies = [
- "rustfft",
 ]
 
 [[package]]
