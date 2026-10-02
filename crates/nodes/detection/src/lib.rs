@@ -147,7 +147,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             let post_processing_start = Instant::now();
 
             let outputs = extract_outputs(&outputs)?;
-            let candidate_detections = extract_candidate_object_detections(
+            let candidate_detections = extract_candidate_detections(
                 &outputs,
                 parameters
                     .object_detection_parameters
@@ -246,67 +246,59 @@ fn extract_output<'a>(
     Ok(ArrayViewD::from_shape(IxDyn(&dimensions), data)?)
 }
 
-fn extract_candidate_object_detections(
+fn extract_candidate_detections(
     outputs: &ModelOutputs,
     confidence_threshold: f32,
 ) -> Result<Vec<Object<RobocupObjectLabel>>> {
-    let mut object_detections: Vec<Object<RobocupObjectLabel>> = outputs
-        .hslvision_objects
-        .axis_iter(Axis(0))
-        .filter_map(|row| {
-            let label = RobocupObjectLabel::from_index(row[5] as usize);
-            if matches!(label, RobocupObjectLabel::GoalPost) {
-                return None;
-            }
+    let hslvision_labels = [
+        RobocupObjectLabel::Ball,
+        RobocupObjectLabel::LSpot,
+        RobocupObjectLabel::PenaltySpot,
+        RobocupObjectLabel::Robot,
+        RobocupObjectLabel::TSpot,
+        RobocupObjectLabel::XSpot,
+    ];
+    let mut object_detections: Vec<Object<RobocupObjectLabel>> = extract_candidate_objects(
+        &outputs.hslvision_objects,
+        confidence_threshold,
+        &hslvision_labels,
+    )
+    .collect();
 
-            let confidence = row[4usize];
-            if confidence < confidence_threshold {
-                return None;
-            }
+    let nao_labels = [RobocupObjectLabel::GoalPost, RobocupObjectLabel::Ball];
+    object_detections.extend(extract_candidate_objects(
+        &outputs.nao_objects,
+        confidence_threshold,
+        &nao_labels,
+    ));
 
-            let object_values: [f32; NUMBER_OF_VALUES_PER_OBJECT] = row
-                .as_slice()
-                .expect("slice is not contiguous")
-                .try_into()
-                .unwrap_or_else(|_| {
-                    panic!("slice is not of length {}", NUMBER_OF_VALUES_PER_OBJECT)
-                });
-
-            Some(Object::from(object_values))
-        })
-        .collect();
-
-    let nao_object_detections: Vec<Object<RobocupObjectLabel>> = outputs
-        .nao_objects
-        .axis_iter(Axis(0))
-        .filter_map(|row| {
-            let label = RobocupObjectLabel::from_index(row[5] as usize);
-            if !matches!(
-                label,
-                RobocupObjectLabel::GoalPost | RobocupObjectLabel::Ball
-            ) {
-                return None;
-            }
-
-            let confidence = row[4usize];
-            if confidence < confidence_threshold {
-                return None;
-            }
-
-            let object_values: [f32; NUMBER_OF_VALUES_PER_OBJECT] = row
-                .as_slice()
-                .expect("slice is not contiguous")
-                .try_into()
-                .unwrap_or_else(|_| {
-                    panic!("slice is not of length {}", NUMBER_OF_VALUES_PER_OBJECT)
-                });
-
-            Some(Object::from(object_values))
-        })
-        .collect();
-
-    object_detections.extend(nao_object_detections);
     Ok(object_detections)
+}
+
+fn extract_candidate_objects(
+    output: &ArrayView2<f32>,
+    confidence_threshold: f32,
+    accepted_labels: &[RobocupObjectLabel],
+) -> impl Iterator<Item = Object<RobocupObjectLabel>> {
+    output.axis_iter(Axis(0)).filter_map(move |row| {
+        let label = RobocupObjectLabel::from_index(row[5] as usize);
+        if !accepted_labels.contains(&label) {
+            return None;
+        }
+
+        let confidence = row[4usize];
+        if confidence < confidence_threshold {
+            return None;
+        }
+
+        let object_values: [f32; NUMBER_OF_VALUES_PER_OBJECT] = row
+            .as_slice()
+            .expect("slice is not contiguous")
+            .try_into()
+            .unwrap_or_else(|_| panic!("slice is not of length {}", NUMBER_OF_VALUES_PER_OBJECT));
+
+        Some(Object::from(object_values))
+    })
 }
 
 trait HasBoundingBox {
