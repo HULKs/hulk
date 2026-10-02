@@ -1,13 +1,19 @@
-use kornia_3d::pnp::PnPResult;
 use kornia_algebra::{
-    Mat3AF32, SO3F32, Vec2F32, Vec3AF32,
+    Mat3AF32, Vec2F32, Vec3AF32,
     optim::{HuberLoss, RobustLoss},
 };
 use nalgebra as na;
 
 use crate::{
-    odometry::PoseCorrespondence, parameters::StereoVisualOdometryPoseEstimationParameters,
+    odometry::{PoseCorrespondence, RelativePose},
+    parameters::StereoVisualOdometryPoseEstimationParameters,
 };
+
+pub(crate) struct RefinementResult {
+    pub(crate) pose: RelativePose,
+    pub(crate) iterations: usize,
+    pub(crate) converged: bool,
+}
 
 #[derive(Clone, Copy)]
 struct CorrespondenceResidual {
@@ -30,8 +36,8 @@ pub fn refine_pose_lm_direct(
     intrinsics: &Mat3AF32,
     baseline: f32,
     parameters: &StereoVisualOdometryPoseEstimationParameters,
-    initial_pose: &PnPResult,
-) -> Result<PnPResult, &'static str> {
+    initial_pose: &RelativePose,
+) -> Result<RefinementResult, &'static str> {
     let mut rotation = matrix3_from_mat3a(&initial_pose.rotation);
     let mut translation = vector3_from_vec3a(initial_pose.translation);
     let loss =
@@ -103,23 +109,13 @@ pub fn refine_pose_lm_direct(
 
     let rotation = mat3a_from_matrix3(&rotation);
     let translation = vec3a_from_vector3(translation);
-    let reproj_rmse = (total_reprojection_error_squared(
-        correspondences,
-        intrinsics,
-        &matrix3_from_mat3a(&rotation),
-        &vector3_from_vec3a(translation),
-    )
-    .ok_or("final reprojection error is invalid")?
-        / correspondences.len() as f32)
-        .sqrt();
-
-    Ok(PnPResult {
-        rotation,
-        translation,
-        rvec: SO3F32::from_matrix(&rotation).log(),
-        reproj_rmse: Some(reproj_rmse),
-        num_iterations: Some(iterations),
-        converged: Some(converged),
+    Ok(RefinementResult {
+        pose: RelativePose {
+            rotation,
+            translation,
+        },
+        iterations,
+        converged,
     })
 }
 
@@ -195,6 +191,8 @@ fn residual_and_jacobian_with_x_offset(
     let dv_dy = projection.fy * projection.inverse_z;
     let dv_dz = -projection.fy * camera_point.y * projection.inverse_z_squared;
 
+    // Translation-first left increments: J = J_projection * [I | -skew(p)].
+    // The right-camera offset shifts projection, not the left-camera perturbation point p.
     let jacobian = na::SMatrix::<f32, 2, 6>::from_row_slice(&[
         du_dx,
         0.0,
@@ -326,6 +324,7 @@ fn projection_residual(
         })
 }
 
+// LM minimizes weighted Huber cost; the caller separately validates weighted squared error.
 fn robust_residual_cost(
     residual_norm_squared: f32,
     base_weight: f32,
@@ -352,24 +351,6 @@ fn weighted_residual_scale(
     let weight = base_weight * loss.weight(residual_norm_squared);
 
     (weight.is_finite() && weight > 0.0).then_some(weight.sqrt())
-}
-
-fn total_reprojection_error_squared(
-    correspondences: &[PoseCorrespondence],
-    intrinsics: &Mat3AF32,
-    rotation: &na::Matrix3<f32>,
-    translation: &na::Vector3<f32>,
-) -> Option<f32> {
-    let mut error = 0.0;
-
-    for correspondence in correspondences {
-        let camera_point = rotation * vector3_from_vec3a(correspondence.world_point) + translation;
-        let residual =
-            residual_with_x_offset(camera_point, correspondence.image_point, intrinsics, 0.0)?;
-        error += residual.norm_squared();
-    }
-
-    error.is_finite().then_some(error)
 }
 
 fn apply_pose_step(
