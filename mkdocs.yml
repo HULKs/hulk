@@ -28,8 +28,9 @@ nav:
       - Overview: setup/overview.md
       - Development Environment: setup/development_environment.md
       - Configure Team: setup/configure_team.md
-      - NAO Image & SDK: setup/nao_image_and_sdk.md
-      - NAO Setup: setup/nao_setup.md
+      - Booster K1 Setup: setup/booster_setup.md
+      - Legacy NAO Image & SDK: setup/nao_image_and_sdk.md
+      - Legacy NAO Setup: setup/nao_setup.md
       - Upload HULK: setup/upload.md
   - Tooling:
       - Overview: tooling/overview.md
@@ -39,12 +40,10 @@ nav:
           - Building your own: tooling/charging_box/building_your_own.md
       - Pepsi: tooling/pepsi.md
       - Twix: tooling/twix.md
-      - Depp: tooling/depp.md
-      - Fanta: tooling/fanta.md
-      - Machine Learning: tooling/machine-learning.md
-      - Behavior Simulator: tooling/behavior_simulator.md
-      - Behavior Tree Simulator Design: tooling/behavior_tree_simulator_design.md
       - Remote Control: tooling/remote_control.md
+      - Machine Learning: tooling/machine-learning.md
+      - Simulator: tooling/behavior_simulator.md
+      - Behavior Tree Simulator Design: tooling/behavior_tree_simulator_design.md
       - Debugging with GDB/LLDB: tooling/debugging.md
       - Profiling with perf: tooling/profiling.md
   - Operating System:
@@ -53,22 +52,50 @@ nav:
       - Home Directory: operating_system/home_directory.md
       - Linux: operating_system/linux.md
       - WiFi: operating_system/wifi.md
-      - HULA: operating_system/hula.md
+      - Hardware Integration and Legacy HULA: operating_system/hula.md
   - Robotics:
       - Overview: robotics/overview.md
       - Perception:
           - Vision: robotics/perception/vision.md
+          - Localization: robotics/perception/localization.md
           - Audio: robotics/perception/audio.md
           - Filters: robotics/perception/filters.md
           - HSL Network: robotics/perception/hsl_network.md
       - Behavior: robotics/behavior/overview.md
       - Motion:
           - Overview: robotics/motion/overview.md
+          - Development Safety and Recovery: robotics/motion-safety.md
           - Step planning: robotics/motion/step_planning.md
           - Walking: robotics/motion/walking.md
           - Kicking: robotics/motion/kicking.md
       - Miscellaneous:
           - Create URDF and PROTO for NAOv6: robotics/miscellaneous/create_urdf.md
+  - Historical:
+      - Overview: historical/overview.md
+      - Robotics Overview: historical/robotics.md
+      - Vision: historical/vision.md
+      - Audio: historical/audio.md
+      - Bevyhavior Simulator: historical/behavior_simulator.md
+      - Pepsi: historical/pepsi.md
+      - Profiling: historical/profiling.md
+      - Motion:
+          - Overview: historical/motion/overview.md
+          - Walking: historical/motion/walking.md
+          - Step Planning: historical/motion/step_planning.md
+      - Setup:
+          - Overview: historical/setup/overview.md
+          - Development Environment: historical/setup/development_environment.md
+          - Configure Team: historical/setup/configure_team.md
+          - NAO Image & SDK: historical/setup/nao_image_and_sdk.md
+          - NAO Setup: historical/setup/nao_setup.md
+          - Upload HULK: historical/setup/upload.md
+      - Operating System:
+          - Overview: historical/operating_system/overview.md
+          - Home Directory: historical/operating_system/home_directory.md
+          - Linux: historical/operating_system/linux.md
+          - Partitioning: historical/operating_system/partitioning.md
+          - WiFi: historical/operating_system/wifi.md
+          - HULA: historical/operating_system/hula.md
   - Workflow:
       - Overview: workflow/overview.md
       - Getting Started: workflow/getting_started.md

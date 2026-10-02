@@ -27,6 +27,9 @@ Decides which code is deployed.
 
 Merge-squashes different branches and deploys the code to the robots.
 
+Current deployment tooling uses `deploy.toml` to select playing robots and configure game parameters.
+Use `./pepsi pregame --help` and the [upload guide](../setup/upload.md) for preparation and deployment; verify the robot-target build and runtime on the robots in addition to CI.
+
 ??? note "Good to know"
 
     The deployer should have the necessary hardware or setup for fast deployment.
@@ -40,7 +43,7 @@ Is responsible for observing the game and noting down important events and thing
 
 ### Head-of-Robots (HoR)
 
-Is responsible for the robots and the hardware, as well as all interactions with [URG](https://unitedrobotics.group/en/robots/nao).
+Is responsible for the robots and the hardware, as well as interactions with the relevant hardware supplier. For legacy NAOs, this includes [URG](https://unitedrobotics.group/).
 Keeps the [Roboboboard](https://github.com/orgs/HULKs/projects/3) up to date and selects the robots for the game, as well as their number.
 
 !!! tip "Important"
