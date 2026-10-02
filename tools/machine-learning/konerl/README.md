@@ -32,8 +32,7 @@ example, not a working recipe for the standing task.
 workflow in this checkout. It would additionally require a compatible exported
 ONNX policy and a desktop MuJoCo viewer.
 
-Training here does not automatically export, select or deploy the five production
-motion-inference policies in `etc/neural_networks`. Establish the policy's
-observation/action contract and export/configuration workflow before using it
-with `./simulator` or on a robot. See `tools/simulate/README.md` for testing the
-existing production policies.
+Training here is a standalone experiment. This checkout does not integrate its
+policies into the robot's Booster SDK motion path. Establish a matching inference
+implementation, observation/action contract, and export/configuration workflow
+before testing an exported policy in a simulator or on a robot.

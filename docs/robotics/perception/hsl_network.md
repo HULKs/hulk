@@ -46,8 +46,7 @@ preserving the wrapper's receipt time.
   Behavior uses these poses for Voronoi task assignment and support positioning.
 - `search_suggestor` consumes team messages directly to update its ball-search heatmap.
 
-At main revision `0711900e0`, dedicated team-ball reception is implemented as
-`team_ball_filter`, replacing the earlier `team_ball_receiver` placeholder.
+Team-ball reception is implemented by `team_ball_filter`.
 It consumes typed `player_states` and `filtered_game_controller_state`, not
 bare network messages. On input changes and a 100 ms timer it publishes:
 

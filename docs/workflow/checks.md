@@ -21,7 +21,7 @@ Run from the repository root. The active jobs in
 | Documentation build | `mkdocs build --strict` |
 
 CI runs on pull requests and merge-group check requests. Its Rust jobs use
-`ghcr.io/hulks/hulk-ci:1.98.0`; native local checks need the corresponding
+`ghcr.io/hulks/hulk-ci:1.98.1`; native local checks need the corresponding
 toolchain and [development dependencies](../setup/development_environment.md).
 The table lists the active checks, not the commented-out workflow jobs.
 

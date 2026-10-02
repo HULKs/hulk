@@ -108,7 +108,6 @@ The closure still runs synchronously: it does not become an async operation or a
 ## Code Generation
 
 The current node graph is wired explicitly in Rust through topic subscriptions, publications, and the startup list.
-It does not use the old generated cycler/database interfaces to resolve node inputs or outputs.
 Compile-time macros still supply reusable infrastructure: `#[derive(ros_z::Message)]` generates message metadata/schema support, Serde derives provide serialization support, and `ros-z-streams` macros implement combinations of stream types.
 
 ## Where to Continue

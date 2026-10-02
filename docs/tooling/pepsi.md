@@ -20,7 +20,9 @@ The positional argument selects a package directory, manifest path, or registere
 Selecting `crates/hulk_ros_z` reads that package's `cross-compile` metadata and defaults to the Podman K1 SDK environment.
 Selecting only `--bin hulk_ros_z` or `--package hulk_ros_z` does not select its manifest for environment detection; without `--env`, that invocation uses native Cargo.
 
-The experimental simulator requires an Alex development-branch checkout; `./simulator` is not available on main. See [Simulator](behavior_simulator.md) for checkout instructions and the additional worktree-only perception/tuning workflows.
+Use the [behavior tree simulator](behavior_tree_simulator_design.md) for current
+scenario testing. The separate MuJoCo simulator requires a development checkout;
+see [Simulators](behavior_simulator.md) for its source location.
 
 ## Upload to a Robot
 

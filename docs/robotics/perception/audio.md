@@ -3,7 +3,7 @@
 The ROS-Z executable starts separate `microphone_recorder`, `whistle_detection`, and `whistle_filter` nodes.
 The microphone recorder reads the configured microphone device and publishes samples on `inputs/microphones_samples` when device initialization succeeds.
 
-At main revision `0711900e0`, both whistle-processing nodes are implemented and wired:
+Both whistle-processing nodes are implemented and wired:
 
 1. `whistle_detection` consumes `Samples` from `inputs/microphones_samples`.
    For each channel it applies a Hann window and FFT, then compares energy in

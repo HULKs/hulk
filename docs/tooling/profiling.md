@@ -12,7 +12,7 @@ perf record --call-graph dwarf -o twix.perf.data -- target/with-debug/twix /42 -
 ```
 
 Interact with Twix while recording, then close it to finish the profile. This requires `perf` on the host and kernel permissions for performance counters.
-Use a reachable router and namespace for your running robot stack. To profile against the experimental simulator instead, first [check out its development branch](behavior_simulator.md#alexs-development-branch), start it there, and use `/simulator/robot` with `tcp/127.0.0.1:7447`; the simulator implementation is not available on main.
+Use a reachable router and namespace for your running robot stack.
 Use your configured Cargo target directory instead of `target` when overridden.
 
 ## K1 robot stack

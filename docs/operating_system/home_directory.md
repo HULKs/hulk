@@ -31,8 +31,7 @@ The relevant layout is:
 ```
 
 `robot/<hardware-id>` overrides are created as needed. Models include ONNX and
-TensorRT artifacts; download Git LFS assets before deployment. The old
-NAO `.motion2`, `.pose`, and flat timestamped-log layout is not the current tree.
+TensorRT artifacts; download Git LFS assets before deployment.
 
 `/usr/bin/launch-hulk` creates the timestamped log directory and `latest` link,
 sets ownership to `booster`, and executes `hulk_ros_z` inside the container.

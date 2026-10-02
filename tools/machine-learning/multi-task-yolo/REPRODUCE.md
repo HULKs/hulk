@@ -1,140 +1,62 @@
-# Hydra training, export and deployment
+# Detector artifact and deployment
 
-The current detector configuration in `etc/parameters/base/detection.json5` selects:
+The detector selects its model using `neural_networks_folder` and `model_name`
+in `etc/parameters/base/detection.json5`, with location/robot parameter overrides.
+The current base artifact is:
 
 ```text
-yolo26m-seg=f11+yolo26m~cheek+yolo26m-pose~badge.onnx
+yolo26m~hslvision=f17+yolo26m~hslvision+yolo26m~hslvision~jail.onnx
 ```
 
-That name identifies a segmentation-model backbone and finetuned detection/pose
-heads. Exact reproduction needs the original checkpoints, datasets, training
-settings and software environment. Obtain those artifacts and dataset access from
-the team; rerunning training with a random suffix does not recreate those weights.
+Fetch the repository's model assets with `git lfs pull`. Exact retraining requires
+the original checkpoints, datasets, training settings, and export implementation;
+obtain those from the team. A model filename alone is not a reproduction recipe.
 
-The earlier recipe described a `yolo26m` backbone, a detection head finetuned on
-`nao_coco_k1_data.yaml`, and an off-the-shelf pose head. The following is a current
-CLI recipe for **that model family**, not a claim to reproduce today's configured
-deployed weights. Read `tools/machine-learning/multi-task-yolo/README.md` for the
-current saved-run and exporter limitations.
+## Required runtime contract
 
-## 1. Prepare assets
+`crates/nodes/detection/src/lib.rs` expects:
 
-Run Python commands from `tools/machine-learning/multi-task-yolo`:
+- An NV12 byte input named `raw_bytes_input`, shaped as
+  `[image_height / 2, image_width / 2, 6]`.
+- Two float outputs named `hslvision_output` and `nao_output`, each `[1, 300, 6]`.
+- Per-candidate bounding-box coordinates, confidence, and class index matching
+  `crates/types/src/object_detection.rs` and the detector's class mappings.
 
-```bash
-cd tools/machine-learning/multi-task-yolo
-uv sync
-```
+Both tensor names are required by the current runtime. Image dimensions must be
+multiples of 32. A successful ONNX export or TensorRT compilation alone does not
+verify output names, class mappings, or detection quality.
 
-Use Python 3.13. Provide `assets/yolo26m.pt`, `assets/yolo26m-pose.pt`, and dataset
-YAML files under `assets/datasets`. If your datasets are actually in `/opt/data`
-and `assets/datasets` does not already exist, you can link that directory:
+## Exporter limitation
 
-```bash
-ln -s /opt/data assets/datasets
-```
+The generic training/export examples in [README.md](README.md) are experiments;
+they do not reproduce this deployed artifact. The checked-in Hydra exporter
+indexes heads by task type, so two object-detection heads collapse into one entry.
+Its generated tensor names are `object_output`, `pose_output`, and segmentation
+outputs, which do not satisfy the detector's two named object-output contract.
 
-Dataset paths inside the YAML must resolve in your environment.
+Use an artifact with the required contract. Producing a compatible replacement
+requires the matching export implementation and trained checkpoints. Do not
+change `detection.model_name` to a generic example export without verifying its
+inputs, outputs, and label mappings against the detector.
 
-## 2. Validate and create assembled checkpoints
+## Compile and deploy
 
-Training requires the assembled single-head validation checkpoint, so validation
-comes before training:
+Run from the repository root against a provisioned K1. The runtime container must
+be running and contain compatible ONNX Runtime and TensorRT libraries.
 
-```bash
-uv run -m validation.validator \
-  --hydra_model_name 'yolo26m=f11+yolo26m+yolo26m-pose' \
-  --object_dataset_name nao_coco_k1_data.yaml \
-  --pose_dataset_name coco-pose.yaml \
-  --validate-original --device 0
-```
-
-Defaults include `--assets_dir assets`, `--runs_dir runs`, `--imgsz 640` and
-`--batch 16`. The assembled detection checkpoint is
-`runs/val/yolo26m=f11+yolo26m/yolo26m=f11+yolo26m.pt`; the pose checkpoint follows
-the same naming convention with `yolo26m-pose`.
-The validator saves `metrics.json` and `config.json`, but not `metadata.json`.
-Consequently `validation.compare_results` cannot compare these new runs as-is:
-it requires metadata in both input directories. This remains a code-level workflow gap.
-
-## 3. Train the detection head
-
-```bash
-uv run -m model.train \
-  --hydra_model_name 'yolo26m=f11+yolo26m' \
-  --object_dataset_name nao_coco_k1_data.yaml \
-  --device 0 --epochs 100
-```
-
-The training command uses the assembled checkpoint above and initializes Weights
-& Biases. Configure W&B for your environment. Tuning is opt-in via `--do-tuning`;
-there is no `--dev-mode`. Defaults include `--runs_dir runs` and `--val_dir val`.
-
-Record the actual randomly suffixed output directory and retain
-`weights/best.pt`. For subsequent commands, replace the placeholder suffix:
-
-```bash
-DETECTION_RUN='yolo26m=f11+yolo26m~<actual-training-suffix>'
-DETECTION_HEAD="${DETECTION_RUN#*+}"
-MODEL_NAME="yolo26m=f11+${DETECTION_HEAD}+yolo26m-pose"
-```
-
-The exporter resolves the finetuned detection checkpoint directly from
-`runs/train/$DETECTION_RUN/weights/best.pt`; no copy to a fixed
-`assets/yolo26m-tuned.pt` filename is required.
-
-## 4. Export and check the artifact
-
-The exporter loads the bare backbone name through Ultralytics, not from `assets`.
-Place the intended backbone checkpoint in the working directory too:
-
-```bash
-cp assets/yolo26m.pt yolo26m.pt
-uv run -m utils.export_hydra "$MODEL_NAME" assets/output --with-nv12-layer
-```
-
-The last positional argument is a directory. The intended output file is
-`assets/output/$MODEL_NAME.onnx`, not `hydra-nv12.onnx`.
-Defaults are `--format onnx`, `--imgsz 640`, `--opset 20` and `--device cpu`.
-The NV12 input is named `raw_bytes_input` and has dynamic half-height/half-width
-dimensions. Confirm that export completes and the artifact is usable before
-deploying; the current exporter is not an end-to-end validated reproduction workflow.
-
-After a successful export, copy that file into the repository's model directory:
-
-```bash
-cp "assets/output/$MODEL_NAME.onnx" "../../../etc/neural_networks/$MODEL_NAME.onnx"
-```
-
-In the intended deployment parameter layer, set `detection.model_name` to that
-filename and `detection.neural_networks_folder` to `etc/neural_networks`.
-Uploading a new model file alone does not change which model the detector loads.
-To export the currently configured model instead, obtain the exact matching
-backbone and both finetuned run artifacts and use its model name; the illustrative
-training run above is not a replacement for those checkpoints.
-
-## 5. Compile TensorRT on a K1
-
-Return to the repository root. With the provisioned `hulk` runtime container
-running and robot 42 reachable:
-
-```bash
-cd ../../..
+```sh
+MODEL='yolo26m~hslvision=f17+yolo26m~hslvision+yolo26m~hslvision~jail.onnx'
+git lfs pull
 ./pepsi hulk stop 42
-./pepsi tensor-rt-compile "etc/neural_networks/$MODEL_NAME.onnx" 42 -- --raw_bytes_input 272,320,6
-```
-
-This example compiles for a 640×544 NV12 image. The 640-square export trace does
-not establish the deployment image dimensions; select the shape used by the
-actual pipeline. See `tools/tensorrt-compile/README.md` for static models, manual
-compilation, upload behavior and failure handling.
-
-## 6. Deploy the configured artifact and cache
-
-```bash
+./pepsi tensor-rt-compile "etc/neural_networks/$MODEL" 42 -- --raw_bytes_input 272,320,6
 ./pepsi upload 42
 ```
 
-Upload transfers the robot executable and `etc`, including parameter layers,
-neural-network files and caches, then starts the HULK service. Keep the model,
-selected parameter filename and target-compatible TensorRT cache together.
+The shape above is for a 640×544 NV12 image; select the dimensions used by the
+actual camera pipeline. The compiler upload uses clean synchronization, so stop
+HULK first and restore the application with the normal upload afterward.
+Keep the model, detection parameters, and target-compatible TensorRT cache together.
+
+See [TensorRT compilation](../../tensorrt-compile/README.md) for prerequisites,
+manual compilation, upload behavior, and failure handling. Verify startup,
+model outputs, and detection quality on the target robot after deployment.

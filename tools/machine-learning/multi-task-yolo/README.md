@@ -3,6 +3,10 @@
 Utilities for assembling, validating, training and exporting shared-backbone YOLO
 models with detection, pose and segmentation heads.
 
+The examples below exercise the generic model tools. They do not reproduce the
+current robot detector: its two named object-detection outputs are not supported
+by this generic exporter. See [deployment requirements](REPRODUCE.md).
+
 ## Setup and command help
 
 Use Python 3.13 and `uv`. Run from `tools/machine-learning/multi-task-yolo`:
@@ -180,4 +184,4 @@ See `tools/machine-learning/multi-task-yolo/REPRODUCE.md` for the checkpoint and
 configuration workflow and `tools/tensorrt-compile/README.md` for compilation.
 The detector loads the filename selected by `detection.model_name`, not a hardcoded
 `hydra-nv12.onnx`. Its current base configuration selects
-`yolo26m-seg=f11+yolo26m~cheek+yolo26m-pose~badge.onnx` in `etc/neural_networks`.
+`yolo26m~hslvision=f17+yolo26m~hslvision+yolo26m~hslvision~jail.onnx` in `etc/neural_networks`.

@@ -11,11 +11,11 @@ On the robot, `image_receiver` obtains X5 camera data and publishes
 also support visual odometry.
 
 The `detection` node in `crates/nodes/detection/src/lib.rs` subscribes to `inputs/left_image`.
-It reads the image capture timestamp from the header and announces pending results on `detected_objects` and `detected_poses` before inference.
+It reads the image capture timestamp from the header and announces pending results on `detected_objects` before inference.
 This allows downstream fusion nodes to track results that are still being computed.
 
 The node runs a neural network through ONNX Runtime with TensorRT/CUDA execution providers, post-processes the outputs, and applies non-maximum suppression.
-It then publishes timestamped object detections and human poses using the announced publications.
+It then publishes timestamped object detections using the announced publication.
 Model selection and detection thresholds are configured through the node's parameters.
 
 ### Input and Model Contract
@@ -26,10 +26,12 @@ The image bytes are passed to the model's `raw_bytes_input` tensor with shape
 `[height / 2, width / 2, 6]`; a model that expects preprocessed RGB input is not a
 drop-in replacement.
 
-The model must provide both `object_output` and `pose_output`. Each has a batch
-dimension of one and 300 candidates, with the respective per-candidate layout
-defined by `NUMBER_OF_VALUES_PER_OBJECT` and `NUMBER_OF_VALUES_PER_POSE` in
-`crates/types`. Detection checks the output shapes before extracting candidates.
+The model must provide both `hslvision_output` and `nao_output`, each with shape
+`[1, 300, 6]`. These are the tensor names required by the current detector.
+Each candidate contains bounding-box coordinates, confidence, and a class index,
+as defined by `NUMBER_OF_VALUES_PER_OBJECT` in `crates/types/src/object_detection.rs`.
+Detection checks both output shapes before extracting and combining candidates.
+It does not publish a pose-detection topic.
 
 `neural_networks_folder` and `model_name` select the model when the ONNX session
 is built at node startup. Changing them requires restarting detection to load
@@ -46,7 +48,7 @@ to supply visual localization observations. Stereo visual odometry, IMU, and
 kinematics feed 3D localization; a 2D adapter publishes the `ground_to_field`
 transform used by behavior. See [Localization and coordinate frames](localization.md)
 for this pipeline and its inspection topics.
-Obstacle filtering consumes both object detections and human poses.
+Obstacle filtering consumes object detections and teammate state.
 The source of images and the processing rate depend on the hardware and node configuration.
 
 Use [Twix](../../tooling/twix.md) to inspect images, detection overlays, and filtered estimates.

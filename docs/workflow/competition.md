@@ -43,13 +43,13 @@ Is responsible for observing the game and noting down important events and thing
 
 ### Head-of-Robots (HoR)
 
-Is responsible for the robots and the hardware, as well as interactions with the relevant hardware supplier. For legacy NAOs, this includes [URG](https://unitedrobotics.group/).
+Is responsible for the robots and the hardware, as well as interactions with the relevant hardware supplier.
 Keeps the [Roboboboard](https://github.com/orgs/HULKs/projects/3) up to date and selects the robots for the game, as well as their number.
 
 !!! tip "Important"
 
     This role is extremely important, as the hardware status (especially in the later games) is crucial for the performance.
-    Also, having a good relationship with URG can be beneficial for the team.
+    Also, having a good relationship with the hardware supplier can be beneficial for the team.
 
 ## Game Schedule
 
@@ -65,9 +65,9 @@ For games, a strict schedule is created, which looks like this:
 
 ## Game Rules
 
-Every team member should be familiar with the [SPL rules](https://spl.robocup.org/wp-content/uploads/SPL-Rules-master.pdf).
-
-Generally speaking, one goal of the SPL is to stay as close to the official soccer rules as possible, however, there are some key differences.
+Before each competition, obtain the applicable league rules and event-specific
+updates from the organizers. Review the rules for the platform and format in use,
+including game procedures, penalties, substitutions, and permitted robot handling.
 
 !!! note
 

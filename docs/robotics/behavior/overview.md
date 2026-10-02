@@ -5,7 +5,7 @@ game, robot, localization, ball, obstacle, and team state, ticks the behavior
 tree every 20 ms, and publishes the resulting motion command and network
 messages.
 
-The behavior tree chooses *what* the robot should do. On main `0711900e0`,
+The behavior tree chooses *what* the robot should do. The
 `booster_sdk_interface` consumes `behavior/motion_command` and issues SDK
 mode, movement, kick, and get-up requests. A separate head-motion node publishes
 head targets for that interface as
@@ -53,9 +53,8 @@ branches first check the robot's `PrimaryState`:
 If no branch succeeds, behavior falls back to standing with a centered head.
 Injected commands are returned directly by the motion assembler. Their branch
 precedes the normal stand-up branch, while remote control handles recovery in
-its own subtree. Main has no shared fall-status/Motion-execution safety branch
-or the independent execution gates described in the
-[simulator development safety handover](../motion-safety.md).
+its own subtree. Recovery decisions use the SDK fall-state input; see the
+[motion interface](../motion/overview.md#mode-requests-and-recovery) for how requests are sent.
 
 ## Playing
 

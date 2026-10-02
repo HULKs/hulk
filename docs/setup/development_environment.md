@@ -6,7 +6,8 @@ This page covers development for Booster K1 and the current ROS-Z stack.
 
 Linux is the primary development environment. Install Rust through
 [rustup](https://rustup.rs/). Use the workspace's required Rust version, currently
-`1.98.0` in `Cargo.toml`; the SDK and CI images use that version too.
+`1.98.0` in `Cargo.toml`. The SDK uses 1.98.0; pull-request CI uses 1.98.1.
+The documentation workflow still uses the 1.98.0 CI image.
 Install the `clippy` and `rustfmt` components for local checks.
 
 For native builds and deployment, install Git, Git LFS, a C/C++ toolchain,
@@ -62,8 +63,7 @@ The launcher builds **Pepsi and its dependencies**, then executes it. Other
 workspace tools and the robotics executable are built when requested.
 
 `sdk install` explicitly pulls `ghcr.io/hulks/k1sdk:<sdk_version>` using Podman.
-The version comes from root `hulk.toml` (currently `1.3.0`). It is not a local
-Yocto SDK directory to source into your shell.
+The version comes from root `hulk.toml` (currently `1.4.0`).
 
 When a Podman cross-build finds no locally tagged SDK image, Pepsi instead
 **builds** one from `tools/sdk_container/`. Remote Podman builds similarly run
@@ -101,16 +101,14 @@ and run the version in the checkout.
 
 ## Local Simulator and Debugging
 
-The experimental simulator uses MuJoCo, Bevy, and a ROS-Z robotics stack.
-It is not included in main: first check out [Alex's simulator branch](../tooling/behavior_simulator.md) in a separate clone or worktree, then run:
+The workspace includes the [behavior tree simulator](../tooling/behavior_tree_simulator_design.md):
 
 ```sh
-./simulator
+cargo run -p bevyhavior_simulator --bin behavior_tree_smoke
 ```
 
-The launcher configures MuJoCo 3.9.0. Motion inference needs a compatible ONNX Runtime shared library through `ORT_DYLIB_PATH` and model files downloaded with Git LFS.
-Automatic runtime downloading and perception/tuning modes belong to additional experimental worktree changes, rather than the tracked remote branch.
-See the [simulator guide](../tooling/behavior_simulator.md) and `tools/simulate/README.md` for controls and source availability.
+For the separate experimental MuJoCo simulator, use the development checkout
+linked in the [simulator guide](../tooling/behavior_simulator.md).
 
 [Twix](../tooling/twix.md) uses ROS-Z namespaces and an optional router endpoint,
 for example:

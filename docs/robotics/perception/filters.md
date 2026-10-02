@@ -3,10 +3,6 @@
 Perception produces measurements from individual sensor samples. A filter combines those measurements over time to maintain a useful estimate even when observations are noisy or temporarily missing.
 See the [robotics overview](../overview.md) for the ROS-Z node and topic model.
 
-The main implementation described here is revision `0711900e0`. The final
-section separately scopes replay tooling from Alex's simulator development
-checkout, whose application changes are not part of this docs-only branch.
-
 ## Ball Filter: General Idea
 
 The ball filter estimates the ball's position and velocity from camera detections and robot odometry.
@@ -55,12 +51,11 @@ geometry prevents a detection update, while available odometry can still drive
 prediction. The nearest camera matrix may precede or follow the detection.
 Main has no maximum camera-time-difference gate: an available nearest matrix
 is used regardless of its age, both for detection projection and image overlays.
-The 20 ms tolerance described in the simulator development docs is absent here.
 
 ## The Processing Loop
 
 The entry point and processing helpers are in
-`crates/nodes/ball_filter/src/lib.rs`; main has no `tracker.rs` shared replay path.
+`crates/nodes/ball_filter/src/lib.rs`.
 After setting up parameters, subscriptions, and publishers, it repeats:
 
 1. Take a parameter snapshot and await `future_map.recv()`.
@@ -82,7 +77,7 @@ to stamp the published ball position: all six outputs use ordinary `publish`.
 For example, if a batch describes inputs through time `10.000 s` and publication
 happens at `10.040 s`, main stamps the publication with the node clock at
 publication, not `10.000 s`. Consumers aligning sensor truth must account for
-this difference; source-time-preserving publication is a development-branch change.
+this difference.
 The ball's `last_seen` is a separate timestamp: the filter can predict a track forward without seeing it again.
 
 When there are no persistent events, there is no `output_time`, so cleanup is
@@ -117,62 +112,3 @@ Use [Twix](../../tooling/twix.md) to inspect the state and image/map overlays.
 To understand the algorithm, start with `lib.rs`, then `filter.rs` and
 `hypothesis.rs` in `crates/nodes/ball_filter/src/`; the moving and resting
 submodules implement the model-specific prediction and update steps.
-For the simulator development checkout's reproducible recordings and parameter
-search, see [Replay and tuning](#replay-and-tuning).
-
-## Replay and Tuning
-
-**Simulator development checkout only:** the remainder of this section records
-the replay contract from Alex's detached simulator checkout and its local
-application changes. Main `0711900e0` has no `Tracker`, `update_schedule`
-publisher, camera-age tolerance, or source-time-preserving ball publication.
-Copied tool files alone do not provide those missing application changes; the
-commands below require that development source and are not main instructions.
-
-In that checkout, the `ball-filter-tuner` tool replays the shared `Tracker` using ROS-Z
-messages decoded from MCAP. Its full input contract is documented in
-`tools/ball-filter-tuner/README.md`. A recording for exact replay needs:
-
-```text
-field_dimensions
-inputs/odometry
-inputs/odometry/announce
-camera_matrix
-detected_objects
-detected_objects/announce
-ball_filter/update_schedule
-ball_filter/ball_position
-<independent reference topic>
-```
-
-Add these to the recorder's `topics` parameter; the base recorder list does not
-include all of them. Start recording before advancing a fresh filter, keep
-parameters/field dimensions fixed per episode, and use separate complete
-episodes for training and validation. The schedule preserves live batching and
-camera selection; old recordings without it are not supported by this exact replay path.
-
-An independent reference must supply `TimeWrapper<Vec<Point3<Ground>>>` at
-filter output times: one ball means present, an empty vector means explicitly
-absent, and no message means unlabelled. Filter outputs, estimated camera
-geometry, and localization are not independent truth. Robot recordings require
-independently measured and aligned reference data.
-Select its topic with `--reference-topic <topic>`; the default is
-`simulation/ball_ground_truth`. For MCAP files using fully qualified topic names,
-supply `--namespace /robot/name`. The wire encoding must be `ros-z-cdr` with the
-current message schemas.
-
-To repeat a search on prepared recordings from the repository root:
-
-```sh
-cargo run -p ball-filter-tuner -- \
-  --train logs/ball-tuning/train.mcap \
-  --validation logs/ball-tuning/validation.mcap \
-  --parameters logs/ball-tuning/baseline.json5 \
-  --output logs/ball-tuning/another-search \
-  --trials 512 --seed 7
-```
-
-The output files must not already exist. The simulator can generate recordings
-and optimize automatically with `./simulator --tune-ball-filter logs/ball-tuning`.
-The report includes position error, misses, false tracks, and unlabelled time;
-a lower position RMSE alone is not sufficient evidence of an improvement.

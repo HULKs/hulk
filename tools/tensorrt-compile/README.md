@@ -15,13 +15,13 @@ The detector loads `detection.neural_networks_folder` joined with
 `detection.model_name`. The current base model is:
 
 ```text
-yolo26m-seg=f11+yolo26m~cheek+yolo26m-pose~badge.onnx
+yolo26m~hslvision=f17+yolo26m~hslvision+yolo26m~hslvision~jail.onnx
 ```
 
 `hydra-nv12.onnx` is not required by the runtime. For a new export, select its
 actual filename in the intended detection parameter layer.
 See `tools/machine-learning/multi-task-yolo/REPRODUCE.md` for checkpoint and export
-setup, including the distinction between the historical recipe and current model.
+requirements and the current exporter limitations.
 
 Dynamic input dimensions require an explicit shape for **every dynamic input**.
 Append `--<input-name> dim1,dim2,...` after the model argument when invoking the
@@ -39,7 +39,7 @@ XFeat/LighterGlue export, resolve shapes from metadata and need no overrides.
 For the current configured model and robot 42:
 
 ```bash
-MODEL='yolo26m-seg=f11+yolo26m~cheek+yolo26m-pose~badge.onnx'
+MODEL='yolo26m~hslvision=f17+yolo26m~hslvision+yolo26m~hslvision~jail.onnx'
 ./pepsi hulk stop 42
 ./pepsi tensor-rt-compile "etc/neural_networks/$MODEL" 42 -- --raw_bytes_input 272,320,6
 ```
@@ -86,14 +86,13 @@ On the robot, run in the provisioned runtime container:
 ```bash
 sudo podman exec --user "$(id -u booster)" hulk ./bin/tensorrt-compile \
   --cache-path /home/booster/hulk/etc/neural_networks \
-  /home/booster/hulk/etc/neural_networks/yolo26m-seg=f11+yolo26m~cheek+yolo26m-pose~badge.onnx \
+  /home/booster/hulk/etc/neural_networks/yolo26m~hslvision=f17+yolo26m~hslvision+yolo26m~hslvision~jail.onnx \
   --raw_bytes_input 272,320,6
 ```
 
 The provisioned container has working directory `/home/booster/hulk` and mounts
 the host home directory. Inspect `tools/k1-setup/hulk-runtime.container` if your
-installation differs. `launchHULK --executable ...` is not the current repository
-launcher interface.
+installation differs.
 
 Back on the host, retrieve generated cache files and deploy:
 

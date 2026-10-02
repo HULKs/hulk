@@ -32,15 +32,12 @@ nav:
       - Upload HULK: setup/upload.md
   - Tooling:
       - Overview: tooling/overview.md
-      - Charging box:
-          - Overview: tooling/charging_box/overview.md
-          - Building your own: tooling/charging_box/building_your_own.md
       - Pepsi: tooling/pepsi.md
       - Twix: tooling/twix.md
       - Remote Control: tooling/remote_control.md
       - Machine Learning: tooling/machine-learning.md
       - Simulator: tooling/behavior_simulator.md
-      - Behavior Tree Simulator Design: tooling/behavior_tree_simulator_design.md
+      - Behavior Tree Simulator: tooling/behavior_tree_simulator_design.md
       - Debugging with GDB/LLDB: tooling/debugging.md
       - Profiling with perf: tooling/profiling.md
   - Operating System:
@@ -61,12 +58,9 @@ nav:
       - Behavior: robotics/behavior/overview.md
       - Motion:
           - Overview: robotics/motion/overview.md
-          - Development Safety and Recovery: robotics/motion-safety.md
           - Step planning: robotics/motion/step_planning.md
           - Walking: robotics/motion/walking.md
           - Kicking: robotics/motion/kicking.md
-      - Miscellaneous:
-          - Create URDF and PROTO for NAOv6: robotics/miscellaneous/create_urdf.md
   - Workflow:
       - Overview: workflow/overview.md
       - Getting Started: workflow/getting_started.md

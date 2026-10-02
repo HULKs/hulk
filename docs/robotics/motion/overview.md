@@ -1,10 +1,8 @@
 # Motion
 
-On main `0711900e0`, `booster_sdk_interface` executes the `MotionCommand`
+`booster_sdk_interface` executes the `MotionCommand`
 published by [behavior](../behavior/overview.md) on `behavior/motion_command`.
 The launcher starts that interface and a separate `head_motion` node.
-The learned-policy Motion/Inference/HardwareInterface stack described in the
-[simulator development safety handover](../motion-safety.md) is absent from main.
 
 ## ROS-Z Booster Path
 
@@ -35,10 +33,9 @@ Mode, visual-kick, get-up, and LED requests use retry workers. Movement and head
 RPCs are interval-limited. Entering StandUp starts one get-up request; a continuing
 StandUp does not start a new request each tick. Leaving StandUp clears that request.
 
-Main uses SDK fall state for behavior recovery decisions. The input leases,
-physical-posture gates, policy progress, settling, latched faults, and actuator
-watchdog in the [development handover](../motion-safety.md) belong to Alex's
-simulator development source, not this SDK path.
+Behavior uses SDK fall state for recovery decisions. The interface sends requests
+to the SDK; a locally queued or assumed mode is not proof of completed physical
+recovery. Verify the actual robot state before resuming operation.
 
 ## Configuration and Inspection
 
@@ -51,11 +48,7 @@ Base parameters live in:
 The base movement, kick, and head intervals are 20 ms; the SDK request timeout is
 100 ms. Inspect `behavior/motion_command`, `head_joints_command`, and SDK fall
 reports, together with `booster_interface::input` and `booster_interface::rpc`
-logs. The development stack's execution, inference-timing, hardware-status, and
-joint-command diagnostics are not published by this main path.
-
-The [development safety handover](../motion-safety.md) preserves its original
-validation report with explicit source scope; those checks do not validate main.
+logs.
 
 ## Implementation
 

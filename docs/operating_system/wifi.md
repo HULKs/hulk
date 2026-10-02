@@ -1,7 +1,6 @@
 # WiFi and Network Addresses
 
-Current Booster provisioning uses **NetworkManager** and `nmcli`, not NAO's iwd
-configuration. Gammaray writes profiles under
+Current Booster provisioning uses **NetworkManager** and `nmcli`. Gammaray writes profiles under
 `/etc/NetworkManager/system-connections/` for `HSL_A`–`HSL_J` and `HSL_HULKs`.
 Profiles use interface `wlP1p1s0`, manual IPv4 addresses, disabled IPv6,
 passphrase `HSL?!HSL?!`, and initially disabled autoconnect.

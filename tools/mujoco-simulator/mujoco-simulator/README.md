@@ -5,8 +5,6 @@ An experimental in-process ROS-Z behavior/motion simulator lives on
 [Alex's `motion-inference-simulator` branch](https://github.com/alexschmander/hulk/tree/motion-inference-simulator).
 That alternative requires a development-branch checkout with its `simulator`
 launcher and `tools/simulate` implementation; neither is available on main.
-Perception/tuning workflows in `tools/simulate/README.md` additionally describe
-experimental worktree additions absent from the currently tracked remote branch.
 
 ## Start the Python server
 

@@ -1,6 +1,6 @@
 # Walking
 
-On main `0711900e0`, the walking path converts behavior's motion requests into
+The walking path converts behavior's motion requests into
 velocity commands for the Booster SDK `move_robot` RPC in Soccer mode.
 
 ## From Motion Command to Velocity
@@ -25,9 +25,8 @@ Linear velocity is in m/s and angular velocity in rad/s.
 4. A blend from walking orientation to target orientation near the destination. Alignment importance is one inside `distance_to_be_aligned`, zero beyond that distance plus `hybrid_align_distance`, and cosine-interpolated between them.
 5. Angular velocity from the blended orientation's sine multiplied by `max_alignment_rate`.
 
-This main conversion has no explicit empty-path, nonfinite-geometry, or
-coefficient-validation gate. The additional validation documented for the
-simulator development Motion implementation is not present here.
+This conversion has no explicit empty-path, nonfinite-geometry, or
+coefficient-validation gate; supply valid paths and parameters.
 
 ## SDK Execution
 
@@ -35,10 +34,6 @@ The SDK interface sends `move_robot` requests when its locally assumed mode is
 Soccer and the movement interval has elapsed. Head targets arrive independently
 on `head_joints_command` and are sent via `rotate_head`. Main does not execute
 a repository-owned walking inference service or publish Custom joint commands.
-
-The freshness, Upright-posture, readiness, and recovery-settling gates in
-[Motion safety](../motion-safety.md) are scoped to Alex's simulator development
-source. They are not main SDK-interface guarantees.
 
 Path-following parameters are under `booster_interface.walking` in
 `etc/parameters/base/booster_interface.json5`; the same file configures the

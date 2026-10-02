@@ -5,7 +5,7 @@ and an already installed Booster OS. The expected vendor OS version is
 `os_version` in root `hulk.toml`; `upload` compares it with the last `Version:`
 entry in `/opt/booster/version.txt`. Obtain vendor OS installation/update
 instructions and runtime-image artifacts from the team or vendor for the
-specific robot. `gammaray` does not install that OS or flash a NAO image.
+specific robot. `gammaray` provisions an existing OS installation.
 
 ## Initial Access and Identity
 

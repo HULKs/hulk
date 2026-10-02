@@ -103,25 +103,9 @@ Structural validation precedes panel construction. An unknown/unrestorable pane 
 
 ROS-Z Twix on main contains Text, Image, Map, and Parameter panels. The Text panel observes one ROS-Z topic through `ros-z-debug` and renders the latest dynamic payload as JSON. The Image panel observes `TimeWrapper<ros2::sensor_msgs::image::Image>` topics, defaults to `inputs/left_image`, and renders the latest raw camera frame. The Parameter panel discovers ROS-Z nodes with remote parameter services, shows full snapshots or selected paths as JSON, and writes selected paths to active layers with revision checks.
 
-### Experimental optimization monitor (matching worktree required)
-
-The **Ball-filter optimization** panel is not available on main or the currently tracked [Alex simulator branch](https://github.com/alexschmander/hulk/tree/motion-inference-simulator). The following workflow documents experimental worktree additions and requires matching simulator, tuner, and Twix source; a remote branch checkout alone does not provide them. See [Simulator](behavior_simulator.md) for the checkout scope.
-
-To monitor automatic simulator filter tuning, start a run with
-`./simulator --tune-ball-filter logs/my-ball-run --keep-tuning-open`, then add
-**Ball-filter optimization** with the **+** picker and click **Connect to simulator / optimizer**.
-This read-only panel connects independently of the main namespace/router to
-`tcp/127.0.0.1:7448`, namespace `/ball_tuning`, and observes `tuning/progress` plus
-capture truth/estimates. It shows capture phases, training loss, best parameters
-and holdout results; it does not launch the optimizer or apply parameters.
-Only one local tuning run can own that endpoint at a time. `--keep-tuning-open`
-retains final progress until Ctrl-C; reconnect after restoring a saved panel.
-
-In that experimental worktree only, the preset kind is `ball_filter_optimization`, with an empty saved state object. Its connection, live samples and progress history are not restored; it uses its own fixed local connection independently of global panel settings.
-
 ### Keybindings
 
-ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`. Legacy Twix keeps using `hulks/twix.toml`, so the two tools do not share incompatible keybinding schemas. The default ROS-Z keybindings are:
+Twix reads keybindings from `hulks/twix-ros-z.toml`. The default keybindings are:
 
 | Key | Action |
 | --- | --- |

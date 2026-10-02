@@ -34,8 +34,7 @@ hostname = "Ernst-Guenther"
 id = "1421625075354"
 ```
 
-Use the actual serial number for your robot. These are Jetson IDs, not NAO head
-and body IDs. Provisioning and runtime startup both fail if the ID is absent
+Use the actual serial number for your robot. Provisioning and runtime startup both fail if the ID is absent
 from this configuration. See [Booster setup](booster_setup.md) for initial access.
 
 ## Network Addresses

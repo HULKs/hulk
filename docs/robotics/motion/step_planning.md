@@ -1,6 +1,6 @@
 # Step Planning and Path Following
 
-On main `0711900e0`, the SDK interface follows the path supplied in
+The SDK interface follows the path supplied in
 `MotionCommand::Walk`; it does not plan a sequence of individual footsteps.
 Behavior chooses destinations and builds walking paths, while
 `booster::walking::step_from_motion_command` converts a path into linear and
