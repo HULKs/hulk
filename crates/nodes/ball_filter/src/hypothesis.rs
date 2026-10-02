@@ -83,7 +83,7 @@ impl BallHypothesis {
                     moving_process_noise,
                 );
 
-                let velocity_covariance = moving.covariance.fixed_view::<2, 2>(0, 0);
+                let velocity_covariance = moving.covariance.fixed_view::<2, 2>(2, 2);
                 let velocity = nalgebra::vector![moving.mean.z, moving.mean.w];
 
                 let exponent = -velocity.dot(
@@ -144,5 +144,39 @@ impl BallHypothesis {
             }
             _ => (), // deny merge
         };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resting_decision_uses_velocity_uncertainty_not_position_uncertainty() {
+        for (position_variance, velocity_variance, should_rest) in
+            [(100.0, 0.01, true), (0.01, 100.0, false)]
+        {
+            let mut hypothesis = BallHypothesis::new(
+                MultivariateNormalDistribution {
+                    mean: nalgebra::Vector4::zeros(),
+                    covariance: Matrix4::from_diagonal(&nalgebra::vector![
+                        position_variance,
+                        position_variance,
+                        velocity_variance,
+                        velocity_variance,
+                    ]),
+                },
+                Time::zero(),
+            );
+            hypothesis.predict(
+                Duration::ZERO,
+                Isometry2::identity(),
+                1.0,
+                Matrix4::zeros(),
+                Matrix2::zeros(),
+                0.5,
+            );
+            assert_eq!(matches!(hypothesis.mode, BallMode::Resting(_)), should_rest);
+        }
     }
 }

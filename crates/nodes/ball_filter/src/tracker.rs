@@ -132,6 +132,92 @@ mod tests {
     }
 
     #[test]
+    fn moving_ball_predicts_to_odometry_time_between_camera_frames() {
+        use geometry::rectangle::Rectangle;
+        use linear_algebra::{Isometry3, point, vector};
+        use types::bounding_box::BoundingBox;
+
+        let camera = CameraMatrix::from_normalized_focal_and_center(
+            nalgebra::vector![0.5, 0.5],
+            nalgebra::point![0.5, 0.5],
+            vector![640.0, 544.0],
+            Isometry3::identity(),
+            Isometry3::identity(),
+            Isometry3::from_translation(0.0, 0.0, 1.0),
+        );
+        let dimensions = FieldDimensions::SPL_2025;
+        let mut parameters = BallFilterParameters::default();
+        parameters.maximum_camera_matrix_time_difference = Duration::from_millis(20);
+        parameters.hidden_validity_exponential_decay_factor = 1.0;
+        parameters.visible_validity_exponential_decay_factor = 1.0;
+        parameters.velocity_decay_factor = 1.0; // Constant-speed reference, without friction.
+        parameters.log_likelihood_of_zero_velocity_threshold = 0.5;
+        parameters.maximum_matching_cost = 10.0;
+        parameters.validity_output_threshold = 0.5;
+        parameters.maximum_number_of_hypotheses = 15;
+        parameters.hypothesis_timeout = Duration::from_secs(20);
+        parameters.noise.initial_covariance = nalgebra::vector![0.01, 0.01, 1.0, 1.0];
+        parameters.noise.process_noise_moving = nalgebra::vector![1e-6, 1e-6, 1e-4, 1e-4];
+        parameters.noise.process_noise_resting.fill(1e-6);
+        parameters.noise.detection_noise.inner.fill(0.02);
+        let mut tracker = Tracker::default();
+
+        // Real simulator cadence: 500 Hz odometry, 25 Hz images. Finish with
+        // 40 ms without a new image, so returning the last measurement fails.
+        for tick in 0..=520 {
+            let time = Time::from_nanos(tick * 2_000_000);
+            let detections = if tick <= 500 && tick % 20 == 0 {
+                let ground_position = point![0.2 + 1.5 * tick as f32 * 0.002, 0.0];
+                let pixel = camera
+                    .ground_with_z_to_pixel(ground_position, dimensions.ball_radius)
+                    .unwrap();
+                let radius = camera
+                    .get_pixel_radius(dimensions.ball_radius, pixel)
+                    .unwrap();
+                Some(vec![Object {
+                    label: RobocupObjectLabel::Ball,
+                    bounding_box: BoundingBox {
+                        area: Rectangle {
+                            min: pixel - vector![radius, radius],
+                            max: pixel + vector![radius, radius],
+                        },
+                        confidence: 1.0,
+                    },
+                }])
+            } else {
+                None
+            };
+            tracker
+                .advance(
+                    time,
+                    Some(Pose2::new(point![0.0, 0.0], 0.0)),
+                    detections.as_deref(),
+                    Some(&TimeWrapper {
+                        time,
+                        inner: camera.clone(),
+                    }),
+                    &parameters,
+                    &dimensions,
+                )
+                .unwrap();
+        }
+        let ball = tracker
+            .finish(Time::from_nanos(1_040_000_000), &parameters, &dimensions)
+            .unwrap();
+        assert!(
+            (ball.position.x() - 1.76).abs() < 0.01,
+            "position: {:?}",
+            ball.position
+        );
+        assert!(
+            (ball.velocity.x() - 1.5).abs() < 0.05,
+            "velocity: {:?}",
+            ball.velocity
+        );
+        assert_eq!(ball.last_seen, Time::from_nanos(1_000_000_000));
+    }
+
+    #[test]
     fn stale_geometry_skips_measurements_but_keeps_odometry() {
         use geometry::rectangle::Rectangle;
         use linear_algebra::{Isometry3, point, vector};
@@ -161,6 +247,7 @@ mod tests {
         let mut parameters = BallFilterParameters::default();
         parameters.maximum_camera_matrix_time_difference = Duration::from_millis(20);
         parameters.noise.initial_covariance.fill(1.0);
+        parameters.velocity_decay_factor = 1.0;
         parameters.noise.detection_noise.inner.fill(1.0);
         let mut tracker = Tracker::default();
         let dimensions = FieldDimensions::SPL_2025;

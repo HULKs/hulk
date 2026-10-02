@@ -1,10 +1,8 @@
 use std::time::Duration;
 
 use coordinate_systems::Ground;
-use filtering::kalman_filter::KalmanFilter;
-use linear_algebra::{IntoFramed, Isometry2, distance};
-use nalgebra::{Matrix2, Matrix2x4, Matrix4};
-use ordered_float::NotNan;
+use linear_algebra::Isometry2;
+use nalgebra::{Matrix2, Matrix4};
 use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
 use types::multivariate_normal_distribution::MultivariateNormalDistribution;
@@ -88,33 +86,13 @@ impl BallFilter {
         measurement: MultivariateNormalDistribution<2>,
         initial_moving_covariance: Matrix4<f32>,
     ) {
-        let closest_hypothesis = self.hypotheses.iter().min_by_key(|hypothesis| {
-            NotNan::new(distance(
-                measurement.mean.framed().as_point(),
-                hypothesis.position().position,
-            ))
-            .expect("distance is nan")
-        });
-
-        let mut new_hypothesis = MultivariateNormalDistribution {
-            mean: closest_hypothesis.map_or(
-                nalgebra::vector![measurement.mean.x, measurement.mean.y, 0.0, 0.0],
-                |hypothesis| {
-                    let old_position = hypothesis.position().position.inner.coords;
-                    nalgebra::vector![old_position.x, old_position.y, 0.0, 0.0]
-                },
-            ),
+        // An unmatched percept represents a new ball or an abrupt motion change.
+        // Starting at the nearest old track biases the new position toward an
+        // unrelated ball and cannot infer velocity without a temporal match.
+        let new_hypothesis = MultivariateNormalDistribution {
+            mean: nalgebra::vector![measurement.mean.x, measurement.mean.y, 0.0, 0.0],
             covariance: initial_moving_covariance,
         };
-
-        if closest_hypothesis.is_some() {
-            KalmanFilter::update(
-                &mut new_hypothesis,
-                Matrix2x4::identity(),
-                measurement.mean,
-                measurement.covariance,
-            )
-        }
 
         let new_hypothesis = BallHypothesis {
             mode: BallMode::Moving(new_hypothesis),

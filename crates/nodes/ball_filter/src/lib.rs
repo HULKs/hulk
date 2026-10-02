@@ -291,8 +291,10 @@ fn advance_all_hypotheses(
         let match_matrix =
             mahalanobis_matrix_of_hypotheses_and_percepts(&ball_filter.hypotheses, ball_percepts);
 
+        let assignment_scores =
+            gated_assignment_scores(&match_matrix, filter_parameters.maximum_matching_cost);
         let assignment = assignment_solver
-            .solve(match_matrix.view(), Objective::Maximize)
+            .solve(assignment_scores.view(), Objective::Maximize)
             .wrap_err("failed to solve ball assignment")?;
 
         let mut used_percepts = vec![];
@@ -303,14 +305,10 @@ fn advance_all_hypotheses(
             .zip(assignment.iter())
             .enumerate()
         {
-            if let Some(percept_index) = assigned_percept {
+            if let Some(percept_index) =
+                assigned_percept.filter(|&index| index < ball_percepts.len())
+            {
                 let score = match_matrix[(hypothesis_index, percept_index)];
-                let mahalanobis_distance = -score;
-                if mahalanobis_distance > filter_parameters.maximum_matching_cost {
-                    hypothesis.validity *=
-                        filter_parameters.maximum_matching_cost_validity_penalty_factor;
-                    continue;
-                }
                 let validity_increase = score.exp();
                 let percept = ball_percepts[percept_index];
                 used_percepts.push(percept_index);
@@ -395,6 +393,25 @@ fn hypothetical_ball_positions(
             }
         })
         .collect()
+}
+
+/// Gate before assignment: an impossible pair must not consume a percept that
+/// another hypothesis could use. Each row can instead select an unmatched column.
+/// Unmatched tracks already receive visibility decay; an unrelated detection is
+/// not additional evidence against a track hidden behind another robot.
+fn gated_assignment_scores(scores: &Array2<f32>, maximum_cost: f32) -> Array2<f32> {
+    Array2::from_shape_fn(
+        (scores.nrows(), scores.ncols() + scores.nrows()),
+        |(row, column)| {
+            if column >= scores.ncols() {
+                -(maximum_cost + 1.0)
+            } else if -scores[(row, column)] > maximum_cost {
+                f32::NEG_INFINITY
+            } else {
+                scores[(row, column)]
+            }
+        },
+    )
 }
 
 fn mahalanobis_matrix_of_hypotheses_and_percepts(
@@ -574,6 +591,96 @@ mod tests {
             ..camera
         };
         assert!(!is_visible_to_camera(&ball, &shorter_camera, 0.105));
+    }
+
+    #[test]
+    fn rejected_pairs_cannot_steal_a_valid_assignment() {
+        // A full assignment would prefer the two 0.2-cost pairs, then reject
+        // both. The only feasible observation belongs to the first track.
+        let scores = ndarray::array![[-0.1, -0.2], [-0.2, -100.0]];
+        let scores = gated_assignment_scores(&scores, 0.15);
+        let mut solver = AssignmentSolver::default();
+        let assignment = solver.solve(scores.view(), Objective::Maximize).unwrap();
+        assert_eq!(assignment[0], Some(0));
+        assert!(assignment[1].unwrap() >= 2);
+    }
+
+    #[test]
+    fn unseen_kick_spawns_at_detection_without_destroying_the_old_track() {
+        let dimensions = FieldDimensions::SPL_2025;
+        let mut parameters = BallFilterParameters::default();
+        parameters.hidden_validity_exponential_decay_factor = 1.0;
+        parameters.maximum_matching_cost = 0.25;
+        parameters.maximum_matching_cost_validity_penalty_factor = 0.14;
+        parameters.validity_discard_threshold = 0.2;
+        parameters.validity_output_threshold = 0.5;
+        parameters.maximum_number_of_hypotheses = 15;
+        parameters.hypothesis_timeout = Duration::from_secs(20);
+        parameters.noise.initial_covariance.fill(0.1);
+        let old_track = BallHypothesis {
+            mode: BallMode::Moving(MultivariateNormalDistribution {
+                mean: nalgebra::Vector4::zeros(),
+                covariance: Matrix4::identity() * 0.01,
+            }),
+            last_seen: Time::zero(),
+            validity: 2.0,
+        };
+        let mut filter = BallFilter {
+            hypotheses: vec![old_track],
+        };
+        let mut solver = AssignmentSolver::default();
+        let percept = BallPercept {
+            percept_in_ground: MultivariateNormalDistribution {
+                mean: vector![3.0, 0.0],
+                covariance: Matrix2::identity(),
+            },
+            image_location: Circle::new(point![0.0, 0.0], 1.0),
+        };
+        let time = Time::from_nanos(500_000_000);
+        advance_all_hypotheses(
+            &mut filter,
+            &mut solver,
+            time,
+            &[percept],
+            None,
+            &parameters,
+            &dimensions,
+        )
+        .unwrap();
+        remove_invalid_and_merge_hypotheses(&mut filter, time, &parameters, &dimensions);
+
+        assert_eq!(filter.hypotheses.len(), 2);
+        assert_eq!(filter.hypotheses[0].validity, 2.0);
+        assert_eq!(filter.hypotheses[0].last_seen, Time::zero());
+        assert_eq!(filter.hypotheses[1].position().position, point![3.0, 0.0]);
+        assert!(
+            filter
+                .best_hypothesis(parameters.validity_output_threshold)
+                .is_some()
+        );
+
+        // A second and third consistent observation promote the new location,
+        // while a single unrelated false percept cannot erase the old model.
+        for nanos in [540_000_000, 580_000_000] {
+            let time = Time::from_nanos(nanos);
+            advance_all_hypotheses(
+                &mut filter,
+                &mut solver,
+                time,
+                &[percept],
+                None,
+                &parameters,
+                &dimensions,
+            )
+            .unwrap();
+            remove_invalid_and_merge_hypotheses(&mut filter, time, &parameters, &dimensions);
+        }
+        let best = filter
+            .best_hypothesis(parameters.validity_output_threshold)
+            .unwrap();
+        assert_eq!(best.position().position, point![3.0, 0.0]);
+        assert_eq!(best.last_seen, Time::from_nanos(580_000_000));
+        assert_eq!(filter.hypotheses.len(), 2);
     }
 
     #[test]
