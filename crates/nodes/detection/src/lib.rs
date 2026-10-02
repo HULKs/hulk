@@ -281,7 +281,10 @@ fn extract_candidate_object_detections(
         .axis_iter(Axis(0))
         .filter_map(|row| {
             let label = RobocupObjectLabel::from_index(row[5] as usize);
-            if !matches!(label, RobocupObjectLabel::GoalPost) {
+            if !matches!(
+                label,
+                RobocupObjectLabel::GoalPost | RobocupObjectLabel::Ball
+            ) {
                 return None;
             }
 
