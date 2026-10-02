@@ -1,4 +1,21 @@
-# spl_network_messages
+# hsl_network_messages
+
+This crate defines GameController state/return messages and HULKs teammate messages for the HSL network stack.
+The handwritten modules convert the wire structures into Rust types; `src/lib.rs` exports these types and the `HULKS_TEAM_NUMBER` constant.
+
+## Generated Protocol Bindings
+
+`build.rs` uses bindgen to generate `bindings.rs` from `headers/RoboCupGameControlData.hpp` into Cargo's `OUT_DIR`.
+`src/bindings.rs` includes that generated file. Building requires the bindgen/libclang prerequisites used by the workspace.
+The checked-in GameController header currently specifies structure version 20.
+
+When updating the protocol, update the header from its upstream source, review the handwritten conversions and serialization, and run the crate's tests:
+
+```bash
+cargo test -p hsl_network_messages
+```
+
+See the [HSL networking guide](../../docs/robotics/perception/hsl_network.md) for runtime topics, UDP configuration, and implemented consumers.
 
 ## Licensing
 

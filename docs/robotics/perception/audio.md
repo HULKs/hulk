@@ -1,23 +1,29 @@
-The NAO has four microphones, which are located in the head.
-They support frequencies between 100 and 10,000 Hz.
+# Audio
 
-For more details, have a look at the [documentation](http://doc.aldebaran.com/2-8/family/nao_technical/microphone_naov6.html) by Aldebaran.
+The ROS-Z executable starts separate `microphone_recorder`, `whistle_detection`, and `whistle_filter` nodes.
+The microphone recorder reads the configured microphone device and publishes samples on `inputs/microphones_samples` when device initialization succeeds.
 
-The audio cycler contains only two nodes, the microphone recorder and the whistle detection.
+At main revision `0711900e0`, both whistle-processing nodes are implemented and wired:
 
-## Microphone Recorder
+1. `whistle_detection` consumes `Samples` from `inputs/microphones_samples`.
+   For each channel it applies a Hann window and FFT, then compares energy in
+   the configured detection band against thresholds derived from the spectrum's
+   mean and standard deviation. It publishes per-channel flags on
+   `detected_whistle`, plus `audio_spectrums` and `detection_infos` for inspection.
+2. `whistle_filter` consumes those flags, retains a bounded buffer, and publishes
+   `FilteredWhistle` on `filtered_whistle`. The base configuration requires six
+   positive flags in a buffer of twenty. These are channel flags, not necessarily
+   twenty audio frames. `last_detection` records local wall-clock time on the
+   filtered detection's rising edge.
+3. `game_controller_state_filter` consumes `filtered_whistle` for game-state
+   transitions.
 
-Reads the audio samples from the microphone interface and stores them for whistle detection.
+Parameters live in `etc/parameters/base/whistle_detection.json5` and
+`whistle_filter.json5`. The detector creates its FFT at startup; changing
+`number_audio_samples` requires a restart, otherwise mismatching buffers are
+ignored. Source entry points are under `crates/nodes/whistle_detection` and
+`crates/nodes/whistle_filter`. Implementation and wiring do not establish
+physical detection accuracy for a particular microphone or environment.
+See the [robotics overview](../overview.md) for the node and topic framework.
 
-## Whistle Detection
-
-Detects the whistle.
-Similar to regular soccer, the referee uses a whistle to signal the start and end of the game.
-More details on that can be found in the official [SPL rules](https://spl.robocup.org/wp-content/uploads/SPL-Rules-master.pdf)
-
-The whistle detection works (simplified) by comparing the average power of the audio samples withthin a certain frequency band by using the [FFT](https://en.wikipedia.org/wiki/Fast_Fourier_transform).
-This approach is not very advanced but works well in practice.
-
-!!! tip
-
-    The [Nao Devils](https://naodevils.de/) have put a lot of research into this topic and published datasets and [papers](https://naodevils.de/publications.html) regarding whistle detection and whistle localization.
+The older NAO hardware and whistle-detection documentation is preserved in [Historical: Audio](../../historical/audio.md).

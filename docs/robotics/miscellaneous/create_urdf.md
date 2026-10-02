@@ -1,8 +1,12 @@
 # Create URDF and PROTO for NAOv6
 
+!!! note "Archived NAO/Webots workflow"
+
+    These instructions describe the older NAOv6 Webots asset conversion, not the current Booster runtime. The conversion script below is pinned to repository commit `1aa2dc6c759aa7645d1639baf5a31517f0c7410d`, before the Webots assets were removed. Availability of the original vendor SDK downloads and behavior of newer converter versions must be checked separately when reproducing this workflow.
+
 For Webots we need a PROTO file which should contain 3D models and the scene graph of the NAOv6. The only source is a URDF from http://doc.aldebaran.com/2-8/family/nao_technical/kinematics_naov6.html#naov6-urdf-files. Meshes in OGRE mesh format can be found in e.g. the "C++ SDK" from https://developer.softbankrobotics.com/nao6/downloads/nao6-downloads-linux (in `share/alrobotmodel/meshes`). The URDF and meshes need to be converted to Webots PROTO.
 
-Download and build target `OgreXMLConverter` in https://github.com/OGRECave/ogre (e.g. `cmake --build build --target OgreXMLConverter`). `OgreXMLConverter` is able to convert OGRE mesh files into XML files containing the raw vertices and face vector indices. The resulting XML files can be converted into binary STL files with the script [`xml_to_stl.py`](https://github.com/HULKs/hulk/blob/main/webots/protos/meshes/xml_to_stl.py).
+Download and build target `OgreXMLConverter` in https://github.com/OGRECave/ogre (e.g. `cmake --build build --target OgreXMLConverter`). `OgreXMLConverter` is able to convert OGRE mesh files into XML files containing the raw vertices and face vector indices. The resulting XML files can be converted into binary STL files with the archived script [`xml_to_stl.py`](https://github.com/HULKs/hulk/blob/1aa2dc6c759aa7645d1639baf5a31517f0c7410d/webots/protos/meshes/xml_to_stl.py). Run the script in the directory containing the converted `.xml` meshes; it scans that directory and writes the submesh STL files there.
 
 The script above generates multiple STL files for each submesh contained in the XML file. This allows to set different materials in the URDF. The material's name is included in the STL filename. Since the URDF only references the old mesh files it needs to be adapted to contain multiple `<visual>` sections with same translation and rotation but with different STL mesh files and materials (`package://` prefixes can be dropped).
 

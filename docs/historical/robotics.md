@@ -1,0 +1,36 @@
+# Robotics Overview (Historical)
+
+!!! note "Historical documentation"
+
+    This page preserves the older cycler-based architecture. See the [robotics overview](../robotics/overview.md) for the current ROS-Z stack.
+
+The robot software is organized into several concurrent processing areas:
+
+## Control
+
+This cyler is responsible for the high-level control of the robot.
+This includes [behavior](../robotics/behavior/overview.md)-related tasks like selecting the action to execute next and [motion](../robotics/motion/overview.md)-related tasks like executing the selected action such as dribbling, kicking, standing up and others. <br>
+This cycler runs with higher priority than the other cyclers and with a higher frequency of 83 Hz, i.e. every 12ms.
+
+!!! tip
+
+    For more insights, open the [code](https://github.com/hulks/hulk) and have a look at the behavior and motion folders in the `control` crate. Follow the documentation here and in the code in parallel.
+
+## Vision
+
+This cycler handles all image related tasks for the camera.
+This includes the image segmenter, ball detection, line detection and other nodes. <br>
+Both cyclers run with the frequency of the cameras which is 30 Hz.
+
+## Audio
+
+This cycler is responsible for audio processing.
+It includes currently only one node, the whistle detection.
+
+## SPLNetwork
+
+This cycler handles all spl network messages, i.e. it is responsible for the communication with the GameController and other robots.
+
+## Hydra
+
+This cycler runs the pose detection of the referee.

@@ -6,6 +6,12 @@ Zenoh-native robotics middleware in Rust.
 runtime clocks, shared-memory payload support, and CDR serialization without ROS 2
 C/C++ runtime dependencies.
 
+## Origin
+
+This stack is derived from [ZettaScaleLabs' ros-z project, now named Hiroz](https://github.com/ZettaScaleLabs/hiroz), developed by the Zenoh team at ZettaScale.
+HULKs maintains an adapted version in this workspace, including the supporting `ros-z-*` crates.
+Upstream documentation provides background on the original project; use the local examples and source for the APIs supported by this version.
+
 > [!NOTE]
 > This crate is part of the HULKs workspace. APIs are still evolving while the
 > native `ros-z` stack is integrated.
@@ -23,6 +29,13 @@ C/C++ runtime dependencies.
 - `ros-z-debug`: read-only debug subscriptions with retained samples and JSON views.
 
 ## Quick Start
+
+The default context connects to a Zenoh router at `tcp/localhost:7447` and disables multicast scouting.
+Start the router in a separate terminal before running the examples:
+
+```bash
+cargo run -p ros-z --example zenoh_router
+```
 
 ```rust
 use ros_z::prelude::*;
@@ -70,19 +83,29 @@ rejected instead of rewritten.
 
 ## Examples
 
-Run examples from the workspace root:
+With the router running, run examples from the workspace root. Use separate terminals for the publisher/subscriber or service/server pair:
 
 ```bash
 cargo run -p ros-z --example custom_message_status_publisher
 cargo run -p ros-z --example custom_message_status_subscriber
 cargo run -p ros-z --example service_server
 cargo run -p ros-z --example service_client
-cargo run -p ros-z --example zenoh_router
 ```
 
 Dynamic message examples live under `examples/dynamic_message` and are exposed as
 `dynamic_message_basic`, `dynamic_message_serialization`, and
 `dynamic_message_interop`.
+
+## Inspecting a Running Stack
+
+The `ros-z-cli` package builds the `rosz` binary. For example:
+
+```bash
+cargo run -p ros-z-cli -- --router tcp/localhost:7447 list nodes
+cargo run -p ros-z-cli -- --router tcp/localhost:7447 list topics
+```
+
+The documentation's [debugging guide](../../docs/tooling/debugging.md) includes topic, frequency, and parameter inspection examples.
 
 ## Common Imports
 

@@ -1,58 +1,49 @@
-The whole process to let the robot walk is organized in three steps.
+# Walking
 
-1.  The step planner creates the planned step.
-    This includes x, y, and rotation depending on the motion command.
+On main `0711900e0`, the walking path converts behavior's motion requests into
+velocity commands for the Booster SDK `move_robot` RPC in Soccer mode.
+It does not interpolate a planned swing/support-foot trajectory in the old walking engine.
+The earlier engine and its return-offset explanation are preserved in [Historical: Walking](../../historical/motion/walking.md).
 
-    !!! warning
+## From Motion Command to Velocity
 
-        The step planning is currently under development and will be redesigned by [Narcha](https://github.com/Narcha).
+`crates/nodes/booster_sdk_interface/src/lib.rs` handles three walking-related commands:
 
-        At the time of writing, only individual steps are planned, but not the whole step sequence.
-        This is subject to change.
+- `Stand`: send zero linear and angular velocity.
+- `WalkWithVelocity`: forward the requested Ground-frame linear velocity and angular velocity.
+- `Walk`: convert a path, target orientation, orientation mode, alignment distance, and speed into velocity with `booster::walking::step_from_motion_command`.
 
-2.  The walk manager uses the planned step and the motion command to create the walk command, which defines the walking mode, such as standing, walking, or others.
+Despite its name and `Step` return type, this function supplies forward/left
+**velocity** and angular velocity to the SDK; it does not plan a discrete footstep.
+Linear velocity is in m/s and angular velocity in rad/s.
 
-3.  The walking engine uses the walk command and computes the according motor comamands.
+## Path Following
 
-## Walking Engine
+`crates/booster/src/walking.rs` computes:
 
-The core of the walking engine is based on an idea by [Bernhard Hengst](https://www.researchgate.net/profile/Bernhard-Hengst) from ([UNSW Sydney](https://www.unsw.edu.au/)), which is used by almost all RoboCup SPL teams.<br>
-The idea is quite simple:
+1. The forward direction of the path at the Ground origin.
+2. Linear velocity along that direction, scaled by requested speed and a deceleration factor `clamp(path_length / deceleration_distance, 0, 1)`.
+3. A walking orientation derived from the path, a requested look direction, or a requested look-at point.
+4. A blend from walking orientation to target orientation near the destination. Alignment importance is one inside `distance_to_be_aligned`, zero beyond that distance plus `hybrid_align_distance`, and cosine-interpolated between them.
+5. Angular velocity from the blended orientation's sine multiplied by `max_alignment_rate`.
 
-- There are two feet, a _support foot_ and a _swing foot_
-- Move the swing foot forward with speed $x^2$
-- Move the support foot backward with speed $x$.
+This main conversion has no explicit empty-path, nonfinite-geometry, or
+coefficient-validation gate. The additional validation documented for the
+simulator development Motion implementation is not present here.
 
-But around this, there's a lot of state handling and transitions.
+## SDK Execution
 
-!!! todo
+The SDK interface sends `move_robot` requests when its locally assumed mode is
+Soccer and the movement interval has elapsed. Head targets arrive independently
+on `head_joints_command` and are sent via `rotate_head`. Main does not execute
+a repository-owned walking inference service or publish Custom joint commands.
 
-    Add a diagram of the walking engine
+The freshness, Upright-posture, readiness, and recovery-settling gates in
+[Motion safety](../motion-safety.md) are scoped to Alex's simulator development
+source. They are not main SDK-interface guarantees.
 
-## Return Offset and Ground Frame Compensation
+Path-following parameters are under `booster_interface.walking` in
+`etc/parameters/base/booster_interface.json5`; the same file configures the
+movement and head RPC intervals and SDK request timeout.
 
-In the HULKs walking engine, steps are planned relative to a dynamic coordinate system called Ground, which lies between the robot's feet.
-This frame represents the robot's effective position on the field and is used by high-level behavior to request movement.
-
-### Step Planning and Execution
-
-The walking engine interpolates the robot's foot positions over time during each step. When a step ends - i.e., when the swing foot contacts the ground and becomes the support foot - a new step is planned. At every control cycle, the step planner assumes the current step will complete within that cycle and generates a plan for the next step accordingly.
-
-### The Return Offset
-
-After a non-zero movement step, the robot's feet are no longer side-by-side. To halt walking cleanly, the robot must place the swing foot next to the support foot, bringing the feet back to a resting position. This final adjustment moving the feet together inevitably shifts the Ground frame. The return offset is this shift: the isometric transformation (rotation and translation in 2D) of the Ground frame that occurs even when planning a nominal zero step.
-
-For example, if the last step was 4 cm forward, the feet end 4 cm apart. To come to rest, the swing foot (now 2 cm behind the torso) must move forward 4 cm to align with the support foot. This results in a 2 cm forward movement of the Ground frame, even though the walking engine executes a 0 cm step. This movement must be compensated in planning.
-
-### Why Compensation Is Necessary
-
-All behavior-level movement requests are relative to the Ground frame. If the return offset is not accounted for, actual movement will differ from intended movement. For example, if behavior requests a 10 cm forward move, but the return offset will already advance the robot 2 cm, the step planner must only request an 8 cm step to achieve the intended net movement.
-
-Similarly, actions like kicking, which depend on the position of the support foot relative to the ball, must consider where the Ground frame will be after the current step ends. This ensures correct timing and positioning for actions relative to other elements in the environment.
-
-### Summary
-
-- Ground: Coordinate system used by behavior, located between the robot's feet.
-- Return Offset: The movement of the Ground frame due to feet realignment at the end of walking.
-- Step planner adjusts requested steps to account for the return offset, ensuring behavior-level commands result in correct physical displacement of Ground.
-- Planning always assumes the current step completes in the current cycle to provide walking with the next step to execute.
+See [Step planning and path following](step_planning.md) for how paths relate to this interface.
