@@ -1,0 +1,20 @@
+{
+  field_dimensions: {
+    ball_radius: 0.105,
+    length: 8.98,
+    width: 5.91,
+    goal_depth: 0.7,
+    goal_inner_width: 2.42,
+    goal_box_area_length: 0.61,
+    goal_box_area_width: 2.18,
+    penalty_area_length: 1.66,
+    penalty_area_width: 3.92,
+    penalty_marker_distance: 1.3,
+    center_circle_diameter: 1.51,
+    border_strip_width: 0.3,
+    corner_arc_radius: 0.0,
+    line_width: 0.05,
+    penalty_marker_size: 0.11,
+    goal_post_diameter: 0.07,
+  }
+}
