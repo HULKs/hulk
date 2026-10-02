@@ -134,6 +134,7 @@ impl SimulatorRobotBehavior {
     ) -> Vec<OutgoingMessage> {
         self.blackboard.world_state = world_state;
         self.blackboard.parameters.network = hsl_network_parameters;
+        self.blackboard.head_yaw = head_yaw;
 
         let mut outgoing_messages = Vec::new();
         if let Some(message) = self
@@ -142,7 +143,7 @@ impl SimulatorRobotBehavior {
         {
             outgoing_messages.push(message);
         }
-        if let Some(message) = self.blackboard.try_sending_state_message(head_yaw) {
+        if let Some(message) = self.blackboard.try_sending_state_message() {
             outgoing_messages.push(message);
         }
         outgoing_messages
@@ -175,6 +176,7 @@ fn create_behavior_blackboard(
 ) -> BehaviorBlackboard {
     BehaviorBlackboard {
         field_dimensions,
+        head_yaw: 0.0,
         parameters,
         player_number,
         walking_velocity_limits: Default::default(),

@@ -66,7 +66,7 @@ impl Blackboard {
         )
     }
 
-    pub fn try_sending_state_message(&mut self, head_yaw: f32) -> Option<OutgoingMessage> {
+    pub fn try_sending_state_message(&mut self) -> Option<OutgoingMessage> {
         if self.world_state.robot.primary_state != PrimaryState::Playing {
             return None;
         }
@@ -95,7 +95,7 @@ impl Blackboard {
             let message = HulkMessage::State(StateMessage {
                 player_number: self.player_number,
                 pose,
-                head_yaw,
+                head_yaw: self.head_yaw,
                 ball_position,
             });
 

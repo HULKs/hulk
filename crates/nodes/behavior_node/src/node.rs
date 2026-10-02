@@ -52,6 +52,7 @@ pub struct LastBall {
 pub struct Blackboard {
     pub field_dimensions: FieldDimensions,
     pub player_number: PlayerNumber,
+    pub head_yaw: f32,
     pub parameters: BehaviorParameters,
     pub walking_velocity_limits: WalkingVelocityLimits,
     pub world_state: WorldState,
@@ -312,6 +313,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut blackboard = Blackboard {
         field_dimensions,
         player_number,
+        head_yaw: 0.0,
         parameters: parameters.snapshot().typed().clone(),
         walking_velocity_limits: walking_velocity_limits_cache
             .get_latest()
@@ -370,6 +372,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         if let Some(player_number) = player_number_cache.get_latest() {
             blackboard.player_number = *player_number;
         }
+        blackboard.head_yaw = head_joints_command_cache
+            .get_latest()
+            .map(|head_joints| head_joints.yaw)
+            .unwrap_or_default();
         blackboard.parameters = parameters.snapshot().typed().clone();
         if let Some(limits) = walking_velocity_limits_cache.get_latest()
             && limits.validate().is_ok()
@@ -511,11 +517,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             outgoing_message_pub.publish(&message).await?;
         }
 
-        let head_yaw = head_joints_command_cache
-            .get_latest()
-            .map(|head_joints| head_joints.yaw)
-            .unwrap_or_default();
-        if let Some(message) = blackboard.try_sending_state_message(head_yaw) {
+        if let Some(message) = blackboard.try_sending_state_message() {
             outgoing_message_pub.publish(&message).await?;
         }
 
