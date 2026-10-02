@@ -248,7 +248,6 @@ pub struct BallFilterParameters {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct ObstacleFilterParameters {
     pub use_detected_objects: bool,
-    pub use_detected_person_obstacles: bool,
     pub hypothesis_timeout: Duration,
     pub network_robot_measurement_matching_distance: f32,
     pub object_detection_measurement_matching_distance: f32,
@@ -257,12 +256,8 @@ pub struct ObstacleFilterParameters {
     pub network_robot_measurement_noise: nalgebra::Vector2<f32>,
     pub goal_post_measurement_noise: nalgebra::Vector2<f32>,
     pub robot_measurement_noise: nalgebra::Vector2<f32>,
-    pub person_measurement_noise: nalgebra::Vector2<f32>,
     pub robot_confidence_threshold: f32,
     pub goal_post_confidence_threshold: f32,
-    pub person_confidence_threshold: f32,
-    pub person_feet_keypoints_confidence_threshold: f32,
-    pub person_object_confidence_threshold: f32,
     pub measurement_count_threshold: usize,
     pub robot_obstacle_radius_at_hip_height: f32,
     pub robot_obstacle_radius_at_foot_height: f32,
@@ -341,17 +336,10 @@ pub struct DetectionParameters {
     pub neural_networks_folder: PathBuf,
     pub model_name: String,
     pub object_detection_parameters: ObjectDetectionParameters,
-    pub pose_detection_parameters: PoseDetectionParameters,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct ObjectDetectionParameters {
-    pub maximum_intersection_over_union: f32,
-    pub minimum_candidate_confidence: f32,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub struct PoseDetectionParameters {
     pub maximum_intersection_over_union: f32,
     pub minimum_candidate_confidence: f32,
 }

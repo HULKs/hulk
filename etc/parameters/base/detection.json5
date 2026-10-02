@@ -1,12 +1,8 @@
 {
   enable: true,
   neural_networks_folder: "etc/neural_networks",
-  model_name: "yolo26m-seg=f11+yolo26m~cheek+yolo26m-pose~badge.onnx",
+  model_name: "yolo26m~hslvision=f17+yolo26m~hslvision+yolo26m~hslvision~jail.onnx",
   object_detection_parameters: {
-    maximum_intersection_over_union: 0.4,
-    minimum_candidate_confidence: 0.05,
-  },
-  pose_detection_parameters: {
     maximum_intersection_over_union: 0.4,
     minimum_candidate_confidence: 0.05,
   },
