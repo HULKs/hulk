@@ -10041,7 +10041,6 @@ dependencies = [
  "ndarray 0.16.1",
  "ros-z",
  "search_heatmap",
- "serde",
  "tokio",
  "types",
 ]
