@@ -399,13 +399,31 @@ async fn set_up_static_ips(
     robot.ssh_to_robot()?.arg(format!(
         // Set the new IP but preserve the 192.168.10.102 which is necessary for services on the
         // robot to work
-        r#"sudo nmcli connection modify "{CONNECTION_NAME}" ipv4.addresses "{ethernet_ip}/24, 192.168.10.102/24" ipv4.gateway 10.1.24.1 802-3-ethernet.cloned-mac-address "E6:4A:A0:37:19:{robot_number}""#,
+        r#"sudo nmcli connection modify "{CONNECTION_NAME}" connection.autoconnect yes ipv4.addresses "{ethernet_ip}/24, 192.168.10.102/24" ipv4.gateway 10.1.24.1 802-3-ethernet.cloned-mac-address "E6:4A:A0:37:19:{robot_number}""#,
     )).ssh_with_log("setting static IP", progress_bar).await?;
 
     robot
         .ssh_to_robot()?
-        // Unlike up/down-ing the connection, reapply doesn't break existing connections
-        .arg("sudo nmcli connection up Wired\\ connection\\ 2")
+        .arg(format!(
+            r#"set -e
+target_uuid=$(nmcli -g connection.uuid connection show "{CONNECTION_NAME}")
+interface=$(nmcli -g connection.interface-name connection show uuid "$target_uuid")
+if [ -z "$interface" ]; then
+    echo "{CONNECTION_NAME} has no configured interface" >&2
+    exit 1
+fi
+connections=$(nmcli -g UUID connection show)
+for uuid in $connections; do
+    if [ "$uuid" = "$target_uuid" ]; then
+        continue
+    fi
+    other_interface=$(nmcli -g connection.interface-name connection show uuid "$uuid")
+    if [ "$other_interface" = "$interface" ]; then
+        sudo nmcli connection modify uuid "$uuid" connection.autoconnect no
+    fi
+done
+sudo nmcli connection up uuid "$target_uuid""#,
+        ))
         .ssh_with_log("applying network configuration", progress_bar)
         .await
 }
