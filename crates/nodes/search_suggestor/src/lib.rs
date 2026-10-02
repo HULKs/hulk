@@ -4,7 +4,6 @@ use hsl_network_messages::{HulkMessage, PlayerNumber, StateMessage};
 use linear_algebra::{Isometry2, Point2};
 use ros_z::{prelude::*, qos::QosDurability};
 use search_heatmap::{Heatmap, SearchOccluder, SearchVoronoiSelection};
-use serde::{Deserialize, Serialize};
 use std::{boxed::Box, future::Future, pin::Pin, sync::Arc, time::Duration};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -18,12 +17,6 @@ use types::{
     time_wrapper::TimeWrapper,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub search_suggestor: SearchSuggestorParameters,
-}
-
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
 }
@@ -31,7 +24,7 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("search_suggestor").build().await?;
 
-    let node_parameters = node.bind_parameter_as::<Parameters>("search_suggestor")?;
+    let parameters = node.bind_parameter_as::<SearchSuggestorParameters>("search_suggestor")?;
     let field_dimensions_sub = node
         .subscriber::<FieldDimensions>("field_dimensions")
         .qos(QosProfile {
@@ -119,9 +112,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let elapsed_since_last_priority_update = now.duration_since(last_priority_update);
         last_priority_update = now;
 
-        let node_parameters_snapshot = node_parameters.snapshot();
-        let node_parameters = node_parameters_snapshot.typed();
-        let parameters = &node_parameters.search_suggestor;
+        let parameters_snapshot = parameters.snapshot();
+        let parameters = parameters_snapshot.typed();
         let Some(hsl_network_parameters) = hsl_network_parameters_cache.get_latest() else {
             continue;
         };
