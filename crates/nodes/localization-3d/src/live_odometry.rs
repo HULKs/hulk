@@ -154,6 +154,7 @@ fn interpolate_odometer_samples(
     Some(VisualOdometer {
         time,
         epoch: before.epoch,
+        delta: None,
         current_left_camera_to_visual_odometer: interpolate_isometry(
             before.current_left_camera_to_visual_odometer,
             after.current_left_camera_to_visual_odometer,
@@ -184,11 +185,13 @@ mod tests {
         let before = VisualOdometer {
             time: Time::from_nanos(1_000_000_000),
             epoch: 1,
+            delta: None,
             current_left_camera_to_visual_odometer: nalgebra::Isometry3::identity(),
         };
         let after = VisualOdometer {
             time: Time::from_nanos(2_000_000_000),
             epoch: 2,
+            delta: None,
             current_left_camera_to_visual_odometer: nalgebra::Isometry3::translation(2.0, 0.0, 0.0),
         };
 
@@ -201,11 +204,13 @@ mod tests {
         let before = VisualOdometer {
             time: Time::from_nanos(1_000_000_000),
             epoch: 1,
+            delta: None,
             current_left_camera_to_visual_odometer: nalgebra::Isometry3::identity(),
         };
         let after = VisualOdometer {
             time: Time::from_nanos(2_000_000_000),
             epoch: 1,
+            delta: None,
             current_left_camera_to_visual_odometer: nalgebra::Isometry3::translation(2.0, 0.0, 0.0),
         };
 

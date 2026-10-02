@@ -21,6 +21,7 @@ use crate::{
 
 pub(crate) fn handle_visual_odometry(
     frontend: &mut VinsFrontend,
+    time: Time,
     visual_odometry: VisualOdometryDeltaMessage,
     camera_matrix_cache: &Cache<TimeWrapper<CameraMatrix>>,
 ) -> Result<()> {
@@ -29,14 +30,13 @@ pub(crate) fn handle_visual_odometry(
     else {
         return Ok(());
     };
-    let Some(current_camera_matrix) =
-        fresh_camera_matrix(camera_matrix_cache, visual_odometry.current_time)
-    else {
+    let Some(current_camera_matrix) = fresh_camera_matrix(camera_matrix_cache, time) else {
         return Ok(());
     };
 
     ingest_visual_odometry(
         frontend,
+        time,
         visual_odometry,
         &previous_camera_matrix.inner,
         &current_camera_matrix.inner,

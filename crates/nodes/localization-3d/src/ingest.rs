@@ -4,6 +4,7 @@ use kinematics::robot_kinematics::RobotKinematics;
 use linear_algebra::Point3;
 use localization_factrs::{VinsFrontend, VinsFrontendError};
 use projection::camera_matrix::CameraMatrix;
+use ros_z::time::Time;
 use types::{
     time_wrapper::TimeWrapper, visual_odometry::VisualOdometryDelta as VisualOdometryDeltaMessage,
 };
@@ -16,13 +17,14 @@ use crate::camera::robot_to_camera;
 /// the two endpoints of the visual-odometry measurement.
 pub fn ingest_visual_odometry(
     frontend: &mut VinsFrontend,
+    time: Time,
     delta: VisualOdometryDeltaMessage,
     previous_camera_matrix: &CameraMatrix,
     current_camera_matrix: &CameraMatrix,
 ) -> Result<(), VinsFrontendError> {
     frontend.ingest_visual_odometry_delta(
         delta.previous_time.to_wallclock(),
-        delta.current_time.to_wallclock(),
+        time.to_wallclock(),
         robot_to_camera(previous_camera_matrix),
         robot_to_camera(current_camera_matrix),
         delta.current_left_camera_to_previous_left_camera,
