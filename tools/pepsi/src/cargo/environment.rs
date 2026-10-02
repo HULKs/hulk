@@ -7,10 +7,10 @@ use repository::{Repository, cargo::Environment as RepositoryEnvironment, sdk::S
 #[derive(Args, Debug, Clone)]
 pub struct EnvironmentArguments {
     /// The execution environment (default: native)
-    #[arg(long)]
+    #[arg(long, visible_alias = "umgebung", visible_alias = "umg")]
     pub env: Option<Environment>,
     /// Use a remote machine for execution, see ./scripts/remote for details
-    #[arg(long)]
+    #[arg(long, visible_alias = "fern", visible_alias = "fernbedienung")]
     pub remote: bool,
 }
 
@@ -30,11 +30,11 @@ impl FromStr for Environment {
             .map_or((string, None), |(left, right)| (left, Some(right)));
 
         Ok(match left {
-            "native" => Self::Native,
-            "podman" => Self::Podman {
+            "native" | "ureinwohner" | "einheimisch" => Self::Native,
+            "podman" | "kapselmann" | "hülsenmann" => Self::Podman {
                 image: right.map(str::to_owned),
             },
-            "docker" => Self::Docker {
+            "docker" | "hafenarbeiter" => Self::Docker {
                 image: right.map(str::to_owned),
             },
             _ => bail!("unknown option {left}"),
