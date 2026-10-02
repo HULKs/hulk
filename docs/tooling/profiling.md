@@ -1,63 +1,61 @@
-# Profiling on the Nao Robot
+# Profiling with perf
 
-We use the perf command to profile applications running on the Nao robot. It comes preinstalled in our robot image.
+Build the binary with debug symbols before recording. The `with-debug` profile inherits the optimized development profile and enables symbols; `debugger` disables optimizations and is intended for stepping rather than representative profiling.
 
-!!!warning
-    Important: Ensure that your hulk binary includes debug symbols; without them, the profile will be unusable.
-    Enable debug symbols by adding the --profile with-debug option to either the pepsi upload or pepsi build command. This preserves compiler optimizations while retaining symbol information for profiling.
+## Local tools
 
-### Step 1: SSH into the Robot
-
-To profile an application running on the Nao, you must SSH into the robot first:
+For example, from the repository root:
 
 ```bash
-pepsi shell <nao-number>
+./pepsi build twix --profile with-debug
+perf record --call-graph dwarf -o twix.perf.data -- target/with-debug/twix /42 --router tcp/10.1.24.42:7447
 ```
 
-### Step 2: Record a Profile with perf
+Interact with Twix while recording, then close it to finish the profile. This requires `perf` on the host and kernel permissions for performance counters.
+Use a reachable router and namespace for your running robot stack. To profile against the experimental simulator instead, first [check out its development branch](behavior_simulator.md#alexs-development-branch), start it there, and use `/simulator/robot` with `tcp/127.0.0.1:7447`; the simulator implementation is not available on main.
+Use your configured Cargo target directory instead of `target` when overridden.
 
-To profile a running application (e.g., hulk), use:
+## K1 robot stack
+
+Build and upload the symbol-bearing robot executable:
 
 ```bash
-perf record --call-graph dwarf,8192 --aio -z --sample-cpu --mmap-pages 16M --pid $(pidof hulk) sleep 30
+./pepsi upload 42 --profile with-debug
+./pepsi shell 42
 ```
 
-This samples the stack traces of the hulk process for 30 seconds.
+The default SDK build artifact is `target/container/aarch64-unknown-linux-gnu/with-debug/hulk_ros_z`.
+Keep the exact binary used for the recording; rebuilding later can make symbols and addresses disagree.
 
-!!!info
-    It's generally easiest to run perf as root, as otherwise various permissions and kernel knobs must be adjusted.
-
-This command will generate a `perf.data` file containing the recorded samples.
-
-### Step 3: Analyze the Profile with hotspot
-
-We use Hotspot to inspect the `perf.data` file.
-With the binary and `perf.data` in place, launch Hotspot:
+The provisioned K1 launcher runs `hulk_ros_z` in the `hulk` Podman container, with the host home directory mounted inside it.
+On the robot, check that a host `perf` compatible with its running kernel is installed (`perf --version`); its presence is not guaranteed by the repository's provisioning package list.
+Find the host-visible PID and record a bounded sample:
 
 ```bash
-hotspot \
-  --sysroot ~/.local/share/hulk/sdk/9.0.2/sysroots/corei7-64-aldebaran-linux/ \
-  --appPath ./target/x86_64-aldebaran-linux-gnu/with-debug/ \
-  --kallsyms ./kallsyms
+pidof hulk_ros_z
+sudo perf record --call-graph dwarf -o /home/booster/hulk/logs/hulk.perf.data \
+  --pid "$(pidof hulk_ros_z)" -- sleep 30
 ```
 
-Setting the `sysroot` is not requires when you profile a binary on your system, for example a behavior test case.
-Use the Flame Graph, Top Down, or Bottom Up views to investigate time spent in functions.
+This samples the running process and its threads for 30 seconds. Select one PID explicitly if several instances are running.
+Using host `perf` avoids depending on a profiler inside the runtime container. Permissions, kernel support and access to container processes must be checked on the target robot.
 
-### Enable Debug Symbols in the SDK
+Back on the host, retrieve the recording:
 
-By default, debug symbols are not enabled in our SDK.
-If you want to profile library code, consider enabling debug symbols in the Yocto distribution config:
-
+```bash
+rsync -av booster@10.1.24.42:/home/booster/hulk/logs/hulk.perf.data .
 ```
-diff --git a/meta-hulks/conf/distro/HULKs-OS.conf b/meta-hulks/conf/distro/HULKs-OS.conf
-index 3e23671..982a187 100644
---- a/meta-hulks/conf/distro/HULKs-OS.conf
-+++ b/meta-hulks/conf/distro/HULKs-OS.conf
-@@ -5,4 +5,3 @@ SUMMARY = "HULKs flavoured Nao"
- DISTRO = "HULKs-OS"
- DISTRO_NAME = "HULKs-OS"
- DISTRO_VERSION = "9.0.1"
--SDKIMAGE_FEATURES:remove = "dbg-pkgs src-pkgs"
+
+## Inspect the recording
+
+For the K1 profile, launch Hotspot with the matching binary directory:
+
+```bash
+hotspot --appPath ./target/container/aarch64-unknown-linux-gnu/with-debug/
 ```
-Rebuild the SDK afterward and use in it to build the code and as the `sysroot` argument when launching Hotspot.
+
+Open `hulk.perf.data`, then use the Flame Graph, Top Down or Bottom Up views.
+For the local Twix example, use `--appPath ./target/with-debug/` and open `twix.perf.data` instead.
+
+To resolve shared-library frames from a robot, supply `--sysroot <directory>` containing the matching runtime/container libraries and debug symbols with their recorded paths. A native host installation is not a substitute for the K1 aarch64 runtime, and libraries without debug symbols may remain unresolved.
+For kernel frames, obtain symbols from that robot/kernel if needed. The old NAO SDK sysroot and x86-64 artifact paths apply only to the [historical NAO recipe](../historical/profiling.md).

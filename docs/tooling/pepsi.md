@@ -1,130 +1,139 @@
 # Pepsi
 
-Pepsi is a multi-tool we use for anything related to the code or the NAO robots.
-It can be used to build the code, set up configuration parameters for a game, deploy to a robot or simply open a remote shell.
+Pepsi is our multi-tool for building code, configuring deployments, uploading the robot stack, and interacting with robots.
+Run it from the repository root using `./pepsi`.
+For detailed arguments, use `./pepsi --help` or `./pepsi <subcommand> --help`.
 
-This page is only meant as a general overview of pepsi's subcommands.
-For detailed usage instructions, run `pepsi --help` or `pepsi <subcommand> --help`.
+## Build and Run
 
-## Typical Webots Workflow
+Pepsi wraps Cargo commands such as `build`, `run`, `check`, `clippy`, `test`, `nextest`, and `install`.
+You can select a package or binary, a build profile, and a native or container execution environment.
 
-This is pretty simple. Open Webots, load the `webots/worlds/penalized_extern.wbt` world file and execute
-
-```bash
-./pepsi run webots
-```
-
-in your terminal. This will build (if necessary) and then run the webots binary.
-The simulation is paused automatically until the binary starts.
-
-## Typical NAO Workflow
+For example, to build the ROS-Z robot executable or launch Twix locally:
 
 ```bash
-./pepsi upload <number or IP>
+./pepsi build crates/hulk_ros_z
+./pepsi run twix
 ```
 
-This command does the following:
+The positional argument selects a package directory, manifest path, or registered shortcut such as `twix`.
+Selecting `crates/hulk_ros_z` reads that package's `cross-compile` metadata and defaults to the Podman K1 SDK environment.
+Selecting only `--bin hulk_ros_z` or `--package hulk_ros_z` does not select its manifest for environment detection; without `--env`, that invocation uses native Cargo.
 
-- checks if a toolchain is installed, downloads, and installs one if necessary
-- builds the code for the NAO target
-- uploads binary, configuration parameters, motion files, neural networks, etc. to the NAO(s)
-- restarts HULK service on the NAO(s)
+The experimental simulator requires an Alex development-branch checkout; `./simulator` is not available on main. See [Simulator](behavior_simulator.md) for checkout instructions and the additional worktree-only perception/tuning workflows.
 
-## Interaction with the NAO
+## Upload to a Robot
 
-NAOs are identified either by IP or by number.
-Numbers are converted to IPs as follows:
+```bash
+./pepsi upload <number-or-IP>
+```
 
-- `{number}` -> `10.1.24.{number}`
-- `{number}w` -> `10.0.24.{number}`
+`upload` builds `hulk_ros_z`, prepares the upload directory with the binary and supporting files, checks the robot's OS version and launcher configuration, uploads the files, and restarts the HULK service.
+Use `--no-build` to upload an existing build or `--prepare` to build without uploading.
+`--no-restart` leaves HULK stopped: upload still stops the service before transferring files.
+Uploads remove remote files absent from the upload directory by default; `--no-clean` preserves those files.
+Run `./pepsi upload --help` for the available build and deployment options.
+
+## Robot Interaction and Configuration
+
+Robots are identified by IP address or by number. Number shortcuts resolve as follows:
+
+- `{number}` → `10.1.24.{number}` (Ethernet)
+- `{number}w` → `10.0.24.{number}` (Wi-Fi)
 
 Many subcommands can act on multiple robots concurrently.
 
-`upload` builds a binary for the NAO target, and then uploads it and parameter files to one or more robot.
+| Command | Purpose |
+| --- | --- |
+| `shell` | Open a remote shell or run a command on robots. |
+| `ping` | Check robot connectivity. |
+| `wifi`, `reboot`, `poweroff` | Manage connectivity and robot power. |
+| `hulk` | Control the HULK service. |
+| `playernumber`, `location` | Change local parameter configuration. |
+| `pregame` | Configure and deploy the playing robots using `deploy.toml`. |
+| `log` (alias `logs`), `postgame` | Manage logs and perform post-game cleanup. |
+| `gammaray` | Provision a K1 over SSH: configure hostname/networking, dependencies, runtime and HULK services. |
+| `boosterize` | Switch robots to Booster services by disabling the HULK services and enabling the Booster services. |
+| `tensor-rt-compile`, `hydra-bench` | Compile TensorRT engines and benchmark neural-network latency on a robot. |
+| `sdk`, `gamebranch`, `format` | Manage the SDK, create a competition branch, and format repository files. |
 
-`wifi`, `reboot`, `poweroff`, and `hulk` directly interact with the robot(s), whereas `communication`, and `playernumber` only change the local configuration parameters.
+### K1 provisioning
 
-`pregame` combines deactivating communication (to avoid sending illegal messages), assigning playernumbers, setting a wifi network, uploading, and restarting the HULK service.
+```bash
+./pepsi gammaray 42 --image-file /path/to/hulk-runtime.tar
+```
 
-`logs` or and `postgame` can be used after a (test-)game to download logs, the latter also shuts down the HULKs binary and disables wifi.
+The robot's Jetson serial number must already be registered in `team.toml`.
+`--password` supplies the Booster user's password; `--image-file` optionally loads a Podman runtime image, and `--update-x5-file` optionally installs an X5 updater.
+Use `./pepsi gammaray --help` for the current options. This command provisions the existing K1 installation; the older NAO image-flashing workflow is historical.
 
-On K1 robots, `gammaray` configures HULK and disables manufacturer controller programs; `boosterize` restores manufacturer control.
-See [Remote Control](remote_control.md) for setup, gamepad bindings, and restoration instructions.
+On main, `gammaray` also disables the manufacturer `RemoteController` section in `/opt/booster/Daemon/bin/child.ini` and `joystick_ros2` for HULK remote control. `boosterize` restores that section and enables and starts `joystick_ros2` along with the Booster services. See [Remote Control](remote_control.md) for setup, gamepad bindings, and restoration instructions.
 
-## Build Options
+## Build Environments and Directories
 
-For subcommands that build a binary, you can specify a target and a build profile.
-These include `build`, `run`, `check`, and `clippy`.
-However `upload` and `pregame` only supports a profiles, since it doesn't make sense to upload a webots binary to the nao.
-
-### Build directories
+Use `--env native`, `--env podman`, or `--env docker` to select the build environment.
+Container environments use the configured K1 SDK image unless an image override is supplied.
+Supply an override as part of the environment value, for example `--env podman:ghcr.io/hulks/k1sdk:<tag>` or `--env docker:ghcr.io/hulks/k1sdk:<tag>`.
+If no environment is specified, Pepsi checks the selected manifest's requested environment and otherwise defaults to native.
 
 Native builds, including the `./pepsi` launcher, keep Cargo's default `target` directory.
 Podman and Docker builds use `target/container`, mounted at `/hulk/target/container` inside the container.
-Separating these directories prevents Cargo from repeatedly rebuilding dependencies whose source paths differ between native and container builds.
-The first container build after this change needs to populate the new cache; existing artifacts are left in place.
+Separate directories prevent unnecessary rebuilds caused by differing source paths between native and container builds.
 
 Use `--target-dir` to override the directory for a Pepsi build command.
 Relative paths are relative to the directory where you invoke Pepsi.
 Absolute container paths use the container filesystem; keep them under `/hulk` when you need to retrieve or upload binaries.
-Native `CARGO_TARGET_DIR` is not forwarded to containers, so a custom container directory must be selected with `--target-dir`.
-Choosing the same directory for both environments can bring back the invalidation.
+Native `CARGO_TARGET_DIR` is not forwarded to containers, so select a custom container directory with `--target-dir`.
 
-`upload`, `pregame`, `tensorrt-compile`, and `hydra-bench` look for binaries in the selected environment's directory, including with `--no-build`.
+`upload`, `pregame`, `tensor-rt-compile`, and `hydra-bench` look for binaries in the selected environment's directory, including with `--no-build`.
 Use the same environment, profile, and target directory as the build that produced the binary.
-Remote container builds return binaries from the selected container directory to the matching path in your local repository.
+When a command requests artifacts, remote container builds return them to the matching path in your local repository.
 For remote native builds that retrieve binaries, use a relative `--target-dir`; absolute paths can refer to different locations on the two machines.
 
 ## Aliveness
 
-Using the `aliveness` subcommand, pepsi can query information from NAOs connected via ethernet. By default, only irregular information like non-active services, outdated HULKs-OS versions and battery charge levels below 95% are displayed. Using `-v`/`--verbose` or `-j`/`--json`, you can retrieve all information available via aliveness in either a human- or machine-readable format.
-
-You can also set a timeout via `-t`/`--timeout` (defaulting to 200ms) and specify NAO addresses (e.g. `22` or `10.1.24.22`) for querying the aliveness information only from specific NAOs.
-
-Further information on the information available via aliveness as well as the details to the protocol can be found [here](./aliveness.md).
+The `aliveness` subcommand queries status information from robots.
+Use `-v`/`--verbose` or `-j`/`--json` for detailed human-readable or machine-readable output.
+You can set a timeout with `-t`/`--timeout` and specify robot addresses to query particular robots.
+See [Aliveness](aliveness.md) for the protocol and available information.
 
 ## Shell Completion
 
-Shell completions can be generated using the `completions` subcommand.
-
-Example:
+Generate shell completions with the `completions` subcommand:
 
 ```bash
 ./pepsi completions zsh > _pepsi
 ```
 
-Refer to your shell's completion documentation for details.
+Refer to your shell's completion documentation for installation instructions.
+Dynamic robot-address suggestions use aliveness and require `pepsi` in your `PATH`:
 
-The shells completions for fish, zsh and bash include dynamic suggestions for all pepsi subcommands taking a NAO address as an argument (e.g. `pepsi upload`).
-Those suggestions are retrieved using the aliveness service and require a version of pepsi to be installed in the `PATH`, e.g. by using
-
-```
+```bash
 ./pepsi install pepsi
 ```
 
-and adding `~/.cargo/bin` to the `PATH`.
+Add `~/.cargo/bin` to your `PATH` if it is not already present.
 
-## Remote Compile
+## Remote Compilation
 
-To use the remote compilation you need to create an account on the remote-compiler.
-Open an ssh connection to ```root@remote-compiler.hulks.dev```.
-There create a new account by ```adduser {name}``` and set a password with ```passwd {name}```.
+Remote compilation requires an account and a dedicated repository checkout or worktree on the remote compiler, plus SSH access from your local machine.
+Synchronization uses `rsync --delete`, excludes `.git`, and applies `.gitignore` filters. Remote files absent locally can be deleted and remote edits can be overwritten.
+Use a dedicated worktree with no independent work to preserve; the remote checkout is a build workspace for your local tree.
+Configure passwordless SSH and create a `.REMOTE_WORKSPACE` file in your local repository containing the remote account and checkout path, for example:
 
-Terminate the root ssh session and log in with your new user ```{name}@remote-compiler.hulks.dev```.
-There clone the HULKs repository using https: ```https://github.com/HULKs/hulk.git```
-
-Back on your local machine do ```ssh-copy-id {name}@remote-compiler.hulks.dev``` to allow passwordless login.
-In the hulk repo, create a `.REMOTE_WORKSPACE` file containing the username, IP, and path, e.g. `{name}@remote-compiler.hulks.dev:hulk`.
-
-Now you can use the pepsi remote features:
-
-```bash
-./pepsi build --remote
+```text
+<name>@remote-compiler.hulks.dev:hulk-remote-build
 ```
 
-This will sync your local files to the remote, run the build command there, and then return the final binary to you.
-Other pepsi commands such as `run`, `upload`, or `pregame` also have a `--remote` option.
+Then run:
 
-To use the remote compile functionality from outside the lab, you need a VPN connection.
-Ask one of the older team members to provide you a `.ovpn` file. Create a new VPN client with this configuration file.
-Using the VPN, you can access the remote compiler and all other internal services from outside the lab.
+```bash
+./pepsi build crates/hulk_ros_z --remote
+```
+
+Pepsi syncs local files and runs the command remotely. A plain `build --remote` does not request artifact retrieval; commands such as `upload` request the binary they need.
+For example, `./pepsi upload 42 --remote` builds remotely, retrieves the robot binary, and uploads it.
+Commands such as `run`, `upload`, and `pregame` also support `--remote`.
+A team VPN connection is required to access the remote compiler from outside the lab.
+
+The previous Webots and NAO workflows are preserved in [Historical: Pepsi](../historical/pepsi.md).

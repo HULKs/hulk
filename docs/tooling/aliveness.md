@@ -8,17 +8,22 @@ The following information can be queried from NAOs connected via Ethernet:
 
 - Hostname
 - Current HULKs-OS version
-- States of the systemd services for HAL, HuLA, HULK and LoLA
+- States of the systemd services for HAL, HULK and LoLA (HuLA is not a separate reported field)
 - Battery charge state and current
 - Head ID
 - Body ID
 - Wireless network name
 - Joint temperatures
-- Name of the interface the beacon is received from (currently always enp4s0)
+- Name of the interface used by the aliveness service
+
+Body ID, head ID, battery, wireless network and temperature fields are optional and may be unavailable.
+The service defaults to `eth0`; its first command-line argument can select another interface, so the reported name depends on the installed service configuration.
+These NAO-oriented telemetry fields do not imply that a K1 supplies the same hardware information.
 
 ## Aliveness service
 
-The aliveness service is built together with the HULKs-OS image and included in it. It is started upon the first connection with the network via Ethernet and listens for all messages send to the multicast address `224.0.0.42` as well as its own IP address.
+The NAO aliveness service is built together with the HULKs-OS image. It watches the configured interface and joins the multicast group when that interface has an IPv4 address.
+It listens for UDP messages on port `4242`, including multicast address `224.0.0.42` and unicast queries.
 
 When receiving a UDP packet with content `BEACON`, it responds by sending the above described information encoded via JSON to the sender.
 
