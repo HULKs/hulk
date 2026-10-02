@@ -250,6 +250,12 @@ impl PrimaryStateFilter {
     }
 
     fn update_with_injected_primary_state(&mut self, injected_primary_state: PrimaryState) {
+        if matches!(
+            self.primary_state,
+            PrimaryState::Damping | PrimaryState::Prepare
+        ) {
+            return;
+        }
         self.primary_state = injected_primary_state
     }
 
