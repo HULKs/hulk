@@ -15,5 +15,3 @@ Relevant implementation:
 - `crates/nodes/behavior_node/src/walk.rs`: behavior walking actions and path construction.
 - `crates/booster/src/walking.rs`: path-to-velocity conversion.
 - `crates/nodes/booster_sdk_interface/src/lib.rs`: movement RPC dispatch.
-
-The previous development note about individual-step planning is preserved in [Historical: Step planning](../../historical/motion/step_planning.md).

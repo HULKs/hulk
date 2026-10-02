@@ -25,5 +25,3 @@ ignored. Source entry points are under `crates/nodes/whistle_detection` and
 `crates/nodes/whistle_filter`. Implementation and wiring do not establish
 physical detection accuracy for a particular microphone or environment.
 See the [robotics overview](../overview.md) for the node and topic framework.
-
-The older NAO hardware and whistle-detection documentation is preserved in [Historical: Audio](../../historical/audio.md).

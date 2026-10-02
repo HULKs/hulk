@@ -50,5 +50,3 @@ git switch --track alex/motion-inference-simulator
 Use the simulator documentation and `./simulator --help` in the selected branch for its available features. The tuning and perception worktree additions above are not supplied by the currently tracked remote branch.
 
 The [behavior tree simulator design](behavior_tree_simulator_design.md) describes the proposed behavior-testing architecture. It is a design document, rather than a setup guide for a released simulator.
-
-The original usage and scenario-development instructions are preserved in [Historical: Bevyhavior Simulator](../historical/behavior_simulator.md).

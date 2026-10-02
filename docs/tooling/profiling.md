@@ -58,4 +58,4 @@ Open `hulk.perf.data`, then use the Flame Graph, Top Down or Bottom Up views.
 For the local Twix example, use `--appPath ./target/with-debug/` and open `twix.perf.data` instead.
 
 To resolve shared-library frames from a robot, supply `--sysroot <directory>` containing the matching runtime/container libraries and debug symbols with their recorded paths. A native host installation is not a substitute for the K1 aarch64 runtime, and libraries without debug symbols may remain unresolved.
-For kernel frames, obtain symbols from that robot/kernel if needed. The old NAO SDK sysroot and x86-64 artifact paths apply only to the [historical NAO recipe](../historical/profiling.md).
+For kernel frames, obtain symbols from that robot/kernel if needed.

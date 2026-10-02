@@ -22,10 +22,3 @@ For local development, use the [simulator](../tooling/behavior_simulator.md)
 and [Twix](../tooling/twix.md). Continue with the
 [contributor workflow](../workflow/getting_started.md) and
 [automated checks](../workflow/checks.md).
-
-## Legacy NAO Documentation
-
-The previous NAO/Yocto setup is preserved in
-[Historical: Setup](../historical/setup/overview.md). Those image, flashing,
-Webots, and HULA instructions require a compatible legacy source/toolchain.
-Current Pepsi provisions Booster robots and does not flash NAO OPN images.

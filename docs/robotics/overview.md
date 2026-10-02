@@ -121,5 +121,3 @@ Compile-time macros still supply reusable infrastructure: `#[derive(ros_z::Messa
 - `crates/ros-z-streams/src/future_map.rs` and `future_queue.rs`: timestamp ordering and announcements.
 - `crates/nodes/ball_filter/src/lib.rs`: a concrete example of input setup, processing, and output publication.
 - [Debugging](../tooling/debugging.md): inspecting nodes, topics, and parameters with `rosz`, and attaching GDB/LLDB.
-
-The previous cycler-based architecture is preserved in [Historical: Robotics Overview](../historical/robotics.md).

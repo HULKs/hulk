@@ -2,8 +2,6 @@
 
 On main `0711900e0`, the walking path converts behavior's motion requests into
 velocity commands for the Booster SDK `move_robot` RPC in Soccer mode.
-It does not interpolate a planned swing/support-foot trajectory in the old walking engine.
-The earlier engine and its return-offset explanation are preserved in [Historical: Walking](../../historical/motion/walking.md).
 
 ## From Motion Command to Velocity
 

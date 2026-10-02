@@ -22,8 +22,7 @@ The learned-policy Motion/Inference/HardwareInterface stack described in the
    publishes `HeadJoints<f32>` on `head_joints_command`. The SDK interface sends
    those targets through `rotate_head`; it does not call a head-motion service.
 
-The SDK owns body execution in this path. The earlier documentation is preserved
-in [Historical: Motion](../../historical/motion/overview.md).
+The SDK owns body execution in this path.
 
 ## Mode Requests and Recovery
 

@@ -47,6 +47,3 @@ For host-side inspection:
 ./pepsi shell <robot-IP> "nmcli connection show"
 ./pepsi shell <robot-IP> "ip address"
 ```
-
-The previous NAO/iwd documentation, including notes about changes in the external
-image recipes, is preserved in [Historical: WiFi](../historical/operating_system/wifi.md).

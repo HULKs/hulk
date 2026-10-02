@@ -1,8 +1,6 @@
 # Development Environment
 
 This page covers development for Booster K1 and the current ROS-Z stack.
-The previous NAO/Webots instructions are preserved in the
-[archived development environment](../historical/setup/development_environment.md).
 
 ## Rust and Host Tools
 

@@ -22,9 +22,7 @@ and a bind mount of `/home/booster`.
 The host also runs `zenohd` and `zenoh-bridge-dds`. The robot launcher connects
 HULK to `tcp/127.0.0.1:7447`; ROS-Z namespaces are derived from robot numbers.
 See [team configuration](../setup/configure_team.md) and
-[hardware integration](hula.md).
+[hardware integration](hardware_integration.md).
 
 For operations, see [Home Directory](home_directory.md), [WiFi](wifi.md),
 [Linux](linux.md), and [storage guidance](partitioning.md).
-The previous Yocto distribution is documented in
-[Historical: NAO Operating System](../historical/operating_system/overview.md).

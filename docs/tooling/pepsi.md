@@ -65,7 +65,7 @@ Many subcommands can act on multiple robots concurrently.
 
 The robot's Jetson serial number must already be registered in `team.toml`.
 `--password` supplies the Booster user's password; `--image-file` optionally loads a Podman runtime image, and `--update-x5-file` optionally installs an X5 updater.
-Use `./pepsi gammaray --help` for the current options. This command provisions the existing K1 installation; the older NAO image-flashing workflow is historical.
+Use `./pepsi gammaray --help` for the current options. This command provisions the existing K1 installation.
 
 On main, `gammaray` also disables the manufacturer `RemoteController` section in `/opt/booster/Daemon/bin/child.ini` and `joystick_ros2` for HULK remote control. `boosterize` restores that section and enables and starts `joystick_ros2` along with the Booster services. See [Remote Control](remote_control.md) for setup, gamepad bindings, and restoration instructions.
 
@@ -90,13 +90,6 @@ Use the same environment, profile, and target directory as the build that produc
 When a command requests artifacts, remote container builds return them to the matching path in your local repository.
 For remote native builds that retrieve binaries, use a relative `--target-dir`; absolute paths can refer to different locations on the two machines.
 
-## Aliveness
-
-The `aliveness` subcommand queries status information from robots.
-Use `-v`/`--verbose` or `-j`/`--json` for detailed human-readable or machine-readable output.
-You can set a timeout with `-t`/`--timeout` and specify robot addresses to query particular robots.
-See [Aliveness](aliveness.md) for the protocol and available information.
-
 ## Shell Completion
 
 Generate shell completions with the `completions` subcommand:
@@ -106,7 +99,9 @@ Generate shell completions with the `completions` subcommand:
 ```
 
 Refer to your shell's completion documentation for installation instructions.
-Dynamic robot-address suggestions use aliveness and require `pepsi` in your `PATH`:
+Robot-address suggestions depend on a network discovery service, which current
+Booster provisioning does not install. Keep `pepsi` in your `PATH` for generated
+completion scripts:
 
 ```bash
 ./pepsi install pepsi
@@ -135,5 +130,3 @@ Pepsi syncs local files and runs the command remotely. A plain `build --remote` 
 For example, `./pepsi upload 42 --remote` builds remotely, retrieves the robot binary, and uploads it.
 Commands such as `run`, `upload`, and `pregame` also support `--remote`.
 A team VPN connection is required to access the remote compiler from outside the lab.
-
-The previous Webots and NAO workflows are preserved in [Historical: Pepsi](../historical/pepsi.md).

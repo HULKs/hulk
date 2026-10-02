@@ -52,5 +52,3 @@ The source of images and the processing rate depend on the hardware and node con
 Use [Twix](../../tooling/twix.md) to inspect images, detection overlays, and filtered estimates.
 The detection node also publishes `inference_duration`,
 `post_processing_duration`, and `non_maximum_suppression_duration` for timing inspection.
-
-The older segmented-image pipeline and its debug views are preserved in [Historical: Vision](../../historical/vision.md).

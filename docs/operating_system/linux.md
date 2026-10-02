@@ -22,6 +22,3 @@ Application/runtime lifecycle is managed through systemd:
 ./pepsi hulk status <robot-IP>
 ./pepsi shell <robot-IP> "sudo systemctl status hulk-runtime"
 ```
-
-The previous Intel real-time kernel description applies to legacy NAO images,
-not Jetson. It is preserved in [Historical: Linux](../historical/operating_system/linux.md).

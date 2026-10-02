@@ -52,6 +52,3 @@ and system journals. Download logs before a normal upload if you want to retain
 them: upload cleans remote files by default; `--no-clean` changes that behavior.
 The repository's current `log delete` implementation still targets
 `/home/robot/hulk/logs/*`, so it is not a reliable cleanup command for this layout.
-
-The previous NAO overlay and `robocup.conf` layout is preserved in
-[Historical: Home Directory](../historical/operating_system/home_directory.md).

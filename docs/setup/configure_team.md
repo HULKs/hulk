@@ -11,9 +11,6 @@ HULKs uses `24`. Outside teams must also update remaining source-level constants
   shortcuts and conversion from addresses back to robot numbers.
 - `tools/pepsi/src/gammaray.rs`: the wired gateway `10.1.24.1`.
 
-If using older tools or simulators, inspect their team constants as well.
-`tools/twix-legacy/src/main.rs` contains legacy team-24 address suggestions;
-current Twix selects a ROS-Z namespace instead of those address suggestions.
 Changing `team.toml` alone does not update source-level hardcoding.
 
 ## Register a Booster Robot
