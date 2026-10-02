@@ -7,9 +7,9 @@ use serde::{Deserialize, Serialize};
 use hsl_network_messages::{GamePhase, PlayerNumber};
 use ros_z::{prelude::*, qos::QosDurability};
 use tracing::info;
-use types::controller_input::ControllerInput;
 use types::{
     buttons::{ButtonPressType, Buttons},
+    controller_input::{Button, ControllerInput},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     primary_state::PrimaryState,
@@ -254,11 +254,7 @@ impl PrimaryStateFilter {
     }
 
     fn update_with_controller_input(&mut self, controller_input: &ControllerInput) {
-        use types::controller_input::Button::*;
-
-        // Controller action to instantly go to damping state.
-        let x_pressed = controller_input.is_pressed(West);
-        if x_pressed {
+        if controller_input.is_pressed(Button::West) {
             log::warn!("Primary state DAMPING triggered by controller action");
             self.primary_state = PrimaryState::Damping;
         }
