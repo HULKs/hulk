@@ -81,6 +81,9 @@ then **Open 3D view**. Hold the right mouse button and use **W/A/S/D** to move t
 camera, **Q** to descend and **E** to ascend. The viewer observes sensor messages
 without commanding the robot. The standalone viewer command is
 `./simulator --watch-ball-tuning`.
+Startup failures appear in the panel; viewer output is saved to
+`OUTPUT/3d-viewer.log`. On Linux, launching remains supported after rebuilding
+the executable while tuning runs.
 Ball position and spin come directly from MuJoCo via the recorded ROS-Z
 `simulation/ball_poses_world` topic; the viewer does not invent rolling animation.
 The blue soccer ball shows the live filter's position, with a blue velocity

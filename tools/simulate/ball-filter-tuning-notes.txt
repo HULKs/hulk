@@ -11,6 +11,17 @@ does not depend on visual localization. User explicitly authorized a soft live
 field-boundary confidence prior using the available field pose (2026-10-03).
 Maintain git checkpoints as work progresses.
 
+Current status (2026-10-03; historical entries below are retained)
+- Source checkpoint 3f716f859. All153 tests and six fresh exact MCAP replay
+  checks passed. Twix Open3D verified after replacing the running executable.
+- Continuous optimizer and both UIs are running against
+  logs/ball-tuning-20261003-single-prior, 256 candidates per round. Multiple
+  rounds and immediate live application of new best parameters are verified.
+- Early search improves training loss but worsens holdout loss. Do not describe
+  this as a demonstrated general performance gain. Next priorities: sustained
+  in-field contests, preserving useful output through hidden kicks, and the
+  timestamp/identity handoff documented in ball-filter-timing-audit.txt.
+
 Highest-priority next scenario
 Contested balls: controlled robot and another robot near the ball, camera
 occlusion, an unseen kick, and useful tracking through reacquisition. Avoid
@@ -80,11 +91,22 @@ Realism backlog, after contested-ball baseline is measured
 - Surface/friction variation and articulated opponent contacts. Current opponent
   cylinders are kinematic and effectively infinite mass; controlled robot must
   retain clearance and real fall detection.
+- Measure field-prior pose coverage on real recordings. Production ground_to_field
+  follows timestamped visual-odometry/localization outputs, unlike the simulator's
+  frequent absolute reference. If the 20ms gate yields poor coverage, consider
+  explicit odometry propagation to filter time rather than reusing stale Ground
+  transforms. Keep the exact selected pose diagnostic for deterministic replay.
 - Timestamp-aware behavior handoff using odometry to bring historical Ground
   coordinates forward; do not depend on visual localization or extrapolate using
   last_seen (that is detection time, not filter state time).
 - Capture repeatable held-out contested cases and compare near-foot errors,
   unseen-kick reacquisition, false tracks and availability together.
+- New wall-stress capture train42 spends much of its labelled time outside the
+  lines (14,158 output-aligned outside truth samples with active prior). Weighted
+  scoring accounts for rarity, but future scenario distribution should include
+  more sustained in-field contests and fewer long wall-side rolls. Preserve real
+  physics; any re-entry should be an explicit kick/throw-in scenario, not teleport
+  or an invisible continuous attraction to the field center.
 
 Validation update
 - Filter fixes committed as 597f0833a after initial checkpoint 527843fe9.
@@ -137,3 +159,37 @@ User correction: rare outside-field balls and live confidence prior (2026-10-03)
 - Build and native dependency caches were missing during this continuation.
   Restored checksummed MuJoCo3.9.0 and ONNXRuntime1.22.0 archives; current
   combined test build is rebuilding dependencies in full.
+- Checkpoint 3f716f859 contains the soft prior, single-ball weighting and viewer
+  fix. Formatting checks passed; final combined Cargo tests/build still pending.
+  Old finite preview backend was stopped cleanly before the new launch.
+
+Validation: single-ball/live-prior update
+- All 153 combined tests passed (filter15, tuner14, simulate51, Twix73), including
+  native physics, ROS-Z geometry integration and the replaced-executable viewer
+  regression. Log: logs/ball-tuning-single-prior-tests.log.
+- cargo fmt --all -- --check and git diff --check passed.
+- Normal application binaries are rebuilding from the now-complete dependency
+  cache. Final prior-enabled captures, continuous rounds and GUI test follow.
+- Normal application build passed. Continuous backend started with 256 candidates
+  per round at logs/ball-tuning-20261003-single-prior; Twix connected.
+- Actual button regression verified: replaced the running backend's executable
+  path atomically with an identical copy; /proc/PID/exe showed "(deleted)".
+  Clicking Open 3D view in Twix successfully launched the viewer through procfs.
+  Screenshot /tmp/ball-prior-viewer-fixed.png shows the live robot and blue model.
+- First new capture: 19,987 outputs and matching prior diagnostics, zero missing
+  diagnostics, duplicate timestamps or source-time mismatches; 19,901 Some poses
+  (99.6%), all matching a recorded source pose within20ms. Nontrivial outside
+  confidence reduction observed. Inspector: /tmp/inspect_ball_prior.py, uv --with
+  mcap. First scenario has an in-view occluded kick, 12.42m walking, 6.22m/s peak.
+- All six captures completed with one ball and at least one in-view occluded
+  opponent kick each. Exact replay verified for all training and holdout data.
+- Full pose audit: 119,928 outputs and matching diagnostics; 119,401 Some poses,
+  527 explicitNone; zero duplicates, source-time mismatches, missing diagnostics
+  or selected poses without a matching recorded source within20ms. Audit saved
+  as logs/ball-tuning-20261003-single-prior/prior-pose-validation.txt.
+- Continuous rounds and live updates verified through round3/trial768. Round2
+  training loss 1.728322 -> 1.162705, holdout 1.980566 -> 2.097985 (worse).
+  Training missing time rises and close-range availability also needs attention;
+  lower conditional RMSE alone is not sufficient. Keep reporting these tradeoffs.
+- Twix screenshot /tmp/ball-prior-twix-running.png shows continuous round3 and
+  best parameters applied through trial759. Both Twix and viewer remain open.
