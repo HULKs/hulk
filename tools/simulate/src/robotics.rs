@@ -31,6 +31,7 @@ pub struct StackConfiguration {
     pub namespace: String,
     pub parameter_layers: Vec<PathBuf>,
     pub launch_nodes: bool,
+    pub ball_perception: bool,
 }
 
 #[derive(Resource)]
@@ -46,6 +47,8 @@ pub struct Robotics {
     camera: Publisher<TimeWrapper<CameraMatrix>>,
     ground: Publisher<TimeWrapper<Option<Isometry3<Ground, Robot>>>>,
     behavior_inputs: crate::behavior_inputs::BehaviorInputs,
+    geometry_inputs: Option<crate::geometry_inputs::GeometryInputs>,
+    pub ball_perception: Option<crate::ball_perception::PerceptionIo>,
     injection: watch::Sender<Option<MotionCommand>>,
     injection_task: JoinHandle<()>,
     injection_status: watch::Receiver<String>,
@@ -59,6 +62,7 @@ pub struct Robotics {
     stack_task: JoinHandle<()>,
     status: watch::Receiver<String>,
     inference_status: watch::Receiver<Option<String>>,
+    inference_ready: watch::Receiver<bool>,
     inference_status_task: JoinHandle<()>,
     pub input_motion: MotionCommand,
     pub injection_enabled: bool,
@@ -76,7 +80,7 @@ impl Robotics {
         // Start under behavior control, independent of robot parameter injections.
         std::fs::write(
             overrides.path().join("behavior_node.json5"),
-            r#"{control: {injected_motion_command: null, remote_control: {enable: false}}}"#,
+            r#"{control: {injected_motion_command: null}}"#,
         )?;
         Self::with_overrides(runtime, configuration, clock, overrides).await
     }
@@ -122,12 +126,18 @@ impl Robotics {
             .qos(latest)
             .build()
             .await?;
-        let camera = node.publisher("camera_matrix").qos(latest).build().await?;
-        let ground = node
-            .publisher("ground_to_robot")
-            .qos(latest)
-            .build()
-            .await?;
+        let camera_topic = if configuration.ball_perception {
+            "simulation/camera_matrix_ground_truth"
+        } else {
+            "camera_matrix"
+        };
+        let ground_topic = if configuration.ball_perception {
+            "simulation/ground_to_robot_ground_truth"
+        } else {
+            "ground_to_robot"
+        };
+        let camera = node.publisher(camera_topic).qos(latest).build().await?;
+        let ground = node.publisher(ground_topic).qos(latest).build().await?;
         let motion = node
             .subscriber("behavior/motion_command")
             .cache(1)
@@ -142,7 +152,19 @@ impl Robotics {
             .cache(1)
             .build()
             .await?;
-        let behavior_inputs = crate::behavior_inputs::BehaviorInputs::new(&node).await?;
+        let behavior_inputs =
+            crate::behavior_inputs::BehaviorInputs::new(&node, configuration.ball_perception)
+                .await?;
+        let geometry_inputs = if configuration.ball_perception {
+            Some(crate::geometry_inputs::GeometryInputs::new(&node).await?)
+        } else {
+            None
+        };
+        let ball_perception = if configuration.ball_perception {
+            Some(crate::ball_perception::PerceptionIo::new(&node, &runtime).await?)
+        } else {
+            None
+        };
         let client = RemoteParameterClient::new(
             node.clone(),
             format!(
@@ -220,8 +242,13 @@ impl Robotics {
             .build()
             .await?;
         let (inference_tx, inference_status) = watch::channel(None);
+        let (ready_tx, inference_ready) = watch::channel(false);
         let inference_status_task = runtime.spawn(async move {
             while let Ok(status) = inference.recv().await {
+                ready_tx.send_replace(matches!(
+                    &status.state,
+                    motion_inference::node::State::Initialized
+                ));
                 inference_tx.send_replace(match status.state {
                     motion_inference::node::State::Fault { reason } => Some(reason),
                     _ => None,
@@ -230,6 +257,7 @@ impl Robotics {
         });
         let ctx = context.clone();
         let launch = configuration.launch_nodes;
+        let use_perception = configuration.ball_perception;
         let stack_task = runtime.spawn(async move {
             if !launch {
                 return;
@@ -239,6 +267,16 @@ impl Robotics {
             tasks.spawn(behavior_node::node::run_boxed(ctx.clone()));
             tasks.spawn(fall_detection::run_boxed(ctx.clone()));
             tasks.spawn(ball_state_composer::run_boxed(ctx.clone()));
+            if use_perception {
+                tasks.spawn(kinematics_provider::run_boxed(ctx.clone()));
+                tasks.spawn(support_foot_estimator::run_boxed(ctx.clone()));
+                tasks.spawn(ground_provider::run_boxed(ctx.clone()));
+                tasks.spawn(camera_matrix_calculator::run_boxed(ctx.clone()));
+                tasks.spawn(odometry::run_boxed(ctx.clone()));
+                tasks.spawn(localization_2d::run_boxed(ctx.clone()));
+                tasks.spawn(ball_filter::run_boxed(ctx.clone()));
+                tasks.spawn(visual_kick_ball_selector::run_boxed(ctx.clone()));
+            }
             tasks.spawn(rule_obstacle_composer::run_boxed(ctx.clone()));
             tasks.spawn(motion::run_boxed(ctx.clone()));
             tasks.spawn(global_parameter_provider::run_boxed(ctx.clone()));
@@ -257,6 +295,7 @@ impl Robotics {
                     Ok(Err(error)) => format!("Motion stack failed: {error:#}"),
                     Err(error) => format!("Motion stack task failed: {error}"),
                 };
+                eprintln!("{reason}");
                 status_tx.send_replace(reason);
                 tasks.abort_all();
                 while tasks.join_next().await.is_some() {}
@@ -276,6 +315,8 @@ impl Robotics {
             motion,
             execution,
             behavior_inputs,
+            geometry_inputs,
+            ball_perception,
             injection,
             injection_task,
             injection_status,
@@ -287,6 +328,7 @@ impl Robotics {
             stack_task,
             status,
             inference_status,
+            inference_ready,
             inference_status_task,
             input_motion: MotionCommand::Damping,
             injection_enabled: false,
@@ -294,7 +336,30 @@ impl Robotics {
         })
     }
 
+    pub(crate) fn node(&self) -> &Node {
+        &self._node
+    }
+
+    pub fn physics_blocker(&self) -> Option<String> {
+        if !self.configuration.launch_nodes {
+            return None;
+        }
+        if self.stack_task.is_finished() {
+            return Some(self.status.borrow().clone());
+        }
+        if let Some(reason) = self.inference_status.borrow().as_ref() {
+            return Some(format!("Inference fault: {reason}"));
+        }
+        if !*self.inference_ready.borrow() {
+            return Some("Loading motion models; physics paused".into());
+        }
+        None
+    }
+
     pub fn status(&self) -> String {
+        if let Some(reason) = self.physics_blocker() {
+            return reason;
+        }
         if let Some(execution) = self.execution.get_latest()
             && let Some(reason) = &execution.fault
         {
@@ -385,6 +450,11 @@ impl Robotics {
             self.low_state
                 .publish_with_source_time(&observation.low_state, time)
                 .await?;
+            if let Some(geometry) = &self.geometry_inputs {
+                geometry
+                    .publish(&observation, time, self.input_game.global_field_side)
+                    .await?;
+            }
             self.camera
                 .publish_with_source_time(
                     &TimeWrapper {
@@ -578,6 +648,7 @@ mod tests {
                         layer.path().to_owned(),
                     ],
                     launch_nodes: true,
+                    ball_perception: true,
                 },
                 clock.clone(),
             )
@@ -861,6 +932,7 @@ mod tests {
                         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../etc/parameters/base"),
                     ],
                     launch_nodes: false,
+                    ball_perception: false,
                 },
                 clock.clone(),
             )
@@ -905,6 +977,7 @@ mod tests {
         let time = Time::from_nanos(2_000_000);
         io.publish_observation(
             Observation {
+                robot_to_world: nalgebra::Isometry3::identity(),
                 low_state,
                 camera_matrix: CameraMatrix::default(),
                 ground_to_robot: Isometry3::identity(),
@@ -989,6 +1062,7 @@ mod tests {
                 .unwrap()
         });
         let observation = || Observation {
+            robot_to_world: nalgebra::Isometry3::identity(),
             low_state: LowState {
                 motor_state_serial: vec![MotorState::default(); 22],
                 ..Default::default()
@@ -1157,6 +1231,7 @@ mod tests {
             let time = clock.now() + Duration::from_millis(20);
             io.publish_observation(
                 Observation {
+                    robot_to_world: nalgebra::Isometry3::identity(),
                     low_state: LowState {
                         motor_state_serial: vec![MotorState::default(); 22],
                         ..Default::default()

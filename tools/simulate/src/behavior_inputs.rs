@@ -13,9 +13,10 @@ use types::{
 };
 
 pub struct BehaviorInputs {
-    pose: Publisher<Isometry2<Ground, Field>>,
-    ball: Publisher<Option<BallPosition<Ground>>>,
-    visual_ball: Publisher<Option<BallPosition<Ground>>>,
+    pose: Option<Publisher<Isometry2<Ground, Field>>>,
+    ball: Option<Publisher<Option<BallPosition<Ground>>>>,
+    filtered_ball: Cache<Option<BallPosition<Ground>>>,
+    visual_ball: Option<Publisher<Option<BallPosition<Ground>>>>,
     obstacles: Publisher<Vec<Obstacle>>,
     interest: Publisher<Point2<Ground>>,
     primary: Publisher<PrimaryState>,
@@ -23,15 +24,32 @@ pub struct BehaviorInputs {
 }
 
 impl BehaviorInputs {
-    pub async fn new(node: &Node) -> Result<Self> {
+    pub async fn new(node: &Node, perception: bool) -> Result<Self> {
         let retained = QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         };
         Ok(Self {
-            pose: node.publisher("ground_to_field").build().await?,
-            ball: node.publisher("ball_filter/ball_position").build().await?,
-            visual_ball: node.publisher("visual_kick/ball_position").build().await?,
+            pose: if perception {
+                None
+            } else {
+                Some(node.publisher("ground_to_field").build().await?)
+            },
+            ball: if perception {
+                None
+            } else {
+                Some(node.publisher("ball_filter/ball_position").build().await?)
+            },
+            filtered_ball: node
+                .subscriber("ball_filter/ball_position")
+                .cache(1)
+                .build()
+                .await?,
+            visual_ball: if perception {
+                None
+            } else {
+                Some(node.publisher("visual_kick/ball_position").build().await?)
+            },
             obstacles: node.publisher("obstacles").build().await?,
             interest: node.publisher("position_of_interest").build().await?,
             primary: node
@@ -76,11 +94,20 @@ impl BehaviorInputs {
                 Obstacle::robot(point![p.x, p.y], 0.25, 0.3)
             })
             .collect();
-        self.pose.publish_with_source_time(&pose, time).await?;
-        self.ball.publish_with_source_time(&ball, time).await?;
-        self.visual_ball
-            .publish_with_source_time(&ball, time)
-            .await?;
+        if let Some(publisher) = &self.pose {
+            publisher.publish_with_source_time(&pose, time).await?;
+        }
+        if let Some(publisher) = &self.ball {
+            publisher.publish_with_source_time(&ball, time).await?;
+        }
+        if let Some(publisher) = &self.visual_ball {
+            publisher.publish_with_source_time(&ball, time).await?;
+        }
+        let ball = if self.ball.is_some() {
+            ball
+        } else {
+            self.filtered_ball.get_latest().and_then(|ball| *ball)
+        };
         self.obstacles
             .publish_with_source_time(&obstacles, time)
             .await?;
@@ -108,7 +135,7 @@ fn primary_state(game: &FilteredGameControllerState, player: PlayerNumber) -> Pr
     }
 }
 
-fn ground_to_field(
+pub(crate) fn ground_to_field(
     pose: nalgebra::Isometry3<f32>,
     side: GlobalFieldSide,
 ) -> Isometry2<Ground, Field> {

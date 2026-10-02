@@ -11,6 +11,8 @@ use types::field_dimensions::FieldDimensions;
 pub struct SimulatorParameters {
     pub field_dimensions: FieldDimensions,
     pub ball: BallParameters,
+    #[serde(default)]
+    pub ball_perception: crate::ball_perception::Parameters,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ros_z::Message)]
@@ -93,6 +95,7 @@ impl SimulatorParameters {
         }
 
         parameters.ball.validate()?;
+        parameters.ball_perception.validate()?;
 
         Ok(())
     }

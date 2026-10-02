@@ -1,0 +1,54 @@
+Ball filter realism and optimization work log
+===========================================
+
+Objective
+Automatically improve the production ball filter from ordinary ROS-Z MCAP
+recordings, with the same replay path usable for real robot recordings.
+Keep production kinematics and absolute simulator torso reference; do not
+depend on visual localization. Maintain git checkpoints as work progresses.
+
+Highest-priority next scenario
+Contested balls: controlled robot and another robot near the ball, camera
+occlusion, an unseen kick, and useful tracking through reacquisition. Avoid
+premature searching or an optimizer that wins by suppressing difficult tracks.
+
+Checkpoint: 2026-10-02, branch codex/ball-filter-realism-20261002
+Existing implementation includes ROS-Z recording/replay, bounded camera matrix
+matching, Twix tuning panel, physical ball impulses and bouncy walls, live best
+parameter updates, blue model and velocity vectors, and continuous search.
+Newest additions: 1 m wall margin, 4%/8% false positives, 1-3 physical balls,
+two moving cylinder opponents with camera-ray occlusion, and a correction to
+the localization-independent ball range gate. Multi-ball scores use the nearest
+physical ball. These newest changes still need fresh runtime recordings.
+
+Validation
+Serial package tests completed successfully on 2026-10-02; detailed output is
+in ignored logs/ball-tuning-multi-tests.log. Normal build is in progress in
+logs/ball-tuning-multi-build.log. Exact baseline replay is mandatory: the range
+gate change means old recordings must be recaptured before assessing it.
+
+Known issues to investigate
+- Association currently penalizes a hypothesis for an unrelated gated percept.
+- Numerically unstable candidate parameters are rejected; production covariance
+  update stability still deserves investigation.
+- Existing loss can trade missing output for smaller conditional position RMSE.
+- Generic crossing cylinder opponents are not yet deliberate ball challenges.
+- Continuous round transitions, multi-ball rendering and new occlusion need
+  end-to-end verification with the newly built executable.
+
+Runtime and data
+Old live backend uses logs/ball-tuning-20261002-live-best and replays the older
+logs/ball-tuning-20261002-walls dataset. It completed 4096 trials and continues
+previewing. Preserve these ignored MCAP recordings; do not apply their tuned
+parameters to real robot defaults. New captures need a fresh output directory.
+Launcher ./simulator configures native MuJoCo and ONNX runtime libraries.
+Use ./simulator --tune-ball-filter OUTPUT to capture and search continuously;
+--tuning-trials controls candidates per round; --tuning-once is finite opt-out.
+Use ./simulator --watch-ball-tuning for the independent live 3D viewer.
+Twix router: tcp/127.0.0.1:7448, namespace /ball_tuning.
+
+Collaboration
+Other documentation agent works separately on update-docs / PR 2912. Preserve
+its work and existing notes.md. Keep local commits scoped to this feature.
+Subagents must not commit or run competing broad builds; root integrates and
+creates checkpoints. Root owns ball_tuning.rs and live runtime coordination.

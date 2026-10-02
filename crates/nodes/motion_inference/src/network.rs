@@ -22,6 +22,18 @@ impl Network {
             "inference_threads must be positive"
         );
         let path = root.join(&configured.model_file);
+        #[cfg(target_os = "linux")]
+        {
+            // ort rc.13 releases its global environment from .fini_array. With
+            // dynamically loaded ONNX Runtime 1.22 this can run *after* the C++
+            // destructors, crashing in ReleaseEnv at process exit. Retain one
+            // reference for the process lifetime until upstream fixes that order.
+            // Sessions still drop normally; this retains only the shared environment.
+            static ENVIRONMENT: std::sync::OnceLock<std::sync::Arc<ort::environment::Environment>> =
+                std::sync::OnceLock::new();
+            let environment = ort::environment::Environment::current()?;
+            ENVIRONMENT.get_or_init(|| environment);
+        }
         let session = Session::builder()?
             .with_intra_threads(parameters.inference_threads)
             .map_err(ort::Error::<()>::from)?

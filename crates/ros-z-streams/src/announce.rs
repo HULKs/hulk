@@ -20,6 +20,23 @@ pub struct Announcement {
     pub(crate) sequence_number: i64,
 }
 
+impl Announcement {
+    /// Sensor timestamp used by stream fusion, which can precede payload publication.
+    pub fn time(&self) -> Time {
+        self.time
+    }
+
+    /// Publisher of the payload paired with this announcement.
+    pub fn source_global_id(&self) -> EndpointGlobalId {
+        self.source_global_id
+    }
+
+    /// Sequence of the payload paired with this announcement.
+    pub fn sequence_number(&self) -> i64 {
+        self.sequence_number
+    }
+}
+
 /// Publisher that emits announcements before sending payload data.
 ///
 /// This publisher coordinates with its corresponding data channel to ensure that

@@ -674,7 +674,8 @@ fn update_status(
             }
             PanelLabel::Status => {
                 let stack = io.status();
-                let message = if stack.contains("failed")
+                let message = if stack.contains("Loading motion")
+                    || stack.contains("failed")
                     || stack.contains("exited")
                     || stack.contains("fault")
                     || stack.contains("pending")
@@ -1610,6 +1611,7 @@ mod tests {
                         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../etc/parameters/base"),
                     ],
                     launch_nodes: false,
+                    ball_perception: false,
                 },
                 Clock::logical(Time::zero()),
             )
@@ -1632,6 +1634,7 @@ mod tests {
             revision: 0,
             parameters: std::sync::Arc::new(crate::parameters::SimulatorParameters {
                 field_dimensions: types::field_dimensions::FieldDimensions::SPL_2025,
+                ball_perception: Default::default(),
                 ball: BallParameters {
                     mass: 0.45,
                     joint_damping: 0.002,

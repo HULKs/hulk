@@ -31,14 +31,18 @@ pub use crate::{
 
 mod filter;
 mod hypothesis;
+pub mod tracker;
+use tracker::{InputStamp, Tracker, UpdateSchedule, camera_is_recent};
 
 struct BallFilterOutput {
+    time: Option<Time>,
     ball_percepts: Vec<BallPercept>,
     filter_state: BallFilter,
     best_hypothesis: Option<BallHypothesis>,
     filtered_ball: Option<BallPosition<Ground>>,
     filtered_balls_in_image: Vec<Circle<Pixel>>,
     hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
+    schedule: UpdateSchedule,
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -101,10 +105,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    let mut ball_filter = BallFilter::default();
-    let mut assignment_solver = AssignmentSolver::default();
-    let mut last_odometry = None;
-    let mut last_prediction_time = None;
+    let schedule_pub = node
+        .publisher::<UpdateSchedule>("ball_filter/update_schedule")
+        .build()
+        .await?;
+    let mut tracker = Tracker::default();
+    let mut sequence = 0_u64;
 
     loop {
         let parameters_snapshot = parameters.snapshot();
@@ -129,54 +135,32 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             });
             let mut ball_percepts = Vec::new();
 
+            let mut schedule = UpdateSchedule {
+                sequence,
+                inputs: Vec::new(),
+            };
             for (time, (odometry_pose, detected_objects)) in future_map_item.persistent {
-                if let Some(odometry_pose) = odometry_pose {
-                    predict_hypotheses_from_odometry(
-                        &mut ball_filter,
-                        time,
-                        odometry_pose,
-                        &mut last_odometry,
-                        &mut last_prediction_time,
-                        parameters,
-                    );
-                }
-
-                if let Some(detected_objects) = detected_objects {
-                    let timed_camera_matrix = camera_matrix_cache.get_nearest(time);
-                    let camera_matrix = timed_camera_matrix
-                        .as_ref()
-                        .map(|camera_matrix| &camera_matrix.inner);
-                    let Some(projected_balls) = project_detected_balls(
-                        Some(&detected_objects.inner),
-                        camera_matrix,
-                        parameters,
-                        field_dimensions.ball_radius,
-                    ) else {
-                        continue;
-                    };
-
-                    ball_percepts.extend_from_slice(&projected_balls);
-
-                    advance_all_hypotheses(
-                        &mut ball_filter,
-                        &mut assignment_solver,
-                        time,
-                        &projected_balls,
-                        camera_matrix,
-                        parameters,
-                        &field_dimensions,
-                    )?;
-                }
-            }
-
-            if let Some(output_time) = output_time {
-                remove_invalid_and_merge_hypotheses(
-                    &mut ball_filter,
-                    output_time,
+                let camera = camera_matrix_cache.get_nearest(time);
+                schedule.inputs.push(InputStamp {
+                    time,
+                    odometry: odometry_pose.is_some(),
+                    detections: detected_objects.is_some(),
+                    camera_time: camera.as_ref().map(|c| c.time),
+                });
+                ball_percepts.extend(tracker.advance(
+                    time,
+                    odometry_pose,
+                    detected_objects.as_ref().map(|d| d.inner.as_slice()),
+                    camera.as_deref(),
                     parameters,
                     &field_dimensions,
-                );
+                )?);
             }
+            if let Some(time) = output_time {
+                tracker.finish(time, parameters, &field_dimensions);
+                sequence += 1;
+            }
+            let ball_filter = &tracker.filter;
 
             let filter_state = ball_filter.clone();
             let best_hypothesis = ball_filter
@@ -201,7 +185,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             let ball_radius = field_dimensions.ball_radius;
             let filtered_balls_in_image = if let Some(time) = projection_time
                 && let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time)
-            {
+                && camera_is_recent(
+                    time,
+                    timed_camera_matrix.time,
+                    parameters.maximum_camera_matrix_time_difference,
+                ) {
                 project_to_image(&output_balls, &timed_camera_matrix.inner, ball_radius)
             } else {
                 vec![]
@@ -210,12 +198,14 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 hypothetical_ball_positions(&ball_filter, parameters.validity_output_threshold);
 
             Ok(BallFilterOutput {
+                time: output_time,
                 ball_percepts,
                 filter_state,
                 best_hypothesis,
                 filtered_ball,
                 filtered_balls_in_image,
                 hypothetical_ball_positions,
+                schedule,
             })
         })?;
 
@@ -228,7 +218,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .publish(&output.filtered_balls_in_image)
             .await?;
 
-        ball_position_pub.publish(&output.filtered_ball).await?;
+        // Preserve the state timestamp: publication happens after the fusion safety lag.
+        // Consumers comparing estimates with sensor truth must not use delivery time.
+        if let Some(time) = output.time {
+            schedule_pub
+                .publish_if_subscribed(|| async { output.schedule })
+                .await?;
+            ball_position_pub
+                .publish_with_source_time(&output.filtered_ball, time)
+                .await?;
+        }
         hypothetical_ball_positions_pub
             .publish(&output.hypothetical_ball_positions)
             .await?;
@@ -353,7 +352,7 @@ fn remove_invalid_and_merge_hypotheses(
         };
         let validity_high_enough =
             hypothesis.validity >= filter_parameters.validity_discard_threshold;
-        is_ball_inside_field(ball, field_dimensions)
+        is_ball_within_field_range(ball, field_dimensions)
             && validity_high_enough
             && duration_since_last_observation < filter_parameters.hypothesis_timeout
     };
@@ -495,9 +494,17 @@ fn decide_validity_decay_for_hypothesis(
     }
 }
 
-fn is_ball_inside_field(ball: BallPosition<Ground>, field_dimensions: &FieldDimensions) -> bool {
-    ball.position.x().abs() < field_dimensions.length / 2.0
-        && ball.position.y().abs() < field_dimensions.width / 2.0
+fn is_ball_within_field_range(
+    ball: BallPosition<Ground>,
+    field_dimensions: &FieldDimensions,
+) -> bool {
+    // Ground is centered on the robot, not the field. Without localization we
+    // can only reject distances beyond the whole field's diagonal, including
+    // its border strip. Half-field bounds incorrectly delete tracks when the
+    // robot walks or turns away from a legitimate ball.
+    let length = field_dimensions.length + 2.0 * field_dimensions.border_strip_width;
+    let width = field_dimensions.width + 2.0 * field_dimensions.border_strip_width;
+    ball.position.coords().norm_squared() <= length * length + width * width
 }
 
 fn project_to_image(
@@ -531,7 +538,8 @@ fn is_visible_to_camera(
         Ok(position_in_image) => position_in_image,
         Err(_) => return false,
     };
-    (0.0..640.0).contains(&position_in_image.x()) && (0.0..480.0).contains(&position_in_image.y())
+    (0.0..camera_matrix.image_size.x()).contains(&position_in_image.x())
+        && (0.0..camera_matrix.image_size.y()).contains(&position_in_image.y())
 }
 
 #[cfg(test)]
@@ -541,6 +549,32 @@ mod tests {
     use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
     use super::*;
+
+    #[test]
+    fn visibility_uses_camera_image_dimensions() {
+        let camera = CameraMatrix::from_normalized_focal_and_center(
+            nalgebra::vector![0.5, 0.5],
+            nalgebra::point![0.5, 0.5],
+            linear_algebra::vector![640.0, 544.0],
+            linear_algebra::Isometry3::identity(),
+            linear_algebra::Isometry3::identity(),
+            linear_algebra::Isometry3::from_translation(0.0, 0.0, 1.0),
+        );
+        let position = camera
+            .pixel_to_ground_with_z(point![320.0, 520.0], 0.105)
+            .unwrap();
+        let ball = BallPosition {
+            position,
+            velocity: linear_algebra::Vector2::zeros(),
+            last_seen: Time::zero(),
+        };
+        assert!(is_visible_to_camera(&ball, &camera, 0.105));
+        let shorter_camera = CameraMatrix {
+            image_size: linear_algebra::vector![640.0, 480.0],
+            ..camera
+        };
+        assert!(!is_visible_to_camera(&ball, &shorter_camera, 0.105));
+    }
 
     #[test]
     fn hypothesis_update_matching() {

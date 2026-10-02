@@ -6,6 +6,22 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+ball-filter-tuner = { path = "../ball-filter-tuner" }
+mcap_recorder = { workspace = true }
+json5 = { workspace = true }
+kinematics_provider = { workspace = true }
+support_foot_estimator = { workspace = true }
+ground_provider = { workspace = true }
+camera_matrix_calculator = { workspace = true }
+odometry = { workspace = true }
+localization-2d = { workspace = true }
+ros2 = { workspace = true }
+ball_filter = { workspace = true }
+visual_kick_ball_selector = { workspace = true }
+ros-z-streams = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+rand_distr = { workspace = true }
 behavior_node = { workspace = true }
 fall_detection = { workspace = true }
 ball_state_composer = { workspace = true }

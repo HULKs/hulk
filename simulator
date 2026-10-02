@@ -9,8 +9,42 @@ export MUJOCO_NO_PKG_CONFIG=1
 export MUJOCO_DOWNLOAD_DIR="${MUJOCO_DOWNLOAD_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/mujoco-rs}"
 export LD_LIBRARY_PATH="$MUJOCO_DOWNLOAD_DIR/mujoco-3.9.0/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
-if [[ -z "${ORT_DYLIB_PATH:-}" && -f /usr/lib/libonnxruntime.so ]]; then
-    export ORT_DYLIB_PATH=/usr/lib/libonnxruntime.so
+# The motion stack loads ONNX Runtime dynamically. Resolve it before opening the UI.
+needs_onnx_runtime=true
+for argument in "$@"; do
+    case "$argument" in --no-robotics|--watch-ball-tuning|--help|-h) needs_onnx_runtime=false ;; esac
+done
+if $needs_onnx_runtime && [[ -z "${ORT_DYLIB_PATH:-}" ]]; then
+    for candidate in /usr/lib/libonnxruntime.so /usr/lib64/libonnxruntime.so /usr/lib/x86_64-linux-gnu/libonnxruntime.so; do
+        if [[ -f "$candidate" ]]; then
+            export ORT_DYLIB_PATH="$candidate"
+            break
+        fi
+    done
+    if [[ -z "${ORT_DYLIB_PATH:-}" ]]; then
+        if [[ "$(uname -sm)" != "Linux x86_64" ]]; then
+            echo "Set ORT_DYLIB_PATH to an ONNX Runtime shared library (1.22 or compatible)." >&2
+            exit 1
+        fi
+        ort_cache="${XDG_CACHE_HOME:-$HOME/.cache}/hulk-simulator/onnxruntime"
+        ort_release="onnxruntime-linux-x64-1.22.0"
+        ort_library="$ort_cache/$ort_release/lib/libonnxruntime.so"
+        if [[ ! -f "$ort_library" ]]; then
+            mkdir -p "$ort_cache"
+            ort_download="$(mktemp -d "$ort_cache/download.XXXXXX")"
+            trap 'rm -rf -- "$ort_download"' EXIT
+            echo "Downloading ONNX Runtime 1.22.0 for simulator motion inference..." >&2
+            curl -fL --retry 2 --connect-timeout 15 \
+                "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/$ort_release.tgz" \
+                -o "$ort_download/runtime.tgz"
+            echo "8344d55f93d5bc5021ce342db50f62079daf39aaafb5d311a451846228be49b3  $ort_download/runtime.tgz" | sha256sum --check --status
+            tar -xzf "$ort_download/runtime.tgz" -C "$ort_download"
+            mv "$ort_download/$ort_release" "$ort_cache/"
+            rm -rf -- "$ort_download"
+            trap - EXIT
+        fi
+        export ORT_DYLIB_PATH="$ort_library"
+    fi
 fi
 
 exec cargo run -p simulate -- "$@"

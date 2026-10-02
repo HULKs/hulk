@@ -32,7 +32,8 @@ pub struct FieldPlugin;
 
 impl Plugin for FieldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_field)
+        app.add_plugins(super::walls::WallsPlugin)
+            .add_systems(Startup, spawn_field)
             .add_systems(PreUpdate, update_field.in_set(SceneParameterUpdateSet));
     }
 }

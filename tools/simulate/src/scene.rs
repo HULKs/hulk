@@ -6,7 +6,10 @@ pub mod goal;
 pub mod object;
 pub mod palette;
 pub mod robot;
+pub(crate) mod tuning_obstacles;
+pub(crate) mod tuning_viewer;
 pub mod visual;
+pub(crate) mod walls;
 
 use bevy::prelude::*;
 

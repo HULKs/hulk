@@ -40,14 +40,19 @@ impl Plugin for MotionSimulationPlugin {
                     .chain()
                     .after(MujocoModelUpdateSet),
             )
-            .add_systems(FixedUpdate, apply_command.before(MujocoStepSet))
+            .add_systems(
+                FixedUpdate,
+                (hold_for_stack, apply_command)
+                    .chain()
+                    .before(MujocoStepSet),
+            )
             .add_systems(
                 PreUpdate,
                 publish_field_dimensions.after(SimulatorParameterSyncSet),
             )
             .add_systems(
                 FixedUpdate,
-                (publish_observation, publish_world)
+                (publish_observation, publish_perception, publish_world)
                     .chain()
                     .after(MujocoStepSet),
             )
@@ -204,4 +209,58 @@ fn publish_world(
         simulation_time(data.time()),
     )
     .expect("publish behavior ground truth");
+}
+
+fn publish_perception(
+    world: Res<MujocoWorld>,
+    binding: Res<Binding>,
+    mut io: ResMut<Robotics>,
+    balls: Res<crate::scene::ball::SpawnedBalls>,
+    parameters: Res<CurrentSimulatorParameters>,
+    mode: Res<SimulationMode>,
+) {
+    if *mode == SimulationMode::Paused {
+        return;
+    }
+    // Sampling must not mark Robotics changed and resend global parameters every tick.
+    let io = io.bypass_change_detection();
+    let side = io.input_game.global_field_side;
+    let (Some(robot), Some(perception)) = (&binding.robot, &mut io.ball_perception) else {
+        return;
+    };
+    let data = world.data();
+    let positions = balls
+        .0
+        .iter()
+        .filter_map(|entity| {
+            let body = data.body(&format!("object_{}_ball", entity.to_bits()))?;
+            let p = body.view(data).xpos;
+            Some(linear_algebra::Point3::wrap(
+                robot.point_in_ground(data, [p[0], p[1], p[2]]),
+            ))
+        })
+        .collect();
+    perception
+        .publish(
+            simulation_time(data.time()),
+            crate::behavior_inputs::ground_to_field(robot.ground_to_world(data), side),
+            &robot.observe(data).camera_matrix,
+            positions,
+            parameters.parameters.field_dimensions.ball_radius,
+            &parameters.parameters.ball_perception,
+        )
+        .expect("publish simulated ball perception");
+}
+
+fn hold_for_stack(
+    io: Res<Robotics>,
+    mut mode: ResMut<SimulationMode>,
+    mut control: ResMut<SimulationControl>,
+) {
+    if *mode == SimulationMode::Running
+        && let Some(reason) = io.physics_blocker()
+    {
+        *mode = SimulationMode::Paused;
+        control.message = Some(reason);
+    }
 }

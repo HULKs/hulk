@@ -48,12 +48,32 @@ pub struct RobotBinding {
 }
 
 pub struct Observation {
+    pub robot_to_world: nalgebra::Isometry3<f32>,
     pub low_state: LowState,
     pub ground_to_robot: Isometry3<Ground, Robot>,
     pub camera_matrix: CameraMatrix,
 }
 
 impl RobotBinding {
+    /// Display measured joints without applying forces or advancing physics.
+    pub fn set_measured_joints(
+        &self,
+        data: &mut Data,
+        states: &kinematics::joints::Joints<MotorState>,
+    ) -> Result<()> {
+        ensure!(
+            states
+                .into_iter()
+                .all(|state| state.position.is_finite() && state.velocity.is_finite()),
+            "nonfinite measured joint state"
+        );
+        for (&(q, v, _), state) in self.joints.iter().zip(states) {
+            data.qpos_mut()[q] = f64::from(state.position);
+            data.qvel_mut()[v] = f64::from(state.velocity);
+        }
+        Ok(())
+    }
+
     /// Convert a MuJoCo world point using the same Ground frame as the published observations.
     pub fn point_in_ground(&self, data: &Data, position: [f64; 3]) -> nalgebra::Point3<f32> {
         self.ground_to_world(data).inverse() * nalgebra::Point3::from(position.map(|v| v as f32))
@@ -206,6 +226,10 @@ impl RobotBinding {
             UnitQuaternion::from_matrix(&Matrix3::from_row_slice(
                 &data.cam_xmat()[self.camera].map(|v| v as f32),
             )) * UnitQuaternion::from_euler_angles(std::f32::consts::PI, 0.0, 0.0),
+        ) * nalgebra::Isometry3::translation(
+            -(data.model().cam_ipd()[self.camera] as f32) * 0.5,
+            0.0,
+            0.0,
         );
         let [width, height] = data.model().cam_resolution()[self.camera].map(|v| v as f32);
         let fovy = (data.model().cam_fovy()[self.camera] as f32).to_radians();
@@ -219,6 +243,7 @@ impl RobotBinding {
             Isometry3::wrap(camera_to_world.inverse() * head_to_world),
         );
         Observation {
+            robot_to_world,
             low_state,
             ground_to_robot,
             camera_matrix,
@@ -271,6 +296,36 @@ mod tests {
         let mut data = MjData::new(Box::new(model));
         data.forward();
         data
+    }
+
+    #[test]
+    fn viewer_measured_joints_round_trip_without_advancing_physics() {
+        let mut data = model();
+        let binding = RobotBinding::new(&data, "").unwrap();
+        let joints = binding
+            .observe(&data)
+            .low_state
+            .serial_motor_states()
+            .unwrap()
+            .into_iter()
+            .enumerate()
+            .map(|(index, mut state)| {
+                state.position = index as f32 * 0.01;
+                state
+            })
+            .collect();
+        let time = data.time();
+        binding.set_measured_joints(&mut data, &joints).unwrap();
+        data.forward();
+        let observed = binding
+            .observe(&data)
+            .low_state
+            .serial_motor_states()
+            .unwrap();
+        for (expected, actual) in joints.into_iter().zip(observed) {
+            assert!((expected.position - actual.position).abs() < 1e-6);
+        }
+        assert_eq!(data.time(), time);
     }
 
     #[test]
@@ -373,7 +428,9 @@ mod tests {
             data.cam_xpos()[binding.camera].map(|v| v as f32),
         ));
         let rotation = Matrix3::from_row_slice(&data.cam_xmat()[binding.camera].map(|v| v as f32));
-        let ahead_in_world = camera_position - rotation.column(2) * 2.0;
+        let left_camera_position = camera_position
+            - rotation.column(0) * data.model().cam_ipd()[binding.camera] as f32 * 0.5;
+        let ahead_in_world = left_camera_position - rotation.column(2) * 2.0;
         let head_point = body_pose(&data, binding.head).inverse() * ahead_in_world;
         let camera_point = camera.head_to_camera.inner * head_point;
         assert!((camera_point.z - 2.0).abs() < 1e-5);

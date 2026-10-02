@@ -1,8 +1,11 @@
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
-    camera::visibility::RenderLayers, image::ImageLoaderSettings, light::NotShadowCaster,
+    camera::visibility::RenderLayers,
+    image::{CompressedImageFormats, ImageLoaderSettings, ImageType},
+    light::NotShadowCaster,
     prelude::*,
+    render::render_resource::TextureFormat,
 };
 use mujoco_rs::prelude::{MjSpec, MjtGeom, MjtJoint, SpecItem};
 
@@ -12,7 +15,6 @@ use crate::{
     parameters::{BallParameters, CurrentSimulatorParameters},
 };
 
-const BALL_BASE_COLOR: &str = "textures/football_base_color.png";
 const BALL_NORMAL_MAP: &str = "textures/football_normal.png";
 
 #[derive(Component)]
@@ -23,6 +25,14 @@ pub struct Ball;
 pub struct SpawnedBalls(pub Vec<Entity>);
 
 pub fn first_position(world: &MujocoWorld, balls: &SpawnedBalls) -> color_eyre::Result<[f64; 3]> {
+    Ok(first_pose(world, balls)?.0)
+}
+
+/// MuJoCo world position and orientation (quaternion in w, x, y, z order).
+pub fn first_pose(
+    world: &MujocoWorld,
+    balls: &SpawnedBalls,
+) -> color_eyre::Result<([f64; 3], [f64; 4])> {
     let ball = balls.0.first().ok_or_else(|| {
         color_eyre::eyre::eyre!("No ball in the scene. Drag a ball onto the field first.")
     })?;
@@ -30,8 +40,13 @@ pub fn first_position(world: &MujocoWorld, balls: &SpawnedBalls) -> color_eyre::
     let ball = data
         .body(&format!("object_{}_ball", ball.to_bits()))
         .ok_or_else(|| color_eyre::eyre::eyre!("The first ball is not ready in MuJoCo yet."))?;
-    let position = ball.view(data).xpos;
-    Ok([position[0], position[1], position[2]])
+    let view = ball.view(data);
+    let position = view.xpos;
+    let rotation = view.xquat;
+    Ok((
+        [position[0], position[1], position[2]],
+        [rotation[0], rotation[1], rotation[2], rotation[3]],
+    ))
 }
 
 /// Linear velocity of the first ball in MuJoCo's world frame (m/s).
@@ -70,15 +85,15 @@ impl BallAssets {
         let current = world.resource::<CurrentSimulatorParameters>();
         let radius = current.parameters.field_dimensions.ball_radius;
         let parameters = current.parameters.ball.clone();
-        let (base_color_texture, normal_map_texture) = {
+        let base_color_texture = world
+            .resource_mut::<Assets<Image>>()
+            .add(ball_color_texture());
+        let normal_map_texture = {
             let asset_server = world.resource::<AssetServer>();
-            (
-                asset_server.load(BALL_BASE_COLOR),
-                asset_server
-                    .load_builder()
-                    .with_settings(|settings: &mut ImageLoaderSettings| settings.is_srgb = false)
-                    .load(BALL_NORMAL_MAP),
-            )
+            asset_server
+                .load_builder()
+                .with_settings(|settings: &mut ImageLoaderSettings| settings.is_srgb = false)
+                .load(BALL_NORMAL_MAP)
         };
         let mesh = world.resource_mut::<Assets<Mesh>>().add(ball_mesh(radius));
         let mut materials = world.resource_mut::<Assets<StandardMaterial>>();
@@ -168,6 +183,45 @@ impl BallAssets {
             visual.insert(NotShadowCaster);
         }
         visual.id()
+    }
+}
+
+fn ball_color_texture() -> Image {
+    // PNG grayscale is loaded as R8: the PBR shader then samples (r, 0, 0),
+    // turning white panels red and preventing blue material tints from working.
+    // Expand the embedded grayscale artwork into actual RGB color channels.
+    Image::from_buffer(
+        include_bytes!("../../assets/textures/football_base_color.png"),
+        ImageType::Extension("png"),
+        CompressedImageFormats::NONE,
+        true,
+        default(),
+        default(),
+    )
+    .expect("embedded football PNG is valid")
+    .convert(TextureFormat::Rgba8UnormSrgb)
+    .expect("football texture supports RGBA conversion")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn soccer_texture_has_neutral_rgb_panels_for_material_tinting() {
+        let image = ball_color_texture();
+        assert_eq!(
+            image.texture_descriptor.format,
+            TextureFormat::Rgba8UnormSrgb
+        );
+        let pixels = image.data.as_ref().unwrap();
+        assert!(
+            pixels
+                .chunks_exact(4)
+                .all(|p| p[0] == p[1] && p[1] == p[2] && p[3] == 255)
+        );
+        assert!(pixels.chunks_exact(4).any(|p| p[0] == 255));
+        assert!(pixels.chunks_exact(4).any(|p| p[0] == 0));
     }
 }
 

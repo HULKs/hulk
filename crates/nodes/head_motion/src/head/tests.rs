@@ -443,3 +443,44 @@ fn leaving_patterns_clears_feedback_and_damping_exit_reseeds_from_measurements()
     assert_eq!(commanded(&resumed).positions, measurement.positions);
     assert_eq!(commanded(&resumed).velocities, measurement.velocities);
 }
+
+#[test]
+fn remote_head_velocity_moves_within_limits_and_rejects_invalid_input() {
+    let fixture = Fixture::new();
+    let mut controller = HeadController::default();
+    let mut measured = observation(0.0, 0.0);
+    for millis in (0..1000).step_by(10) {
+        controller.observe(measured, at(millis)).unwrap();
+        let output = controller
+            .evaluate(
+                &HeadMotion::MoveWithVelocity {
+                    yaw: 1.0,
+                    pitch: -0.5,
+                },
+                &fixture.context(),
+                &fixture.parameters,
+                at(millis),
+            )
+            .unwrap();
+        measured = commanded(&output);
+        for joint in [HeadJoint::Yaw, HeadJoint::Pitch] {
+            let [minimum, maximum] = fixture.joints.position.head[joint];
+            assert!((minimum..=maximum).contains(&measured.positions[joint]));
+        }
+    }
+    assert!(measured.positions.yaw > 0.0);
+    assert!(measured.positions.pitch < 0.0);
+    assert!(
+        controller
+            .evaluate(
+                &HeadMotion::MoveWithVelocity {
+                    yaw: f32::NAN,
+                    pitch: 0.0
+                },
+                &fixture.context(),
+                &fixture.parameters,
+                at(990),
+            )
+            .is_err()
+    );
+}

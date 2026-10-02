@@ -94,6 +94,7 @@ members = [
   "crates/x5_receiver",
   "crates/zed",
   "tools/annotato",
+  "tools/ball-filter-tuner",
   "tools/depp",
   "tools/hydra-bench",
   "tools/mujoco-simulator/mujoco-rust-server",

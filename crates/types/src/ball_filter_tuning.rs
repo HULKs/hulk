@@ -1,0 +1,59 @@
+//! Monitoring messages shared by the offline optimizer and Twix.
+use serde::{Deserialize, Serialize};
+
+use crate::parameters::BallFilterParameters;
+
+pub const ROUTER: &str = "tcp/127.0.0.1:7448";
+pub const NAMESPACE: &str = "/ball_tuning";
+pub const PROGRESS_TOPIC: &str = "tuning/progress";
+pub const OPEN_VIEWER_TOPIC: &str = "/ball_tuning/tuning/open_viewer";
+pub const TUNED_PARAMETER_POINTERS: &[&str] = &[
+    "/noise/detection_noise",
+    "/noise/process_noise_resting",
+    "/noise/process_noise_moving",
+    "/maximum_matching_cost",
+    "/validity_output_threshold",
+    "/visible_validity_exponential_decay_factor",
+    "/hidden_validity_exponential_decay_factor",
+    "/hypothesis_timeout",
+    "/velocity_decay_factor",
+];
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, ros_z::Message)]
+pub struct Metrics {
+    pub loss: f64,
+    pub position_rmse_metres: Option<f64>,
+    pub missing_seconds: f64,
+    pub false_track_seconds: f64,
+    pub missing_transform_seconds: f64,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, ros_z::Message)]
+pub struct SearchProgress {
+    pub reference_frame: String,
+    pub trial: u64,
+    pub trials: u64,
+    pub best_trial: u64,
+    pub baseline: Metrics,
+    pub best: Metrics,
+    pub best_parameters: BallFilterParameters,
+    pub validation_baseline: Option<Metrics>,
+    pub validation_best: Option<Metrics>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, ros_z::Message)]
+pub struct Progress {
+    pub status: String,
+    pub recording: String,
+    pub recording_index: u64,
+    pub recordings: u64,
+    pub phase: String,
+    pub elapsed_seconds: f64,
+    pub duration_seconds: f64,
+    pub search: Option<SearchProgress>,
+    pub output_directory: String,
+    pub error: Option<String>,
+    pub viewer_status: Option<String>,
+    pub live_trial: Option<u64>,
+    pub live_status: Option<String>,
+}

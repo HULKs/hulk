@@ -207,6 +207,9 @@ pub struct BallFilterNoise {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
 pub struct BallFilterParameters {
+    /// Maximum absolute offset between image exposure and camera geometry.
+    #[serde(default = "default_ball_camera_tolerance")]
+    pub maximum_camera_matrix_time_difference: Duration,
     pub hypothesis_timeout: Duration,
     pub maximum_number_of_hypotheses: usize,
     pub ball_confidence_threshold: f32,
@@ -220,6 +223,10 @@ pub struct BallFilterParameters {
     pub noise: BallFilterNoise,
     pub maximum_matching_cost: f32,
     pub maximum_matching_cost_validity_penalty_factor: f32,
+}
+
+fn default_ball_camera_tolerance() -> Duration {
+    Duration::from_millis(20)
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]

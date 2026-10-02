@@ -31,9 +31,9 @@ struct ArrowPart {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct Arrow {
-    origin: Vec3,
-    vector: Vec3,
+pub(crate) struct Arrow {
+    pub(crate) origin: Vec3,
+    pub(crate) vector: Vec3,
 }
 
 fn setup(
@@ -127,7 +127,7 @@ fn vectors(
     result
 }
 
-fn part_transform(arrow: Arrow, tip: bool) -> Option<Transform> {
+pub(crate) fn part_transform(arrow: Arrow, tip: bool) -> Option<Transform> {
     let length = arrow.vector.length();
     if !arrow.origin.is_finite()
         || !arrow.vector.is_finite()

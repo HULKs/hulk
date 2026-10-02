@@ -37,6 +37,113 @@ clears its linear/angular velocity. Physics pauses during the drag and resumes
 on release if it was running beforehand. Moving over a sidebar holds the last
 valid scene position. Click the field to clear the selection.
 
+Translucent blue, 1 m high rebound walls with opaque top rims stand 1 m outside the field lines. They
+use physical MuJoCo contacts with low damping for strong bounces, including corner
+impacts. The same walls are present in headless tuning and the live viewer, and
+follow field-dimension changes in the interactive simulator.
+
+## Automatic ball-filter tuning (development branch)
+
+```bash
+./simulator --tune-ball-filter logs/my-ball-run --keep-tuning-open
+```
+
+Use a new output directory. This launches the production motion and kinematic
+vision chain, records original ROS-Z messages in MCAP, checks replay against the
+live filter, and continuously searches on four training recordings, evaluating
+two separate holdouts after each search round. Rounds contain 4096 candidates by
+default (`--tuning-trials`) and start from the preceding best with a new search seed.
+The absolute simulated torso pose anchors
+`ground_to_field`; visual localization is excluded.
+
+During the search, a separate live simulation uses the latest best parameters.
+Each improvement is applied atomically through the production ball-filter node's
+parameter service; the robot keeps walking and tracking through updates. Twix
+shows the trial actually applied in the live simulation. Optimization and live
+scenarios continue until Ctrl-C. Use `--tuning-once` for one finite round;
+`--keep-tuning-open` then keeps its final best running in the live scenarios.
+
+Reuse a completed capture directory to skip recording and start from its saved
+best candidate (if present), while still verifying against the original baseline:
+
+```bash
+./simulator --tune-ball-filter logs/my-next-search \
+  --tuning-recordings logs/my-ball-run --keep-tuning-open
+```
+
+Live preview episodes do not modify the fixed training or holdout recordings.
+Parameter changes go to temporary simulator layers, not robot defaults.
+Changing production filter behavior can invalidate the exact baseline replay check;
+capture a new reference dataset after such a change, then reuse it for parameter searches.
+
+In Twix, add **Ball-filter optimization**, click **Connect to simulator / optimizer**,
+then **Open 3D view**. Hold the right mouse button and use **W/A/S/D** to move the
+camera, **Q** to descend and **E** to ascend. The viewer observes sensor messages
+without commanding the robot. The standalone viewer command is
+`./simulator --watch-ball-tuning`.
+Ball position and spin come directly from MuJoCo via the recorded ROS-Z
+`simulation/ball_poses_world` topic; the viewer does not invent rolling animation.
+The blue soccer ball shows the live filter's position, with a blue velocity
+arrow. The physical ball has a green velocity arrow, taken directly from MuJoCo
+via `simulation/ball_velocities_world`. Both arrows use 1 m per m/s. The filter's
+ground-to-field transform is matched to the filter
+timestamp within 20 ms; missing estimates or stale transforms hide the overlay.
+During capture this is the baseline filter; during optimization it uses the best
+parameters found so far. Candidate scores always come from the fixed MCAP dataset.
+The panel's live map shows the robot and both ball positions on the field. Filter
+positions use the ground-to-field transform at their timestamp (within 20 ms);
+missing transforms are shown explicitly rather than placing the robot at the origin.
+
+Recordings mix one, two and three real balls, all moved by MuJoCo impulses. The
+selected filter output is scored against the nearest real ball, rather than the
+first element of a reference vector. Every physical ball has its own green velocity
+arrow in the viewer; the blue ball remains the production filter's selected track.
+Two orange robot-sized cylinders move across the field as MuJoCo mocap obstacles.
+They collide with balls, are published to behavior's obstacle input, and suppress
+synthetic detections when the camera-to-ball center ray crosses their volume.
+Occluded balls remain present in ground truth, so dropping those tracks is penalized.
+
+The robot runs the normal behavior stack with game state `Playing`, a free ball,
+and no injected motion command. Production behavior controls walking, head tracking,
+search and kicking using the noisy ball filter output. Game state and selected
+motion commands are recorded alongside the sensor messages.
+
+Each 40-second recording varies the ball while behavior remains in control:
+
+| Time | Ball scenario |
+| --- | --- |
+| 0–3 s | Stationary ball |
+| 3–9 s | Incoming diagonal impulse |
+| 9–10.2 s | Fast cross-field impulse |
+| 10.2–14 s | Fast ball redirected |
+| 14–18 s | Rolling ball nudged |
+| 18–24 s | Another redirect |
+| 24–28 s | Lateral impulse |
+| 28–34 s | Empty scene with false detections |
+| 34–35.2 s | Fast close pass across the robot after balls reappear |
+| 35.2–40 s | Ball redirected for reacquisition |
+
+Walking speed and route follow the normal behavior parameters. Seeded variations
+change impulse strengths and mirror lateral directions. Scripted kicks apply
+impulses in N·s as external force and torque over one 2 ms MuJoCo step, striking
+above the ball's center. Existing momentum is preserved; MuJoCo integrates velocity,
+spin, friction and contact, including any robot kicks. Capture reports walking and
+simultaneous robot/ball motion; episodes where behavior searches or stops after
+losing the ball remain valid training data. Capture rejects falls and insufficient
+ball motion. It also verifies peak ball speed exceeds
+2.5 m/s and at least half a second is spent above 2 m/s. Baseline profiles use 2 px Gaussian center
+noise and 4% false detections; stress profiles add 5 px noise, pixel bias, 8% false detections, random
+misses, eight-frame dropout bursts and eight-frame false detections.
+
+Twix separates **Best tuned values** from **Fixed values (not searched)**. Ten search
+variables cover nine parameter groups; the saved `optimized/ball_filter.json5`
+contains the latest best configuration, saved atomically on every improvement.
+Completed rounds are retained in `round-NNNN/`; `optimized/report.json` records
+the latest completed round's
+training/holdout metrics, including missing ground-transform coverage and the count
+of numerically unstable candidates rejected during search. Parameters
+are saved for review, not automatically applied to robot defaults.
+
 ## Robotics stack
 
 The launcher starts the production `behavior_node`, `ball_state_composer`,
@@ -51,7 +158,7 @@ The global provider publishes retained `joint_limits`, `player_number`, and
 With `--no-robotics`, the simulator publishes field dimensions directly instead.
 
 The simulator starts paused, with **no injected motion command**. Its temporary
-layer clears the base configuration's injection and disables remote control.
+layer clears the base configuration's injection; remote control starts disabled.
 The default Game state is Initial, so behavior requests Stand with a head scan.
 Set Game to Playing and send it to enable ball pursuit and kicking; add a ball
 from the palette. With no ball, behavior searches after its last-ball timeout.

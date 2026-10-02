@@ -1,0 +1,7 @@
+{
+  // MJCF's -0.2125811028-radian camera rotation points the optical axis upward.
+  // Production uses degrees, with positive pitch raising the viewing direction.
+  camera_to_head_pitch: 12.1799999931,
+  correction_in_robot: [0.0, 0.0, 0.0],
+  correction_in_camera: [0.0, 0.0, 0.0],
+}

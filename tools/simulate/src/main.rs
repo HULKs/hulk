@@ -22,9 +22,12 @@ use crate::{
     },
 };
 
+mod ball_perception;
+mod ball_tuning;
 mod behavior_inputs;
 mod bevy_mujoco;
 mod controls;
+mod geometry_inputs;
 mod motion_parameters;
 mod parameters;
 mod robot_io;
@@ -44,6 +47,9 @@ struct Args {
     /// Robotics parameter root containing base/, location/, and robot/ layers.
     #[arg(long, default_value = "etc/parameters")]
     robotics_parameter_root: PathBuf,
+    /// Additional robotics parameter layers, applied after location and robot layers.
+    #[arg(long, value_name = "DIRECTORY", conflicts_with = "tune_ball_filter")]
+    robotics_parameter_layer: Vec<PathBuf>,
     #[arg(long, default_value = "simulator")]
     location: String,
     #[arg(long)]
@@ -53,11 +59,45 @@ struct Args {
     /// Publish sensors and accept raw joint commands without launching robotics nodes.
     #[arg(long)]
     no_robotics: bool,
+    /// Run production kinematics, ground/odometry and ball filtering on synthetic detections.
+    #[arg(long)]
+    ball_perception: bool,
+    /// Record headless physical scenarios, optimize on training runs and evaluate holdouts.
+    #[arg(long, value_name = "NEW_DIRECTORY", conflicts_with_all = ["no_robotics", "router", "robot", "parameter_root"])]
+    tune_ball_filter: Option<PathBuf>,
+    #[arg(long, default_value_t = 4096, requires = "tune_ball_filter")]
+    tuning_trials: usize,
+    /// Reuse a completed capture directory; warm-start from its saved best if available.
+    #[arg(long, value_name = "DIRECTORY", requires = "tune_ball_filter")]
+    tuning_recordings: Option<PathBuf>,
+    /// Finish after one search round instead of optimizing continuously.
+    #[arg(long, requires = "tune_ball_filter")]
+    tuning_once: bool,
+    /// Keep the Twix progress connection available after optimization finishes.
+    #[arg(long, requires = "tune_ball_filter")]
+    keep_tuning_open: bool,
+    /// Open a read-only 3D view of the local optimizer's live sensor messages.
+    #[arg(long, conflicts_with_all = ["tune_ball_filter", "router", "no_robotics", "ball_perception"])]
+    watch_ball_tuning: bool,
 }
 
 fn main() -> Result<()> {
     color_eyre::install()?;
     let args = Args::parse();
+    if args.watch_ball_tuning {
+        return scene::tuning_viewer::run();
+    }
+    if let Some(output) = args.tune_ball_filter {
+        return ball_tuning::run(
+            &output,
+            args.tuning_trials,
+            &args.robotics_parameter_root,
+            &args.location,
+            args.keep_tuning_open,
+            args.tuning_recordings.as_deref(),
+            args.tuning_once,
+        );
+    }
     let parameter_root = args
         .parameter_root
         .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("parameters"));
@@ -100,6 +140,7 @@ fn main() -> Result<()> {
     if let Some(robot) = args.robot {
         parameter_layers.push(args.robotics_parameter_root.join("robot").join(robot));
     }
+    parameter_layers.extend(args.robotics_parameter_layer);
     let robotics = runtime.block_on(robotics::Robotics::new(
         runtime.handle().clone(),
         robotics::StackConfiguration {
@@ -107,6 +148,7 @@ fn main() -> Result<()> {
             namespace: args.robot_namespace,
             parameter_layers,
             launch_nodes: !args.no_robotics,
+            ball_perception: args.ball_perception,
         },
         Clock::logical(RosTime::zero()),
     ))?;

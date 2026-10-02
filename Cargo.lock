@@ -841,6 +841,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "ball-filter-tuner"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "json5",
+ "linear_algebra",
+ "mcap",
+ "projection",
+ "rand 0.9.4",
+ "rand_chacha 0.9.0",
+ "ros-z",
+ "ros-z-streams",
+ "serde",
+ "serde_json",
+ "types",
+]
+
+[[package]]
 name = "ball_filter"
 version = "0.1.0"
 dependencies = [
@@ -11020,10 +11041,13 @@ checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 name = "simulate"
 version = "0.1.0"
 dependencies = [
+ "ball-filter-tuner",
+ "ball_filter",
  "ball_state_composer",
  "behavior_node",
  "bevy",
  "booster",
+ "camera_matrix_calculator",
  "cdr",
  "clap",
  "color-eyre",
@@ -11031,23 +11055,36 @@ dependencies = [
  "fall_detection",
  "geometry",
  "global_parameter_provider",
+ "ground_provider",
  "hardware_interface",
  "head_motion",
  "hsl_network_messages",
+ "json5",
  "kinematics",
+ "kinematics_provider",
  "linear_algebra",
+ "localization-2d",
+ "mcap_recorder",
  "motion",
  "motion_inference",
  "mujoco-rs",
  "nalgebra 0.34.2",
+ "odometry",
  "projection",
+ "rand 0.9.4",
+ "rand_chacha 0.9.0",
+ "rand_distr 0.5.1",
  "ros-z",
+ "ros-z-streams",
+ "ros2",
  "rule_obstacle_composer",
  "serde",
  "serde_json",
+ "support_foot_estimator",
  "tempfile",
  "tokio",
  "types",
+ "visual_kick_ball_selector",
  "zenoh",
 ]
 

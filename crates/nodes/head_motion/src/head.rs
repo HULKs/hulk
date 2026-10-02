@@ -248,6 +248,21 @@ impl HeadController {
                     parameters.direct_travel_speed,
                 ))
             }
+            HeadMotion::MoveWithVelocity { yaw, pitch } => {
+                ensure!(
+                    yaw.is_finite() && pitch.is_finite(),
+                    "head velocity must be finite"
+                );
+                self.hold_target = None;
+                let elapsed = self
+                    .last_evaluation
+                    .map(|last| now.duration_since(last).as_secs_f32())
+                    .unwrap_or(0.0);
+                Resolution::motion(move_to(
+                    reference + HeadJoints { yaw, pitch } * elapsed,
+                    parameters.direct_travel_speed,
+                ))
+            }
             HeadMotion::Damping => {
                 self.hold_target = None;
                 Resolution::motion(JointTarget::Damping)
@@ -435,9 +450,10 @@ fn mode_for(request: &HeadMotion, injected: bool) -> Mode {
         HeadMotion::SearchForLostBall => Mode::Scan(ScanKind::SearchForLostBall),
         HeadMotion::LookLeftAndRightOf { .. } => Mode::Glance,
         HeadMotion::Damping => Mode::Damping,
-        HeadMotion::ZeroAngles | HeadMotion::Center { .. } | HeadMotion::LookAt { .. } => {
-            Mode::Direct
-        }
+        HeadMotion::ZeroAngles
+        | HeadMotion::Center { .. }
+        | HeadMotion::LookAt { .. }
+        | HeadMotion::MoveWithVelocity { .. } => Mode::Direct,
     }
 }
 
