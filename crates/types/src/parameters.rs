@@ -210,6 +210,9 @@ pub struct BallFilterParameters {
     /// Maximum absolute offset between image exposure and camera geometry.
     #[serde(default = "default_ball_camera_tolerance")]
     pub maximum_camera_matrix_time_difference: Duration,
+    /// Distance outside the field for an e-fold confidence reduction; <= 0 disables.
+    #[serde(default = "default_ball_field_confidence_decay_distance")]
+    pub field_boundary_confidence_decay_distance: f32,
     pub hypothesis_timeout: Duration,
     pub maximum_number_of_hypotheses: usize,
     pub ball_confidence_threshold: f32,
@@ -224,6 +227,10 @@ pub struct BallFilterParameters {
     pub maximum_matching_cost: f32,
     /// Legacy compatibility field; rejected associations no longer penalize track validity.
     pub maximum_matching_cost_validity_penalty_factor: f32,
+}
+
+fn default_ball_field_confidence_decay_distance() -> f32 {
+    0.3
 }
 
 fn default_ball_camera_tolerance() -> Duration {

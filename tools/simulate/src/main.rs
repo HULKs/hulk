@@ -67,6 +67,9 @@ struct Args {
     tune_ball_filter: Option<PathBuf>,
     #[arg(long, default_value_t = 4096, requires = "tune_ball_filter")]
     tuning_trials: usize,
+    /// Number of balls in the unscored live preview; optimization captures always use one.
+    #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=3), requires = "tune_ball_filter")]
+    tuning_preview_balls: u8,
     /// Reuse a completed capture directory; warm-start from its saved best if available.
     #[arg(long, value_name = "DIRECTORY", requires = "tune_ball_filter")]
     tuning_recordings: Option<PathBuf>,
@@ -96,6 +99,7 @@ fn main() -> Result<()> {
             args.keep_tuning_open,
             args.tuning_recordings.as_deref(),
             args.tuning_once,
+            usize::from(args.tuning_preview_balls),
         );
     }
     let parameter_root = args

@@ -45,6 +45,7 @@ const TOPICS: &[&str] = &[
     "camera_matrix",
     "field_dimensions",
     "ball_filter/update_schedule",
+    "ball_filter/field_prior_pose",
     "ball_filter/ball_position",
     "ball_filter/ball_percepts",
     "visual_kick/ball_position",
@@ -68,6 +69,30 @@ const TOPICS: &[&str] = &[
     "behavior/motion_command",
 ];
 
+/// Cargo can replace the on-disk executable while an optimizer keeps running.
+/// On Linux current_exe then ends in " (deleted)" and is not executable by path;
+/// procfs still exposes the running image, including across a rebuild.
+fn viewer_executable(executable: PathBuf) -> PathBuf {
+    #[cfg(target_os = "linux")]
+    if !executable.is_file() {
+        return PathBuf::from("/proc/self/exe");
+    }
+    executable
+}
+
+fn launch_viewer(log_path: &Path) -> std::io::Result<std::process::Child> {
+    let executable = viewer_executable(std::env::current_exe()?);
+    let log = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_path)?;
+    std::process::Command::new(executable)
+        .arg("--watch-ball-tuning")
+        .stdout(log.try_clone()?)
+        .stderr(log)
+        .spawn()
+}
+
 pub fn run(
     output: &Path,
     trials: usize,
@@ -76,6 +101,7 @@ pub fn run(
     keep_open: bool,
     recordings: Option<&Path>,
     once: bool,
+    preview_balls: usize,
 ) -> Result<()> {
     ensure!(
         !output.exists(),
@@ -83,6 +109,10 @@ pub fn run(
         output.display()
     );
     ensure!(trials > 0, "tuning trials must be positive");
+    ensure!(
+        (1..=3).contains(&preview_balls),
+        "preview ball count must be 1 to 3"
+    );
     if let Some(recordings) = recordings {
         for name in [
             "baseline.json5",
@@ -141,6 +171,7 @@ pub fn run(
             ..Default::default()
         });
         let viewer_updates = progress.clone();
+        let viewer_log = output.join("3d-viewer.log");
         let parameter_node = node.clone();
         let task = tokio::spawn(async move {
             let _node = node;
@@ -152,7 +183,12 @@ pub fn run(
                         if let Some(child) = &mut viewer {
                             match child.try_wait() {
                                 Ok(Some(status)) => {
-                                    viewer_updates.send_modify(|state| state.viewer_status = Some(format!("3D viewer closed ({status})")));
+                                    let message = if status.success() {
+                                        "3D viewer closed".to_string()
+                                    } else {
+                                        format!("3D viewer failed ({status}); see {}", viewer_log.display())
+                                    };
+                                    viewer_updates.send_modify(|state| state.viewer_status = Some(message));
                                     viewer = None;
                                 }
                                 Err(error) => {
@@ -165,11 +201,10 @@ pub fn run(
                     },
                     request = open_viewer.recv() => {
                         if matches!(request, Ok(true)) && viewer.is_none() {
-                            let launched = std::env::current_exe().and_then(|exe|
-                                std::process::Command::new(exe).arg("--watch-ball-tuning").spawn());
+                            let launched = launch_viewer(&viewer_log);
                             let status = match launched {
-                                Ok(child) => { viewer = Some(child); "3D viewer open".to_string() },
-                                Err(error) => format!("Could not open 3D viewer: {error}"),
+                                Ok(child) => { viewer = Some(child); "3D viewer process started".to_string() },
+                                Err(error) => format!("Could not open 3D viewer: {error}; log: {}", viewer_log.display()),
                             };
                             viewer_updates.send_modify(|state| state.viewer_status = Some(status));
                         }
@@ -220,6 +255,7 @@ pub fn run(
                     location,
                     &output.join(format!("{name}-{seed}.mcap")),
                     seed,
+                    1, // One unambiguous reference ball in every optimization recording.
                     RosTime::from_nanos(index as i64 * 41_000_000_000),
                     &progress,
                     None,
@@ -245,6 +281,7 @@ pub fn run(
             best.clone(),
             RemoteParameterClient::new(parameter_node, format!("{NAMESPACE}/ball_filter"))?,
             shutdown.clone(),
+            preview_balls,
         ));
         let mut sent_trial = None;
         let mut round = 0_u64;
@@ -390,6 +427,7 @@ impl LivePreview {
         best: tokio::sync::watch::Sender<Option<LiveCandidate>>,
         client: RemoteParameterClient,
         stop: Arc<AtomicBool>,
+        ball_count: usize,
     ) -> Self {
         let mut updates = LiveUpdates {
             best: best.subscribe(),
@@ -419,6 +457,7 @@ impl LivePreview {
                     &location,
                     Path::new("live preview"),
                     242 + episode,
+                    ball_count,
                     RosTime::from_nanos((6 + episode) as i64 * 41_000_000_000),
                     &progress,
                     Some(&mut updates),
@@ -512,6 +551,7 @@ fn record(
     location: &str,
     path: &Path,
     seed: u64,
+    ball_count: usize,
     start_time: RosTime,
     progress: &tokio::sync::watch::Sender<Progress>,
     mut live: Option<&mut LiveUpdates>,
@@ -666,8 +706,11 @@ fn record(
             0.0,
         ],
     )];
-    // Mix single-, two- and three-ball scenes across the fixed seeds.
-    let ball_count = 1 + (seed / 2 % 3) as usize;
+    // Additional balls are an explicit, unscored live-preview stress test.
+    ensure!(
+        live.is_some() || ball_count == 1,
+        "optimization captures require one ball"
+    );
     for index in 1..ball_count {
         balls.push(spawn_ball(
             &mut app,
@@ -1243,6 +1286,20 @@ fn step_with_ball_impulse(world: &mut MujocoWorld, impulse: Option<BallImpulse>)
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn replaced_optimizer_executable_uses_the_running_image_for_viewer() {
+        let directory = tempfile::tempdir().unwrap();
+        let original = directory.path().join("simulate");
+        std::fs::write(&original, b"placeholder executable").unwrap();
+        assert_eq!(viewer_executable(original.clone()), original);
+        std::fs::remove_file(&original).unwrap();
+        let deleted = directory.path().join("simulate (deleted)");
+        let fallback = viewer_executable(deleted);
+        assert_eq!(fallback, std::path::Path::new("/proc/self/exe"));
+        assert!(fallback.is_file(), "running image remains accessible");
+    }
+
     use super::*;
 
     #[tokio::test(flavor = "multi_thread")]

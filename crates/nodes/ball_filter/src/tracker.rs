@@ -2,6 +2,8 @@
 use super::*;
 use serde::{Deserialize, Serialize};
 
+pub const FIELD_PRIOR_POSE_TOPIC: &str = "ball_filter/field_prior_pose";
+
 /// Records fusion boundaries and the selected camera timestamp, without copying inputs.
 /// This diagnostic is identical on the robot and simulator. It preserves batching
 /// and camera selection when replaying the original ros-z input messages.
@@ -83,9 +85,22 @@ impl Tracker {
         parameters: &BallFilterParameters,
         dimensions: &FieldDimensions,
     ) -> Option<BallPosition<Ground>> {
+        self.finish_with_field_pose(time, parameters, dimensions, None)
+    }
+
+    /// Applies a selected, timestamp-matched pose only to output confidence.
+    /// Replay supplies the exact pose recorded by the live node; legacy inputs
+    /// pass None and preserve localization-independent selection.
+    pub fn finish_with_field_pose(
+        &mut self,
+        time: Time,
+        parameters: &BallFilterParameters,
+        dimensions: &FieldDimensions,
+        ground_to_field: Option<Isometry2<Ground, Field>>,
+    ) -> Option<BallPosition<Ground>> {
         remove_invalid_and_merge_hypotheses(&mut self.filter, time, parameters, dimensions);
         self.filter
-            .best_hypothesis(parameters.validity_output_threshold)
+            .best_hypothesis_with_field_pose(parameters, dimensions, ground_to_field)
             .map(|h| h.position())
     }
 }

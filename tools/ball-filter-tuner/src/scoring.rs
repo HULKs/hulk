@@ -8,6 +8,7 @@ use serde::Serialize;
 use types::{ball_position::BallPosition, parameters::BallFilterParameters};
 
 pub const MISSING_PENALTY_MULTIPLIER: f64 = 1.25;
+pub const OUT_OF_FIELD_DECAY_METRES: f64 = 0.3;
 
 /// Stored with every report so scores from different objectives are not confused.
 #[derive(Serialize)]
@@ -17,14 +18,18 @@ pub struct Objective {
     pub missing_loss: &'static str,
     pub false_track_loss: &'static str,
     pub normalization: &'static str,
+    pub reference_weight: &'static str,
+    pub out_of_field_decay_metres: f64,
 }
 
 pub const OBJECTIVE: Objective = Objective {
-    version: "bounded_position_and_availability_v1",
-    position_loss: "p^2 * d^2 / (p^2 + d^2); d = distance to nearest labelled ball",
+    version: "single_ball_distance_weighted_v3",
+    position_loss: "p^2 * d^2 / (p^2 + d^2); d = distance to the single labelled ball",
     missing_loss: "1.25 * p^2",
     false_track_loss: "p^2",
-    normalization: "time integral divided by labelled seconds; p = penalty_metres",
+    normalization: "weighted time integral divided by weighted_seconds; p = penalty_metres",
+    reference_weight: "exp(-distance_outside_field_metres / out_of_field_decay_metres); distance outside Field rectangle expanded by ball radius; absent or unknown Field pose weight=1",
+    out_of_field_decay_metres: OUT_OF_FIELD_DECAY_METRES,
 };
 
 #[derive(Default, Debug, Serialize)]
@@ -32,6 +37,8 @@ pub struct Score {
     pub loss: f64,
     pub position_rmse_metres: Option<f64>,
     pub labelled_seconds: f64,
+    pub weighted_seconds: f64,
+    pub out_of_field_seconds: f64,
     pub unlabelled_seconds: f64,
     pub present_seconds: f64,
     pub missing_seconds: f64,
@@ -62,14 +69,46 @@ pub struct Score {
 }
 
 impl Score {
+    fn observe_cycle(
+        &mut self,
+        cycle: &Cycle,
+        estimate: Option<BallPosition<Ground>>,
+        penalty: f64,
+    ) {
+        let loss_before = self.loss;
+        match &cycle.reference {
+            Some(Reference::Ground(reference)) => {
+                self.observe(Some(reference), estimate, cycle.seconds, penalty)
+            }
+            Some(Reference::Field(reference)) => self.observe_field(
+                reference,
+                estimate,
+                cycle.ground_to_field,
+                cycle.seconds,
+                penalty,
+            ),
+            None => self.observe::<Ground>(None, estimate, cycle.seconds, penalty),
+        }
+        if cycle.reference.is_some() {
+            let distance = reference_distance_outside_field(cycle);
+            let weight = (-distance / OUT_OF_FIELD_DECAY_METRES).exp();
+            self.weighted_seconds += cycle.seconds * weight;
+            if distance > 0.0 {
+                self.out_of_field_seconds += cycle.seconds;
+            }
+            // Only the optimization objective is weighted. Raw spatial errors,
+            // missing durations and uninterrupted gap lengths remain unchanged.
+            self.loss = loss_before + (self.loss - loss_before) * weight;
+        }
+    }
+
     fn observe_diagnostics(
         &mut self,
         cycle: &Cycle,
         estimate: Option<BallPosition<Ground>>,
         previous: &mut Option<(Time, Point2<Field>)>,
     ) {
-        // Diagnose the ball a robot could kick now: if several balls are present,
-        // use the nearest labelled ball inside 1 m, not a remote selected target.
+        // Diagnose a ball the robot could kick now, within 1 m of its Ground origin.
         let mut close_squared = None::<f64>;
         let mut close_present = false;
         let mut observe_ground = |truth: Point2<Ground>| {
@@ -180,15 +219,10 @@ impl Score {
             self.current_missing_seconds = 0.0;
         }
         match (reference.first(), estimate) {
-            (Some(_), Some(estimate)) => {
+            (Some(truth), Some(estimate)) => {
                 self.present_seconds += seconds;
-                // The production output is one selected ball. Any real ball is
-                // a valid target; vector ordering must not penalize switching
-                // between real balls or accidentally reward a point between them.
-                let squared = reference
-                    .iter()
-                    .map(|truth| f64::from((truth.xy() - estimate.position).norm_squared()))
-                    .fold(f64::INFINITY, f64::min);
+                // Optimization recordings have exactly one target when present.
+                let squared = f64::from((truth.xy() - estimate.position).norm_squared());
                 self.squared_error += seconds * squared;
                 // Keep the raw RMSE above for honesty about spatial accuracy.
                 // Bound only the optimization loss, retaining a gradient even
@@ -221,6 +255,25 @@ impl Score {
     }
 }
 
+/// Scenario likelihood comes from reference truth, never a candidate estimate.
+/// Expanding the rectangle by ball radius keeps a straddling ball at full weight.
+/// Ground-only labels without a Field transform cannot establish field bounds.
+fn reference_distance_outside_field(cycle: &Cycle) -> f64 {
+    let point = match &cycle.reference {
+        Some(Reference::Field(points)) => points.first().map(|point| point.xy()),
+        Some(Reference::Ground(points)) => points
+            .first()
+            .zip(cycle.ground_to_field)
+            .map(|(point, pose)| pose * point.xy()),
+        None => None,
+    };
+    let Some(point) = point else { return 0.0 };
+    let dimensions = &cycle.dimensions;
+    let outside_x = (point.x().abs() - dimensions.length / 2.0).max(0.0);
+    let outside_y = (point.y().abs() - dimensions.width / 2.0).max(0.0);
+    f64::from((outside_x.hypot(outside_y) - dimensions.ball_radius).max(0.0))
+}
+
 /// Verify replay against live outputs before trying any candidates. Missing input,
 /// parameter mismatch and scheduling drift must not silently change the experiment.
 pub fn verify(recording: &Recording, parameters: &BallFilterParameters) -> Result<()> {
@@ -236,7 +289,12 @@ pub fn verify(recording: &Recording, parameters: &BallFilterParameters) -> Resul
                 &cycle.dimensions,
             )?;
         }
-        let replay = tracker.finish(cycle.time, parameters, &cycle.dimensions);
+        let replay = tracker.finish_with_field_pose(
+            cycle.time,
+            parameters,
+            &cycle.dimensions,
+            cycle.field_prior_pose,
+        );
         let matches = match (replay, cycle.recorded_estimate) {
             (None, None) => true,
             (Some(a), Some(b)) => {
@@ -268,6 +326,9 @@ pub fn evaluate(
         let mut previous_reference = None;
         let mut tracker = Tracker::default();
         for cycle in &recording.cycles {
+            if let Some(reference) = &cycle.reference {
+                reference.validate_for_optimization()?;
+            }
             for input in &cycle.inputs {
                 tracker.advance(
                     input.time,
@@ -278,24 +339,17 @@ pub fn evaluate(
                     &cycle.dimensions,
                 )?;
             }
-            let estimate = tracker.finish(cycle.time, parameters, &cycle.dimensions);
+            let estimate = tracker.finish_with_field_pose(
+                cycle.time,
+                parameters,
+                &cycle.dimensions,
+                cycle.field_prior_pose,
+            );
             score.observe_diagnostics(cycle, estimate, &mut previous_reference);
-            match &cycle.reference {
-                Some(Reference::Ground(reference)) => {
-                    score.observe(Some(reference), estimate, cycle.seconds, penalty)
-                }
-                Some(Reference::Field(reference)) => score.observe_field(
-                    reference,
-                    estimate,
-                    cycle.ground_to_field,
-                    cycle.seconds,
-                    penalty,
-                ),
-                None => score.observe::<Ground>(None, estimate, cycle.seconds, penalty),
-            }
+            score.observe_cycle(cycle, estimate, penalty);
         }
     }
-    score.loss /= score.labelled_seconds;
+    score.loss /= score.weighted_seconds;
     let matched = score.present_seconds - score.missing_seconds;
     score.position_rmse_metres = (matched > 0.0).then(|| (score.squared_error / matched).sqrt());
     let close_matched = score.close_range_present_seconds - score.close_range_missing_seconds;
@@ -322,8 +376,105 @@ mod tests {
             reference: Some(Reference::Field(vec![point![x, 0.0, 0.1]])),
             ground_to_field: Some(Isometry2::from(linear_algebra::vector![robot_x, 0.0])),
             recorded_estimate: None,
+            field_prior_pose: None,
             seconds: 0.05,
         }
+    }
+
+    #[test]
+    fn field_weight_decays_with_whole_ball_distance_and_uses_field_coordinates() {
+        let mut cycle = diagnostic_cycle(0, 0.0, 0.0);
+        cycle.dimensions = types::field_dimensions::FieldDimensions::SPL_2025;
+        let edge = cycle.dimensions.length / 2.0 + cycle.dimensions.ball_radius;
+        let mut previous_weight = 1.0;
+        for distance in [0.0_f32, 0.3, 1.0, 2.0] {
+            cycle.reference = Some(Reference::Field(vec![point![edge + distance, 0.0, 0.1]]));
+            let measured = reference_distance_outside_field(&cycle);
+            assert!((measured - f64::from(distance)).abs() < 1e-6);
+            let weight = (-measured / OUT_OF_FIELD_DECAY_METRES).exp();
+            assert!(weight <= previous_weight);
+            previous_weight = weight;
+        }
+        cycle.reference = Some(Reference::Field(vec![point![edge - 0.01, 0.0, 0.1]]));
+        assert_eq!(reference_distance_outside_field(&cycle), 0.0);
+        cycle.reference = Some(Reference::Field(vec![point![
+            cycle.dimensions.length / 2.0 + 0.3,
+            cycle.dimensions.width / 2.0 + 0.4,
+            0.1
+        ]]));
+        assert!(
+            (reference_distance_outside_field(&cycle)
+                - f64::from(0.5 - cycle.dimensions.ball_radius))
+            .abs()
+                < 1e-6
+        );
+
+        // A distant ball in Ground can still be inside the field when the robot
+        // is translated and rotated. Geometry must not follow robot coordinates.
+        let pose = Isometry2::<Ground, Field>::from_parts(linear_algebra::vector![8.0, -5.0], 1.2);
+        for truth in [point![0.0, 0.0], point![edge + 0.3, 0.0]] {
+            let ground = pose.inverse() * truth;
+            cycle.reference = Some(Reference::Ground(vec![point![ground.x(), ground.y(), 0.1]]));
+            cycle.ground_to_field = Some(pose);
+            let expected = (truth.x().abs() - edge).max(0.0);
+            let actual = reference_distance_outside_field(&cycle);
+            // Inverting and reapplying a float32 pose several metres away
+            // introduces a few micrometres of roundoff.
+            assert!(
+                (actual - f64::from(expected)).abs() < 5e-6,
+                "distance {actual}, expected {expected}"
+            );
+        }
+        cycle.ground_to_field = None;
+        assert_eq!(reference_distance_outside_field(&cycle), 0.0);
+    }
+
+    #[test]
+    fn outside_weight_changes_only_loss_and_its_denominator_not_raw_metrics_or_gaps() {
+        let mut inside = diagnostic_cycle(0, 1.0, 0.0);
+        inside.dimensions = types::field_dimensions::FieldDimensions::SPL_2025;
+        inside.seconds = 1.0;
+        let edge = inside.dimensions.length / 2.0 + inside.dimensions.ball_radius;
+        let mut outside = diagnostic_cycle(0, edge + 0.3, 0.0);
+        outside.dimensions = inside.dimensions;
+        outside.seconds = 1.0;
+        let weight =
+            (-reference_distance_outside_field(&outside) / OUT_OF_FIELD_DECAY_METRES).exp();
+        for error in [None, Some(0.0), Some(0.5)] {
+            let estimate = |truth: f32| {
+                error.map(|offset| BallPosition::<Ground> {
+                    position: point![truth + offset, 0.0],
+                    velocity: Vector2::zeros(),
+                    last_seen: Time::zero(),
+                })
+            };
+            let mut a = Score::default();
+            let mut b = Score::default();
+            a.observe_cycle(&inside, estimate(1.0), 2.0);
+            b.observe_cycle(&outside, estimate(edge + 0.3), 2.0);
+            assert!((b.loss - a.loss * weight).abs() < 1e-6);
+            assert!((b.squared_error - a.squared_error).abs() < 1e-6);
+            assert_eq!(a.missing_seconds, b.missing_seconds);
+            assert_eq!(a.labelled_seconds, b.labelled_seconds);
+            assert_eq!(b.out_of_field_seconds, 1.0);
+            assert_eq!(b.weighted_seconds, weight);
+        }
+        let mut gaps = Score::default();
+        gaps.observe_cycle(&inside, None, 2.0);
+        gaps.observe_cycle(&outside, None, 2.0);
+        assert_eq!(gaps.missing_runs, 1);
+        assert_eq!(gaps.longest_missing_seconds, 2.0);
+        assert_eq!(gaps.missing_seconds, 2.0);
+
+        outside.reference = Some(Reference::Field(Vec::new()));
+        let mut absent = Score::default();
+        absent.observe_cycle(&outside, None, 2.0);
+        assert_eq!(absent.weighted_seconds, 1.0);
+        assert_eq!(absent.out_of_field_seconds, 0.0);
+        outside.reference = None;
+        absent.observe_cycle(&outside, None, 2.0);
+        assert_eq!(absent.weighted_seconds, 1.0);
+        assert_eq!(absent.unlabelled_seconds, 1.0);
     }
 
     #[test]
@@ -459,8 +610,8 @@ mod tests {
     }
 
     #[test]
-    fn multiple_balls_score_against_a_real_ball_not_the_first_or_centroid() {
-        let balls = [point![-2.0, 0.0, 0.1], point![2.0, 0.0, 0.1]];
+    fn spatial_score_uses_the_single_labelled_target() {
+        let balls = [point![2.0, 0.0, 0.1]];
         let mut score = Score::default();
         let mut estimate = BallPosition::<Ground> {
             position: point![2.0, 0.0],

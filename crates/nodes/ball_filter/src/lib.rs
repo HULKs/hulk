@@ -7,7 +7,7 @@ use nalgebra::{Matrix2, Matrix4};
 use ndarray::Array2;
 use ros_z::qos::QosDurability;
 
-use coordinate_systems::{Ground, Odometry, Pixel};
+use coordinate_systems::{Field, Ground, Odometry, Pixel};
 use geometry::circle::Circle;
 use projection::{Projection, camera_matrix::CameraMatrix};
 use ros_z::{context::Context, prelude::*, time::Time};
@@ -29,6 +29,7 @@ pub use crate::{
     hypothesis::{BallHypothesis, BallMode},
 };
 
+mod field_prior;
 mod filter;
 mod hypothesis;
 pub mod tracker;
@@ -43,6 +44,7 @@ struct BallFilterOutput {
     filtered_balls_in_image: Vec<Circle<Pixel>>,
     hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
     schedule: UpdateSchedule,
+    field_prior_pose: Option<Isometry2<Ground, Field>>,
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -68,6 +70,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .with_stamp(|wrapper: &TimeWrapper<CameraMatrix>| wrapper.time)
         .build()
         .await?;
+    let field_pose_sub = node
+        .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
+        .build()
+        .await?;
+    let field_prior_pose_pub = node
+        .publisher::<TimeWrapper<Option<Isometry2<Ground, Field>>>>(tracker::FIELD_PRIOR_POSE_TOPIC)
+        .build()
+        .await?;
+    let mut field_poses = field_prior::FieldPoseHistory::default();
     let mut future_map = node
         .create_future_map_builder()
         .create_future_subscriber::<Pose2<Odometry>>("inputs/odometry", Duration::from_millis(1))
@@ -111,12 +122,19 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let mut tracker = Tracker::default();
     let mut sequence = 0_u64;
+    let mut last_field_prior_pose = None;
 
     loop {
+        let future_map_item = tokio::select! {
+            received = field_pose_sub.recv_with_metadata() => {
+                let received = received?;
+                field_poses.insert(received.source_time, received.message);
+                continue;
+            }
+            item = future_map.recv() => item?,
+        };
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
-
-        let future_map_item = future_map.recv().await?;
 
         let Some(field_dimensions) = field_dimensions_sub.get_latest() else {
             continue;
@@ -156,15 +174,25 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     &field_dimensions,
                 )?);
             }
+            // Temporary-only batches leave the state at its previous timestamp.
+            // Keep the same prior for their diagnostic outputs, too.
+            let field_prior_pose = output_time
+                .map(|time| field_poses.at(time))
+                .unwrap_or(last_field_prior_pose);
             if let Some(time) = output_time {
-                tracker.finish(time, parameters, &field_dimensions);
+                tracker.finish_with_field_pose(
+                    time,
+                    parameters,
+                    &field_dimensions,
+                    field_prior_pose,
+                );
                 sequence += 1;
             }
             let ball_filter = &tracker.filter;
 
             let filter_state = ball_filter.clone();
             let best_hypothesis = ball_filter
-                .best_hypothesis(parameters.validity_output_threshold)
+                .best_hypothesis_with_field_pose(parameters, &field_dimensions, field_prior_pose)
                 .cloned();
             let filtered_ball = best_hypothesis
                 .as_ref()
@@ -174,7 +202,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 .hypotheses
                 .iter()
                 .filter_map(|hypothesis| {
-                    if hypothesis.validity >= parameters.validity_output_threshold {
+                    if field_prior::effective_validity(
+                        hypothesis,
+                        field_prior_pose,
+                        &field_dimensions,
+                        parameters,
+                    ) >= parameters.validity_output_threshold
+                    {
                         Some(hypothesis.position())
                     } else {
                         None
@@ -194,8 +228,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             } else {
                 vec![]
             };
-            let hypothetical_ball_positions =
-                hypothetical_ball_positions(&ball_filter, parameters.validity_output_threshold);
+            let hypothetical_ball_positions = hypothetical_ball_positions(
+                ball_filter,
+                parameters,
+                &field_dimensions,
+                field_prior_pose,
+            );
 
             Ok(BallFilterOutput {
                 time: output_time,
@@ -206,6 +244,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 filtered_balls_in_image,
                 hypothetical_ball_positions,
                 schedule,
+                field_prior_pose,
             })
         })?;
 
@@ -221,6 +260,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         // Preserve the state timestamp: publication happens after the fusion safety lag.
         // Consumers comparing estimates with sensor truth must not use delivery time.
         if let Some(time) = output.time {
+            last_field_prior_pose = output.field_prior_pose;
+            field_prior_pose_pub
+                .publish_with_source_time(
+                    &TimeWrapper {
+                        time,
+                        inner: output.field_prior_pose,
+                    },
+                    time,
+                )
+                .await?;
             schedule_pub
                 .publish_if_subscribed(|| async { output.schedule })
                 .await?;
@@ -377,16 +426,24 @@ fn remove_invalid_and_merge_hypotheses(
 
 fn hypothetical_ball_positions(
     ball_filter: &BallFilter,
-    validity_limit: f32,
+    parameters: &BallFilterParameters,
+    dimensions: &FieldDimensions,
+    ground_to_field: Option<Isometry2<Ground, Field>>,
 ) -> Vec<HypotheticalBallPosition<Ground>> {
     ball_filter
         .hypotheses
         .iter()
         .filter_map(|hypothesis| {
-            if hypothesis.validity < validity_limit {
+            let validity = field_prior::effective_validity(
+                hypothesis,
+                ground_to_field,
+                dimensions,
+                parameters,
+            );
+            if validity < parameters.validity_output_threshold {
                 Some(HypotheticalBallPosition {
                     position: hypothesis.position().position,
-                    validity: hypothesis.validity,
+                    validity,
                 })
             } else {
                 None

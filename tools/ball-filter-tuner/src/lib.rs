@@ -34,7 +34,7 @@ pub struct Args {
     /// Topic prefix in MCAP. Leave empty for the existing recorder's relative topics.
     #[arg(long, default_value = "")]
     pub namespace: String,
-    /// TimeWrapper<Vec<Point3<Ground>>>: labelled balls, empty=absent, missing=unknown.
+    /// TimeWrapper<Vec<Point3<Ground>>>: single labelled ball, empty=absent, missing=unknown.
     #[arg(long, default_value = "simulation/ball_ground_truth")]
     pub reference_topic: String,
     /// Frame of the labelled reference. Field scoring includes recorded ground_to_field.

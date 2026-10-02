@@ -94,10 +94,13 @@ The panel's live map shows the robot and both ball positions on the field. Filte
 positions use the ground-to-field transform at their timestamp (within 20 ms);
 missing transforms are shown explicitly rather than placing the robot at the origin.
 
-Recordings mix one, two and three real balls, all moved by MuJoCo impulses. The
-selected filter output is scored against the nearest real ball, rather than the
-first element of a reference vector. Every physical ball has its own green velocity
-arrow in the viewer; the blue ball remains the production filter's selected track.
+Optimization recordings and the default live preview contain one real ball,
+moved by MuJoCo impulses. This gives the error a single unambiguous target.
+Recordings with multiple reference balls are rejected by the optimizer.
+For a separate, unscored multi-ball visualization, start tuning with
+`--tuning-preview-balls 2` (or `3`). Only the live preview changes; training and
+holdout captures still contain one ball. Every physical ball has its own green
+velocity arrow; the blue ball remains the production filter's selected track.
 Two orange robot-sized cylinders approach and flank the nearest ball as MuJoCo
 mocap obstacles. The leading opponent tries to shield the ball from the controlled
 robot, then applies a physical sideways kick after reaching a plausible foot
@@ -156,9 +159,33 @@ are saved for review, not automatically applied to robot defaults.
 The search objective uses bounded position error, with a missing estimate costing
 more than any finite position error. This prevents improving the score merely by
 suppressing an inaccurate track. Empty scenes still penalize false tracks.
+Single-ball reference positions beyond the field receive weight
+`exp(-distance / 0.3 m)`, where distance is the ball's clearance outside the field
+rectangle (including the ball-radius allowance at the boundary). For example,
+0.3 m clearance gives 37% weight, 1 m gives 3.6%, and 2 m gives 0.13%.
+Inside-field and absent-ball frames keep full weight. This weights the rarity of
+reference scenarios independently of the live confidence prior described below.
+The loss is normalized by weighted time, while raw errors and durations stay
+unweighted. Reports include the weighted and outside-field durations.
 Unbounded conditional position RMSE and total/longest missing intervals remain
 visible separately. Loss values from different objective versions are not directly
 comparable; the report records the formulas and objective version.
+
+The live filter also applies a soft field-boundary prior to hypothesis confidence:
+`raw validity * exp(-distance / field_boundary_confidence_decay_distance)`.
+The default decay distance is 0.3 m; a nonpositive value disables it. The prior
+affects output selection and confidence thresholds, without changing stored track
+validity or deleting tracks. A corrected localization pose can therefore restore
+a track immediately. Missing field poses or poses more than 20 ms from the filter
+state disable the prior for that output. Simulation still uses its absolute torso
+reference and production kinematics, without visual localization. Real robots use
+their normal `ground_to_field` estimate. The decay distance is fixed, not searched.
+The ordinary ROS-Z topic `ball_filter/field_prior_pose` records the exact pose (or
+its absence) used for each output, so live and offline filtering agree. Legacy
+recordings without this diagnostic replay without the prior.
+The real robot's default MCAP topic list includes these filter diagnostics and
+odometry announcements too. Optimization of real recordings still requires
+reference ball labels and the corresponding baseline parameter snapshot.
 
 For kicking, distinguish spatial tracking lag from estimate age. Twix shows the
 filter timestamp's age relative to the latest physical sample. The fusion path

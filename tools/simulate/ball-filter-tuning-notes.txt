@@ -4,8 +4,12 @@ Ball filter realism and optimization work log
 Objective
 Automatically improve the production ball filter from ordinary ROS-Z MCAP
 recordings, with the same replay path usable for real robot recordings.
-Keep production kinematics and absolute simulator torso reference; do not
-depend on visual localization. Maintain git checkpoints as work progresses.
+Current invariant: optimization uses exactly one reference ball; multiple balls
+are an explicit unscored live-preview stress test only (user clarification).
+Keep production kinematics and absolute simulator torso reference; simulation
+does not depend on visual localization. User explicitly authorized a soft live
+field-boundary confidence prior using the available field pose (2026-10-03).
+Maintain git checkpoints as work progresses.
 
 Highest-priority next scenario
 Contested balls: controlled robot and another robot near the ball, camera
@@ -95,3 +99,41 @@ Validation update
 - Read ball-filter-timing-audit.txt for unresolved timing and kick selection
   problems before making claims about foot-contact accuracy. Kick inputs are
   now included as original ROS-Z topics in captures.
+
+User correction: single-ball optimization
+- Normal play is one ball. Nearest-of-many errors can hide target selection
+  mistakes. All future training/holdout captures and default previews use one.
+- --tuning-preview-balls 2 or 3 affects only the unscored live preview.
+- Tuner rejects multi-ball labels at MCAP read and scoring. Objective now records
+  single_ball_bounded_position_and_availability_v2.
+- Earlier mixed dataset logs/ball-tuning-20261002-contested is preserved only as
+  diagnostics. It passed all six exact replay checks, multiple continuous rounds
+  and live parameter updates, but its scores are not the normal-play benchmark.
+- Replacement single-ball dataset will be logs/ball-tuning-20261002-single.
+
+User correction: rare outside-field balls and live confidence prior (2026-10-03)
+- Scoring v3 uses exp(-whole-ball clearance / 0.3m) reference weights; raw
+  diagnostics remain unweighted. Rectangle corners use Euclidean clearance.
+- User explicitly requested the same kind of soft prior in the live filter.
+  Raw track validity/state remain intact; effective confidence controls ranking
+  and output thresholds. Missing/stale field pose disables it for that output.
+- Field poses use source time and a bounded history, with maximum age 20ms.
+  ball_filter/field_prior_pose records the exact selected pose or None. Replay
+  requires an exact diagnostic for every output in new recordings; legacy
+  recordings retain no-prior behavior.
+- field_boundary_confidence_decay_distance is fixed at 0.3m, not searched;
+  nonpositive values disable it. It is independent of the scoring weight.
+- logs/ball-tuning-20261002-single completed six single-ball captures, exact
+  replay checks and a one-trial smoke run before the live prior. Preserve it.
+- Final fresh capture and continuous search planned at
+  logs/ball-tuning-20261003-single-prior; must leave optimization running.
+- Real robot default MCAP topics now include filter output/schedule/prior pose,
+  percepts, field dimensions/pose and odometry announcements for the same replay
+  path. Real data still needs reference labels and baseline parameters.
+- Twix Open 3D failure reproduced: running executable was deleted/replaced.
+  Launcher now falls back to /proc/self/exe on Linux, preserving the running
+  version, and logs child output to OUTPUT/3d-viewer.log. Targeted self-unlink
+  experiment passed; final GUI button verification follows the combined build.
+- Build and native dependency caches were missing during this continuation.
+  Restored checksummed MuJoCo3.9.0 and ONNXRuntime1.22.0 archives; current
+  combined test build is rebuilding dependencies in full.

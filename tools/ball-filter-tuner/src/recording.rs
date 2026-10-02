@@ -33,6 +33,20 @@ pub enum Reference {
     Field(Vec<Point3<Field>>),
 }
 
+impl Reference {
+    pub fn validate_for_optimization(&self) -> Result<()> {
+        let count = match self {
+            Self::Ground(points) => points.len(),
+            Self::Field(points) => points.len(),
+        };
+        ensure!(
+            count <= 1,
+            "ball-filter optimization requires at most one labelled ball per frame; multiple balls are supported only in the optional stress preview"
+        );
+        Ok(())
+    }
+}
+
 pub struct Cycle {
     pub inputs: Vec<Input>,
     pub time: Time,
@@ -40,6 +54,9 @@ pub struct Cycle {
     /// None means unlabelled, Some(empty) explicitly means no ball.
     pub reference: Option<Reference>,
     pub ground_to_field: Option<Isometry2<Ground, Field>>,
+    /// Actual live prior decision, independently recorded from scoring geometry.
+    /// Legacy recordings have no prior diagnostic and replay with no field prior.
+    pub field_prior_pose: Option<Isometry2<Ground, Field>>,
     pub recorded_estimate: Option<BallPosition<Ground>>,
     pub seconds: f64,
 }
@@ -69,6 +86,21 @@ fn required<T: Clone>(map: &BTreeMap<Time, T>, time: Time, topic: &str) -> Resul
         .ok_or_else(|| eyre!("missing {topic} at {time:?}; recording is incomplete"))
 }
 
+fn field_prior_pose_at(
+    poses: &BTreeMap<Time, Option<Isometry2<Ground, Field>>>,
+    time: Time,
+) -> Result<Option<Isometry2<Ground, Field>>> {
+    if poses.is_empty() {
+        // Legacy captures predate the diagnostic. Never infer a live decision
+        // from scoring geometry, which may have a different temporal selection.
+        Ok(None)
+    } else {
+        // New captures publish even an explicit None for every output. A missing
+        // entry is incomplete capture, not authorization to reuse a nearby pose.
+        required(poses, time, "ball_filter/field_prior_pose")
+    }
+}
+
 impl Recording {
     pub fn read(
         path: &Path,
@@ -85,6 +117,7 @@ impl Recording {
         let mut detection_payloads = BTreeMap::new();
         let mut references = BTreeMap::new();
         let mut ground_to_field = BTreeMap::new();
+        let mut field_prior_poses = BTreeMap::new();
         let mut dimensions = BTreeMap::new();
         let mut estimates = BTreeMap::new();
         let mut schedules = BTreeMap::new();
@@ -131,6 +164,13 @@ impl Recording {
                 "ground_to_field" => {
                     ground_to_field.insert(time, decode::<Isometry2<Ground, Field>>(&message)?);
                 }
+                "ball_filter/field_prior_pose" => {
+                    let pose: TimeWrapper<Option<Isometry2<Ground, Field>>> = decode(&message)?;
+                    ensure!(
+                        field_prior_poses.insert(pose.time, pose.inner).is_none(),
+                        "duplicate ball_filter/field_prior_pose timestamp"
+                    );
+                }
                 "field_dimensions" => {
                     dimensions.insert(time, decode::<FieldDimensions>(&message)?);
                 }
@@ -155,6 +195,7 @@ impl Recording {
                             (value.time, Reference::Field(value.inner))
                         }
                     };
+                    reference.validate_for_optimization()?;
                     references.insert(time, reference);
                 }
                 _ => {}
@@ -238,6 +279,7 @@ impl Recording {
                     })
                     .map(|(_, transform)| *transform),
                 recorded_estimate: required(&estimates, time, "ball_filter/ball_position")?,
+                field_prior_pose: field_prior_pose_at(&field_prior_poses, time)?,
             });
         }
         ensure!(
@@ -292,6 +334,52 @@ fn pair_announcements<T>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ros_z::message::WireEncoder;
+
+    #[test]
+    fn field_prior_diagnostic_replays_exact_decisions_and_preserves_legacy_none() {
+        type Diagnostic = TimeWrapper<Option<Isometry2<Ground, Field>>>;
+        let time = Time::from_nanos(100);
+        let pose = Isometry2::from_parts(linear_algebra::vector![2.0, -1.0], 0.7);
+        let mut poses = BTreeMap::new();
+        assert!(field_prior_pose_at(&poses, time).unwrap().is_none());
+        for (stamp, selected) in [(time, Some(pose)), (Time::from_nanos(200), None)] {
+            let bytes = SerdeCdrCodec::<Diagnostic>::serialize(&TimeWrapper {
+                time: stamp,
+                inner: selected,
+            })
+            .unwrap();
+            let decoded = SerdeCdrCodec::<Diagnostic>::deserialize(&bytes).unwrap();
+            assert_eq!(decoded.time, stamp);
+            poses.insert(decoded.time, decoded.inner);
+        }
+        let replay = field_prior_pose_at(&poses, time).unwrap().unwrap();
+        let point = linear_algebra::point![0.4, -0.2];
+        assert!(((replay * point) - (pose * point)).norm() < 1e-6);
+        assert!(
+            field_prior_pose_at(&poses, Time::from_nanos(200))
+                .unwrap()
+                .is_none()
+        );
+        // Even a neighbouring diagnostic is not the actual decision for this
+        // output. Partial captures must fail instead of using a nearest pose.
+        assert!(field_prior_pose_at(&poses, Time::from_nanos(201)).is_err());
+    }
+
+    #[test]
+    fn optimization_rejects_ambiguous_multiball_labels_in_both_frames() {
+        for count in [0, 1, 2, 3] {
+            let ground = Reference::Ground(vec![linear_algebra::point![0.0, 0.0, 0.1]; count]);
+            let field = Reference::Field(vec![linear_algebra::point![0.0, 0.0, 0.1]; count]);
+            for reference in [ground, field] {
+                let result = reference.validate_for_optimization();
+                assert_eq!(result.is_ok(), count <= 1);
+                if let Err(error) = result {
+                    assert!(error.to_string().contains("optional stress preview"));
+                }
+            }
+        }
+    }
 
     fn announcement(time: i64, sequence: i64, publisher: u8) -> Announcement {
         serde_json::from_value(serde_json::json!({

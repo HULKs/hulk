@@ -451,7 +451,9 @@ fn scores(ui: &mut Ui, id: &str, baseline: &Metrics, best: &Metrics) {
             ),
         ] {
             let label = ui.label(name);
-            if name == "Missing ball (s)" {
+            if name == "Loss" {
+                label.on_hover_text("Single-ball position and availability loss. Reference balls outside the field receive smoothly decreasing weight with distance beyond the boundary (decay length 0.3 m). Raw error and missing-time metrics below are not downweighted.");
+            } else if name == "Missing ball (s)" {
                 label.on_hover_text("Total labelled time when a real ball exists but no filter estimate is available in the scoring frame. Includes balls outside the camera view and, for field scoring, estimates without a matching ground-to-field transform. Lower is better.");
             } else if name == "Longest missing gap (s)" {
                 label.on_hover_text("Longest continuous labelled interval with a real ball but no usable estimate. Includes startup and missing field transforms; this is not specifically the time to recover after a kick.");
@@ -591,7 +593,9 @@ fn live_ball(ui: &mut Ui, connection: &Connection) {
     if robot_pose.is_none() {
         ui.label("Robot pose unavailable: no ground-to-field transform within 20 ms.");
     }
-    ui.label("Search scores use the recorded runs; this map shows the live simulation.");
+    ui.label(
+        "Search scores use single-ball recordings; this map shows the unscored live simulation.",
+    );
 }
 
 #[cfg(test)]

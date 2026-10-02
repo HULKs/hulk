@@ -1,11 +1,15 @@
 use std::time::Duration;
 
-use coordinate_systems::Ground;
+use coordinate_systems::{Field, Ground};
 use linear_algebra::Isometry2;
 use nalgebra::{Matrix2, Matrix4};
 use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
-use types::multivariate_normal_distribution::MultivariateNormalDistribution;
+use types::{
+    field_dimensions::FieldDimensions,
+    multivariate_normal_distribution::MultivariateNormalDistribution,
+    parameters::BallFilterParameters,
+};
 
 use crate::hypothesis::{BallHypothesis, BallMode};
 
@@ -20,6 +24,26 @@ impl BallFilter {
             .iter()
             .filter(|hypothesis| hypothesis.validity >= validity_threshold)
             .max_by(|a, b| a.validity.total_cmp(&b.validity))
+    }
+
+    pub fn best_hypothesis_with_field_pose(
+        &self,
+        parameters: &BallFilterParameters,
+        dimensions: &FieldDimensions,
+        ground_to_field: Option<Isometry2<Ground, Field>>,
+    ) -> Option<&BallHypothesis> {
+        let validity = |hypothesis: &BallHypothesis| {
+            crate::field_prior::effective_validity(
+                hypothesis,
+                ground_to_field,
+                dimensions,
+                parameters,
+            )
+        };
+        self.hypotheses
+            .iter()
+            .filter(|hypothesis| validity(hypothesis) >= parameters.validity_output_threshold)
+            .max_by(|a, b| validity(a).total_cmp(&validity(b)))
     }
 
     pub fn decay_hypotheses(&mut self, decay_factor_criterion: impl Fn(&BallHypothesis) -> f32) {
