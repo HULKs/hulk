@@ -4,17 +4,20 @@ use std::{
 };
 
 use color_eyre::{Report, eyre::Context as _};
+use coordinate_systems::Screen;
 use eframe::egui::{self, Color32, DragValue, Ui, Vec2};
+use geometry::rectangle::Rectangle;
 use hulk_widgets::CompletionEdit;
+use linear_algebra::point;
 use ros_z::{entity::EndpointKind, pubsub::PublicationId};
 use ros_z_debug::DynamicTopicObservation;
 use serde_json::{Value, json};
+use twix_visualization::twix_painter::TwixPainter;
 
 use crate::{
     graph::TopicCompletionQuery,
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
-    status::format_topic_observation_status,
 };
 
 const DEFAULT_AUDIO_SPECTRUM_TOPIC: &str = "audio_spectrums";
@@ -97,29 +100,29 @@ impl Panel for AudioPanel {
         panel
     }
 
-    fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
-        ui.horizontal(|ui| {
-            ui.label("Topic");
+    fn header_ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
+        ui.label("Topic");
 
-            let namespace = context.backend.namespace();
-            let completions = {
-                let graph = context.backend.graph().lock();
-                TopicCompletionQuery::new(&namespace, &self.topic_editor)
-                    .endpoint_kind(EndpointKind::Publisher)
-                    .complete(graph.publishers())
-            };
+        let namespace = context.backend.namespace();
+        let completions = {
+            let graph = context.backend.graph().lock();
+            TopicCompletionQuery::new(&namespace, &self.topic_editor)
+                .endpoint_kind(EndpointKind::Publisher)
+                .complete(graph.publishers())
+        };
 
-            let response = ui.add(CompletionEdit::new(
-                ui.id().with("audio_spectrum_topic"),
-                &completions,
-                &mut self.topic_editor,
-            ));
+        let response = ui.add(CompletionEdit::new(
+            ui.id().with("audio_spectrum_topic"),
+            &completions,
+            &mut self.topic_editor,
+        ));
 
-            if response.changed() {
-                self.commit_topic(&context);
-            }
-        });
+        if response.changed() {
+            self.commit_topic(&context);
+        }
+    }
 
+    fn ui(&mut self, ui: &mut Ui, _context: PanelUiContext<'_>) {
         if self.topic.is_empty() {
             ui.label("Enter an audio spectrum topic.");
             return;
@@ -135,27 +138,10 @@ impl Panel for AudioPanel {
                 return;
             }
             ObservationState::Observing(observed) => {
-                ui.horizontal_wrapped(|ui| {
-                    ui.label("status:");
-                    ui.monospace(format_topic_observation_status(
-                        observed.observation.status(),
-                    ));
-                });
-
                 let Some(record) = observed.observation.latest_json_record() else {
-                    ui.label("Waiting for first sample.");
+                    ui.label("no data yet");
                     return;
                 };
-
-                ui.horizontal_wrapped(|ui| {
-                    ui.label("topic:");
-                    ui.monospace(&record.metadata.resolved_topic);
-                    ui.separator();
-                    ui.label("type:");
-                    ui.monospace(record.metadata.type_info.name.to_string());
-                });
-
-                ui.separator();
 
                 match parse_spectra_value(&record.value) {
                     Ok(spectra) => (spectra, record.publication_id),
@@ -204,6 +190,13 @@ impl Panel for AudioPanel {
                         self.current_max_magnitude = (current * decay_factor).max(target_max);
                     }
 
+                    if self
+                        .waterfall_history
+                        .front()
+                        .is_some_and(|row| row.len() != magnitudes.len())
+                    {
+                        self.waterfall_history.clear();
+                    }
                     self.waterfall_history.push_front(magnitudes);
                     let max_frames = (self.history_seconds
                         / duration_to_seconds(self.time_per_frame).max(1e-4))
@@ -211,16 +204,20 @@ impl Panel for AudioPanel {
                     while self.waterfall_history.len() > max_frames {
                         self.waterfall_history.pop_back();
                     }
+                } else {
+                    self.waterfall_history.clear();
                 }
             }
         }
         self.last_processed_sample = Some(publication_id);
 
         let current_y_max = current_spectra
-            .as_ref()
-            .and_then(|spectrum| spectrum.first())
-            .map(|spectrum| spectrum.iter().map(|(_, m)| *m).fold(0.0f32, f32::max))
-            .unwrap_or(0.1);
+            .as_deref()
+            .unwrap_or_default()
+            .iter()
+            .flatten()
+            .map(|(_, magnitude)| *magnitude)
+            .fold(0.0f32, f32::max);
 
         if current_y_max > self.y_max_smoothed {
             self.y_max_smoothed = current_y_max * 1.1;
@@ -429,33 +426,24 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
                     }
                 });
 
-                let (response, painter) =
-                    ui.allocate_painter(ui.available_size().max(Vec2::ZERO), egui::Sense::hover());
-                let rect = response.rect;
+                let (rect, _response) = ui
+                    .allocate_exact_size(ui.available_size().max(Vec2::ZERO), egui::Sense::hover());
 
-                if rect.is_positive() {
-                    let painter = painter.with_clip_rect(rect.intersect(ui.clip_rect()));
+                if rect.is_positive() && ui.is_rect_visible(rect) {
+                    let painter = TwixPainter::<Screen>::paint_at(ui, rect);
 
                     for (channel, spectrum) in self.spectra.iter().enumerate() {
                         if hidden_channels.contains(&channel) {
                             continue;
                         }
-                        let points = spectrum
-                            .iter()
-                            .map(|&(frequency, magnitude)| {
-                                egui::pos2(
-                                    rect.left()
-                                        + frequency / self.max_frequency.max(1.0) * rect.width(),
-                                    rect.bottom()
-                                        - magnitude / self.max_magnitude.max(0.001) * rect.height(),
-                                )
-                            })
-                            .collect();
+                        let points = spectrum.iter().map(|&(frequency, magnitude)| {
+                            point![
+                                frequency / self.max_frequency.max(1.0) * rect.width(),
+                                (1.0 - magnitude / self.max_magnitude.max(0.001)) * rect.height(),
+                            ]
+                        });
 
-                        painter.add(egui::Shape::line(
-                            points,
-                            egui::Stroke::new(1.0, color(channel)),
-                        ));
+                        painter.polyline(points, egui::Stroke::new(1.0, color(channel)));
                     }
                 }
             }
@@ -514,11 +502,20 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
                 ui.label(format!("History: {:.2} s; newest at top", self.total_time,));
 
                 if let Some(texture) = self.texture {
-                    ui.add(
-                        egui::Image::new(texture)
-                            .maintain_aspect_ratio(false)
-                            .fit_to_exact_size(ui.available_size().max(Vec2::ZERO)),
+                    let (rect, _response) = ui.allocate_exact_size(
+                        ui.available_size().max(Vec2::ZERO),
+                        egui::Sense::hover(),
                     );
+                    if rect.is_positive() && ui.is_rect_visible(rect) {
+                        let painter = TwixPainter::<Screen>::paint_at(ui, rect);
+                        painter.image(
+                            texture.id(),
+                            Rectangle {
+                                min: point![0.0, 0.0],
+                                max: point![rect.width(), rect.height()],
+                            },
+                        );
+                    }
                 } else {
                     ui.label("Waiting for data...");
                 }
@@ -560,28 +557,24 @@ fn draw_color_legend(ui: &mut Ui, max_magnitude: f32) {
         );
 
         if ui.is_rect_visible(rect) {
-            let painter = ui.painter();
+            let painter = TwixPainter::<Screen>::paint_at(ui, rect);
             let steps = 50;
             let step_width = legend_width / steps as f32;
 
             for i in 0..steps {
                 let normalized = i as f32 / steps as f32;
                 let color = magnitude_to_color(normalized * max_magnitude, max_magnitude);
-                let x = rect.min.x + i as f32 * step_width;
+                let x = i as f32 * step_width;
                 painter.rect_filled(
-                    eframe::egui::Rect::from_min_size(
-                        eframe::egui::pos2(x, rect.min.y),
-                        Vec2::new(step_width + 1.0, legend_height),
-                    ),
-                    0.0,
+                    point![x, 0.0],
+                    point![x + step_width + 1.0, legend_height],
                     color,
                 );
             }
             painter.rect_stroke(
-                rect,
-                0.0,
+                point![0.5, 0.5],
+                point![legend_width - 0.5, legend_height - 0.5],
                 eframe::egui::Stroke::new(1.0_f32, Color32::GRAY),
-                eframe::egui::StrokeKind::Outside,
             );
         }
 
@@ -591,18 +584,18 @@ fn draw_color_legend(ui: &mut Ui, max_magnitude: f32) {
             eframe::egui::Sense::hover(),
         );
         if ui.is_rect_visible(label_rect) {
-            let painter = ui.painter();
+            let painter = TwixPainter::<Screen>::paint_at(ui, label_rect);
             let font_id = eframe::egui::TextStyle::Body.resolve(ui.style());
             let text_color = ui.visuals().text_color();
-            painter.text(
-                label_rect.left_top(),
+            painter.floating_text(
+                point![0.0, 0.0],
                 eframe::egui::Align2::LEFT_TOP,
-                "0",
+                "0".to_string(),
                 font_id.clone(),
                 text_color,
             );
-            painter.text(
-                label_rect.right_top(),
+            painter.floating_text(
+                point![legend_width, 0.0],
                 eframe::egui::Align2::RIGHT_TOP,
                 format!("{:.3}", max_magnitude),
                 font_id,
