@@ -1,87 +1,141 @@
-# Setup Development Environment
+# Development Environment
 
-This section will guide you through the setup of your development environment to build software for the NAO robot and test your algorithms using our various tools.
+This page covers development for Booster K1 and the current ROS-Z stack.
+The previous NAO/Webots instructions are preserved in the
+[archived development environment](../historical/setup/development_environment.md).
 
-## Operating System
+## Rust and Host Tools
 
-At HULKs, we mainly use Linux for development.
-If you're new to Linux, don't worry, at HULKs there are many people who can help you getting started.
+Linux is the primary development environment. Install Rust through
+[rustup](https://rustup.rs/). Use the workspace's required Rust version, currently
+`1.98.0` in `Cargo.toml`; the SDK and CI images use that version too.
+Install the `clippy` and `rustfmt` components for local checks.
 
-??? info "Choosing the correct Linux Distribution"
+For native builds and deployment, install Git, Git LFS, a C/C++ toolchain,
+Clang/libclang, CMake, pkg-config, OpenSSL development files, ALSA development
+files, Python 3, rsync, OpenSSH, and `ping`. Native GUI/simulator builds also
+need a working graphics environment and may need udev development files.
+Package names vary by distribution; see `flake.nix` and
+`tools/ci/github-runners/Containerfile` for the repository's environment definitions.
+This is a task-oriented prerequisite list, not a tested package recipe for every distribution.
 
-    ![How-To-Chose-Os](./how_to_choose_os.jpg)
+Install **Podman** for the default cross-compilation workflow. Pepsi also accepts
+`--env docker`, but `sdk install`, `sdk build`, and `sdk list` use Podman.
+Using Docker requires an appropriately tagged SDK image in Docker's image store;
+installing Docker alone does not prepare it or change Pepsi's default environment.
+Native non-Linux development has not been validated by these instructions.
 
-    All joking aside, don't be persuaded to install Arch Linux, unless of course you want to delve into the depths of Linux and broaden your horizons.
+On x86_64 Linux, an alternative development environment is:
 
-## Installing Rust
+```sh
+nix develop
+```
 
-We require a latest stable release of the Rust toolchain to build our tools.
-Visit [https://rustup.rs/](https://rustup.rs/) for up to date instructions on how to install `rustup` for your machine.
+The flake provides the toolchain and libraries for its supported tools. Podman
+and the [check-specific prerequisites](../workflow/checks.md) still need to be
+available for the commands you intend to run.
 
-## Installing Dependencies
+## Clone the Repository
 
-Our software requires a few dependencies to be installed before you can compile, upload, and run our code.
-Most of these dependencies are needed for the compilation of local tools.
-All dependencies needed for a cross-compilation for the NAO are included in the NAO SDK.
-Use your distribution's package manager to install the following dependencies:
+Configure your Git name, email, and GitHub authentication before contributing.
+Then run:
 
--   [Git](https://git-scm.com/), [Git LFS](https://git-lfs.com/)
--   [clang](https://clang.llvm.org/)
--   [cmake](https://cmake.org/)
--   [python3](https://www.python.org/)
--   [which](https://carlowood.github.io/which/)
--   [zstd](http://www.zstd.net/)
--   [xz](https://tukaani.org/xz/)
--   [file](https://darwinsys.com/file/)
--   [rsync](https://rsync.samba.org/)
--   [opusfile](https://opus-codec.org/)
--   [hdf5](https://www.hdfgroup.org/solutions/hdf5/)
--   [luajit](https://luajit.org/)
--   [systemd](https://www.freedesktop.org/wiki/Software/systemd/)
--   [podman](https://podman.io/)
+```sh
+git lfs install
+git clone https://github.com/HULKs/hulk.git
+cd hulk
+git lfs pull
+```
 
-=== "Arch Linux"
+Neural-network models and other assets are stored with Git LFS. If model loading
+fails, check that LFS downloaded the actual files rather than leaving pointer
+files. `git lfs ls-files` lists managed assets; `git lfs pull` retrieves missing ones.
 
-    ```sh
-    sudo pacman -S git git-lfs clang cmake python3 which zstd xz file rsync alsa-lib opusfile hdf5 luajit systemd-libs podman
-    ```
+## Build Pepsi and Install the SDK
 
-=== "Fedora"
+Run commands from the repository root:
 
-    ```sh
-    sudo dnf install git git-lfs clang cmake python3 awk which zstd xz file rsync alsa-lib-devel opusfile-devel hdf5-devel systemd-devel luajit-devel podman
-    ```
+```sh
+./pepsi --help
+./pepsi sdk install
+```
 
-=== "Ubuntu"
+The launcher builds **Pepsi and its dependencies**, then executes it. Other
+workspace tools and the robotics executable are built when requested.
 
-    ```sh
-    sudo apt install git git-lfs clang cmake python3 zstd xz-utils file rsync libasound2-dev libopusfile-dev libhdf5-dev libsystemd-dev libluajit-5.1-dev pkg-config podman
-    ```
+`sdk install` explicitly pulls `ghcr.io/hulks/k1sdk:<sdk_version>` using Podman.
+The version comes from root `hulk.toml` (currently `1.3.0`). It is not a local
+Yocto SDK directory to source into your shell.
 
-If you are using a non-linux operating system (e.g. macOS or Windows), you additionally have to install [docker](https://docs.docker.com/engine/install/).
+When a Podman cross-build finds no locally tagged SDK image, Pepsi instead
+**builds** one from `tools/sdk_container/`. Remote Podman builds similarly run
+`sdk build` on the remote host if needed. Container execution uses `--pull=never`;
+it does not automatically download the latest published image.
 
-??? "If you want to use our simulator Webots"
+```sh
+./pepsi sdk list
+./pepsi sdk build
+./pepsi sdk install --help
+```
 
-    Usually, the Webots simulator is **not needed** for normal development.
-    If you want to use it, you can install it with your packet manager or download it from the [official website](https://cyberbotics.com/).
-    You will also need to install the OpenVino™ runtime. The HULKs SDK already contains the runtime for use with the NAOs.
+Native builds use `target` by default; SDK builds use `target/container`.
+The SDK targets `aarch64-unknown-linux-gnu`. See
+[Pepsi build environments and directories](../tooling/pepsi.md#build-environments-and-directories)
+for overrides, remote builds, and artifact locations.
 
-    -   [Installation Instructions (Linux)](https://docs.openvino.ai/2024/get-started/install-openvino/install-openvino-linux.html)
+For a robot cross-build, select the robotics manifest so Pepsi sees its
+`cross-compile` metadata:
 
-### Inference runtime compatibility
+```sh
+./pepsi build crates/hulk_ros_z
+```
 
-The robot uses ONNX Runtime 1.22, CUDA 12.8, TensorRT 10.7, and cuDNN 9.7
-from the existing container image. The Rust workspace uses `ort` rc.13 with
-`api-21`. Do not enable its default features or `api-22` and newer without
-revalidating the runtime. Automatic device selection enabled by `api-22`
+You can install tools for convenient use without the launcher:
+
+```sh
+./pepsi install pepsi
+./pepsi install twix
+```
+
+The default install directory is `~/.cargo/bin`. Add it to your `PATH` and
+reinstall when you need updates. Examples in this section use `./pepsi` to build
+and run the version in the checkout.
+
+## Local Simulator and Debugging
+
+The experimental simulator uses MuJoCo, Bevy, and a ROS-Z robotics stack.
+It is not included in main: first check out [Alex's simulator branch](../tooling/behavior_simulator.md) in a separate clone or worktree, then run:
+
+```sh
+./simulator
+```
+
+The launcher configures MuJoCo 3.9.0. Motion inference needs a compatible ONNX Runtime shared library through `ORT_DYLIB_PATH` and model files downloaded with Git LFS.
+Automatic runtime downloading and perception/tuning modes belong to additional experimental worktree changes, rather than the tracked remote branch.
+See the [simulator guide](../tooling/behavior_simulator.md) and `tools/simulate/README.md` for controls and source availability.
+
+[Twix](../tooling/twix.md) uses ROS-Z namespaces and an optional router endpoint,
+for example:
+
+```sh
+./pepsi run twix -- /42 --router tcp/10.1.24.42:7447
+```
+
+## Inference Runtime Compatibility
+
+The robot runtime Containerfile uses an ONNX Runtime 1.22 / CUDA 12.8 base image.
+The existing runtime is documented as using TensorRT 10.7 and cuDNN 9.7; confirm
+the installed image's contents when changing it. The Rust workspace uses `ort`
+rc.13 with `api-21`. Do not enable its default features or `api-22` and newer
+without revalidating the runtime. Automatic device selection enabled by `api-22`
 aborted in the ONNX Runtime 1.22 CPU build during local validation.
 
 Use `GraphOptimizationLevel::All` to retain rc.10's `Level3` behavior.
 In rc.13, `Level3` selects `ORT_ENABLE_LAYOUT`, which ONNX Runtime 1.22
 rejects with `graph_optimization_level is not valid`.
 
-`hulk-runtime.container` sets both `ORT_DYLIB_PATH` and `LD_PRELOAD` to
-`/usr/local/lib/libonnxruntime.so`. Preloading is required for the rc.13
+`tools/k1-setup/hulk-runtime.container` sets both `ORT_DYLIB_PATH` and
+`LD_PRELOAD` to `/usr/local/lib/libonnxruntime.so`. Preloading addresses the rc.13
 shutdown order: its environment must be released before ONNX Runtime's C++
 destructors. Loading only through `ORT_DYLIB_PATH` produced a heap-corruption
 abort on process exit with the Linux x64 ONNX Runtime 1.22 build, even with
@@ -92,75 +146,26 @@ restarts `hulk-runtime.service` to recreate the container, and then ensures
 HULK is started. Systemd stops HULK before its runtime through the service's
 `Requires=` and `After=` dependencies. Run this setup before deploying the
 upgraded binaries.
+
 This does not require a new image or a CUDA upgrade. Verify startup and
 shutdown on the robot, including GPU provider selection and model inference,
 before rollout. Local CPU validation does not cover Jetson CUDA or TensorRT
-execution.
+execution. For local dynamic-loading runs, set both variables to the same
+absolute library path.
 
-For local dynamic-loading runs, set both variables to the same absolute
-library path.
+## Documentation Preview
 
-## Cloning the Repository
-
-We use Git to manage all our software.
-
-??? info "Git Setup: If you haven't used Git before"
-
-    Git is a free and open source distributed version control system.
-
-    **First**, install Git (see above).
-
-    The **second** thing you should is to set your user name and email address.
-    This is important because every Git commit uses this information, and it’s baked into the commits you start creating:
-
-    ```
-    git config --global user.name "<your-name>"
-    git config --global user.email "<your-email>"
-    ```
-
-    And **third**, setup authentication with GitHub
-    You can access and write data in repositories on GitHub.com using SSH (Secure Shell Protocol).
-    When you connect via SSH, you authenticate using a private key file on your local machine.
-    You can follow this [guide](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent) to generate and add a key to GitHub.
-    If you already have a key, you can skip the part about generating a new one, and simply add your existing key to GitHub.
-
-To download the repository, run `git clone https://github.com/hulks/hulk.git` in the terminal.
-
-!!! tip
-
-    It's common to not do this in your home directory, but in a separate folder.
-    Most people use a `~/worktree` directory for this.
-    To create this, run `mkdir ~/worktree` and then `cd ~/worktree`.
-    Now you can execute the `git clone` command from above.
-
-## Build [Pepsi](../tooling/pepsi.md)
-
-Pepsi is our main tool to interact with the repository, configure NAOs, and upload the software to the robot.
-For a more in depth overview and introduction to Pepsi, consult [../tooling/pepsi.md].
-
-For now, it is sufficient to know that Pepsi takes care of building the source code and also uploading it to the NAO.
-This includes downloading and installing the SDK.
-
-To build and run Pepsi from source, use
+From the repository root, preview the documentation with uv:
 
 ```sh
-./pepsi
+uvx --with mkdocs-material mkdocs serve
 ```
 
-This downloads and builds all dependencies for the workspace and displays the help page of Pepsi.
+Open `http://127.0.0.1:8000`; the preview reloads when pages change.
+Build the static site with the strict check used by CI:
 
-The launcher builds Pepsi natively in `target`.
-SDK container builds use `target/container` so they can reuse their Cargo cache independently of native builds.
-See [Pepsi build directories](../tooling/pepsi.md#build-directories) for overrides and binary locations.
+```sh
+uvx --with mkdocs-material mkdocs build --strict
+```
 
-!!! tip
-
-    You can also install Pepsi into your local system to conveniently use it without rebuilding:
-
-    ```
-    ./pepsi install pepsi
-    ```
-
-    Pepsi is subsequently installed at `~/.cargo/bin/pepsi`.
-    Don't forget to update it from time to time by reinstalling it to get the latest features and bugfixes. <br> <br>
-    The same can also be done for [twix](../tooling/twix.md), our debug tool.
+The generated site is written to `site/`. Page sources are in `docs/`, and navigation is configured in `mkdocs.yml`.

@@ -1,29 +1,23 @@
-# HUlks Level Abstraction (HULA)
+# Hardware Integration and Legacy HULA
 
-HULA is an abstraction layer that connects to LoLA, the by [Aldebaran Robotics](https://corporate-internal-prod.aldebaran.com/) provided Low Level Abstraction of the NAOv6 and serves an interface for other applications.
-Unlike LOLA, HULA also supports multiple clients.
+The current Booster ROS-Z stack does not use HULA or NAO's LoLA service.
+`crates/hulk_ros_z/src/main.rs` starts the ROS-Z hardware interface and bridge
+nodes alongside the behavior, perception, and motion nodes. Booster communication
+uses the host Zenoh router and DDS bridge configured by gammaray.
+See the [robotics overview](../robotics/overview.md) and
+[Booster motion path](../robotics/motion/overview.md#ros-z-booster-path).
 
-![Overview Diagram](./hula-overview-light.svg#only-light)
-![Overview Diagram](./hula-overview-dark.svg#only-dark)
+The robot's application lifecycle is managed by `hulk.service` and
+`hulk-runtime.service`; use [Booster setup](../setup/booster_setup.md) and
+[Home Directory](home_directory.md) for provisioning and diagnostics.
 
-## On the Nao
+## Legacy NAO HULA
 
-On the NAO, systemd manages the `hula.service`.
-It can be stopped / started using standard systemd commands, such as `systemctl start hula`.
+HULA is the older NAO abstraction layer that connects applications to LoLA and
+supports multiple clients. Its design diagrams and old build instructions are
+preserved in [Historical: HULA](../historical/operating_system/hula.md).
 
-## Custom Build
-
-To build HULA for the NAO,
-
-1. Source the SDK by calling `. naosdk/<version>/environment-setup-corei7-64-aldebaran-linux` from the default HULKs folder.
-   Be sure to use a POSIX compliant shell such as Bash (not Fish).
-2. Use `cargo build --manifest-path tools/hula/Cargo.toml` to compile the HULA binary.
-3. Copy the compiled binary from the target folder in the hula folder to the NAO using e.g. `scp`.
-4. Connect to the NAO using `pepsi shell`
-5. Stop the probably already running default hula by calling `systemctl stop hula`
-6. Execute the copied hula binary
-7. Enjoy 🚀
-
-??? info "Installing the SDK"
-
-    If you have never uploaded code to the NAO, first download the SDK using `pepsi sdk install`
+There is no `tools/hula/Cargo.toml` in the current source tree. Current
+`./pepsi sdk install` pulls a K1 container image; it does not install the local
+NAO SDK expected by those instructions. To rebuild HULA, use the legacy source
+revision and compatible NAO image/SDK selected by the external `meta-nao` recipe.
