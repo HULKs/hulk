@@ -3,6 +3,10 @@ hide:
   - navigation
 ---
 
+!!! warning "AI-generated documentation"
+
+    Large parts of this documentation were generated or rewritten with AI assistance. They may contain errors or outdated information. Verify relevant details against the current source code before relying on commands or operational instructions, and report inaccuracies in our [issue tracker](https://github.com/HULKs/hulk/issues).
+
 ![](Wet_Floor.jpg)
 
 ## Overview
