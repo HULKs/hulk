@@ -17,10 +17,10 @@ members = [
   "crates/hula_types",
   "crates/hulk_ros_z",
   "crates/hulk_widgets",
-  "crates/hungarian_algorithm",
   "crates/kinematics",
   "crates/linear_algebra",
-  "crates/localization-factrs",
+  "crates/linear_sum_assignment",
+  "crates/localization-fagra",
   "crates/microphones",
   "crates/nodes/active_vision",
   "crates/nodes/ball_filter",
@@ -95,9 +95,10 @@ members = [
   "tools/annotato",
   "tools/depp",
   "tools/hydra-bench",
+  "tools/localization_simulator",
+  "tools/mcap-replay",
   "tools/mujoco-simulator/mujoco-rust-server",
   "tools/pepsi",
-  "tools/robot_viewer",
   "tools/tensorrt-compile",
   "tools/twix",
   "tools/widget_gallery",
@@ -133,6 +134,7 @@ bat = { version = "0.25.0", default-features = false, features = [
 behavior_node = { path = "crates/nodes/behavior_node" }
 bevy = { git = "https://github.com/bevyengine/bevy", rev = "4805ca792c3e94eef07afd6fa9a2712f388c9a67", default-features = false }
 bevy_mujoco = { path = "crates/bevy_mujoco" }
+fagra = { git = "https://github.com/oleflb/fagra", rev = "7b37df61ed615c85f5d59265f5df53ff5d5dc1be" }
 bincode = "1.3.3"
 bindgen = "0.71.1"
 booster = { path = "crates/booster" }
@@ -187,7 +189,6 @@ hsl_network_messages = { path = "crates/hsl_network_messages" }
 hula_types = { path = "crates/hula_types" }
 hulk_widgets = { path = "crates/hulk_widgets" }
 humantime = "2.3.0"
-hungarian_algorithm = { path = "crates/hungarian_algorithm" }
 image = { version = "0.25.5", default-features = false, features = ["jpeg"] }
 image_receiver = { path = "crates/nodes/image_receiver" }
 image_segmenter = { path = "crates/nodes/image_segmenter" }
@@ -203,9 +204,10 @@ led_handler = { path = "crates/nodes/led_handler" }
 levenberg-marquardt = "0.15.0"
 line_detection = { path = "crates/nodes/line_detection" }
 linear_algebra = { path = "crates/linear_algebra" }
+linear_sum_assignment = { path = "crates/linear_sum_assignment" }
 localization-2d = { path = "crates/nodes/localization-2d" }
 localization-3d = { path = "crates/nodes/localization-3d" }
-localization-factrs = { path = "crates/localization-factrs" }
+localization-fagra = { path = "crates/localization-fagra" }
 log = "0.4.25"
 look_around = { path = "crates/nodes/look_around" }
 look_at = { path = "crates/nodes/look_at" }
@@ -248,7 +250,6 @@ parry2d = { version = "0.26.0", default-features = false, features = [
 ] }
 path_planner = { path = "crates/path_planner" }
 pathdiff = "0.2.3"
-pathfinding = "<=4.10.0"
 player_states_receiver = { path = "crates/nodes/player_states_receiver" }
 png = "0.18.1"
 primary_state_filter = { path = "crates/nodes/primary_state_filter" }
@@ -291,7 +292,7 @@ simba = "0.9.0"
 simulation_message = { path = "crates/simulation_message" }
 smallvec = "1.14.0"
 splines = { version = "=4.2.0", features = ["serde"] }
-stereo_visual_odometry = { path = "crates/nodes/stereo_visual_odometry" }
+stereo_visual_odometry = { path = "crates/nodes/stereo_visual_odometry", default-features = false }
 support_foot_estimator = { path = "crates/nodes/support_foot_estimator" }
 syn = { version = "2.0.98", features = ["extra-traits", "full"] }
 team_ball_filter = { path = "crates/nodes/team_ball_filter" }

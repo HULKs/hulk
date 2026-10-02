@@ -1,11 +1,10 @@
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
-use color_eyre::Result;
-use hungarian_algorithm::AssignmentProblem;
+use color_eyre::{Result, eyre::WrapErr};
 use linear_algebra::{IntoFramed, Isometry2, Pose2};
+use linear_sum_assignment::{AssignmentSolver, Objective};
 use nalgebra::{Matrix2, Matrix4};
 use ndarray::Array2;
-use ordered_float::NotNan;
 use ros_z::qos::QosDurability;
 
 use coordinate_systems::{Ground, Odometry, Pixel};
@@ -103,6 +102,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let mut ball_filter = BallFilter::default();
+    let mut assignment_solver = AssignmentSolver::default();
     let mut last_odometry = None;
     let mut last_prediction_time = None;
 
@@ -116,7 +116,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         };
 
-        let output = block_in_place(|| {
+        let output = block_in_place(|| -> Result<BallFilterOutput> {
             let output_time = future_map_item
                 .persistent
                 .last_key_value()
@@ -159,12 +159,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
                     advance_all_hypotheses(
                         &mut ball_filter,
+                        &mut assignment_solver,
                         time,
                         &projected_balls,
                         camera_matrix,
                         parameters,
                         &field_dimensions,
-                    );
+                    )?;
                 }
             }
 
@@ -208,15 +209,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             let hypothetical_ball_positions =
                 hypothetical_ball_positions(&ball_filter, parameters.validity_output_threshold);
 
-            BallFilterOutput {
+            Ok(BallFilterOutput {
                 ball_percepts,
                 filter_state,
                 best_hypothesis,
                 filtered_ball,
                 filtered_balls_in_image,
                 hypothetical_ball_positions,
-            }
-        });
+            })
+        })?;
 
         ball_percepts_pub.publish(&output.ball_percepts).await?;
         filter_state_pub.publish(&output.filter_state).await?;
@@ -267,12 +268,13 @@ fn predict_hypotheses_from_odometry(
 
 fn advance_all_hypotheses(
     ball_filter: &mut BallFilter,
+    assignment_solver: &mut AssignmentSolver,
     time: Time,
     ball_percepts: &[BallPercept],
     camera_matrix: Option<&CameraMatrix>,
     filter_parameters: &BallFilterParameters,
     field_dimensions: &FieldDimensions,
-) {
+) -> Result<()> {
     ball_filter
         .hypotheses
         .retain(|hypothesis| hypothesis.validity > filter_parameters.validity_discard_threshold);
@@ -290,23 +292,29 @@ fn advance_all_hypotheses(
         let match_matrix =
             mahalanobis_matrix_of_hypotheses_and_percepts(&ball_filter.hypotheses, ball_percepts);
 
-        let assignment = AssignmentProblem::from_costs(match_matrix).solve();
+        let assignment = assignment_solver
+            .solve(match_matrix.view(), Objective::Maximize)
+            .wrap_err("failed to solve ball assignment")?;
 
         let mut used_percepts = vec![];
 
-        for (hypothesis, assigned_percept) in
-            ball_filter.hypotheses.iter_mut().zip(assignment.iter())
+        for (hypothesis_index, (hypothesis, &assigned_percept)) in ball_filter
+            .hypotheses
+            .iter_mut()
+            .zip(assignment.iter())
+            .enumerate()
         {
-            if let Some(assigned_percept) = assigned_percept {
-                let mahalanobis_distance = -assigned_percept.cost;
+            if let Some(percept_index) = assigned_percept {
+                let score = match_matrix[(hypothesis_index, percept_index)];
+                let mahalanobis_distance = -score;
                 if mahalanobis_distance > filter_parameters.maximum_matching_cost {
                     hypothesis.validity *=
                         filter_parameters.maximum_matching_cost_validity_penalty_factor;
                     continue;
                 }
-                let validity_increase = assigned_percept.cost.exp();
-                let percept = ball_percepts[assigned_percept.to];
-                used_percepts.push(assigned_percept.to);
+                let validity_increase = score.exp();
+                let percept = ball_percepts[percept_index];
+                used_percepts.push(percept_index);
                 hypothesis.update(time, percept.percept_in_ground, validity_increase);
             }
         }
@@ -328,6 +336,8 @@ fn advance_all_hypotheses(
             );
         }
     }
+
+    Ok(())
 }
 
 fn remove_invalid_and_merge_hypotheses(
@@ -391,7 +401,7 @@ fn hypothetical_ball_positions(
 fn mahalanobis_matrix_of_hypotheses_and_percepts(
     hypotheses: &[BallHypothesis],
     percepts: &[BallPercept],
-) -> Array2<NotNan<f32>> {
+) -> Array2<f32> {
     Array2::from_shape_fn((hypotheses.len(), percepts.len()), |(i, j)| {
         let hypothesis = &hypotheses[i];
         let percept = &percepts[j];
@@ -407,7 +417,7 @@ fn mahalanobis_matrix_of_hypotheses_and_percepts(
                 .solve(&residual),
         );
 
-        NotNan::new(-mahalanobis_distance).expect("mahalanobis distance is NaN")
+        -mahalanobis_distance
     })
 }
 
@@ -570,16 +580,17 @@ mod tests {
         let percepts = vec![percept1, percept2];
 
         let costs = mahalanobis_matrix_of_hypotheses_and_percepts(&hypotheses, &percepts);
-        let assignment = AssignmentProblem::from_costs(costs).solve();
+        let mut solver = AssignmentSolver::default();
+        let assignment = solver.solve(costs.view(), Objective::Maximize).unwrap();
 
-        let percept_of_hypothesis1 = assignment[0].unwrap().to;
+        let percept_of_hypothesis1 = assignment[0].unwrap();
         assert_eq!(percept_of_hypothesis1, 0);
 
-        let percept_of_hypothesis2 = assignment[1].unwrap().to;
+        let percept_of_hypothesis2 = assignment[1].unwrap();
         assert_eq!(percept_of_hypothesis2, 1);
 
         assert_eq!(assignment.len(), 2);
-        assert_eq!(assignment.into_iter().flatten().count(), 2);
+        assert_eq!(assignment.iter().flatten().count(), 2);
     }
 }
 

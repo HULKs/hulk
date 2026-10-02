@@ -6,6 +6,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
+    #[error("topic '{0}' is unavailable in this recording")]
+    ReplayTopicUnavailable(String),
     #[error("invalid topic reference '{topic}': {source}")]
     InvalidTopicReference {
         topic: String,

@@ -7,20 +7,20 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+booster.workspace = true
 color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
-hungarian_algorithm = { workspace = true }
-itertools = { workspace = true }
 linear_algebra = { workspace = true }
+localization-fagra.workspace = true
+linear_sum_assignment = { workspace = true }
 nalgebra = { workspace = true }
 ndarray = { workspace = true }
-ordered-float = { workspace = true }
 projection = { workspace = true }
 ros-z = { workspace = true }
-ros-z-streams = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true }
 types = { workspace = true }
 
 [dev-dependencies]
 geometry = { workspace = true }
+serde_json = { workspace = true }

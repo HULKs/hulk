@@ -13,7 +13,7 @@ kornia-3d = { workspace = true }
 kornia-algebra = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
-ort = { workspace = true, features = ["cuda", "tensorrt"] }
+ort.workspace = true
 projection = { workspace = true }
 ros-z = { workspace = true }
 ros2 = { workspace = true }
@@ -27,7 +27,10 @@ png = { workspace = true }
 zip = { workspace = true }
 
 [features]
+default = ["ort-cuda-tensorrt"]
+ort-cuda-tensorrt = ["ort/cuda", "ort/tensorrt"]
 ort-dynamic = ["ort/load-dynamic"]
+ort-webgpu = ["ort/webgpu"]
 
 [[bench]]
 name = "kitti_odometry"
