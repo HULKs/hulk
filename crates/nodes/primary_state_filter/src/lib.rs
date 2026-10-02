@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use hsl_network_messages::{GamePhase, PlayerNumber};
 use ros_z::{prelude::*, qos::QosDurability};
 use tracing::info;
+use types::controller_input::ControllerInput;
 use types::{
     buttons::{ButtonPressType, Buttons},
     filtered_game_controller_state::FilteredGameControllerState,
@@ -50,6 +51,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let is_safe_pose_cache = node
         .subscriber::<bool>("is_safe_pose")
         .cache(1)
+        .build()
+        .await?;
+    let controller_input_sub = node
+        .subscriber::<ControllerInput>("inputs/controller_input")
         .build()
         .await?;
 
@@ -120,6 +125,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         "primary state changed from buttons"
                     );
                 }
+            }
+            received_controller_input = controller_input_sub.recv() => {
+                let controller_input = received_controller_input?;
+
+                primary_state_filter.update_with_controller_input(&controller_input);
             }
         }
 
@@ -241,6 +251,17 @@ impl PrimaryStateFilter {
 
     fn update_with_injected_primary_state(&mut self, injected_primary_state: PrimaryState) {
         self.primary_state = injected_primary_state
+    }
+
+    fn update_with_controller_input(&mut self, controller_input: &ControllerInput) {
+        use types::controller_input::Button::*;
+
+        // Controller action to instantly go to damping state.
+        let x_pressed = controller_input.is_pressed(West);
+        if x_pressed {
+            log::warn!("Primary state DAMPING triggered by controller action");
+            self.primary_state = PrimaryState::Damping;
+        }
     }
 }
 
