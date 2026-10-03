@@ -4,7 +4,11 @@ use std::time::Duration;
 use projection::camera_matrix::CameraMatrix;
 use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
-use types::{obstacles::Obstacle, parameters::BallFilterParameters};
+use types::{
+    object_detection::{Object, RobocupObjectLabel},
+    obstacles::Obstacle,
+    parameters::BallFilterParameters,
+};
 
 use crate::{
     BallFilter,
@@ -27,12 +31,17 @@ pub fn enabled(parameters: &BallFilterParameters) -> bool {
         .is_some()
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Keep same-exposure detections and Ground obstacle geometry explicit"
+)]
 pub fn apply(
     filter: &mut BallFilter,
     time: Time,
     matched: &[bool],
     camera: Option<&CameraMatrix>,
     obstacles: Option<&[Obstacle]>,
+    detections: &[Object<RobocupObjectLabel>],
     ball_radius: f32,
     parameters: &BallFilterParameters,
 ) {
@@ -54,11 +63,12 @@ pub fn apply(
                 && hypothesis.validity
                     >= MINIMUM_LEADER_VALIDITY.max(parameters.validity_output_threshold)
                 && camera.is_some_and(|camera| {
-                    negative_evidence::classify(
+                    negative_evidence::classify_with_detections(
                         &hypothesis.position(),
                         camera,
                         ball_radius,
                         obstacles,
+                        detections,
                     ) != Visibility::Unknown
                 })
         });
@@ -101,7 +111,17 @@ pub fn apply(
     for (index, hypothesis) in filter.hypotheses.iter_mut().enumerate() {
         // Every real current-frame match remains protected, including a second
         // real ball or a newly reacquired candidate. Raw validity is not a probability.
-        if !matched.get(index).copied().unwrap_or(false) {
+        if !matched.get(index).copied().unwrap_or(false)
+            && camera.is_some_and(|camera| {
+                negative_evidence::classify_with_detections(
+                    &hypothesis.position(),
+                    camera,
+                    ball_radius,
+                    obstacles,
+                    detections,
+                ) == Visibility::Visible
+            })
+        {
             hypothesis.validity *= factor;
         }
     }

@@ -8,6 +8,7 @@ use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
 use types::{
     ball_position::BallPosition,
+    object_detection::{Object, RobocupObjectLabel},
     obstacles::{Obstacle, ObstacleKind},
     parameters::BallFilterParameters,
 };
@@ -108,6 +109,7 @@ pub enum Visibility {
     Unknown,
 }
 
+#[cfg(test)]
 pub fn clearly_visible(
     ball: &BallPosition<Ground>,
     camera: &CameraMatrix,
@@ -120,11 +122,22 @@ pub fn clearly_visible(
 /// Classify only the current Ground state with same-exposure camera geometry
 /// and motion-compensated robot obstacles. Fringe/tiny/invalid projections are
 /// unknown, rather than confirmed hidden. Robot radii approximate opaque columns.
+#[cfg(test)]
 pub fn classify(
     ball: &BallPosition<Ground>,
     camera: &CameraMatrix,
     ball_radius: f32,
     obstacles: Option<&[Obstacle]>,
+) -> Visibility {
+    classify_with_detections(ball, camera, ball_radius, obstacles, &[])
+}
+
+pub fn classify_with_detections(
+    ball: &BallPosition<Ground>,
+    camera: &CameraMatrix,
+    ball_radius: f32,
+    obstacles: Option<&[Obstacle]>,
+    detections: &[Object<RobocupObjectLabel>],
 ) -> Visibility {
     let Some(obstacles) = obstacles else {
         return Visibility::Unknown;
@@ -183,6 +196,37 @@ pub fn classify(
         && max_y < camera.image_size.y())
     {
         return Visibility::Unknown;
+    }
+    // Detector outputs already passed the configured confidence/NMS filters.
+    // Any accepted Robot overlapping the projected ball is evidence against a
+    // clear view, even before navigation's measurement-count threshold is met.
+    // Use this exposure's pixels; no asynchronous obstacle publication or field
+    // pose is needed. A box can partially occlude the disk without its center.
+    for object in detections
+        .iter()
+        .filter(|object| object.label == RobocupObjectLabel::Robot)
+    {
+        let bounding_box = &object.bounding_box;
+        if !bounding_box.confidence.is_finite() || bounding_box.confidence > 1.0 {
+            return Visibility::Unknown;
+        }
+        if bounding_box.confidence <= 0.0 {
+            continue;
+        }
+        let area = &bounding_box.area;
+        if ![area.min.x(), area.min.y(), area.max.x(), area.max.y()]
+            .into_iter()
+            .all(f32::is_finite)
+            || area.min.x() >= area.max.x()
+            || area.min.y() >= area.max.y()
+        {
+            return Visibility::Unknown;
+        }
+        let dx = center.x() - center.x().clamp(area.min.x(), area.max.x());
+        let dy = center.y() - center.y().clamp(area.min.y(), area.max.y());
+        if dx * dx + dy * dy <= radius * radius {
+            return Visibility::Hidden;
+        }
     }
     let camera_position = camera
         .ground_to_camera

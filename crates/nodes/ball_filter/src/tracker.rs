@@ -131,6 +131,7 @@ impl Tracker {
             &percepts,
             camera,
             obstacles.as_deref(),
+            detections.unwrap_or_default(),
             parameters,
             dimensions,
         )?;
@@ -244,6 +245,140 @@ mod tests {
                 confidence,
             },
         }
+    }
+
+    #[test]
+    fn new_robot_detection_protects_ball_before_navigation_obstacle_matures() {
+        for near in [false, true] {
+            let (mut tracker, camera, mut parameters, dimensions) = negative_evidence_fixture();
+            parameters.visible_missed_detection_timeout = Duration::from_secs(1);
+            parameters.near_visible_missed_detection_timeout = if near {
+                Duration::from_millis(120)
+            } else {
+                Duration::ZERO
+            };
+            parameters.near_visible_missed_detection_distance = tracker.filter.hypotheses[0]
+                .position()
+                .position
+                .coords()
+                .norm()
+                + 0.1;
+            parameters.hidden_validity_decay_rate = Some(0.0);
+            parameters.visible_missed_validity_decay_rate = Some(4.0);
+            parameters.near_visible_missed_validity_decay_rate = Some(40.0);
+            let robot = image_object(RobocupObjectLabel::Robot, 0.9);
+            // Navigation deliberately still publishes an empty obstacle vector.
+            // A current robot box must protect the ball from the very first frame.
+            for millis in (40..=2400).step_by(40) {
+                let time = Time::from_nanos(millis * 1_000_000);
+                tracker
+                    .advance_with_obstacles(
+                        time,
+                        Some(Pose2::new(linear_algebra::point![0.0, 0.0], 0.0)),
+                        Some(&[robot]),
+                        Some(&TimeWrapper {
+                            time,
+                            inner: camera.clone(),
+                        }),
+                        Some(&TimeWrapper {
+                            time,
+                            inner: vec![],
+                        }),
+                        &parameters,
+                        &dimensions,
+                    )
+                    .unwrap();
+                assert_eq!(
+                    tracker.filter.hypotheses.len(),
+                    1,
+                    "hidden ball removed at {millis}ms"
+                );
+                assert_eq!(tracker.filter.hypotheses[0].validity, 25.0);
+            }
+            // Once the opponent leaves, genuine clear-view misses still remove it.
+            for millis in (2440..=3600).step_by(40) {
+                let time = Time::from_nanos(millis * 1_000_000);
+                tracker
+                    .advance_with_obstacles(
+                        time,
+                        Some(Pose2::new(linear_algebra::point![0.0, 0.0], 0.0)),
+                        Some(&[]),
+                        Some(&TimeWrapper {
+                            time,
+                            inner: camera.clone(),
+                        }),
+                        Some(&TimeWrapper {
+                            time,
+                            inner: vec![],
+                        }),
+                        &parameters,
+                        &dimensions,
+                    )
+                    .unwrap();
+            }
+            assert!(tracker.filter.hypotheses.is_empty());
+        }
+    }
+
+    #[test]
+    fn same_exposure_robot_boxes_veto_partial_occlusion_and_allow_real_ball_matches() {
+        use crate::negative_evidence::{Visibility, classify_with_detections};
+        let (mut tracker, camera, parameters, dimensions) = negative_evidence_fixture();
+        let ball = tracker.filter.hypotheses[0].position();
+        let center = camera
+            .ground_with_z_to_pixel(ball.position, dimensions.ball_radius)
+            .unwrap();
+        let radius = camera
+            .get_pixel_radius(dimensions.ball_radius, center)
+            .unwrap();
+        let mut robot = image_object(RobocupObjectLabel::Robot, 0.9);
+        robot.bounding_box.area.min =
+            linear_algebra::point![center.x() + radius * 0.5, center.y() - 10.0];
+        robot.bounding_box.area.max =
+            linear_algebra::point![center.x() + radius * 2.0, center.y() + 10.0];
+        let classify = |object| {
+            classify_with_detections(&ball, &camera, dimensions.ball_radius, Some(&[]), &[object])
+        };
+        assert_eq!(
+            classify(robot),
+            Visibility::Hidden,
+            "partial disk overlap must veto clear view"
+        );
+        robot.bounding_box.area.min =
+            linear_algebra::point![center.x() + radius + 1.0, center.y() - 10.0];
+        assert_eq!(classify(robot), Visibility::Visible);
+        robot.bounding_box.area.min = linear_algebra::point![f32::NAN, center.y()];
+        assert_eq!(classify(robot), Visibility::Unknown);
+        robot = image_object(RobocupObjectLabel::Robot, 0.0);
+        assert_eq!(classify(robot), Visibility::Visible);
+        robot.bounding_box.confidence = 0.9;
+        // A ball actually detected against a robot is still a positive measurement.
+        let time = Time::from_nanos(40_000_000);
+        let percepts = tracker
+            .advance_with_obstacles(
+                time,
+                None,
+                Some(&[robot, image_object(RobocupObjectLabel::Ball, 0.99)]),
+                Some(&TimeWrapper {
+                    time,
+                    inner: camera,
+                }),
+                Some(&TimeWrapper {
+                    time,
+                    inner: vec![],
+                }),
+                &parameters,
+                &dimensions,
+            )
+            .unwrap();
+        assert_eq!(percepts.len(), 1);
+        assert!(
+            tracker
+                .filter
+                .hypotheses
+                .iter()
+                .any(|hypothesis| hypothesis.last_seen == time)
+        );
     }
 
     fn merge_track(x: f32, velocity: f32, validity: f32, milliseconds: i64) -> BallHypothesis {
@@ -725,6 +860,27 @@ mod tests {
             assert_eq!(tracker.filter.hypotheses[1].last_seen, Time::zero());
             assert!(tracker.filter.hypotheses[0].validity > 25.0);
         }
+    }
+
+    #[test]
+    fn observed_leader_does_not_decay_a_competitor_hidden_by_a_new_robot() {
+        let (mut tracker, camera, parameters, dimensions) = competition_fixture();
+        let ball = image_object(RobocupObjectLabel::Ball, 1.0);
+        let mut robot = image_object(RobocupObjectLabel::Robot, 0.9);
+        robot.bounding_box.area.min = linear_algebra::point![0.0, 0.0];
+        robot.bounding_box.area.max = linear_algebra::point![640.0, 544.0];
+        for millis in (0..=2000).step_by(40) {
+            detector_frame(
+                &mut tracker,
+                &camera,
+                millis,
+                &[ball, robot],
+                &parameters,
+                &dimensions,
+            );
+            assert_eq!(tracker.filter.hypotheses[1].validity, 5.0);
+        }
+        assert!(tracker.filter.hypotheses[0].validity > 25.0);
     }
 
     #[test]
