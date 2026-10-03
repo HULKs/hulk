@@ -18,7 +18,7 @@ use eframe::{
 };
 use layout::{FocusDirection, TwixLayout};
 use log::{error, warn};
-use panels::{ImagePanel, MapPanel, ParameterPanel, TextPanel};
+use panels::{AudioPanel, ImagePanel, MapPanel, ParameterPanel, TextPanel};
 use repository::{Repository, inspect_version::check_for_update};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use visuals::Visuals;
@@ -36,7 +36,7 @@ mod repaint;
 mod selectable_panel_macro;
 mod visuals;
 
-impl_selectable_panel!(TextPanel, ImagePanel, MapPanel, ParameterPanel);
+impl_selectable_panel!(TextPanel, ImagePanel, MapPanel, ParameterPanel, AudioPanel);
 
 #[derive(Debug, Clone, clap::Parser)]
 struct Arguments {
