@@ -72,14 +72,15 @@ def digest(path):
         return hashlib.file_digest(source, "sha256").hexdigest()
 
 
-def capacity(resources, requested):
-    # Leave two GiB and CPU headroom for other users. Each worker may hold all six
+def capacity(resources, requested, full_cpu=False):
+    # Leave two GiB and, by default, CPU headroom. Each worker may hold all six
     # decoded recordings; budget two GiB per worker rather than just MCAP size.
     memory_slots = (resources["available_bytes"] - 2 * 1024**3) // (2 * 1024**3)
     if memory_slots < 1:
         raise ValueError("remote host has less than 4 GiB available; refusing to add tuner jobs")
     idle_cpus = max(1, math.floor(resources["cpus"] - resources["load"]))
-    return min(requested, max(1, resources["cpus"] // 2), idle_cpus, memory_slots)
+    cpu_limit = resources["cpus"] if full_cpu else min(max(1, resources["cpus"] // 2), idle_cpus)
+    return min(requested, cpu_limit, memory_slots)
 
 
 PROBE = r'''
@@ -156,14 +157,15 @@ def start(args):
     run = checked_name(args.name or time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:8])
     local = (args.local_directory or repository / "logs" / f"remote-ball-tuning-{run}").resolve()
     resources = json.loads(ssh(args.host, ["python3", "-c", PROBE], capture_output=True, text=True).stdout)
-    workers = capacity(resources, args.workers)
+    workers = capacity(resources, args.workers, args.full_cpu)
     # Authentication failures should not reserve an empty local run directory.
     local.mkdir(parents=True, exist_ok=False)
     manifest = dict(
         run=run, host=args.host, remote=f"{TASK_BASE}/runs/{run}",
         tmux_session="ball-filter-" + run.replace(".", "_") + "-" + hashlib.sha256(run.encode()).hexdigest()[:8],
         git_head=subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repository, text=True).strip(),
-        workers=workers, build_jobs=capacity(resources, args.build_jobs), toolchain=args.toolchain,
+        workers=workers, build_jobs=capacity(resources, args.build_jobs, args.full_cpu), toolchain=args.toolchain,
+        full_cpu=args.full_cpu,
         trials=args.trials, seed=args.seed,
         initial=bool(args.initial_parameters), resources=resources,
         reference_frame=args.reference_frame, reference_topic=args.reference_topic,
@@ -342,6 +344,8 @@ def main():
     start_parser.add_argument("--recordings", type=Path, required=True)
     start_parser.add_argument("--initial-parameters", type=Path)
     start_parser.add_argument("--workers", type=int, default=4)
+    start_parser.add_argument("--full-cpu", action="store_true",
+                              help="allow all logical CPUs regardless of load; retain memory limits (account for existing jobs)")
     start_parser.add_argument("--build-jobs", type=int, default=4)
     start_parser.add_argument("--toolchain", default="1.98.1")
     start_parser.add_argument("--trials", type=int, default=256)

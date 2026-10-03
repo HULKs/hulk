@@ -122,7 +122,9 @@ This uploads an immutable source/data snapshot into the remote user's dedicated
 cache directory, builds only `ball-filter-tuner` with Rust 1.98.1, and keeps a
 separate executable and checkpoints per run. It leaves `/home/schluis/hulk`
 untouched. The remote needs that Rust toolchain, a C compiler, Python and tmux.
-Worker counts are bounded by available CPU/memory. Fetched best reports are
+Worker counts normally leave CPU headroom and are bounded by available memory.
+Use `--full-cpu --workers N` to permit all logical CPUs; account for workers in
+existing runs when choosing N. Memory limits still apply. Fetched best reports are
 selected using training loss and continuity eligibility; holdouts are evaluation
 only. The manifest records source/data hashes for reproducibility.
 

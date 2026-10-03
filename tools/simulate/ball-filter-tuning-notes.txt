@@ -10,6 +10,10 @@ Keep production kinematics and absolute simulator torso reference; simulation
 does not depend on visual localization. User explicitly authorized a soft live
 field-boundary confidence prior using the available field pose (2026-10-03).
 Maintain git checkpoints as work progresses.
+User authorizes unsigned checkpoints if authentication blocks unattended work;
+use per-command git -c commit.gpgsign=false, without changing global settings.
+User also authorizes 100% remote-compiler CPU use. Keep memory limits and preserve
+other work. The goal needs no further design decisions to proceed unattended.
 
 Retention policy follow-up (2026-10-03)
 - User rejected the latest optimizer timeout reduction20s->2.801s: losing sight
@@ -72,7 +76,24 @@ Remote execution validation (2026-10-03)
 - SSH keyagent transientlyfailed; retryworked. Helpermultiplexes authenticated
   connections for30min; tmuxworkers remainindependent if thecontrolsocketexpires.
 
+Full CPU expansion (2026-10-03)
+- Added explicit --full-cpu override to helper CPU headroom/load limits;
+  memory guard remains active. Eight helper tests pass, including override limits.
+- Existing eight workers remain running; additional24 workers now searching in
+  run retention-fullcpu-20261003, seed8000031,256trials/round. Seeds continue the
+  original worker sequence, giving32 independent continuous searches in total.
+- Verified32 tuner processes and100.0% aggregate CPU busy over a2second sample.
+- Additional tmux session: ball-filter-retention-fullcpu-20261003-9a179258.
+  Manifest: logs/remote-ball-tuning-retention-fullcpu-20261003/manifest.json.
+  Both runs use identical filter/scoring code and recordings; only helper/docs
+  changed in the new snapshot. Compare training-selected reports across both.
+
 Next evaluation direction (user priorities, 2026-10-03)
+- Further remote progress confirms scalar loss is insufficient: around round20,
+  training-selected loss1.26348 has closeRMSE1.210m versus baseline.715m;
+  heldout closeRMSE.989m versus.472m, despite missingtime improving4.798->.956s.
+  Do not deploy this as a kicking improvement. Remote searches are offline;
+  training winner is an experimental candidate, not automatic production approval.
 - Try genuinely different tuning approaches after defining task-level outcomes.
   Current retention guards are an immediate safeguard, not the complete target.
 - Reacquisition: measure time from a usable post-occlusion observation to a stable,

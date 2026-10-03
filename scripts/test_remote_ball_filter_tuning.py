@@ -27,6 +27,13 @@ class RemoteTuningTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             helper.capacity(resources, 1)
 
+    def test_full_cpu_removes_cpu_headroom_but_preserves_memory_limit(self):
+        resources = dict(cpus=32, load=32.0, available_bytes=70 * 1024**3)
+        self.assertEqual(helper.capacity(resources, 32, full_cpu=True), 32)
+        self.assertEqual(helper.capacity(resources, 24, full_cpu=True), 24)
+        resources["available_bytes"] = 6 * 1024**3
+        self.assertEqual(helper.capacity(resources, 32, full_cpu=True), 2)
+
     def test_remote_arguments_are_quoted_without_shell_evaluation(self):
         arguments = ["python3", "a path/worker.py", "literal $(touch /tmp/no) `date` 'quoted'"]
         command = helper.ssh_command("remote-compiler", arguments)
