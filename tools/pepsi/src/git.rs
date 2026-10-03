@@ -1,4 +1,7 @@
-use std::{ffi::OsStr, process::ExitStatus};
+use std::{
+    ffi::OsStr,
+    process::{ExitStatus, Stdio},
+};
 
 use color_eyre::{
     Result,
@@ -20,6 +23,12 @@ impl GitCommand {
 
     fn arg(mut self, arg: impl AsRef<OsStr>) -> Self {
         self.inner.arg(arg);
+        self
+    }
+
+    fn quiet(mut self) -> Self {
+        self.inner.stdout(Stdio::null());
+        self.inner.stderr(Stdio::null());
         self
     }
 
@@ -75,6 +84,16 @@ pub async fn merge_squash(branch: &str) -> Result<()> {
     GitCommand::new("merge")
         .arg("--squash")
         .arg(branch)
+        .run()
+        .await
+}
+
+pub async fn check_revision_exists(revision: &str) -> Result<()> {
+    GitCommand::new("rev-parse")
+        .quiet()
+        .arg("--verify")
+        .arg("--end-of-options")
+        .arg(format!("{revision}^{{commit}}"))
         .run()
         .await
 }

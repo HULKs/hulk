@@ -1,11 +1,17 @@
 use clap::Args;
-use color_eyre::{Result, eyre::WrapErr};
+use color_eyre::{
+    Result,
+    eyre::{WrapErr, bail},
+};
 use repository::{Repository, location::LocationTarget};
 use tokio::io::{AsyncBufReadExt, BufReader, stdin};
 
 use crate::{
     deploy_config::DeployConfig,
-    git::{add_all, create_and_switch_to_branch, create_commit, merge_squash, reset_to_head},
+    git::{
+        add_all, check_revision_exists, create_and_switch_to_branch, create_commit, merge_squash,
+        reset_to_head,
+    },
     player_number::{Arguments as PlayerNumberArguments, player_number},
 };
 
@@ -20,6 +26,22 @@ pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Resul
     let config = DeployConfig::read_from_file(repository)
         .await
         .wrap_err("failed to read deploy config from file")?;
+
+    let mut all_found = true;
+
+    if let Err(_error) = check_revision_exists(&config.base).await {
+        all_found = false;
+        eprintln!("can't find base branch: {}", config.base);
+    }
+    for branch in &config.branches {
+        if let Err(_error) = check_revision_exists(branch).await {
+            eprintln!("can't find revision to merge: {branch}");
+            all_found = false;
+        }
+    }
+    if !all_found {
+        bail!("pre-checks failed");
+    }
 
     let branch_name = config.branch_name();
     create_and_switch_to_branch(&branch_name, &config.base, arguments.force)
