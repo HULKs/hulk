@@ -22,7 +22,6 @@ clap = { workspace = true, features = ["derive"] }
 color-eyre = { workspace = true }
 controller_handler = { workspace = true }
 detection = { workspace = true, features = ["ort-dynamic"] }
-fake_odometry = { workspace = true }
 fall_down_state_receiver = { workspace = true }
 field_mark_association = { workspace = true }
 game_controller_filter = { workspace = true }
