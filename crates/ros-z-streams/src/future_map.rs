@@ -4,7 +4,7 @@ use std::time::Duration;
 use ros_z::{
     Message, Result,
     node::Node,
-    time::{Clock, Time},
+    time::{Clock, Time, Timer},
 };
 use tokio::select;
 
@@ -99,6 +99,7 @@ pub struct FutureMap<Group: StreamGroup> {
     subscribers: Group,
     buffer: FutureResult<Group::Output>,
     clock: Clock,
+    safety_timer: Timer,
 }
 
 impl<Group: StreamGroup> FutureMap<Group> {
@@ -112,12 +113,14 @@ impl<Group: StreamGroup> FutureMap<Group> {
     /// to the temporary buffer. The persistent split is guaranteed to be time-ordered and
     /// never to be reordered by future arrivals.
     pub async fn recv(&mut self) -> Result<FutureItem<'_, Group::Output>> {
-        let max_safety_lag = self.subscribers.max_safety_lag().unwrap_or(Duration::MAX);
-        let mut timer = self.clock.timer(max_safety_lag);
-
         loop {
             let event = select! {
-                _ = timer.tick() => None,
+                _ = self.safety_timer.tick() => {
+                    // Keep the deadline across cancelled recv futures, but do
+                    // not catch up through obsolete ticks after a clock jump.
+                    self.safety_timer.reset();
+                    None
+                },
                 event = self.subscribers.receive_event(&mut self.buffer) => Some(event?),
             };
 
@@ -176,7 +179,9 @@ where
     /// This finalizes the builder and creates a ready-to-use fusion engine
     /// with all subscriptions initialized and a clock reference for timing operations.
     pub fn build(self) -> FutureMap<Subscribers> {
+        let safety_lag = self.subscribers.max_safety_lag().unwrap_or(Duration::MAX);
         FutureMap {
+            safety_timer: self.node.clock().timer(safety_lag),
             subscribers: self.subscribers,
             buffer: BTreeMap::new(),
             clock: self.node.clock().clone(),
