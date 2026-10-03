@@ -1,10 +1,24 @@
-# Linux
+# Linux on the Booster
 
-The Nao uses a Linux 5.4 real time kernel for intel processors ([linux-intel/preempt-rt](https://github.com/intel/linux-intel-lts/tree/5.4/preempt-rt)).
+The current stack targets the Booster K1's AArch64 Jetson Linux environment.
+The repository does not define or build the robot's kernel. The vendor release
+expected by upload is recorded in root `hulk.toml`, and the runtime image base
+is defined in `tools/k1-setup/inference-runtime/Containerfile`.
 
-Most of the kernel configuration is done by the `meta-intel` layer for yocto.
-Special modifications for the Nao robot are contained in the `meta-nao` layer and mainly consist of patches and kernel modules by aldebaran for chestboard communication.
+Inspect the actual robot when kernel or device compatibility matters:
 
-!!! tip
+```sh
+./pepsi shell <robot-IP> "uname -a"
+./pepsi shell <robot-IP> "cat /opt/booster/version.txt"
+./pepsi shell <robot-IP> "jetson_release -s"
+```
 
-    For building an image, have a look at [instructions](../setup/nao_image_and_sdk.md) in the setup section.
+Gammaray installs the repository's services and runtime configuration on an
+already working vendor OS. It configures NVIDIA CDI, Podman, Zenoh services,
+and Jetson clock refresh; see [Booster setup](../setup/booster_setup.md).
+Application/runtime lifecycle is managed through systemd:
+
+```sh
+./pepsi hulk status <robot-IP>
+./pepsi shell <robot-IP> "sudo systemctl status hulk-runtime"
+```

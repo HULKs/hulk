@@ -1,41 +1,60 @@
-# Overview
+# Motion
 
-!!! note
-
-    This structure in three steps is only conceptionally, in the code, there is no differentiation between these steps, and all nodes are automatically sorted during compile time depending on their inputs and outputs.
-
-## Motion Selection
-
-Motion starts in the `motion_selector` with the motion command from behavior.
-Here the current motion is chosen based on the previous motion, if it is finished or if it can be aborted.
-
-## Motion Execution
-
-In the next step, all nodes for all motions are executed.
-The nodes, whose motion is not selected, may exit early.
-
-## Command Sending
-
-Motion finishes by collecting and optimizing all motor commands in the `motor_commands_collector`, then writes them to the hardware interface in the `commands_sender`.
+`booster_sdk_interface` executes the `MotionCommand`
+published by [behavior](../behavior/overview.md) on `behavior/motion_command`.
+The launcher starts that interface and a separate `head_motion` node.
 
 ## ROS-Z Booster Path
 
-The ROS-Z Booster stack bypasses the legacy `commands_sender` path. Behavior publishes `behavior/motion_command`, the ROS-Z head nodes publish `head_joints_command`, and `booster_interface` owns Booster Zenoh RPC mode changes, walking commands, head rotation, stand-up requests, LED forwarding, and `rt/kick_ball` publishing.
+1. **Behavior** publishes Damping, Prepare, Stand, StandUp, VisualKick, Walk,
+   or WalkWithVelocity commands.
+2. **SDK interface** caches the latest command and checks it on a 10 ms timer.
+   Damping and Prepare request their corresponding SDK modes; the other
+   commands request **Soccer** mode.
+3. **Walking** converts path requests with `booster::walking::step_from_motion_command`
+   and sends forward/left/turn values through the `move_robot` RPC. Stand sends
+   zero velocity; WalkWithVelocity supplies velocity directly.
+4. **Kicking and recovery** publish the SDK kick message and enable visual-kick
+   mode, or request the SDK `get_up` operation when entering StandUp.
+5. **Head motion** consumes the behavior command and sensor/gaze inputs, then
+   publishes `HeadJoints<f32>` on `head_joints_command`. The SDK interface sends
+   those targets through `rotate_head`; it does not call a head-motion service.
 
-`booster_interface` reads its runtime parameters from `etc/parameters/base/booster_interface.json5`. The removed split ROS-Z nodes no longer consume `commands/high_level_command`, `services/get_robot_mode`, or `command_sender` parameters. Robot mode is now managed internally from `behavior/motion_command` without waiting for SDK mode feedback.
+The SDK owns body execution in this path.
 
-Manual validation on a Booster robot should check these behaviors:
+## Mode Requests and Recovery
 
-- Before the first `behavior/motion_command` arrives, `booster_interface` does not send Booster Zenoh RPC motion requests.
-- Mode changes send one Booster Zenoh RPC `change_mode` request when the locally desired motion mode changes.
-- `Damping` commands request Booster Zenoh RPC `Damping` mode.
-- `Prepare` and stand-up commands request Booster Zenoh RPC `Prepare` mode.
-- `Stand`, `Walk`, `WalkWithVelocity`, and `VisualKick` commands request Booster Zenoh RPC `Soccer` mode, not Booster Zenoh RPC `Walking` mode.
-- Walking commands produce periodic Booster Zenoh RPC `move_robot` calls at about `50 Hz` while locally assuming `Soccer`.
-- `Stand` commands produce periodic zero-velocity Booster Zenoh RPC `move_robot` calls at about `50 Hz` while locally assuming `Soccer`.
-- `head_joints_command` produces periodic Booster Zenoh RPC `rotate_head` calls at about `50 Hz` while locally assuming `Soccer`.
-- Stand-up commands produce one Booster Zenoh RPC `get_up` request on entry while locally assuming `Prepare`.
-- Visual kick commands publish `rt/kick_ball` and send one Booster Zenoh RPC `visual_kick(true)` request on visual-kick entry while locally assuming `Soccer`.
-- Visual kick commands keep publishing fresh `rt/kick_ball` at about `50 Hz` while active.
-- Leaving visual kick for `Stand`, `Walk`, or `WalkWithVelocity` sends one Booster Zenoh RPC `visual_kick(false)` request while staying in locally assumed `Soccer` mode.
-- Robot logs contain behavior input, button input, primary-state, RPC action schedule, and RPC action completion entries for transition debugging.
+The interface initializes its local `assumed_mode` to Damping and waits for a
+behavior command. When the desired mode changes, it queues a retrying mode RPC
+and immediately updates that assumed mode. This is not a hardware acknowledgement
+gate: movement, kick, and get-up decisions use the locally assumed mode.
+
+Mode, visual-kick, get-up, and LED requests use retry workers. Movement and head
+RPCs are interval-limited. Entering StandUp starts one get-up request; a continuing
+StandUp does not start a new request each tick. Leaving StandUp clears that request.
+
+Behavior uses SDK fall state for recovery decisions. The interface sends requests
+to the SDK; a locally queued or assumed mode is not proof of completed physical
+recovery. Verify the actual robot state before resuming operation.
+
+## Configuration and Inspection
+
+Base parameters live in:
+
+- `etc/parameters/base/booster_interface.json5`: path following, movement/kick/head
+  intervals, kick power, and SDK request timeout.
+- `etc/parameters/base/head_motion.json5`: head control and gaze geometry.
+
+The base movement, kick, and head intervals are 20 ms; the SDK request timeout is
+100 ms. Inspect `behavior/motion_command`, `head_joints_command`, and SDK fall
+reports, together with `booster_interface::input` and `booster_interface::rpc`
+logs.
+
+## Implementation
+
+- `crates/nodes/booster_sdk_interface/src/lib.rs`: command cache, control loop, RPC workers.
+- `crates/nodes/booster_sdk_interface/src/control.rs`: mode and kick conversion.
+- `crates/booster/src/walking.rs`: path-to-velocity conversion.
+- `crates/nodes/head_motion/src/lib.rs`: head-target generation.
+
+Continue with [Walking](walking.md), [Step planning and path following](step_planning.md), and [Kick and get-up requests](kicking.md).

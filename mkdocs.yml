@@ -28,23 +28,16 @@ nav:
       - Overview: setup/overview.md
       - Development Environment: setup/development_environment.md
       - Configure Team: setup/configure_team.md
-      - NAO Image & SDK: setup/nao_image_and_sdk.md
-      - NAO Setup: setup/nao_setup.md
+      - Booster K1 Setup: setup/booster_setup.md
       - Upload HULK: setup/upload.md
   - Tooling:
       - Overview: tooling/overview.md
-      - Aliveness: tooling/aliveness.md
-      - Charging box:
-          - Overview: tooling/charging_box/overview.md
-          - Building your own: tooling/charging_box/building_your_own.md
       - Pepsi: tooling/pepsi.md
       - Twix: tooling/twix.md
-      - Depp: tooling/depp.md
-      - Fanta: tooling/fanta.md
-      - Machine Learning: tooling/machine-learning.md
-      - Behavior Simulator: tooling/behavior_simulator.md
-      - Behavior Tree Simulator Design: tooling/behavior_tree_simulator_design.md
       - Remote Control: tooling/remote_control.md
+      - Machine Learning: tooling/machine-learning.md
+      - Simulator: tooling/behavior_simulator.md
+      - Behavior Tree Simulator: tooling/behavior_tree_simulator_design.md
       - Debugging with GDB/LLDB: tooling/debugging.md
       - Profiling with perf: tooling/profiling.md
   - Operating System:
@@ -53,11 +46,12 @@ nav:
       - Home Directory: operating_system/home_directory.md
       - Linux: operating_system/linux.md
       - WiFi: operating_system/wifi.md
-      - HULA: operating_system/hula.md
+      - Hardware Integration: operating_system/hardware_integration.md
   - Robotics:
       - Overview: robotics/overview.md
       - Perception:
           - Vision: robotics/perception/vision.md
+          - Localization: robotics/perception/localization.md
           - Audio: robotics/perception/audio.md
           - Filters: robotics/perception/filters.md
           - HSL Network: robotics/perception/hsl_network.md
@@ -67,8 +61,6 @@ nav:
           - Step planning: robotics/motion/step_planning.md
           - Walking: robotics/motion/walking.md
           - Kicking: robotics/motion/kicking.md
-      - Miscellaneous:
-          - Create URDF and PROTO for NAOv6: robotics/miscellaneous/create_urdf.md
   - Workflow:
       - Overview: workflow/overview.md
       - Getting Started: workflow/getting_started.md

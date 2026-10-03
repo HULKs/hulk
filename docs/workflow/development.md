@@ -105,4 +105,6 @@ More information about the checks performed in the CI can be found [here](./chec
 ## Test-driven development
 
 We aim to write tests for all core functionality, where testing is feasible.
-To test higher-level functionality, we are currently in the development of including the [behavior simulator](../tooling/behavior_simulator.md) in the CI.
+Use the [behavior tree simulator](../tooling/behavior_tree_simulator_design.md)
+for scenario tests of higher-level behavior. Its scenario macro creates Cargo
+tests; see [automated checks](checks.md) for the CI test command.

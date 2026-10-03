@@ -1,6 +1,6 @@
 # Leadership
 
-The goal of the team HULKs is to compete with other teams in the RoboCup Standard Platform League (SPL).
+The goal of the team HULKs is to compete with other robot soccer teams at RoboCup.
 Being competitive on such events with mostly part-time participating students requires optimal team performance and a focused development workflow to achieve set goals.
 Two members of the HULKs manage and lead the team towards the goals.
 These members are called *development leads*.

@@ -1,6 +1,7 @@
 # HULK
 
-This repository contains the robot control program and associated tools of the RoboCup SPL team HULKs.
+This repository contains the robot control program and associated tools of team
+HULKs. The current robot stack targets Booster K1 and uses ROS-Z middleware.
 
 See https://hulks.de/hulk/ for our documentation.
 

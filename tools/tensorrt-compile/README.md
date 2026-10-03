@@ -1,104 +1,110 @@
-# TensorRT compile guide (Hydra NV12 ONNX)
+# Compile TensorRT engines on a K1
 
-This guide describes the host + robot workflow for compiling TensorRT engines
-for a Hydra ONNX model and syncing the compiled cache back into the repository.
+`tensorrt-compile` is the compiler binary. Pepsi exposes the automation command as
+**`tensor-rt-compile`**. Both use the ONNX model's input metadata rather than a
+hardcoded detection output name.
 
-The example model can be produced with
-[`tools/machine-learning/multi-task-yolo/REPRODUCE.md`](../machine-learning/multi-task-yolo/REPRODUCE.md).
+Run host commands from the repository root. The robot must be provisioned with a
+running `hulk` Podman runtime container and compatible ONNX Runtime, CUDA and
+TensorRT libraries. `./pepsi gammaray --help` describes provisioning options.
+The model must exist locally under `etc/neural_networks` before upload.
 
-## Workflow overview
+## Model filename and input shape
 
-1. Cross-compile `tensorrt-compile` on the development host via `pepsi`.
-2. `pepsi upload` to sync model file.
-3. Sync the binary to the robot.
-4. Run compilation on the robot.
-5. Sync generated TensorRT cache files back to the development host.
-6. Deploy with `pepsi upload` so precompiled cache is shipped with the model.
+The detector loads `detection.neural_networks_folder` joined with
+`detection.model_name`. The current base model is:
 
-## Step 1: Build `tensorrt-compile` on host
+```text
+yolo26m~hslvision=f17+yolo26m~hslvision+yolo26m~hslvision~jail.onnx
+```
 
-Run from repository root:
+`hydra-nv12.onnx` is not required by the runtime. For a new export, select its
+actual filename in the intended detection parameter layer.
+See `tools/machine-learning/multi-task-yolo/REPRODUCE.md` for checkpoint and export
+requirements and the current exporter limitations.
+
+Dynamic input dimensions require an explicit shape for **every dynamic input**.
+Append `--<input-name> dim1,dim2,...` after the model argument when invoking the
+binary, or after `--` when forwarding through Pepsi. Both separated and
+`--<input-name>=dim1,dim2,...` forms are accepted. Dimensions must be positive,
+match the tensor rank and agree with any fixed model dimensions.
+
+For the dynamic NV12 input `raw_bytes_input`, a 640×544 image uses `272,320,6`.
+Choose the size used by the deployed image pipeline; the Hydra export trace's
+default square size is not the deployment size. Static models, including the fused
+XFeat/LighterGlue export, resolve shapes from metadata and need no overrides.
+
+## Automated workflow
+
+For the current configured model and robot 42:
+
+```bash
+MODEL='yolo26m~hslvision=f17+yolo26m~hslvision+yolo26m~hslvision~jail.onnx'
+./pepsi hulk stop 42
+./pepsi tensor-rt-compile "etc/neural_networks/$MODEL" 42 -- --raw_bytes_input 272,320,6
+```
+
+Pepsi builds the compiler using its manifest's default K1 SDK environment, uploads
+the compiler and `etc`, runs it inside the existing `hulk` container, and downloads
+the neural-network directory. Stop HULK first: this upload uses clean synchronization
+and can replace/remove existing remote files, including binaries absent from the
+compiler upload directory. It does not itself stop or restart the HULK service.
+Keep the runtime container running; stopping the HULK application service is
+different from killing that container.
+
+Use `--no-build` only with a compiler already built for the same environment,
+profile and target directory. Build overrides precede the forwarding `--`, for
+example `--profile with-debug` or `--env podman`.
+
+After successful compilation, restore/deploy the normal robot stack and cache:
+
+```bash
+./pepsi upload 42
+```
+
+Upload includes `etc/neural_networks` and restarts HULK. Cache reuse requires a
+compatible model, runtime, target GPU and input profile; the presence of files alone
+does not guarantee that runtime compilation will be skipped.
+
+## Manual workflow
+
+Build the compiler and upload the model/configuration while leaving HULK stopped:
 
 ```bash
 ./pepsi build tools/tensorrt-compile
-```
-
-This uses the cross-compilation environment and produces an aarch64 binary
-under `target/container/aarch64-unknown-linux-gnu/debug/`.
-
-## Step 2: Upload to sync model file to robot
-
-```bash
-./pepsi upload <ROBOT_NUMBER_OR_IP>
-```
-
-## Step 3: Sync binary to robot
-
-Copy the binary to the robot. If you built with `--target-dir`, use that directory
-in the source path instead:
-
-```bash
+./pepsi upload 42 --no-restart
 rsync -av target/container/aarch64-unknown-linux-gnu/debug/tensorrt-compile \
-  booster@<robot-ip>:~/hulk/bin/tensorrt-compile
+  booster@10.1.24.42:~/hulk/bin/tensorrt-compile
+./pepsi shell 42
 ```
 
-## Step 4: Run compilation on robot
+The positional manifest selects cross-compilation by default. If you changed the
+environment, profile or `--target-dir`, use the matching artifact path for `rsync`.
 
-Open a shell to the robot:
-
-```bash
-./pepsi shell <ROBOT_NUMBER_OR_IP>
-```
-
-Then ensure the ONNX model exists in:
-
-- `~/hulk/etc/neural_networks`
-
-Stop hulk process, if it is already running:
+On the robot, run in the provisioned runtime container:
 
 ```bash
-hulk stop
-```
-
-If hulk is still running after that:
-
-```bash
-sudo podman kill hulk
-```
-
-Start compilation:
-
-```bash
-launchHULK --executable ~/hulk/bin/tensorrt-compile \
+sudo podman exec --user "$(id -u booster)" hulk ./bin/tensorrt-compile \
   --cache-path /home/booster/hulk/etc/neural_networks \
-  /home/booster/hulk/etc/neural_networks/hydra-nv12.onnx
+  /home/booster/hulk/etc/neural_networks/yolo26m~hslvision=f17+yolo26m~hslvision+yolo26m~hslvision~jail.onnx \
+  --raw_bytes_input 272,320,6
 ```
 
-The process may fail with an error, if the output name of the network has changed.
-The compilation will still have succeded, if the error occurs.
+The provisioned container has working directory `/home/booster/hulk` and mounts
+the host home directory. Inspect `tools/k1-setup/hulk-runtime.container` if your
+installation differs.
 
-## Step 5: Sync compiled TensorRT cache back
-
-Copy generated engine/profile files from robot back into the repository:
+Back on the host, retrieve generated cache files and deploy:
 
 ```bash
-rsync -av "booster@<robot-ip>:~/hulk/etc/neural_networks/*Tensorrt*" \
-  etc/neural_networks
+rsync -av 'booster@10.1.24.42:~/hulk/etc/neural_networks/*Tensorrt*' etc/neural_networks/
+./pepsi upload 42
 ```
 
-## Step 6: Deploy with precompiled cache
+## Success and failures
 
-Now deploy as usual:
-
-```bash
-./pepsi upload <ROBOT_NUMBER_OR_IP>
-```
-
-Because `etc/neural_networks` now contains compiled TensorRT cache files,
-`pepsi upload` syncs them to the robot and HULK can start without waiting for
-first-run engine compilation.
-
-## Notes
-
-- `hydra-nv12.onnx` should stay in `etc/neural_networks` with that name unless
-  runtime code is changed.
+The compiler creates a TensorRT-backed session, allocates dummy inputs from model
+metadata, and runs inference. A zero exit status is the success criterion; Pepsi
+rejects a nonzero compiler exit. Do not treat an arbitrary error as successful
+compilation even if partial cache files exist. Dynamic-shape errors require shape
+overrides; missing runtime/provider libraries require fixing the target environment.

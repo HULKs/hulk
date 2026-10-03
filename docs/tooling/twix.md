@@ -55,11 +55,57 @@ Validation checks the tree structure before constructing any panels.
 Run `cargo test -p twix --bin twix` for preset validation, session, and headless layout tests.
 These cover bundled presets, file operations, picker dialogs, and layout rendering and round trips.
 
+### Preset JSON format
+
+Sessions and preset files use an unversioned JSON envelope with `tree`, nullable
+`focused` (a tile ID), and optional `names` (tile IDs mapped to titles).
+`tree` is the serialized `egui_tiles` tree: pane tiles contain `{ "kind": ..., "state": ... }`,
+and container tiles describe tabs, linear splits or grids. For example, a minimal Text layout is:
+
+```json
+{
+  "tree": {
+    "id": 1,
+    "root": 2,
+    "tiles": {
+      "next_tile_id": 3,
+      "tiles": {
+        "1": { "Pane": { "kind": "text", "state": { "topic": "behavior/motion_command", "pretty": true } } },
+        "2": { "Container": { "Tabs": { "children": [1], "active": 1 } } }
+      },
+      "invisible": []
+    },
+    "height": null,
+    "width": null
+  },
+  "focused": 1,
+  "names": { "2": "Behavior" }
+}
+```
+
+Current pane kinds/settings are:
+
+| `kind` | Saved `state` |
+| --- | --- |
+| `text` | `topic`, `pretty` |
+| `image` | `topic`, `overlays` |
+| `parameter` | `node`, `path`, `layer`; unsent value edits are excluded |
+| `map` | `current_plot_type`, `zoom_and_pan`, and each layer's saved settings |
+
+Save complex layouts through the UI rather than assembling split/grid settings by hand.
+Examples are in `tools/twix/presets`; envelope validation is implemented in
+`tools/twix/src/layout/persistence.rs`, and each panel defines its own saved settings.
+There is no separate schema-version/migration field, so retain a backup before adapting a preset to a changed format.
+Validation limits layouts to 4096 tiles, depth 128 and tile IDs at most `2^20`; references must form a reachable tree with valid active tabs and split shares.
+Structural validation precedes panel construction. An unknown/unrestorable pane falls back to Text and is logged, rather than invalidating an otherwise valid tree.
+
 ## Panels and keybindings
 
-ROS-Z Twix currently contains Text, Image, Map, and Parameter panels. The Text panel observes one ROS-Z topic through `ros-z-debug` and renders the latest dynamic payload as JSON. The Image panel observes `TimeWrapper<ros2::sensor_msgs::image::Image>` topics, defaults to `inputs/left_image`, and renders the latest raw camera frame. The Parameter panel discovers ROS-Z nodes with remote parameter services, shows full snapshots or selected paths as JSON, and writes selected paths to active layers with revision checks.
+ROS-Z Twix on main contains Text, Image, Map, and Parameter panels. The Text panel observes one ROS-Z topic through `ros-z-debug` and renders the latest dynamic payload as JSON. The Image panel observes `TimeWrapper<ros2::sensor_msgs::image::Image>` topics, defaults to `inputs/left_image`, and renders the latest raw camera frame. The Parameter panel discovers ROS-Z nodes with remote parameter services, shows full snapshots or selected paths as JSON, and writes selected paths to active layers with revision checks.
 
-ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`. Legacy Twix keeps using `hulks/twix.toml`, so the two tools do not share incompatible keybinding schemas. The default ROS-Z keybindings are:
+### Keybindings
+
+Twix reads keybindings from `hulks/twix-ros-z.toml`. The default keybindings are:
 
 | Key | Action |
 | --- | --- |

@@ -9,7 +9,7 @@
 ## Upload root filesystem to Proxmox
 
 - Open the storage that supports uploading "CT Templates"
-- "Upload" the `root.tar.zst` and set a reasonable name following the naming convention already existing
+- "Upload" the `rootfs.tar.zst` and set a reasonable name following the naming convention already existing
 
 ## Create a new container with the root filesystem
 
