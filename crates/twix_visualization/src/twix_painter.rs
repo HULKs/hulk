@@ -20,6 +20,8 @@ use types::{
     path::{Path, PathSegment},
 };
 
+mod detection;
+
 type ScreenTransform<Frame> = Transform<Frame, Screen, Similarity2<f32>>;
 
 pub struct TwixPainter<World> {
@@ -148,6 +150,19 @@ impl<World> TwixPainter<World> {
 
     pub fn scaling(&self) -> f32 {
         self.world_to_pixel.inner.scaling()
+    }
+
+    /// Restrict drawing to a rectangle in screen coordinates while preserving the camera transform.
+    pub fn with_clip_rect(&self, clip_rect: Rect) -> Self {
+        Self {
+            painter: self
+                .painter
+                .with_clip_rect(self.painter.clip_rect().intersect(clip_rect)),
+            pixel_rect: self.pixel_rect,
+            orientation: self.orientation,
+            world_to_pixel: self.world_to_pixel,
+            frame: PhantomData,
+        }
     }
 
     pub fn pixel_rect(&self) -> Rect {

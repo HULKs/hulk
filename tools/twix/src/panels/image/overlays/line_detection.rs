@@ -3,6 +3,8 @@ use coordinate_systems::Pixel;
 use eframe::egui::{Color32, Stroke};
 use geometry::line_segment::LineSegment;
 use ros_z::time::Time;
+use serde_json::{Map, Value};
+use twix_visualization::twix_painter::TwixPainter;
 use types::{
     image_segments::{EdgeType, GenericSegment},
     line_data::{DiscardedLine, LineDiscardReason},
@@ -10,9 +12,7 @@ use types::{
 
 use crate::repaint::ObservationContext;
 
-use super::super::image_overlay::{
-    ConfidenceThresholds, ImageOverlay, ImageOverlayPainter, OverlayObservation,
-};
+use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 
 pub(in crate::panels::image) struct LineDetectionOverlay {
     lines_in_image: OverlayObservation<Vec<LineSegment<Pixel>>>,
@@ -24,7 +24,7 @@ impl ImageOverlay for LineDetectionOverlay {
     const NAME: &'static str = "Line Detection";
     const STORAGE_KEY: &'static str = "line_detection";
 
-    fn new<C>(context: &C) -> Result<Self, Report>
+    fn new<C>(context: &C, _settings: &Map<String, Value>) -> Result<Self, Report>
     where
         C: ObservationContext,
     {
@@ -38,12 +38,7 @@ impl ImageOverlay for LineDetectionOverlay {
         })
     }
 
-    fn paint(
-        &self,
-        painter: &ImageOverlayPainter,
-        _image_time: Time,
-        _confidence_thresholds: &ConfidenceThresholds,
-    ) {
+    fn paint(&self, painter: &TwixPainter<Pixel>, _image_time: Time) {
         let (Some(lines), Some(discarded_lines), Some(filtered_segments)) = (
             self.lines_in_image.latest(),
             self.discarded_lines.latest(),

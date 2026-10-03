@@ -1,5 +1,9 @@
 use color_eyre::Report;
+use coordinate_systems::Pixel;
+use eframe::egui::{DragValue, Ui};
 use ros_z::time::Time;
+use serde_json::{Map, Value, json};
+use twix_visualization::twix_painter::TwixPainter;
 use types::{
     object_detection::{Object, RobocupObjectLabel},
     time_wrapper::TimeWrapper,
@@ -7,51 +11,59 @@ use types::{
 
 use crate::repaint::ObservationContext;
 
-use super::super::image_overlay::{
-    ConfidenceThresholdDefinition, ConfidenceThresholdKind, ConfidenceThresholds, ImageOverlay,
-    ImageOverlayPainter, OverlayObservation,
-};
+use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 use super::prediction_colors;
 
-const OBJECT_CONFIDENCE_THRESHOLDS: [ConfidenceThresholdDefinition; 1] =
-    [ConfidenceThresholdDefinition::new(
-        ConfidenceThresholdKind::BoundingBox,
-        "Confidence",
-        "confidence_threshold",
-    )];
-
 pub(in crate::panels::image) struct ObjectDetectionOverlay {
+    confidence_threshold: f32,
     object_detections: OverlayObservation<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>,
 }
 
 impl ImageOverlay for ObjectDetectionOverlay {
     const NAME: &'static str = "Object Detection";
     const STORAGE_KEY: &'static str = "object_detection";
-    const CONFIDENCE_THRESHOLDS: &'static [ConfidenceThresholdDefinition] =
-        &OBJECT_CONFIDENCE_THRESHOLDS;
 
-    fn new<C>(context: &C) -> Result<Self, Report>
+    fn new<C>(context: &C, settings: &Map<String, Value>) -> Result<Self, Report>
     where
         C: ObservationContext,
     {
         Ok(Self {
+            confidence_threshold: settings
+                .get("confidence_threshold")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.5)
+                .clamp(0.0, 1.0) as f32,
             object_detections: OverlayObservation::new(context, "detected_objects")?,
         })
     }
 
-    fn paint(
-        &self,
-        painter: &ImageOverlayPainter,
-        image_time: Time,
-        confidence_thresholds: &ConfidenceThresholds,
-    ) {
+    fn ui(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            ui.label("Confidence");
+            ui.add(
+                DragValue::new(&mut self.confidence_threshold)
+                    .range(0.0..=1.0)
+                    .speed(0.01)
+                    .fixed_decimals(2),
+            );
+        });
+    }
+
+    fn save(&self) -> Map<String, Value> {
+        Map::from_iter([(
+            "confidence_threshold".into(),
+            json!(self.confidence_threshold),
+        )])
+    }
+
+    fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
         let Some(object_detections) = self.object_detections.at_time(image_time) else {
             return;
         };
         paint_bounding_boxes(
             painter,
             &object_detections.value.inner,
-            confidence_thresholds.bounding_box,
+            self.confidence_threshold,
         );
     }
 
@@ -61,7 +73,7 @@ impl ImageOverlay for ObjectDetectionOverlay {
 }
 
 fn paint_bounding_boxes(
-    painter: &ImageOverlayPainter,
+    painter: &TwixPainter<Pixel>,
     detections: &[Object<RobocupObjectLabel>],
     confidence_threshold: f32,
 ) {
