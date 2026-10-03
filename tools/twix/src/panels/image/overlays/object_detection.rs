@@ -2,7 +2,6 @@ use color_eyre::Report;
 use coordinate_systems::Pixel;
 use eframe::egui::{DragValue, Ui};
 use ros_z::time::Time;
-use serde_json::{Map, Value, json};
 use twix_visualization::twix_painter::TwixPainter;
 use types::{
     object_detection::{Object, RobocupObjectLabel},
@@ -23,16 +22,12 @@ impl ImageOverlay for ObjectDetectionOverlay {
     const NAME: &'static str = "Object Detection";
     const STORAGE_KEY: &'static str = "object_detection";
 
-    fn new<C>(context: &C, settings: &Map<String, Value>) -> Result<Self, Report>
+    fn new<C>(context: &C) -> Result<Self, Report>
     where
         C: ObservationContext,
     {
         Ok(Self {
-            confidence_threshold: settings
-                .get("confidence_threshold")
-                .and_then(Value::as_f64)
-                .unwrap_or(0.5)
-                .clamp(0.0, 1.0) as f32,
+            confidence_threshold: 0.5,
             object_detections: OverlayObservation::new(context, "detected_objects")?,
         })
     }
@@ -47,13 +42,6 @@ impl ImageOverlay for ObjectDetectionOverlay {
                     .fixed_decimals(2),
             );
         });
-    }
-
-    fn save(&self) -> Map<String, Value> {
-        Map::from_iter([(
-            "confidence_threshold".into(),
-            json!(self.confidence_threshold),
-        )])
     }
 
     fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {

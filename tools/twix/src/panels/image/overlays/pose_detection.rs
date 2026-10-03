@@ -2,7 +2,6 @@ use color_eyre::Report;
 use coordinate_systems::Pixel;
 use eframe::egui::{Align2, Color32, DragValue, FontId, Stroke, Ui};
 use ros_z::time::Time;
-use serde_json::{Map, Value, json};
 use twix_visualization::twix_painter::TwixPainter;
 use types::{
     object_detection::YOLOObjectLabel,
@@ -43,21 +42,13 @@ impl ImageOverlay for PoseDetectionOverlay {
     const NAME: &'static str = "Pose Detection";
     const STORAGE_KEY: &'static str = "pose_detection";
 
-    fn new<C>(context: &C, settings: &Map<String, Value>) -> Result<Self, Report>
+    fn new<C>(context: &C) -> Result<Self, Report>
     where
         C: ObservationContext,
     {
         Ok(Self {
-            bounding_box_confidence_threshold: settings
-                .get("bounding_box_confidence_threshold")
-                .and_then(Value::as_f64)
-                .unwrap_or(0.5)
-                .clamp(0.0, 1.0) as f32,
-            keypoint_confidence_threshold: settings
-                .get("keypoint_confidence_threshold")
-                .and_then(Value::as_f64)
-                .unwrap_or(0.8)
-                .clamp(0.0, 1.0) as f32,
+            bounding_box_confidence_threshold: 0.5,
+            keypoint_confidence_threshold: 0.8,
             poses: OverlayObservation::new(context, "detected_poses")?,
         })
     }
@@ -81,19 +72,6 @@ impl ImageOverlay for PoseDetectionOverlay {
                     .fixed_decimals(2),
             );
         });
-    }
-
-    fn save(&self) -> Map<String, Value> {
-        Map::from_iter([
-            (
-                "bounding_box_confidence_threshold".into(),
-                json!(self.bounding_box_confidence_threshold),
-            ),
-            (
-                "keypoint_confidence_threshold".into(),
-                json!(self.keypoint_confidence_threshold),
-            ),
-        ])
     }
 
     fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
