@@ -27,9 +27,8 @@ pub enum StandUpSpeed {
     Slow,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum FallState {
-    #[default]
     Upright,
     Falling {
         start_time: SystemTime,

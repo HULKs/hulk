@@ -96,7 +96,7 @@ struct LookAtState {
 impl LookAtState {
     fn new() -> Self {
         Self {
-            current_glance_direction: Default::default(),
+            current_glance_direction: GlanceDirection::LeftOfTarget,
             last_glance_direction_toggle: None,
         }
     }
@@ -139,7 +139,7 @@ impl LookAtState {
                         GlanceDirection::LeftOfTarget => target + left_right_shift,
                         GlanceDirection::RightOfTarget => target - left_right_shift,
                     },
-                    ImageRegion::default(),
+                    ImageRegion::Center,
                     false,
                 )
             }
@@ -153,7 +153,7 @@ impl LookAtState {
         let image_region_target = if with_camera {
             image_region_target
         } else {
-            ImageRegion::default()
+            ImageRegion::Center
         };
 
         look_at_with_camera(

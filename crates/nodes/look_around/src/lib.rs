@@ -12,7 +12,7 @@ use types::{
     },
     motion_command::{HeadMotion, MotionCommand},
     parameters::LookAroundParameters,
-    support_foot::Side,
+    support_side::Side,
 };
 
 const MOTION_COMMAND_TOPIC: &str = "behavior/motion_command";
@@ -91,7 +91,7 @@ struct LookAroundState {
 impl LookAroundState {
     fn new() -> Self {
         Self {
-            current_mode: LookAroundMode::Initial(Default::default()),
+            current_mode: LookAroundMode::Initial(InitialLookAround::Left),
             last_mode_switch: Time::zero(),
             last_head_motion: None,
         }
@@ -107,7 +107,7 @@ impl LookAroundState {
             self.last_mode_switch = now;
             self.current_mode = match head_motion {
                 Some(HeadMotion::LookAround) => filtered_game_controller_state.map_or(
-                    LookAroundMode::Initial(Default::default()),
+                    LookAroundMode::Initial(InitialLookAround::Left),
                     |filtered_game_controller_state| {
                         if filtered_game_controller_state.global_field_side == GlobalFieldSide::Home
                         {
@@ -118,7 +118,11 @@ impl LookAroundState {
                     },
                 ),
                 Some(HeadMotion::SearchForLostBall) => {
-                    LookAroundMode::QuickSearch(Default::default())
+                    LookAroundMode::QuickSearch(QuickLookAround {
+                        mode: BallSearchLookAround::Center {
+                            moving_towards: Side::Left,
+                        },
+                    })
                 }
                 _ => LookAroundMode::Center,
             };
@@ -256,13 +260,15 @@ fn target_joints_for_mode(
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::{collections::HashMap, time::Duration};
 
     use types::{
         field_dimensions::GlobalFieldSide,
+        filtered_game_state::FilteredGameState,
         initial_look_around::{BallSearchLookAround, InitialLookAround, QuickLookAround},
         motion_command::{HeadMotion, ImageRegion},
-        support_foot::Side,
+        players::Players,
+        support_side::Side,
     };
 
     use super::*;
@@ -271,8 +277,17 @@ mod tests {
     fn entering_look_around_selects_initial_mode() {
         let now = Time::zero() + Duration::from_secs(1);
         let game_controller_state = FilteredGameControllerState {
+            game_state: FilteredGameState::Initial,
+            opponent_game_state: FilteredGameState::Initial,
+            remaining_time_in_half: Duration::ZERO,
+            game_phase: Default::default(),
+            kicking_team: None,
+            penalties: Players::new(None),
+            remaining_number_of_messages: 0,
+            sub_state: None,
             global_field_side: GlobalFieldSide::Home,
-            ..Default::default()
+            new_own_penalties_last_cycle: HashMap::new(),
+            new_opponent_penalties_last_cycle: HashMap::new(),
         };
         let mut state = LookAroundState::new();
 

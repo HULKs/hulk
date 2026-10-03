@@ -1,6 +1,5 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use hsl_network_messages::PlayerNumber;
 use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +17,7 @@ use crate::{
     rule_obstacles::RuleObstacle,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize, Message)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Message)]
 pub struct WorldState {
     pub ball: Option<BallState>,
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
@@ -32,26 +31,6 @@ pub struct WorldState {
     pub rule_obstacles: Vec<RuleObstacle>,
     pub fall_down_state: Option<FallDownState>,
     pub suggested_search_position: Option<Point2<Field>>,
-}
-
-#[allow(clippy::derivable_impls)]
-impl Default for WorldState {
-    fn default() -> Self {
-        Self {
-            ball: Default::default(),
-            filtered_game_controller_state: Default::default(),
-            hypothetical_ball_positions: Default::default(),
-            now: Time::zero(),
-            obstacles: Default::default(),
-            player_states: Default::default(),
-            position_of_interest: Point2::origin(),
-            robot: Default::default(),
-            rule_ball: Default::default(),
-            rule_obstacles: Default::default(),
-            fall_down_state: Default::default(),
-            suggested_search_position: Default::default(),
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, ros_z::Message)]
@@ -69,18 +48,6 @@ pub struct LastBallState {
     pub ball: BallState,
 }
 
-impl Default for BallState {
-    fn default() -> Self {
-        Self {
-            ball_in_ground: Point2::origin(),
-            ball_in_field: Point2::origin(),
-            ball_in_ground_velocity: Vector2::zeros(),
-            last_seen_ball: UNIX_EPOCH,
-            field_side: Side::Left,
-        }
-    }
-}
-
 impl BallState {
     pub fn new_at_center(ground_to_field: Isometry2<Ground, Field>) -> Self {
         Self {
@@ -93,14 +60,22 @@ impl BallState {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Message)]
+#[derive(Clone, Debug, Serialize, Deserialize, Message)]
 pub struct RobotState {
     pub ground_to_field: Option<Isometry2<Ground, Field>>,
-    pub player_number: PlayerNumber,
     pub primary_state: PrimaryState,
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize, Message)]
+impl Default for RobotState {
+    fn default() -> Self {
+        Self {
+            ground_to_field: None,
+            primary_state: PrimaryState::Damping,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Message)]
 pub struct PlayerState {
     pub pose: Pose2<Field>,
     pub ball_position: Option<BallPosition<Field>>,

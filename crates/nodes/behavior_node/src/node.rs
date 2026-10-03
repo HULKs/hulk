@@ -48,6 +48,7 @@ pub struct LastBall {
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 pub struct Blackboard {
     pub field_dimensions: FieldDimensions,
+    pub player_number: PlayerNumber,
     pub parameters: BehaviorParameters,
     pub world_state: WorldState,
     pub controller_input: Option<ControllerInput>,
@@ -63,7 +64,7 @@ pub struct Blackboard {
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
     pub last_kick_target: Option<Point2<Field>>,
-    pub last_motion_command: MotionCommand,
+    pub last_motion_command: Option<MotionCommand>,
     pub last_motion_switch_time: Time,
     pub last_motion_type: Option<MotionType>,
     pub last_sent_game_controller_return_message_time: Option<Time>,
@@ -266,12 +267,20 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .publish_if_subscribed(|| async { static_layout })
         .await?;
     let mut timer = node.create_timer(Duration::from_millis(20));
+    let (field_dimensions, player_number) = loop {
+        if let (Some(field_dimensions), Some(player_number)) = (
+            field_dimensions_cache.get_latest(),
+            player_number_cache.get_latest(),
+        ) {
+            break (*field_dimensions, *player_number);
+        }
+        motion_command_pub.publish(&MotionCommand::Damping).await?;
+        timer.tick().await;
+    };
 
     let mut blackboard = Blackboard {
-        field_dimensions: field_dimensions_cache
-            .get_latest()
-            .map(|dimensions| *dimensions)
-            .unwrap_or_default(),
+        field_dimensions,
+        player_number,
         parameters: parameters.snapshot().typed().clone(),
         world_state: WorldState::default(),
         controller_input: None,
@@ -287,7 +296,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         last_ball: None,
         last_close_enough_to_kick: false,
         last_kick_target: None,
-        last_motion_command: MotionCommand::default(),
+        last_motion_command: None,
         last_motion_switch_time: Time::zero(),
         last_motion_type: None,
         last_sent_game_controller_return_message_time: None,
@@ -306,10 +315,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         timer.tick().await;
 
-        blackboard.field_dimensions = field_dimensions_cache
-            .get_latest()
-            .map(|dimensions| *dimensions)
-            .unwrap_or_default();
+        if let Some(field_dimensions) = field_dimensions_cache.get_latest() {
+            blackboard.field_dimensions = *field_dimensions;
+        }
 
         blackboard.path_obstacles_output.clear();
         blackboard.time_since_last_switch = Duration::ZERO;
@@ -322,10 +330,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         blackboard.head_motion = None;
         blackboard.voronoi_map = None;
 
-        let player_number = player_number_cache
-            .get_latest()
-            .map(|n| *n)
-            .unwrap_or_default();
+        if let Some(player_number) = player_number_cache.get_latest() {
+            blackboard.player_number = *player_number;
+        }
         blackboard.parameters = parameters.snapshot().typed().clone();
 
         let was_start_pressed = blackboard
@@ -356,7 +363,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let primary_state = primary_state_cache
             .get_latest()
             .map(|state| *state)
-            .unwrap_or_default();
+            .unwrap_or(PrimaryState::Damping);
         if primary_state != blackboard.world_state.robot.primary_state {
             blackboard.remote_control_enabled = false;
         }
@@ -365,7 +372,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             ground_to_field: ground_to_field_cache
                 .get_latest()
                 .map(|ground_to_field| *ground_to_field),
-            player_number,
             primary_state,
         };
 
@@ -422,7 +428,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
 
         let previous_motion_command = blackboard.last_motion_command.clone();
-        blackboard.last_motion_command = motion_command.clone();
+        blackboard.last_motion_command = Some(motion_command.clone());
 
         let motion_type = match &motion_command {
             MotionCommand::Damping => Some(MotionType::Damping),
@@ -435,7 +441,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             MotionCommand::Prepare => Some(MotionType::Prepare),
         };
 
-        if previous_motion_command != motion_command || motion_type != blackboard.last_motion_type {
+        if previous_motion_command.as_ref() != Some(&motion_command) {
             info!(
                 target: "behavior_node::motion",
                 ?motion_command,
