@@ -15,7 +15,7 @@ use mirror::SwapSides;
 use serde::{Deserialize, Serialize};
 use splines::impl_Interpolate;
 
-use crate::joints::body::UpperBodyJoints;
+use crate::joints::body::{LowerBodyJoints, UpperBodyJoints};
 
 use self::{
     arm::{ArmJoint, ArmJoints},
@@ -169,6 +169,13 @@ impl<T> Joints<T> {
         UpperBodyJoints {
             left_arm: self.left_arm_as_ref(),
             right_arm: self.right_arm_as_ref(),
+        }
+    }
+
+    pub fn lower_body_as_ref(&self) -> LowerBodyJoints<&T> {
+        LowerBodyJoints {
+            left_leg: self.left_leg_as_ref(),
+            right_leg: self.right_leg_as_ref(),
         }
     }
 

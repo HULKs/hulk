@@ -50,6 +50,15 @@ impl<T> ArmJoints<T> {
             elbow: f(self.elbow),
         }
     }
+
+    pub fn map_ref<U>(&self, f: impl Fn(&T) -> U) -> ArmJoints<U> {
+        ArmJoints {
+            shoulder_pitch: f(&self.shoulder_pitch),
+            shoulder_roll: f(&self.shoulder_roll),
+            shoulder_yaw: f(&self.shoulder_yaw),
+            elbow: f(&self.elbow),
+        }
+    }
 }
 
 impl<'a, T> IntoIterator for &'a ArmJoints<T> {
