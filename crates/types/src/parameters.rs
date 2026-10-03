@@ -72,6 +72,17 @@ pub struct WalkingBehaviorParameters {
     pub path_planning: PathPlanningParameters,
     pub walk_and_stand: WalkAndStandParameters,
     pub speed: WalkSpeedParameters,
+    pub ball_prediction: WalkToBallPredictionParameters,
+}
+
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+pub struct WalkToBallPredictionParameters {
+    /// Time horizon used to project the current ball position from its velocity.
+    pub time: Duration,
+    /// Maximum absolute projected displacement on each field axis, in meters.
+    pub maximum_displacement: Vector2<Field>,
+    /// Disable prediction above this velocity towards the opponent goal, in m/s.
+    pub minimum_forward_velocity: f32,
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
