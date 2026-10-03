@@ -11,8 +11,8 @@ use nalgebra as na;
 use serde::{Deserialize, Serialize};
 
 use booster::{FallDownState, FallDownStateType};
-use coordinate_systems::{Field, Ground};
-use linear_algebra::{IntoFramed, Isometry2, Point2, point};
+use coordinate_systems::{Field, Ground, Odometry};
+use linear_algebra::{IntoFramed, Isometry2, Point2, Pose2, point};
 use projection::{Projection, camera_matrix::CameraMatrix};
 use ros_z::{prelude::*, qos::QosDurability, time::Time};
 use ros_z_streams::CreateFutureMapBuilder;
@@ -34,6 +34,7 @@ use types::{
 struct ObstacleFilter {
     hypotheses: Vec<Hypothesis>,
     last_primary_state: PrimaryState,
+    last_odometry: Option<Pose2<Odometry>>,
 }
 
 impl Default for ObstacleFilter {
@@ -41,6 +42,7 @@ impl Default for ObstacleFilter {
         Self {
             hypotheses: Vec::new(),
             last_primary_state: PrimaryState::Damping,
+            last_odometry: None,
         }
     }
 }
@@ -96,11 +98,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
-    let current_odometry_to_last_odometry_cache = node
-        .subscriber::<na::Isometry2<f32>>("current_odometry_to_last_odometry")
-        .cache(10)
-        .build()
-        .await?;
     let primary_state_cache = node
         .subscriber::<PrimaryState>("primary_state")
         .qos(QosProfile {
@@ -123,6 +120,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let mut detections = node
         .create_future_map_builder()
+        .create_future_subscriber::<Pose2<Odometry>>("inputs/odometry", Duration::from_millis(1))
+        .await?
         .create_future_subscriber::<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>(
             "detected_objects",
             Duration::from_millis(50),
@@ -137,6 +136,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let obstacles_pub = node.publisher::<Vec<Obstacle>>("obstacles").build().await?;
 
     let mut obstacle_filter = ObstacleFilter::default();
+    let mut latest_odometry = None;
     let mut last_processed_player_state_times = Players::new(None);
     loop {
         tokio::select! {
@@ -150,21 +150,22 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         return Vec::new();
                     };
                     let mut outputs = Vec::new();
-                    for (detection_time, (detected_objects,)) in item.persistent {
-                        let detected_objects = detected_objects
-                            .map(|detected_objects| detected_objects.inner)
-                            .unwrap_or_default();
+                    for (detection_time, (odometry, detected_objects)) in item.persistent {
+                        if let Some(odometry) = odometry {
+                            latest_odometry = Some(odometry);
+                        }
+                        let Some(detected_objects) = detected_objects else {
+                            continue;
+                        };
                         let camera_matrix = camera_matrix_cache.get_nearest(detection_time);
-                        let current_odometry_to_last_odometry =
-                            current_odometry_to_last_odometry_cache.get_nearest(detection_time);
                         let ground_to_field = ground_to_field_cache.get_nearest(detection_time);
 
                         obstacle_filter.process_detection(
                             detection_time,
                             parameters,
-                            &detected_objects,
+                            &detected_objects.inner,
                             camera_matrix.as_ref().map(|wrapper| &wrapper.inner),
-                            current_odometry_to_last_odometry.as_ref().map(Arc::as_ref),
+                            latest_odometry,
                         );
 
                         let primary_state = primary_state_cache
@@ -273,13 +274,20 @@ impl ObstacleFilter {
         parameters: &ObstacleFilterParameters,
         detected_objects: &[Object<RobocupObjectLabel>],
         camera_matrix: Option<&CameraMatrix>,
-        current_odometry_to_last_odometry: Option<&na::Isometry2<f32>>,
+        odometry: Option<Pose2<Odometry>>,
     ) {
-        let current_odometry_to_last_odometry = current_odometry_to_last_odometry
-            .copied()
+        // Absolute poses capture all movement since the previous detector frame.
+        let previous_to_current = odometry
+            .zip(self.last_odometry)
+            .map(|(current, previous)| {
+                types::odometry::previous_to_current(previous, current).inner
+            })
             .unwrap_or_default();
+        if let Some(odometry) = odometry {
+            self.last_odometry = Some(odometry);
+        }
         self.predict_hypotheses_with_odometry(
-            current_odometry_to_last_odometry.inverse(),
+            previous_to_current,
             Matrix2::from_diagonal(&parameters.process_noise),
         );
 
@@ -621,6 +629,63 @@ fn calculate_goal_post_positions(
 mod tests {
     use super::*;
     use types::obstacles::ObstacleKind;
+
+    #[test]
+    fn detector_frames_compensate_full_odometry_delta() {
+        let mut filter = ObstacleFilter::default();
+        let start = Time::from_nanos(1_000_000_000);
+        let parameters = ObstacleFilterParameters {
+            process_noise: na::vector![0.2, 0.4],
+            ..Default::default()
+        };
+        let previous = Pose2::new(point![10.0, 5.0], 0.0);
+        filter.process_detection(start, &parameters, &[], None, Some(previous));
+        filter.spawn_hypothesis(
+            point![3.0, 1.0],
+            ObstacleKind::Robot,
+            start,
+            Matrix2::from_diagonal(&na::vector![2.0, 3.0]),
+        );
+
+        // Intermediate odometry ticks are represented by the absolute endpoint.
+        let current = Pose2::new(point![11.0, 5.0], std::f32::consts::FRAC_PI_2);
+        let next = start + Duration::from_millis(40);
+        filter.process_detection(next, &parameters, &[], None, Some(current));
+        let hypothesis = &filter.hypotheses[0];
+        assert!((hypothesis.state.mean - na::vector![1.0, -2.0]).norm() < 1e-5);
+        let expected_covariance = Matrix2::from_diagonal(&na::vector![3.2, 2.4]);
+        assert!((hypothesis.state.covariance - expected_covariance).norm() < 1e-5);
+        assert_eq!(hypothesis.last_update, start);
+        assert_eq!(hypothesis.measurement_count, 1);
+
+        // The same absolute pose on the next image must not move the track again.
+        filter.process_detection(
+            next + Duration::from_millis(40),
+            &parameters,
+            &[],
+            None,
+            Some(current),
+        );
+        assert!((filter.hypotheses[0].state.mean - na::vector![1.0, -2.0]).norm() < 1e-5);
+    }
+
+    #[test]
+    fn missing_and_first_odometry_do_not_move_existing_hypotheses() {
+        let mut filter = ObstacleFilter::default();
+        let time = Time::from_nanos(1_000_000_000);
+        filter.spawn_hypothesis(
+            point![3.0, 1.0],
+            ObstacleKind::Robot,
+            time,
+            Matrix2::identity(),
+        );
+        let parameters = ObstacleFilterParameters::default();
+        filter.process_detection(time, &parameters, &[], None, None);
+        let first_pose = Pose2::new(point![10.0, 5.0], 0.5);
+        filter.process_detection(time, &parameters, &[], None, Some(first_pose));
+        assert_eq!(filter.hypotheses[0].state.mean, na::vector![3.0, 1.0]);
+        assert_eq!(filter.last_odometry, Some(first_pose));
+    }
 
     #[test]
     fn obstacle_filter_starts_without_hypotheses() {
