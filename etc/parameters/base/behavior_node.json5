@@ -91,14 +91,21 @@
     penalty_kick_target_y_scale: 0.7,
   },
   kickoff: {
-    striker_position: [-1.5, 0.0],
-    standard_positions: {
-      one: { position: [-4.2, 0.0], rotation: 0 },
-      two: { position: [-3, -0.5], rotation: 0 },
-      three: { position: [-2, 0], rotation: 0 },
-      four: { position: [-2.5, -1.5], rotation: 0.4 },
-      five: { position: [-2.5, 1.5], rotation: -0.4 },
-    },
+    goalkeeper_pose: { position: [-4.2, 0.0], rotation: 0.0 },
+    striker_pose: { position: [-0.6, 0.0], rotation: 0.0 },
+    // Remaining players fill these support slots in descending player-number order.
+    aggressive_positions: [
+      { position: [-1.7, 1.5], rotation: -0.7 },
+      { position: [-1.7, -1.5], rotation: 0.7 },
+      { position: [-3.0, 0.0], rotation: 0.0 },
+    ],
+    // On opponent/unknown kickoff, all field players fill these slots in order.
+    defensive_positions: [
+      { position: [-1.8, 0.0], rotation: 0.0 },
+      { position: [-2.8, 1.6], rotation: -0.5 },
+      { position: [-2.8, -1.6], rotation: 0.5 },
+      { position: [-3.2, 0.0], rotation: 0.0 },
+    ],
   },
   voronoi: {
     grid_resolution: 0.2,
