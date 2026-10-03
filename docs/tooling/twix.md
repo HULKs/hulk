@@ -71,8 +71,8 @@ The Parameter panel discovers ROS-Z nodes with remote parameter services, shows 
 The Audio panel defaults to `audio_spectrums` and displays microphone spectra and a waterfall for the selected channel.
 
 The Image panel's Overlays menu offers confidence controls for object and pose detections.
-Bounding boxes default to `0.5` confidence and pose keypoints to `0.8`, including when an older layout has no saved thresholds.
-Values range from `0` to `1` and are saved with the panel layout.
+Bounding boxes default to `0.5` confidence and pose keypoints to `0.8`.
+Values range from `0` to `1` and reset to their defaults when the overlay is recreated, including after toggling it off and on or reopening Twix.
 These controls only filter the visualization; they do not change the detector or its published results.
 
 ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`.

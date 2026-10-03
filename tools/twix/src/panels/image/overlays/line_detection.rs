@@ -3,7 +3,6 @@ use coordinate_systems::Pixel;
 use eframe::egui::{Color32, Stroke};
 use geometry::line_segment::LineSegment;
 use ros_z::time::Time;
-use serde_json::{Map, Value};
 use twix_visualization::twix_painter::TwixPainter;
 use types::{
     image_segments::{EdgeType, GenericSegment},
@@ -24,7 +23,7 @@ impl ImageOverlay for LineDetectionOverlay {
     const NAME: &'static str = "Line Detection";
     const STORAGE_KEY: &'static str = "line_detection";
 
-    fn new<C>(context: &C, _settings: &Map<String, Value>) -> Result<Self, Report>
+    fn new<C>(context: &C) -> Result<Self, Report>
     where
         C: ObservationContext,
     {

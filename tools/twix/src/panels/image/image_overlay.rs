@@ -8,7 +8,7 @@ use eframe::egui::{
 };
 use ros_z::{Message, time::Time};
 use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
-use serde_json::{Map, Value, json};
+use serde_json::{Value, json};
 use twix_visualization::twix_painter::TwixPainter;
 use types::time_wrapper::TimeWrapper;
 
@@ -109,7 +109,6 @@ struct OverlaySlot<T> {
     active: bool,
     overlay: Option<T>,
     error: Option<String>,
-    settings: Map<String, Value>,
 }
 
 impl<T> OverlaySlot<T>
@@ -122,14 +121,9 @@ where
     {
         let mut slot = Self::inactive();
         let overlay_value = value.and_then(|value| value.get(T::STORAGE_KEY));
-        slot.settings = overlay_value
-            .and_then(Value::as_object)
-            .cloned()
-            .unwrap_or_default();
-        slot.active = slot
-            .settings
-            .remove("active")
-            .and_then(|value| value.as_bool())
+        slot.active = overlay_value
+            .and_then(|value| value.get("active"))
+            .and_then(Value::as_bool)
             .unwrap_or(false);
         if slot.active {
             slot.recreate(context);
@@ -142,7 +136,6 @@ where
             active: false,
             overlay: None,
             error: None,
-            settings: Map::new(),
         }
     }
 
@@ -155,9 +148,7 @@ where
             if self.active {
                 self.recreate(context);
             } else {
-                if let Some(overlay) = self.overlay.take() {
-                    self.settings = overlay.save();
-                }
+                self.overlay = None;
                 self.error = None;
             }
         }
@@ -173,7 +164,7 @@ where
     where
         C: ObservationContext,
     {
-        match T::new(context, &self.settings) {
+        match T::new(context) {
             Ok(overlay) => {
                 self.overlay = Some(overlay);
                 self.error = None;
@@ -196,13 +187,7 @@ where
     }
 
     fn save(&self) -> Value {
-        let mut value = self
-            .overlay
-            .as_ref()
-            .map(ImageOverlay::save)
-            .unwrap_or_else(|| self.settings.clone());
-        value.insert("active".to_string(), json!(self.active));
-        Value::Object(value)
+        json!({"active": self.active})
     }
 }
 
@@ -210,17 +195,12 @@ pub(super) trait ImageOverlay: Sized {
     const NAME: &'static str;
     const STORAGE_KEY: &'static str;
 
-    fn new<C>(context: &C, settings: &Map<String, Value>) -> Result<Self, Report>
+    fn new<C>(context: &C) -> Result<Self, Report>
     where
         C: ObservationContext;
 
     /// Render controls beneath this overlay's selection entry.
     fn ui(&mut self, _ui: &mut Ui) {}
-
-    /// Save overlay settings; the slot stores activation separately.
-    fn save(&self) -> Map<String, Value> {
-        Map::new()
-    }
 
     fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time);
 

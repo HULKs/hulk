@@ -3,7 +3,6 @@ use coordinate_systems::Pixel;
 use eframe::egui::{Color32, Stroke};
 use geometry::circle::Circle;
 use ros_z::time::Time;
-use serde_json::{Map, Value};
 use twix_visualization::twix_painter::TwixPainter;
 
 use crate::repaint::ObservationContext;
@@ -18,7 +17,7 @@ impl ImageOverlay for BallDetectionOverlay {
     const NAME: &'static str = "Ball Detection";
     const STORAGE_KEY: &'static str = "ball_detection";
 
-    fn new<C>(context: &C, _settings: &Map<String, Value>) -> Result<Self, Report>
+    fn new<C>(context: &C) -> Result<Self, Report>
     where
         C: ObservationContext,
     {

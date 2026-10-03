@@ -1,5 +1,4 @@
 use coordinate_systems::Pixel;
-use serde_json::{Map, Value};
 use std::time::Duration;
 use twix_visualization::twix_painter::TwixPainter;
 
@@ -24,7 +23,7 @@ impl ImageOverlay for HorizonOverlay {
     const NAME: &'static str = "Horizon";
     const STORAGE_KEY: &'static str = "horizon";
 
-    fn new<C>(context: &C, _settings: &Map<String, Value>) -> Result<Self, Report>
+    fn new<C>(context: &C) -> Result<Self, Report>
     where
         C: ObservationContext,
     {
