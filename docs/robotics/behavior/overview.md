@@ -3,7 +3,7 @@
 Robot behavior runs in the ROS-Z `behavior_node`.
 The node receives the latest game, robot, localization, ball, obstacle, and team state, ticks the behavior tree every 20 ms, and publishes the resulting motion command and network messages.
 
-The behavior tree chooses *what* the robot should do.
+The behavior tree chooses _what_ the robot should do.
 Motion execution is handled by the Booster interface, which consumes `behavior/motion_command` as described in [motion](../motion/overview.md#ros-z-booster-path).
 
 ## Behavior Tree
@@ -43,6 +43,36 @@ Most branches first check the robot's `PrimaryState`:
 - **`Playing`** runs the playing subtree described below.
 
 If no branch succeeds, behavior falls back to a safe standing command.
+
+## Ready Formations
+
+Ready uses static poses from `behavior_node.kickoff`, expressed in field
+coordinates (meters, with the own goal at negative x) and rotations in radians.
+The base poses are starting values for a 9 × 6 m field and can be overridden for
+other field dimensions.
+
+- The player selected by `goalkeeper.player_number` uses `goalkeeper_pose`.
+- On our kickoff, the highest-numbered active field player uses `striker_pose`.
+  The remaining field players fill `aggressive_positions` in array order, from
+  highest to lowest player number.
+- On opponent or unknown kickoff, all field players fill `defensive_positions`
+  in the same order.
+
+The GameController's unpenalized lineup determines the active players.
+Substitutes, sent-off players, and players with another penalty do not occupy
+formation slots. Ready requires a GameController state; a missing state or a
+penalty for the current robot produces the standing fallback. For example, with
+only players 3, 4, and 5 eligible, our kickoff places 5 at `striker_pose`, 4 at
+`aggressive_positions[0]`, and 3 at `aggressive_positions[1]`.
+
+The GameController operator must keep the selected lineup up to date. In the
+behavior simulator, robots absent from the scenario are marked as substitutes;
+penalties explicitly assigned to simulated robots are preserved.
+
+Assignments depend on the available roster and kickoff ownership; the target
+coordinates stay fixed while teammates move. Path planning continues to account
+for obstacles. These assignments apply during Ready; Playing selects its tasks
+using the playing tree below.
 
 ## Playing
 
