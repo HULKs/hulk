@@ -672,3 +672,9 @@ Runtime follow-ups after f5b4866d0 (2026-10-03)
 - Manualcurrentpreviewmetadata remains logs/ball-negative-evidence-current.json;
   newviewer142153/Twix142152 opened withf5binary; previewresumed1x PID146898.
   No automaticowner/newcapturerunningyet;19remotejobscontinuehealthily.
+- Workerbudget plumbing nowvalidated69Python tests; nextownedlauncherwilluse
+  --workers32 --worker-memory-mib1024. Helperdefault2048 remains; manifest
+  recordsbudget, resumeinheritsunlessexplicitlyoverridden, andpausedreplacement
+  targetsrequested32ratherthanfreezinghistorical19. ActivationrechecksCPUslots
+  andspecifiedmemorybudgetafteroldworkersfinish. Theseareadmissionestimates,
+  notenforcedRSSlimits. Runtimeisstill19untilhandoff.

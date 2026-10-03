@@ -52,7 +52,7 @@ def remote_helper():
     return module
 
 
-def remote_worker_slots(host, requested):
+def remote_worker_slots(host, requested, worker_memory_mib=2048):
     helper = remote_helper()
     try:
         resources = json.loads(helper.ssh(
@@ -70,9 +70,10 @@ def remote_worker_slots(host, requested):
             f"{resources['cpus']} CPUs. Use connect with their existing manifest files "
             "instead of starting another search. No remote workers were stopped."
         )
-    workers = min(requested, remaining, helper.capacity(resources, requested, full_cpu=True))
+    workers = min(requested, remaining, helper.capacity(resources, requested, full_cpu=True, worker_memory_mib=worker_memory_mib))
     log(f"{host}: {resources['active_tuners']} workers already active; "
-        f"starting at most {workers} additional workers on {resources['cpus']} CPUs.")
+        f"starting at most {workers} additional workers on {resources['cpus']} CPUs "
+        f"with {worker_memory_mib} MiB budget each plus 2 GiB headroom.")
     return workers
 
 
@@ -197,6 +198,8 @@ def parser():
     result.add_argument("--trials", type=int, default=256, help="candidates per continuous search round")
     result.add_argument("--host", default="remote-compiler")
     result.add_argument("--workers", type=int, default=32)
+    result.add_argument("--worker-memory-mib", type=int,
+                        help="per-worker memory budget: default 2048 MiB, or inherited on resume; plus 2 GiB host headroom")
     result.add_argument("--refresh-minutes", type=float, default=5.0,
                         help="remote-owned sessions: capture fresh data every 5 minutes by default; 0 disables")
     result.add_argument("--resume-manifest", type=Path,
@@ -213,6 +216,8 @@ def parser():
 def validate(args):
     if args.trials < 1 or not 1 <= args.workers <= 32:
         raise ValueError("trials must be positive and workers must be between 1 and 32")
+    if args.worker_memory_mib is not None and args.worker_memory_mib < 1:
+        raise ValueError("worker-memory-mib must be a positive integer")
     if not math.isfinite(args.refresh_minutes) or args.refresh_minutes < 0:
         raise ValueError("refresh-minutes must be finite and nonnegative")
     if not 0 <= args.opponents <= 8 or not math.isfinite(args.opponent_width) or not 0.1 <= args.opponent_width <= 1.2:
@@ -299,7 +304,8 @@ def start_remote(args, children, recordings, remote_directory, workers, *, pause
     name = time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:8]
     command = helper_command() + [
         "start", "--recordings", recordings, "--host", args.host,
-        "--workers", str(workers), "--full-cpu", "--trials", str(args.trials),
+        "--workers", str(workers), "--worker-memory-mib", str(args.worker_memory_mib or 2048),
+        "--full-cpu", "--trials", str(args.trials),
         "--name", name, "--local-directory", remote_directory,
     ]
     if paused:
@@ -347,7 +353,7 @@ def _activate_generation(args, children, session, generation):
     status = remote_generation_status(next_config)
     already_active = status.get("state") == "searching" and not status.get("stop_requested")
     if not already_active:
-        available = remote_worker_slots(args.host, next_config["workers"])
+        available = remote_worker_slots(args.host, next_config["workers"], next_config.get("worker_memory_mib", 2048))
         if available < next_config["workers"]:
             raise ValueError("replacement generation is ready but other jobs consumed its worker slots; activation postponed")
         children.run(helper_command() + ["activate", next_manifest], "Activate refreshed remote generation", timeout=60)
@@ -358,6 +364,7 @@ def _activate_generation(args, children, session, generation):
     session["recordings"] = generation["recordings"]
     session["active_generation"] = generation["index"]
     session["workers"] = next_config["workers"]
+    session["active_worker_memory_mib"] = next_config.get("worker_memory_mib", 2048)
     save_session(session)
     start_monitor(args, children, session, Path(generation["root"]), [next_manifest])
 
@@ -416,7 +423,7 @@ def refresh_generation(args, children, session):
     generation["state"] = "preparing"
     save_session(session)
     try:
-        next_manifest = start_remote(args, children, root / "recordings", root / "remote", session["workers"], paused=True)
+        next_manifest = start_remote(args, children, root / "recordings", root / "remote", args.workers, paused=True)
         children.run(helper_command() + ["wait-ready", next_manifest, "--timeout", "1800"],
                      "Wait for paused replacement build", timeout=1860)
         children.forget_finished()
@@ -457,13 +464,15 @@ def run(args, children):
     owned = remote_helper().controlled_manifest(args.resume_manifest) if args.resume_manifest else None
     if owned:
         args.host = owned["host"]
-    workers = owned["workers"] if owned else (remote_worker_slots(args.host, args.workers) if args.mode == "remote" else None)
+    if args.worker_memory_mib is None:
+        args.worker_memory_mib = owned.get("worker_memory_mib", 2048) if owned else 2048
+    workers = owned["workers"] if owned else (remote_worker_slots(args.host, args.workers, args.worker_memory_mib) if args.mode == "remote" else None)
     output.mkdir(parents=True, exist_ok=False)
     session = dict(mode=args.mode, pid=os.getpid(), output=str(output),
                    recordings=str(args.recordings.resolve()) if args.recordings else None,
                    manifests=[str(path.resolve()) for path in args.manifest], generations=[],
                    refresh_minutes=args.refresh_minutes if args.mode == "remote" else 0,
-                   workers=workers, active_generation=0)
+                   workers=workers, target_workers=args.workers, worker_memory_mib=args.worker_memory_mib, active_generation=0)
     save_session(session)
     log(f"Preparing {args.mode} session in {output}")
     if args.mode == "local":
@@ -483,11 +492,11 @@ def run(args, children):
             if not args.recordings:
                 children.run([simulator, "--capture-ball-tuning", recordings, *simulator_scenario(args)], "Capture training and holdout recordings")
                 children.forget_finished()
-            workers = remote_worker_slots(args.host, workers)
+            workers = remote_worker_slots(args.host, args.workers, args.worker_memory_mib)
             manifests = [start_remote(args, children, recordings, output / "remote", workers)]
         config = remote_helper().controlled_manifest(manifests[0])
         session.update(manifests=[str(path) for path in manifests], recordings=str(recordings) if recordings else None,
-                       workers=config["workers"], initial_seed_offset=capture_seed_offset(recordings))
+                       workers=config["workers"], active_worker_memory_mib=config.get("worker_memory_mib", 2048), initial_seed_offset=capture_seed_offset(recordings))
         session["generations"].append(dict(index=0, root=str(output), recordings=session["recordings"],
                                            manifest=str(manifests[0]), state="active", seed_offset=session["initial_seed_offset"]))
         save_session(session)

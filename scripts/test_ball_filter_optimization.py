@@ -121,6 +121,21 @@ class BallFilterLauncherTests(unittest.TestCase):
             helper.capacity.return_value = 3
             self.assertEqual(launcher.remote_worker_slots("remote-compiler", 32), 3)
 
+    def test_smaller_worker_budget_keeps_the_other_active_workers_cpu_guard(self):
+        helper = Mock()
+        resources = dict(cpus=32, active_tuners=8, available_bytes=40 * 1024**3, load=8)
+        helper.ssh.return_value.stdout = json.dumps(resources)
+        helper.capacity.return_value = 32
+        with patch.object(launcher, "remote_helper", return_value=helper), patch.object(launcher, "log"):
+            self.assertEqual(launcher.remote_worker_slots("remote-compiler", 32, 1024), 24)
+        helper.capacity.assert_called_once_with(resources, 32, full_cpu=True, worker_memory_mib=1024)
+
+    def test_invalid_worker_memory_budget_is_rejected_before_launch(self):
+        for value in ["0", "-1"]:
+            args = self.arguments("local", "unused", "--worker-memory-mib", value)
+            with self.assertRaisesRegex(ValueError, "worker-memory-mib"):
+                launcher.validate(args)
+
     def test_capacity_auth_timeout_explains_no_search_was_submitted(self):
         helper = Mock()
         helper.ssh.side_effect = subprocess.TimeoutExpired("ssh", 30)
@@ -159,7 +174,8 @@ class BallFilterLauncherTests(unittest.TestCase):
             self.assertEqual(remote[remote.index("--workers") + 1], "4")
             self.assertIn("--full-cpu", remote)
             self.assertEqual(stages[1].kwargs["timeout"], 1800)
-            self.assertEqual(capacity.call_args_list[1].args, ("remote-compiler", 8))
+            self.assertEqual(capacity.call_args_list[1].args, ("remote-compiler", 32, 2048))
+            self.assertEqual(remote[remote.index("--worker-memory-mib") + 1], "2048")
             self.assertNotIn("--tune-ball-filter", str(children.mock_calls))
 
     def test_connect_requires_manifests_and_rejects_capture_arguments(self):
@@ -286,6 +302,30 @@ class RefreshGenerationTests(unittest.TestCase):
         self.assertIn("generation-0001/monitor", self.session["monitor"])
         self.assertEqual(json.loads((self.root / "session.json").read_text())["manifests"], self.session["manifests"])
 
+    def test_refresh_targets_32_instead_of_current_19_and_checks_manifest_memory_after_stop(self):
+        self.session["workers"] = 19
+        self.args.workers = 32
+        self.args.worker_memory_mib = 1024
+        def prepare(command, label, **kwargs):
+            self.command(command, label, **kwargs)
+            if "start" in command:
+                self.assertEqual(command[command.index("--workers") + 1], "32")
+                self.assertEqual(command[command.index("--worker-memory-mib") + 1], "1024")
+                path = Path(command[command.index("--local-directory") + 1]) / "manifest.json"
+                config = json.loads(path.read_text())
+                config.update(workers=32, worker_memory_mib=1024)
+                path.write_text(json.dumps(config))
+        self.children.run.side_effect = prepare
+        def available(host, workers, memory):
+            self.assertEqual((host, workers, memory), ("remote-compiler", 32, 1024))
+            self.assertTrue(any(isinstance(event, tuple) and event[0] == "run" and "stop" in event[1] for event in self.events))
+            return 32
+        with patch.object(launcher, "remote_worker_slots", side_effect=available) as capacity, patch.object(launcher, "log"):
+            launcher.refresh_generation(self.args, self.children, self.session)
+        capacity.assert_called_once()
+        self.assertEqual(self.session["workers"], 32)
+        self.assertEqual(self.session["active_worker_memory_mib"], 1024)
+
     def test_failed_capture_restores_old_preview_without_stopping_remote_workers(self):
         def failed_capture(command, label, **kwargs):
             self.command(command, label, **kwargs)
@@ -377,6 +417,25 @@ class RefreshGenerationTests(unittest.TestCase):
         session = json.loads((output / "session.json").read_text())
         self.assertEqual(session["manifests"], [str(self.old_manifest)])
         self.assertEqual(session["workers"], 4)
+
+    def test_resume_inherits_measured_memory_budget_but_keeps_explicit_next_generation_target(self):
+        config = json.loads(self.old_manifest.read_text())
+        config.update(workers=19, worker_memory_mib=1024)
+        self.old_manifest.write_text(json.dumps(config))
+        for override, expected in [(None, 1024), (2048, 2048)]:
+            output = self.root / f"adopt-memory-{expected}"
+            argv = ["remote", "--output", str(output), "--resume-manifest", str(self.old_manifest),
+                    "--refresh-minutes", "0", "--workers", "32"]
+            if override is not None:
+                argv += ["--worker-memory-mib", str(override)]
+            with patch.object(launcher, "remote_worker_slots") as capacity, patch.object(launcher, "log"):
+                launcher.run(launcher.parser().parse_args(argv), self.children)
+            capacity.assert_not_called()
+            session = json.loads((output / "session.json").read_text())
+            self.assertEqual(session["workers"], 19)
+            self.assertEqual(session["target_workers"], 32)
+            self.assertEqual(session["worker_memory_mib"], expected)
+            self.assertEqual(session["active_worker_memory_mib"], 1024)
 
 
 if __name__ == "__main__":

@@ -92,8 +92,8 @@ with matching grey velocity arrows. The selected hypothesis is not drawn twice.
 The physical ball has a green velocity arrow, taken directly from MuJoCo via
 `simulation/ball_velocities_world`. Velocity arrows use 1 m per m/s. Every
 hypothesis also has an upward confidence arrow, blue for the selected model and
-grey for the others. Its length is 0.02 m per stored raw confidence unit:
-confidence 25 gives 0.5 m, and confidence 50 gives 1 m. This score accumulates observations and
+grey for the others. Its length is 0.06 m per stored raw confidence unit:
+confidence 25 gives 1.5 m, and confidence 50 gives 3 m. This score accumulates observations and
 can exceed 1; it is neither a probability nor the confidence after applying the
 field-boundary prior. Arrows start at the top of the ball. Zero, negative or
 nonfinite scores have no confidence arrow. Selected and grey models use the
@@ -201,6 +201,15 @@ runs support monitoring but cannot be adopted this way. Stopping the local launc
 also stops its refresh schedule; its remote workers continue on their current data.
 
 The launcher defaults to 256 candidates per round and up to 32 remote workers.
+Capacity checks reserve 2 GiB for the host and budget 2048 MiB per worker by
+default. For a dataset whose measured worker memory use permits it, pass
+`--worker-memory-mib 1024` to the launcher or remote helper's `start` command.
+The chosen budget is recorded in the manifest; an adopted run inherits it unless
+explicitly overridden. Fresh generations target the requested `--workers` count,
+even if the previous generation was reduced by capacity limits. The replacement
+builds paused, and activation rechecks CPU slots and its memory budget after the
+old owned workers finish. These budgets are admission estimates, not memory limits
+enforced on worker processes.
 Before capturing and again before starting remote jobs, it samples active tuner
 processes and available CPU/memory capacity. Existing workers reduce the new
 worker count; a full host produces an error suggesting **connect**. These probes

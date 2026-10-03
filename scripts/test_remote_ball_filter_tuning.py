@@ -17,6 +17,19 @@ loader.exec_module(helper)
 
 
 class RemoteTuningTests(unittest.TestCase):
+    def test_measured_worker_budget_allows_32_without_removing_host_headroom(self):
+        resources = dict(cpus=32, load=19.3, available_bytes=40 * 1024**3)
+        self.assertEqual(helper.capacity(resources, 32, full_cpu=True), 19)
+        self.assertEqual(helper.capacity(resources, 32, full_cpu=True, worker_memory_mib=1024), 32)
+        resources["available_bytes"] = 3 * 1024**3
+        self.assertEqual(helper.capacity(resources, 32, full_cpu=True, worker_memory_mib=1024), 1)
+        resources["available_bytes"] -= 1
+        with self.assertRaises(ValueError):
+            helper.capacity(resources, 32, full_cpu=True, worker_memory_mib=1024)
+        for invalid in [0, -1, 1.5]:
+            with self.assertRaisesRegex(ValueError, "positive integer"):
+                helper.capacity(resources, 32, worker_memory_mib=invalid)
+
     def test_resource_guard_leaves_headroom_and_limits_workers(self):
         resources = dict(cpus=32, load=2.0, available_bytes=64 * 1024**3)
         self.assertEqual(helper.capacity(resources, 4), 4)
