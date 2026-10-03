@@ -150,8 +150,8 @@ ball motion. It also verifies peak ball speed exceeds
 noise and 4% false detections; stress profiles add 5 px noise, pixel bias, 8% false detections, random
 misses, eight-frame dropout bursts and eight-frame false detections.
 
-Twix separates **Best tuned values** from **Fixed values (not searched)**. Ten search
-variables cover nine parameter groups; the saved `optimized/ball_filter.json5`
+Twix separates **Best tuned values** from **Fixed values (not searched)**. Six search
+variables cover five parameter groups; the saved `optimized/ball_filter.json5`
 contains the latest best configuration, saved atomically on every improvement.
 Completed rounds are retained in `round-NNNN/`; `optimized/report.json` records
 the latest completed round's
@@ -160,8 +160,20 @@ of numerically unstable candidates rejected during search. Parameters
 are saved for review, not automatically applied to robot defaults.
 
 The search objective uses bounded position error, with a missing estimate costing
-more than any finite position error. This prevents improving the score merely by
-suppressing an inaccurate track. Empty scenes still penalize false tracks.
+more than any finite position error. Empty scenes still penalize false tracks,
+so aggregate loss alone can trade tracking continuity for earlier forgetting.
+The search therefore fixes hypothesis timeout, visible/hidden confidence decay,
+and output threshold at the capture baseline, including when importing an older
+warm start. With the current baseline this preserves the 20-second timeout.
+Only measurement/process noise, association cost and velocity decay are searched.
+
+A candidate must also preserve baseline total missing time, close-range missing
+time and longest missing interval in **every training recording**, as well as
+in aggregate. Only floating-point roundoff is tolerated. Held-out recordings
+remain evaluation-only; these guards do not guarantee held-out continuity.
+Reports identify this policy and count lower-loss candidates rejected for
+continuity regressions. Baseline retention still does not model robot occlusion:
+an occluded ball inside the image currently receives the visible confidence decay.
 Single-ball reference positions beyond the field receive weight
 `exp(-distance / 0.3 m)`, where distance is the ball's clearance outside the field
 rectangle (including the ball-radius allowance at the boundary). For example,

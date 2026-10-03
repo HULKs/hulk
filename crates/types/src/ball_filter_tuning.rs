@@ -12,10 +12,6 @@ pub const TUNED_PARAMETER_POINTERS: &[&str] = &[
     "/noise/process_noise_resting",
     "/noise/process_noise_moving",
     "/maximum_matching_cost",
-    "/validity_output_threshold",
-    "/visible_validity_exponential_decay_factor",
-    "/hidden_validity_exponential_decay_factor",
-    "/hypothesis_timeout",
     "/velocity_decay_factor",
 ];
 

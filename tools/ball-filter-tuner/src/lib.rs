@@ -6,9 +6,9 @@ use color_eyre::{Result, eyre::ensure};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use recording::Recording;
-use scoring::{Score, evaluate, verify};
+use scoring::{Score, evaluate, preserves_baseline_continuity, verify};
 use serde::Serialize;
-use std::{path::PathBuf, time::Duration};
+use std::path::PathBuf;
 use types::{ball_filter_tuning::SearchProgress, parameters::BallFilterParameters};
 
 #[derive(Clone, Copy, Debug, clap::ValueEnum, Serialize)]
@@ -64,6 +64,9 @@ struct Report<'a> {
     seed: u64,
     trials: usize,
     rejected_candidates: usize,
+    rejected_continuity_candidates: usize,
+    continuity_policy: &'static str,
+    retention_policy: &'static str,
     tuned_parameter_pointers: &'static [&'static str],
     penalty_metres: f64,
     namespace: &'a str,
@@ -79,30 +82,23 @@ struct Report<'a> {
 }
 
 // Positive covariance entries use logarithmic bounds. Probabilities/thresholds use
-// linear bounds. Timestamp tolerance, confidence gate and field geometry are fixed.
-const BOUNDS: [(f64, f64, bool); 10] = [
+// linear bounds. Retention/output policy, geometry and confidence gates stay
+// fixed at the capture baseline: losing sight is not evidence that a ball vanished.
+const BOUNDS: [(f64, f64, bool); 6] = [
     (0.02, 5.0, true),
     (1e-7, 0.03, true),
     (1e-7, 0.1, true),
     (1e-6, 0.1, true),
     (0.02, 20.0, true),
-    (0.5, 3.0, false),
-    (0.5, 0.999, false),
-    (0.95, 1.0, false),
-    (0.2, 20.0, true),
     (0.99, 1.0, false),
 ];
-fn encode(parameters: &BallFilterParameters) -> [f64; 10] {
+fn encode(parameters: &BallFilterParameters) -> [f64; 6] {
     let values = [
         parameters.noise.detection_noise.x(),
         parameters.noise.process_noise_resting[0],
         parameters.noise.process_noise_moving[0],
         parameters.noise.process_noise_moving[2],
         parameters.maximum_matching_cost,
-        parameters.validity_output_threshold,
-        parameters.visible_validity_exponential_decay_factor,
-        parameters.hidden_validity_exponential_decay_factor,
-        parameters.hypothesis_timeout.as_secs_f32(),
         parameters.velocity_decay_factor,
     ];
     std::array::from_fn(|i| {
@@ -115,8 +111,8 @@ fn encode(parameters: &BallFilterParameters) -> [f64; 10] {
         }
     })
 }
-fn decode(base: &BallFilterParameters, values: [f64; 10]) -> BallFilterParameters {
-    let v: [f32; 10] = std::array::from_fn(|i| {
+fn decode(base: &BallFilterParameters, values: [f64; 6]) -> BallFilterParameters {
+    let v: [f32; 6] = std::array::from_fn(|i| {
         let (lo, hi, log) = BOUNDS[i];
         if log {
             (lo.ln() + values[i] * (hi.ln() - lo.ln())).exp() as f32
@@ -132,11 +128,7 @@ fn decode(base: &BallFilterParameters, values: [f64; 10]) -> BallFilterParameter
     p.noise.process_noise_moving[2] = v[3];
     p.noise.process_noise_moving[3] = v[3];
     p.maximum_matching_cost = v[4];
-    p.validity_output_threshold = v[5];
-    p.visible_validity_exponential_decay_factor = v[6];
-    p.hidden_validity_exponential_decay_factor = v[7];
-    p.hypothesis_timeout = Duration::from_secs_f32(v[8]);
-    p.velocity_decay_factor = v[9];
+    p.velocity_decay_factor = v[5];
     p
 }
 
@@ -193,19 +185,44 @@ pub fn run_with_progress(
         "MCAP replay matches live outputs. Baseline training loss: {:.6}",
         base_train.loss
     );
+    let baseline_recordings = train
+        .iter()
+        .map(|recording| {
+            evaluate(
+                std::slice::from_ref(recording),
+                &baseline,
+                args.penalty_metres,
+            )
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let mut rejected_continuity_candidates = 0;
     let mut best = baseline.clone();
     let mut best_values = encode(&best);
     let mut best_loss = base_train.loss;
     let mut best_metrics = (&base_train).into();
     if let Some(path) = &args.initial_parameters {
         let initial = json5::from_str(&std::fs::read_to_string(path)?)?;
+        // Old runs may have optimized away track retention. Import only the
+        // searched dimensions; every fixed parameter comes from this baseline.
+        let initial = decode(&baseline, encode(&initial));
         let score = evaluate_candidate(&train, &initial, args.penalty_metres)?;
         if let Some(score) = score.filter(|score| score.loss.is_finite() && score.loss < best_loss)
         {
-            best = initial;
-            best_values = encode(&best);
-            best_loss = score.loss;
-            best_metrics = (&score).into();
+            if preserves_baseline_continuity(&score, &base_train)
+                && preserves_each_recording(
+                    &train,
+                    &initial,
+                    &baseline_recordings,
+                    args.penalty_metres,
+                )?
+            {
+                best = initial;
+                best_values = encode(&best);
+                best_loss = score.loss;
+                best_metrics = (&score).into();
+            } else {
+                eprintln!("Warm start rejected: worsens baseline training continuity");
+            }
         }
     }
     let mut rejected_candidates = 0;
@@ -222,7 +239,7 @@ pub fn run_with_progress(
     publish(&progress)?;
     for trial in 0..args.trials {
         let mut values = best_values;
-        if trial < 20 {
+        if trial < 2 * BOUNDS.len() {
             values[trial / 2] = (trial % 2) as f64;
         } else if trial % 8 == 0 {
             values = std::array::from_fn(|_| rng.random());
@@ -238,18 +255,29 @@ pub fn run_with_progress(
         let score = evaluate_candidate(&train, &candidate, args.penalty_metres)?;
         if let Some(score) = score.filter(|score| score.loss.is_finite()) {
             if score.loss < best_loss {
-                best_loss = score.loss;
-                best = candidate;
-                best_values = values;
-                progress.best = (&score).into();
-                progress.best_parameters = best.clone();
-                progress.best_trial = (trial + 1) as u64;
-                eprintln!(
-                    "Trial {}/{}: training loss {:.6}",
-                    trial + 1,
-                    args.trials,
-                    best_loss
-                );
+                if !preserves_baseline_continuity(&score, &base_train)
+                    || !preserves_each_recording(
+                        &train,
+                        &candidate,
+                        &baseline_recordings,
+                        args.penalty_metres,
+                    )?
+                {
+                    rejected_continuity_candidates += 1;
+                } else {
+                    best_loss = score.loss;
+                    best = candidate;
+                    best_values = values;
+                    progress.best = (&score).into();
+                    progress.best_parameters = best.clone();
+                    progress.best_trial = (trial + 1) as u64;
+                    eprintln!(
+                        "Trial {}/{}: training loss {:.6}",
+                        trial + 1,
+                        args.trials,
+                        best_loss
+                    );
+                }
             }
         } else {
             rejected_candidates += 1;
@@ -281,6 +309,9 @@ pub fn run_with_progress(
         seed: args.seed,
         trials: args.trials,
         rejected_candidates,
+        rejected_continuity_candidates,
+        continuity_policy: "Every training recording and the aggregate must not worsen baseline total missing time, close-range missing time, or longest missing gap (floating-point roundoff only). Held-out data is evaluation only.",
+        retention_policy: "Only listed search dimensions may change, including warm starts. Timeout, visible/hidden confidence decay and output threshold remain at the capture baseline.",
         tuned_parameter_pointers: types::ball_filter_tuning::TUNED_PARAMETER_POINTERS,
         penalty_metres: args.penalty_metres,
         namespace: &args.namespace,
@@ -318,6 +349,24 @@ pub fn run_with_progress(
     Ok(())
 }
 
+// Check each clip so an improvement in an easy scene cannot hide a regression
+// in a contested-ball scene. Only evaluate these additional passes for potential
+// new bests; ordinary candidates use the aggregate pass alone.
+fn preserves_each_recording(
+    recordings: &[Recording],
+    parameters: &BallFilterParameters,
+    baseline_scores: &[Score],
+    penalty: f64,
+) -> Result<bool> {
+    for (recording, baseline) in recordings.iter().zip(baseline_scores) {
+        let score = evaluate(std::slice::from_ref(recording), parameters, penalty)?;
+        if !preserves_baseline_continuity(&score, baseline) {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
 /// Each evaluation creates fresh trackers and only borrows the recordings and
 /// parameters. A failed numerical update can therefore be discarded without
 /// contaminating later candidates. Baseline verification remains strict, and
@@ -342,6 +391,41 @@ fn evaluate_candidate(
                 ) => Ok(None),
                 _ => std::panic::resume_unwind(payload),
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn candidates_and_old_warm_starts_cannot_override_fixed_policy() {
+        let baseline: BallFilterParameters = json5::from_str(include_str!(
+            "../../../etc/parameters/base/ball_filter.json5"
+        ))
+        .unwrap();
+        let mut old_best = baseline.clone();
+        old_best.hypothesis_timeout = std::time::Duration::from_millis(2800);
+        old_best.hidden_validity_exponential_decay_factor = 0.976;
+        old_best.visible_validity_exponential_decay_factor = 0.8;
+        old_best.validity_output_threshold = 2.0;
+        old_best.ball_confidence_threshold = 0.1;
+        old_best.noise.detection_noise.inner.fill(1.5);
+        let imported = decode(&baseline, encode(&old_best));
+        assert!((imported.noise.detection_noise.x() - 1.5).abs() < 1e-6);
+        for candidate in [
+            imported,
+            decode(&baseline, [0.0; 6]),
+            decode(&baseline, [1.0; 6]),
+        ] {
+            let mut actual = serde_json::to_value(candidate).unwrap();
+            let mut expected = serde_json::to_value(&baseline).unwrap();
+            for pointer in types::ball_filter_tuning::TUNED_PARAMETER_POINTERS {
+                *actual.pointer_mut(pointer).unwrap() = serde_json::Value::Null;
+                *expected.pointer_mut(pointer).unwrap() = serde_json::Value::Null;
+            }
+            assert_eq!(actual, expected);
         }
     }
 }

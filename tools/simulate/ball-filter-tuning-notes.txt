@@ -11,6 +11,41 @@ does not depend on visual localization. User explicitly authorized a soft live
 field-boundary confidence prior using the available field pose (2026-10-03).
 Maintain git checkpoints as work progresses.
 
+Retention policy follow-up (2026-10-03)
+- User rejected the latest optimizer timeout reduction20s->2.801s: losing sight
+  is not evidence that a ball ceases to exist. Latest completed round493 used
+  126,208 candidate slots; trainloss1.477901->.929037, holdout1.408064->1.209676,
+  but holdoutmissing4.798->12.566s, closemissing.564->2.720s,
+  closeRMSE.471809->.495106m, and longestgap3.504->5.320s.
+- Correct the optimizer policy rather than hard-code a second timeout in the
+  filter. Fix timeout, both validity decays and outputthreshold at capturebaseline
+  for EVERY candidate and warmstart. Import only searched dimensions from oldbest.
+- Six search dimensions/five parameter groups remain: detectornoise, restingnoise,
+  movingposition/velocitynoise, matchingcost, velocitydecay. Twix metadata follows.
+- Guard missingtime, closemissingtime and longestgap against capturebaseline per
+  trainingrecording and aggregate; use roundofftolerance only. Heldout remains
+  evaluationonly. This is a constrained search, not a new scoreformula.
+- Keeping a stored hypothesis and publishing a confident ball are distinct:
+  fieldprior/outputthreshold can hide an output before deletion. Deletion also
+  uses rawvalidity, range and capacity; covariance growth itself never deletes.
+- Remaining filterissue: imagebounds-only visibility marks opponent-occluded balls
+  as visible. At25Hz baseline .96 decay takes validity2 belowoutput.5 in1.36s;
+  confirmedvalidity25 takes3.83s. Policyfreeze prevents optimizer weakening but
+  does not solve this physicalvisibilityproblem. Need real occluder evidence,
+  not simulator-only truth, before claiming robust protection during fights.
+- Remaining dataissue: physical ball removal at28-34s rewards early forgetting;
+  use genuinely empty false-positive scenes independently from disappearance
+  after a tracked ball. Keep groundtruth present during visibility-only occlusion.
+- User requests remote-compiler for future optimization. Use dedicated remote
+  snapshot/data/results directories; never overwrite sharedworktree or use the
+  legacy remote_workspace helper's --delete against another agent's checkout.
+  Local laptop may run unitchecks/viewer; candidate search moves to remotehost.
+  Initial SSH probe failed because keyagent could not sign; retry after user
+  authorization succeeded. Remote32CPUs/64GiB, existing /home/schluis/hulk has
+  unrelated untracked work and Rust1.88; preserve it and use an isolated snapshot
+  with explicit Rust1.98.1 matching the local recording build.19 tunerunit tests
+  pass, including retention-preserving warmstarts and continuity regressions.
+
 Completed plan: filter-only follow-up (2026-10-03)
 - User requested continuation focused on the filter, a written plan, and parallel
   subagents. Production changes stay inside crates/nodes/ball_filter. Required

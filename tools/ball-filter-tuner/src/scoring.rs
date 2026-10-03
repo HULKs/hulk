@@ -68,6 +68,39 @@ pub struct Score {
     motion_lag_integral: f64,
 }
 
+/// Eligibility constraint, separate from the spatial objective. Compare against
+/// the immutable baseline on the same training recordings, never held-out data.
+/// Raw durations include out-of-field frames and initial acquisition: their low
+/// spatial weight must not make dropping those tracks an optimization shortcut.
+pub fn preserves_baseline_continuity(candidate: &Score, baseline: &Score) -> bool {
+    if !baseline.labelled_seconds.is_finite() || baseline.labelled_seconds < 0.0 {
+        return false;
+    }
+    // Time sums can differ by roundoff when different frame subsets have the
+    // same duration. This is about 5.5e-11 seconds for a 240-second dataset, not
+    // an allowed extra missing frame or a tunable behavioral margin.
+    let roundoff = 1024.0 * f64::EPSILON * baseline.labelled_seconds.max(1.0);
+    [
+        (candidate.missing_seconds, baseline.missing_seconds),
+        (
+            candidate.close_range_missing_seconds,
+            baseline.close_range_missing_seconds,
+        ),
+        (
+            candidate.longest_missing_seconds,
+            baseline.longest_missing_seconds,
+        ),
+    ]
+    .into_iter()
+    .all(|(candidate, baseline)| {
+        candidate.is_finite()
+            && baseline.is_finite()
+            && candidate >= 0.0
+            && baseline >= 0.0
+            && (candidate <= baseline || candidate - baseline <= roundoff)
+    })
+}
+
 impl Score {
     fn observe_cycle(
         &mut self,
@@ -367,6 +400,71 @@ mod tests {
     use super::*;
     use linear_algebra::{Vector2, point};
     use ros_z::time::Time;
+
+    fn continuity_baseline() -> Score {
+        Score {
+            loss: 1.0,
+            labelled_seconds: 240.0,
+            missing_seconds: 2.0,
+            close_range_missing_seconds: 0.4,
+            longest_missing_seconds: 1.2,
+            false_track_seconds: 3.0,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn continuity_accepts_baseline_and_improvements_with_only_roundoff_tolerance() {
+        let baseline = continuity_baseline();
+        assert!(preserves_baseline_continuity(&baseline, &baseline));
+        let mut candidate = continuity_baseline();
+        candidate.missing_seconds = 1.0;
+        candidate.longest_missing_seconds = 0.5;
+        candidate.close_range_missing_seconds = 0.3;
+        assert!(preserves_baseline_continuity(&candidate, &baseline));
+
+        let mut baseline = continuity_baseline();
+        baseline.close_range_missing_seconds = 0.3;
+        candidate.close_range_missing_seconds = 0.1 + 0.2;
+        assert!(preserves_baseline_continuity(&candidate, &baseline));
+        candidate.close_range_missing_seconds = 0.3 + 1e-9;
+        assert!(!preserves_baseline_continuity(&candidate, &baseline));
+    }
+
+    #[test]
+    fn each_continuity_limit_independently_rejects_a_regression() {
+        let baseline = continuity_baseline();
+        for metric in 0..3 {
+            let mut candidate = continuity_baseline();
+            match metric {
+                0 => candidate.missing_seconds += 0.002,
+                1 => candidate.close_range_missing_seconds += 0.002,
+                2 => candidate.longest_missing_seconds += 0.002,
+                _ => unreachable!(),
+            }
+            assert!(!preserves_baseline_continuity(&candidate, &baseline));
+        }
+    }
+
+    #[test]
+    fn false_track_reduction_and_lower_loss_cannot_pay_for_worse_continuity() {
+        let baseline = continuity_baseline();
+        let mut candidate = continuity_baseline();
+        candidate.false_track_seconds = 0.0;
+        candidate.loss = 0.0;
+        candidate.missing_seconds += 0.002;
+        assert!(!preserves_baseline_continuity(&candidate, &baseline));
+    }
+
+    #[test]
+    fn nonfinite_or_negative_continuity_metrics_are_ineligible() {
+        let baseline = continuity_baseline();
+        for invalid in [f64::NAN, f64::INFINITY, -0.1] {
+            let mut candidate = continuity_baseline();
+            candidate.longest_missing_seconds = invalid;
+            assert!(!preserves_baseline_continuity(&candidate, &baseline));
+        }
+    }
 
     fn diagnostic_cycle(time_ms: i64, x: f32, robot_x: f32) -> Cycle {
         Cycle {
