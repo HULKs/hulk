@@ -1,6 +1,5 @@
 use std::{
     collections::{BTreeSet, HashMap},
-    fmt::Display,
     str::FromStr,
 };
 
@@ -26,7 +25,7 @@ pub struct DeployConfig {
     #[serde(deserialize_with = "deserialize_network")]
     pub wifi: Network,
     pub base: String,
-    pub branches: Vec<Branch>,
+    pub branches: Vec<String>,
     #[serde(deserialize_with = "deserialize_assignments")]
     pub assignments: Vec<RobotAddressPlayerAssignment>,
     #[serde(deserialize_with = "deserialize_assignments")]
@@ -157,33 +156,4 @@ where
                 .map_err(|error| E::custom(format!("{error:?}")))
         })
         .collect()
-}
-
-pub struct Branch {
-    pub remote: String,
-    pub branch: String,
-}
-
-impl<'de> Deserialize<'de> for Branch {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let branch = String::deserialize(deserializer)?;
-
-        let (remote, branch) = branch.split_once("/").ok_or_else(|| {
-            D::Error::custom("deploy target has to follow the format 'remote/branch'")
-        })?;
-
-        Ok(Self {
-            remote: remote.to_owned(),
-            branch: branch.to_owned(),
-        })
-    }
-}
-
-impl Display for Branch {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}/{}", self.remote, self.branch))
-    }
 }
