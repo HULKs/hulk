@@ -144,7 +144,6 @@ async fn spawn_all(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<Runni
     join_set.spawn(camera_matrix_calculator::run_boxed(ctx.clone()));
     join_set.spawn(controller_handler::run_boxed(ctx.clone()));
     join_set.spawn(detection::run_boxed(ctx.clone()));
-    join_set.spawn(fake_odometry::run_boxed(ctx.clone()));
     join_set.spawn(fall_down_state_receiver::run_boxed(ctx.clone()));
     join_set.spawn(field_mark_association::run_boxed(ctx.clone()));
     join_set.spawn(game_controller_filter::run_boxed(ctx.clone()));

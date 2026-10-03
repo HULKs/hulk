@@ -32,7 +32,6 @@ members = [
   "crates/nodes/camera_matrix_calculator",
   "crates/nodes/controller_handler",
   "crates/nodes/detection",
-  "crates/nodes/fake_odometry",
   "crates/nodes/fall_down_state_receiver",
   "crates/nodes/field_mark_association",
   "crates/nodes/game_controller_filter",
@@ -168,7 +167,6 @@ enum-iterator = "2.1.0"
 enum_dispatch = "0.3.13"
 env_logger = "0.11.8"
 event-listener = "5"
-fake_odometry = { path = "crates/nodes/fake_odometry" }
 fall_down_state_receiver = { path = "crates/nodes/fall_down_state_receiver" }
 field_mark_association = { path = "crates/nodes/field_mark_association" }
 filtering = { path = "crates/filtering" }
