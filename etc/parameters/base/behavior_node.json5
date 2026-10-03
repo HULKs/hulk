@@ -131,7 +131,7 @@
       nanos: 0,
       secs: 3,
     },
-    hsl_playing_state_message_send_interval: {
+    hsl_state_message_send_interval: {
       nanos: 300000000,
       secs: 0,
     },
