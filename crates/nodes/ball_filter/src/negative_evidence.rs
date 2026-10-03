@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     ball_position::BallPosition,
     obstacles::{Obstacle, ObstacleKind},
+    parameters::BallFilterParameters,
 };
 
 // Bridge at most three 25 Hz image intervals. Longer gaps do not assert that
@@ -22,11 +23,56 @@ const MINIMUM_BALL_RADIUS_PIXELS: f32 = 2.0;
 pub struct NegativeEvidence {
     pub visible_missed_duration: Duration,
     pub last_clear_frame: Option<Time>,
+    #[serde(default)]
+    pub near: Option<NearEvidence>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Message)]
+pub struct NearEvidence {
+    pub duration: Duration,
+    pub last_clear_frame: Time,
+}
+
+pub fn near_enabled(parameters: &BallFilterParameters) -> bool {
+    !parameters.near_visible_missed_detection_timeout.is_zero()
+        && parameters
+            .near_visible_missed_detection_distance
+            .is_finite()
+        && parameters.near_visible_missed_detection_distance > 0.0
+}
+
+pub fn enabled(parameters: &BallFilterParameters) -> bool {
+    !parameters.visible_missed_detection_timeout.is_zero() || near_enabled(parameters)
 }
 
 impl NegativeEvidence {
     pub fn pause(&mut self) {
         self.last_clear_frame = None;
+        self.near = None;
+    }
+
+    /// Near-range disappearance must be confirmed locally and continuously;
+    /// earlier far-away misses or time spent hidden cannot trigger fast expiry.
+    pub fn observe_near_miss(&mut self, time: Time, timeout: Duration) -> (bool, Duration) {
+        let mut elapsed = Duration::ZERO;
+        if let Some(previous) = &mut self.near {
+            if time <= previous.last_clear_frame {
+                return (false, elapsed);
+            }
+            let interval = time.duration_since(previous.last_clear_frame);
+            if interval <= MAXIMUM_EXPOSURE_INTERVAL {
+                elapsed = interval;
+                previous.duration = previous.duration.saturating_add(interval);
+                previous.last_clear_frame = time;
+            } else {
+                self.near = None;
+            }
+        }
+        let near = self.near.get_or_insert(NearEvidence {
+            duration: Duration::ZERO,
+            last_clear_frame: time,
+        });
+        (!timeout.is_zero() && near.duration >= timeout, elapsed)
     }
 
     pub fn observe_clear_miss(&mut self, time: Time, timeout: Duration) -> bool {
@@ -43,6 +89,16 @@ impl NegativeEvidence {
         self.last_clear_frame = Some(time);
         !timeout.is_zero() && self.visible_missed_duration >= timeout
     }
+}
+
+/// Additional learned close-contact decay, measured only between consecutive
+/// near clear misses. The independently configured expiry remains a hard bound.
+pub fn near_decay_factor(interval: Duration, parameters: &BallFilterParameters) -> f32 {
+    let rate = parameters
+        .near_visible_missed_validity_decay_rate
+        .filter(|rate| rate.is_finite() && *rate >= 0.0)
+        .unwrap_or(0.0);
+    (-rate * interval.as_secs_f32()).exp()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Message)]
@@ -199,5 +255,40 @@ mod tests {
         }
         assert_eq!(evidence.visible_missed_duration, Duration::from_millis(40));
         assert!(evidence.observe_clear_miss(time(10_040), Duration::from_millis(80)));
+    }
+
+    #[test]
+    fn near_misses_require_contiguous_local_exposure_and_ignore_far_history() {
+        let timeout = Duration::from_millis(120);
+        let mut evidence = NegativeEvidence {
+            visible_missed_duration: Duration::from_secs(5),
+            ..Default::default()
+        };
+        for millis in [0, 40, 80] {
+            assert!(!evidence.observe_near_miss(time(millis), timeout).0);
+        }
+        assert_eq!(
+            evidence.observe_near_miss(time(80), timeout),
+            (false, Duration::ZERO)
+        );
+        assert_eq!(
+            evidence.observe_near_miss(time(40), timeout),
+            (false, Duration::ZERO)
+        );
+        assert_eq!(
+            evidence.observe_near_miss(time(1000), timeout),
+            (false, Duration::ZERO)
+        );
+        assert_eq!(evidence.near.as_ref().unwrap().duration, Duration::ZERO);
+        assert!(!evidence.observe_near_miss(time(1040), timeout).0);
+        evidence.pause();
+        assert_eq!(
+            evidence.observe_near_miss(time(1080), timeout),
+            (false, Duration::ZERO)
+        );
+        for millis in [1120, 1160] {
+            assert!(!evidence.observe_near_miss(time(millis), timeout).0);
+        }
+        assert!(evidence.observe_near_miss(time(1200), timeout).0);
     }
 }

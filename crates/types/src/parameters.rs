@@ -225,6 +225,12 @@ pub struct BallFilterParameters {
     /// Legacy recording baselines omit this field and retain their original behavior.
     #[serde(default)]
     pub visible_missed_detection_timeout: Duration,
+    /// Continuous clear-view miss time for a nearby ball; zero keeps legacy behavior.
+    #[serde(default)]
+    pub near_visible_missed_detection_timeout: Duration,
+    /// Ground distance in metres for the fast near-ball miss rule; zero disables it.
+    #[serde(default)]
+    pub near_visible_missed_detection_distance: f32,
     /// Maximum age of the obstacle model used to establish a clear camera view.
     #[serde(default = "default_ball_obstacle_tolerance")]
     pub maximum_obstacle_time_difference: Duration,
@@ -240,6 +246,10 @@ pub struct BallFilterParameters {
     /// Clear-view unmatched-track decay per second. None preserves the legacy factor.
     #[serde(default)]
     pub visible_missed_validity_decay_rate: Option<f32>,
+    /// Additional decay per second for clearly missed balls in kick range.
+    /// None preserves historical behavior; zero applies no extra near-ball decay.
+    #[serde(default)]
+    pub near_visible_missed_validity_decay_rate: Option<f32>,
     /// Extra decay per second for unmatched competitors of a persistently observed,
     /// confident leader. None preserves legacy behavior; zero disables the penalty.
     #[serde(default)]

@@ -484,6 +484,7 @@ mod tests {
                 survivor.negative_evidence = Some(crate::negative_evidence::NegativeEvidence {
                     visible_missed_duration: Duration::from_millis(120),
                     last_clear_frame: Some(Time::from_nanos(200_000_000)),
+                    ..Default::default()
                 });
                 survivor.leadership_evidence = Some(crate::competition::Evidence {
                     first_match: Time::zero(),
@@ -506,6 +507,7 @@ mod tests {
         resting.negative_evidence = Some(crate::negative_evidence::NegativeEvidence {
             visible_missed_duration: Duration::from_millis(120),
             last_clear_frame: Some(Time::from_nanos(200_000_000)),
+            ..Default::default()
         });
         let before = resting.position();
         let before_covariance = resting.position_covariance();

@@ -1684,6 +1684,14 @@ mod tests {
         historical
             .as_object_mut()
             .unwrap()
+            .remove("near_visible_missed_detection_timeout");
+        historical
+            .as_object_mut()
+            .unwrap()
+            .remove("near_visible_missed_detection_distance");
+        historical
+            .as_object_mut()
+            .unwrap()
             .remove("maximum_obstacle_time_difference");
         historical
             .as_object_mut()
@@ -1704,14 +1712,21 @@ mod tests {
         historical
             .as_object_mut()
             .unwrap()
+            .remove("near_visible_missed_validity_decay_rate");
+        historical
+            .as_object_mut()
+            .unwrap()
             .remove("competing_hypothesis_validity_decay_rate");
         historical["maximum_matching_cost"] = serde_json::json!(2.5);
         let legacy: BallFilterParameters = serde_json::from_value(historical.clone()).unwrap();
         assert!(legacy.visible_missed_detection_timeout.is_zero());
+        assert!(legacy.near_visible_missed_detection_timeout.is_zero());
+        assert_eq!(legacy.near_visible_missed_detection_distance, 0.0);
         assert_eq!(legacy.field_boundary_validity_decay_rate, 0.0);
         assert_eq!(legacy.maximum_detection_distance, 0.0);
         assert_eq!(legacy.hidden_validity_decay_rate, None);
         assert_eq!(legacy.visible_missed_validity_decay_rate, None);
+        assert_eq!(legacy.near_visible_missed_validity_decay_rate, None);
         assert_eq!(legacy.competing_hypothesis_validity_decay_rate, None);
         let path = overrides.path().join("ball_filter.json5");
         std::fs::write(&path, serde_json::to_vec(&historical).unwrap()).unwrap();
@@ -1743,10 +1758,19 @@ mod tests {
         );
         assert_eq!(snapshot.typed().field_boundary_validity_decay_rate, 2.0);
         assert_eq!(snapshot.typed().maximum_detection_distance, 15.0);
+        assert_eq!(
+            snapshot.typed().near_visible_missed_detection_timeout,
+            Duration::from_millis(120)
+        );
+        assert_eq!(snapshot.typed().near_visible_missed_detection_distance, 1.0);
         assert_eq!(snapshot.typed().hidden_validity_decay_rate, Some(0.01));
         assert_eq!(
             snapshot.typed().visible_missed_validity_decay_rate,
             Some(1.0)
+        );
+        assert_eq!(
+            snapshot.typed().near_visible_missed_validity_decay_rate,
+            Some(20.0)
         );
         assert_eq!(
             snapshot.typed().competing_hypothesis_validity_decay_rate,

@@ -339,13 +339,14 @@ so aggregate loss alone can trade tracking continuity for earlier forgetting.
 The search therefore fixes hypothesis timeout, legacy per-frame confidence factors,
 output threshold, `visible_missed_detection_timeout` and
 `maximum_obstacle_time_difference`, `field_boundary_validity_decay_rate`, and
-`maximum_detection_distance` at the capture baseline, including when
+`maximum_detection_distance`, plus `near_visible_missed_detection_timeout` and
+`near_visible_missed_detection_distance`, at the capture baseline, including when
 importing an older warm start. With the current baseline this preserves the
 20-second hypothesis timeout and 1-second clear-view miss timeout. Only
 measurement/process noise, association cost, velocity decay and the enabled
 per-second confidence decay rates are searched. The hidden rate is searched over
-0–0.3/s, the visible-but-undetected rate over 0–4/s, and the competing-hypothesis
-rate over 0–2/s. A rate of zero is a valid
+0–0.3/s, the visible-but-undetected rate over 0–4/s, the competing-hypothesis
+rate over 0–2/s, and additional near clear-miss decay over 0–40/s. A rate of zero is a valid
 learned value. A legacy baseline with a missing/null rate keeps its old per-frame
 behavior: candidates cannot enable that rate, and the report and UI omit it from
 the searched parameters. Importing an older warm start without rates preserves
@@ -366,6 +367,25 @@ confidence. Only received camera detection frames contribute; odometry updates
 and long sensor gaps do not count as observations. The predicted ball must fit
 fully inside the image and be large enough to observe. A matched detection clears
 its missed-observation history.
+
+Within 1 m, an unobstructed observable ball that is repeatedly absent has a
+separate 120 ms clear-miss expiry. Its additional
+`near_visible_missed_validity_decay_rate` defaults to 20/s and is learned; the
+distance and hard expiry remain fixed. This close-range clock only accumulates
+consecutive nearby clear misses. A match, occlusion, unknown visibility, movement
+out of range, or a gap over 120 ms resets it. The ordinary visible-miss decay
+still applies in addition. Legacy omitted near-field parameters disable this rule.
+
+Kick authorization is independent of optimizer confidence. Normal behavior
+requires a real visual ball observation whose **exposure time** is no more than
+100 ms old on the current behavior clock. A model-only ball cannot authorize a
+kick, including a repeated kick request. Each actual detector frame publishes
+`ball_filter/ball_percepts` with that exposure timestamp; odometry-only updates
+do not publish empty percept frames. An actual empty frame immediately clears
+`visual_kick/ball_position`, and behavior independently rejects stale observations
+if the selector stops publishing. This conservative gate also clears when a real
+frame has invalid projection geometry. It cannot be disabled by tuning the decay
+rates or model retention parameters.
 
 An additional learned `competing_hypothesis_validity_decay_rate` reduces unmatched
 alternatives when the selected leader has been matched continuously for one second

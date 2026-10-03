@@ -42,7 +42,7 @@ use tracker::{InputStamp, Tracker, UpdateSchedule, camera_is_recent};
 
 struct BallFilterOutput {
     time: Option<Time>,
-    ball_percepts: Vec<BallPercept>,
+    ball_percepts: Vec<TimeWrapper<Vec<BallPercept>>>,
     filter_state: BallFilter,
     best_hypothesis: Option<BallHypothesis>,
     filtered_ball: Option<BallPosition<Ground>>,
@@ -198,7 +198,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 } else {
                     None
                 };
-                ball_percepts.extend(tracker.advance_with_obstacles(
+                let frame_percepts = tracker.advance_with_obstacles(
                     time,
                     odometry_pose,
                     detected_objects.as_ref().map(|d| d.inner.as_slice()),
@@ -206,7 +206,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     selected_obstacles.as_ref(),
                     parameters,
                     &field_dimensions,
-                )?);
+                )?;
+                // An empty actual detector exposure revokes visual contact. Odometry-only
+                // fusion batches must not masquerade as empty camera observations.
+                if detected_objects.is_some() {
+                    ball_percepts.push(TimeWrapper {
+                        time,
+                        inner: frame_percepts,
+                    });
+                }
             }
             // Temporary-only batches leave the state at its previous timestamp.
             // Keep the same prior for their diagnostic outputs, too.
@@ -288,7 +296,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 .publish_with_source_time(obstacles, obstacles.time)
                 .await?;
         }
-        ball_percepts_pub.publish(&output.ball_percepts).await?;
+        for percepts in &output.ball_percepts {
+            ball_percepts_pub
+                .publish_with_source_time(&percepts.inner, percepts.time)
+                .await?;
+        }
         best_ball_hypothesis_pub
             .publish(&output.best_hypothesis)
             .await?;
@@ -453,15 +465,16 @@ fn advance_all_hypotheses(
         filter_parameters,
     );
 
-    if !filter_parameters.visible_missed_detection_timeout.is_zero() {
+    if negative_evidence::enabled(filter_parameters) {
         ball_filter.hypotheses.retain_mut(|hypothesis| {
             if hypothesis.last_seen == time {
                 hypothesis.negative_evidence = None;
                 return true;
             }
+            let position = hypothesis.position();
             let clearly_visible = camera_matrix.is_some_and(|camera| {
                 negative_evidence::clearly_visible(
-                    &hypothesis.position(),
+                    &position,
                     camera,
                     field_dimensions.ball_radius,
                     obstacles,
@@ -471,8 +484,23 @@ fn advance_all_hypotheses(
                 .negative_evidence
                 .get_or_insert_with(Default::default);
             if clearly_visible {
-                !evidence
-                    .observe_clear_miss(time, filter_parameters.visible_missed_detection_timeout)
+                let expired = evidence
+                    .observe_clear_miss(time, filter_parameters.visible_missed_detection_timeout);
+                let near = negative_evidence::near_enabled(filter_parameters)
+                    && position.position.coords().norm()
+                        <= filter_parameters.near_visible_missed_detection_distance;
+                if near {
+                    let (near_expired, interval) = evidence.observe_near_miss(
+                        time,
+                        filter_parameters.near_visible_missed_detection_timeout,
+                    );
+                    hypothesis.validity *=
+                        negative_evidence::near_decay_factor(interval, filter_parameters);
+                    !expired && !near_expired
+                } else {
+                    evidence.near = None;
+                    !expired
+                }
             } else {
                 evidence.pause();
                 true
@@ -721,7 +749,7 @@ fn decide_validity_decay_for_hypothesis(
 ) -> f32 {
     let is_ball_in_view = camera_matrix.is_some_and(|camera_matrix| {
         let ball = hypothesis.position();
-        if configuration.visible_missed_detection_timeout.is_zero() {
+        if !negative_evidence::enabled(configuration) {
             is_visible_to_camera(&ball, camera_matrix, ball_radius)
         } else {
             negative_evidence::clearly_visible(&ball, camera_matrix, ball_radius, obstacles)

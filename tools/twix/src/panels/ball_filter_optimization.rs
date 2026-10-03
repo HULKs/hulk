@@ -468,7 +468,8 @@ impl Panel for BallFilterOptimizationPanel {
                     ui.collapsing("Best tuned values", |ui| {
                         let variables = 6 + usize::from(search.best_parameters.hidden_validity_decay_rate.is_some())
                             + usize::from(search.best_parameters.visible_missed_validity_decay_rate.is_some())
-                            + usize::from(search.best_parameters.competing_hypothesis_validity_decay_rate.is_some());
+                            + usize::from(search.best_parameters.competing_hypothesis_validity_decay_rate.is_some())
+                            + usize::from(search.best_parameters.near_visible_missed_validity_decay_rate.is_some());
                         ui.label(format!("{variables} search variables; x/y noise values are coupled."));
                         if let Ok(json) = serde_json::to_string_pretty(&tuned) {
                             monospace(ui, json);

@@ -678,3 +678,89 @@ Runtime follow-ups after f5b4866d0 (2026-10-03)
   targetsrequested32ratherthanfreezinghistorical19. ActivationrechecksCPUslots
   andspecifiedmemorybudgetafteroldworkersfinish. Theseareadmissionestimates,
   notenforcedRSSlimits. Runtimeisstill19untilhandoff.
+
+Kick-range clear misses and visual-only kick authorization (2026-10-03, in progress)
+- User: never kick a ball supported only by the model. An empty, unobstructed
+  near view must rapidly reduce confidence. Found a concrete model-only fallback
+  in the behavior kick helper; remove it.
+- The visual selector currently holds observations for 250 ms and timestamps them
+  with transport publication time. The filter publishes aggregated percepts on
+  fusion batches, including odometry-only empty batches. Change the existing
+  ball_filter/ball_percepts topic to one Vec message per actual detector frame,
+  stamped with image exposure time. Public schema and topic remain the same;
+  MCAP already records it, and optimizer replay uses original detected_objects.
+- The selector will revoke permission on a true empty frame and retain exposure
+  timestamps. Behavior independently requires an actual visual observation within
+  100 ms. Do not invent an exception for committed kicks: the current policy
+  interface has no committed/completed phase contract.
+- Near-field evidence gets an independent clock of contiguous, known clear
+  misses within 1 m. Reset it on match, hidden/unknown view, range exit or long gap.
+  near_visible_missed_detection_timeout: base 120 ms, legacy 0.
+  near_visible_missed_detection_distance: base 1 m, legacy 0.
+- USER OVERRIDE: the kick-range decay MUST be learnable.
+  near_visible_missed_validity_decay_rate: optional, legacy None, base Some(20),
+  searched over 0..40/s as the tenth dimension. It adds to ordinary visible decay;
+  Some(0) applies no extra decay. This replaces the proposed fixed 20/s minimum.
+  The near clear-miss timeout remains fixed at 120 ms. Visual kick authorization
+  is independent of learned confidence and cannot be optimized away.
+- Root added types, defaults and capture inheritance regression. Filter agent
+  owns near evidence and per-exposure publication; scorer owns kick authorization,
+  selector, tuner, Twix dimension count and docs. Viewer agent audits future data.
+  Motion limiter edits are frozen but not Cargo-tested. Run combined checks once
+  all of these changes are stable, then build and exercise physical recording.
+- Checkpoints: f5b4866d0 (original nine rates/speed/UI wrapping), c6a5d0802
+  (arrows at 0.06 m/unit), 60993e3f4 (memory budget and 32-worker target; 69 Python
+  tests pass). Existing 19 remote jobs remain healthy. No fresh capture or periodic
+  supervisor has started. Preview is temporarily at 1x pending the motion fix.
+  Arrow rescaling will become live with the next simulator build.
+- Follow-up outside this filter change: MotionExecution does not identify a
+  committed kick phase or completion. A future execution contract should separate
+  permission to start a kick from safely finishing one if the foot obscures the
+  camera. Current strict behavior rechecks every request; no unsupported exception
+  based merely on the previous command was added.
+- Visual kick points retain their exposure Ground coordinates during the short
+  freshness window. Explicit odometry compensation to the current kick-command
+  frame is a separate follow-up for moving-robot kick accuracy; model fallback
+  would not solve it. Keep the recorded exposure timestamp for that future work.
+
+Base-parameter promotion audit (2026-10-03)
+- User asked whether search winners have updated checked-in base parameters.
+  Git history confirms no complete learned winner was promoted: checkpoints
+  527843fe9, 3f716f859, fa1d667c7, ccc43593d and f5b4866d0 added feature defaults.
+  Winners have instead been applied in temporary live layers and fresh recordings.
+- Promotion remains outstanding. Revalidate with the current filter implementation
+  on independent seeds, including close-ball error/lag, missed-ball reacquisition
+  and retention. An old winner is not validation of the newly changed algorithm.
+- Combined checks found the faster-walking startup bug: ROS-Z only allows one
+  writable parameter binding per node. Fixed by a read-only startup-layer snapshot
+  API; inference remains its configuration owner. Added a layer-precedence and
+  ownership regression; rerunning integration checks before runtime promotion.
+- Current old-generation winner (worker-18/round-000128) is not suitable for
+  promotion: holdout missing time 4.546 -> 1.276 s, but close RMSE 1.581 ->
+  1.704 m, motion lag 0.435 -> 0.496 s and false-track time 9.318 -> 12.000 s.
+  Holdout close coverage is only 1.324 s out of 79.996 labelled seconds.
+- Scoring follow-up: motion lag is conditional along-motion error divided by
+  speed, not recovery latency; longest missing means absent output, not time to
+  regain the correct ball. Add paired time-to-correct-reacquisition after hidden
+  kicks and sustained close/moving coverage before deciding base promotion.
+  Current validation has only three opponent kicks, all occluded and in-view in
+  validation-4250; validation-4243 has none. Winner retains a false track during
+  all 12 labelled empty seconds. Keep those diagnostics visible and avoid
+  claiming total-loss improvement means the kicking priorities improved.
+- Proposed promotion gate (not yet implemented): freeze code and recording hashes,
+  collect untouched benchmark seeds, verify exact replay, and evaluate production
+  defaults versus candidate on identical close/moving frames. Require better close
+  accuracy without per-clip regressions in retention, false tracks and correct
+  recovery time. Consider correct recovery as <=10 cm error sustained for 100 ms
+  after reappearance; validate this threshold against robot kicking needs.
+  The present old-generation baseline is itself a prior search winner, not the
+  checked-in defaults, so its improvement is not a direct base comparison.
+- Metric implementation references: tools/ball-filter-tuner/src/scoring.rs
+  (close selection near148, conditional lag196, any-output missing reset251,
+  absent-reference false tracks267, close RMSE denominator390). Reports'
+  validation_improved flag only means lower total loss and is not promotion.
+- Validation after the startup repair: 268 Rust tests passed (70 filter,
+  24 tuner, 2 behavior, 9 motion, 10 obstacle, 66 simulator, 83 Twix, 4 visual
+  kick selector), with one existing simulator test ignored. Formatting passes.
+  Log: logs/ball-near-kick-motion-tests.log. ROS-Z parameter integration suite
+  and matching application builds are next; fresh 2x capture remains pending.

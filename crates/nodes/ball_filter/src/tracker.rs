@@ -76,7 +76,7 @@ impl Tracker {
                 parameters,
             );
         }
-        if !parameters.visible_missed_detection_timeout.is_zero()
+        if negative_evidence::enabled(parameters)
             || validity_decay::enabled(parameters)
             || competition::enabled(parameters)
         {
@@ -104,7 +104,7 @@ impl Tracker {
         let Some(percepts) =
             project_detected_balls(detections, camera, parameters, dimensions.ball_radius)
         else {
-            if !parameters.visible_missed_detection_timeout.is_zero()
+            if negative_evidence::enabled(parameters)
                 || validity_decay::enabled(parameters)
                 || competition::enabled(parameters)
             {
@@ -654,6 +654,171 @@ mod tests {
             } else {
                 assert_eq!(tracker.filter.hypotheses[1].validity, 5.0);
             }
+        }
+    }
+
+    #[test]
+    fn near_clear_misses_have_learnable_cadence_independent_decay_and_fixed_expiry() {
+        for rate in [None, Some(0.0), Some(20.0), Some(40.0)] {
+            for cadence in [20, 40] {
+                let (mut tracker, camera, mut parameters, dimensions) = negative_evidence_fixture();
+                parameters.visible_missed_detection_timeout = Duration::from_secs(1);
+                parameters.near_visible_missed_detection_timeout = Duration::from_millis(120);
+                parameters.near_visible_missed_detection_distance = 1.0;
+                parameters.near_visible_missed_validity_decay_rate = rate;
+                parameters.visible_missed_validity_decay_rate = Some(1.0);
+                for millis in (40..=120).step_by(cadence) {
+                    detector_frame(&mut tracker, &camera, millis, &[], &parameters, &dimensions);
+                }
+                let expected = 25.0 * (-(1.0 + rate.unwrap_or(0.0)) * 0.08_f32).exp();
+                assert!((tracker.filter.hypotheses[0].validity - expected).abs() < 1e-4);
+                detector_frame(&mut tracker, &camera, 160, &[], &parameters, &dimensions);
+                assert!(
+                    tracker.filter.hypotheses.is_empty(),
+                    "hard expiry is independent of learned rate"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn near_clear_clock_resets_on_occlusion_unknown_geometry_gaps_and_real_match() {
+        for interruption in ["robot", "missing obstacles", "stale camera", "gap", "match"] {
+            let (mut tracker, camera, mut parameters, dimensions) = negative_evidence_fixture();
+            parameters.visible_missed_detection_timeout = Duration::ZERO;
+            parameters.near_visible_missed_detection_timeout = Duration::from_millis(120);
+            parameters.near_visible_missed_detection_distance = 1.0;
+            parameters.near_visible_missed_validity_decay_rate = Some(20.0);
+            parameters.visible_missed_validity_decay_rate = Some(0.0);
+            parameters.hidden_validity_decay_rate = Some(0.0);
+            for millis in [40, 80, 120] {
+                detector_frame(&mut tracker, &camera, millis, &[], &parameters, &dimensions);
+            }
+            let before = tracker.filter.hypotheses[0].validity;
+            let mut next = 200;
+            match interruption {
+                "robot" => {
+                    robot_obstacle_frame(&mut tracker, &camera, 160, &parameters, &dimensions)
+                }
+                "missing obstacles" | "stale camera" => {
+                    let time = Time::from_nanos(160_000_000);
+                    let camera_time = if interruption == "stale camera" {
+                        Time::zero()
+                    } else {
+                        time
+                    };
+                    tracker
+                        .advance_with_obstacles(
+                            time,
+                            None,
+                            Some(&[]),
+                            Some(&TimeWrapper {
+                                time: camera_time,
+                                inner: camera.clone(),
+                            }),
+                            None,
+                            &parameters,
+                            &dimensions,
+                        )
+                        .unwrap();
+                }
+                "gap" => next = 1000,
+                "match" => detector_frame(
+                    &mut tracker,
+                    &camera,
+                    160,
+                    &[image_object(RobocupObjectLabel::Ball, 1.0)],
+                    &parameters,
+                    &dimensions,
+                ),
+                _ => unreachable!(),
+            }
+            detector_frame(&mut tracker, &camera, next, &[], &parameters, &dimensions);
+            if interruption != "match" {
+                assert!(
+                    (tracker.filter.hypotheses[0].validity - before).abs() < 1e-5,
+                    "{interruption}"
+                );
+            }
+            let evidence = tracker.filter.hypotheses[0]
+                .negative_evidence
+                .as_ref()
+                .unwrap();
+            assert_eq!(
+                evidence.near.as_ref().unwrap().duration,
+                Duration::ZERO,
+                "{interruption}"
+            );
+            for millis in [next + 40, next + 80] {
+                detector_frame(&mut tracker, &camera, millis, &[], &parameters, &dimensions);
+                assert_eq!(tracker.filter.hypotheses.len(), 1);
+            }
+            detector_frame(
+                &mut tracker,
+                &camera,
+                next + 120,
+                &[],
+                &parameters,
+                &dimensions,
+            );
+            assert!(tracker.filter.hypotheses.is_empty());
+        }
+    }
+
+    #[test]
+    fn approaching_ball_does_not_inherit_far_misses_and_leaving_near_resets_clock() {
+        let (mut tracker, camera, mut parameters, dimensions) = negative_evidence_fixture();
+        parameters.visible_missed_detection_timeout = Duration::from_secs(1);
+        parameters.near_visible_missed_detection_timeout = Duration::from_millis(120);
+        parameters.near_visible_missed_detection_distance = 0.1;
+        parameters.near_visible_missed_validity_decay_rate = Some(20.0);
+        let set_distance = |tracker: &mut Tracker, distance| {
+            let BallMode::Moving(state) = &mut tracker.filter.hypotheses[0].mode else {
+                panic!("moving fixture")
+            };
+            state.mean.x = distance;
+        };
+        set_distance(&mut tracker, 0.2);
+        for millis in [40, 80, 120, 160, 200] {
+            detector_frame(&mut tracker, &camera, millis, &[], &parameters, &dimensions);
+        }
+        assert_eq!(tracker.filter.hypotheses[0].validity, 25.0);
+        set_distance(&mut tracker, 0.0);
+        detector_frame(&mut tracker, &camera, 240, &[], &parameters, &dimensions);
+        assert_eq!(tracker.filter.hypotheses[0].validity, 25.0);
+        detector_frame(&mut tracker, &camera, 280, &[], &parameters, &dimensions);
+        let before = tracker.filter.hypotheses[0].validity;
+        set_distance(&mut tracker, 0.2);
+        detector_frame(&mut tracker, &camera, 320, &[], &parameters, &dimensions);
+        set_distance(&mut tracker, 0.0);
+        detector_frame(&mut tracker, &camera, 360, &[], &parameters, &dimensions);
+        assert_eq!(tracker.filter.hypotheses[0].validity, before);
+        assert_eq!(
+            tracker.filter.hypotheses[0]
+                .negative_evidence
+                .as_ref()
+                .unwrap()
+                .near
+                .as_ref()
+                .unwrap()
+                .duration,
+            Duration::ZERO
+        );
+    }
+
+    #[test]
+    fn disabled_near_policy_retains_legacy_behavior_even_with_rate_configured() {
+        for (timeout, distance) in [(Duration::ZERO, 1.0), (Duration::from_millis(120), 0.0)] {
+            let (mut tracker, camera, mut parameters, dimensions) = negative_evidence_fixture();
+            parameters.visible_missed_detection_timeout = Duration::ZERO;
+            parameters.near_visible_missed_detection_timeout = timeout;
+            parameters.near_visible_missed_detection_distance = distance;
+            parameters.near_visible_missed_validity_decay_rate = Some(40.0);
+            for millis in (40..1000).step_by(40) {
+                detector_frame(&mut tracker, &camera, millis, &[], &parameters, &dimensions);
+            }
+            assert_eq!(tracker.filter.hypotheses[0].validity, 25.0);
+            assert!(tracker.filter.hypotheses[0].negative_evidence.is_none());
         }
     }
 
