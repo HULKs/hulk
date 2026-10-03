@@ -6362,6 +6362,7 @@ dependencies = [
  "booster_sdk_interface",
  "color-eyre",
  "ros-z",
+ "tokio",
  "types",
 ]
 
