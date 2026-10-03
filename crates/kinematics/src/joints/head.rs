@@ -31,6 +31,15 @@ where
     }
 }
 
+impl<T> HeadJoints<T> {
+    pub fn map<U>(self, f: impl Fn(T) -> U) -> HeadJoints<U> {
+        HeadJoints {
+            yaw: f(self.yaw),
+            pitch: f(self.pitch),
+        }
+    }
+}
+
 impl<T> IntoIterator for HeadJoints<T> {
     type Item = T;
 
