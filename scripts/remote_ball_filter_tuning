@@ -1,0 +1,378 @@
+#!/usr/bin/env python3
+"""Run independent offline tuner searches in an isolated remote workspace.
+
+start uploads a source/data snapshot and starts continuous, finite search rounds.
+status and fetch use the local manifest printed by start. No shared checkout is
+modified, and no process is stopped. Twix progress and live simulator parameter
+application are not connected by this offline helper.
+"""
+import argparse
+import concurrent.futures
+import hashlib
+import io
+import json
+import math
+import os
+from pathlib import Path
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tarfile
+import threading
+import time
+import uuid
+
+DATA_FILES = [f"train-{seed}.mcap" for seed in (42, 43, 142, 143)] + [
+    f"validation-{seed}.mcap" for seed in (4243, 4250)
+] + ["baseline.json5"]
+TASK_BASE = ".cache/hulk-ball-filter-tuning"
+
+
+def checked_name(value):
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}", value):
+        raise ValueError("run name must contain only letters, digits, dots, underscores and hyphens")
+    return value
+
+
+def ssh_command(host, arguments):
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.@-]*", host):
+        raise ValueError("host must be an SSH alias or user@hostname")
+    control = Path.home() / ".cache/hbf-tuning-ssh" / "%C"
+    return ["ssh", "-oBatchMode=yes", "-oConnectTimeout=10", "-oControlMaster=auto",
+            "-oControlPersist=30m", f"-oControlPath={control}", "--", host, shlex.join(arguments)]
+
+
+def ssh(host, arguments, **kwargs):
+    control_directory = Path.home() / ".cache/hbf-tuning-ssh"
+    if control_directory.is_symlink():
+        raise ValueError("SSH control directory must not be a symlink")
+    control_directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    control_directory.chmod(0o700)
+    try:
+        return subprocess.run(ssh_command(host, arguments), check=True, **kwargs)
+    except subprocess.CalledProcessError as error:
+        # Resource probes capture stderr; expose authentication failures rather
+        # than reporting only an opaque subprocess exit status.
+        if error.stderr:
+            message = error.stderr.decode(errors="replace") if isinstance(error.stderr, bytes) else error.stderr
+            print(message.rstrip(), file=sys.stderr)
+        raise
+
+
+def atomic_json(path, value):
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(value, indent=2) + "\n")
+    temporary.replace(path)
+
+
+def digest(path):
+    with path.open("rb") as source:
+        return hashlib.file_digest(source, "sha256").hexdigest()
+
+
+def capacity(resources, requested):
+    # Leave two GiB and CPU headroom for other users. Each worker may hold all six
+    # decoded recordings; budget two GiB per worker rather than just MCAP size.
+    memory_slots = (resources["available_bytes"] - 2 * 1024**3) // (2 * 1024**3)
+    if memory_slots < 1:
+        raise ValueError("remote host has less than 4 GiB available; refusing to add tuner jobs")
+    idle_cpus = max(1, math.floor(resources["cpus"] - resources["load"]))
+    return min(requested, max(1, resources["cpus"] // 2), idle_cpus, memory_slots)
+
+
+PROBE = r'''
+import json, os
+from pathlib import Path
+memory = dict(line.split(':', 1) for line in Path('/proc/meminfo').read_text().splitlines())
+print(json.dumps({'cpus': len(os.sched_getaffinity(0)),
+                  'load': os.getloadavg()[0],
+                  'available_bytes': int(memory['MemAvailable'].split()[0]) * 1024}))
+'''
+
+
+def source_paths(repository):
+    result = subprocess.check_output(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=repository
+    )
+    for name in sorted(set(result.decode().split("\0")) - {""}):
+        path = Path(name)
+        if any(part in {".git", "target", "logs", "__pycache__"} for part in path.parts):
+            continue
+        source = repository / path
+        if source.is_symlink():
+            if os.path.isabs(os.readlink(source)) or not source.resolve().is_relative_to(repository):
+                raise ValueError(f"source symlink leaves snapshot: {path}")
+        if source.is_file() or source.is_symlink():
+            yield path
+
+
+def snapshot(repository, recordings, initial, local, manifest):
+    archive = local / "snapshot.tar.gz"
+    source_hash = hashlib.sha256()
+    manifest["data_sha256"] = {}
+    with tarfile.open(archive, "w:gz") as bundle:
+        for relative in source_paths(repository):
+            source = repository / relative
+            checksum = hashlib.sha256(os.readlink(source).encode()).hexdigest() if source.is_symlink() else digest(source)
+            source_hash.update(relative.as_posix().encode() + b"\0" + checksum.encode() + b"\0")
+            bundle.add(source, arcname=f"source/{relative.as_posix()}", recursive=False)
+        for name in DATA_FILES + (["initial.json5"] if initial else []):
+            source = initial if name == "initial.json5" else recordings / name
+            manifest["data_sha256"][name] = digest(source)
+            bundle.add(source.resolve(), arcname=f"data/{name}", recursive=False)
+        manifest["source_sha256"] = source_hash.hexdigest()
+        bundle.add(Path(__file__).resolve(), arcname="controller.py", recursive=False)
+        encoded = json.dumps(manifest, indent=2).encode()
+        info = tarfile.TarInfo("manifest.json")
+        info.size = len(encoded)
+        bundle.addfile(info, io.BytesIO(encoded))
+    manifest["snapshot_sha256"] = digest(archive)
+    atomic_json(local / "manifest.json", manifest)
+    return archive
+
+
+TMUX_LAUNCH = """import shlex, subprocess, sys
+from pathlib import Path
+root = Path.home()/sys.argv[1]
+session = sys.argv[2]
+command = shlex.join([sys.executable, '-u', str(root/'controller.py'), '_run'])
+command += ' 2>&1 | tee -a ' + shlex.quote(str(root/'controller.log'))
+subprocess.run(['tmux', 'new-session', '-d', '-s', session, '-c', str(root),
+                shlex.join(['bash', '-lc', 'set -o pipefail; ' + command])], check=True)
+subprocess.run(['tmux', 'set-option', '-w', '-t', '=' + session + ':', 'remain-on-exit', 'on'], check=True)
+print(subprocess.check_output(['tmux', 'display-message', '-p', '-t', '=' + session + ':', '#{pane_pid}'], text=True).strip())
+"""
+
+def start(args):
+    repository = Path(__file__).resolve().parent.parent
+    recordings = args.recordings.resolve()
+    for name in DATA_FILES:
+        if not (recordings / name).is_file():
+            raise ValueError(f"missing recording input: {recordings / name}")
+    if args.initial_parameters and not args.initial_parameters.is_file():
+        raise ValueError("initial parameters file does not exist")
+    run = checked_name(args.name or time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:8])
+    local = (args.local_directory or repository / "logs" / f"remote-ball-tuning-{run}").resolve()
+    resources = json.loads(ssh(args.host, ["python3", "-c", PROBE], capture_output=True, text=True).stdout)
+    workers = capacity(resources, args.workers)
+    # Authentication failures should not reserve an empty local run directory.
+    local.mkdir(parents=True, exist_ok=False)
+    manifest = dict(
+        run=run, host=args.host, remote=f"{TASK_BASE}/runs/{run}",
+        tmux_session="ball-filter-" + run.replace(".", "_") + "-" + hashlib.sha256(run.encode()).hexdigest()[:8],
+        git_head=subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repository, text=True).strip(),
+        workers=workers, build_jobs=capacity(resources, args.build_jobs), toolchain=args.toolchain,
+        trials=args.trials, seed=args.seed,
+        initial=bool(args.initial_parameters), resources=resources,
+        reference_frame=args.reference_frame, reference_topic=args.reference_topic,
+        namespace=args.namespace,
+    )
+    archive = snapshot(repository, recordings, args.initial_parameters, local, manifest)
+    # mkdir without exist_ok makes each remote run exclusive. All writes stay in
+    # our own cache subtree; the existing .REMOTE_WORKSPACE is deliberately ignored.
+    prepare = "from pathlib import Path; import sys; p=Path.home()/sys.argv[1]; p.parent.mkdir(parents=True, exist_ok=True); p.mkdir()"
+    ssh(args.host, ["python3", "-c", prepare, manifest["remote"]])
+    with archive.open("rb") as stream:
+        ssh(args.host, ["tar", "-xzf", "-", "-C", manifest["remote"]], stdin=stream)
+
+    pid = ssh(args.host, ["python3", "-c", TMUX_LAUNCH, manifest["remote"], manifest["tmux_session"]], capture_output=True, text=True).stdout.strip()
+    manifest["tmux_pane_pid"] = int(pid)
+    atomic_json(local / "manifest.json", manifest)
+    print(f"Controller started/building; {workers} workers planned, {args.trials} trials per continuous round.")
+    print(f"Manifest: {local / 'manifest.json'}")
+    print("Attach: " + shlex.join(["ssh", "-t", args.host, "tmux", "attach-session", "-t", "=" + manifest["tmux_session"]]))
+    print("Twix/live parameter application is not connected to these offline workers.")
+
+
+def tuner_command(root, manifest, worker, round_number, initial):
+    output = root / "results" / f"worker-{worker:02d}" / f"round-{round_number:06d}"
+    arguments = [str(root / "bin/ball-filter-tuner"), "--parameters", str(root / "data/baseline.json5"),
+                 "--train", *[str(root / "data" / name) for name in DATA_FILES[:4]],
+                 "--validation", *[str(root / "data" / name) for name in DATA_FILES[4:6]],
+                 "--reference-frame", manifest["reference_frame"],
+                 "--reference-topic", manifest["reference_topic"], "--namespace", manifest["namespace"],
+                 "--trials", str(manifest["trials"]), "--seed", str(manifest["seed"] + worker * 1_000_003 + round_number),
+                 "--output", str(output)]
+    if initial:
+        arguments += ["--initial-parameters", str(initial)]
+    return arguments, output
+
+
+def training_loss(report):
+    if not report.get("replay_matches_live") or not report.get("continuity_policy"):
+        raise ValueError("report lacks exact replay verification or training continuity policy")
+    loss = report["training"]["optimized"]["loss"]
+    if not math.isfinite(loss):
+        raise ValueError("nonfinite training loss")
+    return loss
+
+
+def run_remote():
+    import fcntl
+    root = Path(__file__).resolve().parent
+    manifest = json.loads((root / "manifest.json").read_text())
+    state = root / "status.json"
+    atomic_json(state, {"state": "building", "pid": os.getpid(), "tmux_session": manifest["tmux_session"]})
+    print(f"Building tuner with Rust {manifest['toolchain']}; follow {root / 'build.log'}", flush=True)
+    try:
+        # Share only this helper's build cache, serialize build+copy, and give
+        # every immutable run its own executable before starting any workers.
+        cache = Path.home() / TASK_BASE
+        cache.mkdir(exist_ok=True)
+        with (cache / "build.lock").open("a") as lock, (root / "build.log").open("w") as log:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            environment = dict(os.environ, CARGO_TARGET_DIR=str(cache / "target"))
+            subprocess.run(["cargo", "+" + manifest["toolchain"], "build", "--release", "--locked", "-j", str(manifest["build_jobs"]),
+                            "-p", "ball-filter-tuner"], cwd=root / "source", env=environment,
+                           stdout=log, stderr=subprocess.STDOUT, check=True)
+            (root / "bin").mkdir()
+            shutil.copy2(cache / "target/release/ball-filter-tuner", root / "bin/ball-filter-tuner")
+        atomic_json(root / "environment.json", {
+            "rustc": subprocess.check_output(["rustc", "+" + manifest["toolchain"], "--version"], text=True).strip(),
+            "binary_sha256": digest(root / "bin/ball-filter-tuner"),
+        })
+        atomic_json(state, {"state": "searching", "workers": manifest["workers"], "pid": os.getpid(),
+                            "tmux_session": manifest["tmux_session"]})
+        print(f"Build complete; starting {manifest['workers']} continuous workers.", flush=True)
+        best_lock = threading.Lock()
+        best_loss = math.inf
+
+        def worker(index):
+            nonlocal best_loss
+            initial = root / "data/initial.json5" if manifest["initial"] else None
+            round_number = 0
+            worker_state = root / f"worker-{index:02d}.json"
+            while True:
+                round_number += 1
+                command, output = tuner_command(root, manifest, index, round_number, initial)
+                output.parent.mkdir(parents=True, exist_ok=True)
+                print(f"Worker {index}: starting round {round_number}; log {output.with_suffix('.log')}", flush=True)
+                atomic_json(worker_state, {"state": "searching", "round": round_number, "output": str(output.relative_to(root))})
+                try:
+                    with output.with_suffix(".log").open("w") as log:
+                        subprocess.run(command, cwd=root / "source", stdout=log, stderr=subprocess.STDOUT, check=True)
+                    report = json.loads((output / "report.json").read_text())
+                    loss = training_loss(report)
+                    atomic_json(output / "complete.json", {"training_loss": loss})
+                    print(f"Worker {index}: completed round {round_number}, training loss {loss:.6f}", flush=True)
+                    with best_lock:
+                        if loss < best_loss:
+                            best_loss = loss
+                            print(f"New training best: worker {index}, round {round_number}, loss {loss:.6f}", flush=True)
+                            atomic_json(root / "best.json", {"training_loss": loss, "output": str(output.relative_to(root)),
+                                                             "worker": index, "round": round_number})
+                    initial = output / "ball_filter.json5"
+                except Exception as error:
+                    print(f"Worker {index} failed: {error}", flush=True)
+                    atomic_json(worker_state, {"state": "failed", "round": round_number, "error": str(error),
+                                               "log": str(output.with_suffix('.log').relative_to(root))})
+                    raise
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=manifest["workers"]) as executor:
+            futures = [executor.submit(worker, index) for index in range(manifest["workers"])]
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()
+                except Exception as error:
+                    atomic_json(state, {"state": "worker failed; inspect worker statuses", "error": str(error), "pid": os.getpid()})
+    except Exception as error:
+        print(f"Controller failed: {error}", flush=True)
+        atomic_json(state, {"state": "failed", "error": str(error), "log": "build.log"})
+        raise
+
+
+def export_results():
+    root = Path(__file__).resolve().parent
+    with tarfile.open(fileobj=sys.stdout.buffer, mode="w|gz") as bundle:
+        for name in ["manifest.json", "status.json", "best.json", "environment.json", "build.log", "controller.log"]:
+            if (root / name).is_file():
+                bundle.add(root / name, arcname=name)
+        for path in root.glob("worker-*.json"):
+            bundle.add(path, arcname=path.name)
+        for marker in sorted((root / "results").glob("worker-*/round-*/complete.json")):
+            # The controller commits this marker after the tuner exits successfully.
+            for name in ["report.json", "ball_filter.json5", "complete.json"]:
+                path = marker.parent / name
+                bundle.add(path, arcname=str(path.relative_to(root)))
+
+
+def inspect_or_fetch(args):
+    manifest = json.loads(args.manifest.read_text())
+    run = checked_name(manifest["run"])
+    remote = f"{TASK_BASE}/runs/{run}"
+    if args.command == "status":
+        command = """import json,sys
+from pathlib import Path
+root=Path.home()/sys.argv[1]
+for path in [root/'status.json', root/'best.json', *sorted(root.glob('worker-*.json'))]:
+    if path.is_file(): print(path.name+': '+path.read_text().strip())
+"""
+        ssh(manifest["host"], ["python3", "-c", command, remote])
+        return
+    output = args.output or args.manifest.resolve().parent / ("fetched-" + time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:6])
+    output.mkdir(parents=True, exist_ok=False)
+    archive = output / "results.tar.gz"
+    with archive.open("wb") as destination:
+        ssh(manifest["host"], ["python3", f"{remote}/controller.py", "_export"], stdout=destination)
+    with tarfile.open(archive) as bundle:
+        for member in bundle:
+            relative = Path(member.name)
+            if relative.is_absolute() or ".." in relative.parts or not member.isfile():
+                raise ValueError(f"unsafe result archive entry: {member.name}")
+            destination = output / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with bundle.extractfile(member) as source, destination.open("xb") as target:
+                shutil.copyfileobj(source, target)
+    reports = list((output / "results").glob("worker-*/round-*/report.json"))
+    if reports:
+        best = min(reports, key=lambda path: training_loss(json.loads(path.read_text())))
+        atomic_json(output / "selected.json", {"report": str(best.relative_to(output)),
+                                              "selection": "minimum training loss among continuity-guarded verified reports; holdout never used"})
+        print(f"Selected report: {best}")
+    print(f"Fetched: {output}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="command", required=True, metavar="{start,status,fetch}")
+    start_parser = commands.add_parser("start")
+    start_parser.add_argument("--host", default="remote-compiler")
+    start_parser.add_argument("--recordings", type=Path, required=True)
+    start_parser.add_argument("--initial-parameters", type=Path)
+    start_parser.add_argument("--workers", type=int, default=4)
+    start_parser.add_argument("--build-jobs", type=int, default=4)
+    start_parser.add_argument("--toolchain", default="1.98.1")
+    start_parser.add_argument("--trials", type=int, default=256)
+    start_parser.add_argument("--seed", type=int, default=7)
+    start_parser.add_argument("--name")
+    start_parser.add_argument("--local-directory", type=Path)
+    start_parser.add_argument("--reference-frame", choices=["ground", "field"], default="field")
+    start_parser.add_argument("--reference-topic", default="simulation/ball_ground_truth_field")
+    start_parser.add_argument("--namespace", default="")
+    for name in ["status", "fetch"]:
+        subparser = commands.add_parser(name)
+        subparser.add_argument("manifest", type=Path)
+        if name == "fetch":
+            subparser.add_argument("--output", type=Path)
+    commands.add_parser("_run")
+    commands.add_parser("_export")
+    args = parser.parse_args()
+    if args.command == "start":
+        if not 1 <= args.workers <= 32 or not 1 <= args.build_jobs <= 32 or args.trials < 1 or args.seed < 0:
+            parser.error("workers/build-jobs must be 1..32, trials positive, and seed nonnegative")
+        start(args)
+    elif args.command == "_run":
+        run_remote()
+    elif args.command == "_export":
+        export_results()
+    else:
+        inspect_or_fetch(args)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (ValueError, OSError, subprocess.CalledProcessError) as error:
+        sys.exit(str(error))

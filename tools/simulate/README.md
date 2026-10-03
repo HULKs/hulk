@@ -97,6 +97,40 @@ The panel's live map shows the robot and both ball positions on the field. Filte
 positions use the ground-to-field transform at their timestamp (within 20 ms);
 missing transforms are shown explicitly rather than placing the robot at the origin.
 
+For parameter searches on `remote-compiler`, reuse completed recordings and start
+independent workers in a named tmux session:
+
+```sh
+scripts/remote_ball_filter_tuning start \
+  --recordings logs/ball-tuning-20261003-filter-recovery \
+  --initial-parameters logs/ball-tuning-20261003-filter-recovery/optimized/ball_filter.json5 \
+  --workers 8 --build-jobs 8 --trials 256 --name retention-20261003
+```
+
+Use a new run name each time. The helper prints the local manifest path and the
+SSH/tmux attach command. Each worker runs continuously in bounded search rounds,
+with independent seeds and warm starts from its previous checkpoint. Detach from
+tmux with **Ctrl+B**, then **D**; disconnecting SSH does not stop the search.
+Inspect and download results using the printed manifest:
+
+```sh
+scripts/remote_ball_filter_tuning status logs/remote-ball-tuning-retention-20261003/manifest.json
+scripts/remote_ball_filter_tuning fetch logs/remote-ball-tuning-retention-20261003/manifest.json
+```
+
+This uploads an immutable source/data snapshot into the remote user's dedicated
+cache directory, builds only `ball-filter-tuner` with Rust 1.98.1, and keeps a
+separate executable and checkpoints per run. It leaves `/home/schluis/hulk`
+untouched. The remote needs that Rust toolchain, a C compiler, Python and tmux.
+Worker counts are bounded by available CPU/memory. Fetched best reports are
+selected using training loss and continuity eligibility; holdouts are evaluation
+only. The manifest records source/data hashes for reproducibility.
+
+These remote workers perform offline parameter search. Their progress and
+parameters are not yet connected to Twix or a local live simulator; use tmux and
+saved reports to inspect them. Local simulation/viewer commands above remain
+available independently.
+
 Optimization recordings and the default live preview contain one real ball,
 moved by MuJoCo impulses. This gives the error a single unambiguous target.
 Recordings with multiple reference balls are rejected by the optimizer.

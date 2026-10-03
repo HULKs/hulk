@@ -46,6 +46,67 @@ Retention policy follow-up (2026-10-03)
   with explicit Rust1.98.1 matching the local recording build.19 tunerunit tests
   pass, including retention-preserving warmstarts and continuity regressions.
 
+Remote execution validation (2026-10-03)
+- Retention policy checkpoint7645244b6;19 tunerunit tests pass. Remotehelper7 tests
+  pass, including SSHquoting/tmuxcommand construction and exclusionofpartialrounds.
+- Rust1.98.1 installed alongside remote default1.88; no default/toolchainoverride
+  or existing /home/schluis/hulk sources/target changed. Dedicatedbuildcache lives
+  under ~/.cache/hulk-ball-filter-tuning, immutable run retention-20261003.
+- Source+data snapshot uploaded; standalone releasebuild succeeded in1m50s.
+  Eight independent continuousworkers use256 candidates perround. Tmuxsession:
+  ball-filter-retention-20261003-838f06d5. Attach via:
+  ssh -t remote-compiler tmux attach-session -t =ball-filter-retention-20261003-838f06d5
+- Local manifest: logs/remote-ball-tuning-retention-20261003/manifest.json;
+  source/data hashes and archivedsnapshot preserve exactuploadedinputs.
+- First completedrounds downloaded withhelperfetch to
+  logs/remote-ball-tuning-retention-first-results. Training-selected winner among
+  first3 completedreports: worker04 round1. Replayexact;timeout20s, bothdecays and
+  outputthreshold remainidenticaltobaseline;25 lowerlosscandidates rejectedfor
+  continuityregression. Trainloss1.477901->1.371674, missing2.156->2.148s;
+  holdoutloss1.408064->1.138067, missing4.798->1.476s, longestgap3.504->.640s.
+- This is earlyevidence only: holdout closeRMSE .471809->.530216m and equivalent
+  motionlag .104775->.122465s stillworsen. Episode/nearball objectives below remain
+  necessary; improvedavailability doesnotestablish improvedkickingaccuracy.
+- Remoteprogress/liveparameterapplication is notyetwiredintoTwix; use tmux,
+  status/fetch and savedreports. Remotejobs surviveSSH/laptop disconnects.
+- SSH keyagent transientlyfailed; retryworked. Helpermultiplexes authenticated
+  connections for30min; tmuxworkers remainindependent if thecontrolsocketexpires.
+
+Next evaluation direction (user priorities, 2026-10-03)
+- Try genuinely different tuning approaches after defining task-level outcomes.
+  Current retention guards are an immediate safeguard, not the complete target.
+- Reacquisition: measure time from a usable post-occlusion observation to a stable,
+  accurate selected track. Report timeblind separately; no score should demand
+  impossible recovery before evidence. Count wrong-track persistence, failed
+  recovery episodes and latency tails, not only global mean missingtime.
+- Closed-loop robotfindingtime is different: fixedMCAP replay cannot change head
+  scanning, walking or behavior. Use fixedinput replay forfilterlatency and a
+  separate closed-loop simulation benchmark for the complete search behavior.
+- Hypothesis quality: nearest stored-hypothesis error versus selected-output
+  error identifies generation/prediction problems versus selection problems.
+  Also report uncertainty coverage/calibration, trackcount and false confident
+  hypotheses so spraying hypotheses does not win an oracle-nearest metric.
+  Tracker replay exposes all hypotheses; existing capture currently stores
+  selected output/percepts but not fullfilter_state. Keep ROS-Z for all additions.
+- Close ball: position and velocity errors, signed lag, high-percentile errors,
+  missingtime, and prediction error at expected kickcontacttime. Evaluate
+  stationary alignment, fastpass/redirect, contestedkick and reacquisition as
+  separate episodes. Choose distance/horizon thresholds from robotbehavior needs
+  before optimization; do not tune evaluation thresholds on heldout results.
+- Missing labels: existing fieldtruth/camera/schedule support much of this,
+  but true occlusion/firstobservable time and kickcontact events need reliable
+  annotation or ROS-Z diagnostics shared by simulation/realrecordings. Imagebounds
+  alone do not establish visibility. Record required changes outsidefilter here.
+- Once episode metrics exist, compare current greedy coordinate/randomsearch
+  against population-based or multiobjective search under equal evaluationbudget
+  and common seeds. Multiple independent remote workers improve exploration now;
+  they do not by themselves constitute a different optimization algorithm.
+- Freeze heldoutscenarios, add separate finaltest captures, report distributions
+  and failurecases. More trials on six clips cannot substitute for scenario
+  diversity (especially overrepresented out-of-field/teleport-absent scenes).
+- User requests tmux for remote runs: named sessions, attachable progress, durable
+  artifacts independent of SSH connection; separate from future Twix/live bridge.
+
 Completed plan: filter-only follow-up (2026-10-03)
 - User requested continuation focused on the filter, a written plan, and parallel
   subagents. Production changes stay inside crates/nodes/ball_filter. Required
