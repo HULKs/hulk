@@ -152,7 +152,7 @@ impl SimulatorRobotBundle {
             primary_state: SimulatorPrimaryState {
                 primary_state: PrimaryState::Damping,
             },
-            behavior: SimulatorRobotBehavior::with_standard_tree(),
+            behavior: SimulatorRobotBehavior::default(),
             parameters: SimulatorRobotParameters {
                 behavior: parameters,
                 walking: default_walking_parameters()?,
