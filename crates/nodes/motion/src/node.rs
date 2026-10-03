@@ -102,6 +102,11 @@ pub(super) async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("motion").build().await?;
     let parameters = node.bind_parameter_as::<Parameters>("motion")?;
     parameters.add_validation_hook(Parameters::validate)?;
+    // Inference owns and freezes its configuration until restart. Read the same
+    // startup layers without claiming another parameter binding or writable owner.
+    let inference_startup =
+        node.load_parameter_snapshot::<motion_inference::config::Parameters>("motion_inference")?;
+    inference_startup.typed().validate()?;
     let qos = QosProfile {
         reliability: QosReliability::BestEffort,
         history: QosHistory::from_depth(1),
@@ -151,7 +156,15 @@ pub(super) async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         timer.tick().await;
         let p = parameters.snapshot();
-        let command = cycle(&node, &inputs, &mut motion, &mut safety, p.typed()).await;
+        let command = cycle(
+            &node,
+            &inputs,
+            &mut motion,
+            &mut safety,
+            p.typed(),
+            &inference_startup.typed().locomotion,
+        )
+        .await;
         outputs.publish(&command).await?;
         statuses
             .publish(&safety.status(&command, &motion, node.clock().now()))
@@ -234,6 +247,7 @@ async fn cycle(
     motion: &mut MotionState,
     safety: &mut ControlSafety,
     p: &Parameters,
+    locomotion: &LocomotionParameters,
 ) -> RobotCommand {
     if let Ok(request) = inputs.commands.fresh(node.clock(), p.maximum_command_age)
         && matches!(request.received.message, MotionCommand::Damping)
@@ -265,7 +279,7 @@ async fn cycle(
         safety.stop(motion);
         return RobotCommand::Prepare;
     }
-    match run_policy(node, inputs, motion, safety, &frame, p).await {
+    match run_policy(node, inputs, motion, safety, &frame, p, locomotion).await {
         Ok(command) => {
             safety.has_actuated |= matches!(command, RobotCommand::Custom { .. });
             command
@@ -285,6 +299,7 @@ async fn run_policy(
     safety: &mut ControlSafety,
     frame: &Frame,
     p: &Parameters,
+    locomotion: &LocomotionParameters,
 ) -> Result<RobotCommand> {
     if let Some(fault) = &frame.hardware.received.fault {
         return Err(eyre!("hardware fault: {fault}"));
@@ -304,6 +319,7 @@ async fn run_policy(
         &frame.fall,
         frame.time,
         p,
+        locomotion,
     )?;
     if previous_phase != safety.recovery.phase() && safety.recovery.phase() != MotionPhase::Normal {
         motion.deactivate();

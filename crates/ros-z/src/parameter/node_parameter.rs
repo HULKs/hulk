@@ -65,6 +65,18 @@ impl<T> Drop for NodeParametersInner<T> {
 }
 
 pub trait NodeParametersExt {
+    /// Read typed startup configuration from this node's ordered parameter layers.
+    ///
+    /// This does not bind parameters, register services, or observe another node's
+    /// live parameters. It reads the files once using the same merge and decoding
+    /// rules as binding; callers must apply their own semantic validation.
+    fn load_parameter_snapshot<T>(
+        &self,
+        parameter_key: impl Into<ParameterKey>,
+    ) -> Result<NodeParametersSnapshot<T>>
+    where
+        T: Serialize + DeserializeOwned + Message + Send + Sync + 'static;
+
     /// Bind this node to a typed parameter set.
     ///
     /// Returns errors for invalid parameter keys, binding state, runtime loading,
@@ -112,6 +124,28 @@ where
 }
 
 impl NodeParametersExt for Node {
+    fn load_parameter_snapshot<T>(
+        &self,
+        parameter_key: impl Into<ParameterKey>,
+    ) -> Result<NodeParametersSnapshot<T>>
+    where
+        T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
+    {
+        let parameter_key = parameter_key.into();
+        validate_parameter_key(&parameter_key)?;
+        let layers = &self.runtime_parameter_inputs().parameter_layers;
+        if layers.is_empty() {
+            return Err(ParameterError::EmptyLayerList);
+        }
+        load_snapshot(
+            &self.node_entity().fully_qualified_name(),
+            &parameter_key,
+            layers,
+            self.clock(),
+            0,
+        )
+    }
+
     fn bind_parameter_as<T>(
         &self,
         parameter_key: impl Into<ParameterKey>,

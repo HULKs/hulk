@@ -764,3 +764,9 @@ Base-parameter promotion audit (2026-10-03)
   kick selector), with one existing simulator test ignored. Formatting passes.
   Log: logs/ball-near-kick-motion-tests.log. ROS-Z parameter integration suite
   and matching application builds are next; fresh 2x capture remains pending.
+- ROS-Z parameter integration suite now passes all 19 tests, including read-only
+  snapshot ownership and layer precedence. Log: logs/ball-near-kick-parameters-tests.log.
+- 09:16 UTC deadline change: user needs game parameters, current-main check, push
+  to schluis and a short draft PR within 15 minutes. Prioritize verified parameter
+  comparison and clean committed code; defer fresh viewer/32-worker handoff if
+  necessary. Existing remote search and 1x live preview continue.

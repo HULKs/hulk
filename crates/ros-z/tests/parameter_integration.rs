@@ -255,6 +255,50 @@ async fn bind_merge_set_and_subscribe_work() -> TestResult {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn startup_snapshot_reads_other_configuration_without_claiming_a_binding() -> TestResult {
+    let root = temp_parameter_root();
+    let layers = test_layers(&root, "read-only");
+    for key in ["ball_detector", "other_configuration"] {
+        write_layer_file(
+            &layers.base,
+            key,
+            r#"{ enabled: true, threshold: 0.5, nested: { count: 1 } }"#,
+        );
+    }
+    write_layer_file(
+        &layers.location,
+        "other_configuration",
+        r#"{ threshold: 0.8 }"#,
+    );
+    write_layer_file(
+        &layers.robot,
+        "other_configuration",
+        r#"{ nested: { count: 7 } }"#,
+    );
+    let context = build_ctx(&layers).await?;
+    let node = context.create_node("ball_detector").build().await?;
+
+    let startup = node.load_parameter_snapshot::<VisionParameters>("other_configuration")?;
+    assert_eq!(startup.typed().threshold, 0.8);
+    assert_eq!(startup.typed().nested.count, 7);
+    assert!(!*node.parameter_binding_state().lock());
+    let parameters = node.bind_parameter_as::<VisionParameters>("ball_detector")?;
+    let after_binding = node.load_parameter_snapshot::<VisionParameters>("other_configuration")?;
+    assert_eq!(after_binding.effective, startup.effective);
+    assert_eq!(parameters.snapshot().parameter_key, "ball_detector");
+    assert_eq!(parameters.snapshot().typed().threshold, 0.5);
+    assert!(
+        node.bind_parameter_as::<VisionParameters>("other_configuration")
+            .is_err()
+    );
+    assert!(matches!(
+        node.load_parameter_snapshot::<VisionParameters>("../other_configuration"),
+        Err(ParameterError::InvalidParameterKey { .. })
+    ));
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn second_bind_fails() -> TestResult {
     let root = temp_parameter_root();
     let layers = test_layers(&root, "b");

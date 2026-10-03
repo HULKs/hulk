@@ -14,6 +14,7 @@ use kinematics::joints::{
 };
 use linear_algebra::vector;
 use motion_inference::{
+    config::LocomotionParameters,
     inference::{
         GetUpCommand, InferenceCommand, InferenceRequest, InferenceResponse, KickCommand,
         PolicyExecution, WalkCommand, joints_are_finite,
@@ -41,7 +42,7 @@ use types::{
 
 use crate::{
     command::RobotCommand,
-    walking::{WalkingParameters, step_from_walk_command},
+    walking::{WalkingParameters, limit_generated_step, step_from_walk_command},
 };
 
 pub mod command;
@@ -152,6 +153,7 @@ impl MotionPlan {
     fn from_motion_command(
         motion_command: &MotionCommand,
         parameters: &WalkingParameters,
+        locomotion: &LocomotionParameters,
     ) -> Result<Self> {
         Ok(match motion_command {
             MotionCommand::Damping => Self::Damping,
@@ -204,6 +206,7 @@ impl MotionPlan {
                     *speed,
                     parameters,
                 )?;
+                let step = limit_generated_step(step, locomotion)?;
 
                 Self::Walk {
                     head_motion: *head,

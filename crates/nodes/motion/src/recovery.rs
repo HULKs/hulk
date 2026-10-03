@@ -134,6 +134,7 @@ impl Recovery {
         fall: &FallDetection,
         now: Time,
         p: &Parameters,
+        locomotion: &motion_inference::config::LocomotionParameters,
     ) -> Result<MotionPlan> {
         if let Stage::Recovering(attempt) = &self.stage {
             if !attempt.is_complete(fall, now, &p.recovery)? {
@@ -186,7 +187,7 @@ impl Recovery {
         if matches!(command, MotionCommand::StandUp { .. }) {
             return Ok(zero_walk(command));
         }
-        MotionPlan::from_motion_command(command, &p.walking)
+        MotionPlan::from_motion_command(command, &p.walking, locomotion)
     }
 
     fn when_fallen(
