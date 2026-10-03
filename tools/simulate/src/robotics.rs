@@ -422,12 +422,14 @@ impl Robotics {
         ground: nalgebra::Isometry3<f32>,
         ball: Option<([f64; 3], [f64; 3])>,
         obstacles: Vec<[f64; 3]>,
+        obstacle_radii: [f32; 2],
         time: Time,
     ) -> Result<()> {
         self.runtime.block_on(self.behavior_inputs.publish(
             ground,
             ball,
             obstacles,
+            obstacle_radii,
             self.input_game.global_field_side,
             time,
         ))
@@ -755,8 +757,14 @@ mod tests {
                 let time = Time::from_nanos((world.data().time() * 1e9).round() as i64);
                 io.publish_observation(binding.observe(world.data()), time)
                     .unwrap();
-                io.publish_world(binding.ground_to_world(world.data()), None, vec![], time)
-                    .unwrap();
+                io.publish_world(
+                    binding.ground_to_world(world.data()),
+                    None,
+                    vec![],
+                    [0.25, 0.3],
+                    time,
+                )
+                .unwrap();
                 io.publish_inputs().unwrap();
                 driven += usize::from(
                     io.latest_command()
@@ -1246,6 +1254,7 @@ mod tests {
                 nalgebra::Isometry3::identity(),
                 Some(([1.5, 0.0, 0.05], [0.2, 0.0, 0.0])),
                 vec![[2.0, 1.0, 0.0]],
+                [0.4, 0.4],
                 time,
             )
             .unwrap();
@@ -1303,6 +1312,12 @@ mod tests {
         assert!((ball.ball_in_ground.x() - 1.5).abs() < 1e-5);
         assert!((ball.ball_in_ground_velocity.x() - 0.2).abs() < 1e-5);
         assert_eq!(board.world_state.obstacles.len(), 1);
+        assert_eq!(
+            board.world_state.obstacles[0].kind,
+            types::obstacles::ObstacleKind::Robot
+        );
+        assert_eq!(board.world_state.obstacles[0].radius_at_foot_height, 0.4);
+        assert_eq!(board.world_state.obstacles[0].radius_at_hip_height, 0.4);
         assert!(
             board
                 .world_state

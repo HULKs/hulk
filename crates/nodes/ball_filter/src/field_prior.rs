@@ -100,6 +100,7 @@ mod tests {
             last_seen: Time::zero(),
             validity,
             motion_evidence: None,
+            negative_evidence: None,
         }
     }
 

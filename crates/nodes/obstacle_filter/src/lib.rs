@@ -1,4 +1,4 @@
-use std::{boxed::Box, future::Future, pin::Pin};
+use std::{boxed::Box, collections::BTreeMap, future::Future, pin::Pin};
 use std::{sync::Arc, time::Duration};
 
 use color_eyre::Result;
@@ -10,8 +10,8 @@ use na::Matrix2;
 use nalgebra as na;
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{Field, Ground};
-use linear_algebra::{IntoFramed, Isometry2, Point2, point};
+use coordinate_systems::{Field, Ground, Odometry};
+use linear_algebra::{IntoFramed, Isometry2, Point2, Pose2, point};
 use projection::{Projection, camera_matrix::CameraMatrix};
 use ros_z::{prelude::*, qos::QosDurability, time::Time};
 use ros_z_streams::CreateFutureMapBuilder;
@@ -34,6 +34,8 @@ use types::{
 struct ObstacleFilter {
     hypotheses: Vec<Hypothesis>,
     last_primary_state: PrimaryState,
+    ground_frame: Option<(Time, Pose2<Odometry>)>,
+    last_detection_time: Option<Time>,
 }
 
 impl Default for ObstacleFilter {
@@ -41,11 +43,14 @@ impl Default for ObstacleFilter {
         Self {
             hypotheses: Vec::new(),
             last_primary_state: PrimaryState::Damping,
+            ground_frame: None,
+            last_detection_time: None,
         }
     }
 }
 
 struct ObstacleFilterOutput {
+    time: Time,
     hypotheses: Vec<Hypothesis>,
     obstacles: Vec<Obstacle>,
 }
@@ -75,7 +80,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let camera_matrix_cache = node
         .subscriber::<TimeWrapper<CameraMatrix>>("camera_matrix")
-        .cache(10)
+        .cache(200)
         .with_stamp(|wrapper| wrapper.time)
         .build()
         .await?;
@@ -96,11 +101,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
-    let current_odometry_to_last_odometry_cache = node
-        .subscriber::<na::Isometry2<f32>>("current_odometry_to_last_odometry")
-        .cache(10)
-        .build()
-        .await?;
     let primary_state_cache = node
         .subscriber::<PrimaryState>("primary_state")
         .qos(QosProfile {
@@ -112,7 +112,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let ground_to_field_cache = node
         .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
-        .cache(10)
+        .cache(200)
         .build()
         .await?;
     let fall_detection_cache = node
@@ -127,6 +127,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let mut detections = node
         .create_future_map_builder()
+        .create_future_subscriber::<Pose2<Odometry>>("inputs/odometry", Duration::from_millis(1))
+        .await?
         .create_future_subscriber::<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>(
             "detected_objects",
             Duration::from_millis(50),
@@ -141,6 +143,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let obstacles_pub = node.publisher::<Vec<Obstacle>>("obstacles").build().await?;
 
     let mut obstacle_filter = ObstacleFilter::default();
+    let mut odometry_history = BTreeMap::new();
     let mut last_processed_player_state_times = Players::new(None);
     loop {
         tokio::select! {
@@ -154,22 +157,36 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         return Vec::new();
                     };
                     let mut outputs = Vec::new();
-                    for (detection_time, (detected_objects,)) in item.persistent {
-                        let detected_objects = detected_objects
-                            .map(|detected_objects| detected_objects.inner)
-                            .unwrap_or_default();
-                        let camera_matrix = camera_matrix_cache.get_nearest(detection_time);
-                        let current_odometry_to_last_odometry =
-                            current_odometry_to_last_odometry_cache.get_nearest(detection_time);
-                        let ground_to_field = ground_to_field_cache.get_nearest(detection_time);
+                    for (detection_time, (odometry, detected_objects)) in item.persistent {
+                        if let Some(pose) = odometry {
+                            odometry_history.insert(detection_time, pose);
+                            while odometry_history.len() > 1000 {
+                                odometry_history.pop_first();
+                            }
+                        }
+                        let camera_matrix = camera_matrix_cache.get_nearest(detection_time)
+                            .filter(|camera| frame_stamp_is_recent(detection_time, camera.time));
+                        let odometry = odometry_history.range(..=detection_time).next_back()
+                            .filter(|(stamp, _)| detection_time.duration_since(**stamp) <= Duration::from_millis(2))
+                            .map(|(_, pose)| *pose);
+                        let ground_to_field = ground_to_field_cache.get_nearest_with_stamp(detection_time)
+                            .filter(|(stamp, _)| frame_stamp_is_recent(detection_time, *stamp))
+                            .map(|(_, pose)| pose);
 
-                        obstacle_filter.process_detection(
-                            detection_time,
-                            parameters,
-                            &detected_objects,
-                            camera_matrix.as_ref().map(|wrapper| &wrapper.inner),
-                            current_odometry_to_last_odometry.as_ref().map(Arc::as_ref),
-                        );
+                        let advanced = if let Some(detected_objects) = detected_objects {
+                            obstacle_filter.process_detection(
+                                detection_time,
+                                parameters,
+                                &detected_objects.inner,
+                                camera_matrix.as_ref().map(|wrapper| &wrapper.inner),
+                                odometry,
+                            )
+                        } else {
+                            odometry.is_some_and(|pose| obstacle_filter.advance_ground_frame(
+                                detection_time, pose, na::Vector2::zeros(),
+                            ))
+                        };
+                        if !advanced { continue; }
 
                         let primary_state = primary_state_cache
                             .get_latest()
@@ -178,7 +195,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         let fall_detection = fall_detection_cache.get_latest();
 
                         let obstacles = obstacle_filter.compose_outputs(
-                            node.clock().now(),
+                            detection_time,
                             parameters,
                             field_dimensions.as_ref(),
                             ground_to_field.as_ref().map(Arc::as_ref),
@@ -186,6 +203,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                             fall_detection.as_ref().map(Arc::as_ref),
                         );
                         outputs.push(ObstacleFilterOutput {
+                            time: detection_time,
                             hypotheses: obstacle_filter.hypotheses.clone(),
                             obstacles,
                         });
@@ -195,9 +213,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 for output in outputs {
                     obstacle_filter_hypotheses_pub
-                        .publish(&output.hypotheses)
+                        .publish_with_source_time(&output.hypotheses, output.time)
                         .await?;
-                    obstacles_pub.publish(&output.obstacles).await?;
+                    obstacles_pub.publish_with_source_time(&output.obstacles, output.time).await?;
                 }
             }
             received_player_states = player_states_subscriber.recv() => {
@@ -205,6 +223,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let parameters = parameters_snapshot.typed();
                 let player_states = received_player_states?;
                 let output = block_in_place(|| {
+                    let (frame_time, _) = obstacle_filter.ground_frame?;
+                    let ground_to_field = ground_to_field_cache.get_nearest_with_stamp(frame_time)
+                        .filter(|(stamp, _)| frame_stamp_is_recent(frame_time, *stamp))?
+                        .1;
                     let own_player_number = player_number_cache
                         .get_latest()
                         .map(|player_number| *player_number);
@@ -213,23 +235,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         own_player_number,
                         &mut last_processed_player_state_times,
                     );
-                    let mut last_ground_to_field = None;
                     let mut processed_player_state = false;
 
                     for (player_state_time, player_state) in network_player_states {
-                        let Some(ground_to_field) =
-                            ground_to_field_cache.get_nearest(player_state_time)
-                        else {
-                            continue;
-                        };
-
                         obstacle_filter.process_network_player_state(
                             player_state_time,
                             parameters,
                             &player_state,
                             ground_to_field.as_ref(),
                         );
-                        last_ground_to_field = Some(ground_to_field);
                         processed_player_state = true;
                     }
 
@@ -245,15 +259,16 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     let fall_detection = fall_detection_cache.get_latest();
 
                     let obstacles = obstacle_filter.compose_outputs(
-                        node.clock().now(),
+                        frame_time,
                         parameters,
                         field_dimensions.as_ref(),
-                        last_ground_to_field.as_ref().map(Arc::as_ref),
+                        Some(ground_to_field.as_ref()),
                         primary_state,
                         fall_detection.as_ref().map(Arc::as_ref),
                     );
 
                     Some(ObstacleFilterOutput {
+                        time: frame_time,
                         hypotheses: obstacle_filter.hypotheses.clone(),
                         obstacles,
                     })
@@ -261,13 +276,19 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 if let Some(output) = output {
                     obstacle_filter_hypotheses_pub
-                        .publish(&output.hypotheses)
+                        .publish_with_source_time(&output.hypotheses, output.time)
                         .await?;
-                    obstacles_pub.publish(&output.obstacles).await?;
+                    obstacles_pub.publish_with_source_time(&output.obstacles, output.time).await?;
                 }
             }
         }
     }
+}
+
+// This is a source-geometry tolerance, not message delivery latency. Never mark
+// an old Ground frame as fresh simply because the filter processed it recently.
+fn frame_stamp_is_recent(frame: Time, sample: Time) -> bool {
+    frame.abs_diff(sample) <= Duration::from_millis(20)
 }
 
 impl ObstacleFilter {
@@ -277,16 +298,22 @@ impl ObstacleFilter {
         parameters: &ObstacleFilterParameters,
         detected_objects: &[Object<RobocupObjectLabel>],
         camera_matrix: Option<&CameraMatrix>,
-        current_odometry_to_last_odometry: Option<&na::Isometry2<f32>>,
-    ) {
-        let current_odometry_to_last_odometry = current_odometry_to_last_odometry
-            .copied()
-            .unwrap_or_default();
-        self.predict_hypotheses_with_odometry(
-            current_odometry_to_last_odometry.inverse(),
-            Matrix2::from_diagonal(&parameters.process_noise),
-        );
+        odometry: Option<Pose2<Odometry>>,
+    ) -> bool {
+        if self
+            .last_detection_time
+            .is_some_and(|previous| detection_time <= previous)
+        {
+            return false;
+        }
+        let Some(odometry) = odometry else {
+            return false;
+        };
+        if !self.advance_ground_frame(detection_time, odometry, parameters.process_noise) {
+            return false;
+        }
 
+        self.last_detection_time = Some(detection_time);
         if let Some(camera_matrix) = camera_matrix
             && parameters.use_detected_objects
         {
@@ -304,6 +331,33 @@ impl ObstacleFilter {
                 );
             }
         }
+        true
+    }
+
+    /// Follow every committed absolute-odometry sample, including camera silence.
+    /// Fusion orders delayed images before newer persistent odometry; a detector
+    /// at the current stamp is valid, independently of detector deduplication.
+    /// Odometry-only calls supply zero noise: process noise is charged once per
+    /// actual detector frame, preserving its existing calibration.
+    /// This timestamp describes coordinates, not fresh visual confirmation;
+    /// hypothesis.last_update still governs expiry during camera silence.
+    fn advance_ground_frame(
+        &mut self,
+        time: Time,
+        odometry: Pose2<Odometry>,
+        process_noise: na::Vector2<f32>,
+    ) -> bool {
+        if let Some((previous_time, previous_pose)) = self.ground_frame {
+            if time < previous_time {
+                return false;
+            }
+            self.predict_hypotheses_with_odometry(
+                types::odometry::previous_to_current(previous_pose, odometry).inner,
+                Matrix2::from_diagonal(&process_noise),
+            );
+        }
+        self.ground_frame = Some((time, odometry));
+        true
     }
 
     fn process_network_player_state(
@@ -623,6 +677,215 @@ fn calculate_goal_post_positions(
 mod tests {
     use super::*;
     use types::obstacles::ObstacleKind;
+
+    #[test]
+    fn odometry_only_updates_keep_current_coordinates_without_multiplying_noise() {
+        let mut filter = ObstacleFilter::default();
+        let start = Time::from_nanos(1_000_000_000);
+        filter.advance_ground_frame(start, Pose2::default(), na::Vector2::zeros());
+        filter.spawn_hypothesis(
+            point![3.0, 1.0],
+            ObstacleKind::Robot,
+            start,
+            Matrix2::identity(),
+        );
+        for tick in 1..=500 {
+            let fraction = tick as f32 / 500.0;
+            filter.advance_ground_frame(
+                start + Duration::from_millis(tick * 2),
+                Pose2::new(
+                    point![fraction, 0.0],
+                    fraction * std::f32::consts::FRAC_PI_2,
+                ),
+                na::Vector2::zeros(),
+            );
+        }
+        assert!((filter.hypotheses[0].state.mean - na::vector![1.0, -2.0]).norm() < 1e-3);
+        assert!((filter.hypotheses[0].state.covariance - Matrix2::identity()).norm() < 1e-3);
+        assert_eq!(filter.hypotheses[0].last_update, start);
+        let time = start + Duration::from_secs(1);
+        let pose = filter.ground_frame.unwrap().1;
+        let parameters = ObstacleFilterParameters {
+            process_noise: na::vector![0.2, 0.2],
+            ..Default::default()
+        };
+        assert!(filter.process_detection(time, &parameters, &[], None, Some(pose)));
+        let covariance = filter.hypotheses[0].state.covariance;
+        assert!((covariance - Matrix2::identity() * 1.2).norm() < 1e-3);
+        assert!(!filter.process_detection(time, &parameters, &[], None, Some(pose)));
+        assert_eq!(filter.hypotheses[0].state.covariance, covariance);
+    }
+
+    #[test]
+    fn detector_at_current_odometry_stamp_associates_once_after_walking() {
+        use linear_algebra::{Isometry3, vector};
+        let camera = CameraMatrix::from_normalized_focal_and_center(
+            na::vector![0.5, 0.5],
+            na::point![0.5, 0.5],
+            vector![640.0, 544.0],
+            Isometry3::identity(),
+            Isometry3::identity(),
+            Isometry3::from_translation(0.0, 0.0, 1.0),
+        );
+        let original = camera.pixel_to_ground(point![320.0, 400.0]).unwrap();
+        let object_at = |position| {
+            let pixel = camera.ground_to_pixel(position).unwrap();
+            Object::<RobocupObjectLabel>::from([
+                pixel.x() - 10.0,
+                pixel.y() - 40.0,
+                pixel.x() + 10.0,
+                pixel.y(),
+                1.0,
+                4.0,
+            ])
+        };
+        let parameters = ObstacleFilterParameters {
+            use_detected_objects: true,
+            object_detection_measurement_matching_distance: 0.05,
+            robot_measurement_noise: na::vector![0.1, 0.1],
+            process_noise: na::vector![0.005, 0.005],
+            ..Default::default()
+        };
+        let mut filter = ObstacleFilter::default();
+        let start = Time::from_nanos(1_000_000_000);
+        assert!(filter.process_detection(
+            start,
+            &parameters,
+            &[object_at(original)],
+            Some(&camera),
+            Some(Pose2::default())
+        ));
+        let pose = Pose2::new(point![0.2, 0.0], 0.1);
+        let time = start + Duration::from_millis(40);
+        assert!(filter.advance_ground_frame(time, pose, na::Vector2::zeros()));
+        let current = types::odometry::previous_to_current(Pose2::default(), pose) * original;
+        assert!(filter.process_detection(
+            time,
+            &parameters,
+            &[object_at(current)],
+            Some(&camera),
+            Some(pose)
+        ));
+        assert_eq!(filter.hypotheses.len(), 1);
+        assert_eq!(filter.hypotheses[0].measurement_count, 2);
+        assert!((filter.hypotheses[0].state.mean - current.inner.coords).norm() < 1e-5);
+        assert!(!filter.process_detection(
+            time,
+            &parameters,
+            &[object_at(current)],
+            Some(&camera),
+            Some(pose)
+        ));
+        assert_eq!(filter.hypotheses[0].measurement_count, 2);
+    }
+
+    #[test]
+    fn camera_silence_still_expires_obstacles_as_odometry_advances() {
+        let mut filter = ObstacleFilter::default();
+        let start = Time::from_nanos(1_000_000_000);
+        filter.advance_ground_frame(start, Pose2::default(), na::Vector2::zeros());
+        filter.spawn_hypothesis(
+            point![3.0, 1.0],
+            ObstacleKind::Robot,
+            start,
+            Matrix2::identity(),
+        );
+        let parameters = ObstacleFilterParameters {
+            hypothesis_timeout: Duration::from_millis(100),
+            ..Default::default()
+        };
+        let time = start + Duration::from_millis(101);
+        filter.advance_ground_frame(
+            time,
+            Pose2::new(point![0.1, 0.0], 0.0),
+            na::Vector2::zeros(),
+        );
+        let obstacles = filter.compose_outputs(
+            time,
+            &parameters,
+            &FieldDimensions::SPL_2025,
+            None,
+            PrimaryState::Damping,
+            None,
+        );
+        assert!(obstacles.is_empty());
+        assert!(filter.hypotheses.is_empty());
+        assert_eq!(filter.ground_frame.unwrap().0, time);
+    }
+
+    #[test]
+    fn ground_frame_integrates_the_entire_walk_and_turn_between_images() {
+        let mut filter = ObstacleFilter::default();
+        let start = Time::from_nanos(1_000_000_000);
+        assert!(filter.advance_ground_frame(
+            start,
+            Pose2::new(point![0.0, 0.0], 0.0),
+            na::Vector2::zeros(),
+        ));
+        filter.spawn_hypothesis(
+            point![3.0, 1.0],
+            ObstacleKind::Robot,
+            start,
+            Matrix2::identity(),
+        );
+        // Many unobserved odometry ticks occurred between these images. A full
+        // metre of translation and a quarter turn must both be compensated.
+        let next = start + Duration::from_millis(40);
+        let pose = Pose2::new(point![1.0, 0.0], std::f32::consts::FRAC_PI_2);
+        assert!(filter.advance_ground_frame(next, pose, na::Vector2::zeros()));
+        let position = filter.hypotheses[0].state.mean;
+        assert!((position - na::vector![1.0, -2.0]).norm() < 1e-5);
+        assert!(!filter.advance_ground_frame(start, Pose2::default(), na::Vector2::zeros()));
+        assert!(filter.advance_ground_frame(next, pose, na::Vector2::zeros()));
+        assert_eq!(filter.hypotheses[0].state.mean, position);
+        assert_eq!(filter.ground_frame.unwrap().0, next);
+    }
+
+    #[test]
+    fn missing_odometry_cannot_relabel_an_old_ground_frame() {
+        let mut filter = ObstacleFilter::default();
+        let time = Time::from_nanos(1_000_000_000);
+        let parameters = ObstacleFilterParameters::default();
+        assert!(!filter.process_detection(time, &parameters, &[], None, None));
+        assert!(filter.ground_frame.is_none());
+        assert!(filter.process_detection(time, &parameters, &[], None, Some(Pose2::default())));
+        assert!(!filter.process_detection(
+            time + Duration::from_secs(1),
+            &parameters,
+            &[],
+            None,
+            None
+        ));
+        assert_eq!(filter.ground_frame.unwrap().0, time);
+    }
+
+    #[test]
+    fn network_measurement_uses_existing_ground_frame_not_delivery_frame() {
+        let mut filter = ObstacleFilter::default();
+        let frame_time = Time::from_nanos(1_000_000_000);
+        let pose = Pose2::new(point![1.0, 0.0], std::f32::consts::FRAC_PI_2);
+        filter.advance_ground_frame(frame_time, pose, na::Vector2::zeros());
+        let frame_to_field = Isometry2::from_parts(
+            linear_algebra::vector![1.0, 0.0],
+            std::f32::consts::FRAC_PI_2,
+        );
+        let teammate = PlayerState {
+            pose: point![3.0, 1.0].into(),
+            ball_position: None,
+        };
+        filter.process_network_player_state(
+            frame_time + Duration::from_millis(50),
+            &ObstacleFilterParameters::default(),
+            &teammate,
+            &frame_to_field,
+        );
+        assert!((filter.hypotheses[0].state.mean - na::vector![1.0, -2.0]).norm() < 1e-5);
+        assert_eq!(filter.ground_frame.unwrap().0, frame_time);
+        assert_eq!(
+            filter.hypotheses[0].last_update,
+            frame_time + Duration::from_millis(50)
+        );
+    }
 
     #[test]
     fn obstacle_filter_starts_without_hypotheses() {

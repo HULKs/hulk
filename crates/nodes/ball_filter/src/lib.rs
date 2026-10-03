@@ -19,6 +19,7 @@ use types::{
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
     object_detection::{Object, RobocupObjectLabel},
+    obstacles::Obstacle,
     odometry,
     parameters::BallFilterParameters,
     time_wrapper::TimeWrapper,
@@ -32,6 +33,8 @@ pub use crate::{
 mod field_prior;
 mod filter;
 mod hypothesis;
+mod negative_evidence;
+mod obstacle_input;
 pub mod tracker;
 use tracker::{InputStamp, Tracker, UpdateSchedule, camera_is_recent};
 
@@ -45,6 +48,7 @@ struct BallFilterOutput {
     hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
     schedule: UpdateSchedule,
     field_prior_pose: Option<Isometry2<Ground, Field>>,
+    obstacle_inputs: Vec<TimeWrapper<Option<TimeWrapper<Vec<Obstacle>>>>>,
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -79,6 +83,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let mut field_poses = field_prior::FieldPoseHistory::default();
+    let obstacle_sub = node
+        .subscriber::<Vec<Obstacle>>("obstacles")
+        .build()
+        .await?;
+    let selected_obstacles_pub = node
+        .publisher::<TimeWrapper<Option<TimeWrapper<Vec<Obstacle>>>>>(
+            tracker::SELECTED_OBSTACLES_TOPIC,
+        )
+        .build()
+        .await?;
+    let mut obstacles = obstacle_input::ObstacleHistory::default();
     let mut future_map = node
         .create_future_map_builder()
         .create_future_subscriber::<Pose2<Odometry>>("inputs/odometry", Duration::from_millis(1))
@@ -131,6 +146,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 field_poses.insert(received.source_time, received.message);
                 continue;
             }
+            received = obstacle_sub.recv_with_metadata() => {
+                let received = received?;
+                obstacles.insert(received.source_time, received.message);
+                continue;
+            }
             item = future_map.recv() => item?,
         };
         let parameters_snapshot = parameters.snapshot();
@@ -152,6 +172,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     .map(|(time, _)| *time)
             });
             let mut ball_percepts = Vec::new();
+            let mut obstacle_inputs = Vec::new();
 
             let mut schedule = UpdateSchedule {
                 sequence,
@@ -165,11 +186,22 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     detections: detected_objects.is_some(),
                     camera_time: camera.as_ref().map(|c| c.time),
                 });
-                ball_percepts.extend(tracker.advance(
+                let selected_obstacles = if detected_objects.is_some() {
+                    let selected = obstacles.at(time, parameters.maximum_obstacle_time_difference);
+                    obstacle_inputs.push(TimeWrapper {
+                        time,
+                        inner: selected.clone(),
+                    });
+                    selected
+                } else {
+                    None
+                };
+                ball_percepts.extend(tracker.advance_with_obstacles(
                     time,
                     odometry_pose,
                     detected_objects.as_ref().map(|d| d.inner.as_slice()),
                     camera.as_deref(),
+                    selected_obstacles.as_ref(),
                     parameters,
                     &field_dimensions,
                 )?);
@@ -245,9 +277,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 hypothetical_ball_positions,
                 schedule,
                 field_prior_pose,
+                obstacle_inputs,
             })
         })?;
 
+        for obstacles in &output.obstacle_inputs {
+            selected_obstacles_pub
+                .publish_with_source_time(obstacles, obstacles.time)
+                .await?;
+        }
         ball_percepts_pub.publish(&output.ball_percepts).await?;
         best_ball_hypothesis_pub
             .publish(&output.best_hypothesis)
@@ -322,6 +360,7 @@ fn advance_all_hypotheses(
     time: Time,
     ball_percepts: &[BallPercept],
     camera_matrix: Option<&CameraMatrix>,
+    obstacles: Option<&[Obstacle]>,
     filter_parameters: &BallFilterParameters,
     field_dimensions: &FieldDimensions,
 ) -> Result<()> {
@@ -334,6 +373,7 @@ fn advance_all_hypotheses(
             hypothesis,
             camera_matrix,
             field_dimensions.ball_radius,
+            obstacles,
             filter_parameters,
         )
     });
@@ -383,6 +423,33 @@ fn advance_all_hypotheses(
                 Matrix4::from_diagonal(&filter_parameters.noise.initial_covariance),
             );
         }
+    }
+
+    if !filter_parameters.visible_missed_detection_timeout.is_zero() {
+        ball_filter.hypotheses.retain_mut(|hypothesis| {
+            if hypothesis.last_seen == time {
+                hypothesis.negative_evidence = None;
+                return true;
+            }
+            let clearly_visible = camera_matrix.is_some_and(|camera| {
+                negative_evidence::clearly_visible(
+                    &hypothesis.position(),
+                    camera,
+                    field_dimensions.ball_radius,
+                    obstacles,
+                )
+            });
+            let evidence = hypothesis
+                .negative_evidence
+                .get_or_insert_with(Default::default);
+            if clearly_visible {
+                !evidence
+                    .observe_clear_miss(time, filter_parameters.visible_missed_detection_timeout)
+            } else {
+                evidence.pause();
+                true
+            }
+        });
     }
 
     Ok(())
@@ -557,11 +624,16 @@ fn decide_validity_decay_for_hypothesis(
     hypothesis: &BallHypothesis,
     camera_matrix: Option<&CameraMatrix>,
     ball_radius: f32,
+    obstacles: Option<&[Obstacle]>,
     configuration: &BallFilterParameters,
 ) -> f32 {
     let is_ball_in_view = camera_matrix.is_some_and(|camera_matrix| {
         let ball = hypothesis.position();
-        is_visible_to_camera(&ball, camera_matrix, ball_radius)
+        if configuration.visible_missed_detection_timeout.is_zero() {
+            is_visible_to_camera(&ball, camera_matrix, ball_radius)
+        } else {
+            negative_evidence::clearly_visible(&ball, camera_matrix, ball_radius, obstacles)
+        }
     });
 
     match is_ball_in_view {
@@ -684,6 +756,7 @@ mod tests {
             last_seen: Time::zero(),
             validity: 2.0,
             motion_evidence: None,
+            negative_evidence: None,
         };
         let mut filter = BallFilter {
             hypotheses: vec![old_track],
@@ -702,6 +775,7 @@ mod tests {
             &mut solver,
             time,
             &[percept],
+            None,
             None,
             &parameters,
             &dimensions,
@@ -728,6 +802,7 @@ mod tests {
                 &mut solver,
                 time,
                 &[percept],
+                None,
                 None,
                 &parameters,
                 &dimensions,
@@ -763,6 +838,7 @@ mod tests {
                 last_seen: Time::zero(),
                 validity: 25.0,
                 motion_evidence: None,
+                negative_evidence: None,
             }],
         };
         let mut solver = AssignmentSolver::default();
@@ -790,6 +866,7 @@ mod tests {
                 &mut solver,
                 time,
                 &[percept],
+                None,
                 None,
                 &parameters,
                 &dimensions,
@@ -861,6 +938,7 @@ mod tests {
             last_seen: Time::zero(),
             validity: 0.0,
             motion_evidence: None,
+            negative_evidence: None,
         };
         let hypothesis2 = BallHypothesis {
             mode: BallMode::Moving(MultivariateNormalDistribution {
@@ -870,6 +948,7 @@ mod tests {
             last_seen: Time::zero(),
             validity: 0.0,
             motion_evidence: None,
+            negative_evidence: None,
         };
 
         let percept1 = BallPercept {

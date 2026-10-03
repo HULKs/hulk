@@ -34,6 +34,9 @@ pub struct BallHypothesis {
     /// Explicit diagnostic state, shared by live filtering and input replay.
     #[serde(default)]
     pub motion_evidence: Option<MotionEvidence>,
+    /// Accumulated clear detector exposure, never elapsed occlusion time.
+    #[serde(default)]
+    pub negative_evidence: Option<crate::negative_evidence::NegativeEvidence>,
 }
 
 impl BallHypothesis {
@@ -43,6 +46,7 @@ impl BallHypothesis {
             last_seen,
             validity: 1.0,
             motion_evidence: None,
+            negative_evidence: None,
         }
     }
 
@@ -141,6 +145,7 @@ impl BallHypothesis {
             return;
         }
         self.last_seen = detection_time;
+        self.negative_evidence = None;
         self.validity += validity_bonus;
 
         match &mut self.mode {
@@ -174,6 +179,7 @@ impl BallHypothesis {
                 );
                 self.validity = self.validity.max(other.validity);
                 self.last_seen = self.last_seen.max(other.last_seen);
+                self.negative_evidence = None;
                 // Evidence from distinct tracks must not be concatenated.
                 self.motion_evidence = None;
             }
@@ -186,6 +192,7 @@ impl BallHypothesis {
                 );
                 self.validity = self.validity.max(other.validity);
                 self.last_seen = self.last_seen.max(other.last_seen);
+                self.negative_evidence = None;
                 // Evidence from distinct tracks must not be concatenated.
                 self.motion_evidence = None;
             }
@@ -236,6 +243,7 @@ mod tests {
             last_seen: Time::zero(),
             validity: 4.0,
             motion_evidence: None,
+            negative_evidence: None,
         }
     }
 
@@ -458,7 +466,12 @@ mod tests {
                 } else {
                     (earlier, later)
                 };
+                survivor.negative_evidence = Some(crate::negative_evidence::NegativeEvidence {
+                    visible_missed_duration: Duration::from_millis(120),
+                    last_clear_frame: Some(Time::from_nanos(200_000_000)),
+                });
                 survivor.merge(removed);
+                assert!(survivor.negative_evidence.is_none());
                 assert_eq!(survivor.last_seen, Time::from_nanos(80_000_000));
                 assert_eq!(survivor.validity, 10.0);
             }
@@ -470,6 +483,10 @@ mod tests {
         let mut resting = resting_hypothesis();
         observe(&mut resting, 40, 0.04, 0.0);
         observe(&mut resting, 80, 0.08, 0.0);
+        resting.negative_evidence = Some(crate::negative_evidence::NegativeEvidence {
+            visible_missed_duration: Duration::from_millis(120),
+            last_clear_frame: Some(Time::from_nanos(200_000_000)),
+        });
         let before = resting.position();
         let before_covariance = resting.position_covariance();
         let moving = BallHypothesis::new(
@@ -480,6 +497,18 @@ mod tests {
             Time::from_nanos(1_000_000_000),
         );
         resting.merge(moving.clone());
+        assert_eq!(
+            resting
+                .negative_evidence
+                .as_ref()
+                .unwrap()
+                .visible_missed_duration,
+            Duration::from_millis(120)
+        );
+        assert_eq!(
+            resting.negative_evidence.as_ref().unwrap().last_clear_frame,
+            Some(Time::from_nanos(200_000_000))
+        );
         assert_eq!(resting.position().position, before.position);
         assert_eq!(resting.position().velocity, before.velocity);
         assert_eq!(resting.position_covariance(), before_covariance);

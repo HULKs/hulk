@@ -313,11 +313,12 @@ pub fn verify(recording: &Recording, parameters: &BallFilterParameters) -> Resul
     let mut tracker = Tracker::default();
     for cycle in &recording.cycles {
         for input in &cycle.inputs {
-            tracker.advance(
+            tracker.advance_with_obstacles(
                 input.time,
                 input.odometry,
                 input.detections.as_deref(),
                 input.camera.as_ref(),
+                input.obstacles.as_ref(),
                 parameters,
                 &cycle.dimensions,
             )?;
@@ -363,11 +364,12 @@ pub fn evaluate(
                 reference.validate_for_optimization()?;
             }
             for input in &cycle.inputs {
-                tracker.advance(
+                tracker.advance_with_obstacles(
                     input.time,
                     input.odometry,
                     input.detections.as_deref(),
                     input.camera.as_ref(),
+                    input.obstacles.as_ref(),
                     parameters,
                     &cycle.dimensions,
                 )?;

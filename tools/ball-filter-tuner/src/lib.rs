@@ -311,7 +311,7 @@ pub fn run_with_progress(
         rejected_candidates,
         rejected_continuity_candidates,
         continuity_policy: "Every training recording and the aggregate must not worsen baseline total missing time, close-range missing time, or longest missing gap (floating-point roundoff only). Held-out data is evaluation only.",
-        retention_policy: "Only listed search dimensions may change, including warm starts. Timeout, visible/hidden confidence decay and output threshold remain at the capture baseline.",
+        retention_policy: "Only listed search dimensions may change, including warm starts. Hypothesis timeout, observable-miss timeout, obstacle source-time tolerance, visible/hidden confidence decay and output threshold remain at the capture baseline. Legacy baselines with observable-miss timeout zero retain legacy visibility behavior.",
         tuned_parameter_pointers: types::ball_filter_tuning::TUNED_PARAMETER_POINTERS,
         penalty_metres: args.penalty_metres,
         namespace: &args.namespace,
@@ -411,6 +411,8 @@ mod tests {
         old_best.visible_validity_exponential_decay_factor = 0.8;
         old_best.validity_output_threshold = 2.0;
         old_best.ball_confidence_threshold = 0.1;
+        old_best.visible_missed_detection_timeout = std::time::Duration::ZERO;
+        old_best.maximum_obstacle_time_difference = std::time::Duration::from_secs(60);
         old_best.noise.detection_noise.inner.fill(1.5);
         let imported = decode(&baseline, encode(&old_best));
         assert!((imported.noise.detection_noise.x() - 1.5).abs() < 1e-6);
@@ -427,5 +429,33 @@ mod tests {
             }
             assert_eq!(actual, expected);
         }
+    }
+
+    #[test]
+    fn legacy_visibility_baseline_stays_disabled_even_with_new_warm_start() {
+        let current: BallFilterParameters = json5::from_str(include_str!(
+            "../../../etc/parameters/base/ball_filter.json5"
+        ))
+        .unwrap();
+        assert!(!current.visible_missed_detection_timeout.is_zero());
+        let mut legacy_json = serde_json::to_value(&current).unwrap();
+        let object = legacy_json.as_object_mut().unwrap();
+        object.remove("visible_missed_detection_timeout");
+        object.remove("maximum_obstacle_time_difference");
+        let legacy: BallFilterParameters = serde_json::from_value(legacy_json).unwrap();
+        assert!(legacy.visible_missed_detection_timeout.is_zero());
+        assert_eq!(
+            legacy.maximum_obstacle_time_difference,
+            std::time::Duration::from_millis(100)
+        );
+
+        // Warm starts import search dimensions, never opt old recordings into
+        // visibility behavior absent from their live baseline.
+        let candidate = decode(&legacy, encode(&current));
+        assert!(candidate.visible_missed_detection_timeout.is_zero());
+        assert_eq!(
+            candidate.maximum_obstacle_time_difference,
+            legacy.maximum_obstacle_time_difference
+        );
     }
 }

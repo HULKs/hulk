@@ -41,6 +41,8 @@
     "visual_kick/ball_position",
     "ball_filter/update_schedule",
     "ball_filter/field_prior_pose",
+    "ball_filter/obstacles",
+    "obstacles",
     "ball_filter/ball_position",
     "ball_filter/ball_percepts",
     "ball_state",

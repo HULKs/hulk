@@ -15,6 +15,7 @@ use types::{
     ball_position::BallPosition,
     field_dimensions::FieldDimensions,
     object_detection::{Object, RobocupObjectLabel},
+    obstacles::Obstacle,
     time_wrapper::TimeWrapper,
 };
 
@@ -25,6 +26,8 @@ pub struct Input {
     pub odometry: Option<Pose2<Odometry>>,
     pub detections: Option<Detections>,
     pub camera: Option<TimeWrapper<CameraMatrix>>,
+    /// Exact snapshot selected by the live filter, before odometry compensation.
+    pub obstacles: Option<TimeWrapper<Vec<Obstacle>>>,
 }
 
 #[derive(Clone)]
@@ -101,6 +104,19 @@ fn field_prior_pose_at(
     }
 }
 
+fn selected_obstacles_at(
+    snapshots: &BTreeMap<Time, Option<TimeWrapper<Vec<Obstacle>>>>,
+    time: Time,
+) -> Result<Option<TimeWrapper<Vec<Obstacle>>>> {
+    if snapshots.is_empty() {
+        Ok(None) // Legacy recordings predate this input.
+    } else {
+        // Missing and explicit None differ: once this diagnostic is present,
+        // every consumed detector frame must have its actual selection recorded.
+        required(snapshots, time, "ball_filter/obstacles")
+    }
+}
+
 impl Recording {
     pub fn read(
         path: &Path,
@@ -118,6 +134,7 @@ impl Recording {
         let mut references = BTreeMap::new();
         let mut ground_to_field = BTreeMap::new();
         let mut field_prior_poses = BTreeMap::new();
+        let mut selected_obstacles = BTreeMap::new();
         let mut dimensions = BTreeMap::new();
         let mut estimates = BTreeMap::new();
         let mut schedules = BTreeMap::new();
@@ -169,6 +186,16 @@ impl Recording {
                     ensure!(
                         field_prior_poses.insert(pose.time, pose.inner).is_none(),
                         "duplicate ball_filter/field_prior_pose timestamp"
+                    );
+                }
+                "ball_filter/obstacles" => {
+                    let selected: TimeWrapper<Option<TimeWrapper<Vec<Obstacle>>>> =
+                        decode(&message)?;
+                    ensure!(
+                        selected_obstacles
+                            .insert(selected.time, selected.inner)
+                            .is_none(),
+                        "duplicate ball_filter/obstacles input timestamp"
                     );
                 }
                 "field_dimensions" => {
@@ -248,6 +275,11 @@ impl Recording {
                         .detections
                         .then(|| required(&detections, stamp.time, "detected_objects"))
                         .transpose()?,
+                    obstacles: if stamp.detections {
+                        selected_obstacles_at(&selected_obstacles, stamp.time)?
+                    } else {
+                        None
+                    },
                     camera: if stamp.detections {
                         stamp
                             .camera_time
@@ -337,6 +369,62 @@ mod tests {
     use ros_z::message::WireEncoder;
 
     #[test]
+    fn selected_obstacles_keep_source_frame_and_exact_live_snapshot() {
+        type Diagnostic = TimeWrapper<Option<TimeWrapper<Vec<Obstacle>>>>;
+        let image_time = Time::from_nanos(100_000_000);
+        let source_time = Time::from_nanos(80_000_000);
+        let mut snapshots = BTreeMap::new();
+        assert!(
+            selected_obstacles_at(&snapshots, image_time)
+                .unwrap()
+                .is_none()
+        );
+        for (time, selected) in [
+            (
+                image_time,
+                Some(TimeWrapper {
+                    time: source_time,
+                    inner: vec![Obstacle::robot(linear_algebra::point![1.0, -0.2], 0.2, 0.3)],
+                }),
+            ),
+            (Time::from_nanos(120_000_000), None),
+            // Network updates may replace positions at the same Ground source
+            // stamp. A timestamp-only pointer would silently choose the wrong list.
+            (
+                Time::from_nanos(140_000_000),
+                Some(TimeWrapper {
+                    time: source_time,
+                    inner: vec![Obstacle::robot(linear_algebra::point![1.4, -0.2], 0.2, 0.3)],
+                }),
+            ),
+        ] {
+            let bytes = SerdeCdrCodec::<Diagnostic>::serialize(&TimeWrapper {
+                time,
+                inner: selected,
+            })
+            .unwrap();
+            let decoded = SerdeCdrCodec::<Diagnostic>::deserialize(&bytes).unwrap();
+            snapshots.insert(decoded.time, decoded.inner);
+        }
+        let first = selected_obstacles_at(&snapshots, image_time)
+            .unwrap()
+            .unwrap();
+        assert_eq!(first.time, source_time);
+        assert_eq!(first.inner[0].position.x(), 1.0);
+        let later = selected_obstacles_at(&snapshots, Time::from_nanos(140_000_000))
+            .unwrap()
+            .unwrap();
+        assert_eq!(later.time, source_time);
+        assert_eq!(later.inner[0].position.x(), 1.4);
+        assert!(
+            selected_obstacles_at(&snapshots, Time::from_nanos(120_000_000))
+                .unwrap()
+                .is_none()
+        );
+        assert!(selected_obstacles_at(&snapshots, Time::from_nanos(120_000_001)).is_err());
+    }
+
+    #[test]
     fn field_prior_diagnostic_replays_exact_decisions_and_preserves_legacy_none() {
         type Diagnostic = TimeWrapper<Option<Isometry2<Ground, Field>>>;
         let time = Time::from_nanos(100);
@@ -406,6 +494,50 @@ mod tests {
                 (Time::from_nanos(200), "second"),
             ]
         );
+    }
+
+    #[test]
+    fn robot_only_and_empty_frames_survive_recorded_detection_pairing() {
+        // A robot-only frame is an observation with potential occlusion; an
+        // empty frame is an observation without it. Neither is a missing frame.
+        // Replay must retain the same labels, geometry and exposure timestamp.
+        let robot = Object::<RobocupObjectLabel>::from([10.0, 20.0, 60.0, 90.0, 0.8, 4.0]);
+        let ball = Object::<RobocupObjectLabel>::from([30.0, 50.0, 40.0, 60.0, 0.9, 0.0]);
+        let frames = [vec![ball, robot], vec![robot], vec![]];
+        let payloads = frames
+            .iter()
+            .enumerate()
+            .map(|(index, frame)| {
+                let wrapped = TimeWrapper {
+                    time: Time::from_nanos((index as i64 + 1) * 100),
+                    inner: frame.clone(),
+                };
+                let bytes = SerdeCdrCodec::<TimeWrapper<Detections>>::serialize(&wrapped).unwrap();
+                let decoded =
+                    SerdeCdrCodec::<TimeWrapper<Detections>>::deserialize(&bytes).unwrap();
+                assert_eq!(decoded.time, wrapped.time);
+                (index as u32 + 7, decoded.inner)
+            })
+            .collect();
+        let replay = pair_announcements(
+            payloads,
+            vec![
+                announcement(300, 9, 1),
+                announcement(100, 7, 1),
+                announcement(200, 8, 1),
+            ],
+            "detected_objects",
+        )
+        .unwrap();
+        for (index, expected) in frames.iter().enumerate() {
+            let time = Time::from_nanos((index as i64 + 1) * 100);
+            let actual = required(&replay, time, "detected_objects").unwrap();
+            assert_eq!(
+                serde_json::to_value(actual).unwrap(),
+                serde_json::to_value(expected).unwrap()
+            );
+        }
+        assert!(required(&replay, Time::from_nanos(201), "detected_objects").is_err());
     }
 
     #[test]

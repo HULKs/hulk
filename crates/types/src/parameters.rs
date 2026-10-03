@@ -214,6 +214,13 @@ pub struct BallFilterParameters {
     #[serde(default = "default_ball_field_confidence_decay_distance")]
     pub field_boundary_confidence_decay_distance: f32,
     pub hypothesis_timeout: Duration,
+    /// Confirmed clear-view miss time before deleting a hypothesis; zero disables.
+    /// Legacy recording baselines omit this field and retain their original behavior.
+    #[serde(default)]
+    pub visible_missed_detection_timeout: Duration,
+    /// Maximum age of the obstacle model used to establish a clear camera view.
+    #[serde(default = "default_ball_obstacle_tolerance")]
+    pub maximum_obstacle_time_difference: Duration,
     pub maximum_number_of_hypotheses: usize,
     pub ball_confidence_threshold: f32,
     pub log_likelihood_of_zero_velocity_threshold: f32,
@@ -231,6 +238,10 @@ pub struct BallFilterParameters {
 
 fn default_ball_field_confidence_decay_distance() -> f32 {
     0.3
+}
+
+fn default_ball_obstacle_tolerance() -> Duration {
+    Duration::from_millis(100)
 }
 
 fn default_ball_camera_tolerance() -> Duration {

@@ -50,6 +50,7 @@ const TOPICS: &[&str] = &[
     "field_dimensions",
     "ball_filter/update_schedule",
     "ball_filter/field_prior_pose",
+    "ball_filter/obstacles",
     "ball_filter/ball_position",
     "ball_filter/ball_filter_state",
     "ball_filter/ball_percepts",
@@ -61,6 +62,7 @@ const TOPICS: &[&str] = &[
     "simulation/ball_poses_world",
     "simulation/ball_velocities_world",
     "simulation/obstacle_positions_world",
+    "obstacles",
     "inputs/serial_motor_states",
     "inputs/imu_state",
     "inputs/camera_info",
@@ -133,11 +135,7 @@ pub fn run(
             parameters,
             seed_offset,
         } => (
-            parameters
-                .map(|path| -> Result<BallFilterParameters> {
-                    Ok(json5::from_str(&std::fs::read_to_string(path)?)?)
-                })
-                .transpose()?,
+            parameters.map(capture_parameter_override).transpose()?,
             seed_offset,
         ),
         _ => (None, 0),
@@ -692,6 +690,15 @@ async fn apply_live_parameters(
     Ok(())
 }
 
+fn capture_parameter_override(path: &Path) -> Result<serde_json::Value> {
+    let parameters: serde_json::Value = json5::from_str(&std::fs::read_to_string(path)?)?;
+    // Validate a historical best, but preserve its original keys. New captures
+    // inherit newly introduced settings from current production layers, while
+    // replay of old baselines still uses their legacy deserialization defaults.
+    let _: BallFilterParameters = serde_json::from_value(parameters.clone())?;
+    Ok(parameters)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn record(
     runtime: &tokio::runtime::Handle,
@@ -703,7 +710,7 @@ fn record(
     ball_count: usize,
     start_time: RosTime,
     progress: &tokio::sync::watch::Sender<Progress>,
-    capture_parameters: Option<&BallFilterParameters>,
+    capture_parameters: Option<&serde_json::Value>,
     opponents: OpponentParameters,
     mut live: Option<&mut LiveUpdates>,
     stop: &AtomicBool,
@@ -719,11 +726,11 @@ fn record(
     let initial = live
         .as_mut()
         .and_then(|updates| updates.best.borrow_and_update().clone());
-    if let Some(parameters) = initial
+    let live_parameters = initial
         .as_ref()
-        .map(|candidate| &candidate.parameters)
-        .or(capture_parameters)
-    {
+        .map(|candidate| serde_json::to_value(&candidate.parameters))
+        .transpose()?;
+    if let Some(parameters) = live_parameters.as_ref().or(capture_parameters) {
         std::fs::write(
             layer.path().join("ball_filter.json5"),
             serde_json::to_string(parameters)?,
@@ -1253,7 +1260,13 @@ fn record(
                         .collect::<Vec<_>>(),
                 )?;
             io.publish_observation(observation, time)?;
-            io.publish_world(ground, None, obstacle_positions.to_vec(), time)?;
+            io.publish_world(
+                ground,
+                None,
+                obstacle_positions.to_vec(),
+                [opponents.width / 2.0; 2],
+                time,
+            )?;
             io.publish_inputs()?;
             // Let the asynchronous sensor and control stack run between physics
             // samples, as on a robot; a headless run need not catch up render frames.
@@ -1480,6 +1493,54 @@ mod tests {
     }
 
     use super::*;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn fresh_capture_inherits_new_settings_from_current_layers() {
+        let base = tempfile::tempdir().unwrap();
+        let overrides = tempfile::tempdir().unwrap();
+        let original = include_str!("../../../etc/parameters/base/ball_filter.json5");
+        std::fs::write(base.path().join("ball_filter.json5"), original).unwrap();
+        let mut historical: serde_json::Value = json5::from_str(original).unwrap();
+        historical
+            .as_object_mut()
+            .unwrap()
+            .remove("visible_missed_detection_timeout");
+        historical
+            .as_object_mut()
+            .unwrap()
+            .remove("maximum_obstacle_time_difference");
+        historical["maximum_matching_cost"] = serde_json::json!(2.5);
+        let legacy: BallFilterParameters = serde_json::from_value(historical.clone()).unwrap();
+        assert!(legacy.visible_missed_detection_timeout.is_zero());
+        let path = overrides.path().join("ball_filter.json5");
+        std::fs::write(&path, serde_json::to_vec(&historical).unwrap()).unwrap();
+        let retained = capture_parameter_override(&path).unwrap();
+        std::fs::write(&path, serde_json::to_vec(&retained).unwrap()).unwrap();
+        let context = ContextBuilder::default()
+            .with_namespace("/capture_defaults_test")
+            .with_mode("peer")
+            .disable_multicast_scouting()
+            .with_connect_endpoints(std::iter::empty::<&str>())
+            .with_listen_endpoints(std::iter::empty::<&str>())
+            .with_parameter_layers([base.path().to_owned(), overrides.path().to_owned()])
+            .build()
+            .await
+            .unwrap();
+        let node = context.create_node("capture").build().await.unwrap();
+        let binding = node
+            .bind_parameter_as::<BallFilterParameters>("ball_filter")
+            .unwrap();
+        let snapshot = binding.snapshot();
+        assert_eq!(snapshot.typed().maximum_matching_cost, 2.5);
+        assert_eq!(
+            snapshot.typed().visible_missed_detection_timeout,
+            Duration::from_secs(1)
+        );
+        assert_eq!(
+            snapshot.typed().maximum_obstacle_time_difference,
+            Duration::from_millis(100)
+        );
+    }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn live_best_updates_the_node_atomically_without_changing_baseline() {

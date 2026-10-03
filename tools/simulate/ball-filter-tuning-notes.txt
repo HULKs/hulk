@@ -122,7 +122,66 @@ Twix remote bridge and launch controls (2026-10-03)
 - Remote startup capacity is sampled, not reserved. Full-history checkpoint
   inspection should eventually use a validated immutable-round cache as runs grow.
 
-Visualization, history and fresh capture follow-up (2026-10-03, in progress)
+Negative evidence and confidence visualization (2026-10-03, implementation validated)
+- User requests pruning candidates after looking without finding a ball, using
+  reliable robot detections to protect occluded candidates. One second of clear
+  image evidence is separate from the unchanged20s unseen-hypothesis timeout.
+  Only actual detection exposures with fresh geometry count, not odometry ticks
+  or delivery gaps. Matches reset evidence; hidden intervals pause accumulation.
+- User specifically clarified detected Robot entries in WorldState.obstacles.
+  behavior_node/node.rs copies this list directly from the obstacles topic.
+  Reuse that exact model, not a second robot detector or synthetic image boxes.
+  Obstacle.position is Point2<Ground>, not Field despite the WorldState name.
+  Historical Ground positions require timestamped odometry to reach current
+  Ground. Current field localization applied to old Ground coordinates is wrong.
+- Producer prerequisite: obstacle_filter subscribed to a delta-odometry topic
+  whose only in-tree publisher never publishes. Even one latest delta per image
+  would miss intervening motion. Move producer to full absolute-odometry deltas,
+  keep network updates in its current Ground frame, publish state source time.
+  Do not falsely certify stale/mixed-frame positions by changing only timestamps.
+  User explicitly requests source-side current Ground updates: consume sorted
+  odometry-only events as well, so positions move and tracks expire during camera
+  silence. Keep delayed images ordered through FutureMap; charge process noise
+  per detection, not per500Hz odometry tick. Output frame timestamp and last
+  visual observation time are different concepts; obstacle hypotheses retain
+  last_update, while the existing Vec<Obstacle> output does not expose it.
+- New visible_missed_detection_timeout defaults0 for historical baselines, while
+  current base enables1s. maximum_obstacle_time_difference defaults100ms; both
+  stay fixed during tuning. Unknown/stale obstacle coverage pauses clear misses.
+  Selected obstacle snapshots are recorded verbatim at each image for exact
+  replay, including explicitNone and original source time. Ignore non-Robot kinds
+  for this first robot-occlusion feature. Existing Robot provenance can include
+  network/localization inputs; splitting provenance needs a separate model change.
+- Simulator already supplies world-state robot obstacles, now with the configured
+  physical cylinder radius at both foot and hip height. Its obstacle locations are
+  ideal physical references; noisy robot detection/model tracks remain a follow-up.
+- Fresh capture overlays preserve omitted JSON keys, inheriting newly introduced
+  production settings. Historical replay still uses legacy defaults. Explicit
+  zero timeout remains an intentional disable, including in fresh captures.
+- Confidence arrows show actual raw validity at1m/unit, including selected blue
+  and other grey hypotheses. Validity is accumulated, can exceed1, and is not a
+  probability; field-prior-adjusted selection confidence is a separate quantity.
+- Runtime checkpoint40eded63c completed six fresh captures and diagnostic audit:
+  119,922 states and selected outputs share timestamps;1,364 false markers have
+  correct exposure stamps; maximum15 hypotheses. Old legacy32-worker controllers
+  stopped only after replacement built paused; all artifacts retained, unfinished
+  final rounds remain incomplete. New protocol run refreshed-20261003-1791011886
+  searches continuously with21 memory-budgeted workers. Its baseline predates
+  negative evidence; capture again after implementing and validating this change.
+- Final combined Rust tests:52 ball_filter,10 obstacle_filter,22 tuner,64 simulator,
+  and82 Twix pass; one pre-existing simulator test ignored. Includes source-side
+  walking/turning, camera silence expiry, duplicate exposure/noise regression,
+  occlusion/clear-miss retention, recording compatibility and confidence arrows.
+  Logs: logs/obstacle-ground-updates-tests.log; apps built successfully in
+  logs/ball-negative-evidence-build.log. No physical-robot test performed.
+- Current local runtime metadata: logs/ball-negative-evidence-current.json.
+  Supersedes logs/ball-refresh-integration-current.json.
+  Owned periodic supervisor now adopts the existing21-worker run. First fresh
+  generation is being exercised at a1-minute refresh interval, then switch to
+  the normal30-minute schedule. Old remote search remains active during capture
+  and replacement build; all checkpoints and recordings are retained.
+
+Visualization, history and fresh capture follow-up (2026-10-03, checkpointed)
 - User asks all hypotheses as grey soccer balls/arrows, every injected false
   detection as a brief marker, past-run history/deletion in Twix, regular fresh
   captures using best parameters, and configurable opponent count/width in Twix.

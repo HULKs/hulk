@@ -164,6 +164,7 @@ impl BallFilter {
             last_seen: detection_time,
             validity: 1.0,
             motion_evidence: None,
+            negative_evidence: None,
         };
 
         self.hypotheses.push(new_hypothesis)

@@ -79,6 +79,7 @@ impl BehaviorInputs {
         ground_to_world: nalgebra::Isometry3<f32>,
         ball: Option<([f64; 3], [f64; 3])>,
         obstacle_positions: Vec<[f64; 3]>,
+        obstacle_radii: [f32; 2],
         side: GlobalFieldSide,
         time: Time,
     ) -> Result<()> {
@@ -90,8 +91,7 @@ impl BehaviorInputs {
             .into_iter()
             .map(|position| {
                 let p = inverse * nalgebra::Point3::from(position.map(|v| v as f32));
-                // Conservative K1 collision footprint; physical contacts still use the full MJCF.
-                Obstacle::robot(point![p.x, p.y], 0.25, 0.3)
+                Obstacle::robot(point![p.x, p.y], obstacle_radii[0], obstacle_radii[1])
             })
             .collect();
         if let Some(publisher) = &self.pose {

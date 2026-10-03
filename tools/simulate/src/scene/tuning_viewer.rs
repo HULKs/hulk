@@ -404,7 +404,7 @@ fn show_recorded_pose(
         .received_at
         .is_none_or(|time| time.elapsed() > Duration::from_secs(3));
     **text = Text::new(format!(
-        "{status}{}\nRead-only view | hold right mouse + WASD to move | Q down / E up\nBlue: selected model | grey: other hypotheses | original balls / green arrows: truth\nOrange flashes: false detections on ground | red flashes: false pixels projected 3 m down camera ray\nArrows: 1 m per m/s | orange cylinders: moving opponents that block camera detections",
+        "{status}{}\nRead-only view | hold right mouse + WASD to move | Q down / E up\nBlue: selected model | grey: other hypotheses | original balls / green arrows: truth\nOrange flashes: false detections on ground | red flashes: false pixels projected 3 m down camera ray\nVelocity arrows: 1 m per m/s | upward arrows: raw confidence, 1 = 1 m; may exceed 1\nSelection also uses the field prior | orange cylinders: moving opponents that block camera detections",
         if stale { " | no live updates" } else { "" }
     ));
     let (Some((joint_time, joints)), Some(torso)) = (&state.joints, &state.torso) else {
@@ -533,6 +533,7 @@ fn spawn_ball_model(
     commands.insert_resource(OverlayAssets {
         grey_ball,
         grey_arrow,
+        blue_arrow: arrow.clone(),
         false_ground,
         false_ray,
         shaft: shaft.clone(),
@@ -603,7 +604,13 @@ fn field_pose_at(state: &Snapshot, time: RosTime) -> Option<&Isometry2<Ground, F
     (pose_time.as_nanos().abs_diff(time.as_nanos()) <= 20_000_000).then_some(pose)
 }
 
-fn hypotheses_in_field(state: &Snapshot, time: RosTime) -> Vec<BallPosition<Field>> {
+struct ViewedHypothesis {
+    ball: BallPosition<Field>,
+    raw_confidence: f32,
+    selected: bool,
+}
+
+fn hypotheses_in_field(state: &Snapshot, time: RosTime) -> Vec<ViewedHypothesis> {
     let Some((source_time, filter)) = &state.filter else {
         return Vec::new();
     };
@@ -614,27 +621,43 @@ fn hypotheses_in_field(state: &Snapshot, time: RosTime) -> Vec<BallPosition<Fiel
         return Vec::new();
     };
     // Show the complete internal state, including weak hypotheses that are not
-    // eligible for selected output. Match the selected position only to avoid
-    // drawing a grey ball over the blue one; do not apply confidence thresholds.
+    // eligible for selected output. Mark the selected position so its confidence
+    // arrow is blue and its grey ball/velocity do not cover the existing blue model.
     let selected = model_in_field(state, time);
-    let mut selected_removed = false;
+    let mut selected_matched = false;
     filter
         .hypotheses
         .iter()
-        .filter_map(|hypothesis| {
+        .map(|hypothesis| {
             let ball = *pose * hypothesis.position();
-            if !selected_removed
+            let is_selected = !selected_matched
                 && selected.is_some_and(|selected| {
                     (ball.position - selected.position).norm_squared() < 1e-8
-                })
-            {
-                selected_removed = true;
-                None
-            } else {
-                Some(ball)
+                });
+            selected_matched |= is_selected;
+            ViewedHypothesis {
+                ball,
+                raw_confidence: hypothesis.validity,
+                selected: is_selected,
             }
         })
         .collect()
+}
+
+/// Stored validity is an accumulated score, not a probability. Preserve its
+/// native scale; field-prior weighting and output eligibility are separate.
+fn confidence_arrow(
+    ball: BallPosition<Field>,
+    radius: f32,
+    raw_confidence: f32,
+) -> Option<super::command_vectors::Arrow> {
+    let origin = Vec3::new(ball.position.x(), 2.0 * radius, -ball.position.y());
+    (origin.is_finite() && raw_confidence.is_finite() && raw_confidence > 0.0).then_some(
+        super::command_vectors::Arrow {
+            origin,
+            vector: Vec3::Y * raw_confidence,
+        },
+    )
 }
 
 fn show_ball_model(
@@ -688,6 +711,7 @@ fn show_ball_model(
 struct OverlayAssets {
     grey_ball: Handle<StandardMaterial>,
     grey_arrow: Handle<StandardMaterial>,
+    blue_arrow: Handle<StandardMaterial>,
     false_ground: Handle<StandardMaterial>,
     false_ray: Handle<StandardMaterial>,
     shaft: Handle<Mesh>,
@@ -696,7 +720,7 @@ struct OverlayAssets {
 
 #[derive(Resource, Default)]
 struct OverlayPool {
-    hypotheses: Vec<[Entity; 3]>,
+    hypotheses: Vec<[Entity; 5]>,
     false_flashes: Vec<Entity>,
     generation: u64,
 }
@@ -740,7 +764,13 @@ fn show_diagnostic_overlays(
             Visibility::Hidden,
             bevy::light::NotShadowCaster,
         ));
-        let arrows = [overlay_assets.shaft.clone(), overlay_assets.tip.clone()].map(|mesh| {
+        let arrows = [
+            overlay_assets.shaft.clone(),
+            overlay_assets.tip.clone(),
+            overlay_assets.shaft.clone(),
+            overlay_assets.tip.clone(),
+        ]
+        .map(|mesh| {
             commands
                 .spawn((
                     Mesh3d(mesh),
@@ -752,7 +782,8 @@ fn show_diagnostic_overlays(
                 ))
                 .id()
         });
-        pool.hypotheses.push([ball, arrows[0], arrows[1]]);
+        pool.hypotheses
+            .push([ball, arrows[0], arrows[1], arrows[2], arrows[3]]);
     }
     for entities in pool.hypotheses.drain(hypotheses.len()..) {
         for entity in entities {
@@ -760,19 +791,36 @@ fn show_diagnostic_overlays(
         }
     }
     let radius = parameters.parameters.field_dimensions.ball_radius;
-    for (entities, ball) in pool.hypotheses.iter().zip(hypotheses) {
+    for (entities, hypothesis) in pool.hypotheses.iter().zip(hypotheses) {
+        let ball = hypothesis.ball;
         let origin = Vec3::new(ball.position.x(), radius, -ball.position.y());
         let arrow = Arrow {
             origin,
             vector: Vec3::new(ball.velocity.x(), 0.0, -ball.velocity.y()),
         };
+        let confidence = confidence_arrow(ball, radius, hypothesis.raw_confidence);
         let transforms = [
-            origin
-                .is_finite()
+            (origin.is_finite() && !hypothesis.selected)
                 .then(|| Transform::from_translation(origin)),
-            part_transform(arrow, false),
-            part_transform(arrow, true),
+            (!hypothesis.selected)
+                .then(|| part_transform(arrow, false))
+                .flatten(),
+            (!hypothesis.selected)
+                .then(|| part_transform(arrow, true))
+                .flatten(),
+            confidence.and_then(|arrow| part_transform(arrow, false)),
+            confidence.and_then(|arrow| part_transform(arrow, true)),
         ];
+        let confidence_material = if hypothesis.selected {
+            &overlay_assets.blue_arrow
+        } else {
+            &overlay_assets.grey_arrow
+        };
+        for &entity in &entities[3..] {
+            commands
+                .entity(entity)
+                .insert(MeshMaterial3d(confidence_material.clone()));
+        }
         for (&entity, transform) in entities.iter().zip(transforms) {
             if let Some(transform) = transform {
                 commands
@@ -847,15 +895,16 @@ mod tests {
         state
             .ground_to_field
             .insert(later, Isometry2::from_parts(vector![20.0, 30.0], 0.0));
-        let grey = hypotheses_in_field(&state, later);
-        assert_eq!(
-            grey.len(),
-            2,
-            "only the selected blue hypothesis is omitted"
-        );
-        assert!((grey[0].position - point![2.0, 5.0]).norm() < 1e-5);
-        assert!((grey[1].position - point![2.0, 6.0]).norm() < 1e-5);
-        assert!((grey[0].velocity - vector![0.0, 0.5]).norm() < 1e-5);
+        let hypotheses = hypotheses_in_field(&state, later);
+        assert_eq!(hypotheses.len(), 3, "selected confidence is displayed too");
+        assert!(hypotheses[0].selected);
+        assert!(!hypotheses[1].selected && !hypotheses[2].selected);
+        assert_eq!(hypotheses[0].raw_confidence, 10.0);
+        assert_eq!(hypotheses[1].raw_confidence, 0.01);
+        assert_eq!(hypotheses[2].raw_confidence, 0.0);
+        assert!((hypotheses[1].ball.position - point![2.0, 5.0]).norm() < 1e-5);
+        assert!((hypotheses[2].ball.position - point![2.0, 6.0]).norm() < 1e-5);
+        assert!((hypotheses[1].ball.velocity - vector![0.0, 0.5]).norm() < 1e-5);
         state.estimate = Some((time, None));
         assert_eq!(
             hypotheses_in_field(&state, later).len(),
@@ -868,6 +917,29 @@ mod tests {
             hypotheses_in_field(&state, later).is_empty(),
             "40ms pose must be rejected"
         );
+    }
+
+    #[test]
+    fn confidence_geometry_points_up_at_one_metre_per_raw_unit_without_capping() {
+        use super::super::command_vectors::part_transform;
+        let ball = BallPosition {
+            position: point![2.0, -3.0],
+            velocity: vector![4.0, -5.0],
+            last_seen: RosTime::zero(),
+        };
+        for confidence in [0.01, 1.0, 3.0, 25.0] {
+            let arrow = confidence_arrow(ball, 0.105, confidence).unwrap();
+            assert_eq!(arrow.origin, Vec3::new(2.0, 0.21, 3.0));
+            assert_eq!(arrow.vector, Vec3::Y * confidence);
+            let shaft = part_transform(arrow, false).unwrap();
+            let tip = part_transform(arrow, true).unwrap();
+            assert!((shaft.scale.y + tip.scale.y - confidence).abs() < 1e-6);
+            let endpoint = tip.translation + tip.rotation * Vec3::Y * tip.scale.y / 2.0;
+            assert!((endpoint - (arrow.origin + Vec3::Y * confidence)).length() < 1e-5);
+        }
+        for confidence in [0.0, -1.0, f32::NAN, f32::INFINITY] {
+            assert!(confidence_arrow(ball, 0.105, confidence).is_none());
+        }
     }
 
     #[test]

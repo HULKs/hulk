@@ -206,6 +206,7 @@ fn publish_world(
         robot.ground_to_world(data),
         ball,
         obstacles,
+        [0.25, 0.3], // Conservative articulated K1 foot/hip collision footprint.
         simulation_time(data.time()),
     )
     .expect("publish behavior ground truth");

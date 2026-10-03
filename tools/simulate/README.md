@@ -90,8 +90,14 @@ The blue soccer ball shows the live filter's selected position and velocity.
 Grey soccer balls show every other stored hypothesis, including weak hypotheses,
 with matching grey velocity arrows. The selected hypothesis is not drawn twice.
 The physical ball has a green velocity arrow, taken directly from MuJoCo via
-`simulation/ball_velocities_world`. All arrows use 1 m per m/s. Selected and grey
-models use the filter's logical state timestamp, matching `ground_to_field`
+`simulation/ball_velocities_world`. Velocity arrows use 1 m per m/s. Every
+hypothesis also has an upward confidence arrow, blue for the selected model and
+grey for the others. Its length is the stored raw confidence in metres: confidence
+1 gives 1 m, and confidence 3 gives 3 m. This score accumulates observations and
+can exceed 1; it is neither a probability nor the confidence after applying the
+field-boundary prior. Arrows start at the top of the ball. Zero, negative or
+nonfinite scores have no confidence arrow. Selected and grey models use the
+filter's logical state timestamp, matching `ground_to_field`
 within 20 ms; missing estimates or stale transforms hide the affected overlay.
 Injected false detections flash for 0.2 seconds: orange soccer balls show their
 projection onto the ball-radius plane, while red balls show a point 3 m along the
@@ -312,17 +318,59 @@ The search objective uses bounded position error, with a missing estimate costin
 more than any finite position error. Empty scenes still penalize false tracks,
 so aggregate loss alone can trade tracking continuity for earlier forgetting.
 The search therefore fixes hypothesis timeout, visible/hidden confidence decay,
-and output threshold at the capture baseline, including when importing an older
-warm start. With the current baseline this preserves the 20-second timeout.
-Only measurement/process noise, association cost and velocity decay are searched.
+output threshold, `visible_missed_detection_timeout` and
+`maximum_obstacle_time_difference` at the capture baseline, including when
+importing an older warm start. With the current baseline this preserves the
+20-second hypothesis timeout and 1-second clear-view miss timeout. Only
+measurement/process noise, association cost and velocity decay are searched.
 
 A candidate must also preserve baseline total missing time, close-range missing
 time and longest missing interval in **every training recording**, as well as
 in aggregate. Only floating-point roundoff is tolerated. Held-out recordings
 remain evaluation-only; these guards do not guarantee held-out continuity.
 Reports identify this policy and count lower-loss candidates rejected for
-continuity regressions. Baseline retention still does not model robot occlusion:
-an occluded ball inside the image currently receives the visible confidence decay.
+continuity regressions.
+
+The filter distinguishes a ball hidden behind a robot from a ball that should be
+visible but is repeatedly missing from detector results. With the current
+`visible_missed_detection_timeout` of 1 second, a hypothesis expires after one
+second of accumulated clear-view misses, even if it previously had high
+confidence. Only received camera detection frames contribute; odometry updates
+and long sensor gaps do not count as observations. The predicted ball must fit
+fully inside the image and be large enough to observe. A matched detection clears
+its missed-observation history.
+
+Occlusion or looking away pauses this miss budget and uses hidden confidence
+decay with the existing 20-second hypothesis timeout. The filter uses the same
+`obstacles` stream that populates `WorldState.obstacles`, considering only
+`Robot` obstacles as occluders. Their foot/hip radii approximate opaque vertical
+columns; they are not articulated robot silhouettes. Obstacle positions are
+expressed in Ground at their source timestamp and compensated using robot
+odometry to the image timestamp. This alignment does not use visual localization.
+`maximum_obstacle_time_difference` defaults to 100 ms. Missing or stale obstacle
+data, or missing odometry needed to align it, cannot establish a clear view and
+therefore pauses negative evidence. A recent, explicitly empty obstacle snapshot
+can establish that no robot blocks the view.
+
+The obstacle filter also advances and publishes its Ground coordinates on
+odometry-only updates, including periods without camera detections. These updates
+use the full absolute-odometry change and add no per-tick process noise. Their
+source timestamp identifies the coordinate frame; it does **not** mean the robot
+was visually observed again. Each obstacle hypothesis retains its last measurement
+time and still expires under the obstacle filter's own timeout during camera
+silence. Delayed images are fused in source-time order, and a detection at the
+current odometry timestamp is applied only once.
+
+Both simulator and real-robot recording lists include `obstacles` and
+`ball_filter/obstacles`. The latter records the exact snapshot selected for each
+image, its original source timestamp, or its absence, so offline replay uses the
+same evidence as the live filter. Legacy baseline files that omit
+`visible_missed_detection_timeout` deserialize it as zero, disabling this new
+miss timer and retaining the legacy confidence-decay path. In that mode, a ball
+inside the image can receive visible decay even when a robot occludes it.
+Capture a new dataset with the enabled baseline to evaluate the new behavior;
+search does not silently enable it for old recordings.
+
 Single-ball reference positions beyond the field receive weight
 `exp(-distance / 0.3 m)`, where distance is the ball's clearance outside the field
 rectangle (including the ball-radius allowance at the boundary). For example,
