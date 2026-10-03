@@ -1,6 +1,9 @@
 use color_eyre::Report;
-use eframe::egui::{Align2, Color32};
+use coordinate_systems::Pixel;
+use eframe::egui::{Align2, Color32, DragValue, FontId, Stroke, Ui};
 use ros_z::time::Time;
+use serde_json::{Map, Value, json};
+use twix_visualization::twix_painter::TwixPainter;
 use types::{
     object_detection::YOLOObjectLabel,
     pose_detection::{Keypoint, Pose},
@@ -9,10 +12,7 @@ use types::{
 
 use crate::repaint::ObservationContext;
 
-use super::super::image_overlay::{
-    ConfidenceThresholdDefinition, ConfidenceThresholdKind, ConfidenceThresholds, ImageOverlay,
-    ImageOverlayPainter, OverlayObservation,
-};
+use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 use super::prediction_colors;
 
 const POSE_SKELETON_KEYPOINT_LINE_MAPPING: [(usize, usize); 16] = [
@@ -33,52 +33,78 @@ const POSE_SKELETON_KEYPOINT_LINE_MAPPING: [(usize, usize); 16] = [
     (13, 15),
     (14, 16),
 ];
-const POSE_CONFIDENCE_THRESHOLDS: [ConfidenceThresholdDefinition; 2] = [
-    ConfidenceThresholdDefinition::new(
-        ConfidenceThresholdKind::BoundingBox,
-        "Bounding box confidence",
-        "bounding_box_confidence_threshold",
-    ),
-    ConfidenceThresholdDefinition::new(
-        ConfidenceThresholdKind::Keypoint,
-        "Keypoint confidence",
-        "keypoint_confidence_threshold",
-    ),
-];
-
 pub(in crate::panels::image) struct PoseDetectionOverlay {
+    bounding_box_confidence_threshold: f32,
+    keypoint_confidence_threshold: f32,
     poses: OverlayObservation<TimeWrapper<Vec<Pose<YOLOObjectLabel>>>>,
 }
 
 impl ImageOverlay for PoseDetectionOverlay {
     const NAME: &'static str = "Pose Detection";
     const STORAGE_KEY: &'static str = "pose_detection";
-    const CONFIDENCE_THRESHOLDS: &'static [ConfidenceThresholdDefinition] =
-        &POSE_CONFIDENCE_THRESHOLDS;
 
-    fn new<C>(context: &C) -> Result<Self, Report>
+    fn new<C>(context: &C, settings: &Map<String, Value>) -> Result<Self, Report>
     where
         C: ObservationContext,
     {
         Ok(Self {
+            bounding_box_confidence_threshold: settings
+                .get("bounding_box_confidence_threshold")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.5)
+                .clamp(0.0, 1.0) as f32,
+            keypoint_confidence_threshold: settings
+                .get("keypoint_confidence_threshold")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.8)
+                .clamp(0.0, 1.0) as f32,
             poses: OverlayObservation::new(context, "detected_poses")?,
         })
     }
 
-    fn paint(
-        &self,
-        painter: &ImageOverlayPainter,
-        image_time: Time,
-        confidence_thresholds: &ConfidenceThresholds,
-    ) {
+    fn ui(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            ui.label("Bounding box confidence");
+            ui.add(
+                DragValue::new(&mut self.bounding_box_confidence_threshold)
+                    .range(0.0..=1.0)
+                    .speed(0.01)
+                    .fixed_decimals(2),
+            );
+        });
+        ui.horizontal(|ui| {
+            ui.label("Keypoint confidence");
+            ui.add(
+                DragValue::new(&mut self.keypoint_confidence_threshold)
+                    .range(0.0..=1.0)
+                    .speed(0.01)
+                    .fixed_decimals(2),
+            );
+        });
+    }
+
+    fn save(&self) -> Map<String, Value> {
+        Map::from_iter([
+            (
+                "bounding_box_confidence_threshold".into(),
+                json!(self.bounding_box_confidence_threshold),
+            ),
+            (
+                "keypoint_confidence_threshold".into(),
+                json!(self.keypoint_confidence_threshold),
+            ),
+        ])
+    }
+
+    fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
         let Some(poses) = self.poses.at_time(image_time) else {
             return;
         };
         paint_poses(
             painter,
             &poses.value.inner,
-            confidence_thresholds.bounding_box,
-            confidence_thresholds.keypoint,
+            self.bounding_box_confidence_threshold,
+            self.keypoint_confidence_threshold,
         );
     }
 
@@ -88,7 +114,7 @@ impl ImageOverlay for PoseDetectionOverlay {
 }
 
 fn paint_poses(
-    painter: &ImageOverlayPainter,
+    painter: &TwixPainter<Pixel>,
     poses: &[Pose<YOLOObjectLabel>],
     bounding_box_confidence_threshold: f32,
     keypoint_confidence_threshold: f32,
@@ -105,7 +131,11 @@ fn paint_poses(
             {
                 continue;
             }
-            painter.detection_line_segment(keypoints[start].point, keypoints[end].point, color);
+            painter.line_segment(
+                keypoints[start].point,
+                keypoints[end].point,
+                Stroke::new(1.0, color),
+            );
         }
         for keypoint in keypoints {
             if keypoint.confidence < keypoint_confidence_threshold {
@@ -116,6 +146,7 @@ fn paint_poses(
                 keypoint.point,
                 Align2::RIGHT_BOTTOM,
                 format!("{:.2}", keypoint.confidence),
+                FontId::default(),
                 Color32::WHITE,
             );
         }

@@ -27,10 +27,7 @@ use crate::{
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
 };
 
-use self::{
-    image_overlay::{ImageOverlayPainter, ImageOverlays},
-    status::format_topic_observation_status,
-};
+use self::{image_overlay::ImageOverlays, status::format_topic_observation_status};
 
 mod image_overlay;
 mod overlays;
@@ -196,13 +193,12 @@ impl Panel for ImagePanel {
                         max: point![width as f32, height as f32],
                     },
                 );
-                let overlay_painter = ImageOverlayPainter::new(
-                    ui.painter_at(response.rect),
-                    &painter,
-                    [width, height],
+                let image_rect = eframe::egui::Rect::from_min_max(
+                    painter.transform_world_to_pixel(point![0.0, 0.0]),
+                    painter.transform_world_to_pixel(point![width as f32, height as f32]),
                 );
                 self.overlays.paint(
-                    &overlay_painter,
+                    &painter.with_clip_rect(image_rect),
                     observed
                         .render_cache
                         .image_time()
