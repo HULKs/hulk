@@ -1,4 +1,4 @@
-//! Optional field-boundary confidence prior. Stored track validity is untouched.
+//! Field-boundary confidence prior and optional elapsed-time validity decay.
 use std::{collections::BTreeMap, time::Duration};
 
 use coordinate_systems::{Field, Ground};
@@ -36,6 +36,53 @@ impl FieldPoseHistory {
                     <= MAXIMUM_POSE_TIME_DIFFERENCE.as_nanos()
             })
             .map(|(_, pose)| *pose)
+    }
+}
+
+// A long processing/pose gap is not evidence that the ball stayed outside the
+// field throughout that interval. Ordinary 500 Hz fusion and 25 Hz replay are
+// integrated in seconds rather than charged once per cycle.
+const MAXIMUM_VALIDITY_DECAY_INTERVAL: Duration = Duration::from_millis(120);
+
+#[derive(Default)]
+pub(crate) struct ValidityDecayClock {
+    previous: Option<(Time, bool)>,
+}
+
+impl ValidityDecayClock {
+    pub fn elapsed(&mut self, time: Time, valid_pose: bool) -> Duration {
+        let elapsed = match self.previous {
+            Some((previous, _)) if time <= previous => return Duration::ZERO,
+            Some((previous, true)) if valid_pose => {
+                let elapsed = time.duration_since(previous);
+                if elapsed <= MAXIMUM_VALIDITY_DECAY_INTERVAL {
+                    elapsed
+                } else {
+                    Duration::ZERO
+                }
+            }
+            _ => Duration::ZERO,
+        };
+        self.previous = Some((time, valid_pose));
+        elapsed
+    }
+}
+
+pub(crate) fn decay_stored_validity(
+    hypotheses: &mut [BallHypothesis],
+    elapsed: Duration,
+    ground_to_field: Option<Isometry2<Ground, Field>>,
+    dimensions: &FieldDimensions,
+    parameters: &BallFilterParameters,
+) {
+    let maximum_rate = parameters.field_boundary_validity_decay_rate;
+    if elapsed.is_zero() || !maximum_rate.is_finite() || maximum_rate <= 0.0 {
+        return;
+    }
+    for hypothesis in hypotheses {
+        let weight = confidence_weight(hypothesis, ground_to_field, dimensions, parameters);
+        let rate = maximum_rate * (1.0 - weight.clamp(0.0, 1.0));
+        hypothesis.validity *= (-rate * elapsed.as_secs_f32()).exp();
     }
 }
 
@@ -102,6 +149,95 @@ mod tests {
             motion_evidence: None,
             negative_evidence: None,
         }
+    }
+
+    fn run_stored_decay(x: f32, step_millis: i64) -> f32 {
+        let mut parameters = parameters();
+        parameters.field_boundary_validity_decay_rate = 2.0;
+        let dimensions = FieldDimensions::SPL_2025;
+        let mut tracker = Tracker::default();
+        tracker.filter.hypotheses.push(hypothesis(x, 0.0, 25.0));
+        for millis in (0..=1000).step_by(step_millis as usize) {
+            tracker.finish_with_field_pose(
+                Time::from_nanos(millis * 1_000_000),
+                &parameters,
+                &dimensions,
+                Some(Isometry2::identity()),
+            );
+        }
+        tracker.filter.hypotheses[0].validity
+    }
+
+    #[test]
+    fn stored_field_decay_integrates_seconds_independently_of_finish_frequency() {
+        let dimensions = FieldDimensions::SPL_2025;
+        let x = dimensions.length / 2.0 + dimensions.ball_radius + 0.3;
+        let expected = 25.0 * (-2.0_f32 * (1.0 - (-1.0_f32).exp())).exp();
+        for step in [2, 20, 40, 100] {
+            let validity = run_stored_decay(x, step);
+            assert!(
+                (validity - expected).abs() < 0.001,
+                "{step} ms: {validity} vs {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn stored_decay_is_neutral_inside_and_stronger_outside_with_a_bounded_rate() {
+        let dimensions = FieldDimensions::SPL_2025;
+        let edge = dimensions.length / 2.0 + dimensions.ball_radius;
+        assert_eq!(run_stored_decay(0.0, 20), 25.0);
+        assert!((run_stored_decay(edge, 20) - 25.0).abs() < 0.001);
+        let near = run_stored_decay(edge + 0.1, 20);
+        let farther = run_stored_decay(edge + 0.6, 20);
+        assert!(farther < near && near < 25.0);
+        assert!(
+            farther >= 25.0 * (-2.0_f32).exp(),
+            "maximum rate is two per second"
+        );
+    }
+
+    #[test]
+    fn missing_pose_sensor_gaps_and_nonmonotonic_finishes_do_not_charge_unknown_time() {
+        let mut parameters = parameters();
+        parameters.field_boundary_validity_decay_rate = 2.0;
+        let dimensions = FieldDimensions::SPL_2025;
+        let mut tracker = Tracker::default();
+        tracker
+            .filter
+            .hypotheses
+            .push(hypothesis(dimensions.length / 2.0 + 0.6, 0.0, 25.0));
+        for (millis, pose) in [
+            (0, Some(Isometry2::identity())),
+            (40, None),
+            (80, Some(Isometry2::identity())),
+            (80, Some(Isometry2::identity())),
+            (60, Some(Isometry2::identity())),
+            (10_000, Some(Isometry2::identity())),
+        ] {
+            tracker.finish_with_field_pose(
+                Time::from_nanos(millis * 1_000_000),
+                &parameters,
+                &dimensions,
+                pose,
+            );
+            assert_eq!(tracker.filter.hypotheses[0].validity, 25.0);
+        }
+        tracker.finish_with_field_pose(
+            Time::from_nanos(10_040_000_000),
+            &parameters,
+            &dimensions,
+            Some(Isometry2::identity()),
+        );
+        let decayed = tracker.filter.hypotheses[0].validity;
+        assert!(decayed < 25.0 && decayed > 23.0);
+        tracker.finish_with_field_pose(
+            Time::from_nanos(10_040_000_000),
+            &parameters,
+            &dimensions,
+            Some(Isometry2::identity()),
+        );
+        assert_eq!(tracker.filter.hypotheses[0].validity, decayed);
     }
 
     #[test]

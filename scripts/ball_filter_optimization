@@ -197,8 +197,8 @@ def parser():
     result.add_argument("--trials", type=int, default=256, help="candidates per continuous search round")
     result.add_argument("--host", default="remote-compiler")
     result.add_argument("--workers", type=int, default=32)
-    result.add_argument("--refresh-minutes", type=float, default=30.0,
-                        help="remote-owned sessions: capture fresh data periodically; 0 disables")
+    result.add_argument("--refresh-minutes", type=float, default=5.0,
+                        help="remote-owned sessions: capture fresh data every 5 minutes by default; 0 disables")
     result.add_argument("--resume-manifest", type=Path,
                         help="remote mode: adopt an existing cooperative-protocol owned run")
     result.add_argument("--opponents", type=int, default=2)

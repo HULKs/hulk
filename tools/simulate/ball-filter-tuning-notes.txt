@@ -178,7 +178,7 @@ Negative evidence and confidence visualization (2026-10-03, implementation valid
   Supersedes logs/ball-refresh-integration-current.json.
   Owned periodic supervisor now adopts the existing21-worker run. First fresh
   generation is being exercised at a1-minute refresh interval, then switch to
-  the normal30-minute schedule. Old remote search remains active during capture
+  the shorter5-minute schedule requested by the user. Old remote search remains active during capture
   and replacement build; all checkpoints and recordings are retained.
 
 Visualization, history and fresh capture follow-up (2026-10-03, checkpointed)
@@ -565,3 +565,32 @@ Validation: single-ball/live-prior update
   lower conditional RMSE alone is not sufficient. Keep reporting these tradeoffs.
 - Twix screenshot /tmp/ball-prior-twix-running.png shows continuous round3 and
   best parameters applied through trial759. Both Twix and viewer remain open.
+
+Field decay and detection rejection follow-up (2026-10-03, tests passed)
+- User asks stronger decay outside the field, above-horizon rejection and a
+  maximum detection distance. Add bounded time-based extra validity decay
+  using the existing soft field-distance weight, only with fresh field geometry.
+  Base maximum extra decay2/s; in-field tracks neutral. New detection range15m
+  checked before assignment; retain legacy defaults0 for replay compatibility.
+  Existing projection already rejects above-horizon rays; strengthen finite
+  geometry checks and regression coverage rather than inventing another horizon.
+- User shortened fresh-capture interval from30min to5min. Live best updates
+  continue independently. A full refresh has already captured6 newclips, checked
+  exact6000 selected obstacle snapshots, built and activated remote generation
+  20261003-100045-8cbe5911 with19 memory-budgeted workers. Previous21-worker
+  generation stopped cooperatively after completed rounds; all data retained.
+- Latest codecheckpoint fa1d667c7; datasetbaseline includes negative evidence
+  but predates these new field-decay/range parameters. It remains an honest
+  historical baseline; capture again with fresh defaults once code is validated.
+- Current local preview/bridge are temporary direct-binary processes while
+  editing; metadata logs/ball-negative-evidence-current.json. Resume owned
+  supervisor with5min refresh after final build.
+- Launcher metadata follow-up (outside filter scope): after a successful handoff,
+  active_generation/manifests select the new run correctly, but the old entry in
+  generations still says active. Remote controller status correctly says stopped.
+  Mark historical entries retired in a future lifecycle cleanup; review shared
+  capture-reference deletion rules before changing retained session references.
+- Combined final tests for these changes:57 ball_filter,10 obstacle_filter,
+  22 tuner,64 simulator,82 Twix pass (235 total; one existing ignored). Launcher
+  Python22 tests pass. Logs: logs/ball-field-gates-tests.log. Application build
+  is ongoing in logs/ball-field-gates-build.log. Runtime promotion follows.

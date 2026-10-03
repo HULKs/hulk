@@ -69,7 +69,7 @@ impl Default for StartupSettings {
             host: "remote-compiler".into(),
             workers: 32,
             manifests: String::new(),
-            refresh_minutes: 30,
+            refresh_minutes: 5,
             opponent_count: 2,
             opponent_width: 0.44,
         }
@@ -528,7 +528,7 @@ impl BallFilterOptimizationPanel {
                     ui.label("Remote host");
                     ui.text_edit_singleline(&mut self.startup.host);
                     ui.end_row();
-                    ui.label("New recordings every (minutes)").on_hover_text("Remote optimization only. Zero keeps the initial recordings.");
+                    ui.label("New recordings every (minutes)").on_hover_text("Remote optimization only. Defaults to 5 minutes. Zero keeps the initial recordings.");
                     ui.add(egui::DragValue::new(&mut self.startup.refresh_minutes).range(0..=1440));
                     ui.end_row();
                     ui.label("Opponents");
@@ -1538,7 +1538,7 @@ mod tests {
                 "--workers",
                 "32",
                 "--refresh-minutes",
-                "30"
+                "5"
             ]
         );
     }

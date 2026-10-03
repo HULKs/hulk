@@ -1509,9 +1509,19 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("maximum_obstacle_time_difference");
+        historical
+            .as_object_mut()
+            .unwrap()
+            .remove("field_boundary_validity_decay_rate");
+        historical
+            .as_object_mut()
+            .unwrap()
+            .remove("maximum_detection_distance");
         historical["maximum_matching_cost"] = serde_json::json!(2.5);
         let legacy: BallFilterParameters = serde_json::from_value(historical.clone()).unwrap();
         assert!(legacy.visible_missed_detection_timeout.is_zero());
+        assert_eq!(legacy.field_boundary_validity_decay_rate, 0.0);
+        assert_eq!(legacy.maximum_detection_distance, 0.0);
         let path = overrides.path().join("ball_filter.json5");
         std::fs::write(&path, serde_json::to_vec(&historical).unwrap()).unwrap();
         let retained = capture_parameter_override(&path).unwrap();
@@ -1540,6 +1550,8 @@ mod tests {
             snapshot.typed().maximum_obstacle_time_difference,
             Duration::from_millis(100)
         );
+        assert_eq!(snapshot.typed().field_boundary_validity_decay_rate, 2.0);
+        assert_eq!(snapshot.typed().maximum_detection_distance, 15.0);
     }
 
     #[tokio::test(flavor = "multi_thread")]

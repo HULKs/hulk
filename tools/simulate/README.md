@@ -176,7 +176,7 @@ filter and applies the selected parameters for the map and 3D viewer. The local
 preview performs no parameter search. It waits for the bridge's first snapshot
 and can remain open while remote workers compile or start another round.
 
-New **remote** sessions refresh their dataset every 30 minutes by default.
+New **remote** sessions refresh their dataset every 5 minutes by default.
 Set `--refresh-minutes 0` to keep one fixed dataset, or choose another interval
 with `--refresh-minutes N`. A refresh records four new training clips and two
 holdouts using the current best parameters as the new baseline, fresh scenario
@@ -319,7 +319,8 @@ more than any finite position error. Empty scenes still penalize false tracks,
 so aggregate loss alone can trade tracking continuity for earlier forgetting.
 The search therefore fixes hypothesis timeout, visible/hidden confidence decay,
 output threshold, `visible_missed_detection_timeout` and
-`maximum_obstacle_time_difference` at the capture baseline, including when
+`maximum_obstacle_time_difference`, `field_boundary_validity_decay_rate`, and
+`maximum_detection_distance` at the capture baseline, including when
 importing an older warm start. With the current baseline this preserves the
 20-second hypothesis timeout and 1-second clear-view miss timeout. Only
 measurement/process noise, association cost and velocity decay are searched.
@@ -385,13 +386,22 @@ comparable; the report records the formulas and objective version.
 
 The live filter also applies a soft field-boundary prior to hypothesis confidence:
 `raw validity * exp(-distance / field_boundary_confidence_decay_distance)`.
-The default decay distance is 0.3 m; a nonpositive value disables it. The prior
-affects output selection and confidence thresholds, without changing stored track
-validity or deleting tracks. A corrected localization pose can therefore restore
-a track immediately. Missing field poses or poses more than 20 ms from the filter
-state disable the prior for that output. Simulation still uses its absolute torso
+The default decay distance is 0.3 m; a nonpositive value disables it. This weight
+affects output selection and confidence thresholds. With
+`field_boundary_validity_decay_rate = 2.0`, it also reduces stored validity by
+`exp(-rate * (1 - weight) * elapsed_seconds)`: farther outside the field means
+faster forgetting, up to an additional decay rate of 2 per second. Only contiguous
+valid-pose intervals of at most 120 ms accumulate this decay; missing geometry or
+long gaps pause it. A zero rate preserves the legacy behavior, which changes output
+confidence without accumulating this extra validity loss. Missing field poses or
+poses more than 20 ms from the filter state disable the prior for that output.
+Simulation still uses its absolute torso
 reference and production kinematics, without visual localization. Real robots use
-their normal `ground_to_field` estimate. The decay distance is fixed, not searched.
+their normal `ground_to_field` estimate. The decay distance and rate are fixed,
+not searched. Projected ball detections farther than the default
+`maximum_detection_distance` of 15 m are rejected before association or track
+creation; zero disables this limit for legacy baselines. This distance limit is
+also fixed during optimization.
 The ordinary ROS-Z topic `ball_filter/field_prior_pose` records the exact pose (or
 its absence) used for each output, so live and offline filtering agree. Legacy
 recordings without this diagnostic replay without the prior.

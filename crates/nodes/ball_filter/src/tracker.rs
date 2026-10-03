@@ -31,6 +31,7 @@ pub struct Tracker {
     last_prediction_time: Option<Time>,
     last_detection_time: Option<Time>,
     obstacle_odometry: crate::obstacle_input::OdometryHistory,
+    field_decay_clock: crate::field_prior::ValidityDecayClock,
 }
 
 pub fn camera_is_recent(image_time: Time, camera_time: Time, tolerance: Duration) -> bool {
@@ -136,9 +137,9 @@ impl Tracker {
         self.finish_with_field_pose(time, parameters, dimensions, None)
     }
 
-    /// Applies a selected, timestamp-matched pose only to output confidence.
-    /// Replay supplies the exact pose recorded by the live node; legacy inputs
-    /// pass None and preserve localization-independent selection.
+    /// Applies the selected, timestamp-matched field pose to the output prior
+    /// and optional stored-validity decay. Replay supplies the exact recorded
+    /// pose; a missing pose pauses field-dependent decay.
     pub fn finish_with_field_pose(
         &mut self,
         time: Time,
@@ -146,6 +147,21 @@ impl Tracker {
         dimensions: &FieldDimensions,
         ground_to_field: Option<Isometry2<Ground, Field>>,
     ) -> Option<BallPosition<Ground>> {
+        let valid_pose = ground_to_field.is_some_and(|pose| {
+            pose.inner
+                .to_homogeneous()
+                .iter()
+                .all(|value| value.is_finite())
+        }) && parameters.field_boundary_validity_decay_rate.is_finite()
+            && parameters.field_boundary_validity_decay_rate > 0.0;
+        let elapsed = self.field_decay_clock.elapsed(time, valid_pose);
+        field_prior::decay_stored_validity(
+            &mut self.filter.hypotheses,
+            elapsed,
+            ground_to_field,
+            dimensions,
+            parameters,
+        );
         remove_invalid_and_merge_hypotheses(&mut self.filter, time, parameters, dimensions);
         self.filter
             .best_hypothesis_with_field_pose(parameters, dimensions, ground_to_field)

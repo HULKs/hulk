@@ -572,6 +572,27 @@ fn project_detected_balls(
     let (Some(detections), Some(camera_matrix)) = (detections, camera_matrix) else {
         return None;
     };
+    if !camera_matrix
+        .intrinsics
+        .as_matrix()
+        .iter()
+        .all(|value| value.is_finite())
+        || !camera_matrix
+            .intrinsics
+            .focals
+            .iter()
+            .all(|value| *value > 0.0)
+        || !camera_matrix
+            .ground_to_camera
+            .inner
+            .to_homogeneous()
+            .iter()
+            .all(|value| value.is_finite())
+        || !ball_radius.is_finite()
+        || ball_radius <= 0.0
+    {
+        return None;
+    }
     Some(
         detections
             .iter()
@@ -579,17 +600,45 @@ fn project_detected_balls(
                 if detection.label != RobocupObjectLabel::Ball {
                     return None;
                 }
-                if detection.bounding_box.confidence < parameters.ball_confidence_threshold {
+                let confidence = detection.bounding_box.confidence;
+                if !confidence.is_finite()
+                    || !(0.0..=1.0).contains(&confidence)
+                    || confidence < parameters.ball_confidence_threshold
+                {
                     return None;
                 }
 
                 let area = detection.bounding_box.area;
+                if ![area.min.x(), area.min.y(), area.max.x(), area.max.y()]
+                    .iter()
+                    .all(|value| value.is_finite())
+                    || area.min.x() >= area.max.x()
+                    || area.min.y() >= area.max.y()
+                {
+                    return None;
+                }
+                // The projection already rejects rays above the ball-height
+                // horizon. Validate its result before association or spawning:
+                // near-horizon geometry can otherwise produce enormous tracks.
                 let position = camera_matrix
                     .pixel_to_ground_with_z(area.center(), ball_radius)
                     .ok()?;
+                if !position.x().is_finite() || !position.y().is_finite() {
+                    return None;
+                }
+                let maximum_distance = parameters.maximum_detection_distance;
+                if maximum_distance.is_finite()
+                    && maximum_distance > 0.0
+                    && position.coords().norm() > maximum_distance
+                {
+                    return None;
+                }
 
                 let detected_ball_radius =
                     (area.max.x() - area.min.x()).min(area.max.y() - area.min.y()) / 2.0;
+                if !detected_ball_radius.is_finite() || detected_ball_radius <= 0.0 {
+                    return None;
+                }
 
                 let circle = Circle {
                     center: area.center(),
@@ -597,6 +646,15 @@ fn project_detected_balls(
                 };
 
                 let projected_covariance = {
+                    if !parameters
+                        .noise
+                        .detection_noise
+                        .inner
+                        .iter()
+                        .all(|value| value.is_finite() && *value >= 0.0)
+                    {
+                        return None;
+                    }
                     let scaled_noise = parameters
                         .noise
                         .detection_noise
@@ -607,6 +665,12 @@ fn project_detected_balls(
                         .project_noise_to_ground(position, scaled_noise)
                         .ok()?
                 };
+                if !projected_covariance.iter().all(|value| value.is_finite())
+                    || projected_covariance[(0, 0)] < 0.0
+                    || projected_covariance[(1, 1)] < 0.0
+                {
+                    return None;
+                }
 
                 Some(BallPercept {
                     percept_in_ground: MultivariateNormalDistribution {
@@ -697,6 +761,155 @@ mod tests {
     use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
     use super::*;
+
+    fn horizontal_test_camera() -> CameraMatrix {
+        // Camera one metre above Ground, looking along +x; pixel y increases down.
+        let rotation = nalgebra::Rotation3::from_matrix_unchecked(nalgebra::Matrix3::new(
+            0.0, -1.0, 0.0, 0.0, 0.0, -1.0, 1.0, 0.0, 0.0,
+        ));
+        let ground_to_camera = nalgebra::Isometry3::from_parts(
+            nalgebra::Translation3::new(0.0, 1.0, 0.0),
+            nalgebra::UnitQuaternion::from_rotation_matrix(&rotation),
+        );
+        CameraMatrix::from_normalized_focal_and_center(
+            nalgebra::vector![0.5, 0.5],
+            nalgebra::point![0.5, 0.5],
+            linear_algebra::vector![640.0, 544.0],
+            linear_algebra::Isometry3::identity(),
+            linear_algebra::Isometry3::identity(),
+            linear_algebra::Isometry3::wrap(ground_to_camera),
+        )
+    }
+
+    fn test_ball_detection(center: linear_algebra::Point2<Pixel>) -> Object<RobocupObjectLabel> {
+        Object {
+            label: RobocupObjectLabel::Ball,
+            bounding_box: types::bounding_box::BoundingBox {
+                area: geometry::rectangle::Rectangle {
+                    min: center - linear_algebra::vector![2.0, 2.0],
+                    max: center + linear_algebra::vector![2.0, 2.0],
+                },
+                confidence: 0.9,
+            },
+        }
+    }
+
+    #[test]
+    fn above_horizon_and_excessively_distant_percepts_never_spawn_hypotheses() {
+        let camera = horizontal_test_camera();
+        let dimensions = FieldDimensions::SPL_2025;
+        let mut parameters = BallFilterParameters::default();
+        parameters.maximum_camera_matrix_time_difference = Duration::from_millis(20);
+        parameters.maximum_detection_distance = 15.0;
+        parameters.noise.detection_noise.inner.fill(0.05);
+        parameters.noise.initial_covariance.fill(1.0);
+        let above_horizon = point![320.0, 260.0];
+        assert!(camera.is_above_horizon(above_horizon, dimensions.ball_radius));
+        let too_far = camera
+            .ground_with_z_to_pixel(point![20.0, 0.0], dimensions.ball_radius)
+            .unwrap();
+        let detections = [
+            test_ball_detection(above_horizon),
+            test_ball_detection(too_far),
+        ];
+        let mut tracker = Tracker::default();
+        let time = Time::from_nanos(40_000_000);
+        let percepts = tracker
+            .advance(
+                time,
+                None,
+                Some(&detections),
+                Some(&TimeWrapper {
+                    time,
+                    inner: camera.clone(),
+                }),
+                &parameters,
+                &dimensions,
+            )
+            .unwrap();
+        assert!(percepts.is_empty());
+        assert!(tracker.filter.hypotheses.is_empty());
+
+        // A real ball across much of the field remains a valid measurement.
+        let distant_but_plausible = camera
+            .ground_with_z_to_pixel(point![10.0, 0.0], dimensions.ball_radius)
+            .unwrap();
+        let time = Time::from_nanos(80_000_000);
+        let percepts = tracker
+            .advance(
+                time,
+                None,
+                Some(&[test_ball_detection(distant_but_plausible)]),
+                Some(&TimeWrapper {
+                    time,
+                    inner: camera.clone(),
+                }),
+                &parameters,
+                &dimensions,
+            )
+            .unwrap();
+        assert_eq!(percepts.len(), 1);
+        assert_eq!(tracker.filter.hypotheses.len(), 1);
+        assert!((tracker.filter.hypotheses[0].position().position.x() - 10.0).abs() < 1e-3);
+
+        // Legacy baselines with the range gate disabled retain finite far percepts.
+        parameters.maximum_detection_distance = 0.0;
+        let percepts = project_detected_balls(
+            Some(&[test_ball_detection(too_far)]),
+            Some(&camera),
+            &parameters,
+            dimensions.ball_radius,
+        )
+        .unwrap();
+        assert_eq!(percepts.len(), 1);
+    }
+
+    #[test]
+    fn malformed_boxes_and_nonfinite_projection_noise_are_rejected() {
+        let camera = horizontal_test_camera();
+        let radius = FieldDimensions::SPL_2025.ball_radius;
+        let mut parameters = BallFilterParameters::default();
+        parameters.noise.detection_noise.inner.fill(0.05);
+        let center = camera
+            .ground_with_z_to_pixel(point![2.0, 0.0], radius)
+            .unwrap();
+        let valid = test_ball_detection(center);
+        let mut malformed = vec![];
+        let mut detection = valid;
+        detection.bounding_box.confidence = f32::NAN;
+        malformed.push(detection);
+        detection = valid;
+        detection.bounding_box.area.min = detection.bounding_box.area.max;
+        malformed.push(detection);
+        detection = valid;
+        detection.bounding_box.area.min = point![f32::INFINITY, 0.0];
+        malformed.push(detection);
+        detection = valid;
+        detection.bounding_box.area.min =
+            detection.bounding_box.area.max + linear_algebra::vector![1.0, 1.0];
+        malformed.push(detection);
+        assert!(
+            project_detected_balls(Some(&malformed), Some(&camera), &parameters, radius)
+                .unwrap()
+                .is_empty()
+        );
+        for noise in [f32::NAN, f32::INFINITY, -1.0, f32::MAX] {
+            parameters.noise.detection_noise.inner.fill(noise);
+            assert!(
+                project_detected_balls(Some(&[valid]), Some(&camera), &parameters, radius)
+                    .unwrap()
+                    .is_empty(),
+                "noise {noise}"
+            );
+        }
+        parameters.noise.detection_noise.inner.fill(0.05);
+        let mut invalid_geometry = camera;
+        invalid_geometry.intrinsics.focals.x = f32::NAN;
+        assert!(
+            project_detected_balls(Some(&[valid]), Some(&invalid_geometry), &parameters, radius)
+                .is_none()
+        );
+    }
 
     #[test]
     fn visibility_uses_camera_image_dimensions() {

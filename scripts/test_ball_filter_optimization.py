@@ -22,6 +22,11 @@ class BallFilterLauncherTests(unittest.TestCase):
     def arguments(self, mode, output, *extra):
         return launcher.parser().parse_args([mode, "--output", str(output), *map(str, extra)])
 
+    def test_refresh_defaults_to_five_minutes_and_can_be_disabled_or_overridden(self):
+        self.assertEqual(self.arguments("remote", "unused").refresh_minutes, 5.0)
+        self.assertEqual(self.arguments("remote", "unused", "--refresh-minutes", "0").refresh_minutes, 0.0)
+        self.assertEqual(self.arguments("remote", "unused", "--refresh-minutes", "2.5").refresh_minutes, 2.5)
+
     def test_local_arguments_preserve_literal_paths_and_default_round_size(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "literal $(no shell) run"

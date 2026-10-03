@@ -213,6 +213,13 @@ pub struct BallFilterParameters {
     /// Distance outside the field for an e-fold confidence reduction; <= 0 disables.
     #[serde(default = "default_ball_field_confidence_decay_distance")]
     pub field_boundary_confidence_decay_distance: f32,
+    /// Maximum additional confidence decay per second outside the field.
+    /// Zero preserves historical recordings without time-based field decay.
+    #[serde(default)]
+    pub field_boundary_validity_decay_rate: f32,
+    /// Maximum projected detection distance in Ground metres; zero disables.
+    #[serde(default)]
+    pub maximum_detection_distance: f32,
     pub hypothesis_timeout: Duration,
     /// Confirmed clear-view miss time before deleting a hypothesis; zero disables.
     /// Legacy recording baselines omit this field and retain their original behavior.
