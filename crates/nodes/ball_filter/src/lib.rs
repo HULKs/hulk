@@ -145,6 +145,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     let timed_camera_matrix = camera_matrix_cache.get_nearest(time);
                     let camera_matrix = timed_camera_matrix
                         .as_ref()
+                        .filter(|camera| {
+                            camera_is_recent(
+                                time,
+                                camera.time,
+                                parameters.maximum_camera_matrix_time_difference,
+                            )
+                        })
                         .map(|camera_matrix| &camera_matrix.inner);
                     let Some(projected_balls) = project_detected_balls(
                         Some(&detected_objects.inner),
@@ -201,7 +208,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             let ball_radius = field_dimensions.ball_radius;
             let filtered_balls_in_image = if let Some(time) = projection_time
                 && let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time)
-            {
+                && camera_is_recent(
+                    time,
+                    timed_camera_matrix.time,
+                    parameters.maximum_camera_matrix_time_difference,
+                ) {
                 project_to_image(&output_balls, &timed_camera_matrix.inner, ball_radius)
             } else {
                 vec![]
@@ -233,6 +244,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .publish(&output.hypothetical_ball_positions)
             .await?;
     }
+}
+
+fn camera_is_recent(frame_time: Time, camera_time: Time, tolerance: Duration) -> bool {
+    frame_time.abs_diff(camera_time) <= tolerance
 }
 
 fn predict_hypotheses_from_odometry(
@@ -546,6 +561,30 @@ mod tests {
     use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
     use super::*;
+
+    #[test]
+    fn camera_tolerance_is_symmetric_and_inclusive() {
+        let frame = Time::from_nanos(100_000_000);
+        let tolerance = Duration::from_millis(20);
+        for stamp in [80_000_000, 100_000_000, 120_000_000] {
+            assert!(camera_is_recent(frame, Time::from_nanos(stamp), tolerance));
+        }
+        for stamp in [79_999_999, 120_000_001] {
+            assert!(!camera_is_recent(frame, Time::from_nanos(stamp), tolerance));
+        }
+    }
+
+    #[test]
+    fn zero_camera_tolerance_requires_matching_source_timestamps() {
+        let frame = Time::from_nanos(100_000_000);
+        assert!(camera_is_recent(frame, frame, Duration::ZERO));
+        for stamp in [
+            frame - Duration::from_nanos(1),
+            frame + Duration::from_nanos(1),
+        ] {
+            assert!(!camera_is_recent(frame, stamp, Duration::ZERO));
+        }
+    }
 
     #[test]
     fn visibility_uses_camera_image_dimensions() {
