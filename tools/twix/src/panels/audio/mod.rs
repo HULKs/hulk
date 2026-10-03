@@ -8,11 +8,12 @@ use coordinate_systems::Screen;
 use eframe::egui::{self, Color32, DragValue, Ui, Vec2};
 use geometry::rectangle::Rectangle;
 use hulk_widgets::CompletionEdit;
-use linear_algebra::point;
+use linear_algebra::{point, vector};
+use nalgebra::Similarity2;
 use ros_z::{entity::EndpointKind, pubsub::PublicationId};
 use ros_z_debug::DynamicTopicObservation;
 use serde_json::{Value, json};
-use twix_visualization::twix_painter::TwixPainter;
+use twix_visualization::twix_painter::{Orientation, TwixPainter};
 
 use crate::{
     graph::TopicCompletionQuery,
@@ -430,7 +431,7 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
                     .allocate_exact_size(ui.available_size().max(Vec2::ZERO), egui::Sense::hover());
 
                 if rect.is_positive() && ui.is_rect_visible(rect) {
-                    let painter = TwixPainter::<Screen>::paint_at(ui, rect);
+                    let painter = screen_painter(ui, rect);
 
                     for (channel, spectrum) in self.spectra.iter().enumerate() {
                         if hidden_channels.contains(&channel) {
@@ -448,7 +449,7 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
                 }
             }
             AudioPane::Waterfall => {
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     draw_color_legend(ui, self.current_max_magnitude);
                     ui.separator();
                     ui.label("History:");
@@ -476,17 +477,25 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
                     let available_channels = self.spectra.len();
                     if available_channels > 0 {
                         let previous_channel = *self.selected_waterfall_channel;
-                        eframe::egui::ComboBox::from_id_salt(ui.id().with("waterfall_channel"))
-                            .selected_text(format!("Channel {}", self.selected_waterfall_channel))
-                            .show_ui(ui, |ui| {
-                                for channel_idx in 0..available_channels {
-                                    ui.selectable_value(
-                                        self.selected_waterfall_channel,
-                                        channel_idx,
-                                        format!("Channel {}", channel_idx),
-                                    );
-                                }
-                            });
+                        let combo_size =
+                            Vec2::new(ui.spacing().combo_width, ui.spacing().interact_size.y);
+                        ui.allocate_ui(combo_size, |ui| {
+                            eframe::egui::ComboBox::from_id_salt(ui.id().with("waterfall_channel"))
+                                .selected_text(format!(
+                                    "Channel {}",
+                                    self.selected_waterfall_channel
+                                ))
+                                .truncate()
+                                .show_ui(ui, |ui| {
+                                    for channel_idx in 0..available_channels {
+                                        ui.selectable_value(
+                                            self.selected_waterfall_channel,
+                                            channel_idx,
+                                            format!("Channel {}", channel_idx),
+                                        );
+                                    }
+                                });
+                        });
                         if *self.selected_waterfall_channel != previous_channel {
                             *self.last_processed_sample = None;
                             self.waterfall_history.clear();
@@ -507,7 +516,7 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
                         egui::Sense::hover(),
                     );
                     if rect.is_positive() && ui.is_rect_visible(rect) {
-                        let painter = TwixPainter::<Screen>::paint_at(ui, rect);
+                        let painter = screen_painter(ui, rect);
                         painter.image(
                             texture.id(),
                             Rectangle {
@@ -524,6 +533,14 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
 
         egui_tiles::UiResponse::None
     }
+}
+
+fn screen_painter(ui: &mut Ui, rect: egui::Rect) -> TwixPainter<Screen> {
+    TwixPainter::paint_at(ui, rect).with_camera(
+        vector![rect.width(), rect.height()],
+        Similarity2::identity(),
+        Orientation::LeftHanded,
+    )
 }
 
 fn magnitude_to_color(magnitude: f32, max_magnitude: f32) -> Color32 {
@@ -557,7 +574,7 @@ fn draw_color_legend(ui: &mut Ui, max_magnitude: f32) {
         );
 
         if ui.is_rect_visible(rect) {
-            let painter = TwixPainter::<Screen>::paint_at(ui, rect);
+            let painter = screen_painter(ui, rect);
             let steps = 50;
             let step_width = legend_width / steps as f32;
 
@@ -584,7 +601,7 @@ fn draw_color_legend(ui: &mut Ui, max_magnitude: f32) {
             eframe::egui::Sense::hover(),
         );
         if ui.is_rect_visible(label_rect) {
-            let painter = TwixPainter::<Screen>::paint_at(ui, label_rect);
+            let painter = screen_painter(ui, label_rect);
             let font_id = eframe::egui::TextStyle::Body.resolve(ui.style());
             let text_color = ui.visuals().text_color();
             painter.floating_text(
