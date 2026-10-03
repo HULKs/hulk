@@ -368,6 +368,10 @@ fn predict_hypotheses_from_odometry(
     );
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Keep independently timestamped sensor inputs explicit at the replay boundary"
+)]
 fn advance_all_hypotheses(
     ball_filter: &mut BallFilter,
     assignment_solver: &mut AssignmentSolver,

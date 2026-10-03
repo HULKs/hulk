@@ -55,6 +55,10 @@ impl Tracker {
 
     /// The obstacle snapshot is expressed in Ground at its own source timestamp.
     /// Live execution records the exact selected payload for deterministic replay.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Keep independently timestamped sensor inputs explicit at the replay boundary"
+    )]
     pub fn advance_with_obstacles(
         &mut self,
         time: Time,
