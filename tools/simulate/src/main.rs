@@ -80,6 +80,9 @@ struct Args {
     /// Opponent cylinder diameter in metres (0.1..1.2).
     #[arg(long, default_value_t = 0.44)]
     tuning_opponent_width: f32,
+    /// Multiply behavior walking speeds (0.1..3). Current policy still limits forward to 2 m/s, backward/lateral to 1 m/s.
+    #[arg(long, default_value_t = 1.0)]
+    tuning_walking_speed_scale: f32,
     /// Monitor a remote bridge snapshot and preview its verified best parameters locally.
     #[arg(long, value_name = "SNAPSHOT_JSON", requires = "remote_tuning_output", conflicts_with_all = ["tune_ball_filter", "no_robotics", "router", "robot", "parameter_root", "ball_perception"])]
     remote_ball_tuning: Option<PathBuf>,
@@ -112,6 +115,10 @@ fn main() -> Result<()> {
         width: args.tuning_opponent_width,
     };
     color_eyre::eyre::ensure!(opponents.is_valid(), "invalid opponent count or width");
+    color_eyre::eyre::ensure!(
+        types::ball_filter_tuning::walking_speed_scale_is_valid(args.tuning_walking_speed_scale),
+        "walking speed scale must be finite and between 0.1 and 3"
+    );
     if args.watch_ball_tuning {
         return scene::tuning_viewer::run();
     }
@@ -129,6 +136,7 @@ fn main() -> Result<()> {
             true,
             1,
             opponents,
+            args.tuning_walking_speed_scale,
         );
     }
     if let (Some(snapshot), Some(output)) = (&args.remote_ball_tuning, &args.remote_tuning_output) {
@@ -142,6 +150,7 @@ fn main() -> Result<()> {
             false,
             1,
             opponents,
+            args.tuning_walking_speed_scale,
         );
     }
     if let Some(output) = args.tune_ball_filter {
@@ -158,6 +167,7 @@ fn main() -> Result<()> {
             args.tuning_once,
             usize::from(args.tuning_preview_balls),
             opponents,
+            args.tuning_walking_speed_scale,
         );
     }
     let parameter_root = args
@@ -299,10 +309,13 @@ mod cli_tests {
             "0",
             "--tuning-opponent-width",
             "0.7",
+            "--tuning-walking-speed-scale",
+            "2.0",
         ])
         .unwrap();
         assert_eq!(refreshed.capture_ball_seed_offset, 10000);
         assert_eq!(refreshed.tuning_opponents, 0);
+        assert_eq!(refreshed.tuning_walking_speed_scale, 2.0);
         assert_eq!(
             refreshed.capture_ball_parameters,
             Some(PathBuf::from("best.json5"))
@@ -313,6 +326,7 @@ mod cli_tests {
         let capture =
             Args::try_parse_from(["simulate", "--capture-ball-tuning", "capture"]).unwrap();
         assert!(capture.tune_ball_filter.is_none());
+        assert_eq!(capture.tuning_walking_speed_scale, 1.0);
         assert!(capture.remote_ball_tuning.is_none());
         let remote = Args::try_parse_from([
             "simulate",

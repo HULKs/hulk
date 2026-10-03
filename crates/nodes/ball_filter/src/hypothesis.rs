@@ -37,6 +37,12 @@ pub struct BallHypothesis {
     /// Accumulated clear detector exposure, never elapsed occlusion time.
     #[serde(default)]
     pub negative_evidence: Option<crate::negative_evidence::NegativeEvidence>,
+    /// Last unmatched detector exposure used by optional per-second retention.
+    #[serde(default)]
+    pub validity_decay_evidence: Option<crate::validity_decay::Evidence>,
+    /// Consecutive observed leadership; cleared on missed/unknown frames and merges.
+    #[serde(default)]
+    pub leadership_evidence: Option<crate::competition::Evidence>,
 }
 
 impl BallHypothesis {
@@ -47,6 +53,8 @@ impl BallHypothesis {
             validity: 1.0,
             motion_evidence: None,
             negative_evidence: None,
+            validity_decay_evidence: None,
+            leadership_evidence: None,
         }
     }
 
@@ -146,6 +154,7 @@ impl BallHypothesis {
         }
         self.last_seen = detection_time;
         self.negative_evidence = None;
+        self.validity_decay_evidence = None;
         self.validity += validity_bonus;
 
         match &mut self.mode {
@@ -180,6 +189,8 @@ impl BallHypothesis {
                 self.validity = self.validity.max(other.validity);
                 self.last_seen = self.last_seen.max(other.last_seen);
                 self.negative_evidence = None;
+                self.validity_decay_evidence = None;
+                self.leadership_evidence = None;
                 // Evidence from distinct tracks must not be concatenated.
                 self.motion_evidence = None;
             }
@@ -193,6 +204,8 @@ impl BallHypothesis {
                 self.validity = self.validity.max(other.validity);
                 self.last_seen = self.last_seen.max(other.last_seen);
                 self.negative_evidence = None;
+                self.validity_decay_evidence = None;
+                self.leadership_evidence = None;
                 // Evidence from distinct tracks must not be concatenated.
                 self.motion_evidence = None;
             }
@@ -244,6 +257,8 @@ mod tests {
             validity: 4.0,
             motion_evidence: None,
             negative_evidence: None,
+            validity_decay_evidence: None,
+            leadership_evidence: None,
         }
     }
 
@@ -470,8 +485,13 @@ mod tests {
                     visible_missed_duration: Duration::from_millis(120),
                     last_clear_frame: Some(Time::from_nanos(200_000_000)),
                 });
+                survivor.leadership_evidence = Some(crate::competition::Evidence {
+                    first_match: Time::zero(),
+                    last_match: Time::from_nanos(200_000_000),
+                });
                 survivor.merge(removed);
                 assert!(survivor.negative_evidence.is_none());
+                assert!(survivor.leadership_evidence.is_none());
                 assert_eq!(survivor.last_seen, Time::from_nanos(80_000_000));
                 assert_eq!(survivor.validity, 10.0);
             }

@@ -8,6 +8,15 @@ pub const NAMESPACE: &str = "/ball_tuning";
 pub const PROGRESS_TOPIC: &str = "tuning/progress";
 pub const OPEN_VIEWER_TOPIC: &str = "/ball_tuning/tuning/open_viewer";
 pub const OPPONENTS_TOPIC: &str = "/ball_tuning/tuning/opponents";
+pub const WALKING_SPEED_TOPIC: &str = "/ball_tuning/tuning/walking_speed_scale";
+
+pub const fn default_walking_speed_scale() -> f32 {
+    1.0
+}
+
+pub fn walking_speed_scale_is_valid(scale: f32) -> bool {
+    scale.is_finite() && (0.1..=3.0).contains(&scale)
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, ros_z::Message)]
 pub struct OpponentParameters {
@@ -36,6 +45,9 @@ pub const TUNED_PARAMETER_POINTERS: &[&str] = &[
     "/noise/process_noise_moving",
     "/maximum_matching_cost",
     "/velocity_decay_factor",
+    "/hidden_validity_decay_rate",
+    "/visible_missed_validity_decay_rate",
+    "/competing_hypothesis_validity_decay_rate",
 ];
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, ros_z::Message)]
@@ -84,7 +96,7 @@ pub struct RemoteProgress {
     pub best_candidate: String,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, ros_z::Message)]
+#[derive(Clone, Debug, Serialize, Deserialize, ros_z::Message)]
 pub struct Progress {
     pub status: String,
     pub recording: String,
@@ -108,4 +120,35 @@ pub struct Progress {
     pub opponents: OpponentParameters,
     #[serde(default)]
     pub active_opponents: Option<OpponentParameters>,
+    /// Human-selected multiplier for behavior walking speeds, never an optimizer variable.
+    #[serde(default = "default_walking_speed_scale")]
+    pub walking_speed_scale: f32,
+    #[serde(default)]
+    pub active_walking_speed_scale: Option<f32>,
+}
+
+impl Default for Progress {
+    fn default() -> Self {
+        Self {
+            status: String::new(),
+            recording: String::new(),
+            recording_index: 0,
+            recordings: 0,
+            phase: String::new(),
+            elapsed_seconds: 0.0,
+            duration_seconds: 0.0,
+            search: None,
+            output_directory: String::new(),
+            error: None,
+            viewer_status: None,
+            live_trial: None,
+            live_status: None,
+            remote: None,
+            remote_updated_unix_seconds: None,
+            opponents: OpponentParameters::default(),
+            active_opponents: None,
+            walking_speed_scale: default_walking_speed_scale(),
+            active_walking_speed_scale: None,
+        }
+    }
 }

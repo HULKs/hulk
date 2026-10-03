@@ -165,6 +165,8 @@ impl BallFilter {
             validity: 1.0,
             motion_evidence: None,
             negative_evidence: None,
+            validity_decay_evidence: None,
+            leadership_evidence: None,
         };
 
         self.hypotheses.push(new_hypothesis)

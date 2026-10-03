@@ -92,8 +92,8 @@ with matching grey velocity arrows. The selected hypothesis is not drawn twice.
 The physical ball has a green velocity arrow, taken directly from MuJoCo via
 `simulation/ball_velocities_world`. Velocity arrows use 1 m per m/s. Every
 hypothesis also has an upward confidence arrow, blue for the selected model and
-grey for the others. Its length is the stored raw confidence in metres: confidence
-1 gives 1 m, and confidence 3 gives 3 m. This score accumulates observations and
+grey for the others. Its length is 0.02 m per stored raw confidence unit:
+confidence 25 gives 0.5 m, and confidence 50 gives 1 m. This score accumulates observations and
 can exceed 1; it is neither a probability nor the confidence after applying the
 field-boundary prior. Arrows start at the top of the ball. Zero, negative or
 nonfinite scores have no confidence arrow. Selected and grey models use the
@@ -265,6 +265,7 @@ the controlled robot, then applies a physical sideways kick after reaching a pla
 stance. Pursuit has speed and acceleration limits, robot clearance, wall bounds,
 a kick cooldown and an airborne-ball check. They remain simplified cylinders;
 the opponents do not run articulated walking or a second behavior stack.
+
 They collide with balls, are published to behavior's obstacle input, and suppress
 synthetic detections when the camera-to-ball center ray crosses their volume.
 Occluded balls remain present in ground truth, so dropping those tracks is penalized.
@@ -272,6 +273,15 @@ Each capture writes a `*.coverage.json` summary of actual opponent kicks, whethe
 the camera ray was blocked at the kick, and whether the ball was also inside the
 camera image. Kick events are recorded on the existing ROS-Z scenario topic.
 The summary is diagnostic; optimization inputs remain the original MCAP messages.
+
+**Walking speed ×** is a human-controlled multiplier, default 1.0 and range
+0.1–3.0. Set it before launch, pass `--walking-speed-scale FACTOR` to the launcher,
+or use **Apply walking speed** while connected. The robot keeps following the
+ball through normal behavior; the multiplier adjusts its walking commands within
+the existing policy limits (2 m/s forward, 1 m/s backward/lateral, 1.5 rad/s turn).
+Live changes restart the preview episode and are saved for the next fresh capture.
+Existing recordings retain their original setting. This control is not optimized.
+
 
 The robot runs the normal behavior stack with game state `Playing`, a free ball,
 and no injected motion command. Production behavior controls walking, head tracking,
@@ -317,13 +327,20 @@ are saved for review, not automatically applied to robot defaults.
 The search objective uses bounded position error, with a missing estimate costing
 more than any finite position error. Empty scenes still penalize false tracks,
 so aggregate loss alone can trade tracking continuity for earlier forgetting.
-The search therefore fixes hypothesis timeout, visible/hidden confidence decay,
+The search therefore fixes hypothesis timeout, legacy per-frame confidence factors,
 output threshold, `visible_missed_detection_timeout` and
 `maximum_obstacle_time_difference`, `field_boundary_validity_decay_rate`, and
 `maximum_detection_distance` at the capture baseline, including when
 importing an older warm start. With the current baseline this preserves the
 20-second hypothesis timeout and 1-second clear-view miss timeout. Only
-measurement/process noise, association cost and velocity decay are searched.
+measurement/process noise, association cost, velocity decay and the enabled
+per-second confidence decay rates are searched. The hidden rate is searched over
+0–0.3/s, the visible-but-undetected rate over 0–4/s, and the competing-hypothesis
+rate over 0–2/s. A rate of zero is a valid
+learned value. A legacy baseline with a missing/null rate keeps its old per-frame
+behavior: candidates cannot enable that rate, and the report and UI omit it from
+the searched parameters. Importing an older warm start without rates preserves
+the new capture baseline's rates.
 
 A candidate must also preserve baseline total missing time, close-range missing
 time and longest missing interval in **every training recording**, as well as
@@ -341,8 +358,25 @@ and long sensor gaps do not count as observations. The predicted ball must fit
 fully inside the image and be large enough to observe. A matched detection clears
 its missed-observation history.
 
+An additional learned `competing_hypothesis_validity_decay_rate` reduces unmatched
+alternatives when the selected leader has been matched continuously for one second
+and its raw confidence is at least 10 (or the output threshold, if higher). Its
+default is 0.5/s and the additional factor is `exp(-rate * elapsed_seconds)`.
+Every hypothesis matched in the current image is protected. A leader change, miss,
+unknown visibility, merge or gap over 120 ms resets confirmation. Odometry-only
+updates provide no evidence for this penalty. Legacy null/missing values disable
+it; an enabled zero rate is a valid optimizer result. The confirmation duration
+and confidence threshold remain fixed.
+
 Occlusion or looking away pauses this miss budget and uses hidden confidence
-decay with the existing 20-second hypothesis timeout. The filter uses the same
+decay with the existing 20-second hypothesis timeout. The default hidden decay
+rate is 0.01/s and applies even without field localization; the default
+visible-but-undetected rate is 1/s. Both use `exp(-rate * elapsed_seconds)` for
+consecutive unmatched frames in the same visibility category, separated by at
+most 120 ms. The first miss, category changes, unknown visibility and long gaps
+do not charge an unobserved interval. Matched frames retain their existing
+confidence update. Additional outside-field decay remains separate and fixed.
+The filter uses the same
 `obstacles` stream that populates `WorldState.obstacles`, considering only
 `Robot` obstacles as occluders. Their foot/hip radii approximate opaque vertical
 columns; they are not articulated robot silhouettes. Obstacle positions are

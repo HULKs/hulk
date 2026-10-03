@@ -31,7 +31,7 @@ use std::{
 use types::{
     ball_filter_tuning::{
         NAMESPACE, OPEN_VIEWER_TOPIC, OPPONENTS_TOPIC, OpponentParameters, PROGRESS_TOPIC,
-        Progress, ROUTER,
+        Progress, ROUTER, WALKING_SPEED_TOPIC, walking_speed_scale_is_valid,
     },
     field_dimensions::GlobalFieldSide,
     filtered_game_state::FilteredGameState,
@@ -122,6 +122,7 @@ pub fn run(
     once: bool,
     preview_balls: usize,
     opponents: OpponentParameters,
+    walking_speed_scale: f32,
 ) -> Result<()> {
     ensure!(
         !output.exists(),
@@ -130,6 +131,10 @@ pub fn run(
     );
     ensure!(trials > 0, "tuning trials must be positive");
     ensure!(opponents.is_valid(), "invalid opponent count or width");
+    ensure!(
+        walking_speed_scale_is_valid(walking_speed_scale),
+        "walking speed scale must be finite and between 0.1 and 3"
+    );
     let (capture_parameters, seed_offset) = match source {
         TuningSource::RecordOnly {
             parameters,
@@ -170,9 +175,10 @@ pub fn run(
         }
     }
     std::fs::create_dir_all(output)?;
-    write_checkpoint(
+    save_scenario(
         &output.join("scenario.json"),
-        &serde_json::to_vec_pretty(&opponents)?,
+        opponents,
+        walking_speed_scale,
     )?;
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let runtime = tokio::runtime::Runtime::new()?;
@@ -207,6 +213,7 @@ pub fn run(
             .await?;
         let open_viewer = node.subscriber::<bool>(OPEN_VIEWER_TOPIC).build().await?;
         let opponent_requests = node.subscriber::<OpponentParameters>(OPPONENTS_TOPIC).build().await?;
+        let walking_requests = node.subscriber::<f32>(WALKING_SPEED_TOPIC).build().await?;
         let (progress, mut updates) = tokio::sync::watch::channel(Progress {
             status: if matches!(source, TuningSource::Remote(_)) {
                 "Waiting for remote optimizer"
@@ -217,6 +224,7 @@ pub fn run(
             recordings: 6,
             duration_seconds: EPISODE_SECONDS,
             opponents,
+            walking_speed_scale,
             ..Default::default()
         });
         let viewer_updates = progress.clone();
@@ -232,14 +240,26 @@ pub fn run(
                     request = opponent_requests.recv() => {
                         if let Ok(request) = request {
                             if request.is_valid() {
-                                let saved = serde_json::to_vec_pretty(&request)
-                                    .map_err(color_eyre::Report::from)
-                                    .and_then(|bytes| write_checkpoint(&scenario_path, &bytes));
+                                let saved = save_scenario(&scenario_path, request, viewer_updates.borrow().walking_speed_scale);
                                 viewer_updates.send_modify(|state| {
                                     if let Err(error) = saved {
                                         state.error = Some(format!("Cannot save opponent settings: {error:#}"));
                                     } else {
                                         state.opponents = request;
+                                    }
+                                });
+                            }
+                        }
+                    },
+                    request = walking_requests.recv() => {
+                        if let Ok(request) = request {
+                            if walking_speed_scale_is_valid(request) {
+                                let saved = save_scenario(&scenario_path, viewer_updates.borrow().opponents, request);
+                                viewer_updates.send_modify(|state| {
+                                    if let Err(error) = saved {
+                                        state.error = Some(format!("Cannot save walking speed: {error:#}"));
+                                    } else {
+                                        state.walking_speed_scale = request;
                                     }
                                 });
                             }
@@ -329,6 +349,7 @@ pub fn run(
                     &progress,
                     capture_parameters.as_ref(),
                     opponents,
+                    walking_speed_scale,
                     None,
                     &shutdown,
                 )?;
@@ -594,7 +615,10 @@ impl LivePreview {
                     state.elapsed_seconds = 0.0;
                 });
                 let stop = updates.stop.clone();
-                let opponents = progress.borrow().opponents;
+                let (opponents, walking_speed_scale) = {
+                    let state = progress.borrow();
+                    (state.opponents, state.walking_speed_scale)
+                };
                 let result = record(
                     &runtime,
                     &root,
@@ -607,6 +631,7 @@ impl LivePreview {
                     &progress,
                     None,
                     opponents,
+                    walking_speed_scale,
                     Some(&mut updates),
                     &stop,
                 );
@@ -699,6 +724,69 @@ fn capture_parameter_override(path: &Path) -> Result<serde_json::Value> {
     Ok(parameters)
 }
 
+fn save_scenario(
+    path: &Path,
+    opponents: OpponentParameters,
+    walking_speed_scale: f32,
+) -> Result<()> {
+    write_checkpoint(
+        path,
+        &serde_json::to_vec_pretty(&serde_json::json!({
+            "count": opponents.count,
+            "width": opponents.width,
+            "walking_speed_scale": walking_speed_scale,
+        }))?,
+    )
+}
+
+/// Override the existing behavior speed settings in a temporary simulation layer.
+/// Respect layer precedence and leave distance fades, turning, policy caps and all
+/// behavior decisions alone. The normal motion stack still sends every joint command.
+fn scaled_walking_parameters(layers: &[PathBuf], scale: f32) -> Result<serde_json::Value> {
+    ensure!(
+        walking_speed_scale_is_valid(scale),
+        "invalid walking speed scale"
+    );
+    const FIELDS: [&str; 5] = [
+        "kicking",
+        "search",
+        "blocking",
+        "minimum_speed",
+        "walk_to_kickoff",
+    ];
+    let mut speeds = serde_json::Map::new();
+    for layer in layers {
+        let path = layer.join("behavior_node.json5");
+        if !path.is_file() {
+            continue;
+        }
+        let parameters: serde_json::Value = json5::from_str(&std::fs::read_to_string(&path)?)?;
+        if let Some(speed) = parameters.pointer("/walking/speed") {
+            let speed = speed
+                .as_object()
+                .ok_or_else(|| eyre!("walking.speed must be an object in {}", path.display()))?;
+            for field in FIELDS {
+                if let Some(value) = speed.get(field) {
+                    speeds.insert(field.into(), value.clone());
+                }
+            }
+        }
+    }
+    for field in FIELDS {
+        let original = speeds
+            .get(field)
+            .and_then(serde_json::Value::as_f64)
+            .ok_or_else(|| eyre!("missing numeric behavior walking speed {field}"))?;
+        let scaled = original * f64::from(scale);
+        ensure!(
+            scaled.is_finite() && scaled >= 0.0 && scaled <= f64::from(f32::MAX),
+            "invalid behavior walking speed {field}"
+        );
+        speeds.insert(field.into(), serde_json::json!(scaled));
+    }
+    Ok(serde_json::json!({"walking": {"speed": speeds}}))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn record(
     runtime: &tokio::runtime::Handle,
@@ -712,10 +800,23 @@ fn record(
     progress: &tokio::sync::watch::Sender<Progress>,
     capture_parameters: Option<&serde_json::Value>,
     opponents: OpponentParameters,
+    walking_speed_scale: f32,
     mut live: Option<&mut LiveUpdates>,
     stop: &AtomicBool,
 ) -> Result<()> {
     let layer = tempfile::tempdir()?;
+    let behavior_layer = scaled_walking_parameters(
+        &[
+            root.join("tools/simulate/parameters"),
+            parameter_root.join("base"),
+            parameter_root.join("location").join(location),
+        ],
+        walking_speed_scale,
+    )?;
+    std::fs::write(
+        layer.path().join("behavior_node.json5"),
+        serde_json::to_vec(&behavior_layer)?,
+    )?;
     std::fs::write(
         layer.path().join("motion_inference.json5"),
         serde_json::json!({
@@ -844,7 +945,10 @@ fn record(
     io.input_game.global_field_side = GlobalFieldSide::Home;
     io.clear_injection()?;
     runtime.block_on(parameters_pub.publish(&parameters))?;
-    progress.send_modify(|state| state.active_opponents = Some(opponents));
+    progress.send_modify(|state| {
+        state.active_opponents = Some(opponents);
+        state.active_walking_speed_scale = Some(walking_speed_scale);
+    });
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, MujocoWorldPlugin));
     app.insert_resource(SimulationMode::Paused);
@@ -972,10 +1076,14 @@ fn record(
 
     for frame in 0..2500 {
         ensure!(!stop.load(Ordering::Relaxed), "tuning stopped");
-        if live.is_some() && progress.borrow().opponents != opponents {
+        if live.is_some() && {
+            let state = progress.borrow();
+            state.opponents != opponents || state.walking_speed_scale != walking_speed_scale
+        } {
             progress.send_modify(|state| {
                 state.active_opponents = None;
-                state.live_status = Some("Restarting preview to apply opponent settings".into());
+                state.active_walking_speed_scale = None;
+                state.live_status = Some("Restarting preview to apply scenario settings".into());
             });
             return Ok(());
         }
@@ -1308,6 +1416,8 @@ fn record(
     let coverage = serde_json::json!({
         "seed": seed,
         "ball_count": ball_count,
+        "walking_speed_scale": walking_speed_scale,
+        "behavior_walking_speed": behavior_layer["walking"]["speed"],
         "opponent_kicks": opponent_kicks,
         "occluded_kicks": occluded_kicks,
         "occluded_in_view_kicks": occluded_in_view_kicks,
@@ -1478,6 +1588,72 @@ fn step_with_ball_impulse(world: &mut MujocoWorld, impulse: Option<BallImpulse>)
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn walking_scale_preserves_behavior_and_respects_parameter_layers() {
+        let base = tempfile::tempdir().unwrap();
+        let location = tempfile::tempdir().unwrap();
+        let original = include_str!("../../../etc/parameters/base/behavior_node.json5");
+        std::fs::write(base.path().join("behavior_node.json5"), original).unwrap();
+        std::fs::write(
+            location.path().join("behavior_node.json5"),
+            r#"{walking:{speed:{kicking:1.25,search:0.9}}}"#,
+        )
+        .unwrap();
+        let layers = [base.path().to_owned(), location.path().to_owned()];
+        let scaled = scaled_walking_parameters(&layers, 2.0).unwrap();
+        assert_eq!(scaled.pointer("/walking/speed/kicking").unwrap(), 2.5);
+        assert_eq!(scaled.pointer("/walking/speed/search").unwrap(), 1.8);
+        assert_eq!(scaled.pointer("/walking/speed/blocking").unwrap(), 1.6);
+        assert_eq!(scaled.pointer("/walking/speed/minimum_speed").unwrap(), 0.4);
+        assert_eq!(
+            scaled.pointer("/walking/speed/walk_to_kickoff").unwrap(),
+            1.0
+        );
+        assert!(
+            scaled
+                .pointer("/walking/speed/velocity_fade_distance")
+                .is_none()
+        );
+        assert!(
+            scaled.get("control").is_none(),
+            "normal behavior must stay in control"
+        );
+        assert_eq!(
+            std::fs::read_to_string(base.path().join("behavior_node.json5")).unwrap(),
+            original
+        );
+        assert_eq!(
+            scaled_walking_parameters(&layers, 1.0)
+                .unwrap()
+                .pointer("/walking/speed/kicking")
+                .unwrap(),
+            1.25
+        );
+        for invalid in [0.0, f32::NAN, f32::INFINITY, 3.1] {
+            assert!(scaled_walking_parameters(&layers, invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn saved_scenario_keeps_walking_scale_and_opponent_settings_together() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("scenario.json");
+        save_scenario(
+            &path,
+            OpponentParameters {
+                count: 3,
+                width: 0.7,
+            },
+            2.0,
+        )
+        .unwrap();
+        let saved: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        assert_eq!(saved["count"], 3);
+        assert_eq!(saved["walking_speed_scale"], 2.0);
+        assert!((saved["width"].as_f64().unwrap() - 0.7).abs() < 1e-6);
+    }
+
     #[cfg(target_os = "linux")]
     #[test]
     fn replaced_optimizer_executable_uses_the_running_image_for_viewer() {
@@ -1517,11 +1693,26 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("maximum_detection_distance");
+        historical
+            .as_object_mut()
+            .unwrap()
+            .remove("hidden_validity_decay_rate");
+        historical
+            .as_object_mut()
+            .unwrap()
+            .remove("visible_missed_validity_decay_rate");
+        historical
+            .as_object_mut()
+            .unwrap()
+            .remove("competing_hypothesis_validity_decay_rate");
         historical["maximum_matching_cost"] = serde_json::json!(2.5);
         let legacy: BallFilterParameters = serde_json::from_value(historical.clone()).unwrap();
         assert!(legacy.visible_missed_detection_timeout.is_zero());
         assert_eq!(legacy.field_boundary_validity_decay_rate, 0.0);
         assert_eq!(legacy.maximum_detection_distance, 0.0);
+        assert_eq!(legacy.hidden_validity_decay_rate, None);
+        assert_eq!(legacy.visible_missed_validity_decay_rate, None);
+        assert_eq!(legacy.competing_hypothesis_validity_decay_rate, None);
         let path = overrides.path().join("ball_filter.json5");
         std::fs::write(&path, serde_json::to_vec(&historical).unwrap()).unwrap();
         let retained = capture_parameter_override(&path).unwrap();
@@ -1552,6 +1743,15 @@ mod tests {
         );
         assert_eq!(snapshot.typed().field_boundary_validity_decay_rate, 2.0);
         assert_eq!(snapshot.typed().maximum_detection_distance, 15.0);
+        assert_eq!(snapshot.typed().hidden_validity_decay_rate, Some(0.01));
+        assert_eq!(
+            snapshot.typed().visible_missed_validity_decay_rate,
+            Some(1.0)
+        );
+        assert_eq!(
+            snapshot.typed().competing_hypothesis_validity_decay_rate,
+            Some(0.5)
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]

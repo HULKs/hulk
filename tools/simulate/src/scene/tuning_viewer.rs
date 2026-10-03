@@ -404,7 +404,7 @@ fn show_recorded_pose(
         .received_at
         .is_none_or(|time| time.elapsed() > Duration::from_secs(3));
     **text = Text::new(format!(
-        "{status}{}\nRead-only view | hold right mouse + WASD to move | Q down / E up\nBlue: selected model | grey: other hypotheses | original balls / green arrows: truth\nOrange flashes: false detections on ground | red flashes: false pixels projected 3 m down camera ray\nVelocity arrows: 1 m per m/s | upward arrows: raw confidence, 1 = 1 m; may exceed 1\nSelection also uses the field prior | orange cylinders: moving opponents that block camera detections",
+        "{status}{}\nRead-only view | hold right mouse + WASD to move | Q down / E up\nBlue: selected model | grey: other hypotheses | original balls / green arrows: truth\nOrange flashes: false detections on ground | red flashes: false pixels projected 3 m down camera ray\nVelocity arrows: 1 m per m/s | upward arrows: raw confidence, 50 = 1 m (0.02 m per unit)\nSelection also uses the field prior | orange cylinders: moving opponents that block camera detections",
         if stale { " | no live updates" } else { "" }
     ));
     let (Some((joint_time, joints)), Some(torso)) = (&state.joints, &state.torso) else {
@@ -644,8 +644,10 @@ fn hypotheses_in_field(state: &Snapshot, time: RosTime) -> Vec<ViewedHypothesis>
         .collect()
 }
 
-/// Stored validity is an accumulated score, not a probability. Preserve its
-/// native scale; field-prior weighting and output eligibility are separate.
+const CONFIDENCE_METRES_PER_UNIT: f32 = 0.02;
+
+/// Stored validity is an accumulated score, not a probability. Scale linearly
+/// without normalizing or capping; field-prior weighting is separate.
 fn confidence_arrow(
     ball: BallPosition<Field>,
     radius: f32,
@@ -655,7 +657,7 @@ fn confidence_arrow(
     (origin.is_finite() && raw_confidence.is_finite() && raw_confidence > 0.0).then_some(
         super::command_vectors::Arrow {
             origin,
-            vector: Vec3::Y * raw_confidence,
+            vector: Vec3::Y * (raw_confidence * CONFIDENCE_METRES_PER_UNIT),
         },
     )
 }
@@ -920,22 +922,29 @@ mod tests {
     }
 
     #[test]
-    fn confidence_geometry_points_up_at_one_metre_per_raw_unit_without_capping() {
+    fn confidence_geometry_points_up_at_two_centimetres_per_raw_unit_without_capping() {
         use super::super::command_vectors::part_transform;
         let ball = BallPosition {
             position: point![2.0, -3.0],
             velocity: vector![4.0, -5.0],
             last_seen: RosTime::zero(),
         };
-        for confidence in [0.01, 1.0, 3.0, 25.0] {
+        for (confidence, height) in [
+            (0.01, 0.0002),
+            (1.0, 0.02),
+            (3.0, 0.06),
+            (25.0, 0.5),
+            (50.0, 1.0),
+            (100.0, 2.0),
+        ] {
             let arrow = confidence_arrow(ball, 0.105, confidence).unwrap();
             assert_eq!(arrow.origin, Vec3::new(2.0, 0.21, 3.0));
-            assert_eq!(arrow.vector, Vec3::Y * confidence);
+            assert!((arrow.vector - Vec3::Y * height).length() < 1e-7);
             let shaft = part_transform(arrow, false).unwrap();
             let tip = part_transform(arrow, true).unwrap();
-            assert!((shaft.scale.y + tip.scale.y - confidence).abs() < 1e-6);
+            assert!((shaft.scale.y + tip.scale.y - height).abs() < 1e-6);
             let endpoint = tip.translation + tip.rotation * Vec3::Y * tip.scale.y / 2.0;
-            assert!((endpoint - (arrow.origin + Vec3::Y * confidence)).length() < 1e-5);
+            assert!((endpoint - (arrow.origin + Vec3::Y * height)).length() < 1e-5);
         }
         for confidence in [0.0, -1.0, f32::NAN, f32::INFINITY] {
             assert!(confidence_arrow(ball, 0.105, confidence).is_none());

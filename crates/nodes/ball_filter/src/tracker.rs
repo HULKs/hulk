@@ -76,7 +76,10 @@ impl Tracker {
                 parameters,
             );
         }
-        if !parameters.visible_missed_detection_timeout.is_zero() {
+        if !parameters.visible_missed_detection_timeout.is_zero()
+            || validity_decay::enabled(parameters)
+            || competition::enabled(parameters)
+        {
             // Odometry-only updates cannot provide negative perception evidence.
             if detections.is_none() {
                 return Ok(Vec::new());
@@ -101,8 +104,13 @@ impl Tracker {
         let Some(percepts) =
             project_detected_balls(detections, camera, parameters, dimensions.ball_radius)
         else {
-            if !parameters.visible_missed_detection_timeout.is_zero() {
+            if !parameters.visible_missed_detection_timeout.is_zero()
+                || validity_decay::enabled(parameters)
+                || competition::enabled(parameters)
+            {
                 for hypothesis in &mut self.filter.hypotheses {
+                    hypothesis.validity_decay_evidence = None;
+                    hypothesis.leadership_evidence = None;
                     if let Some(evidence) = &mut hypothesis.negative_evidence {
                         evidence.pause();
                     }
@@ -257,6 +265,396 @@ mod tests {
                 dimensions,
             )
             .unwrap();
+    }
+
+    fn learned_decay_parameters() -> (Tracker, CameraMatrix, BallFilterParameters, FieldDimensions)
+    {
+        let (tracker, camera, mut parameters, dimensions) = negative_evidence_fixture();
+        parameters.visible_missed_detection_timeout = Duration::ZERO;
+        parameters.visible_validity_exponential_decay_factor = 0.5;
+        parameters.hidden_validity_exponential_decay_factor = 0.3;
+        parameters.visible_missed_validity_decay_rate = Some(1.0);
+        parameters.hidden_validity_decay_rate = Some(0.1);
+        (tracker, camera, parameters, dimensions)
+    }
+
+    #[test]
+    fn learned_visible_and_hidden_rates_replace_factors_and_are_frame_rate_independent() {
+        for hidden in [false, true] {
+            for step in [20, 40, 100] {
+                let (mut tracker, camera, parameters, dimensions) = learned_decay_parameters();
+                for millis in (0..=1000).step_by(step) {
+                    if hidden {
+                        robot_obstacle_frame(
+                            &mut tracker,
+                            &camera,
+                            millis,
+                            &parameters,
+                            &dimensions,
+                        );
+                    } else {
+                        detector_frame(
+                            &mut tracker,
+                            &camera,
+                            millis,
+                            &[],
+                            &parameters,
+                            &dimensions,
+                        );
+                    }
+                }
+                let expected = 25.0
+                    * if hidden {
+                        (-0.1_f32).exp()
+                    } else {
+                        (-1.0_f32).exp()
+                    };
+                assert!(
+                    (tracker.filter.hypotheses[0].validity - expected).abs() < 0.001,
+                    "hidden={hidden}, step={step}"
+                );
+            }
+        }
+        let (mut tracker, camera, mut parameters, dimensions) = learned_decay_parameters();
+        parameters.hidden_validity_decay_rate = Some(0.0);
+        parameters.visible_missed_validity_decay_rate = Some(0.0);
+        for millis in (0..=1000).step_by(40) {
+            if millis < 500 {
+                detector_frame(&mut tracker, &camera, millis, &[], &parameters, &dimensions);
+            } else {
+                robot_obstacle_frame(&mut tracker, &camera, millis, &parameters, &dimensions);
+            }
+        }
+        assert_eq!(
+            tracker.filter.hypotheses[0].validity, 25.0,
+            "zero must really disable unmatched confidence decay"
+        );
+    }
+
+    #[test]
+    fn learned_retention_pauses_on_unknown_gaps_transitions_and_duplicate_frames() {
+        let (mut tracker, camera, parameters, dimensions) = learned_decay_parameters();
+        detector_frame(&mut tracker, &camera, 40, &[], &parameters, &dimensions);
+        // Category change starts a new interval rather than charging a mixed one.
+        robot_obstacle_frame(&mut tracker, &camera, 80, &parameters, &dimensions);
+        let time = Time::from_nanos(120_000_000);
+        tracker
+            .advance_with_obstacles(
+                time,
+                None,
+                Some(&[]),
+                Some(&TimeWrapper {
+                    time,
+                    inner: camera.clone(),
+                }),
+                None,
+                &parameters,
+                &dimensions,
+            )
+            .unwrap();
+        robot_obstacle_frame(&mut tracker, &camera, 160, &parameters, &dimensions);
+        robot_obstacle_frame(&mut tracker, &camera, 160, &parameters, &dimensions);
+        robot_obstacle_frame(&mut tracker, &camera, 140, &parameters, &dimensions);
+        robot_obstacle_frame(&mut tracker, &camera, 10_000, &parameters, &dimensions);
+        assert_eq!(tracker.filter.hypotheses[0].validity, 25.0);
+        robot_obstacle_frame(&mut tracker, &camera, 10_040, &parameters, &dimensions);
+        let expected = 25.0 * (-0.1_f32 * 0.04).exp();
+        assert!((tracker.filter.hypotheses[0].validity - expected).abs() < 1e-5);
+    }
+
+    #[test]
+    fn learned_retention_does_not_count_odometry_ticks_or_bridge_stale_camera_frames() {
+        let (mut tracker, camera, parameters, dimensions) = learned_decay_parameters();
+        detector_frame(&mut tracker, &camera, 40, &[], &parameters, &dimensions);
+        for tick in 21..=40 {
+            tracker
+                .advance(
+                    Time::from_nanos(tick * 2_000_000),
+                    Some(Pose2::new(linear_algebra::point![0.0, 0.0], 0.0)),
+                    None,
+                    None,
+                    &parameters,
+                    &dimensions,
+                )
+                .unwrap();
+        }
+        let time = Time::from_nanos(80_000_000);
+        tracker
+            .advance_with_obstacles(
+                time,
+                None,
+                Some(&[]),
+                Some(&TimeWrapper {
+                    time: Time::zero(),
+                    inner: camera.clone(),
+                }),
+                Some(&TimeWrapper {
+                    time,
+                    inner: vec![],
+                }),
+                &parameters,
+                &dimensions,
+            )
+            .unwrap();
+        detector_frame(&mut tracker, &camera, 120, &[], &parameters, &dimensions);
+        assert_eq!(tracker.filter.hypotheses[0].validity, 25.0);
+        detector_frame(&mut tracker, &camera, 160, &[], &parameters, &dimensions);
+        assert!((tracker.filter.hypotheses[0].validity - 25.0 * (-0.04_f32).exp()).abs() < 1e-5);
+    }
+
+    #[test]
+    fn matched_confidence_update_and_nullable_legacy_policy_remain_unchanged() {
+        let (mut tracker, camera, parameters, dimensions) = learned_decay_parameters();
+        let ball = image_object(RobocupObjectLabel::Ball, 1.0);
+        detector_frame(&mut tracker, &camera, 40, &[ball], &parameters, &dimensions);
+        let matched = 25.0 * 0.5 + 1.0;
+        assert!((tracker.filter.hypotheses[0].validity - matched).abs() < 1e-5);
+        assert!(
+            tracker.filter.hypotheses[0]
+                .validity_decay_evidence
+                .is_none()
+        );
+        detector_frame(&mut tracker, &camera, 80, &[], &parameters, &dimensions);
+        assert_eq!(tracker.filter.hypotheses[0].validity, matched);
+        detector_frame(&mut tracker, &camera, 120, &[], &parameters, &dimensions);
+        assert!((tracker.filter.hypotheses[0].validity - matched * (-0.04_f32).exp()).abs() < 1e-5);
+        let (mut tracker, camera, mut parameters, dimensions) = learned_decay_parameters();
+        parameters.hidden_validity_decay_rate = None;
+        parameters.visible_missed_validity_decay_rate = None;
+        for millis in [40, 80] {
+            detector_frame(&mut tracker, &camera, millis, &[], &parameters, &dimensions);
+        }
+        assert_eq!(tracker.filter.hypotheses[0].validity, 25.0 * 0.5 * 0.5);
+        assert!(
+            tracker.filter.hypotheses[0]
+                .validity_decay_evidence
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn visibility_distinguishes_confirmed_hidden_from_uncertain_fringe_and_coverage() {
+        use negative_evidence::{Visibility, classify};
+        let (tracker, camera, _, dimensions) = negative_evidence_fixture();
+        let mut ball = tracker.filter.hypotheses[0].position();
+        assert_eq!(
+            classify(&ball, &camera, dimensions.ball_radius, None),
+            Visibility::Unknown
+        );
+        ball.position = camera
+            .pixel_to_ground_with_z(linear_algebra::point![1.0, 272.0], dimensions.ball_radius)
+            .unwrap();
+        assert_eq!(
+            classify(&ball, &camera, dimensions.ball_radius, Some(&[])),
+            Visibility::Unknown
+        );
+        ball.position = camera
+            .pixel_to_ground_with_z(
+                linear_algebra::point![-100.0, 272.0],
+                dimensions.ball_radius,
+            )
+            .unwrap();
+        assert_eq!(
+            classify(&ball, &camera, dimensions.ball_radius, Some(&[])),
+            Visibility::Hidden
+        );
+    }
+
+    fn competition_fixture() -> (Tracker, CameraMatrix, BallFilterParameters, FieldDimensions) {
+        let (mut tracker, camera, mut parameters, dimensions) = learned_decay_parameters();
+        parameters.hidden_validity_decay_rate = Some(0.0);
+        parameters.visible_missed_validity_decay_rate = Some(0.0);
+        parameters.visible_validity_exponential_decay_factor = 1.0;
+        parameters.hidden_validity_exponential_decay_factor = 1.0;
+        parameters.competing_hypothesis_validity_decay_rate = Some(0.5);
+        let mut competitor = BallHypothesis::new(
+            MultivariateNormalDistribution {
+                mean: nalgebra::vector![0.5, 0.0, 0.0, 0.0],
+                covariance: Matrix4::identity() * 0.01,
+            },
+            Time::zero(),
+        );
+        competitor.validity = 5.0;
+        tracker.filter.hypotheses.push(competitor);
+        (tracker, camera, parameters, dimensions)
+    }
+
+    #[test]
+    fn sustained_observed_leader_softly_decays_only_unmatched_competitors_after_warmup() {
+        for step in [20, 40] {
+            let (mut tracker, camera, parameters, dimensions) = competition_fixture();
+            let ball = image_object(RobocupObjectLabel::Ball, 1.0);
+            for millis in (0..=1000).step_by(step) {
+                detector_frame(
+                    &mut tracker,
+                    &camera,
+                    millis,
+                    &[ball],
+                    &parameters,
+                    &dimensions,
+                );
+                assert_eq!(
+                    tracker.filter.hypotheses[1].validity, 5.0,
+                    "warmup must not retrospectively decay competitors"
+                );
+            }
+            for millis in ((1000 + step as i64)..=2000).step_by(step) {
+                detector_frame(
+                    &mut tracker,
+                    &camera,
+                    millis,
+                    &[ball],
+                    &parameters,
+                    &dimensions,
+                );
+            }
+            assert!((tracker.filter.hypotheses[1].validity - 5.0 * (-0.5_f32).exp()).abs() < 1e-4);
+            assert_eq!(tracker.filter.hypotheses[1].last_seen, Time::zero());
+            assert!(tracker.filter.hypotheses[0].validity > 25.0);
+        }
+    }
+
+    #[test]
+    fn competition_resets_on_miss_unknown_gap_and_new_leader() {
+        let (mut tracker, camera, parameters, dimensions) = competition_fixture();
+        let ball = image_object(RobocupObjectLabel::Ball, 1.0);
+        for millis in (0..=1000).step_by(40) {
+            detector_frame(
+                &mut tracker,
+                &camera,
+                millis,
+                &[ball],
+                &parameters,
+                &dimensions,
+            );
+        }
+        detector_frame(&mut tracker, &camera, 1040, &[], &parameters, &dimensions);
+        assert!(tracker.filter.hypotheses[0].leadership_evidence.is_none());
+        detector_frame(
+            &mut tracker,
+            &camera,
+            1080,
+            &[ball],
+            &parameters,
+            &dimensions,
+        );
+        assert_eq!(
+            tracker.filter.hypotheses[0]
+                .leadership_evidence
+                .as_ref()
+                .unwrap()
+                .first_match,
+            Time::from_nanos(1_080_000_000)
+        );
+        let time = Time::from_nanos(1_120_000_000);
+        tracker
+            .advance_with_obstacles(
+                time,
+                None,
+                Some(&[ball]),
+                Some(&TimeWrapper {
+                    time,
+                    inner: camera.clone(),
+                }),
+                None,
+                &parameters,
+                &dimensions,
+            )
+            .unwrap();
+        assert!(tracker.filter.hypotheses[0].leadership_evidence.is_none());
+        detector_frame(
+            &mut tracker,
+            &camera,
+            5000,
+            &[ball],
+            &parameters,
+            &dimensions,
+        );
+        detector_frame(
+            &mut tracker,
+            &camera,
+            10_000,
+            &[ball],
+            &parameters,
+            &dimensions,
+        );
+        assert_eq!(
+            tracker.filter.hypotheses[0]
+                .leadership_evidence
+                .as_ref()
+                .unwrap()
+                .first_match,
+            Time::from_nanos(10_000_000_000)
+        );
+        assert_eq!(tracker.filter.hypotheses[1].validity, 5.0);
+        tracker.filter.hypotheses[1].validity = 100.0;
+        let mut second_ball = ball;
+        let second_center = camera
+            .ground_with_z_to_pixel(linear_algebra::point![0.5, 0.0], dimensions.ball_radius)
+            .unwrap();
+        second_ball.bounding_box.area = geometry::rectangle::Rectangle {
+            min: second_center - linear_algebra::vector![2.0, 2.0],
+            max: second_center + linear_algebra::vector![2.0, 2.0],
+        };
+        let old_leader_validity = tracker.filter.hypotheses[0].validity;
+        detector_frame(
+            &mut tracker,
+            &camera,
+            10_040,
+            &[second_ball],
+            &parameters,
+            &dimensions,
+        );
+        assert!(tracker.filter.hypotheses[0].leadership_evidence.is_none());
+        assert_eq!(
+            tracker.filter.hypotheses[1]
+                .leadership_evidence
+                .as_ref()
+                .unwrap()
+                .first_match,
+            Time::from_nanos(10_040_000_000)
+        );
+        assert_eq!(tracker.filter.hypotheses[0].validity, old_leader_validity);
+    }
+
+    #[test]
+    fn current_matches_and_disabled_competition_remain_protected() {
+        for rate in [None, Some(0.0), Some(0.5)] {
+            let (mut tracker, camera, mut parameters, dimensions) = competition_fixture();
+            parameters.competing_hypothesis_validity_decay_rate = rate;
+            let first = image_object(RobocupObjectLabel::Ball, 1.0);
+            let mut second = first;
+            let center = camera
+                .ground_with_z_to_pixel(linear_algebra::point![0.5, 0.0], dimensions.ball_radius)
+                .unwrap();
+            second.bounding_box.area = geometry::rectangle::Rectangle {
+                min: center - linear_algebra::vector![2.0, 2.0],
+                max: center + linear_algebra::vector![2.0, 2.0],
+            };
+            for millis in (0..=2000).step_by(40) {
+                let detections = if rate == Some(0.5) {
+                    vec![first, second]
+                } else {
+                    vec![first]
+                };
+                detector_frame(
+                    &mut tracker,
+                    &camera,
+                    millis,
+                    &detections,
+                    &parameters,
+                    &dimensions,
+                );
+            }
+            if rate == Some(0.5) {
+                assert!(
+                    tracker.filter.hypotheses[1].validity > 50.0,
+                    "a second actually seen ball must remain viable"
+                );
+            } else {
+                assert_eq!(tracker.filter.hypotheses[1].validity, 5.0);
+            }
+        }
     }
 
     #[test]

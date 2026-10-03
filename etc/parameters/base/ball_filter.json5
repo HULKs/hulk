@@ -6,6 +6,9 @@
   visible_missed_detection_timeout: { secs: 1, nanos: 0 },
   maximum_obstacle_time_difference: { secs: 0, nanos: 100000000 },
   hidden_validity_exponential_decay_factor: 0.9997000098228456,
+  hidden_validity_decay_rate: 0.01,
+  visible_missed_validity_decay_rate: 1.0,
+  competing_hypothesis_validity_decay_rate: 0.5,
   hypothesis_merge_distance: 0.10000000149011612,
   hypothesis_timeout: {
     nanos: 0,

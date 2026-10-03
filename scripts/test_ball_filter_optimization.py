@@ -68,8 +68,38 @@ class BallFilterLauncherTests(unittest.TestCase):
             preview = children.start.call_args_list[1].args[0]
             self.assertEqual(bridge[2:], ["bridge", *manifests, "--output", output / "monitor"])
             self.assertEqual(preview[1:], ["--remote-ball-tuning", output / "monitor/remote-progress.json",
-                                          "--remote-tuning-output", output / "preview", "--tuning-opponents", "2", "--tuning-opponent-width", "0.44"])
+                                          "--remote-tuning-output", output / "preview", "--tuning-opponents", "2", "--tuning-opponent-width", "0.44", "--tuning-walking-speed-scale", "1.0"])
             children.monitor.assert_called_once()
+
+    def test_walking_speed_is_human_only_and_forwarded_to_local_simulator(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args = self.arguments("local", Path(directory) / "speed", "--walking-speed-scale", "2.5")
+            children = Mock()
+            with patch.object(launcher, "log"):
+                launcher.run(args, children)
+            command = children.run.call_args.args[0]
+            self.assertEqual(command[command.index("--tuning-walking-speed-scale") + 1], "2.5")
+
+    def test_legacy_live_scenario_preserves_requested_walking_scale(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = self.arguments("connect", root / "new", "--walking-speed-scale", "2.0")
+            scenario = root / "scenario.json"
+            scenario.write_text(json.dumps(dict(count=2, width=0.44)))
+            selected = launcher.read_live_scenario(args, dict(output=str(root)))
+            self.assertEqual(selected["walking_speed_scale"], 2.0)
+            scenario.write_text(json.dumps(dict(count=2, width=0.44, walking_speed_scale=float('nan'))))
+            with self.assertRaisesRegex(ValueError, "walking speed"):
+                launcher.read_live_scenario(args, dict(output=str(root)))
+
+    def test_walking_speed_rejects_nonfinite_and_out_of_range_before_launch(self):
+        for scale in ["nan", "inf", "0", "3.1"]:
+            with tempfile.TemporaryDirectory() as directory:
+                args = self.arguments("local", Path(directory) / "speed", "--walking-speed-scale", scale)
+                children = Mock()
+                with self.assertRaisesRegex(ValueError, "walking-speed-scale"):
+                    launcher.run(args, children)
+                children.run.assert_not_called()
 
     def test_capacity_rejects_another_32_workers_and_bounds_auth_wait(self):
         helper = Mock()
@@ -124,7 +154,7 @@ class BallFilterLauncherTests(unittest.TestCase):
                  patch.object(launcher, "log"):
                 launcher.run(self.arguments("remote", output, "--refresh-minutes", "0"), children)
             stages = children.run.call_args_list
-            self.assertEqual(stages[0].args[0][1:], ["--capture-ball-tuning", output / "recordings", "--tuning-opponents", "2", "--tuning-opponent-width", "0.44"])
+            self.assertEqual(stages[0].args[0][1:], ["--capture-ball-tuning", output / "recordings", "--tuning-opponents", "2", "--tuning-opponent-width", "0.44", "--tuning-walking-speed-scale", "1.0"])
             remote = stages[1].args[0]
             self.assertEqual(remote[remote.index("--workers") + 1], "4")
             self.assertIn("--full-cpu", remote)
@@ -209,7 +239,7 @@ class RefreshGenerationTests(unittest.TestCase):
             remote={"best_candidate": "old-owned/worker-0/round-10"})))
         preview = self.root / "preview"
         preview.mkdir()
-        (preview / "scenario.json").write_text(json.dumps({"count": 3, "width": 0.7}))
+        (preview / "scenario.json").write_text(json.dumps({"count": 3, "width": 0.7, "walking_speed_scale": 2.0}))
         self.session = dict(mode="remote", pid=123, output=str(self.root), recordings="/original/recordings",
                             manifests=[str(self.old_manifest)], generations=[dict(index=0, root=str(self.root), state="active")],
                             monitor=str(monitor), preview=str(preview), workers=4, active_generation=0)
@@ -243,6 +273,7 @@ class RefreshGenerationTests(unittest.TestCase):
         self.assertEqual(capture[capture.index("--capture-ball-seed-offset") + 1], "1000000")
         self.assertEqual(capture[capture.index("--tuning-opponents") + 1], "3")
         self.assertEqual(capture[capture.index("--tuning-opponent-width") + 1], "0.7")
+        self.assertEqual(capture[capture.index("--tuning-walking-speed-scale") + 1], "2.0")
         self.assertIn("wait-ready", ready)
         self.assertEqual(stop[2:4], ["stop", self.old_manifest])
         self.assertIn("--wait", stop)

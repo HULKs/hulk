@@ -45,43 +45,88 @@ impl NegativeEvidence {
     }
 }
 
-/// Require the complete predicted ball footprint to be observable and a known
-/// obstacle snapshot in the same Ground frame. Obstacle radii approximate opaque
-/// vertical columns; this type carries neither height nor source confidence.
-/// This tests the predicted footprint, not the full positional covariance region.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Message)]
+pub enum Visibility {
+    Visible,
+    Hidden,
+    Unknown,
+}
+
 pub fn clearly_visible(
     ball: &BallPosition<Ground>,
     camera: &CameraMatrix,
     ball_radius: f32,
     obstacles: Option<&[Obstacle]>,
 ) -> bool {
+    classify(ball, camera, ball_radius, obstacles) == Visibility::Visible
+}
+
+/// Classify only the current Ground state with same-exposure camera geometry
+/// and motion-compensated robot obstacles. Fringe/tiny/invalid projections are
+/// unknown, rather than confirmed hidden. Robot radii approximate opaque columns.
+pub fn classify(
+    ball: &BallPosition<Ground>,
+    camera: &CameraMatrix,
+    ball_radius: f32,
+    obstacles: Option<&[Obstacle]>,
+) -> Visibility {
     let Some(obstacles) = obstacles else {
-        return false;
+        return Visibility::Unknown;
     };
-    let Ok(center) = camera.ground_with_z_to_pixel(ball.position, ball_radius) else {
-        return false;
+    if !ball.position.x().is_finite() || !ball.position.y().is_finite() {
+        return Visibility::Unknown;
+    }
+    if obstacles
+        .iter()
+        .filter(|obstacle| obstacle.kind == ObstacleKind::Robot)
+        .any(|obstacle| {
+            !obstacle
+                .position
+                .inner
+                .coords
+                .iter()
+                .all(|value| value.is_finite())
+                || !obstacle.radius_at_foot_height.is_finite()
+                || !obstacle.radius_at_hip_height.is_finite()
+                || obstacle.radius_at_foot_height < 0.0
+                || obstacle.radius_at_hip_height < 0.0
+        })
+    {
+        return Visibility::Unknown;
+    }
+    let center = match camera.ground_with_z_to_pixel(ball.position, ball_radius) {
+        Ok(center) => center,
+        Err(projection::Error::BehindCamera) => return Visibility::Hidden,
+        Err(_) => return Visibility::Unknown,
     };
     let Ok(radius) = camera.get_pixel_radius(ball_radius, center) else {
-        return false;
+        return Visibility::Unknown;
     };
     if !center.x().is_finite()
         || !center.y().is_finite()
         || !radius.is_finite()
         || radius < MINIMUM_BALL_RADIUS_PIXELS
     {
-        return false;
+        return Visibility::Unknown;
     }
     let margin = radius + IMAGE_MARGIN_PIXELS;
     let min_x = center.x() - margin;
     let max_x = center.x() + margin;
     let min_y = center.y() - margin;
     let max_y = center.y() + margin;
+    if max_x < 0.0
+        || max_y < 0.0
+        || min_x >= camera.image_size.x()
+        || min_y >= camera.image_size.y()
+    {
+        return Visibility::Hidden;
+    }
     if !(min_x >= 0.0
         && min_y >= 0.0
         && max_x < camera.image_size.x()
         && max_y < camera.image_size.y())
     {
-        return false;
+        return Visibility::Unknown;
     }
     let camera_position = camera
         .ground_to_camera
@@ -94,35 +139,32 @@ pub fn clearly_visible(
     let ray = ball_position - camera_position;
     let length_squared = ray.norm_squared();
     if !length_squared.is_finite() {
-        return false;
+        return Visibility::Unknown;
     }
-    !obstacles.iter().any(|obstacle| {
-        if obstacle.kind != ObstacleKind::Robot {
-            return false;
-        }
-        let radius = obstacle
-            .radius_at_foot_height
-            .max(obstacle.radius_at_hip_height);
-        let position = obstacle.position.inner.coords;
-        if !position.iter().all(|value| value.is_finite())
-            || !obstacle.radius_at_foot_height.is_finite()
-            || !obstacle.radius_at_hip_height.is_finite()
-            || obstacle.radius_at_foot_height < 0.0
-            || obstacle.radius_at_hip_height < 0.0
-        {
-            // An invalid opaque obstacle cannot establish that the view is clear.
-            return true;
-        }
-        if length_squared <= f32::EPSILON {
-            return (position - camera_position).norm_squared() <= (radius + ball_radius).powi(2);
-        }
-        let along_ray = (position - camera_position).dot(&ray) / length_squared;
-        if !(0.0..1.0).contains(&along_ray) {
-            return false;
-        }
-        let perpendicular = position - (camera_position + along_ray * ray);
-        perpendicular.norm_squared() <= (radius + ball_radius).powi(2)
-    })
+    let occluded = obstacles
+        .iter()
+        .filter(|obstacle| obstacle.kind == ObstacleKind::Robot)
+        .any(|obstacle| {
+            let radius = obstacle
+                .radius_at_foot_height
+                .max(obstacle.radius_at_hip_height);
+            let position = obstacle.position.inner.coords;
+            if length_squared <= f32::EPSILON {
+                return (position - camera_position).norm_squared()
+                    <= (radius + ball_radius).powi(2);
+            }
+            let along_ray = (position - camera_position).dot(&ray) / length_squared;
+            if !(0.0..1.0).contains(&along_ray) {
+                return false;
+            }
+            let perpendicular = position - (camera_position + along_ray * ray);
+            perpendicular.norm_squared() <= (radius + ball_radius).powi(2)
+        });
+    if occluded {
+        Visibility::Hidden
+    } else {
+        Visibility::Visible
+    }
 }
 
 #[cfg(test)]

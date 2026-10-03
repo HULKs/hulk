@@ -594,3 +594,62 @@ Field decay and detection rejection follow-up (2026-10-03, tests passed)
   22 tuner,64 simulator,82 Twix pass (235 total; one existing ignored). Launcher
   Python22 tests pass. Logs: logs/ball-field-gates-tests.log. Application build
   is ongoing in logs/ball-field-gates-build.log. Runtime promotion follows.
+
+Learnable visibility decay and smaller arrows (2026-10-03, in progress)
+- User now requests learnable hidden-inside-field and visible-but-unmatched
+  confidence decay. Use optional per-second rates: hidden_validity_decay_rate
+  (production0.01) and visible_missed_validity_decay_rate (production1.0). None
+  preserves legacy per-frame behavior; Some0 means intentionally no decay.
+  These replace unmatched-track legacy decay, allowing optimization to reduce
+  decay as well as increase it. Matched tracks retain existing confidence updates.
+- Hidden is the ordinary retention rule, independent of localization. Outside
+  tracks additionally receive the separate bounded field penalty. Only consecutive
+  same-category known exposures within120ms count; unknown/fringe/stale geometry
+  pauses new rates. Robot occlusion is hidden, never a clear-view miss.
+- Add two search dimensions (hidden0..0.3/s; visible0..4/s), retain per-recording
+  and aggregate continuity constraints and fixed20s retention/1s clear-miss timers.
+  LegacyNone policies remain disabled through warm starts, reported truthfully.
+- User finds rawconfidence arrows too tall: reduce linear scale to0.02m/unit
+  (25=.5m,50=1m), label accurately; no normalization or silent saturation.
+- All preceding fieldgate code tested235 Rust tests+22 launcher tests and saved
+  ccc43593d; combined and standalone application builds succeeded. New requests
+  arrived before promotion, so nextcapture will include these changes together.
+  Prepared logs/ball-field-gates-live-1791015503 is not yet launched. Current
+  remote run20261003-100045-8cbe5911 and interimlocalpreview remain active.
+
+Additional user requests during visibility-decay implementation (2026-10-03)
+- Sustained confident observations of one ball should accelerate decay of other
+  hypotheses: implement a soft, tunable single-ball preference. Protect all
+  currently matched candidates, require persistent observations, and stop the
+  extra penalty during loss of sight so a missed kick can still be recovered.
+- Expose walking speed as a HUMAN scenario control in Twix, recording and preview;
+  do not let filter optimization alter scenario difficulty. Keep normal Playing
+  behavior and physical locomotion. Check the current policy limits explicitly.
+- Work split: filter_continuity owns filter/rate semantics and regressions;
+  scoring_audit owns tuning dimensions and Twix; fight_scenarios owns physical
+  walking-control plumbing and launcher. Root owns parameter defaults, capture
+  compatibility checks, validation, runtime promotion and Git checkpoints.
+- Agreed single-ball parameter: competing_hypothesis_validity_decay_rate,
+  optional, base0.5/s, learned0..2/s. Require observedleader1s/rawvalidity>=10;
+  protect every matched candidate. LegacyNone and explicitSome0 remain distinct.
+- Walking scale default1/range0.1..3, separate ROS-Z human control and requested/
+  active progress values. Scale normal behavior speeds in temporary parameter
+  layer; preserve approach fades/turning and policycaps (forward2m/s, backward/
+  lateral1m/s, angular1.5rad/s). Persist with opponents; apply on preview restart
+  and next periodic capture. Next runtime validation will use scale2.
+- User requests wrapping the long first Twix status line: explicit wrapped label
+  constrained to panel width, with startup status wrapping too.
+- Standalone focused Cargo invocation was canceled during networking dependency
+  rebuild; no test result claimed. Reuse combined cached feature graph for final
+  validation after all agents freeze sources.
+- Validation passed:248 Rust tests (65filter,10obstacle,24tuner,66simulate,83Twix),
+  one existing ignored;64Python helper/history/launcher tests; full cargo fmt and
+  git diff checks. Logs: logs/ball-decay-speed-{tests,python-tests,format}.log.
+  Combined application build running; runtime promotion still pending.
+- Audited previous six MCAP behavior/motion_command streams: all requested Walk
+  speeds <=1m/s. Saved logs/ball-walking-speed-baseline-audit.json for comparison
+  with the planned2x capture. Decoder reads recordedROS-Z CDR and schemas.
+- Existing root-owned Twix/viewer processes78885/82901 have exited; remotebridge
+  and preview remain healthy. New matching windows will open after application
+  build. SavedTwix30min preference migratedto5min with backup
+  logs/twix-before-five-minute-refresh.ron; unrelated preferences preserved.

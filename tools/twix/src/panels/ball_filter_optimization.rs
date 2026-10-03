@@ -18,7 +18,7 @@ use tokio::{sync::oneshot, task::JoinHandle};
 use twix_visualization::twix_painter::{Orientation, TwixPainter};
 use types::ball_filter_tuning::{
     Metrics, NAMESPACE, OPEN_VIEWER_TOPIC, OPPONENTS_TOPIC, OpponentParameters, PROGRESS_TOPIC,
-    Progress, ROUTER, TUNED_PARAMETER_POINTERS,
+    Progress, ROUTER, TUNED_PARAMETER_POINTERS, WALKING_SPEED_TOPIC, walking_speed_scale_is_valid,
 };
 use types::{
     ball_position::BallPosition, field_dimensions::FieldDimensions, time_wrapper::TimeWrapper,
@@ -37,6 +37,8 @@ pub struct BallFilterOptimizationPanel {
     viewer_request: Option<oneshot::Receiver<Result<()>>>,
     opponents_request: Option<oneshot::Receiver<Result<()>>>,
     opponents_status: Option<String>,
+    walking_speed_request: Option<oneshot::Receiver<Result<()>>>,
+    walking_speed_status: Option<String>,
     run_history: RunHistory,
     history_request: Option<oneshot::Receiver<Result<RunHistory>>>,
     history_loaded: bool,
@@ -59,6 +61,7 @@ struct StartupSettings {
     refresh_minutes: u32,
     opponent_count: u32,
     opponent_width: f32,
+    walking_speed_scale: f32,
 }
 
 impl Default for StartupSettings {
@@ -72,6 +75,7 @@ impl Default for StartupSettings {
             refresh_minutes: 5,
             opponent_count: 2,
             opponent_width: 0.44,
+            walking_speed_scale: 1.0,
         }
     }
 }
@@ -131,6 +135,8 @@ impl Panel for BallFilterOptimizationPanel {
             viewer_request: None,
             opponents_request: None,
             opponents_status: None,
+            walking_speed_request: None,
+            walking_speed_status: None,
             run_history: RunHistory::default(),
             history_request: None,
             history_loaded: false,
@@ -151,6 +157,7 @@ impl Panel for BallFilterOptimizationPanel {
         self.startup_ui(ui, &context);
         self.history_ui(ui);
         self.opponents_ui(ui, &context);
+        self.walking_speed_ui(ui, &context);
         if self.auto_connect
             && self.connection.is_none()
             && self.pending.is_none()
@@ -376,8 +383,10 @@ impl Panel for BallFilterOptimizationPanel {
             });
         }
         let progress = &sample.value;
+        let status_width = ui.available_width();
         egui::ScrollArea::vertical().show(ui, |ui| {
-            ui.strong(&progress.status);
+            ui.set_max_width(status_width);
+            ui.add(egui::Label::new(egui::RichText::new(&progress.status).strong()).wrap());
             remote_status(ui, progress, unix_seconds());
             if let Some(status) = &progress.viewer_status {
                 ui.label(status);
@@ -443,6 +452,9 @@ impl Panel for BallFilterOptimizationPanel {
                 if let Ok(mut fixed) = serde_json::to_value(&search.best_parameters) {
                     let mut tuned = serde_json::Map::new();
                     for pointer in TUNED_PARAMETER_POINTERS {
+                        if fixed.pointer(pointer).is_some_and(serde_json::Value::is_null) {
+                            continue; // Legacy optional rates remain fixed, not searched.
+                        }
                         let (parent, key) =
                             pointer.rsplit_once('/').expect("static parameter pointer");
                         if let Some(value) = fixed
@@ -454,7 +466,10 @@ impl Panel for BallFilterOptimizationPanel {
                         }
                     }
                     ui.collapsing("Best tuned values", |ui| {
-                        ui.label("6 search variables; x/y noise values are coupled.");
+                        let variables = 6 + usize::from(search.best_parameters.hidden_validity_decay_rate.is_some())
+                            + usize::from(search.best_parameters.visible_missed_validity_decay_rate.is_some())
+                            + usize::from(search.best_parameters.competing_hypothesis_validity_decay_rate.is_some());
+                        ui.label(format!("{variables} search variables; x/y noise values are coupled."));
                         if let Ok(json) = serde_json::to_string_pretty(&tuned) {
                             monospace(ui, json);
                         }
@@ -537,6 +552,9 @@ impl BallFilterOptimizationPanel {
                     ui.label("Opponent diameter (m)");
                     ui.add(egui::DragValue::new(&mut self.startup.opponent_width).range(0.1..=1.2).speed(0.01));
                     ui.end_row();
+                    ui.label("Walking speed ×").on_hover_text("Human-controlled multiplier for normal behavior walking commands. Policy speed limits still apply; the optimizer does not tune this value.");
+                    ui.add(egui::DragValue::new(&mut self.startup.walking_speed_scale).range(0.1..=3.0).speed(0.05));
+                    ui.end_row();
                     ui.label("Remote workers");
                     ui.add(egui::DragValue::new(&mut self.startup.workers).range(1..=32));
                     ui.end_row();
@@ -553,7 +571,7 @@ impl BallFilterOptimizationPanel {
                 });
             });
             if let Some(status) = &status {
-                ui.label(&status.message);
+                ui.add(egui::Label::new(&status.message).wrap());
                 if let Some(pid) = status.pid { ui.label(format!("Startup helper PID: {pid}")); }
                 ui.horizontal_wrapped(|ui| {
                     ui.label("Startup log:");
@@ -795,6 +813,70 @@ impl BallFilterOptimizationPanel {
         }
     }
 
+    fn walking_speed_ui(&mut self, ui: &mut Ui, context: &PanelUiContext<'_>) {
+        if let Some(request) = &mut self.walking_speed_request {
+            match request.try_recv() {
+                Ok(result) => {
+                    self.walking_speed_request = None;
+                    self.walking_speed_status = Some(match result {
+                        Ok(()) => "Speed request sent; waiting for the next live episode.".into(),
+                        Err(error) => format!("Could not update walking speed: {error:#}"),
+                    });
+                }
+                Err(oneshot::error::TryRecvError::Empty) => {
+                    ui.ctx().request_repaint_after(Duration::from_millis(250));
+                }
+                Err(error) => {
+                    self.walking_speed_request = None;
+                    self.walking_speed_status = Some(error.to_string());
+                }
+            }
+        }
+        let Some(connection) = &self.connection else {
+            return;
+        };
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Live walking speed ×").on_hover_text("Scales normal behavior walking commands within the policy limits. Existing recordings keep their original speed.");
+            ui.add(egui::DragValue::new(&mut self.startup.walking_speed_scale).range(0.1..=3.0).speed(0.05));
+            if ui.add_enabled(
+                self.walking_speed_request.is_none() && walking_speed_scale_is_valid(self.startup.walking_speed_scale),
+                egui::Button::new("Apply walking speed"),
+            ).clicked() {
+                let scale = self.startup.walking_speed_scale;
+                let node = connection._backend.node();
+                let repaint = context.egui_context.clone();
+                let (sender, receiver) = oneshot::channel();
+                context.backend.runtime_handle().spawn(async move {
+                    let result = async {
+                        let publisher = node.publisher::<f32>(WALKING_SPEED_TOPIC).build().await?;
+                        publisher.publish(&scale).await?;
+                        Ok::<_, color_eyre::Report>(())
+                    };
+                    let result = tokio::time::timeout(Duration::from_secs(3), result).await
+                        .map_err(color_eyre::Report::from).and_then(|result| result);
+                    let _ = sender.send(result);
+                    repaint.request_repaint();
+                });
+                self.walking_speed_request = Some(receiver);
+                self.walking_speed_status = None;
+            }
+        });
+        if let Some(sample) = connection.progress.latest() {
+            let progress = &sample.value;
+            let active = progress
+                .active_walking_speed_scale
+                .map(|scale| format!("{scale:.2}×"))
+                .unwrap_or_else(|| "waiting for episode".into());
+            ui.label(format!(
+                "Walking speed requested: {:.2}× · Active: {active}",
+                progress.walking_speed_scale
+            ));
+        }
+        if let Some(status) = &self.walking_speed_status {
+            ui.add(egui::Label::new(status).wrap());
+        }
+    }
+
     fn opponents_ui(&mut self, ui: &mut Ui, context: &PanelUiContext<'_>) {
         if let Some(request) = &mut self.opponents_request {
             match request.try_recv() {
@@ -966,6 +1048,10 @@ fn startup_arguments(settings: &StartupSettings, action: StartupAction) -> Resul
         !settings.output.trim().is_empty(),
         "Output directory is required"
     );
+    color_eyre::eyre::ensure!(
+        walking_speed_scale_is_valid(settings.walking_speed_scale),
+        "Walking speed multiplier must be finite and between 0.1 and 3"
+    );
     let mode = match action {
         StartupAction::Local => "local",
         StartupAction::Remote => "remote",
@@ -1030,6 +1116,10 @@ fn startup_arguments(settings: &StartupSettings, action: StartupAction) -> Resul
             }
         }
     }
+    arguments.extend([
+        "--walking-speed-scale".into(),
+        settings.walking_speed_scale.to_string(),
+    ]);
     Ok(arguments)
 }
 
@@ -1472,6 +1562,34 @@ mod tests {
     }
 
     #[test]
+    fn walking_speed_is_human_configurable_for_all_launch_modes() {
+        let mut settings = StartupSettings {
+            walking_speed_scale: 2.5,
+            manifests: "logs/existing/manifest.json".into(),
+            ..Default::default()
+        };
+        for action in [
+            StartupAction::Local,
+            StartupAction::Remote,
+            StartupAction::Connect,
+        ] {
+            let arguments = startup_arguments(&settings, action).unwrap();
+            assert!(
+                arguments
+                    .windows(2)
+                    .any(|pair| pair == ["--walking-speed-scale", "2.5"])
+            );
+            for invalid in [0.0, 3.1, f32::NAN, f32::INFINITY] {
+                settings.walking_speed_scale = invalid;
+                assert!(startup_arguments(&settings, action).is_err());
+            }
+            settings.walking_speed_scale = 2.5;
+        }
+        let legacy: StartupSettings = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(legacy.walking_speed_scale, 1.0);
+    }
+
+    #[test]
     fn startup_scenario_arguments_validate_ranges_and_disable_remote_refresh() {
         let mut settings = StartupSettings {
             refresh_minutes: 0,
@@ -1511,7 +1629,9 @@ mod tests {
                 "--opponents",
                 "2",
                 "--opponent-width",
-                "0.44"
+                "0.44",
+                "--walking-speed-scale",
+                "1"
             ]
         );
         let settings = StartupSettings {
@@ -1538,7 +1658,9 @@ mod tests {
                 "--workers",
                 "32",
                 "--refresh-minutes",
-                "5"
+                "5",
+                "--walking-speed-scale",
+                "1"
             ]
         );
     }
@@ -1559,7 +1681,9 @@ mod tests {
                 "--manifest",
                 "logs/first run/manifest.json",
                 "--manifest",
-                "/another/run.json"
+                "/another/run.json",
+                "--walking-speed-scale",
+                "1"
             ]
         );
     }

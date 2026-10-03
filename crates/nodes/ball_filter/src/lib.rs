@@ -30,12 +30,14 @@ pub use crate::{
     hypothesis::{BallHypothesis, BallMode},
 };
 
+mod competition;
 mod field_prior;
 mod filter;
 mod hypothesis;
 mod negative_evidence;
 mod obstacle_input;
 pub mod tracker;
+mod validity_decay;
 use tracker::{InputStamp, Tracker, UpdateSchedule, camera_is_recent};
 
 struct BallFilterOutput {
@@ -368,62 +370,88 @@ fn advance_all_hypotheses(
         .hypotheses
         .retain(|hypothesis| hypothesis.validity > filter_parameters.validity_discard_threshold);
 
-    ball_filter.decay_hypotheses(|hypothesis| {
-        decide_validity_decay_for_hypothesis(
+    // Association depends on position/covariance, not confidence, so solve
+    // before applying decay to distinguish a matched track from a clear miss.
+    let match_matrix =
+        mahalanobis_matrix_of_hypotheses_and_percepts(&ball_filter.hypotheses, ball_percepts);
+    let assignment = if ball_percepts.is_empty() {
+        None
+    } else {
+        Some(
+            assignment_solver
+                .solve(
+                    gated_assignment_scores(&match_matrix, filter_parameters.maximum_matching_cost)
+                        .view(),
+                    Objective::Maximize,
+                )
+                .wrap_err("failed to solve ball assignment")?,
+        )
+    };
+    let mut used_percepts = vec![];
+    let mut matched = vec![false; ball_filter.hypotheses.len()];
+    for (hypothesis_index, hypothesis) in ball_filter.hypotheses.iter_mut().enumerate() {
+        let percept_index = assignment
+            .as_ref()
+            .and_then(|assignment| assignment[hypothesis_index])
+            .filter(|&index| index < ball_percepts.len());
+        let legacy_factor = decide_validity_decay_for_hypothesis(
             hypothesis,
             camera_matrix,
             field_dimensions.ball_radius,
             obstacles,
             filter_parameters,
-        )
-    });
-
-    if !ball_percepts.is_empty() {
-        let match_matrix =
-            mahalanobis_matrix_of_hypotheses_and_percepts(&ball_filter.hypotheses, ball_percepts);
-
-        let assignment_scores =
-            gated_assignment_scores(&match_matrix, filter_parameters.maximum_matching_cost);
-        let assignment = assignment_solver
-            .solve(assignment_scores.view(), Objective::Maximize)
-            .wrap_err("failed to solve ball assignment")?;
-
-        let mut used_percepts = vec![];
-
-        for (hypothesis_index, (hypothesis, &assigned_percept)) in ball_filter
-            .hypotheses
-            .iter_mut()
-            .zip(assignment.iter())
-            .enumerate()
-        {
-            if let Some(percept_index) =
-                assigned_percept.filter(|&index| index < ball_percepts.len())
-            {
-                let score = match_matrix[(hypothesis_index, percept_index)];
-                let validity_increase = score.exp();
-                let percept = ball_percepts[percept_index];
-                used_percepts.push(percept_index);
-                hypothesis.update(time, percept.percept_in_ground, validity_increase);
-            }
-        }
-
-        let unused_percepts = {
-            let mut all_percepts = ball_percepts.to_vec();
-            used_percepts.sort_unstable();
-            for index in used_percepts.into_iter().rev() {
-                all_percepts.remove(index);
-            }
-            all_percepts
+        );
+        let visibility = if percept_index.is_none() && validity_decay::enabled(filter_parameters) {
+            camera_matrix.map_or(negative_evidence::Visibility::Unknown, |camera| {
+                negative_evidence::classify(
+                    &hypothesis.position(),
+                    camera,
+                    field_dimensions.ball_radius,
+                    obstacles,
+                )
+            })
+        } else {
+            negative_evidence::Visibility::Unknown
         };
-
-        for percept in unused_percepts {
+        let decay_factor = validity_decay::factor(
+            hypothesis,
+            time,
+            visibility,
+            percept_index.is_some(),
+            legacy_factor,
+            filter_parameters,
+        );
+        hypothesis.validity *= decay_factor;
+        if let Some(percept_index) = percept_index {
+            let score = match_matrix[(hypothesis_index, percept_index)];
+            used_percepts.push(percept_index);
+            matched[hypothesis_index] = true;
+            hypothesis.update(
+                time,
+                ball_percepts[percept_index].percept_in_ground,
+                score.exp(),
+            );
+        }
+    }
+    for (index, percept) in ball_percepts.iter().enumerate() {
+        if !used_percepts.contains(&index) {
             ball_filter.spawn(
                 time,
                 percept.percept_in_ground,
                 Matrix4::from_diagonal(&filter_parameters.noise.initial_covariance),
             );
+            matched.push(true);
         }
     }
+    competition::apply(
+        ball_filter,
+        time,
+        &matched,
+        camera_matrix,
+        obstacles,
+        field_dimensions.ball_radius,
+        filter_parameters,
+    );
 
     if !filter_parameters.visible_missed_detection_timeout.is_zero() {
         ball_filter.hypotheses.retain_mut(|hypothesis| {
@@ -970,6 +998,8 @@ mod tests {
             validity: 2.0,
             motion_evidence: None,
             negative_evidence: None,
+            validity_decay_evidence: None,
+            leadership_evidence: None,
         };
         let mut filter = BallFilter {
             hypotheses: vec![old_track],
@@ -1052,6 +1082,8 @@ mod tests {
                 validity: 25.0,
                 motion_evidence: None,
                 negative_evidence: None,
+                validity_decay_evidence: None,
+                leadership_evidence: None,
             }],
         };
         let mut solver = AssignmentSolver::default();
@@ -1152,6 +1184,8 @@ mod tests {
             validity: 0.0,
             motion_evidence: None,
             negative_evidence: None,
+            validity_decay_evidence: None,
+            leadership_evidence: None,
         };
         let hypothesis2 = BallHypothesis {
             mode: BallMode::Moving(MultivariateNormalDistribution {
@@ -1162,6 +1196,8 @@ mod tests {
             validity: 0.0,
             motion_evidence: None,
             negative_evidence: None,
+            validity_decay_evidence: None,
+            leadership_evidence: None,
         };
 
         let percept1 = BallPercept {

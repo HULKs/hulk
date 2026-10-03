@@ -234,6 +234,16 @@ pub struct BallFilterParameters {
     pub hypothesis_merge_distance: f32,
     pub visible_validity_exponential_decay_factor: f32,
     pub hidden_validity_exponential_decay_factor: f32,
+    /// Unmatched hidden-track decay per second. None preserves the legacy factor.
+    #[serde(default)]
+    pub hidden_validity_decay_rate: Option<f32>,
+    /// Clear-view unmatched-track decay per second. None preserves the legacy factor.
+    #[serde(default)]
+    pub visible_missed_validity_decay_rate: Option<f32>,
+    /// Extra decay per second for unmatched competitors of a persistently observed,
+    /// confident leader. None preserves legacy behavior; zero disables the penalty.
+    #[serde(default)]
+    pub competing_hypothesis_validity_decay_rate: Option<f32>,
     pub validity_output_threshold: f32,
     pub validity_discard_threshold: f32,
     pub velocity_decay_factor: f32,

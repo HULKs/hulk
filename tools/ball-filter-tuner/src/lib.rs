@@ -67,7 +67,7 @@ struct Report<'a> {
     rejected_continuity_candidates: usize,
     continuity_policy: &'static str,
     retention_policy: &'static str,
-    tuned_parameter_pointers: &'static [&'static str],
+    tuned_parameter_pointers: Vec<&'static str>,
     penalty_metres: f64,
     namespace: &'a str,
     reference_topic: &'a str,
@@ -82,17 +82,20 @@ struct Report<'a> {
 }
 
 // Positive covariance entries use logarithmic bounds. Probabilities/thresholds use
-// linear bounds. Retention/output policy, geometry and confidence gates stay
-// fixed at the capture baseline: losing sight is not evidence that a ball vanished.
-const BOUNDS: [(f64, f64, bool); 6] = [
+// linear bounds. Timeouts, output thresholds, geometry and confidence gates stay
+// fixed. Optional per-second decay rates are searched only on enabled baselines.
+const BOUNDS: [(f64, f64, bool); 9] = [
     (0.02, 5.0, true),
     (1e-7, 0.03, true),
     (1e-7, 0.1, true),
     (1e-6, 0.1, true),
     (0.02, 20.0, true),
     (0.99, 1.0, false),
+    (0.0, 0.3, false), // hidden confidence decay, per second
+    (0.0, 4.0, false), // observable unmatched confidence decay, per second
+    (0.0, 2.0, false), // unmatched competitor decay under a confirmed leader, per second
 ];
-fn encode(parameters: &BallFilterParameters) -> [f64; 6] {
+fn encode(parameters: &BallFilterParameters) -> [f64; 9] {
     let values = [
         parameters.noise.detection_noise.x(),
         parameters.noise.process_noise_resting[0],
@@ -100,6 +103,11 @@ fn encode(parameters: &BallFilterParameters) -> [f64; 6] {
         parameters.noise.process_noise_moving[2],
         parameters.maximum_matching_cost,
         parameters.velocity_decay_factor,
+        parameters.hidden_validity_decay_rate.unwrap_or(0.0),
+        parameters.visible_missed_validity_decay_rate.unwrap_or(0.0),
+        parameters
+            .competing_hypothesis_validity_decay_rate
+            .unwrap_or(0.0),
     ];
     std::array::from_fn(|i| {
         let (lo, hi, log) = BOUNDS[i];
@@ -111,8 +119,8 @@ fn encode(parameters: &BallFilterParameters) -> [f64; 6] {
         }
     })
 }
-fn decode(base: &BallFilterParameters, values: [f64; 6]) -> BallFilterParameters {
-    let v: [f32; 6] = std::array::from_fn(|i| {
+fn decode(base: &BallFilterParameters, values: [f64; 9]) -> BallFilterParameters {
+    let v: [f32; 9] = std::array::from_fn(|i| {
         let (lo, hi, log) = BOUNDS[i];
         if log {
             (lo.ln() + values[i] * (hi.ln() - lo.ln())).exp() as f32
@@ -129,7 +137,52 @@ fn decode(base: &BallFilterParameters, values: [f64; 6]) -> BallFilterParameters
     p.noise.process_noise_moving[3] = v[3];
     p.maximum_matching_cost = v[4];
     p.velocity_decay_factor = v[5];
+    p.hidden_validity_decay_rate = base.hidden_validity_decay_rate.map(|_| v[6]);
+    p.visible_missed_validity_decay_rate = base.visible_missed_validity_decay_rate.map(|_| v[7]);
+    p.competing_hypothesis_validity_decay_rate =
+        base.competing_hypothesis_validity_decay_rate.map(|_| v[8]);
     p
+}
+
+fn warm_start(base: &BallFilterParameters, initial: &BallFilterParameters) -> BallFilterParameters {
+    let mut initial = initial.clone();
+    // Omitted legacy rates carry no learned value. Keep the new baseline's
+    // values, while explicitly learned Some(0) remains a valid warm start.
+    initial.hidden_validity_decay_rate = initial
+        .hidden_validity_decay_rate
+        .or(base.hidden_validity_decay_rate);
+    initial.visible_missed_validity_decay_rate = initial
+        .visible_missed_validity_decay_rate
+        .or(base.visible_missed_validity_decay_rate);
+    initial.competing_hypothesis_validity_decay_rate = initial
+        .competing_hypothesis_validity_decay_rate
+        .or(base.competing_hypothesis_validity_decay_rate);
+    decode(base, encode(&initial))
+}
+
+fn active_dimensions(base: &BallFilterParameters) -> Vec<usize> {
+    (0..6)
+        .chain(base.hidden_validity_decay_rate.map(|_| 6))
+        .chain(base.visible_missed_validity_decay_rate.map(|_| 7))
+        .chain(base.competing_hypothesis_validity_decay_rate.map(|_| 8))
+        .collect()
+}
+
+fn tuned_parameter_pointers(base: &BallFilterParameters) -> Vec<&'static str> {
+    types::ball_filter_tuning::TUNED_PARAMETER_POINTERS
+        .iter()
+        .copied()
+        .filter(|pointer| match *pointer {
+            "/hidden_validity_decay_rate" => base.hidden_validity_decay_rate.is_some(),
+            "/visible_missed_validity_decay_rate" => {
+                base.visible_missed_validity_decay_rate.is_some()
+            }
+            "/competing_hypothesis_validity_decay_rate" => {
+                base.competing_hypothesis_validity_decay_rate.is_some()
+            }
+            _ => true,
+        })
+        .collect()
 }
 
 pub fn run(args: Args) -> Result<()> {
@@ -204,7 +257,7 @@ pub fn run_with_progress(
         let initial = json5::from_str(&std::fs::read_to_string(path)?)?;
         // Old runs may have optimized away track retention. Import only the
         // searched dimensions; every fixed parameter comes from this baseline.
-        let initial = decode(&baseline, encode(&initial));
+        let initial = warm_start(&baseline, &initial);
         let score = evaluate_candidate(&train, &initial, args.penalty_metres)?;
         if let Some(score) = score.filter(|score| score.loss.is_finite() && score.loss < best_loss)
         {
@@ -237,17 +290,18 @@ pub fn run_with_progress(
         ..Default::default()
     };
     publish(&progress)?;
+    let active_dimensions = active_dimensions(&baseline);
     for trial in 0..args.trials {
         let mut values = best_values;
-        if trial < 2 * BOUNDS.len() {
-            values[trial / 2] = (trial % 2) as f64;
+        if trial < 2 * active_dimensions.len() {
+            values[active_dimensions[trial / 2]] = (trial % 2) as f64;
         } else if trial % 8 == 0 {
             values = std::array::from_fn(|_| rng.random());
         } else {
             let dimensions = if trial % 3 == 0 { 3 } else { 1 };
             let radius = 0.4 * (1.0 - trial as f64 / args.trials as f64) + 0.05;
             for _ in 0..dimensions {
-                let i = rng.random_range(0..values.len());
+                let i = active_dimensions[rng.random_range(0..active_dimensions.len())];
                 values[i] = (values[i] + rng.random_range(-radius..radius)).clamp(0.0, 1.0);
             }
         }
@@ -311,8 +365,8 @@ pub fn run_with_progress(
         rejected_candidates,
         rejected_continuity_candidates,
         continuity_policy: "Every training recording and the aggregate must not worsen baseline total missing time, close-range missing time, or longest missing gap (floating-point roundoff only). Held-out data is evaluation only.",
-        retention_policy: "Only listed search dimensions may change, including warm starts. Hypothesis timeout, observable-miss timeout, obstacle source-time tolerance, visible/hidden confidence decay, field-boundary validity decay rate, maximum detection distance and output threshold remain at the capture baseline. Legacy baselines with observable-miss timeout zero retain legacy visibility behavior; omitted field decay rate and detection distance retain their disabled legacy defaults.",
-        tuned_parameter_pointers: types::ball_filter_tuning::TUNED_PARAMETER_POINTERS,
+        retention_policy: "Only listed search dimensions may change, including warm starts. Hypothesis timeout, observable-miss timeout, obstacle source-time tolerance, legacy per-frame confidence factors, field-boundary validity decay rate, maximum detection distance and output threshold remain at the capture baseline. Optional hidden/visible-missed/competing-hypothesis confidence rates are searched only when enabled in the baseline (hidden 0..0.3/s; visible-missed 0..4/s; competing 0..2/s). Legacy None rates retain their prior behavior; omitted field decay rate and detection distance retain their disabled legacy defaults.",
+        tuned_parameter_pointers: tuned_parameter_pointers(&baseline),
         penalty_metres: args.penalty_metres,
         namespace: &args.namespace,
         reference_topic: &args.reference_topic,
@@ -415,13 +469,16 @@ mod tests {
         old_best.maximum_obstacle_time_difference = std::time::Duration::from_secs(60);
         old_best.field_boundary_validity_decay_rate = 0.0;
         old_best.maximum_detection_distance = 0.0;
+        old_best.hidden_validity_decay_rate = Some(0.25);
+        old_best.visible_missed_validity_decay_rate = Some(3.0);
+        old_best.competing_hypothesis_validity_decay_rate = Some(1.5);
         old_best.noise.detection_noise.inner.fill(1.5);
         let imported = decode(&baseline, encode(&old_best));
         assert!((imported.noise.detection_noise.x() - 1.5).abs() < 1e-6);
         for candidate in [
             imported,
-            decode(&baseline, [0.0; 6]),
-            decode(&baseline, [1.0; 6]),
+            decode(&baseline, [0.0; 9]),
+            decode(&baseline, [1.0; 9]),
         ] {
             let mut actual = serde_json::to_value(candidate).unwrap();
             let mut expected = serde_json::to_value(&baseline).unwrap();
@@ -431,6 +488,84 @@ mod tests {
             }
             assert_eq!(actual, expected);
         }
+    }
+
+    #[test]
+    fn optional_decay_search_bounds_preserve_enabled_zero_and_report_actual_dimensions() {
+        let mut base: BallFilterParameters = json5::from_str(include_str!(
+            "../../../etc/parameters/base/ball_filter.json5"
+        ))
+        .unwrap();
+        let low = decode(&base, [0.0; 9]);
+        let high = decode(&base, [1.0; 9]);
+        assert_eq!(low.hidden_validity_decay_rate, Some(0.0));
+        assert_eq!(low.visible_missed_validity_decay_rate, Some(0.0));
+        assert_eq!(low.competing_hypothesis_validity_decay_rate, Some(0.0));
+        assert_eq!(high.hidden_validity_decay_rate, Some(0.3));
+        assert_eq!(high.visible_missed_validity_decay_rate, Some(4.0));
+        assert_eq!(high.competing_hypothesis_validity_decay_rate, Some(2.0));
+        assert_eq!(active_dimensions(&base), (0..9).collect::<Vec<_>>());
+        assert!(tuned_parameter_pointers(&base).contains(&"/hidden_validity_decay_rate"));
+        assert!(tuned_parameter_pointers(&base).contains(&"/visible_missed_validity_decay_rate"));
+        assert!(
+            tuned_parameter_pointers(&base).contains(&"/competing_hypothesis_validity_decay_rate")
+        );
+
+        base.hidden_validity_decay_rate = None;
+        assert_eq!(active_dimensions(&base), vec![0, 1, 2, 3, 4, 5, 7, 8]);
+        assert!(!tuned_parameter_pointers(&base).contains(&"/hidden_validity_decay_rate"));
+        assert!(tuned_parameter_pointers(&base).contains(&"/visible_missed_validity_decay_rate"));
+        for value in [0.0, 0.5, 1.0] {
+            assert_eq!(decode(&base, [value; 9]).hidden_validity_decay_rate, None);
+        }
+        base.visible_missed_validity_decay_rate = None;
+        assert_eq!(active_dimensions(&base), vec![0, 1, 2, 3, 4, 5, 8]);
+        base.competing_hypothesis_validity_decay_rate = None;
+        assert_eq!(active_dimensions(&base), (0..6).collect::<Vec<_>>());
+        assert!(!tuned_parameter_pointers(&base).contains(&"/visible_missed_validity_decay_rate"));
+        let imported = warm_start(&base, &high);
+        assert_eq!(imported.hidden_validity_decay_rate, None);
+        assert_eq!(imported.visible_missed_validity_decay_rate, None);
+        assert_eq!(imported.competing_hypothesis_validity_decay_rate, None);
+        assert!(
+            !tuned_parameter_pointers(&base).contains(&"/competing_hypothesis_validity_decay_rate")
+        );
+    }
+
+    #[test]
+    fn legacy_warm_start_keeps_new_baseline_rates_but_explicit_zero_is_learned() {
+        let base: BallFilterParameters = json5::from_str(include_str!(
+            "../../../etc/parameters/base/ball_filter.json5"
+        ))
+        .unwrap();
+        let mut initial = base.clone();
+        initial.hidden_validity_decay_rate = None;
+        initial.visible_missed_validity_decay_rate = None;
+        initial.competing_hypothesis_validity_decay_rate = None;
+        let imported = warm_start(&base, &initial);
+        assert_eq!(
+            imported.competing_hypothesis_validity_decay_rate,
+            base.competing_hypothesis_validity_decay_rate
+        );
+        assert!(
+            (imported.hidden_validity_decay_rate.unwrap()
+                - base.hidden_validity_decay_rate.unwrap())
+            .abs()
+                < 1e-7
+        );
+        assert!(
+            (imported.visible_missed_validity_decay_rate.unwrap()
+                - base.visible_missed_validity_decay_rate.unwrap())
+            .abs()
+                < 1e-7
+        );
+        initial.hidden_validity_decay_rate = Some(0.0);
+        initial.visible_missed_validity_decay_rate = Some(0.0);
+        initial.competing_hypothesis_validity_decay_rate = Some(0.0);
+        let imported = warm_start(&base, &initial);
+        assert_eq!(imported.hidden_validity_decay_rate, Some(0.0));
+        assert_eq!(imported.visible_missed_validity_decay_rate, Some(0.0));
+        assert_eq!(imported.competing_hypothesis_validity_decay_rate, Some(0.0));
     }
 
     #[test]
@@ -448,10 +583,16 @@ mod tests {
         object.remove("maximum_obstacle_time_difference");
         object.remove("field_boundary_validity_decay_rate");
         object.remove("maximum_detection_distance");
+        object.remove("hidden_validity_decay_rate");
+        object.remove("visible_missed_validity_decay_rate");
+        object.remove("competing_hypothesis_validity_decay_rate");
         let legacy: BallFilterParameters = serde_json::from_value(legacy_json).unwrap();
         assert!(legacy.visible_missed_detection_timeout.is_zero());
         assert_eq!(legacy.field_boundary_validity_decay_rate, 0.0);
         assert_eq!(legacy.maximum_detection_distance, 0.0);
+        assert_eq!(legacy.hidden_validity_decay_rate, None);
+        assert_eq!(legacy.visible_missed_validity_decay_rate, None);
+        assert_eq!(legacy.competing_hypothesis_validity_decay_rate, None);
         assert_eq!(
             legacy.maximum_obstacle_time_difference,
             std::time::Duration::from_millis(100)
@@ -463,6 +604,9 @@ mod tests {
         assert!(candidate.visible_missed_detection_timeout.is_zero());
         assert_eq!(candidate.field_boundary_validity_decay_rate, 0.0);
         assert_eq!(candidate.maximum_detection_distance, 0.0);
+        assert_eq!(candidate.hidden_validity_decay_rate, None);
+        assert_eq!(candidate.visible_missed_validity_decay_rate, None);
+        assert_eq!(candidate.competing_hypothesis_validity_decay_rate, None);
         assert_eq!(
             candidate.maximum_obstacle_time_difference,
             legacy.maximum_obstacle_time_difference

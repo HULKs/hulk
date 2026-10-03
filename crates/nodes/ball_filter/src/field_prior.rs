@@ -148,6 +148,8 @@ mod tests {
             validity,
             motion_evidence: None,
             negative_evidence: None,
+            validity_decay_evidence: None,
+            leadership_evidence: None,
         }
     }
 
