@@ -2,6 +2,7 @@
 use crate::{
     bevy_mujoco::{MjcfObject, MujocoWorld, MujocoWorldPlugin, SimulationMode},
     parameters::SimulatorParameters,
+    remote_ball_tuning::RemoteSnapshot,
     robot_io::RobotBinding,
     robotics::{Robotics, StackConfiguration},
     scene::ball::{SpawnedBalls, ball_spec, first_pose, first_velocity},
@@ -93,13 +94,21 @@ fn launch_viewer(log_path: &Path) -> std::io::Result<std::process::Child> {
         .spawn()
 }
 
+#[derive(Clone, Copy)]
+pub enum TuningSource<'a> {
+    Record,
+    RecordOnly,
+    Recordings(&'a Path),
+    Remote(&'a Path),
+}
+
 pub fn run(
     output: &Path,
     trials: usize,
     parameter_root: &Path,
     location: &str,
     keep_open: bool,
-    recordings: Option<&Path>,
+    source: TuningSource<'_>,
     once: bool,
     preview_balls: usize,
 ) -> Result<()> {
@@ -113,6 +122,10 @@ pub fn run(
         (1..=3).contains(&preview_balls),
         "preview ball count must be 1 to 3"
     );
+    let recordings = match source {
+        TuningSource::Recordings(path) => Some(path),
+        _ => None,
+    };
     if let Some(recordings) = recordings {
         for name in [
             "baseline.json5",
@@ -164,7 +177,11 @@ pub fn run(
             .await?;
         let open_viewer = node.subscriber::<bool>(OPEN_VIEWER_TOPIC).build().await?;
         let (progress, mut updates) = tokio::sync::watch::channel(Progress {
-            status: "Preparing recordings".into(),
+            status: if matches!(source, TuningSource::Remote(_)) {
+                "Waiting for remote optimizer"
+            } else {
+                "Preparing recordings"
+            }.into(),
             output_directory: output.display().to_string(),
             recordings: 6,
             duration_seconds: EPISODE_SECONDS,
@@ -233,7 +250,7 @@ pub fn run(
                 .map(|seed| recordings_root.join(format!("{kind}-{seed}.mcap")))
                 .collect()
         };
-        if recordings.is_none() {
+        if matches!(source, TuningSource::Record | TuningSource::RecordOnly) {
             for (index, (name, seed)) in training_seeds
                 .iter()
                 .map(|seed| ("train", *seed))
@@ -263,9 +280,19 @@ pub fn run(
                 )?;
             }
         }
+        if matches!(source, TuningSource::RecordOnly) {
+            return Ok(());
+        }
         // Parameter binding includes all robotics layers. Persist the actual effective
         // baseline alongside results rather than assuming the base layer is complete.
-        progress.send_modify(|state| state.status = "Verifying recorded replay".into());
+        progress.send_modify(|state| {
+            state.status = if matches!(source, TuningSource::Remote(_)) {
+                "Waiting for remote optimizer"
+            } else {
+                "Verifying recorded replay"
+            }
+            .into();
+        });
         let initial_path = recordings_root.join("optimized/ball_filter.json5");
         let mut initial_parameters = initial_path.is_file().then_some(initial_path);
         let baseline_path = recordings_root.join("baseline.json5");
@@ -283,6 +310,9 @@ pub fn run(
             shutdown.clone(),
             preview_balls,
         ));
+        if let TuningSource::Remote(snapshot) = source {
+            return follow_remote(snapshot, output, &progress, &best, &shutdown);
+        }
         let mut sent_trial = None;
         let mut round = 0_u64;
         let mut last_best_trial = 0;
@@ -320,6 +350,7 @@ pub fn run(
                         )?;
                         best.send_replace(Some(LiveCandidate {
                             trial: search.best_trial,
+                            description: format!("trial {}", search.best_trial),
                             parameters: search.best_parameters.clone(),
                         }));
                         sent_trial = Some(search.best_trial);
@@ -385,6 +416,64 @@ pub fn run(
     if cancelled { Ok(()) } else { result }
 }
 
+fn follow_remote(
+    snapshot_path: &Path,
+    output: &Path,
+    progress: &tokio::sync::watch::Sender<Progress>,
+    best: &tokio::sync::watch::Sender<Option<LiveCandidate>>,
+    shutdown: &AtomicBool,
+) -> Result<()> {
+    let mut candidate_id = String::new();
+    while !shutdown.load(Ordering::Relaxed) {
+        let result = (|| -> Result<()> {
+            let snapshot: RemoteSnapshot = serde_json::from_slice(&std::fs::read(snapshot_path)?)?;
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_secs_f64();
+            let problem = snapshot.problem(now);
+            if problem.is_none()
+                && snapshot.remote.best_candidate != candidate_id
+                && let Some(search) = &snapshot.search
+            {
+                write_checkpoint(
+                    &output.join("optimized/ball_filter.json5"),
+                    &serde_json::to_vec_pretty(&search.best_parameters)?,
+                )?;
+                best.send_replace(Some(LiveCandidate {
+                    trial: search.best_trial,
+                    description: snapshot.remote.best_candidate.clone(),
+                    parameters: search.best_parameters.clone(),
+                }));
+                candidate_id = snapshot.remote.best_candidate.clone();
+            }
+            progress.send_modify(|state| {
+                state.status = if problem.is_some() {
+                    "Remote optimizer connection needs attention".into()
+                } else {
+                    format!(
+                        "Remote optimization · {} workers",
+                        snapshot.remote.workers.len()
+                    )
+                };
+                state.error = problem;
+                state.remote = Some(snapshot.remote);
+                state.remote_updated_unix_seconds = Some(snapshot.updated_unix_seconds);
+                state.search = snapshot.search;
+            });
+            Ok(())
+        })();
+        if let Err(error) = result {
+            progress.send_modify(|state| {
+                state.status = "Waiting for remote optimizer bridge".into();
+                state.error = Some(format!("{}: {error:#}", snapshot_path.display()));
+            });
+        }
+        // Polling and shutdown remain independent of SSH or remote workers.
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    Ok(())
+}
+
 fn write_checkpoint(path: &Path, contents: &[u8]) -> Result<()> {
     let directory = path
         .parent()
@@ -400,6 +489,7 @@ fn write_checkpoint(path: &Path, contents: &[u8]) -> Result<()> {
 #[derive(Clone)]
 struct LiveCandidate {
     trial: u64,
+    description: String,
     parameters: BallFilterParameters,
 }
 
@@ -771,8 +861,8 @@ fn record(
         progress.send_modify(|state| {
             state.live_trial = Some(candidate.trial);
             state.live_status = Some(format!(
-                "Live simulator using best parameters from trial {}",
-                candidate.trial
+                "Live simulator using best parameters from {}",
+                candidate.description
             ));
         });
     }
@@ -807,13 +897,13 @@ fn record(
                     progress.send_modify(|state| {
                         state.live_trial = Some(candidate.trial);
                         state.live_status = Some(format!(
-                            "Live simulator using best parameters from trial {}",
-                            candidate.trial
+                            "Live simulator using best parameters from {}",
+                            candidate.description
                         ));
                     });
                     eprintln!(
-                        "Applied best parameters from trial {} to live ball filter",
-                        candidate.trial
+                        "Applied best parameters from {} to live ball filter",
+                        candidate.description
                     );
                 }
             }

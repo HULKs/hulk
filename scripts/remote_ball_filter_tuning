@@ -4,7 +4,7 @@
 start uploads a source/data snapshot and starts continuous, finite search rounds.
 status and fetch use the local manifest printed by start. No shared checkout is
 modified, and no process is stopped. Twix progress and live simulator parameter
-application are not connected by this offline helper.
+application use the bridge command together with a local simulator preview.
 """
 import argparse
 import concurrent.futures
@@ -18,6 +18,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import struct
 import sys
 import tarfile
 import threading
@@ -41,7 +42,7 @@ def ssh_command(host, arguments):
         raise ValueError("host must be an SSH alias or user@hostname")
     control = Path.home() / ".cache/hbf-tuning-ssh" / "%C"
     return ["ssh", "-oBatchMode=yes", "-oConnectTimeout=10", "-oControlMaster=auto",
-            "-oControlPersist=30m", f"-oControlPath={control}", "--", host, shlex.join(arguments)]
+            "-oControlPersist=30m", "-oServerAliveInterval=5", "-oServerAliveCountMax=3", f"-oControlPath={control}", "--", host, shlex.join(arguments)]
 
 
 def ssh(host, arguments, **kwargs):
@@ -203,7 +204,7 @@ def tuner_command(root, manifest, worker, round_number, initial):
 
 
 def training_loss(report):
-    if not report.get("replay_matches_live") or not report.get("continuity_policy"):
+    if report.get("replay_matches_live") is not True or not isinstance(report.get("continuity_policy"), str) or not report["continuity_policy"]:
         raise ValueError("report lacks exact replay verification or training continuity policy")
     loss = report["training"]["optimized"]["loss"]
     if not math.isfinite(loss):
@@ -293,6 +294,9 @@ def export_results():
                 bundle.add(root / name, arcname=name)
         for path in root.glob("worker-*.json"):
             bundle.add(path, arcname=path.name)
+        # Full scans also detect changed/malformed historical checkpoints. For
+        # long-running searches, cache immutable validated rounds incrementally;
+        # scanning thousands of reports every poll will eventually dominate I/O.
         for marker in sorted((root / "results").glob("worker-*/round-*/complete.json")):
             # The controller commits this marker after the tuner exits successfully.
             for name in ["report.json", "ball_filter.json5", "complete.json"]:
@@ -336,9 +340,305 @@ for path in [root/'status.json', root/'best.json', *sorted(root.glob('worker-*.j
     print(f"Fetched: {output}")
 
 
+METRIC_FIELDS = (
+    "loss", "position_rmse_metres", "missing_seconds", "missing_runs", "longest_missing_seconds",
+    "close_range_position_rmse_metres", "close_range_present_seconds", "close_range_missing_seconds",
+    "along_motion_error_metres", "motion_lag_seconds", "moving_reference_seconds",
+    "false_track_seconds", "missing_transform_seconds",
+)
+OPTIONAL_METRICS = {"position_rmse_metres", "close_range_position_rmse_metres", "along_motion_error_metres", "motion_lag_seconds"}
+
+
+def unsigned(value):
+    if type(value) is not int or not 0 <= value < 2**64:
+        raise ValueError(f"expected unsigned 64-bit integer, got {value!r}")
+    return value
+
+
+def finite_json(value):
+    if isinstance(value, dict):
+        for item in value.values():
+            finite_json(item)
+    elif isinstance(value, list):
+        for item in value:
+            finite_json(item)
+    elif isinstance(value, float) and not math.isfinite(value):
+        raise ValueError("nonfinite value in remote result")
+
+
+def progress_metrics(score):
+    metrics = {key: score[key] for key in METRIC_FIELDS}
+    for key, value in metrics.items():
+        if value is None and key in OPTIONAL_METRICS:
+            continue
+        if type(value) not in (float, int) or not math.isfinite(value):
+            raise ValueError(f"invalid {key} metric")
+        if key not in {"along_motion_error_metres", "motion_lag_seconds"} and value < 0:
+            raise ValueError(f"negative {key} metric")
+    unsigned(metrics["missing_runs"])
+    return metrics
+
+
+def parameter_shape(value, baseline):
+    if isinstance(baseline, dict):
+        return isinstance(value, dict) and value.keys() == baseline.keys() and all(
+            parameter_shape(value[key], item) for key, item in baseline.items())
+    if isinstance(baseline, list):
+        return isinstance(value, list) and len(value) == len(baseline) and all(
+            parameter_shape(a, b) for a, b in zip(value, baseline))
+    if type(baseline) in (int, float):
+        return type(value) in (int, float) and math.isfinite(value)
+    return type(value) is type(baseline)
+
+
+
+def parameters_equal(left, right):
+    # Reports/configs can pass through different serde_json float formatting.
+    # BallFilterParameters uses f32 leaves; compare their native bit patterns,
+    # while keeping integer duration/count fields exact.
+    if isinstance(left, dict):
+        return isinstance(right, dict) and left.keys() == right.keys() and all(
+            parameters_equal(value, right[key]) for key, value in left.items())
+    if isinstance(left, list):
+        return isinstance(right, list) and len(left) == len(right) and all(
+            parameters_equal(a, b) for a, b in zip(left, right))
+    if type(left) is float and type(right) is float:
+        return math.isfinite(left) and math.isfinite(right) and struct.pack("!f", left) == struct.pack("!f", right)
+    return type(left) is type(right) and left == right
+
+def report_compatibility(report):
+    finite_json(report)
+    training_loss(report)
+    if report["reference_frame"] not in {"ground", "field"}:
+        raise ValueError("unknown reference frame")
+    if not isinstance(report["objective"], dict) or not isinstance(report["objective"]["version"], str):
+        raise ValueError("missing objective version")
+    for partition in ("training", "validation"):
+        for variant in ("baseline", "optimized"):
+            progress_metrics(report[partition][variant])
+    baseline = report["baseline_parameters"]
+    if not isinstance(baseline, dict) or not baseline or not parameter_shape(report["optimized_parameters"], baseline):
+        raise ValueError("candidate parameter schema differs from baseline")
+    return {key: report[key] for key in (
+        "objective", "namespace", "reference_frame", "reference_topic", "penalty_metres",
+        "baseline_parameters", "continuity_policy", "retention_policy", "tuned_parameter_pointers",
+    )} | {"training_baseline": report["training"]["baseline"], "validation_baseline": report["validation"]["baseline"]}
+
+
+
+def controller_alive(root, status, proc=Path("/proc")):
+    pid = status.get("pid")
+    if pid is None:
+        return None
+    if unsigned(pid) == 0:
+        return False
+    try:
+        arguments = (proc / str(pid) / "cmdline").read_bytes().split(b"\0")
+    except FileNotFoundError:
+        return False
+    # A reused PID must not make an unrelated process look like our controller.
+    return str(root / "controller.py").encode() in arguments and b"_run" in arguments
+
+def read_remote_runs(run_names, base=None):
+    """Read-only inspection, also executed remotely without updating controllers."""
+    base = base or Path.home() / TASK_BASE / "runs"
+    results = []
+    for name in run_names:
+        root = base / checked_name(name)
+        manifest = json.loads((root / "manifest.json").read_text())
+        control = json.loads((root / "status.json").read_text()) if (root / "status.json").exists() else {}
+        environment = json.loads((root / "environment.json").read_text()) if (root / "environment.json").exists() else None
+        alive = controller_alive(root, control)
+        workers = []
+        for worker in range(unsigned(manifest["workers"])):
+            path = root / f"worker-{worker:02d}.json"
+            state = json.loads(path.read_text()) if path.exists() else {}
+            status = state.get("state", control.get("state", "preparing"))
+            if not isinstance(status, str):
+                raise ValueError(f"invalid worker status in {path}")
+            if alive is False and status in {"searching", "building", "preparing"}:
+                status = "controller exited"
+            workers.append(dict(run=name, worker=worker, round=unsigned(state.get("round", 0)), status=status))
+        completed_trials, best, compatibility = 0, None, None
+        for marker in sorted((root / "results").glob("worker-*/round-*/complete.json")):
+            match = re.fullmatch(r"worker-(\d+)/round-(\d+)/complete.json", marker.relative_to(root / "results").as_posix())
+            if not match:
+                raise ValueError(f"invalid completed round path: {marker}")
+            worker, round_number = map(int, match.groups())
+            if worker >= len(workers) or round_number < 1:
+                raise ValueError(f"completed round outside declared workers: {marker}")
+            report = json.loads((marker.parent / "report.json").read_text())
+            params = json.loads((marker.parent / "ball_filter.json5").read_text())
+            loss = training_loss(report)
+            if json.loads(marker.read_text())["training_loss"] != loss or not parameters_equal(params, report["optimized_parameters"]):
+                raise ValueError(f"inconsistent completed checkpoint: {marker}")
+            signature = report_compatibility(report)
+            if compatibility is not None and signature != compatibility:
+                raise ValueError(f"incompatible completed reports in {name}")
+            compatibility = signature
+            trials = unsigned(report["trials"])
+            if trials != manifest["trials"] or trials == 0:
+                raise ValueError(f"completed round trial count mismatch: {marker}")
+            for field, names in (("training_recordings", DATA_FILES[:4]), ("validation_recordings", DATA_FILES[4:6])):
+                if [Path(path).name for path in report[field]] != names:
+                    raise ValueError(f"recording partition mismatch: {marker}")
+            if any(report[key] != manifest[key] for key in ("namespace", "reference_frame", "reference_topic")):
+                raise ValueError(f"reference configuration mismatch: {marker}")
+            completed_trials += trials
+            if best is None or loss < training_loss(best["report"]):
+                best = dict(worker=worker, round=round_number, report=report)
+        if best is not None and not environment:
+            raise ValueError(f"completed rounds lack binary provenance: {name}")
+        results.append(dict(manifest=manifest, environment=environment, workers=workers,
+                            completed_trials=unsigned(completed_trials), compatibility=compatibility, best=best))
+    return results
+
+
+def bridge_inspection_command(run_names):
+    # Ship just inspection code in this command. Already-running controller.py
+    # and all remote jobs remain untouched, including older controller versions.
+    import inspect
+    functions = (checked_name, training_loss, unsigned, finite_json, progress_metrics,
+                 parameter_shape, parameters_equal, report_compatibility, controller_alive, read_remote_runs)
+    code = "import json, math, re, struct, sys\nfrom pathlib import Path\n"
+    for key in ("TASK_BASE", "DATA_FILES", "METRIC_FIELDS", "OPTIONAL_METRICS"):
+        code += f"{key} = {globals()[key]!r}\n"
+    code += "\n".join(inspect.getsource(function) for function in functions)
+    code += "\nprint(json.dumps(read_remote_runs(sys.argv[1:]), allow_nan=False))\n"
+    return ["python3", "-c", code, *run_names]
+
+
+def empty_progress(host):
+    return dict(updated_unix_seconds=0.0, error=None,
+                remote=dict(host=host, workers=[], completed_trials=0, best_candidate=""), search=None)
+
+
+def combine_remote_progress(manifests, runs, previous, provenance, now):
+    expected = {manifest["run"]: manifest for manifest in manifests}
+    if len(expected) != len(manifests) or len(runs) != len(expected):
+        raise ValueError("duplicate or missing run manifests")
+    host = manifests[0]["host"]
+    if any(manifest["host"] != host for manifest in manifests):
+        raise ValueError("bridge manifests must use the same SSH host")
+    workers, trials, candidates = [], 0, []
+    binary_hash = data_hashes = compatibility = None
+    seen = set()
+    for run in runs:
+        manifest = run["manifest"]
+        name = manifest["run"]
+        if name not in expected or name in seen:
+            raise ValueError("unexpected or duplicated remote run")
+        seen.add(name)
+        for field in ("source_sha256", "data_sha256", "workers", "trials", "namespace", "reference_frame", "reference_topic"):
+            if manifest[field] != expected[name][field]:
+                raise ValueError(f"remote manifest mismatch for {name}: {field}")
+        hashes = {key: value for key, value in manifest["data_sha256"].items() if key != "initial.json5"}
+        if set(hashes) != set(DATA_FILES) or any(not re.fullmatch(r"[0-9a-f]{64}", value) for value in hashes.values()):
+            raise ValueError(f"missing or invalid dataset hashes for {name}")
+        if data_hashes is not None and hashes != data_hashes:
+            raise ValueError("cannot combine runs with different recording/baseline hashes")
+        data_hashes = hashes
+        if run["environment"] is not None:
+            digest_value = run["environment"]["binary_sha256"]
+            if not re.fullmatch(r"[0-9a-f]{64}", digest_value):
+                raise ValueError(f"invalid binary hash for {name}")
+            if binary_hash is not None and digest_value != binary_hash:
+                raise ValueError("cannot combine different filter/scoring binaries")
+            binary_hash = digest_value
+        workers.extend(run["workers"])
+        trials += unsigned(run["completed_trials"])
+        if run["best"] is not None:
+            signature = report_compatibility(run["best"]["report"])
+            if signature != run["compatibility"] or (compatibility is not None and signature != compatibility):
+                raise ValueError("cannot combine different objective/reference/baseline policies")
+            compatibility = signature
+            candidate = run["best"]
+            identity = f"{host}/{name}/worker-{candidate['worker']:02d}/round-{candidate['round']:06d}"
+            candidates.append((identity, candidate["report"]))
+    if trials < previous["remote"]["completed_trials"]:
+        raise ValueError("previously completed remote trial slots disappeared")
+    fingerprint = dict(binary_sha256=binary_hash, data_sha256=data_hashes, report=compatibility)
+    if provenance and provenance != fingerprint:
+        raise ValueError("bridge result provenance changed; use a separate output directory")
+    snapshot = dict(updated_unix_seconds=now, error=None,
+                    remote=dict(host=host, workers=workers, completed_trials=unsigned(trials), best_candidate=""), search=None)
+    if candidates:
+        identity, report = min(candidates, key=lambda item: (training_loss(item[1]), item[0]))
+        # Equal-loss rounds are checkpoints, not new selections. This keeps the
+        # local revision and live parameters stable across continuous rounds.
+        if previous["search"] and previous["search"]["best"]["loss"] <= training_loss(report):
+            snapshot["search"] = dict(previous["search"], trial=trials)
+            snapshot["remote"]["best_candidate"] = previous["remote"]["best_candidate"]
+        else:
+            revision = unsigned(previous["search"]["best_trial"]) + 1 if previous["search"] else 1
+            snapshot["search"] = dict(
+                reference_frame=report["reference_frame"], trial=trials, trials=0, best_trial=unsigned(revision),
+                baseline=progress_metrics(report["training"]["baseline"]), best=progress_metrics(report["training"]["optimized"]),
+                best_parameters=report["optimized_parameters"], validation_baseline=progress_metrics(report["validation"]["baseline"]),
+                validation_best=progress_metrics(report["validation"]["optimized"]),
+            )
+            snapshot["remote"]["best_candidate"] = identity
+    elif previous["search"]:
+        raise ValueError("previously completed remote checkpoints disappeared")
+    # Persist provenance only once a verified candidate exists; pending builds
+    # must still publish worker status before a binary/report is available.
+    return snapshot, fingerprint if candidates else provenance
+
+
+def poll_bridge(manifests, previous, provenance, now=None):
+    try:
+        result = ssh(manifests[0]["host"], bridge_inspection_command([item["run"] for item in manifests]),
+                     capture_output=True, text=True, timeout=30)
+        runs = json.loads(result.stdout)
+        return combine_remote_progress(manifests, runs, previous, provenance, time.time() if now is None else now)
+    except (ValueError, TypeError, KeyError, OSError, subprocess.SubprocessError) as error:
+        if isinstance(error, subprocess.TimeoutExpired):
+            message = f"SSH to {manifests[0]['host']} timed out after {error.timeout:g} seconds"
+        elif isinstance(error, subprocess.CalledProcessError):
+            message = f"SSH to {manifests[0]['host']} failed (exit {error.returncode})"
+            if error.stderr:
+                detail = error.stderr.decode(errors="replace") if isinstance(error.stderr, bytes) else error.stderr
+                message += ": " + detail.strip()[-2000:]
+        else:
+            message = str(error)
+        # A failed SSH poll is not a fresh observation. Preserve the successful
+        # timestamp, parameters and progress so the UI can expose their age.
+        return dict(previous, error=message), provenance
+
+
+def bridge(args):
+    import fcntl
+    manifests = [json.loads(path.read_text()) for path in args.manifests]
+    if len({item["host"] for item in manifests}) != 1 or len({item["run"] for item in manifests}) != len(manifests):
+        raise ValueError("provide distinct run manifests on one SSH host")
+    for item in manifests:
+        checked_name(item["run"])
+    args.output.mkdir(parents=True, exist_ok=True)
+    with (args.output / "bridge.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        output = args.output / "remote-progress.json"
+        state_path = args.output / "bridge-state.json"
+        state = json.loads(state_path.read_text()) if state_path.exists() else None
+        previous = json.loads(output.read_text()) if output.exists() else empty_progress(manifests[0]["host"])
+        identity = {"host": manifests[0]["host"], "runs": sorted(item["run"] for item in manifests)}
+        if state and state["identity"] != identity:
+            raise ValueError("bridge output belongs to a different run set")
+        if previous["search"] and (not state or not state.get("provenance")):
+            raise ValueError("existing progress lacks compatibility provenance")
+        provenance = state["provenance"] if state else None
+        print(f"Bridging {len(manifests)} remote runs into {output}", flush=True)
+        while True:
+            snapshot, new_provenance = poll_bridge(manifests, previous, provenance)
+            if snapshot["error"] != previous["error"] and snapshot["error"]:
+                print(f"Remote polling failed: {snapshot['error']}", file=sys.stderr, flush=True)
+            atomic_json(state_path, dict(identity=identity, provenance=new_provenance))
+            atomic_json(output, snapshot)
+            previous, provenance = snapshot, new_provenance
+            time.sleep(args.interval)
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    commands = parser.add_subparsers(dest="command", required=True, metavar="{start,status,fetch}")
+    commands = parser.add_subparsers(dest="command", required=True, metavar="{start,status,fetch,bridge}")
     start_parser = commands.add_parser("start")
     start_parser.add_argument("--host", default="remote-compiler")
     start_parser.add_argument("--recordings", type=Path, required=True)
@@ -360,6 +660,10 @@ def main():
         subparser.add_argument("manifest", type=Path)
         if name == "fetch":
             subparser.add_argument("--output", type=Path)
+    bridge_parser = commands.add_parser("bridge", help="poll remote workers into an atomic local progress file")
+    bridge_parser.add_argument("manifests", nargs="+", type=Path)
+    bridge_parser.add_argument("--output", required=True, type=Path)
+    bridge_parser.add_argument("--interval", type=float, default=2.0)
     commands.add_parser("_run")
     commands.add_parser("_export")
     args = parser.parse_args()
@@ -367,6 +671,10 @@ def main():
         if not 1 <= args.workers <= 32 or not 1 <= args.build_jobs <= 32 or args.trials < 1 or args.seed < 0:
             parser.error("workers/build-jobs must be 1..32, trials positive, and seed nonnegative")
         start(args)
+    elif args.command == "bridge":
+        if not math.isfinite(args.interval) or args.interval < 0.1:
+            parser.error("bridge interval must be finite and at least 0.1 seconds")
+        bridge(args)
     elif args.command == "_run":
         run_remote()
     elif args.command == "_export":

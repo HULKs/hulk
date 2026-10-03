@@ -88,6 +88,36 @@ Full CPU expansion (2026-10-03)
   Both runs use identical filter/scoring code and recordings; only helper/docs
   changed in the new snapshot. Compare training-selected reports across both.
 
+Twix remote bridge and launch controls (2026-10-03)
+- User requests connecting Twix to remote searches and launching either local or
+  remote optimization from the panel. Preserve all32 existing remote workers.
+- Local Python launcher supervises only local bridge/preview processes; remote
+  searches remain detached in tmux. Existing remote controller files need no
+  replacement. Reuse ROS-Z Progress and the existing live simulator/viewer path.
+- Bridge reads completed remote checkpoints, validates dataset/binary/objective
+  compatibility, and selects by training loss only. Snapshot age measures last
+  successful SSH observation independently of the local ROS-Z heartbeat.
+- New simulator modes: --capture-ball-tuning captures six ROS-Z recordings only;
+  --remote-ball-tuning reads a bridge snapshot and previews parameters with no
+  local candidate search. Parameters are applied to the preview's temporary
+  layer; production configuration and capture baseline remain unchanged.
+- Actual read-only poll reached both existing runs:32 workers,1,067,776 completed
+  trial slots, training winner1.2319715. Both binaries have identical SHA256;
+  source snapshot differences concern only helper/docs.
+- Validation passed:54 simulator tests (one existing ignored),79 Twix tests,
+  and31 Python tests. Both application binaries built; formatting/diff checks pass.
+  Logs: logs/remote-bridge-{combined-tests,python-tests,app-build,format}.log.
+- Live Twix launcher connected both remote manifests in
+  logs/remote-twix-1791006039. Verified fresh remote status with32 workers and
+  1,488,384 completed trials, candidate retention-20261003/worker-01/round-000189,
+  loss1.2319703, and a saved local preview parameter checkpoint. The 3D viewer
+  displayed that candidate, walking robot, physical ball and moving opponents.
+- Later SSH timeout retained the previous snapshot/parameters and exposed the
+  error. Local machine restarted before final checkpoint; reconnect local bridge
+  to existing remote runs without starting any additional remote search workers.
+- Remote startup capacity is sampled, not reserved. Full-history checkpoint
+  inspection should eventually use a validated immutable-round cache as runs grow.
+
 Next evaluation direction (user priorities, 2026-10-03)
 - Further remote progress confirms scalar loss is insufficient: around round20,
   training-selected loss1.26348 has closeRMSE1.210m versus baseline.715m;

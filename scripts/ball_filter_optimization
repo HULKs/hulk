@@ -1,0 +1,296 @@
+#!/usr/bin/env python3
+"""Launch local tuning or observe remote tuning with a local live simulator."""
+import argparse
+from contextlib import contextmanager
+import fcntl
+import importlib.machinery
+import importlib.util
+import json
+import os
+from pathlib import Path
+import shlex
+import signal
+import socket
+import subprocess
+import sys
+import time
+import uuid
+
+REPOSITORY = Path(__file__).resolve().parent.parent
+ROUTER_PORT = 7448
+REMOTE_CAPACITY_PROBE = r'''
+import json, os
+from pathlib import Path
+memory = dict(line.split(':', 1) for line in Path('/proc/meminfo').read_text().splitlines())
+active = 0
+for process in Path('/proc').iterdir():
+    if not process.name.isdigit():
+        continue
+    try:
+        executable = os.readlink(process / 'exe').removesuffix(' (deleted)')
+        active += Path(executable).name == 'ball-filter-tuner'
+    except (FileNotFoundError, PermissionError, ProcessLookupError):
+        pass
+print(json.dumps({'cpus': len(os.sched_getaffinity(0)),
+                  'load': os.getloadavg()[0], 'active_tuners': active,
+                  'available_bytes': int(memory['MemAvailable'].split()[0]) * 1024}))
+'''
+
+
+def log(message):
+    print(f"[ball-filter optimization] {message}", flush=True)
+
+
+def remote_helper():
+    loader = importlib.machinery.SourceFileLoader(
+        "ball_filter_remote_helper", str(REPOSITORY / "scripts/remote_ball_filter_tuning")
+    )
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def remote_worker_slots(host, requested):
+    helper = remote_helper()
+    try:
+        resources = json.loads(helper.ssh(
+            host, ["python3", "-c", REMOTE_CAPACITY_PROBE], capture_output=True, text=True, timeout=30
+        ).stdout)
+    except subprocess.TimeoutExpired as error:
+        raise ValueError(
+            f"SSH capacity check for {host} timed out after 30 seconds. "
+            "Check SSH authentication/connectivity, then retry; no new search was submitted."
+        ) from error
+    remaining = resources["cpus"] - resources["active_tuners"]
+    if remaining <= 0:
+        raise ValueError(
+            f"{host} already has {resources['active_tuners']} active tuner workers for "
+            f"{resources['cpus']} CPUs. Use connect with their existing manifest files "
+            "instead of starting another search. No remote workers were stopped."
+        )
+    workers = min(requested, remaining, helper.capacity(resources, requested, full_cpu=True))
+    log(f"{host}: {resources['active_tuners']} workers already active; "
+        f"starting at most {workers} additional workers on {resources['cpus']} CPUs.")
+    return workers
+
+
+def ensure_router_available():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind(("127.0.0.1", ROUTER_PORT))
+        except OSError as error:
+            raise ValueError(
+                f"Local port {ROUTER_PORT} is already in use. Connect Twix to the existing "
+                "simulator/optimizer, or stop its local launcher before starting another "
+                "preview. Remote searches can keep running."
+            ) from error
+
+
+@contextmanager
+def launcher_lock():
+    directory = Path.home() / ".cache/hulk-ball-filter-optimization"
+    directory.mkdir(parents=True, exist_ok=True)
+    with (directory / "local-router.lock").open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise ValueError(
+                "Another ball-filter launcher is already preparing or running a local "
+                "session. Connect Twix to that session, or stop that local launcher first."
+            ) from error
+        try:
+            ensure_router_available()
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+class StopRequested(Exception):
+    def __init__(self, signum):
+        self.signum = signum
+
+
+def stop_requested(signum, _frame):
+    raise StopRequested(signum)
+
+
+class Children:
+    """Own only local process groups; never stop detached remote searches."""
+    def __init__(self):
+        self.running = []
+
+    def start(self, command, label):
+        log(f"{label}: {shlex.join(map(str, command))}")
+        process = subprocess.Popen(
+            [str(argument) for argument in command], cwd=REPOSITORY,
+            stdin=subprocess.DEVNULL, start_new_session=True,
+        )
+        self.running.append((process, label))
+        return process
+
+    def run(self, command, label, timeout=None):
+        process = self.start(command, label)
+        try:
+            code = process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired as error:
+            raise RuntimeError(f"{label} timed out after {timeout}s; check SSH authentication/connectivity and the startup log.") from error
+        if code:
+            raise RuntimeError(f"{label} exited with status {code}; see the preceding output.")
+
+    def monitor(self):
+        while True:
+            for process, label in self.running:
+                if process.poll() is not None:
+                    raise RuntimeError(
+                        f"{label} exited with status {process.returncode}; "
+                        "the local monitor is stopping. Remote workers remain running."
+                    )
+            time.sleep(0.2)
+
+    def forget_finished(self):
+        self.running = [(process, label) for process, label in self.running if process.poll() is None]
+
+    def close(self):
+        # The Rust runtime handles SIGINT and flushes recording/checkpoint files.
+        # Signal groups even when their cargo/shell leader exited, since children
+        # could otherwise survive a failed launcher.
+        for signum, grace in [(signal.SIGINT, 10.0), (signal.SIGTERM, 3.0), (signal.SIGKILL, 1.0)]:
+            groups = []
+            for process, _ in self.running:
+                try:
+                    os.killpg(process.pid, signum)
+                    groups.append(process)
+                except ProcessLookupError:
+                    pass
+            if not groups:
+                break
+            deadline = time.monotonic() + grace
+            while time.monotonic() < deadline:
+                alive = False
+                for process in groups:
+                    process.poll()  # Reap leaders, including already exited ones.
+                    try:
+                        os.killpg(process.pid, 0)
+                        alive = True
+                    except ProcessLookupError:
+                        pass
+                if not alive:
+                    break
+                time.sleep(0.05)
+        for process, _ in self.running:
+            try:
+                process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                pass
+
+
+def parser():
+    result = argparse.ArgumentParser(description=__doc__)
+    result.add_argument("mode", choices=["local", "remote", "connect"])
+    result.add_argument("--output", type=Path, required=True, help="new local session directory")
+    result.add_argument("--recordings", type=Path, help="completed six-recording capture directory")
+    result.add_argument("--trials", type=int, default=256, help="candidates per continuous search round")
+    result.add_argument("--host", default="remote-compiler")
+    result.add_argument("--workers", type=int, default=32)
+    result.add_argument("--manifest", type=Path, action="append", default=[],
+                        help="existing remote run manifest; repeat to observe multiple runs")
+    return result
+
+
+def validate(args):
+    if args.trials < 1 or not 1 <= args.workers <= 32:
+        raise ValueError("trials must be positive and workers must be between 1 and 32")
+    if args.output.exists() or args.output.is_symlink():
+        raise ValueError(f"output already exists: {args.output}; choose a new session directory")
+    if args.mode == "connect":
+        if not args.manifest:
+            raise ValueError("connect requires at least one --manifest from an existing remote run")
+        if args.recordings:
+            raise ValueError("connect uses existing remote runs; do not pass --recordings")
+    elif args.manifest:
+        raise ValueError("--manifest is only used with connect")
+    for manifest in args.manifest:
+        if not manifest.is_file():
+            raise ValueError(f"remote manifest does not exist: {manifest}")
+    if args.recordings:
+        for name in remote_helper().DATA_FILES:
+            if not (args.recordings / name).is_file():
+                raise ValueError(f"missing recording input: {args.recordings / name}")
+
+
+def run(args, children):
+    validate(args)
+    output = args.output.resolve()
+    simulator = REPOSITORY / "simulator"
+    helper = [sys.executable, REPOSITORY / "scripts/remote_ball_filter_tuning"]
+    # Check remote capacity before creating artifacts or spending time capturing.
+    workers = remote_worker_slots(args.host, args.workers) if args.mode == "remote" else None
+    output.mkdir(parents=True, exist_ok=False)
+    log(f"Preparing {args.mode} session in {output}")
+    if args.mode == "local":
+        command = [simulator, "--tune-ball-filter", output / "local", "--tuning-trials", str(args.trials)]
+        if args.recordings:
+            command += ["--tuning-recordings", args.recordings.resolve()]
+        children.run(command, "Local optimizer")
+        return
+    manifests = [manifest.resolve() for manifest in args.manifest]
+    if args.mode == "remote":
+        recordings = args.recordings.resolve() if args.recordings else output / "recordings"
+        if not args.recordings:
+            children.run([simulator, "--capture-ball-tuning", recordings], "Capture training and holdout recordings")
+            children.forget_finished()
+        # Repeat after capture: other clients may have started work meanwhile.
+        workers = remote_worker_slots(args.host, workers)
+        name = time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:8]
+        children.run(helper + [
+            "start", "--recordings", recordings, "--host", args.host,
+            "--workers", str(workers), "--full-cpu", "--trials", str(args.trials),
+            "--name", name, "--local-directory", output / "remote",
+        ], "Start remote optimizer", timeout=1800)
+        children.forget_finished()
+        manifests = [output / "remote/manifest.json"]
+        if not manifests[0].is_file():
+            raise RuntimeError(f"remote start did not create {manifests[0]}; inspect its startup output")
+    log("Remote searches run independently. Closing this launcher stops only the local bridge and preview.")
+    children.start(helper + ["bridge", *manifests, "--output", output / "monitor"], "Remote progress bridge")
+    children.start([
+        simulator, "--remote-ball-tuning", output / "monitor/remote-progress.json",
+        "--remote-tuning-output", output / "preview",
+    ], "Local live preview")
+    log("Connect Twix to tcp/127.0.0.1:7448, namespace /ball_tuning; startup progress is in this log.")
+    children.monitor()
+
+
+def main(argv=None):
+    args = parser().parse_args(argv)
+    children = Children()
+    old_handlers = {signum: signal.signal(signum, stop_requested) for signum in (signal.SIGINT, signal.SIGTERM)}
+    try:
+        with launcher_lock():
+            try:
+                run(args, children)
+            finally:
+                # Keep the cross-panel launch lock until local descendants exit.
+                for signum in old_handlers:
+                    signal.signal(signum, signal.SIG_IGN)
+                children.close()
+        return 0
+    except StopRequested as stopped:
+        log("Stopping local processes. Remote workers, if started, remain running.")
+        return 128 + stopped.signum
+    except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        print(f"[ball-filter optimization] ERROR: {error}", file=sys.stderr, flush=True)
+        manifest = args.output / "remote/manifest.json"
+        if args.mode == "remote" and manifest.is_file():
+            print(f"A remote start may already have completed; inspect {manifest} before retrying. "
+                  "Use connect to resume monitoring. Remote workers were not stopped.", file=sys.stderr, flush=True)
+        return 1
+    finally:
+        for signum, handler in old_handlers.items():
+            signal.signal(signum, handler)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -30,6 +30,7 @@ mod controls;
 mod geometry_inputs;
 mod motion_parameters;
 mod parameters;
+mod remote_ball_tuning;
 mod robot_io;
 mod robotics;
 mod scene;
@@ -48,7 +49,7 @@ struct Args {
     #[arg(long, default_value = "etc/parameters")]
     robotics_parameter_root: PathBuf,
     /// Additional robotics parameter layers, applied after location and robot layers.
-    #[arg(long, value_name = "DIRECTORY", conflicts_with = "tune_ball_filter")]
+    #[arg(long, value_name = "DIRECTORY", conflicts_with_all = ["tune_ball_filter", "capture_ball_tuning", "remote_ball_tuning"])]
     robotics_parameter_layer: Vec<PathBuf>,
     #[arg(long, default_value = "simulator")]
     location: String,
@@ -65,6 +66,14 @@ struct Args {
     /// Record headless physical scenarios, optimize on training runs and evaluate holdouts.
     #[arg(long, value_name = "NEW_DIRECTORY", conflicts_with_all = ["no_robotics", "router", "robot", "parameter_root"])]
     tune_ball_filter: Option<PathBuf>,
+    /// Capture the six labelled ROS-Z recordings without running parameter search.
+    #[arg(long, value_name = "NEW_DIRECTORY", conflicts_with_all = ["tune_ball_filter", "remote_ball_tuning", "no_robotics", "router", "robot", "parameter_root", "ball_perception"])]
+    capture_ball_tuning: Option<PathBuf>,
+    /// Monitor a remote bridge snapshot and preview its verified best parameters locally.
+    #[arg(long, value_name = "SNAPSHOT_JSON", requires = "remote_tuning_output", conflicts_with_all = ["tune_ball_filter", "no_robotics", "router", "robot", "parameter_root", "ball_perception"])]
+    remote_ball_tuning: Option<PathBuf>,
+    #[arg(long, value_name = "NEW_DIRECTORY", requires = "remote_ball_tuning")]
+    remote_tuning_output: Option<PathBuf>,
     #[arg(long, default_value_t = 4096, requires = "tune_ball_filter")]
     tuning_trials: usize,
     /// Number of balls in the unscored live preview; optimization captures always use one.
@@ -80,7 +89,7 @@ struct Args {
     #[arg(long, requires = "tune_ball_filter")]
     keep_tuning_open: bool,
     /// Open a read-only 3D view of the local optimizer's live sensor messages.
-    #[arg(long, conflicts_with_all = ["tune_ball_filter", "router", "no_robotics", "ball_perception"])]
+    #[arg(long, conflicts_with_all = ["tune_ball_filter", "capture_ball_tuning", "remote_ball_tuning", "router", "no_robotics", "ball_perception"])]
     watch_ball_tuning: bool,
 }
 
@@ -90,6 +99,30 @@ fn main() -> Result<()> {
     if args.watch_ball_tuning {
         return scene::tuning_viewer::run();
     }
+    if let Some(output) = args.capture_ball_tuning {
+        return ball_tuning::run(
+            &output,
+            1,
+            &args.robotics_parameter_root,
+            &args.location,
+            false,
+            ball_tuning::TuningSource::RecordOnly,
+            true,
+            1,
+        );
+    }
+    if let (Some(snapshot), Some(output)) = (&args.remote_ball_tuning, &args.remote_tuning_output) {
+        return ball_tuning::run(
+            output,
+            1,
+            &args.robotics_parameter_root,
+            &args.location,
+            false,
+            ball_tuning::TuningSource::Remote(snapshot),
+            false,
+            1,
+        );
+    }
     if let Some(output) = args.tune_ball_filter {
         return ball_tuning::run(
             &output,
@@ -97,7 +130,10 @@ fn main() -> Result<()> {
             &args.robotics_parameter_root,
             &args.location,
             args.keep_tuning_open,
-            args.tuning_recordings.as_deref(),
+            args.tuning_recordings.as_deref().map_or(
+                ball_tuning::TuningSource::Record,
+                ball_tuning::TuningSource::Recordings,
+            ),
             args.tuning_once,
             usize::from(args.tuning_preview_balls),
         );
@@ -221,4 +257,49 @@ fn setup_scene(mut commands: Commands) {
         DirectionalLight::default(),
         Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+}
+
+#[cfg(test)]
+mod cli_tests {
+    use super::*;
+
+    #[test]
+    fn remote_preview_and_capture_are_separate_from_local_search() {
+        let capture =
+            Args::try_parse_from(["simulate", "--capture-ball-tuning", "capture"]).unwrap();
+        assert!(capture.tune_ball_filter.is_none());
+        assert!(capture.remote_ball_tuning.is_none());
+        let remote = Args::try_parse_from([
+            "simulate",
+            "--remote-ball-tuning",
+            "snapshot.json",
+            "--remote-tuning-output",
+            "preview",
+        ])
+        .unwrap();
+        assert!(remote.tune_ball_filter.is_none());
+        assert!(remote.capture_ball_tuning.is_none());
+        assert!(
+            Args::try_parse_from(["simulate", "--remote-ball-tuning", "snapshot.json",]).is_err()
+        );
+        assert!(
+            Args::try_parse_from([
+                "simulate",
+                "--capture-ball-tuning",
+                "capture",
+                "--tune-ball-filter",
+                "search",
+            ])
+            .is_err()
+        );
+        assert!(
+            Args::try_parse_from([
+                "simulate",
+                "--capture-ball-tuning",
+                "capture",
+                "--watch-ball-tuning",
+            ])
+            .is_err()
+        );
+    }
 }

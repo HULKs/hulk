@@ -46,6 +46,22 @@ pub struct SearchProgress {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, ros_z::Message)]
+pub struct RemoteWorker {
+    pub run: String,
+    pub worker: u64,
+    pub round: u64,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, ros_z::Message)]
+pub struct RemoteProgress {
+    pub host: String,
+    pub workers: Vec<RemoteWorker>,
+    pub completed_trials: u64,
+    pub best_candidate: String,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, ros_z::Message)]
 pub struct Progress {
     pub status: String,
     pub recording: String,
@@ -60,4 +76,9 @@ pub struct Progress {
     pub viewer_status: Option<String>,
     pub live_trial: Option<u64>,
     pub live_status: Option<String>,
+    #[serde(default)]
+    pub remote: Option<RemoteProgress>,
+    /// Last successful remote status poll, independent of the local heartbeat.
+    #[serde(default)]
+    pub remote_updated_unix_seconds: Option<f64>,
 }

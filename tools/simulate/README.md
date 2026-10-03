@@ -123,15 +123,73 @@ cache directory, builds only `ball-filter-tuner` with Rust 1.98.1, and keeps a
 separate executable and checkpoints per run. It leaves `/home/schluis/hulk`
 untouched. The remote needs that Rust toolchain, a C compiler, Python and tmux.
 Worker counts normally leave CPU headroom and are bounded by available memory.
-Use `--full-cpu --workers N` to permit all logical CPUs; account for workers in
-existing runs when choosing N. Memory limits still apply. Fetched best reports are
+Use `--full-cpu --workers N` to permit all logical CPUs when invoking this
+low-level helper directly; account for workers in existing runs when choosing N.
+The launcher described below checks active workers before adding searches. Memory limits still apply. Fetched best reports are
 selected using training loss and continuity eligibility; holdouts are evaluation
 only. The manifest records source/data hashes for reproducibility.
 
-These remote workers perform offline parameter search. Their progress and
-parameters are not yet connected to Twix or a local live simulator; use tmux and
-saved reports to inspect them. Local simulation/viewer commands above remain
-available independently.
+The **Ball-filter optimization** panel can launch a local search, start a remote
+search with a local preview, or connect to existing remote runs. Startup messages
+and failures are written to the log linked in the panel. Each launcher needs a
+new output directory, and only one local simulator/preview may own port 7448.
+Starting a second launcher fails with guidance to connect to the existing session.
+
+The same actions are available from the repository root:
+
+```sh
+# Capture and optimize locally, or add --recordings COMPLETED_CAPTURE_DIR.
+python3 scripts/ball_filter_optimization local --output logs/local-session
+
+# Capture locally, then run remote searches and preview their best parameters.
+python3 scripts/ball_filter_optimization remote --output logs/remote-session \
+  --host remote-compiler --workers 32 --trials 256
+
+# Reuse completed captures instead of recording again.
+python3 scripts/ball_filter_optimization remote --output logs/remote-reuse \
+  --recordings logs/my-ball-run --host remote-compiler --workers 32
+
+# Observe existing searches without starting additional remote workers.
+python3 scripts/ball_filter_optimization connect --output logs/remote-monitor \
+  --manifest logs/remote-ball-tuning-retention-20261003/manifest.json
+```
+
+Repeat `--manifest` to monitor multiple compatible runs. The bridge selects their
+best eligible training result; holdout scores remain evaluation-only. Remote
+workers perform offline search, while a local simulator runs the production
+filter and applies the selected parameters for the map and 3D viewer. The local
+preview performs no parameter search. It waits for the bridge's first snapshot
+and can remain open while remote workers compile or start another round.
+
+The launcher defaults to 256 candidates per round and up to 32 remote workers.
+Before capturing and again before starting remote jobs, it samples active tuner
+processes and available CPU/memory capacity. Existing workers reduce the new
+worker count; a full host produces an error suggesting **connect**. These probes
+do not reserve remote resources against unrelated concurrent launchers. They
+never terminate existing searches. SSH authentication for the capacity probe is
+bounded to 30 seconds; remote upload/startup has a 30-minute deadline, with
+errors in the startup log.
+
+Local search artifacts are under `OUTPUT/local`. A remote launch writes optional
+captures to `OUTPUT/recordings` and its durable remote manifest to
+`OUTPUT/remote/manifest.json`. Remote monitoring writes
+`OUTPUT/monitor/remote-progress.json`; preview outputs, including `3d-viewer.log`,
+are under `OUTPUT/preview`. Keep the manifest to reconnect after closing Twix or
+the launcher. If startup fails after submitting a remote job, inspect that
+manifest before retrying so that an existing search is not duplicated.
+
+Ctrl-C or SIGTERM stops the launcher's local bridge, simulator and child
+processes. Remote workers continue in tmux. Closing the panel does not cancel
+its launcher. To change which remote runs are shown, stop the previous local
+launcher and use **connect** with a new output directory and the desired
+manifests. The ordinary **Connect to simulator / optimizer** action observes a
+local endpoint that is already running.
+
+Focused launcher tests require no SSH, recordings, or simulator build:
+
+```sh
+python3 -m unittest scripts/test_ball_filter_optimization.py
+```
 
 Optimization recordings and the default live preview contain one real ball,
 moved by MuJoCo impulses. This gives the error a single unambiguous target.

@@ -1,14 +1,19 @@
 use std::{
-    sync::Arc,
-    time::{Duration, Instant},
+    fs::{File, OpenOptions},
+    io::{Read, Seek, SeekFrom},
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+    sync::{Arc, Mutex},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use color_eyre::Result;
+use color_eyre::{Result, eyre::WrapErr};
 use coordinate_systems::{Field, Ground};
 use eframe::egui::{self, Ui};
 use linear_algebra::{Isometry2, Point3, Pose2, point, vector};
 use ros_z::time::Time;
 use ros_z_debug::{SampleRecord, TopicObservation};
+use serde::{Deserialize, Serialize};
 use tokio::{sync::oneshot, task::JoinHandle};
 use twix_visualization::twix_painter::{Orientation, TwixPainter};
 use types::ball_filter_tuning::{
@@ -30,6 +35,48 @@ pub struct BallFilterOptimizationPanel {
     pending: Option<PendingConnection>,
     error: Option<String>,
     viewer_request: Option<oneshot::Receiver<Result<()>>>,
+    startup: StartupSettings,
+    launch: Option<Arc<Mutex<LaunchStatus>>>,
+    auto_connect: bool,
+    next_connect_attempt: Instant,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+struct StartupSettings {
+    recordings: String,
+    output: String,
+    host: String,
+    workers: u32,
+    manifests: String,
+}
+
+impl Default for StartupSettings {
+    fn default() -> Self {
+        Self {
+            recordings: String::new(),
+            output: new_output_directory(),
+            host: "remote-compiler".into(),
+            workers: 32,
+            manifests: String::new(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum StartupAction {
+    Local,
+    Remote,
+    Connect,
+}
+
+#[derive(Clone, Debug)]
+struct LaunchStatus {
+    active: bool,
+    message: String,
+    pid: Option<u32>,
+    log_path: PathBuf,
+    log_tail: String,
 }
 
 struct PendingConnection {
@@ -63,17 +110,32 @@ impl Panel for BallFilterOptimizationPanel {
     const DISPLAY_NAME: &'static str = "Ball-filter optimization";
     const ICON: &'static str = egui_material_icons::icons::ICON_TUNE.codepoint;
 
-    fn new(_context: PanelCreationContext<'_>) -> Self {
+    fn new(context: PanelCreationContext<'_>) -> Self {
         Self {
             connection: None,
             pending: None,
             error: None,
             viewer_request: None,
+            startup: context
+                .value
+                .and_then(|value| serde_json::from_value(value.clone()).ok())
+                .unwrap_or_default(),
+            launch: None,
+            auto_connect: false,
+            next_connect_attempt: Instant::now(),
         }
     }
 
     fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
         ui.strong("Ball-filter optimization");
+        self.startup_ui(ui, &context);
+        if self.auto_connect
+            && self.connection.is_none()
+            && self.pending.is_none()
+            && Instant::now() >= self.next_connect_attempt
+        {
+            self.connect(&context);
+        }
         ui.horizontal(|ui| {
             if ui
                 .add_enabled(
@@ -82,20 +144,8 @@ impl Panel for BallFilterOptimizationPanel {
                 )
                 .clicked()
             {
-                self.connection = None;
-                self.error = None;
-                let runtime = context.backend.runtime_handle().clone();
-                let handle = runtime.clone();
-                let repaint = context.egui_context.clone();
-                let (sender, receiver) = oneshot::channel();
-                let task = runtime.spawn(async move {
-                    let result = RobotBackend::new(handle, Some(ROUTER.into()), NAMESPACE.into())
-                        .await
-                        .map(Arc::new);
-                    let _ = sender.send(result);
-                    repaint.request_repaint();
-                });
-                self.pending = Some(PendingConnection { receiver, task });
+                self.auto_connect = false;
+                self.connect(&context);
             }
             if let Some(connection) = &self.connection {
                 if ui
@@ -127,6 +177,7 @@ impl Panel for BallFilterOptimizationPanel {
             }
             if self.connection.is_some() && ui.button("Disconnect").clicked() {
                 self.connection = None;
+                self.auto_connect = false;
             }
         });
         if let Some(pending) = &mut self.pending {
@@ -185,8 +236,15 @@ impl Panel for BallFilterOptimizationPanel {
                             run: String::new(),
                         })
                     }) {
-                        Ok(connection) => self.connection = Some(connection),
-                        Err(error) => self.error = Some(format!("{error:#}")),
+                        Ok(connection) => {
+                            self.connection = Some(connection);
+                            self.auto_connect = false;
+                            self.error = None;
+                        }
+                        Err(error) => {
+                            self.error = Some(format!("{error:#}"));
+                            self.next_connect_attempt = Instant::now() + Duration::from_secs(2);
+                        }
                     }
                 }
                 Err(oneshot::error::TryRecvError::Empty) => {
@@ -217,7 +275,13 @@ impl Panel for BallFilterOptimizationPanel {
             ui.colored_label(ui.visuals().error_fg_color, error);
         }
         let Some(connection) = &mut self.connection else {
-            ui.label("Connect to an optimizer started with:");
+            if self.auto_connect {
+                ui.label(
+                    "Waiting for the startup helper to bring the local progress bridge online…",
+                );
+                ui.ctx().request_repaint_after(Duration::from_millis(500));
+            }
+            ui.label("You can also connect to an optimizer started with:");
             monospace(
                 ui,
                 "./simulator --tune-ball-filter logs/my-run --keep-tuning-open",
@@ -238,12 +302,17 @@ impl Panel for BallFilterOptimizationPanel {
                     connection.history.clear();
                 }
                 if let Some(search) = &sample.value.search {
+                    let trial = sample
+                        .value
+                        .remote
+                        .as_ref()
+                        .map_or(search.trial, |remote| remote.completed_trials);
                     if connection
                         .history
                         .last()
-                        .is_none_or(|(trial, _)| *trial != search.trial)
+                        .is_none_or(|(previous_trial, _)| *previous_trial != trial)
                     {
-                        connection.history.push((search.trial, search.best.loss));
+                        connection.history.push((trial, search.best.loss));
                     }
                 }
                 connection.sample = Some(sample);
@@ -278,11 +347,16 @@ impl Panel for BallFilterOptimizationPanel {
                 format!("No updates for {age:.0}s — showing the last received state."),
             );
         } else {
-            ui.label("Connected to local simulator / optimizer");
+            ui.label(if sample.value.remote.is_some() {
+                "Connected to the local bridge for remote optimization"
+            } else {
+                "Connected to local simulator / optimizer"
+            });
         }
         let progress = &sample.value;
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.strong(&progress.status);
+            remote_status(ui, progress, unix_seconds());
             if let Some(status) = &progress.viewer_status {
                 ui.label(status);
             }
@@ -293,7 +367,7 @@ impl Panel for BallFilterOptimizationPanel {
             if let Some(error) = &progress.error {
                 ui.colored_label(ui.visuals().error_fg_color, error);
             }
-            if progress.search.is_none() && progress.live_status.is_none() {
+            if progress.search.is_none() && progress.live_status.is_none() && progress.remote.is_none() {
                 ui.label(format!(
                     "Recording {} / {}: {}",
                     progress.recording_index, progress.recordings, progress.recording
@@ -313,7 +387,9 @@ impl Panel for BallFilterOptimizationPanel {
                 live_ball(ui, connection);
             }
             if let Some(search) = &progress.search {
-                if search.trials == 0 {
+                if progress.remote.is_some() {
+                    ui.label(format!("Accepted best selection revision {}", search.best_trial));
+                } else if search.trials == 0 {
                     ui.label(format!("Trial {} · continuous search", search.trial));
                 } else {
                     ui.add(
@@ -329,7 +405,7 @@ impl Panel for BallFilterOptimizationPanel {
                 loss_plot(
                     ui,
                     &connection.history,
-                    search.trials.max(search.trial),
+                    progress.remote.as_ref().map_or(search.trials.max(search.trial), |remote| remote.completed_trials),
                     search.baseline.loss,
                 );
                 if let (Some(baseline), Some(best)) =
@@ -356,7 +432,7 @@ impl Panel for BallFilterOptimizationPanel {
                         }
                     }
                     ui.collapsing("Best tuned values", |ui| {
-                        ui.label("10 search variables; x/y noise values are coupled.");
+                        ui.label("6 search variables; x/y noise values are coupled.");
                         if let Ok(json) = serde_json::to_string_pretty(&tuned) {
                             monospace(ui, json);
                         }
@@ -374,6 +450,371 @@ impl Panel for BallFilterOptimizationPanel {
             monospace(ui, &progress.output_directory);
         });
     }
+
+    fn save(&self) -> serde_json::Value {
+        serde_json::to_value(&self.startup).unwrap_or_default()
+    }
+}
+
+impl BallFilterOptimizationPanel {
+    fn connect(&mut self, context: &PanelUiContext<'_>) {
+        self.connection = None;
+        self.error = None;
+        let runtime = context.backend.runtime_handle().clone();
+        let handle = runtime.clone();
+        let repaint = context.egui_context.clone();
+        let (sender, receiver) = oneshot::channel();
+        let task = runtime.spawn(async move {
+            let result = tokio::time::timeout(
+                Duration::from_secs(5),
+                RobotBackend::new(handle, Some(ROUTER.into()), NAMESPACE.into()),
+            )
+            .await
+            .map_err(color_eyre::Report::from)
+            .and_then(|result| result)
+            .map(Arc::new);
+            let _ = sender.send(result);
+            repaint.request_repaint();
+        });
+        self.pending = Some(PendingConnection { receiver, task });
+    }
+
+    fn startup_ui(&mut self, ui: &mut Ui, context: &PanelUiContext<'_>) {
+        let status = self
+            .launch
+            .as_ref()
+            .and_then(|launch| launch.try_lock().ok().map(|value| value.clone()));
+        let active = self.launch.is_some() && status.as_ref().is_none_or(|status| status.active);
+        if self.launch.is_some() && !active && status.is_some() {
+            self.auto_connect = false;
+        }
+        let mut action = None;
+        egui::CollapsingHeader::new("Start or attach to optimization").default_open(true).show(ui, |ui| {
+            ui.add_enabled_ui(!active, |ui| {
+                egui::Grid::new("ball_filter_startup_fields").num_columns(2).show(ui, |ui| {
+                    ui.label("Existing recordings").on_hover_text("Optional. Leave empty to capture a new simulation run before optimization.");
+                    ui.add(egui::TextEdit::singleline(&mut self.startup.recordings).hint_text("Optional recording directory").desired_width(f32::INFINITY));
+                    ui.end_row();
+                    ui.label("Output directory");
+                    ui.horizontal(|ui| {
+                        ui.add(egui::TextEdit::singleline(&mut self.startup.output).desired_width(260.0));
+                        if ui.button("New path").clicked() {
+                            self.startup.output = new_output_directory();
+                        }
+                    });
+                    ui.end_row();
+                    ui.label("Remote host");
+                    ui.text_edit_singleline(&mut self.startup.host);
+                    ui.end_row();
+                    ui.label("Remote workers");
+                    ui.add(egui::DragValue::new(&mut self.startup.workers).range(1..=32));
+                    ui.end_row();
+                });
+                ui.label("Paths are relative to the repository. Closing this panel leaves the run active.");
+                ui.horizontal_wrapped(|ui| {
+                    if ui.button("Start local optimization").clicked() { action = Some(StartupAction::Local); }
+                    if ui.button("Start remote optimization").clicked() { action = Some(StartupAction::Remote); }
+                });
+                ui.collapsing("Connect existing remote runs", |ui| {
+                    ui.label("Local manifest files, one path per line:");
+                    ui.add(egui::TextEdit::multiline(&mut self.startup.manifests).desired_rows(2).desired_width(f32::INFINITY).hint_text("logs/remote-run/manifest.json"));
+                    if ui.button("Connect remote runs").clicked() { action = Some(StartupAction::Connect); }
+                });
+            });
+            if let Some(status) = &status {
+                ui.label(&status.message);
+                if let Some(pid) = status.pid { ui.label(format!("Startup helper PID: {pid}")); }
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("Startup log:");
+                    monospace(ui, status.log_path.display().to_string());
+                    if ui.button("Copy log path").clicked() { ui.ctx().copy_text(status.log_path.display().to_string()); }
+                });
+                if !status.log_tail.is_empty() {
+                    ui.collapsing("Startup log tail", |ui| {
+                        egui::ScrollArea::vertical().max_height(180.0).stick_to_bottom(true).show(ui, |ui| { monospace(ui, &status.log_tail); });
+                    });
+                }
+            }
+        });
+        if let Some(action) = action {
+            match startup_arguments(&self.startup, action)
+                .and_then(|arguments| spawn_startup(arguments, context.egui_context.clone()))
+            {
+                Ok(launch) => {
+                    self.launch = Some(launch);
+                    self.error = None;
+                    self.pending = None;
+                    self.connection = None;
+                    self.auto_connect = true;
+                    self.next_connect_attempt = Instant::now();
+                }
+                Err(error) => self.error = Some(format!("Could not start optimization: {error:#}")),
+            }
+        }
+        if active || self.auto_connect {
+            ui.ctx().request_repaint_after(Duration::from_millis(500));
+        }
+    }
+}
+
+fn repository_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .expect("Twix is located at tools/twix")
+        .to_path_buf()
+}
+
+fn unix_seconds() -> f64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs_f64()
+}
+
+fn new_output_directory() -> String {
+    format!(
+        "logs/ball-tuning-{}-{}",
+        (unix_seconds() * 1000.0) as u64,
+        &uuid::Uuid::new_v4().simple().to_string()[..8]
+    )
+}
+
+fn startup_arguments(settings: &StartupSettings, action: StartupAction) -> Result<Vec<String>> {
+    color_eyre::eyre::ensure!(
+        !settings.output.trim().is_empty(),
+        "Output directory is required"
+    );
+    let mode = match action {
+        StartupAction::Local => "local",
+        StartupAction::Remote => "remote",
+        StartupAction::Connect => "connect",
+    };
+    let mut arguments = vec![
+        mode.into(),
+        "--output".into(),
+        settings.output.trim().into(),
+    ];
+    match action {
+        StartupAction::Local | StartupAction::Remote => {
+            arguments.extend(["--trials".into(), "256".into()]);
+            if !settings.recordings.trim().is_empty() {
+                arguments.extend(["--recordings".into(), settings.recordings.trim().into()]);
+            }
+            if matches!(action, StartupAction::Remote) {
+                color_eyre::eyre::ensure!(
+                    !settings.host.trim().is_empty(),
+                    "Remote host is required"
+                );
+                color_eyre::eyre::ensure!(
+                    (1..=32).contains(&settings.workers),
+                    "Remote workers must be between 1 and 32"
+                );
+                arguments.extend([
+                    "--host".into(),
+                    settings.host.trim().into(),
+                    "--workers".into(),
+                    settings.workers.to_string(),
+                ]);
+            }
+        }
+        StartupAction::Connect => {
+            let manifests: Vec<_> = settings
+                .manifests
+                .lines()
+                .map(str::trim)
+                .filter(|line| !line.is_empty())
+                .collect();
+            color_eyre::eyre::ensure!(
+                !manifests.is_empty(),
+                "Add at least one local manifest path"
+            );
+            for manifest in manifests {
+                arguments.extend(["--manifest".into(), manifest.into()]);
+            }
+        }
+    }
+    Ok(arguments)
+}
+
+fn spawn_startup(
+    arguments: Vec<String>,
+    repaint: egui::Context,
+) -> Result<Arc<Mutex<LaunchStatus>>> {
+    let log_path = std::env::temp_dir().join(format!(
+        "hulk-ball-filter-start-{}.log",
+        uuid::Uuid::new_v4()
+    ));
+    let state = Arc::new(Mutex::new(LaunchStatus {
+        active: true,
+        message: "Starting optimization helper…".into(),
+        pid: None,
+        log_path,
+        log_tail: String::new(),
+    }));
+    let background_state = state.clone();
+    std::thread::Builder::new()
+        .name("ball-filter-startup".into())
+        .spawn(move || {
+            let result = monitor_startup(&arguments, &background_state, &repaint);
+            if let Ok(mut state) = background_state.lock() {
+                state.active = false;
+                state.message = match result {
+                    Ok(status) if status.success() => "Startup helper finished.".into(),
+                    Ok(status) => format!("Startup helper failed: {status}. See the startup log."),
+                    Err(error) => format!("Startup failed: {error:#}"),
+                };
+                state.log_tail = read_log_tail(&state.log_path).unwrap_or_default();
+            }
+            repaint.request_repaint();
+        })
+        .wrap_err("could not start the background launcher")?;
+    Ok(state)
+}
+
+fn monitor_startup(
+    arguments: &[String],
+    state: &Arc<Mutex<LaunchStatus>>,
+    repaint: &egui::Context,
+) -> Result<std::process::ExitStatus> {
+    let root = repository_root();
+    let log_path = state
+        .lock()
+        .map_err(|_| color_eyre::eyre::eyre!("launcher state lock poisoned"))?
+        .log_path
+        .clone();
+    let log = OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&log_path)
+        .wrap_err_with(|| format!("could not create {}", log_path.display()))?;
+    let mut command = Command::new("python3");
+    command
+        .arg(root.join("scripts/ball_filter_optimization"))
+        .args(arguments)
+        .current_dir(&root)
+        .env("PYTHONUNBUFFERED", "1")
+        .stdin(Stdio::null())
+        .stdout(log.try_clone()?)
+        .stderr(log);
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
+    let mut child = command
+        .spawn()
+        .wrap_err("could not launch python3 optimization helper")?;
+    if let Ok(mut state) = state.lock() {
+        state.pid = Some(child.id());
+        state.message = "Optimization helper is running.".into();
+    }
+    repaint.request_repaint();
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return Ok(status);
+        }
+        if Arc::strong_count(state) == 1 {
+            // The panel closed. Keep reaping the child without ending its run.
+            return child.wait().map_err(Into::into);
+        }
+        let tail = read_log_tail(&log_path).unwrap_or_default();
+        if let Ok(mut state) = state.lock() {
+            state.log_tail = tail;
+        }
+        repaint.request_repaint();
+        std::thread::sleep(Duration::from_millis(500));
+    }
+}
+
+fn read_log_tail(path: &Path) -> std::io::Result<String> {
+    let mut file = File::open(path)?;
+    let start = file.metadata()?.len().saturating_sub(8192);
+    file.seek(SeekFrom::Start(start))?;
+    let mut buffer = Vec::new();
+    file.take(8192).read_to_end(&mut buffer)?;
+    Ok(String::from_utf8_lossy(&buffer).into_owned())
+}
+
+#[derive(Debug, PartialEq)]
+enum RemoteFreshness {
+    Unknown,
+    Age(f64),
+    FutureTimestamp,
+}
+
+fn remote_freshness(updated: Option<f64>, now: f64) -> RemoteFreshness {
+    match updated {
+        Some(updated) if updated.is_finite() && now.is_finite() && updated > 0.0 => {
+            if updated > now + 5.0 {
+                RemoteFreshness::FutureTimestamp
+            } else {
+                RemoteFreshness::Age((now - updated).max(0.0))
+            }
+        }
+        _ => RemoteFreshness::Unknown,
+    }
+}
+
+fn remote_status(ui: &mut Ui, progress: &Progress, now: f64) {
+    let Some(remote) = &progress.remote else {
+        return;
+    };
+    ui.label(format!("Remote host: {}", remote.host));
+    match remote_freshness(progress.remote_updated_unix_seconds, now) {
+        RemoteFreshness::Age(age) if age > 10.0 => {
+            ui.colored_label(ui.visuals().warn_fg_color,
+            format!("Remote status is {age:.0}s old. Local bridge updates do not confirm that SSH or remote workers are responding."));
+        }
+        RemoteFreshness::Age(age) => {
+            ui.label(format!("Remote status received {age:.0}s ago"));
+        }
+        RemoteFreshness::Unknown => {
+            ui.colored_label(
+                ui.visuals().warn_fg_color,
+                "No successful remote status update has been received yet.",
+            );
+        }
+        RemoteFreshness::FutureTimestamp => {
+            ui.colored_label(
+                ui.visuals().warn_fg_color,
+                "Remote status timestamp is ahead of this computer's clock; its age is unknown.",
+            );
+        }
+    }
+    ui.label(format!(
+        "Completed trials in reported rounds: {}",
+        remote.completed_trials
+    ));
+    ui.horizontal_wrapped(|ui| {
+        ui.label("Best candidate:");
+        monospace(
+            ui,
+            if remote.best_candidate.is_empty() {
+                "None reported"
+            } else {
+                &remote.best_candidate
+            },
+        );
+    });
+    ui.label("Workers report progress by round.");
+    ui.collapsing(format!("Workers ({})", remote.workers.len()), |ui| {
+        egui::Grid::new("remote_optimizer_workers")
+            .striped(true)
+            .show(ui, |ui| {
+                for heading in ["Run", "Worker", "Round", "Status"] {
+                    ui.strong(heading);
+                }
+                ui.end_row();
+                for worker in &remote.workers {
+                    ui.label(&worker.run);
+                    ui.label(worker.worker.to_string());
+                    ui.label(worker.round.to_string());
+                    ui.label(&worker.status);
+                    ui.end_row();
+                }
+            });
+    });
 }
 
 fn monospace(ui: &mut Ui, text: impl Into<String>) -> egui::Response {
@@ -602,6 +1043,139 @@ fn live_ball(ui: &mut Ui, connection: &Connection) {
 mod tests {
     use super::*;
 
+    #[test]
+    fn startup_arguments_keep_paths_literal_and_capture_when_recordings_are_empty() {
+        let settings = StartupSettings {
+            output: "logs/new run; $(do-not-run)".into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            startup_arguments(&settings, StartupAction::Local).unwrap(),
+            [
+                "local",
+                "--output",
+                "logs/new run; $(do-not-run)",
+                "--trials",
+                "256"
+            ]
+        );
+        let settings = StartupSettings {
+            recordings: "logs/existing run".into(),
+            ..settings
+        };
+        let args = startup_arguments(&settings, StartupAction::Remote).unwrap();
+        assert_eq!(
+            args,
+            [
+                "remote",
+                "--output",
+                "logs/new run; $(do-not-run)",
+                "--trials",
+                "256",
+                "--recordings",
+                "logs/existing run",
+                "--host",
+                "remote-compiler",
+                "--workers",
+                "32"
+            ]
+        );
+    }
+
+    #[test]
+    fn remote_connect_accepts_multiple_manifest_paths_without_splitting_spaces() {
+        let settings = StartupSettings {
+            output: "logs/bridge".into(),
+            manifests: "  logs/first run/manifest.json  \n\n/another/run.json\n".into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            startup_arguments(&settings, StartupAction::Connect).unwrap(),
+            [
+                "connect",
+                "--output",
+                "logs/bridge",
+                "--manifest",
+                "logs/first run/manifest.json",
+                "--manifest",
+                "/another/run.json"
+            ]
+        );
+    }
+
+    #[test]
+    fn incomplete_startup_requests_are_rejected_before_starting_a_process() {
+        let mut settings = StartupSettings::default();
+        assert!(startup_arguments(&settings, StartupAction::Connect).is_err());
+        settings.workers = 0;
+        assert!(startup_arguments(&settings, StartupAction::Remote).is_err());
+        settings.workers = 33;
+        assert!(startup_arguments(&settings, StartupAction::Remote).is_err());
+        settings.workers = 32;
+        settings.host.clear();
+        assert!(startup_arguments(&settings, StartupAction::Remote).is_err());
+        settings.output.clear();
+        assert!(startup_arguments(&settings, StartupAction::Local).is_err());
+    }
+
+    #[test]
+    fn startup_defaults_make_unique_repository_relative_outputs_and_restore_settings() {
+        let first = StartupSettings::default();
+        let second = StartupSettings::default();
+        assert_ne!(first.output, second.output);
+        assert!(Path::new(&first.output).starts_with("logs"));
+        assert!(!Path::new(&first.output).is_absolute());
+        assert!(repository_root().join("tools/twix/Cargo.toml").is_file());
+        let restored: StartupSettings =
+            serde_json::from_value(serde_json::json!({"recordings": "logs/existing"})).unwrap();
+        assert_eq!(restored.recordings, "logs/existing");
+        assert_eq!(restored.host, "remote-compiler");
+        assert_eq!(restored.workers, 32);
+    }
+
+    #[test]
+    fn remote_freshness_uses_remote_poll_time_not_local_receipt_time() {
+        assert_eq!(
+            remote_freshness(Some(50.0), 100.0),
+            RemoteFreshness::Age(50.0)
+        );
+        assert_eq!(remote_freshness(None, 100.0), RemoteFreshness::Unknown);
+        assert_eq!(remote_freshness(Some(0.0), 100.0), RemoteFreshness::Unknown);
+        assert_eq!(
+            remote_freshness(Some(f64::NAN), 100.0),
+            RemoteFreshness::Unknown
+        );
+        assert_eq!(
+            remote_freshness(Some(110.0), 100.0),
+            RemoteFreshness::FutureTimestamp
+        );
+        assert_eq!(
+            remote_freshness(Some(100.2), 100.0),
+            RemoteFreshness::Age(0.0)
+        );
+        let mut legacy = serde_json::to_value(Progress::default()).unwrap();
+        legacy.as_object_mut().unwrap().remove("remote");
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("remote_updated_unix_seconds");
+        let legacy: Progress = serde_json::from_value(legacy).unwrap();
+        assert!(legacy.remote.is_none());
+        assert!(legacy.remote_updated_unix_seconds.is_none());
+    }
+
+    #[test]
+    fn startup_log_tail_is_bounded_and_handles_partial_utf8() {
+        let path =
+            std::env::temp_dir().join(format!("twix-startup-log-test-{}", uuid::Uuid::new_v4()));
+        let content = "é".repeat(5000) + "done!";
+        std::fs::write(&path, content).unwrap();
+        let tail = read_log_tail(&path).unwrap();
+        assert!(tail.ends_with("done!"));
+        assert!(tail.len() <= 8195);
+        std::fs::remove_file(path).unwrap();
+    }
+
     // Exercise the actual network path used by the button, including joining a
     // publisher after its first update and decoding the complete typed message.
     #[tokio::test(flavor = "multi_thread")]
@@ -640,6 +1214,18 @@ mod tests {
         publisher
             .publish(&Progress {
                 status: "Complete".into(),
+                remote: Some(types::ball_filter_tuning::RemoteProgress {
+                    host: "remote-compiler".into(),
+                    completed_trials: 32,
+                    best_candidate: "worker-2/round-1".into(),
+                    workers: vec![types::ball_filter_tuning::RemoteWorker {
+                        run: "test-run".into(),
+                        worker: 2,
+                        round: 1,
+                        status: "complete".into(),
+                    }],
+                }),
+                remote_updated_unix_seconds: Some(123.0),
                 search: Some(types::ball_filter_tuning::SearchProgress {
                     trial: 32,
                     trials: 32,
@@ -672,6 +1258,12 @@ mod tests {
         .await
         .expect("late Twix observer should receive retained progress");
         assert_eq!(received.value.status, "Complete");
+        let remote = received.value.remote.as_ref().unwrap();
+        assert_eq!(remote.host, "remote-compiler");
+        assert_eq!(remote.completed_trials, 32);
+        assert_eq!(remote.workers[0].worker, 2);
+        assert_eq!(remote.workers[0].round, 1);
+        assert_eq!(received.value.remote_updated_unix_seconds, Some(123.0));
         let search = received.value.search.as_ref().unwrap();
         assert_eq!(search.trial, 32);
         assert_eq!(search.best.loss, 0.5);
