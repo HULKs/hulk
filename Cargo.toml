@@ -47,8 +47,6 @@ members = [
   "crates/nodes/line_detection",
   "crates/nodes/localization-2d",
   "crates/nodes/localization-3d",
-  "crates/nodes/look_around",
-  "crates/nodes/look_at",
   "crates/nodes/low_state_bridge",
   "crates/nodes/mcap_recorder",
   "crates/nodes/message_filter",
@@ -207,8 +205,6 @@ localization-2d = { path = "crates/nodes/localization-2d" }
 localization-3d = { path = "crates/nodes/localization-3d" }
 localization-factrs = { path = "crates/localization-factrs" }
 log = "0.4.25"
-look_around = { path = "crates/nodes/look_around" }
-look_at = { path = "crates/nodes/look_at" }
 low_state_bridge = { path = "crates/nodes/low_state_bridge" }
 mcap = "0.25.0"
 mcap_recorder = { path = "crates/nodes/mcap_recorder" }
