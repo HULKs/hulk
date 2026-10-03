@@ -4,6 +4,7 @@ mod horizon;
 mod line_detection;
 mod object_detection;
 mod pose_detection;
+mod prediction_colors;
 
 pub(super) use ball_detection::BallDetectionOverlay;
 pub(super) use field_border::FieldBorderOverlay;
