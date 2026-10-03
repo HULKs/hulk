@@ -109,7 +109,6 @@
     ball_support_sigma: 0.5,
     centroid_anchor_weight: 0.6,
     centroid_anchor_sigma: 1.0,
-    minimum_centroid_margin_from_own_side: 2.0,
   },
   network: {
     game_controller_return_message_interval: {

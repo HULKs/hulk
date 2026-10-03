@@ -28,7 +28,6 @@ pub struct VoronoiParameters {
     pub ball_support_sigma: f32,
     pub centroid_anchor_weight: f32,
     pub centroid_anchor_sigma: f32,
-    pub minimum_centroid_margin_from_own_side: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
