@@ -12,6 +12,7 @@ use nalgebra::{SMatrix, Similarity2};
 
 use coordinate_systems::{Field, Ground, Screen};
 use geometry::{arc::Arc, circle::Circle, direction::AngleTo, rectangle::Rectangle};
+use hsl_network_messages::PlayerNumber;
 use linear_algebra::{
     IntoTransform, Isometry2, Orientation2, Point2, Pose2, Transform, Vector2, point, vector,
 };
@@ -19,6 +20,7 @@ use types::{
     field_dimensions::FieldDimensions,
     path::{Path, PathSegment},
 };
+use voronoi::{Ownership, VoronoiGrid};
 
 type ScreenTransform<Frame> = Transform<Frame, Screen, Similarity2<f32>>;
 
@@ -473,6 +475,33 @@ impl TwixPainter<Ground> {
 }
 
 impl TwixPainter<Field> {
+    pub fn voronoi_grid(&self, grid: &VoronoiGrid, inputs: &[Pose2<Field>]) {
+        for (point, ownership) in grid.cells() {
+            let color = match ownership {
+                Ownership::Blocked => Color32::from_gray(40),
+                Ownership::Robot(player_number) => match player_number {
+                    PlayerNumber::One => Color32::from_rgb(0, 114, 178),
+                    PlayerNumber::Two => Color32::from_rgb(230, 159, 0),
+                    PlayerNumber::Three => Color32::from_rgb(204, 121, 167),
+                    PlayerNumber::Four => Color32::from_rgb(86, 180, 233),
+                    PlayerNumber::Five => Color32::from_rgb(213, 94, 0),
+                },
+                Ownership::Free => Color32::from_gray(120),
+            };
+            self.circle(point, 0.035, color, Stroke::new(0.01, Color32::BLACK));
+        }
+
+        for pose in inputs {
+            self.pose(
+                *pose,
+                0.08,
+                0.12,
+                Color32::from_rgba_premultiplied(255, 0, 0, 128),
+                Stroke::new(0.01, Color32::BLACK),
+            );
+        }
+    }
+
     pub fn field(&self, field_dimensions: &FieldDimensions) {
         let line_stroke = Stroke::new(field_dimensions.line_width, Color32::WHITE);
         let goal_post_stroke =

@@ -28,7 +28,6 @@ use types::{
     field_dimensions::FieldDimensions, filtered_game_state::FilteredGameState,
     motion_command::MotionCommand, obstacles::ObstacleKind, path::traits::EndPoints,
 };
-use voronoi::Ownership;
 
 use crate::{
     behavior_tree_simulator::{
@@ -932,35 +931,7 @@ fn paint_voronoi_grid(painter: &TwixPainter<Field>, robot_frame: &RobotFrame) {
         game_controller_state.global_field_side,
     ));
 
-    for (index, ownership) in grid.tiles.iter().copied().enumerate() {
-        let color = match ownership {
-            Ownership::Blocked => Color32::from_gray(40),
-            Ownership::Robot(player_number) => match player_number {
-                PlayerNumber::One => Color32::from_rgb(0, 114, 178),
-                PlayerNumber::Two => Color32::from_rgb(230, 159, 0),
-                PlayerNumber::Three => Color32::from_rgb(204, 121, 167),
-                PlayerNumber::Four => Color32::from_rgb(86, 180, 233),
-                PlayerNumber::Five => Color32::from_rgb(213, 94, 0),
-            },
-            Ownership::Free => Color32::from_gray(120),
-        };
-        painter.circle(
-            grid.index_to_point(index),
-            0.035,
-            color,
-            Stroke::new(0.01, Color32::BLACK),
-        );
-    }
-
-    for pose in &robot_frame.voronoi_inputs {
-        painter.pose(
-            *pose,
-            0.08,
-            0.12,
-            Color32::from_rgba_premultiplied(255, 0, 0, 128),
-            Stroke::new(0.01, Color32::BLACK),
-        );
-    }
+    painter.voronoi_grid(grid, &robot_frame.voronoi_inputs);
 }
 
 fn paint_scenario_obstacle(painter: &TwixPainter<Field>, obstacle: SimulatorObstacle) {
