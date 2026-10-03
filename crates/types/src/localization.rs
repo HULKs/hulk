@@ -45,8 +45,7 @@ pub fn ground_to_field_from_field_to_robot(
 ) -> Isometry2<Ground, Field> {
     let robot_to_field = field_to_robot.inverse();
     let ground_to_field = robot_to_field * robot_to_ground.inverse();
-    let (_, _, field_to_robot_yaw) = field_to_robot.inner.rotation.euler_angles();
-    let yaw = -field_to_robot_yaw;
+    let (_, _, yaw) = ground_to_field.inner.rotation.euler_angles();
     let translation = ground_to_field.inner.translation.vector;
 
     Isometry2::wrap(nalgebra::Isometry2::new(
@@ -78,15 +77,15 @@ mod tests {
     }
 
     #[test]
-    fn ground_to_field_from_field_to_robot_ignores_ground_roll_pitch() {
+    fn ground_to_field_cancels_consistent_body_tilt() {
         let robot_to_field = nalgebra::Isometry3::from_parts(
             nalgebra::Translation3::new(1.5, -2.0, 0.4),
-            nalgebra::UnitQuaternion::from_euler_angles(0.0, 0.0, 0.7),
+            nalgebra::UnitQuaternion::from_euler_angles(0.2, 0.3, 0.7),
         );
         let field_to_robot: Isometry3<Field, Robot> = robot_to_field.inverse().framed_transform();
         let robot_to_ground: Isometry3<Robot, Ground> = nalgebra::Isometry3::from_parts(
             nalgebra::Translation3::new(0.0, 0.0, 0.523),
-            nalgebra::UnitQuaternion::from_euler_angles(0.045, 0.047, 0.0),
+            nalgebra::UnitQuaternion::from_euler_angles(0.2, 0.3, 0.0),
         )
         .framed_transform();
 
