@@ -33,7 +33,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut state_color = LedColor::BLACK;
     let mut light_on = true;
     let mut blink_timer = interval(Duration::from_millis(500));
-    blink_timer.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    blink_timer.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
     loop {
         tokio::select! {
