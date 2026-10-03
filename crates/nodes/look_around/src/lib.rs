@@ -262,6 +262,7 @@ fn target_joints_for_mode(
 mod tests {
     use std::{collections::HashMap, time::Duration};
 
+    use hsl_network_messages::Half;
     use types::{
         field_dimensions::GlobalFieldSide,
         filtered_game_state::FilteredGameState,
@@ -279,7 +280,7 @@ mod tests {
         let game_controller_state = FilteredGameControllerState {
             game_state: FilteredGameState::Initial,
             opponent_game_state: FilteredGameState::Initial,
-            half: Default::default(),
+            half: Half::First,
             remaining_time_in_half: Duration::ZERO,
             game_phase: Default::default(),
             kicking_team: None,

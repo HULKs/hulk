@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevyhavior_simulator::behavior_tree_simulator::{
-    BehaviorTreeSimulatorSet, SimulatorBall, SimulatorGameState, SimulatorObstacle,
-    SimulatorRobotBundle, SimulatorScenarioObstacles, SimulatorTimeline,
+    BehaviorTreeSimulatorSet, SimulatorBall, SimulatorFieldDimensions, SimulatorGameState,
+    SimulatorObstacle, SimulatorRobotBundle, SimulatorScenarioObstacles, SimulatorTimeline,
     default_behavior_parameters,
 };
 use hsl_network_messages::{PlayerNumber, Team};
@@ -19,12 +19,13 @@ fn behavior_tree_smoke(app: &mut App) {
 
 fn startup(
     mut commands: Commands,
+    field_dimensions: Res<SimulatorFieldDimensions>,
     mut ball: ResMut<SimulatorBall>,
     mut scenario_obstacles: ResMut<SimulatorScenarioObstacles>,
 ) {
     let mut parameters =
         default_behavior_parameters().expect("failed to load default behavior parameters");
-    parameters.goalkeeper.player_number = Some(PlayerNumber::One);
+    parameters.goalkeeper.player_number = PlayerNumber::One;
     parameters.ball.last_ball_timeout = Duration::from_secs(2);
 
     commands.spawn(
@@ -32,6 +33,7 @@ fn startup(
             Team::Hulks,
             PlayerNumber::Three,
             Isometry2::from_parts(vector![0.0, 0.0], 0.0),
+            field_dimensions.0,
             parameters.clone(),
         )
         .expect("failed to create robot bundle")
@@ -42,6 +44,7 @@ fn startup(
             Team::Hulks,
             PlayerNumber::Four,
             Isometry2::from_parts(vector![-1.0, 1.0], 0.0),
+            field_dimensions.0,
             parameters,
         )
         .expect("failed to create robot bundle")

@@ -41,7 +41,7 @@ impl Blackboard {
         Some(OutgoingMessage::GameController(
             *address,
             GameControllerReturnMessage {
-                player_number: self.world_state.robot.player_number?,
+                player_number: self.player_number,
                 fallen: self
                     .world_state
                     .fall_detection
@@ -67,7 +67,7 @@ impl Blackboard {
     }
 
     pub fn try_sending_state_message(&mut self) -> Option<OutgoingMessage> {
-        if self.world_state.robot.primary_state != Some(PrimaryState::Playing) {
+        if self.world_state.robot.primary_state != PrimaryState::Playing {
             return None;
         }
         let now = self.world_state.now;
@@ -92,7 +92,7 @@ impl Blackboard {
                     });
 
             let message = HulkMessage::State(StateMessage {
-                player_number: self.world_state.robot.player_number?,
+                player_number: self.player_number,
                 pose,
                 ball_position,
             });
