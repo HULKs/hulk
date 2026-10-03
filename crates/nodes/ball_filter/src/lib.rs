@@ -293,7 +293,11 @@ fn advance_all_hypotheses(
             mahalanobis_matrix_of_hypotheses_and_percepts(&ball_filter.hypotheses, ball_percepts);
 
         let assignment = assignment_solver
-            .solve(match_matrix.view(), Objective::Maximize)
+            .solve(
+                gated_assignment_scores(&match_matrix, filter_parameters.maximum_matching_cost)
+                    .view(),
+                Objective::Maximize,
+            )
             .wrap_err("failed to solve ball assignment")?;
 
         let mut used_percepts = vec![];
@@ -304,14 +308,10 @@ fn advance_all_hypotheses(
             .zip(assignment.iter())
             .enumerate()
         {
-            if let Some(percept_index) = assigned_percept {
+            if let Some(percept_index) =
+                assigned_percept.filter(|&index| index < ball_percepts.len())
+            {
                 let score = match_matrix[(hypothesis_index, percept_index)];
-                let mahalanobis_distance = -score;
-                if mahalanobis_distance > filter_parameters.maximum_matching_cost {
-                    hypothesis.validity *=
-                        filter_parameters.maximum_matching_cost_validity_penalty_factor;
-                    continue;
-                }
                 let validity_increase = score.exp();
                 let percept = ball_percepts[percept_index];
                 used_percepts.push(percept_index);
@@ -396,6 +396,25 @@ fn hypothetical_ball_positions(
             }
         })
         .collect()
+}
+
+/// Gate before assignment: an impossible pair must not consume a percept that
+/// another hypothesis could use. Each row can instead select an unmatched column.
+/// Unmatched tracks already receive visibility decay; an unrelated detection is
+/// not additional evidence against a track hidden behind another robot.
+fn gated_assignment_scores(scores: &Array2<f32>, maximum_cost: f32) -> Array2<f32> {
+    Array2::from_shape_fn(
+        (scores.nrows(), scores.ncols() + scores.nrows()),
+        |(row, column)| {
+            if column >= scores.ncols() {
+                -(maximum_cost + 1.0)
+            } else if -scores[(row, column)] > maximum_cost {
+                f32::NEG_INFINITY
+            } else {
+                scores[(row, column)]
+            }
+        },
+    )
 }
 
 fn mahalanobis_matrix_of_hypotheses_and_percepts(
@@ -567,6 +586,83 @@ mod tests {
             ..camera
         };
         assert!(!is_visible_to_camera(&ball, &shorter_camera, 0.105));
+    }
+
+    #[test]
+    fn impossible_pairs_cannot_consume_a_valid_percept() {
+        let mut ball_filter = BallFilter {
+            hypotheses: [0.0, 0.4]
+                .map(|x| BallHypothesis {
+                    mode: BallMode::Moving(MultivariateNormalDistribution {
+                        mean: nalgebra::vector![x, 0.0, 0.0, 0.0],
+                        covariance: Matrix4::identity(),
+                    }),
+                    last_seen: Time::zero(),
+                    validity: 2.0,
+                })
+                .to_vec(),
+        };
+        let percepts = [0.1, -0.2].map(|x| BallPercept {
+            percept_in_ground: MultivariateNormalDistribution {
+                mean: vector![x, 0.0],
+                covariance: Matrix2::identity(),
+            },
+            image_location: Circle::new(point![0.0, 0.0], 1.0),
+        });
+        let parameters = BallFilterParameters {
+            maximum_matching_cost: 0.02,
+            maximum_matching_cost_validity_penalty_factor: 0.5,
+            validity_discard_threshold: 0.0,
+            hidden_validity_exponential_decay_factor: 1.0,
+            noise: types::parameters::BallFilterNoise {
+                initial_covariance: nalgebra::Vector4::repeat(1.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let time = Time::from_nanos(1_000_000_000);
+        // Ungated costs are [[0.01, 0.04], [0.09, 0.36]]. Minimizing
+        // their sum picks two forbidden pairs instead of the valid 0.01 pair.
+        advance_all_hypotheses(
+            &mut ball_filter,
+            &mut AssignmentSolver::default(),
+            time,
+            &percepts,
+            None,
+            &parameters,
+            &FieldDimensions::SPL_2025,
+        )
+        .unwrap();
+        assert_eq!(ball_filter.hypotheses[0].last_seen, time);
+        assert!(ball_filter.hypotheses[0].validity > 2.0);
+        assert_eq!(ball_filter.hypotheses[1].last_seen, Time::zero());
+        assert_eq!(ball_filter.hypotheses[1].validity, 2.0);
+        assert_eq!(ball_filter.hypotheses.len(), 3); // Only the unused percept spawns.
+    }
+
+    #[test]
+    fn rejected_pairs_cannot_steal_a_valid_assignment() {
+        // A full assignment would prefer the two 0.2-cost pairs, then reject
+        // both. The only feasible observation belongs to the first track.
+        let scores = ndarray::array![[-0.1, -0.2], [-0.2, -100.0]];
+        let scores = gated_assignment_scores(&scores, 0.15);
+        let mut solver = AssignmentSolver::default();
+        let assignment = solver.solve(scores.view(), Objective::Maximize).unwrap();
+        assert_eq!(assignment[0], Some(0));
+        assert!(assignment[1].unwrap() >= 2);
+    }
+
+    #[test]
+    fn forbidden_pairs_leave_every_track_unmatched() {
+        let scores = gated_assignment_scores(&ndarray::array![[-1.0], [-2.0], [-3.0]], 0.5);
+        let mut solver = AssignmentSolver::default();
+        let assignment = solver.solve(scores.view(), Objective::Maximize).unwrap();
+        assert_eq!(assignment.len(), 3);
+        assert!(
+            assignment
+                .iter()
+                .all(|index| index.is_some_and(|index| index >= 1))
+        );
     }
 
     #[test]
