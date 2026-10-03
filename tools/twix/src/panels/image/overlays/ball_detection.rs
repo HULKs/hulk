@@ -3,12 +3,12 @@ use coordinate_systems::Pixel;
 use eframe::egui::{Color32, Stroke};
 use geometry::circle::Circle;
 use ros_z::time::Time;
+use serde_json::{Map, Value};
+use twix_visualization::twix_painter::TwixPainter;
 
 use crate::repaint::ObservationContext;
 
-use super::super::image_overlay::{
-    ConfidenceThresholds, ImageOverlay, ImageOverlayPainter, OverlayObservation,
-};
+use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 
 pub(in crate::panels::image) struct BallDetectionOverlay {
     filtered_balls: OverlayObservation<Vec<Circle<Pixel>>>,
@@ -18,7 +18,7 @@ impl ImageOverlay for BallDetectionOverlay {
     const NAME: &'static str = "Ball Detection";
     const STORAGE_KEY: &'static str = "ball_detection";
 
-    fn new<C>(context: &C) -> Result<Self, Report>
+    fn new<C>(context: &C, _settings: &Map<String, Value>) -> Result<Self, Report>
     where
         C: ObservationContext,
     {
@@ -30,12 +30,7 @@ impl ImageOverlay for BallDetectionOverlay {
         })
     }
 
-    fn paint(
-        &self,
-        painter: &ImageOverlayPainter,
-        _image_time: Time,
-        _confidence_thresholds: &ConfidenceThresholds,
-    ) {
+    fn paint(&self, painter: &TwixPainter<Pixel>, _image_time: Time) {
         let Some(filtered_balls) = self.filtered_balls.latest() else {
             return;
         };

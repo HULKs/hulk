@@ -3,13 +3,13 @@ use coordinate_systems::Pixel;
 use eframe::egui::{Color32, Stroke};
 use linear_algebra::Point2;
 use ros_z::time::Time;
+use serde_json::{Map, Value};
+use twix_visualization::twix_painter::TwixPainter;
 use types::{field_border::FieldBorder as FieldBorderData, time_wrapper::TimeWrapper};
 
 use crate::repaint::ObservationContext;
 
-use super::super::image_overlay::{
-    ConfidenceThresholds, ImageOverlay, ImageOverlayPainter, OverlayObservation,
-};
+use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 
 pub(in crate::panels::image) struct FieldBorderOverlay {
     border_lines: OverlayObservation<TimeWrapper<Option<FieldBorderData>>>,
@@ -20,7 +20,7 @@ impl ImageOverlay for FieldBorderOverlay {
     const NAME: &'static str = "Field Border";
     const STORAGE_KEY: &'static str = "field_border";
 
-    fn new<C>(context: &C) -> Result<Self, Report>
+    fn new<C>(context: &C, _settings: &Map<String, Value>) -> Result<Self, Report>
     where
         C: ObservationContext,
     {
@@ -30,12 +30,7 @@ impl ImageOverlay for FieldBorderOverlay {
         })
     }
 
-    fn paint(
-        &self,
-        painter: &ImageOverlayPainter,
-        _image_time: Time,
-        _confidence_thresholds: &ConfidenceThresholds,
-    ) {
+    fn paint(&self, painter: &TwixPainter<Pixel>, _image_time: Time) {
         let Some(candidates) = self.candidates.latest() else {
             return;
         };

@@ -1,4 +1,7 @@
+use coordinate_systems::Pixel;
+use serde_json::{Map, Value};
 use std::time::Duration;
+use twix_visualization::twix_painter::TwixPainter;
 
 use color_eyre::Report;
 use eframe::egui::{Color32, Stroke};
@@ -9,9 +12,7 @@ use types::time_wrapper::TimeWrapper;
 
 use crate::repaint::ObservationContext;
 
-use super::super::image_overlay::{
-    ConfidenceThresholds, ImageOverlay, ImageOverlayPainter, OverlayObservation,
-};
+use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 
 const CAMERA_MATRIX_ALIGNMENT_TOLERANCE: Duration = Duration::from_millis(100);
 
@@ -23,7 +24,7 @@ impl ImageOverlay for HorizonOverlay {
     const NAME: &'static str = "Horizon";
     const STORAGE_KEY: &'static str = "horizon";
 
-    fn new<C>(context: &C) -> Result<Self, Report>
+    fn new<C>(context: &C, _settings: &Map<String, Value>) -> Result<Self, Report>
     where
         C: ObservationContext,
     {
@@ -32,12 +33,7 @@ impl ImageOverlay for HorizonOverlay {
         })
     }
 
-    fn paint(
-        &self,
-        painter: &ImageOverlayPainter,
-        image_time: Time,
-        _confidence_thresholds: &ConfidenceThresholds,
-    ) {
+    fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
         let Some(camera_matrix) = self
             .camera_matrix
             .nearest_to_time(image_time, CAMERA_MATRIX_ALIGNMENT_TOLERANCE)
@@ -48,7 +44,9 @@ impl ImageOverlay for HorizonOverlay {
             return;
         };
 
-        let (left, right) = painter.visible_x_range();
+        let viewport = painter.pixel_rect();
+        let left = painter.transform_pixel_to_world(viewport.left_top()).x();
+        let right = painter.transform_pixel_to_world(viewport.right_top()).x();
         let left_horizon_height = horizon.y_at_x(left);
         let right_horizon_height = horizon.y_at_x(right);
 
