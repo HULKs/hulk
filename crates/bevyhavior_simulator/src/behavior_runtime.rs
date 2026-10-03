@@ -34,8 +34,8 @@ pub struct SimulatorRobotBehavior {
     pub static_layout: Arc<NodeTrace>,
 }
 
-impl SimulatorRobotBehavior {
-    pub fn with_standard_tree() -> Self {
+impl Default for SimulatorRobotBehavior {
+    fn default() -> Self {
         let tree = create_behavior_tree();
         let static_layout = Arc::new(tree.static_layout_trace());
         Self {
@@ -44,7 +44,9 @@ impl SimulatorRobotBehavior {
             static_layout,
         }
     }
+}
 
+impl SimulatorRobotBehavior {
     pub fn tick_behavior_tree(
         &mut self,
         input: SimulatorBehaviorTickInput,
@@ -338,10 +340,12 @@ mod tests {
             .insert_resource(SimulatorScenarioResult::default())
             .add_systems(Update, tick_behavior_trees);
 
-        let mut behavior = SimulatorRobotBehavior::with_standard_tree();
-        behavior.tree = BehaviorNodeTree::Action {
-            name: "return_idle",
-            action: Box::new(|_| Status::Idle),
+        let behavior = SimulatorRobotBehavior {
+            tree: BehaviorNodeTree::Action {
+                name: "return_idle",
+                action: Box::new(|_| Status::Idle),
+            },
+            ..Default::default()
         };
         app.world_mut().spawn((
             SimulatorRobot {
