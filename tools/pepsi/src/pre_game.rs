@@ -57,11 +57,11 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
 
     let playing_robots = config.playing_robots()?;
     let robots = if let Some(robots) = &arguments.pre_game.robots {
-        for robot in robots {
-            if !playing_robots.contains(robot) {
-                bail!("Robot with IP {robot} is not one of the playing Robots in the deploy.toml");
-            }
-        }
+        // for robot in robots {
+        //     if !playing_robots.contains(robot) {
+        //         bail!("Robot with IP {robot} is not one of the playing Robots in the deploy.toml");
+        //     }
+        // }
         robots
     } else {
         &playing_robots
