@@ -51,6 +51,7 @@ pub async fn create_and_switch_to_branch(name: &str, base: &str, force: bool) ->
     let create_flag = if force { "--force-create" } else { "--create" };
 
     GitCommand::new("switch")
+        .arg("--no-track")
         .arg(create_flag)
         .arg(name)
         .arg(base)
