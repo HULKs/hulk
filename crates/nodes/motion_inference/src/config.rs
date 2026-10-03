@@ -84,7 +84,6 @@ pub struct PolicyParameters {
 pub struct TimingParameters {
     pub policy_period: Duration,
     pub sensor_period: Duration,
-    pub maximum_sensor_age: Duration,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ros_z::Message)]
@@ -99,9 +98,6 @@ pub struct ObservationParameters {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ros_z::Message)]
 #[serde(deny_unknown_fields)]
 pub struct LocomotionParameters {
-    pub forward_velocity_limits: [f32; 2],
-    pub lateral_velocity_limit: f32,
-    pub angular_velocity_limit: f32,
     pub base_frequency: f32,
     pub initial_frequency_offset: f32,
     pub frequency_offset_limit: f32,
@@ -166,13 +162,9 @@ impl Parameters {
         }
         let timing = &self.timing;
         ensure!(
-            [
-                timing.policy_period,
-                timing.sensor_period,
-                timing.maximum_sensor_age
-            ]
-            .into_iter()
-            .all(|value| !value.is_zero() && value.as_secs_f32().is_finite()),
+            [timing.policy_period, timing.sensor_period]
+                .into_iter()
+                .all(|value| !value.is_zero() && value.as_secs_f32().is_finite()),
             "invalid inference timing"
         );
         let observation = &self.observation;
@@ -209,14 +201,6 @@ impl Parameters {
             (
                 "observation.joint_velocity_scale",
                 observation.joint_velocity_scale,
-            ),
-            (
-                "locomotion.lateral_velocity_limit",
-                locomotion.lateral_velocity_limit,
-            ),
-            (
-                "locomotion.angular_velocity_limit",
-                locomotion.angular_velocity_limit,
             ),
             ("locomotion.base_frequency", locomotion.base_frequency),
             (
@@ -259,10 +243,6 @@ impl Parameters {
             "kick speed limits must be nonnegative"
         );
         for (name, [minimum, maximum]) in [
-            (
-                "locomotion.forward_velocity_limits",
-                locomotion.forward_velocity_limits,
-            ),
             ("kick.speed_limits", kick.speed_limits),
             ("kick.soft_speed_limits", kick.soft_speed_limits),
         ] {

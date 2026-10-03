@@ -1,14 +1,16 @@
 use std::{collections::HashMap, path::Path, sync::Arc};
 
-use color_eyre::eyre::{Result, ensure};
+use color_eyre::eyre::{Result, WrapErr, ensure};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Ground;
 use kinematics::joints::Joints;
 use linear_algebra::Vector2;
 use ros_z::time::Time;
-use types::joint_limits::JointLimits;
-use types::motor_command::MotorCommand;
+use types::{
+    joint_limits::JointLimits, motor_command::MotorCommand,
+    walking_velocity_limits::WalkingVelocityLimits,
+};
 
 use crate::{
     config::{Parameters, Policy},
@@ -16,6 +18,7 @@ use crate::{
     locomotion::{KickRequest, Locomotion, kick, walk},
     network::Network,
     observation::{SensorFrame, VelocityEstimator},
+    trace::{Event, Trace},
 };
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, ros_z::Message)]
@@ -62,7 +65,7 @@ impl InferenceCommand {
         }
     }
 
-    fn validate(self, parameters: &Parameters) -> Result<()> {
+    fn validate(self, limits: WalkingVelocityLimits) -> Result<()> {
         match self {
             Self::Walk(WalkCommand {
                 velocity,
@@ -73,11 +76,10 @@ impl InferenceCommand {
                     "non-finite walking command"
                 );
                 ensure!(
-                    (parameters.locomotion.forward_velocity_limits[0]
-                        ..=parameters.locomotion.forward_velocity_limits[1])
+                    (limits.forward_velocity_limits[0]..=limits.forward_velocity_limits[1])
                         .contains(&velocity.x())
-                        && velocity.y().abs() <= parameters.locomotion.lateral_velocity_limit
-                        && angular_velocity.abs() <= parameters.locomotion.angular_velocity_limit,
+                        && velocity.y().abs() <= limits.lateral_velocity_limit
+                        && angular_velocity.abs() <= limits.angular_velocity_limit,
                     "walking command outside trained envelope"
                 );
             }
@@ -130,17 +132,17 @@ impl Inference {
         request: InferenceCommand,
         velocity: VelocityEstimator,
         joints: &JointLimits,
-        parameters: Arc<Parameters>,
+        walking_velocity_limits: WalkingVelocityLimits,
+        trace: &Trace,
     ) -> Result<Box<Joints<MotorCommand>>> {
-        self.update_parameters(parameters);
-        self.validate_update(now, sensor, request)?;
+        self.validate_update(sensor, request, walking_velocity_limits)?;
         self.velocity = velocity;
         self.activate(now, sensor, request.policy(), joints);
         let standing = self.advance_gait(now, request);
-        self.infer(now, sensor, request, standing, joints)
+        self.infer(now, sensor, request, standing, joints, trace)
     }
 
-    fn update_parameters(&mut self, parameters: Arc<Parameters>) {
+    pub(crate) fn update_parameters(&mut self, parameters: Arc<Parameters>) {
         if Arc::ptr_eq(&self.parameters, &parameters) {
             return;
         }
@@ -157,20 +159,17 @@ impl Inference {
 
     fn validate_update(
         &self,
-        now: Time,
         sensor: &SensorFrame,
         request: InferenceCommand,
+        walking_velocity_limits: WalkingVelocityLimits,
     ) -> Result<()> {
-        sensor.validate_at(now, &self.parameters)?;
-        request.validate(&self.parameters)?;
+        sensor.validate(&self.parameters)?;
+        request.validate(walking_velocity_limits)?;
         let policy = request.policy();
         ensure!(
             self.networks.contains_key(&policy),
             "{policy:?} was not initialized"
         );
-        if let Some(last) = self.previous_update {
-            ensure!(now >= last, "controller time moved backwards");
-        }
         Ok(())
     }
 
@@ -218,6 +217,7 @@ impl Inference {
         request: InferenceCommand,
         standing: bool,
         joints: &JointLimits,
+        trace: &Trace,
     ) -> Result<Box<Joints<MotorCommand>>> {
         let active = self
             .active
@@ -226,14 +226,34 @@ impl Inference {
         let policy = active.policy;
         let observation =
             active.prepare_input(now, sensor, &self.velocity, request, standing, joints);
+        trace.record_lazy(|| Event::Input {
+            policy,
+            shape: vec![1, observation.len() as i64],
+            values: observation.clone(),
+            sources: trace.inputs().cloned(),
+            inference_time: now,
+            previous_request: active.previous_request.clone(),
+        });
         let raw_output = self
             .networks
             .get_mut(&policy)
             .expect("policy validated before activation")
-            .run(&observation)?;
-        let joints = active.decode(sensor, &raw_output, joints);
-        ensure!(joints_are_finite(&joints), "non-finite decoded joints");
-        Ok(Box::new(joints))
+            .run_with_output_observer(&observation, |shape, values| {
+                trace.record_lazy(|| Event::Output {
+                    policy,
+                    shape: shape.to_vec(),
+                    values: values.to_vec(),
+                });
+            })?;
+        let mut commands = active.decode(sensor, &raw_output, joints)?;
+        ensure!(joints_are_finite(&commands), "non-finite decoded joints");
+        if policy.is_locomotion() || policy == Policy::SlowGetUp {
+            for (joint, [minimum, maximum]) in joints.position.enumerate() {
+                commands[joint].position = commands[joint].position.clamp(minimum, maximum);
+            }
+        }
+        active.previous_request = trace.request_id().cloned();
+        Ok(Box::new(commands))
     }
 }
 
@@ -246,6 +266,7 @@ enum State {
 struct Execution {
     policy: Policy,
     state: State,
+    previous_request: Option<ros_z::service::RequestId>,
 }
 
 impl Execution {
@@ -263,7 +284,11 @@ impl Execution {
             Policy::SlowGetUp => State::SlowGetUp(GetUp::new(sensor, now, parameters)),
             Policy::FastGetUp => State::FastGetUp(GetUp::new(sensor, now, parameters)),
         };
-        Self { policy, state }
+        Self {
+            policy,
+            state,
+            previous_request: None,
+        }
     }
 
     fn advance(&mut self, seconds: f32, standing: bool) {
@@ -336,13 +361,22 @@ impl Execution {
         sensor: &SensorFrame,
         actions: &[f32],
         joints: &JointLimits,
-    ) -> Joints<MotorCommand> {
-        match &mut self.state {
-            State::Locomotion(state) => state.decode(self.policy, actions, sensor),
-            State::SlowGetUp(state) | State::FastGetUp(state) => {
-                state.decode(self.policy, actions, sensor, joints)
-            }
-        }
+    ) -> Result<Joints<MotorCommand>> {
+        Ok(match &mut self.state {
+            State::Locomotion(state) => state.decode(
+                self.policy,
+                actions
+                    .try_into()
+                    .wrap_err("invalid locomotion action count")?,
+                sensor,
+            ),
+            State::SlowGetUp(state) | State::FastGetUp(state) => state.decode(
+                self.policy,
+                actions.try_into().wrap_err("invalid get-up action count")?,
+                sensor,
+                joints,
+            ),
+        })
     }
 }
 

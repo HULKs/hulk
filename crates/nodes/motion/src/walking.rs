@@ -67,7 +67,7 @@ pub fn step_from_walk_command(
     );
 
     let orientation = walk_orientation.slerp(target_orientation, target_alignment_importance);
-    let angular_velocity = orientation.as_unit_vector().y() * parameters.max_alignment_rate;
+    let angular_velocity = (orientation.angle() * 0.5).sin() * parameters.max_alignment_rate;
 
     Step {
         forward: velocity.x(),

@@ -19,4 +19,5 @@ ros-z-schema.workspace = true
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "macros", "time"] }
+tracing.workspace = true
 types.workspace = true

@@ -64,6 +64,7 @@ pub mod time_wrapper;
 pub mod visual_localization;
 pub mod visual_odometry;
 pub mod walk_volume_extents;
+pub mod walking_velocity_limits;
 pub mod whistle;
 pub mod world_state;
 pub mod ycbcr422_image;

@@ -18,16 +18,6 @@ pub struct SensorFrame {
 }
 
 impl SensorFrame {
-    pub fn validate_at(&self, now: Time, parameters: &Parameters) -> Result<()> {
-        self.validate(parameters)?;
-        ensure!(self.timestamp <= now, "sensor timestamp is in the future");
-        ensure!(
-            now.duration_since(self.timestamp) <= parameters.timing.maximum_sensor_age,
-            "sensor frame expired"
-        );
-        Ok(())
-    }
-
     pub fn validate(&self, parameters: &Parameters) -> Result<()> {
         ensure!(
             self.position
@@ -65,12 +55,12 @@ pub struct VelocityEstimator {
 }
 
 impl VelocityEstimator {
-    pub fn update(&mut self, sensor: &SensorFrame, parameters: &Parameters) -> Result<()> {
-        if let Some((time, _)) = self.previous {
-            ensure!(sensor.timestamp >= time, "sensor time moved backwards");
-            if sensor.timestamp == time {
-                return Ok(());
-            }
+    pub fn update(&mut self, sensor: &SensorFrame, parameters: &Parameters) -> bool {
+        if self
+            .previous
+            .is_some_and(|(time, _)| sensor.timestamp <= time)
+        {
+            return false;
         }
         let recent_sample = self.previous.and_then(|(time, position)| {
             let elapsed_frames = (sensor.timestamp.duration_since(time).as_secs_f32()
@@ -100,6 +90,6 @@ impl VelocityEstimator {
             );
         }
         self.previous = Some((sensor.timestamp, sensor.position));
-        Ok(())
+        true
     }
 }

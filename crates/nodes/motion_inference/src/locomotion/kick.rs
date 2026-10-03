@@ -3,7 +3,7 @@ use types::joint_limits::JointLimits;
 
 use ::kinematics::joints::Joints;
 use coordinate_systems::{Ground, Robot};
-use linear_algebra::{Point2, Vector3};
+use linear_algebra::{Orientation2, Point2, Vector3};
 use nalgebra::{UnitComplex, UnitQuaternion};
 
 use super::{KickRequest, Locomotion, leg};
@@ -17,7 +17,7 @@ pub struct Observation {
     pub gravity: Vector3<Robot>,
     pub angular_velocity: Vector3<Robot>,
     pub ball_position: Point2<Ground>,
-    pub direction: f32,
+    pub direction: Orientation2<Ground>,
     pub phase: [f32; 2],
     pub position_offsets: Joints<f32>,
     pub joint_velocity: Joints<f32>,
@@ -83,13 +83,14 @@ impl Observation {
     }
 
     pub fn to_tensor(&self) -> [f32; 59] {
+        let direction = self.direction.angle();
         let mut input = [0.0; 59];
         input[..3].copy_from_slice(self.gravity.inner.as_slice());
         input[3..6].copy_from_slice(self.angular_velocity.inner.as_slice());
         input[6..9].copy_from_slice(&[
             self.ball_position.x() * self.ball_position_scale,
             self.ball_position.y() * self.ball_position_scale,
-            normalize_angle(self.direction) / PI,
+            normalize_angle(direction) / PI,
         ]);
         input[9..11].copy_from_slice(&self.phase);
         input[11..23].copy_from_slice(&LEGS.map(|joint| self.position_offsets[joint]));
@@ -104,7 +105,7 @@ impl Observation {
             self.ball_velocity.y() * self.ball_velocity_scale,
             0.0,
         ]);
-        input[54..56].copy_from_slice(&[self.direction.sin(), self.direction.cos()]);
+        input[54..56].copy_from_slice(&[direction.sin(), direction.cos()]);
         input[56] = self.target_speed * self.target_speed_scale;
         input[57..59].copy_from_slice(&[
             self.previous_ball_position.x() * self.ball_position_scale,
@@ -128,7 +129,8 @@ pub(super) fn shifted_ball(
     kick: KickRequest,
     parameters: &KickParameters,
 ) -> Point2<Ground> {
-    let to_kick_direction = UnitComplex::new(-kick.direction);
+    let direction = kick.direction.angle();
+    let to_kick_direction = UnitComplex::new(-direction);
     let (roll, pitch, _) = sensor.rotation().euler_angles();
     let level = UnitQuaternion::from_euler_angles(roll, pitch, 0.0);
     let left =
@@ -138,7 +140,7 @@ pub(super) fn shifted_ball(
     let mut ball = to_kick_direction * kick.ball_position.inner.coords;
     let angle_weight = 1.0
         - ramp(
-            normalize_angle(kick.direction).abs(),
+            normalize_angle(direction).abs(),
             parameters.shift_direction_degrees[0].to_radians(),
             parameters.shift_direction_degrees[1].to_radians(),
         );
@@ -153,7 +155,7 @@ pub(super) fn shifted_ball(
             - (1.0 - ramp(ball.y - right.y, -maximum, -minimum)));
     ball.y += angle_weight * foot_weight * shift;
     Point2::wrap(
-        (UnitComplex::new(kick.direction) * ball)
+        (UnitComplex::new(direction) * ball)
             .cap_magnitude(parameters.ball_position_limit)
             .into(),
     )

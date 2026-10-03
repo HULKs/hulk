@@ -47,7 +47,7 @@ impl GetUp {
     pub fn decode(
         &mut self,
         policy: Policy,
-        actions: &[f32],
+        actions: &[f32; JOINT_COUNT],
         sensor: &SensorFrame,
         joints: &JointLimits,
     ) -> Joints<MotorCommand> {
@@ -57,7 +57,7 @@ impl GetUp {
             policy.offset(&self.parameters)
         };
         let action_limit = policy.action_limit(&self.parameters);
-        self.previous_action = actions[..JOINT_COUNT]
+        self.previous_action = actions
             .iter()
             .map(|action| action.clamp(-action_limit, action_limit))
             .collect();
