@@ -45,22 +45,31 @@ pub(crate) fn effective_validity(
     dimensions: &FieldDimensions,
     parameters: &BallFilterParameters,
 ) -> f32 {
+    hypothesis.validity * confidence_weight(hypothesis, ground_to_field, dimensions, parameters)
+}
+
+pub(crate) fn confidence_weight(
+    hypothesis: &BallHypothesis,
+    ground_to_field: Option<Isometry2<Ground, Field>>,
+    dimensions: &FieldDimensions,
+    parameters: &BallFilterParameters,
+) -> f32 {
     let decay_distance = parameters.field_boundary_confidence_decay_distance;
     let Some(ground_to_field) =
         ground_to_field.filter(|_| decay_distance.is_finite() && decay_distance > 0.0)
     else {
-        return hypothesis.validity;
+        return 1.0;
     };
     let position = ground_to_field * hypothesis.position().position;
     if !position.x().is_finite() || !position.y().is_finite() {
-        return hypothesis.validity;
+        return 1.0;
     }
     // A ball is wholly out only once its nearest edge has crossed the field
     // rectangle. Border strips are outside the playing field, too.
     let dx = (position.x().abs() - dimensions.length / 2.0).max(0.0);
     let dy = (position.y().abs() - dimensions.width / 2.0).max(0.0);
     let whole_ball_distance = (dx.hypot(dy) - dimensions.ball_radius).max(0.0);
-    hypothesis.validity * (-whole_ball_distance / decay_distance).exp()
+    (-whole_ball_distance / decay_distance).exp()
 }
 
 #[cfg(test)]
@@ -90,6 +99,7 @@ mod tests {
             }),
             last_seen: Time::zero(),
             validity,
+            motion_evidence: None,
         }
     }
 
@@ -208,6 +218,75 @@ mod tests {
                     None,
                 )
                 .is_some()
+        );
+    }
+
+    #[test]
+    fn field_prior_is_unchanged_until_a_confirmed_track_can_replace_a_stale_one() {
+        let dimensions = FieldDimensions::SPL_2025;
+        let parameters = parameters();
+        let outside = hypothesis(
+            dimensions.length / 2.0 + dimensions.ball_radius + 0.6,
+            0.0,
+            1000.0,
+        );
+        let inside = hypothesis(1.0, 0.0, 4.0);
+        let mut filter = BallFilter {
+            hypotheses: vec![outside, inside],
+        };
+        let pose = Some(Isometry2::identity());
+        assert!(effective_validity(&filter.hypotheses[0], pose, &dimensions, &parameters) > 4.0);
+        // The prior remains soft: strong recent evidence outside the field can
+        // still outweigh a weaker inside track, exactly as before recovery.
+        assert!(
+            filter
+                .best_hypothesis_with_field_pose(&parameters, &dimensions, pose)
+                .unwrap()
+                .position()
+                .position
+                .x()
+                > dimensions.length / 2.0
+        );
+        filter.hypotheses[1].last_seen = Time::from_nanos(40_000_000);
+        assert!(
+            filter
+                .best_hypothesis_with_field_pose(&parameters, &dimensions, pose)
+                .unwrap()
+                .position()
+                .position
+                .x()
+                > dimensions.length / 2.0
+        );
+        // Once stale, accumulated outside confidence cannot neutralize the
+        // prior in the recovery comparison against a confirmed fresh track.
+        filter.hypotheses[1].last_seen = Time::from_nanos(500_000_000);
+        filter.hypotheses[1].validity = 2.0;
+        assert!(
+            filter
+                .best_hypothesis_with_field_pose(&parameters, &dimensions, pose)
+                .unwrap()
+                .position()
+                .position
+                .x()
+                > dimensions.length / 2.0
+        );
+        filter.hypotheses[1].validity = 4.0;
+        let chosen = filter
+            .best_hypothesis_with_field_pose(&parameters, &dimensions, pose)
+            .unwrap();
+        assert_eq!(chosen.position().position, point![1.0, 0.0]);
+        assert_eq!(filter.hypotheses[0].validity, 1000.0);
+        assert_eq!(
+            filter
+                .best_hypothesis(parameters.validity_output_threshold)
+                .unwrap()
+                .position()
+                .position,
+            filter
+                .best_hypothesis_with_field_pose(&parameters, &dimensions, None)
+                .unwrap()
+                .position()
+                .position
         );
     }
 

@@ -681,6 +681,7 @@ mod tests {
             }),
             last_seen: Time::zero(),
             validity: 2.0,
+            motion_evidence: None,
         };
         let mut filter = BallFilter {
             hypotheses: vec![old_track],
@@ -741,6 +742,114 @@ mod tests {
     }
 
     #[test]
+    fn coherent_kick_observations_replace_high_validity_resting_track_promptly() {
+        let dimensions = FieldDimensions::SPL_2025;
+        let mut parameters = BallFilterParameters::default();
+        parameters.hidden_validity_exponential_decay_factor = 0.9997;
+        parameters.maximum_matching_cost = 0.25;
+        parameters.validity_discard_threshold = 0.2;
+        parameters.validity_output_threshold = 0.5;
+        parameters.maximum_number_of_hypotheses = 15;
+        parameters.hypothesis_timeout = Duration::from_secs(20);
+        parameters.noise.initial_covariance = vector![0.5, 0.5, 40.0, 40.0];
+        let mut filter = BallFilter {
+            hypotheses: vec![BallHypothesis {
+                mode: BallMode::Resting(MultivariateNormalDistribution {
+                    mean: vector![0.0, 0.0],
+                    covariance: Matrix2::identity() * 0.01,
+                }),
+                last_seen: Time::zero(),
+                validity: 25.0,
+                motion_evidence: None,
+            }],
+        };
+        let mut solver = AssignmentSolver::default();
+        for index in 0..4 {
+            let time = Time::from_nanos(500_000_000 + index * 40_000_000);
+            if index > 0 {
+                filter.predict(
+                    Duration::from_millis(40),
+                    Isometry2::identity(),
+                    1.0,
+                    Matrix4::identity() * 0.005,
+                    Matrix2::identity() * 0.001,
+                    f32::INFINITY,
+                );
+            }
+            let percept = BallPercept {
+                percept_in_ground: MultivariateNormalDistribution {
+                    mean: vector![3.0 + index as f32 * 0.12, 0.0],
+                    covariance: Matrix2::identity() * 0.01,
+                },
+                image_location: Circle::new(point![0.0, 0.0], 1.0),
+            };
+            advance_all_hypotheses(
+                &mut filter,
+                &mut solver,
+                time,
+                &[percept],
+                None,
+                &parameters,
+                &dimensions,
+            )
+            .unwrap();
+            remove_invalid_and_merge_hypotheses(&mut filter, time, &parameters, &dimensions);
+            let best = filter
+                .best_hypothesis(parameters.validity_output_threshold)
+                .unwrap();
+            if index == 0 {
+                assert_eq!(
+                    best.position().position,
+                    point![0.0, 0.0],
+                    "one false percept must not steal selection"
+                );
+            }
+        }
+        let best = filter
+            .best_hypothesis(parameters.validity_output_threshold)
+            .unwrap();
+        assert!(best.position().position.x() > 3.2);
+        assert_eq!(best.last_seen, Time::from_nanos(620_000_000));
+        let old = filter
+            .hypotheses
+            .iter()
+            .find(|track| track.last_seen == Time::zero())
+            .unwrap();
+        assert!(
+            old.validity > 24.9,
+            "selection must preserve hidden-track confidence"
+        );
+        assert!(matches!(old.mode, BallMode::Resting(_)));
+        assert_eq!(filter.hypotheses.len(), 2);
+
+        // Capping rank must not shorten the unchanged time-based track lifetime.
+        remove_invalid_and_merge_hypotheses(
+            &mut filter,
+            Time::from_nanos(19_999_999_999),
+            &parameters,
+            &dimensions,
+        );
+        assert!(
+            filter
+                .hypotheses
+                .iter()
+                .any(|track| track.last_seen == Time::zero())
+        );
+        remove_invalid_and_merge_hypotheses(
+            &mut filter,
+            Time::from_nanos(20_000_000_000),
+            &parameters,
+            &dimensions,
+        );
+        assert!(
+            !filter
+                .hypotheses
+                .iter()
+                .any(|track| track.last_seen == Time::zero())
+        );
+    }
+
+    #[test]
     fn hypothesis_update_matching() {
         let hypothesis1 = BallHypothesis {
             mode: BallMode::Moving(MultivariateNormalDistribution {
@@ -749,6 +858,7 @@ mod tests {
             }),
             last_seen: Time::zero(),
             validity: 0.0,
+            motion_evidence: None,
         };
         let hypothesis2 = BallHypothesis {
             mode: BallMode::Moving(MultivariateNormalDistribution {
@@ -757,6 +867,7 @@ mod tests {
             }),
             last_seen: Time::zero(),
             validity: 0.0,
+            motion_evidence: None,
         };
 
         let percept1 = BallPercept {

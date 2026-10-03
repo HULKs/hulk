@@ -11,7 +11,134 @@ does not depend on visual localization. User explicitly authorized a soft live
 field-boundary confidence prior using the available field pose (2026-10-03).
 Maintain git checkpoints as work progresses.
 
-Current status (2026-10-03; historical entries below are retained)
+Completed plan: filter-only follow-up (2026-10-03)
+- User requested continuation focused on the filter, a written plan, and parallel
+  subagents. Production changes stay inside crates/nodes/ball_filter. Required
+  downstream/simulator/tuner changes are recorded here and in the timing audit.
+- Starting checkpoint: 21393f411, clean tree. Last prior-enabled search completed
+  76 rounds: training1.728322->1.121538, holdout1.980566->2.107127. Holdout missing
+  time increased1.276s->6.742s. Optimization improvement is not yet generalizable.
+- Agent fight_scenarios: confirmed-fresh track selection without reducing raw
+  validity/occlusion lifetime. Own filter.rs, lib.rs, field_prior.rs.
+- Agent filter_continuity: evidence-based resting-to-moving recovery, with
+  odometry-aware history and false-positive rejection. Own hypothesis.rs and
+  any new evidence module. Coordinate constructor/schema changes with ranking.
+- Agent scoring_audit: elapsed-time-aware decay/process noise. Own moving.rs
+  and resting.rs; coordinate delta_time signature with continuity agent.
+- Root: integration, same-input recorded-data comparison, combined tests,
+  checkpoints, fresh capture/exact replay, continuous optimizer and live viewer.
+- Validate isolated false detections, stationary noisy ball with translating and
+  rotating robot, occluded kicks and reacquisition, multiple competing tracks,
+  irregular/zero-duration updates, covariance validity, and field-prior behavior.
+- Keep parameter schemas stable. Preserve the existing500Hz reference for decay
+  and noise; document any numerical changes. Any new full-hypothesis diagnostic
+  fields must match Message and serde schemas; serde(skip) is not safe here.
+- Launch optimizer plus simulated robot with:
+  ./simulator --tune-ball-filter logs/NEW-RUN --tuning-trials 256
+  Use a new output directory. In Twix select Ball-filter optimization, Connect,
+  then Open3D view; alternatively ./simulator --watch-ball-tuning in another terminal.
+  --ball-perception is interactive perception mode and does not start a search.
+
+Filter integration findings (2026-10-03)
+- Prediction now integrates damping/process covariance over elapsed time using
+  the existing 2ms reference period. No parameter schema change. Default .998
+  velocity factor remains exact at2ms; position integration differs about0.1%.
+- Resting hypotheses can recover motion from three associated, statistically
+  significant, direction/speed-consistent observations. History follows Ground
+  odometry; long gaps restart evidence rather than averaging across unknown kicks.
+- Successful merges retain the newest last_seen; rejected mode merges do nothing.
+- Selection recovery must preserve ordinary accumulated-confidence competition.
+  A global confidence cap regressed training closeRMSE .892->1.248. A120ms grace
+  alone did not resolve this. Final narrow stale-track recovery:
+  only a confirmed fresher challenger can override an incumbent unobserved120ms.
+  Compare prior-weighted capped confidence only for that recovery decision.
+- Identical-input evaluation uses the six existing single-prior MCAPs, unchanged
+  baseline and round76 parameter sets, and the existing scoring implementation.
+  This is algorithm comparison, not a claim that new output exactly reproduces
+  an old algorithm's recorded output. Fresh captures still need exact replay.
+- Current detection_noise is a radius-relative pixel standard deviation, not
+  pixels:5*observed_radius. For the simulator's0.105m ball this can imply roughly
+  .525m lateral Ground sigma. Three-sigma adjacent-frame motion evidence is then
+  deliberately hard to establish. Calibrate uncertainty instead of weakening
+  the significance guard to fit a recording; old optimized noise is also~5.
+- Association uses prediction covariance P alone rather than innovation P+R.
+  This can couple noise tuning to association through posterior inflation.
+  Follow-up inside filter: uncertainty-aware association and separate validation
+  of false bursts, contacts, and low-noise coherent motion.
+- Track identity/switch hysteresis remains a follow-up: a recently selected
+  challenger can lose confidence during occlusion and revert to an older track.
+  Fixed-image false bursts can imitate Ground motion while the head moves.
+- Duplicate observations do not add per-track confidence or motion evidence,
+  but duplicate whole batches still decay confidence. Current FutureMap emits
+  finalized batches once; this is not general replay idempotence.
+- Image-time Ground and latest odometry-time Ground can differ between samples.
+  Normally<=2ms at500Hz; missing odometry can make this large. Follow-up inside
+  filter: explicit exposure-time alignment or bounded evidence age/reset.
+- New MotionEvidence is explicit in serde and Message diagnostic schemas.
+  Rebuild full-filter diagnostic consumers (including Twix map layer) together.
+  BallPosition, percept, parameter, and recording input schemas are unchanged.
+
+Same-input final comparison (2026-10-03 filter checkpoint)
+- Dataset logs/ball-tuning-20261003-single-prior; baseline and round76 optimized
+  parameters are fixed. Main evidence logs/ball-filter-followup-final-comparison.json.
+- Baseline parameters, old->new: trainingloss1.728322->1.738479 (+0.6%),
+  closeRMSE.892112->.886064m; holdoutloss1.980566->1.939761 (-2.1%),
+  closeRMSE1.365431->.886783m. Missing12.132->12.124s train,1.276s unchangedholdout.
+- Old optimized parameters, old->new: trainingloss1.121538->1.168663 (+4.2%),
+  closeRMSE.853284->.728810m; holdoutloss2.107127->2.140975 (+1.6%),
+  closeRMSE.740153->.744654m. Missing durations unchanged31.276/6.742s.
+- These are mixed results, not demonstrated general improvement. Recapture and
+  retune for changed algorithm; never promote old best as newly validated.
+- Temporary replay instrumentation counted0 resting associated updates and0
+  Resting->Moving promotions across all six recordings under both fixed configs.
+  Thus recorded improvements are NOT evidence for direct motion recovery; its
+  guarantees currently come from focused regressions. Zero eligible updates also
+  means these captures cannot measure direct-promotion false/true-positive rates.
+- Initial175 package tests passed; final changed filter41 and tuner14 tests pass.
+  Normal simulator/tuner/Twix build, cargo fmt check, and diff checks pass.
+- Further filter work: calibrated innovation covariance, stable track identity
+  across occlusion, and contact/rolling-deceleration model mismatch. Exponential
+  damping is now time-consistent but is not a full rolling/contact dynamics model.
+
+Fresh runtime validation (2026-10-03 filter checkpoint)
+- New run: logs/ball-tuning-20261003-filter-recovery. Previous user run is preserved
+  in logs/ball-tuning-new; stopped gracefully only after replacement binaries were
+  tested. Continuous search now runs256 candidates per round without tuning-once.
+- All six fresh captures exactly replay the live output. Each contains one ball
+  and at least one opponent kick hidden by an in-view opponent. Walked6.04-10.20m
+  per episode, peak ball speeds6.14-6.87m/s. Coverage JSONs sit beside MCAPs.
+- First new search round: trainingloss1.477901->1.102339 (-25.4%);
+  holdoutloss1.408064->1.370336 (-2.7%). These are new-capture tuning results,
+  not an algorithm A/B comparison against a different behavior trajectory.
+- Round2 automatically started; live application confirmed in
+  logs/ball-tuning-filter-recovery-runtime.log. Ongoing later rounds may differ.
+- Updated Twix reconnected and its Open3D button launched the updated viewer.
+  Blue model/velocity, physical robot/opponents and live progress verified.
+- Logs: ball-filter-followup-tests.log (initial175),
+  ball-filter-followup-final-tests.log (final41 filter+14 tuner),
+  ball-filter-followup-build.log; previous51 simulator/73 Twix tests also passed.
+- Temporary algorithm-comparison harness archived under ignored
+  logs/ball-filter-followup-harness and removed from production source paths.
+  Production edits in this checkpoint remain inside crates/nodes/ball_filter.
+
+Changes needed elsewhere (notes only in this follow-up)
+- Behavior/kicking: preserve source timestamps and odometry-compensate historical
+  Ground states; use position and velocity from one track at one time. See the
+  detailed ball-filter-timing-audit.txt; this is not fixed by filter tuning.
+- ROS-Z: sensor source-time publication/cache semantics need attention before
+  implementing that downstream compensation. Keep actual acquisition timestamps.
+- Simulator: more sustained in-field contests; fewer long outside-field rolls;
+  correlated sensor/calibration errors, exposure/delivery jitter, partial occlusion
+  and blur, realistic articulated opponent contacts/surface variation.
+- Twix: map caption currently calls the stream an unscored live simulation even
+  during training capture. Make the caption reflect recording versus preview.
+- Optimizer: availability/long-gap tradeoffs and validation generalization need
+  improvement. Training-best live updates do not imply a better holdout result.
+- Real data: collect labelled ROS-Z recordings and assess uncertainty calibration
+  and field-pose coverage. Full-hypothesis schema changes require consumers to
+  rebuild together; old diagnostic CDR is not made compatible by serde(default).
+
+Previous status (2026-10-03; historical entries below are retained)
 - Source checkpoint 3f716f859. All153 tests and six fresh exact MCAP replay
   checks passed. Twix Open3D verified after replacing the running executable.
 - Continuous optimizer and both UIs are running against
