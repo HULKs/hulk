@@ -194,7 +194,7 @@ fn predict_ball_position(
 ) -> Point2<Field> {
     if !velocity.x().is_finite()
         || !velocity.y().is_finite()
-        || velocity.x() > parameters.minimum_forward_velocity
+        || velocity.x() > parameters.maximum_forward_velocity_for_prediction
     {
         return position;
     }
@@ -432,7 +432,7 @@ mod tests {
         let parameters = WalkToBallPredictionParameters {
             time: Duration::from_secs(1),
             maximum_displacement: vector![0.5, 0.25],
-            minimum_forward_velocity: 0.2,
+            maximum_forward_velocity_for_prediction: 0.2,
         };
         let field = FieldDimensions::SPL_2025;
 
@@ -450,7 +450,7 @@ mod tests {
         let parameters = WalkToBallPredictionParameters {
             time: Duration::from_secs(1),
             maximum_displacement: vector![0.5, 0.25],
-            minimum_forward_velocity: 0.2,
+            maximum_forward_velocity_for_prediction: 0.2,
         };
 
         let projected = predict_ball_position(
@@ -460,5 +460,13 @@ mod tests {
             FieldDimensions::SPL_2025,
         );
         assert!((projected - point![1.0, 1.0]).norm() < 1e-6);
+
+        let projected = predict_ball_position(
+            point![1.0, 1.0],
+            vector![0.2, 0.0],
+            parameters,
+            FieldDimensions::SPL_2025,
+        );
+        assert!((projected - point![1.2, 1.0]).norm() < 1e-6);
     }
 }
