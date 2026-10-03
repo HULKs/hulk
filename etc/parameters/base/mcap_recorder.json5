@@ -19,7 +19,6 @@
     "detected_objects/announce",
     "behavior/motion_command",
     "commands/robot_command",
-    "hardware_interface/joint_command",
     "motion_inference/status",
     "primary_state",
     "visual_odometry/current_left_camera_to_visual_odometer",
