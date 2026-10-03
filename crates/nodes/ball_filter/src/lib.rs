@@ -379,6 +379,7 @@ fn advance_all_hypotheses(
     ball_percepts: &[BallPercept],
     camera_matrix: Option<&CameraMatrix>,
     obstacles: Option<&[Obstacle]>,
+    detections: &[Object<RobocupObjectLabel>],
     filter_parameters: &BallFilterParameters,
     field_dimensions: &FieldDimensions,
 ) -> Result<()> {
@@ -415,15 +416,17 @@ fn advance_all_hypotheses(
             camera_matrix,
             field_dimensions.ball_radius,
             obstacles,
+            detections,
             filter_parameters,
         );
         let visibility = if percept_index.is_none() && validity_decay::enabled(filter_parameters) {
             camera_matrix.map_or(negative_evidence::Visibility::Unknown, |camera| {
-                negative_evidence::classify(
+                negative_evidence::classify_with_detections(
                     &hypothesis.position(),
                     camera,
                     field_dimensions.ball_radius,
                     obstacles,
+                    detections,
                 )
             })
         } else {
@@ -466,6 +469,7 @@ fn advance_all_hypotheses(
         &matched,
         camera_matrix,
         obstacles,
+        detections,
         field_dimensions.ball_radius,
         filter_parameters,
     );
@@ -478,12 +482,13 @@ fn advance_all_hypotheses(
             }
             let position = hypothesis.position();
             let clearly_visible = camera_matrix.is_some_and(|camera| {
-                negative_evidence::clearly_visible(
+                negative_evidence::classify_with_detections(
                     &position,
                     camera,
                     field_dimensions.ball_radius,
                     obstacles,
-                )
+                    detections,
+                ) == negative_evidence::Visibility::Visible
             });
             let evidence = hypothesis
                 .negative_evidence
@@ -747,6 +752,7 @@ fn decide_validity_decay_for_hypothesis(
     camera_matrix: Option<&CameraMatrix>,
     ball_radius: f32,
     obstacles: Option<&[Obstacle]>,
+    detections: &[Object<RobocupObjectLabel>],
     configuration: &BallFilterParameters,
 ) -> f32 {
     let is_ball_in_view = camera_matrix.is_some_and(|camera_matrix| {
@@ -754,7 +760,13 @@ fn decide_validity_decay_for_hypothesis(
         if !negative_evidence::enabled(configuration) {
             is_visible_to_camera(&ball, camera_matrix, ball_radius)
         } else {
-            negative_evidence::clearly_visible(&ball, camera_matrix, ball_radius, obstacles)
+            negative_evidence::classify_with_detections(
+                &ball,
+                camera_matrix,
+                ball_radius,
+                obstacles,
+                detections,
+            ) == negative_evidence::Visibility::Visible
         }
     });
 
@@ -1046,6 +1058,7 @@ mod tests {
                 &percepts,
                 None,
                 None,
+                &[],
                 &parameters,
                 &FieldDimensions::SPL_2025,
             )
@@ -1107,6 +1120,7 @@ mod tests {
             &[percept],
             None,
             None,
+            &[],
             &parameters,
             &dimensions,
         )
@@ -1134,6 +1148,7 @@ mod tests {
                 &[percept],
                 None,
                 None,
+                &[],
                 &parameters,
                 &dimensions,
             )
@@ -1201,6 +1216,7 @@ mod tests {
                 &[percept],
                 None,
                 None,
+                &[],
                 &parameters,
                 &dimensions,
             )

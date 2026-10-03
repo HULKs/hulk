@@ -187,3 +187,51 @@ async fn test_interleaved_fusion() -> zenoh::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn cancelled_receives_still_release_the_final_buffered_observation() -> zenoh::Result<()> {
+    use std::{
+        future::{Future, poll_fn},
+        task::Poll,
+    };
+    let (node, clock) = setup_node("/test_cancelled_fusion").await?;
+    let publisher = node.announcing_publisher::<String>("observation").await?;
+    let mut map = node
+        .create_future_map_builder()
+        .create_future_subscriber::<String>("observation", Duration::from_millis(50))
+        .await?
+        .build();
+    let stamp = Time::from_nanos(1);
+    publisher
+        .announce(stamp)
+        .await?
+        .publish(&"final observation".to_owned())
+        .await?;
+    let item = timeout(Duration::from_secs(2), map.recv()).await.unwrap()?;
+    assert!(item.persistent.is_empty());
+    assert!(item.temporary.contains_key(&stamp));
+
+    // A 20 ms heartbeat repeatedly wins the caller's select, cancelling recv.
+    // No new stream event arrives to incidentally flush the final observation.
+    for millis in [0, 20, 40, 60] {
+        clock
+            .set_time(Time::from_nanos(millis * 1_000_000))
+            .unwrap();
+        let mut receive = std::pin::pin!(map.recv());
+        let result = poll_fn(|cx| Poll::Ready(receive.as_mut().poll(cx))).await;
+        if millis < 60 {
+            assert!(result.is_pending());
+        } else {
+            let Poll::Ready(item) = result else {
+                panic!("cancellation postponed the safety deadline past 60 ms");
+            };
+            let item = item?;
+            assert_eq!(
+                item.persistent[&stamp].0.as_deref(),
+                Some("final observation")
+            );
+            assert!(item.temporary.is_empty());
+        }
+    }
+    Ok(())
+}

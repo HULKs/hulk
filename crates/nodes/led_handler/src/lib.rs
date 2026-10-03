@@ -1,11 +1,12 @@
-use std::sync::Arc;
 use std::{boxed::Box, future::Future, pin::Pin};
+use std::{sync::Arc, time::Duration};
 
 use booster::LedColor;
 use booster_sdk_interface::LedCommand;
 use color_eyre::Result;
 
 use ros_z::{prelude::*, qos::QosDurability};
+use tokio::time::{MissedTickBehavior, interval};
 use types::primary_state::PrimaryState;
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -29,24 +30,43 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let mut last_primary_state = None;
+    let mut state_color = LedColor::BLACK;
+    let mut light_on = true;
+    let mut blink_timer = interval(Duration::from_millis(500));
+    blink_timer.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
     loop {
-        let primary_state = primary_state_sub.recv().await?;
+        tokio::select! {
+            received_primary_state = primary_state_sub.recv() => {
+                let primary_state = received_primary_state?;
+                if last_primary_state == Some(primary_state) {
+                    continue;
+                }
 
-        if last_primary_state == Some(primary_state) {
-            continue;
+                state_color = match primary_state {
+                    PrimaryState::Damping => LedColor::BLUE,
+                    PrimaryState::Prepare => LedColor::YELLOW,
+                    PrimaryState::Stop => state_color,
+                    PrimaryState::Ready => LedColor::WHITE,
+                    PrimaryState::Initial => LedColor::MAGENTA,
+                    PrimaryState::Set => LedColor::ORANGE,
+                    PrimaryState::Playing => LedColor::GREEN,
+                    PrimaryState::Penalized => LedColor::RED,
+                    PrimaryState::Finished => LedColor::PURPLE,
+                };
+                last_primary_state = Some(primary_state);
+                light_on = true;
+                blink_timer.reset();
+            }
+            _ = blink_timer.tick(), if last_primary_state == Some(PrimaryState::Stop) => {
+                light_on = !light_on;
+            }
         }
 
-        let light_control_parameter = match primary_state {
-            PrimaryState::Damping => LedColor::BLUE,
-            PrimaryState::Prepare => LedColor::YELLOW,
-            PrimaryState::Stop => LedColor::BLACK,
-            PrimaryState::Ready => LedColor::WHITE,
-            PrimaryState::Initial => LedColor::MAGENTA,
-            PrimaryState::Set => LedColor::ORANGE,
-            PrimaryState::Playing => LedColor::GREEN,
-            PrimaryState::Penalized => LedColor::RED,
-            PrimaryState::Finished => LedColor::PURPLE,
+        let light_control_parameter = if light_on {
+            state_color
+        } else {
+            LedColor::BLACK
         };
 
         let led_command = LedCommand::SetParam {
@@ -54,8 +74,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             g: light_control_parameter.g,
             b: light_control_parameter.b,
         };
-        last_primary_state = Some(primary_state);
-
         led_command_pub.publish(&led_command).await?;
     }
 }
