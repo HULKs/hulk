@@ -2,7 +2,7 @@ use coordinate_systems::Field;
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Pose2, point};
 use types::behavior_tree::Status;
-use voronoi::{VoronoiBounds, VoronoiGrid};
+use voronoi::VoronoiGrid;
 
 use crate::node::Blackboard;
 
@@ -20,31 +20,14 @@ pub fn calculate_voronoi_grid(blackboard: &mut Blackboard) -> Status {
 
         let length_half = field_dimensions.length / 2.0;
         let width_half = field_dimensions.width / 2.0;
-        let border_strip_width = field_dimensions.border_strip_width;
+        let padding = voronoi_parameters.padding;
 
-        let centroid_x_max = if let Some(ball) = &blackboard.ball {
-            (ball.position.x() + voronoi_parameters.centroid_offset)
-                .max(-length_half + voronoi_parameters.minimum_centroid_margin_from_own_side)
-        } else {
-            length_half
-        };
+        let grid_min = point!(-length_half - padding, -width_half - padding);
+        let grid_max = point!(length_half + padding, width_half + padding);
 
-        let bounds = VoronoiBounds {
-            grid_min: point!(
-                -length_half - border_strip_width,
-                -width_half - border_strip_width
-            ),
-            grid_max: point!(
-                length_half + border_strip_width,
-                width_half + border_strip_width
-            ),
-            centroid_min: point!(-length_half, -width_half),
-            centroid_max: point!(centroid_x_max, width_half),
-        };
-
-        let mut map = VoronoiGrid::new(bounds, voronoi_parameters.clone());
+        let mut map = VoronoiGrid::new(grid_min, grid_max, voronoi_parameters.grid_resolution);
         map.initialize_obstacles(obstacles, rule_obstacles, ground_to_field);
-        map.multi_source_dijkstra(&sites, voronoi_parameters.orientation_bias);
+        map.multi_source_dijkstra(&sites);
         blackboard.voronoi_map = Some(map);
         Status::Success
     } else {

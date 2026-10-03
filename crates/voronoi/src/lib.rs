@@ -6,14 +6,13 @@ use linear_algebra::{Isometry2, Point2, Pose2, point};
 use ordered_float::NotNan;
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
-use types::{obstacles::Obstacle, parameters::VoronoiParameters, rule_obstacles::RuleObstacle};
+use types::{obstacles::Obstacle, rule_obstacles::RuleObstacle};
 
 type QueueItem = Reverse<(NotNan<f32>, usize, usize)>;
 type Queue = BinaryHeap<QueueItem>;
 
 const STRAIGHT_COST: f32 = 1.0;
 const DIAGONAL_COST: f32 = SQRT_2;
-const INV_SQRT_2: f32 = 1.0 / DIAGONAL_COST;
 
 struct NearestCell {
     pub index: usize,
@@ -25,29 +24,23 @@ struct Neighbor {
     pub dx: isize,
     pub dy: isize,
     pub step_cost: f32,
-    pub inv_norm: f32,
 }
 
 impl Neighbor {
-    const fn new(dx: isize, dy: isize, step_cost: f32, inv_norm: f32) -> Self {
-        Self {
-            dx,
-            dy,
-            step_cost,
-            inv_norm,
-        }
+    const fn new(dx: isize, dy: isize, step_cost: f32) -> Self {
+        Self { dx, dy, step_cost }
     }
 }
 
 const NEIGHBORS: [Neighbor; 8] = [
-    Neighbor::new(1, 0, STRAIGHT_COST, 1.0),
-    Neighbor::new(1, 1, DIAGONAL_COST, INV_SQRT_2),
-    Neighbor::new(0, 1, STRAIGHT_COST, 1.0),
-    Neighbor::new(-1, 1, DIAGONAL_COST, INV_SQRT_2),
-    Neighbor::new(-1, 0, STRAIGHT_COST, 1.0),
-    Neighbor::new(-1, -1, DIAGONAL_COST, INV_SQRT_2),
-    Neighbor::new(0, -1, STRAIGHT_COST, 1.0),
-    Neighbor::new(1, -1, DIAGONAL_COST, INV_SQRT_2),
+    Neighbor::new(1, 0, STRAIGHT_COST),
+    Neighbor::new(1, 1, DIAGONAL_COST),
+    Neighbor::new(0, 1, STRAIGHT_COST),
+    Neighbor::new(-1, 1, DIAGONAL_COST),
+    Neighbor::new(-1, 0, STRAIGHT_COST),
+    Neighbor::new(-1, -1, DIAGONAL_COST),
+    Neighbor::new(0, -1, STRAIGHT_COST),
+    Neighbor::new(1, -1, DIAGONAL_COST),
 ];
 
 #[derive(PartialEq, Clone, Copy, Default, Debug, Deserialize, Serialize, Message)]
@@ -60,41 +53,44 @@ pub enum Ownership {
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default, PartialEq, Message)]
 
-pub struct VoronoiBounds {
-    pub grid_min: Point2<Field>,
-    pub grid_max: Point2<Field>,
-    pub centroid_min: Point2<Field>,
-    pub centroid_max: Point2<Field>,
+pub struct GridGeometry {
+    grid_min: Point2<Field>,
+    grid_max: Point2<Field>,
+    resolution: f32,
+    width: usize,
+    height: usize,
 }
 
 #[derive(PartialEq, Clone, Debug, Deserialize, Serialize, Default, Message)]
 pub struct VoronoiGrid {
-    pub tiles: Vec<Ownership>,
-    width_tiles: usize,
-    height_tiles: usize,
-    pub parameters: VoronoiParameters,
-    pub bounds: VoronoiBounds,
+    geometry: GridGeometry,
+    tiles: Vec<Ownership>,
 }
 
 impl VoronoiGrid {
-    pub fn new(mut bounds: VoronoiBounds, parameters: VoronoiParameters) -> Self {
-        let resolution = parameters.grid_resolution;
-        let min_cell = bounds.grid_min.map(|min| (min / resolution + 0.5).floor());
-        let max_cell = bounds.grid_max.map(|max| (max / resolution - 0.5).ceil());
+    pub fn new(grid_min: Point2<Field>, grid_max: Point2<Field>, resolution: f32) -> Self {
+        let min_cell = grid_min.map(|min| (min / resolution + 0.5).floor());
+        let max_cell = grid_max.map(|max| (max / resolution - 0.5).ceil());
 
-        bounds.grid_min = min_cell.map(|min| (min - 0.5) * resolution);
-        bounds.grid_max = max_cell.map(|max| (max + 0.5) * resolution);
+        let grid_min = min_cell.map(|min| (min - 0.5) * resolution);
+        let grid_max = max_cell.map(|max| (max + 0.5) * resolution);
 
-        let width_tiles = (max_cell.x() - min_cell.x() + 1.0) as usize;
-        let height_tiles = (max_cell.y() - min_cell.y() + 1.0) as usize;
-        let tile_count = (width_tiles) * (height_tiles);
+        let width = (max_cell.x() - min_cell.x() + 1.0) as usize;
+        let height = (max_cell.y() - min_cell.y() + 1.0) as usize;
+
+        let tile_count = width * height;
+
+        let geometry = GridGeometry {
+            grid_min,
+            grid_max,
+            resolution,
+            width,
+            height,
+        };
 
         Self {
+            geometry,
             tiles: vec![Ownership::Free; tile_count],
-            width_tiles,
-            height_tiles,
-            parameters,
-            bounds,
         }
     }
 
@@ -145,15 +141,11 @@ impl VoronoiGrid {
         }
     }
 
-    pub fn multi_source_dijkstra(
-        &mut self,
-        robots: &[(Pose2<Field>, PlayerNumber)],
-        orientation_bias: f32,
-    ) {
+    pub fn multi_source_dijkstra(&mut self, robots: &[(Pose2<Field>, PlayerNumber)]) {
         if !self.is_valid_grid() {
             return;
         }
-        let (mut distance, mut queue, robot_headings) = self.prepare_dijkstra(robots);
+        let (mut distance, mut queue) = self.prepare_dijkstra(robots);
 
         while let Some(Reverse((current_cost, current_index, robot_index))) = queue.pop() {
             let current_cost = current_cost.into_inner();
@@ -162,15 +154,13 @@ impl VoronoiGrid {
             }
 
             let player_number = robots[robot_index].1;
-            let (sin_h, cos_h) = robot_headings[robot_index];
 
             for (neighbor_index, neighbor) in self.neighbor_indices(current_index) {
                 if self.tiles[neighbor_index] == Ownership::Blocked {
                     continue;
                 }
 
-                let rotation_cost = rotation_cost(sin_h, cos_h, neighbor, orientation_bias);
-                let new_cost = current_cost + neighbor.step_cost + rotation_cost;
+                let new_cost = current_cost + neighbor.step_cost;
 
                 if new_cost < distance[neighbor_index] {
                     distance[neighbor_index] = new_cost;
@@ -186,26 +176,17 @@ impl VoronoiGrid {
     }
 
     fn is_valid_grid(&self) -> bool {
-        self.width_tiles > 0
-            && self.height_tiles > 0
-            && self.width_tiles * self.height_tiles == self.tiles.len()
+        self.geometry.width > 0
+            && self.geometry.height > 0
+            && self.geometry.width * self.geometry.height == self.tiles.len()
     }
 
-    fn prepare_dijkstra(
-        &mut self,
-        robots: &[(Pose2<Field>, PlayerNumber)],
-    ) -> (Vec<f32>, Queue, Vec<(f32, f32)>) {
+    fn prepare_dijkstra(&mut self, robots: &[(Pose2<Field>, PlayerNumber)]) -> (Vec<f32>, Queue) {
         let mut distance = vec![f32::INFINITY; self.tiles.len()];
         let mut queue = Queue::new();
 
-        let robot_headings: Vec<(f32, f32)> = robots
-            .iter()
-            .map(|(pose, _)| pose.orientation().angle().sin_cos())
-            .collect();
-
         self.seed_sources(robots, &mut distance, &mut queue);
-
-        (distance, queue, robot_headings)
+        (distance, queue)
     }
 
     fn seed_sources(
@@ -301,49 +282,34 @@ impl VoronoiGrid {
     }
 
     fn point_to_index(&self, p: Point2<Field>) -> Option<usize> {
-        let resolution = self.parameters.grid_resolution;
+        let resolution = self.geometry.resolution;
         let min_cell = self
-            .bounds
+            .geometry
             .grid_min
             .map(|min| (min / resolution + 0.5).round());
         let ix = ((p.x() / resolution + 0.5).floor() - min_cell.x()) as isize;
         let iy = ((p.y() / resolution + 0.5).floor() - min_cell.y()) as isize;
 
-        if (0..self.width_tiles as isize).contains(&ix)
-            && (0..self.height_tiles as isize).contains(&iy)
+        if (0..self.geometry.width as isize).contains(&ix)
+            && (0..self.geometry.height as isize).contains(&iy)
         {
-            Some(index_from_xy(self.width_tiles, ix as usize, iy as usize))
+            Some(index_from_xy(self.geometry.width, ix as usize, iy as usize))
         } else {
             None
         }
     }
 
     pub fn index_to_point(&self, index: usize) -> Point2<Field> {
-        let (x, y) = xy_from_index(self.width_tiles, index);
-        let resolution = self.parameters.grid_resolution;
+        let (x, y) = xy_from_index(self.geometry.width, index);
+        let resolution = self.geometry.resolution;
         let min_cell = self
-            .bounds
+            .geometry
             .grid_min
             .map(|min| (min / resolution + 0.5).round());
         point!(
             (min_cell.x() + x as f32) * resolution,
             (min_cell.y() + y as f32) * resolution
         )
-    }
-
-    pub fn cell_overlaps_centroid_bounds(&self, index: usize) -> bool {
-        let center = self.index_to_point(index);
-        let half_resolution = self.parameters.grid_resolution / 2.0;
-
-        let min_x = center.x() - half_resolution;
-        let max_x = center.x() + half_resolution;
-        let min_y = center.y() - half_resolution;
-        let max_y = center.y() + half_resolution;
-
-        min_x < self.bounds.centroid_max.x()
-            && max_x > self.bounds.centroid_min.x()
-            && min_y < self.bounds.centroid_max.y()
-            && max_y > self.bounds.centroid_min.y()
     }
 
     fn tile_range_for_bounds(
@@ -353,16 +319,17 @@ impl VoronoiGrid {
         min_y: f32,
         max_y: f32,
     ) -> Option<(usize, usize, usize, usize)> {
-        if self.width_tiles == 0 || self.height_tiles == 0 {
+        let geometry = &self.geometry;
+        if geometry.width == 0 || geometry.height == 0 {
             return None;
         }
 
-        let resolution = self.parameters.grid_resolution;
+        let resolution = geometry.resolution;
 
-        let tile_min_x = self.bounds.grid_min.x();
-        let tile_max_x = self.bounds.grid_min.x() + self.width_tiles as f32 * resolution;
-        let tile_min_y = self.bounds.grid_min.y();
-        let tile_max_y = self.bounds.grid_min.y() + self.height_tiles as f32 * resolution;
+        let tile_min_x = geometry.grid_min.x();
+        let tile_max_x = geometry.grid_min.x() + geometry.width as f32 * resolution;
+        let tile_min_y = geometry.grid_min.y();
+        let tile_max_y = geometry.grid_min.y() + geometry.height as f32 * resolution;
 
         if max_x < tile_min_x || min_x > tile_max_x || max_y < tile_min_y || min_y > tile_max_y {
             return None;
@@ -373,10 +340,10 @@ impl VoronoiGrid {
         let mut min_y_index = ((min_y - tile_min_y) / resolution).floor() as isize - 1;
         let mut max_y_index = ((max_y - tile_min_y) / resolution).floor() as isize + 1;
 
-        min_x_index = min_x_index.clamp(0, self.width_tiles as isize - 1);
-        max_x_index = max_x_index.clamp(0, self.width_tiles as isize - 1);
-        min_y_index = min_y_index.clamp(0, self.height_tiles as isize - 1);
-        max_y_index = max_y_index.clamp(0, self.height_tiles as isize - 1);
+        min_x_index = min_x_index.clamp(0, geometry.width as isize - 1);
+        max_x_index = max_x_index.clamp(0, geometry.width as isize - 1);
+        min_y_index = min_y_index.clamp(0, geometry.height as isize - 1);
+        max_y_index = max_y_index.clamp(0, geometry.height as isize - 1);
 
         Some((
             min_x_index as usize,
@@ -402,7 +369,7 @@ impl VoronoiGrid {
 
         for y in min_y..=max_y {
             for x in min_x..=max_x {
-                let index = index_from_xy(self.width_tiles, x, y);
+                let index = index_from_xy(self.geometry.width, x, y);
                 let grid_point = self.index_to_point(index);
                 if contains(grid_point) {
                     self.tiles[index] = Ownership::Blocked;
@@ -412,9 +379,9 @@ impl VoronoiGrid {
     }
 
     fn neighbor_indices(&self, index: usize) -> impl Iterator<Item = (usize, Neighbor)> + use<> {
-        let (x, y) = xy_from_index(self.width_tiles, index);
-        let width_tiles = self.width_tiles;
-        let height_tiles = self.height_tiles;
+        let (x, y) = xy_from_index(self.geometry.width, index);
+        let width_tiles = self.geometry.width;
+        let height_tiles = self.geometry.height;
 
         NEIGHBORS.into_iter().filter_map(move |neighbor| {
             let nx = x as isize + neighbor.dx;
@@ -433,12 +400,18 @@ impl VoronoiGrid {
     pub fn ownership_at(&self, point: Point2<Field>) -> Option<Ownership> {
         self.point_to_index(point).map(|index| self.tiles[index])
     }
-}
 
-fn rotation_cost(sin_h: f32, cos_h: f32, neighbor: Neighbor, orientation_bias: f32) -> f32 {
-    let dot = (cos_h * neighbor.dx as f32 + sin_h * neighbor.dy as f32) * neighbor.inv_norm;
-    let turn_factor = (1.0 - dot.clamp(-1.0, 1.0)) * 0.5;
-    (turn_factor * orientation_bias).max(0.0)
+    pub fn cells(&self) -> impl Iterator<Item = (Point2<Field>, Ownership)> + '_ {
+        self.tiles
+            .iter()
+            .copied()
+            .enumerate()
+            .map(|(index, ownership)| (self.index_to_point(index), ownership))
+    }
+
+    pub fn resolution(&self) -> f32 {
+        self.geometry.resolution
+    }
 }
 
 fn index_from_xy(width_tiles: usize, x: usize, y: usize) -> usize {
