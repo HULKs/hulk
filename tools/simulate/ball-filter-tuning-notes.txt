@@ -115,6 +115,10 @@ Twix remote bridge and launch controls (2026-10-03)
 - Later SSH timeout retained the previous snapshot/parameters and exposed the
   error. Local machine restarted before final checkpoint; reconnect local bridge
   to existing remote runs without starting any additional remote search workers.
+- Implementation checkpoint c141f5175. Post-restart reconnect succeeded with
+  fresh32-worker status, no SSH error, selected worker-03/round-000188 and live
+  preview parameter application. Twix reopened; local session location/PID are in
+  logs/remote-bridge-current-session.json (currently remote-twix-reconnect-1791009737).
 - Remote startup capacity is sampled, not reserved. Full-history checkpoint
   inspection should eventually use a validated immutable-round cache as runs grow.
 
