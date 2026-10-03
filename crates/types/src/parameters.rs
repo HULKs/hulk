@@ -225,21 +225,127 @@ pub struct BallFilterNoise {
     pub initial_covariance: nalgebra::Vector4<f32>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
+#[derive(Clone, Debug, Deserialize, Serialize, Message)]
 pub struct BallFilterParameters {
+    /// Trust fresh localization for field-boundary confidence weighting and decay.
+    /// Set false when localization is uncertain; this is an operator assertion,
+    /// not an automatically estimated localization-quality signal.
+    #[serde(default = "default_good_localization")]
+    pub good_localization: bool,
+    /// Maximum absolute offset between image exposure and camera geometry.
+    #[serde(default = "default_ball_camera_tolerance")]
+    pub maximum_camera_matrix_time_difference: Duration,
+    /// Additional clearance in metres after the whole ball crosses the playing
+    /// field boundary, before either confidence weighting or stored decay starts.
+    /// Omitted legacy values default to zero; invalid/negative values act as zero.
+    #[serde(default)]
+    pub field_boundary_margin: f32,
+    /// Distance beyond the boundary margin for an e-fold reduction; <= 0 disables.
+    #[serde(default = "default_ball_field_confidence_decay_distance")]
+    pub field_boundary_confidence_decay_distance: f32,
+    /// Maximum additional confidence decay per second outside the field.
+    /// Zero preserves historical recordings without time-based field decay.
+    #[serde(default)]
+    pub field_boundary_validity_decay_rate: f32,
+    /// Maximum projected detection distance in Ground metres; zero disables.
+    #[serde(default)]
+    pub maximum_detection_distance: f32,
     pub hypothesis_timeout: Duration,
+    /// Confirmed clear-view miss time before deleting a hypothesis; zero disables.
+    /// Legacy recording baselines omit this field and retain their original behavior.
+    #[serde(default)]
+    pub visible_missed_detection_timeout: Duration,
+    /// Continuous clear-view miss time for a nearby ball; zero keeps legacy behavior.
+    #[serde(default)]
+    pub near_visible_missed_detection_timeout: Duration,
+    /// Ground distance in metres for the fast near-ball miss rule; zero disables it.
+    #[serde(default)]
+    pub near_visible_missed_detection_distance: f32,
+    /// Maximum age of the obstacle model used to establish a clear camera view.
+    #[serde(default = "default_ball_obstacle_tolerance")]
+    pub maximum_obstacle_time_difference: Duration,
     pub maximum_number_of_hypotheses: usize,
     pub ball_confidence_threshold: f32,
     pub log_likelihood_of_zero_velocity_threshold: f32,
     pub hypothesis_merge_distance: f32,
     pub visible_validity_exponential_decay_factor: f32,
     pub hidden_validity_exponential_decay_factor: f32,
+    /// Unmatched hidden-track decay per second. None preserves the legacy factor.
+    #[serde(default)]
+    pub hidden_validity_decay_rate: Option<f32>,
+    /// Clear-view unmatched-track decay per second. None preserves the legacy factor.
+    #[serde(default)]
+    pub visible_missed_validity_decay_rate: Option<f32>,
+    /// Additional decay per second for clearly missed balls in kick range.
+    /// None preserves historical behavior; zero applies no extra near-ball decay.
+    #[serde(default)]
+    pub near_visible_missed_validity_decay_rate: Option<f32>,
+    /// Extra decay per second for unmatched competitors of a persistently observed,
+    /// confident leader. None preserves legacy behavior; zero disables the penalty.
+    #[serde(default)]
+    pub competing_hypothesis_validity_decay_rate: Option<f32>,
+    /// Fraction of bounded confidence inherited when spawning near a recent track.
+    /// None preserves legacy spawn confidence; zero disables the bonus.
+    #[serde(default)]
+    pub nearby_spawn_validity_factor: Option<f32>,
     pub validity_output_threshold: f32,
     pub validity_discard_threshold: f32,
     pub velocity_decay_factor: f32,
     pub noise: BallFilterNoise,
     pub maximum_matching_cost: f32,
+    /// Legacy compatibility field; rejected associations no longer penalize track validity.
     pub maximum_matching_cost_validity_penalty_factor: f32,
+}
+
+impl Default for BallFilterParameters {
+    fn default() -> Self {
+        Self {
+            good_localization: true,
+            maximum_camera_matrix_time_difference: Default::default(),
+            field_boundary_margin: Default::default(),
+            field_boundary_confidence_decay_distance: Default::default(),
+            field_boundary_validity_decay_rate: Default::default(),
+            maximum_detection_distance: Default::default(),
+            hypothesis_timeout: Default::default(),
+            visible_missed_detection_timeout: Default::default(),
+            near_visible_missed_detection_timeout: Default::default(),
+            near_visible_missed_detection_distance: Default::default(),
+            maximum_obstacle_time_difference: Default::default(),
+            maximum_number_of_hypotheses: Default::default(),
+            ball_confidence_threshold: Default::default(),
+            log_likelihood_of_zero_velocity_threshold: Default::default(),
+            hypothesis_merge_distance: Default::default(),
+            visible_validity_exponential_decay_factor: Default::default(),
+            hidden_validity_exponential_decay_factor: Default::default(),
+            hidden_validity_decay_rate: Default::default(),
+            visible_missed_validity_decay_rate: Default::default(),
+            near_visible_missed_validity_decay_rate: Default::default(),
+            competing_hypothesis_validity_decay_rate: Default::default(),
+            nearby_spawn_validity_factor: Default::default(),
+            validity_output_threshold: Default::default(),
+            validity_discard_threshold: Default::default(),
+            velocity_decay_factor: Default::default(),
+            noise: Default::default(),
+            maximum_matching_cost: Default::default(),
+            maximum_matching_cost_validity_penalty_factor: Default::default(),
+        }
+    }
+}
+
+fn default_good_localization() -> bool {
+    true
+}
+
+fn default_ball_field_confidence_decay_distance() -> f32 {
+    0.3
+}
+
+fn default_ball_obstacle_tolerance() -> Duration {
+    Duration::from_millis(100)
+}
+
+fn default_ball_camera_tolerance() -> Duration {
+    Duration::from_millis(20)
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
