@@ -1,3 +1,4 @@
+use hsl_network_messages::SubState;
 use types::{
     controller_input::Button, motion_command::KickPower, motion_type::MotionType,
     primary_state::PrimaryState,
@@ -9,9 +10,10 @@ use crate::{
     behavior_tree::Node,
     condition,
     conditions::{
-        has_ball_position, is_ball_interception_candidate, is_close_to_ball, is_closest_to_ball,
-        is_controller_connected, is_fallen, is_goalkeeper, is_last_hulk_standing, is_primary_state,
-        is_remote_control_enabled, is_remote_kick_mode, is_simple,
+        has_ball_position, hulks_is_kicking_team, is_ball_interception_candidate, is_close_to_ball,
+        is_closest_to_ball, is_controller_connected, is_fallen, is_goalkeeper,
+        is_last_hulk_standing, is_primary_state, is_remote_control_enabled, is_remote_kick_mode,
+        is_simple,
     },
     goalkeeper::goalkeeper_subtree,
     head::{look_around, look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
@@ -21,10 +23,10 @@ use crate::{
     penalty_shootout::{is_penalty_shootout, penalty_shootout_subtree},
     search::leuchtturm,
     selection, sequence,
-    substates::{is_in_sub_state, sub_state_subtree},
+    substates::{is_in_sub_state, is_sub_state, sub_state_subtree},
     subtree,
     switch_motion_type::switch_motion_type,
-    voronoi::calculate_voronoi_grid,
+    voronoi::{calculate_voronoi_grid, calculate_voronoi_grid_without_goalkeeper},
     walk::{
         walk_alternatives_subtree, walk_to_ball_subtree, walk_to_kickoff_pose,
         walk_to_voronoi_position,
@@ -110,7 +112,15 @@ fn playing_subtree() -> Node<Blackboard> {
             subtree!(search_subtree)
         ),
         sequence!(
-            action!(calculate_voronoi_grid),
+            selection!(
+                sequence!(
+                    condition!(hulks_is_kicking_team),
+                    condition!(is_in_sub_state),
+                    negation!(condition!(is_sub_state, SubState::GoalKick)),
+                    action!(calculate_voronoi_grid_without_goalkeeper),
+                ),
+                action!(calculate_voronoi_grid),
+            ),
             condition!(is_closest_to_ball),
             subtree!(striker_subtree),
         ),
