@@ -228,8 +228,13 @@ pub struct BallFilterNoise {
     pub initial_covariance: nalgebra::Vector4<f32>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
+#[derive(Clone, Debug, Deserialize, Serialize, Message)]
 pub struct BallFilterParameters {
+    /// Trust fresh localization for field-boundary confidence weighting and decay.
+    /// Set false when localization is uncertain; this is an operator assertion,
+    /// not an automatically estimated localization-quality signal.
+    #[serde(default = "default_good_localization")]
+    pub good_localization: bool,
     /// Maximum absolute offset between image exposure and camera geometry.
     #[serde(default = "default_ball_camera_tolerance")]
     pub maximum_camera_matrix_time_difference: Duration,
@@ -284,6 +289,43 @@ pub struct BallFilterParameters {
     pub maximum_matching_cost: f32,
     /// Legacy compatibility field; rejected associations no longer penalize track validity.
     pub maximum_matching_cost_validity_penalty_factor: f32,
+}
+
+impl Default for BallFilterParameters {
+    fn default() -> Self {
+        Self {
+            good_localization: true,
+            maximum_camera_matrix_time_difference: Default::default(),
+            field_boundary_confidence_decay_distance: Default::default(),
+            field_boundary_validity_decay_rate: Default::default(),
+            maximum_detection_distance: Default::default(),
+            hypothesis_timeout: Default::default(),
+            visible_missed_detection_timeout: Default::default(),
+            near_visible_missed_detection_timeout: Default::default(),
+            near_visible_missed_detection_distance: Default::default(),
+            maximum_obstacle_time_difference: Default::default(),
+            maximum_number_of_hypotheses: Default::default(),
+            ball_confidence_threshold: Default::default(),
+            log_likelihood_of_zero_velocity_threshold: Default::default(),
+            hypothesis_merge_distance: Default::default(),
+            visible_validity_exponential_decay_factor: Default::default(),
+            hidden_validity_exponential_decay_factor: Default::default(),
+            hidden_validity_decay_rate: Default::default(),
+            visible_missed_validity_decay_rate: Default::default(),
+            near_visible_missed_validity_decay_rate: Default::default(),
+            competing_hypothesis_validity_decay_rate: Default::default(),
+            validity_output_threshold: Default::default(),
+            validity_discard_threshold: Default::default(),
+            velocity_decay_factor: Default::default(),
+            noise: Default::default(),
+            maximum_matching_cost: Default::default(),
+            maximum_matching_cost_validity_penalty_factor: Default::default(),
+        }
+    }
+}
+
+fn default_good_localization() -> bool {
+    true
 }
 
 fn default_ball_field_confidence_decay_distance() -> f32 {

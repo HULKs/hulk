@@ -50,6 +50,10 @@ pub(crate) struct ValidityDecayClock {
 }
 
 impl ValidityDecayClock {
+    pub fn reset(&mut self) {
+        self.previous = None;
+    }
+
     pub fn elapsed(&mut self, time: Time, valid_pose: bool) -> Duration {
         let elapsed = match self.previous {
             Some((previous, _)) if time <= previous => return Duration::ZERO,
@@ -76,7 +80,11 @@ pub(crate) fn decay_stored_validity(
     parameters: &BallFilterParameters,
 ) {
     let maximum_rate = parameters.field_boundary_validity_decay_rate;
-    if elapsed.is_zero() || !maximum_rate.is_finite() || maximum_rate <= 0.0 {
+    if !parameters.good_localization
+        || elapsed.is_zero()
+        || !maximum_rate.is_finite()
+        || maximum_rate <= 0.0
+    {
         return;
     }
     for hypothesis in hypotheses {
@@ -101,6 +109,9 @@ pub(crate) fn confidence_weight(
     dimensions: &FieldDimensions,
     parameters: &BallFilterParameters,
 ) -> f32 {
+    if !parameters.good_localization {
+        return 1.0;
+    }
     let decay_distance = parameters.field_boundary_confidence_decay_distance;
     let Some(ground_to_field) =
         ground_to_field.filter(|_| decay_distance.is_finite() && decay_distance > 0.0)
@@ -168,6 +179,141 @@ mod tests {
             );
         }
         tracker.filter.hypotheses[0].validity
+    }
+
+    #[test]
+    fn untrusted_localization_preserves_candidate_confidence_and_output_selection() {
+        let dimensions = FieldDimensions::SPL_2025;
+        let mut parameters = parameters();
+        assert!(
+            parameters.good_localization,
+            "preserve existing default behavior"
+        );
+        parameters.good_localization = false;
+        parameters.field_boundary_validity_decay_rate = 2.0;
+        parameters.validity_discard_threshold = 1.0;
+        let outside = hypothesis(dimensions.length / 2.0 + 1.5, 0.0, 25.0);
+        let original = outside.position();
+        let mut tracker = Tracker::default();
+        tracker.filter.hypotheses = vec![outside, hypothesis(1.0, 0.0, 4.0)];
+        for millis in (0..=2000).step_by(40) {
+            let pose = if millis < 1000 {
+                Some(Isometry2::identity())
+            } else {
+                Some(Isometry2::from_parts(vector![9.0, -5.0], 1.0))
+            };
+            let selected = tracker
+                .finish_with_field_pose(
+                    Time::from_nanos(millis * 1_000_000),
+                    &parameters,
+                    &dimensions,
+                    pose,
+                )
+                .unwrap();
+            assert_eq!(tracker.filter.hypotheses.len(), 2);
+            assert_eq!(tracker.filter.hypotheses[0].validity, 25.0);
+            assert_eq!(tracker.filter.hypotheses[1].validity, 4.0);
+            assert_eq!(selected.position, original.position);
+            assert_eq!(selected.velocity, original.velocity);
+            assert_eq!(selected.last_seen, original.last_seen);
+            assert!(crate::hypothetical_ball_positions(
+                &tracker.filter, &parameters, &dimensions, pose,
+            ).is_empty());
+        }
+        parameters.good_localization = true;
+        let selected = tracker
+            .finish_with_field_pose(
+                Time::from_nanos(2_040_000_000),
+                &parameters,
+                &dimensions,
+                Some(Isometry2::identity()),
+            )
+            .unwrap();
+        assert_eq!(selected.position, point![1.0, 0.0]);
+        assert_eq!(
+            tracker.filter.hypotheses[0].validity, 25.0,
+            "the first trusted pose must not charge disabled time"
+        );
+        assert_eq!(
+            crate::hypothetical_ball_positions(
+                &tracker.filter,
+                &parameters,
+                &dimensions,
+                Some(Isometry2::identity()),
+            )
+            .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn disabling_localization_resets_decay_even_at_duplicate_or_older_finish_times() {
+        let dimensions = FieldDimensions::SPL_2025;
+        let pose = Some(Isometry2::identity());
+        for disabled_millis in [20, 40, 60] {
+            let mut parameters = parameters();
+            parameters.field_boundary_validity_decay_rate = 2.0;
+            let mut tracker = Tracker::default();
+            tracker
+                .filter
+                .hypotheses
+                .push(hypothesis(dimensions.length / 2.0 + 0.6, 0.0, 25.0));
+            for millis in [0, 40] {
+                tracker.finish_with_field_pose(
+                    Time::from_nanos(millis * 1_000_000),
+                    &parameters,
+                    &dimensions,
+                    pose,
+                );
+            }
+            let before = tracker.filter.hypotheses[0].validity;
+            assert!(before < 25.0);
+            parameters.good_localization = false;
+            tracker.finish_with_field_pose(
+                Time::from_nanos(disabled_millis * 1_000_000),
+                &parameters,
+                &dimensions,
+                pose,
+            );
+            assert_eq!(tracker.filter.hypotheses[0].validity, before);
+            parameters.good_localization = true;
+            tracker.finish_with_field_pose(
+                Time::from_nanos(80_000_000),
+                &parameters,
+                &dimensions,
+                pose,
+            );
+            assert_eq!(tracker.filter.hypotheses[0].validity, before);
+            tracker.finish_with_field_pose(
+                Time::from_nanos(120_000_000),
+                &parameters,
+                &dimensions,
+                pose,
+            );
+            assert!(tracker.filter.hypotheses[0].validity < before);
+        }
+    }
+
+    #[test]
+    fn direct_field_decay_and_ranking_are_neutral_when_localization_is_untrusted() {
+        let dimensions = FieldDimensions::SPL_2025;
+        let mut parameters = parameters();
+        parameters.good_localization = false;
+        parameters.field_boundary_validity_decay_rate = 2.0;
+        let mut balls = vec![hypothesis(1.0, 0.0, 2.0)];
+        let pose = Some(Isometry2::from_parts(vector![100.0, 0.0], 0.0));
+        decay_stored_validity(
+            &mut balls,
+            Duration::from_secs(5),
+            pose,
+            &dimensions,
+            &parameters,
+        );
+        assert_eq!(balls[0].validity, 2.0);
+        assert_eq!(
+            effective_validity(&balls[0], pose, &dimensions, &parameters),
+            2.0
+        );
     }
 
     #[test]

@@ -151,7 +151,8 @@ impl Tracker {
 
     /// Applies the selected, timestamp-matched field pose to the output prior
     /// and optional stored-validity decay. Replay supplies the exact recorded
-    /// pose; a missing pose pauses field-dependent decay.
+    /// pose; a missing pose pauses field-dependent decay. Disabling trust in
+    /// localization clears its clock so re-enabling cannot charge unknown time.
     pub fn finish_with_field_pose(
         &mut self,
         time: Time,
@@ -166,7 +167,12 @@ impl Tracker {
                 .all(|value| value.is_finite())
         }) && parameters.field_boundary_validity_decay_rate.is_finite()
             && parameters.field_boundary_validity_decay_rate > 0.0;
-        let elapsed = self.field_decay_clock.elapsed(time, valid_pose);
+        let elapsed = if parameters.good_localization {
+            self.field_decay_clock.elapsed(time, valid_pose)
+        } else {
+            self.field_decay_clock.reset();
+            Duration::ZERO
+        };
         field_prior::decay_stored_validity(
             &mut self.filter.hypotheses,
             elapsed,
