@@ -1635,6 +1635,7 @@ mod tests {
             parameters: std::sync::Arc::new(crate::parameters::SimulatorParameters {
                 field_dimensions: types::field_dimensions::FieldDimensions::SPL_2025,
                 ball_perception: Default::default(),
+                opponents: Default::default(),
                 ball: BallParameters {
                     mass: 0.45,
                     joint_damping: 0.002,

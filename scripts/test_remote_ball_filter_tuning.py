@@ -8,7 +8,7 @@ import shlex
 import tarfile
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 loader = importlib.machinery.SourceFileLoader("remote_tuning", str(Path(__file__).with_name("remote_ball_filter_tuning")))
 spec = importlib.util.spec_from_loader(loader.name, loader)
@@ -284,6 +284,15 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(len(snapshot["remote"]["workers"]), 2)
         self.assertEqual(snapshot["updated_unix_seconds"], 123.0)
 
+    def test_inspection_source_is_cached_across_later_workspace_edits(self):
+        import inspect
+        first = helper.bridge_inspection_command(["run-0"])
+        with patch.object(inspect, "getsource", side_effect=OSError("source file changed")):
+            second = helper.bridge_inspection_command(["run-1"])
+        self.assertEqual(first[2], second[2])
+        self.assertEqual(second[3:], ["run-1"])
+        compile(second[2], "cached inspection", "exec")
+
     def test_read_only_probe_is_self_contained_and_does_not_rewrite_controller(self):
         arguments = helper.bridge_inspection_command(["run-0", "run-1"])
         code = compile(arguments[2], "inspection", "exec")
@@ -300,6 +309,89 @@ class BridgeTests(unittest.TestCase):
         result = json.loads(output.getvalue())
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0]["completed_trials"], 256)
+
+
+class CooperativeControllerTests(unittest.TestCase):
+    def test_controls_refuse_legacy_and_wrong_ownership_without_touching_stop_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            root = home / helper.TASK_BASE / "runs/owned"
+            root.mkdir(parents=True)
+            manifest = dict(run="owned", host="remote-compiler", controller_protocol=1, control_token="a" * 32)
+            path = root / "manifest.json"
+            path.write_text(json.dumps(manifest))
+            arguments = ["-c", str(root.relative_to(home)), "owned", "b" * 32, "stop"]
+            with patch.object(Path, "home", return_value=home), patch.object(helper.sys, "argv", arguments):
+                with self.assertRaisesRegex(ValueError, "ownership/protocol"):
+                    exec(helper.CONTROL, {})
+            self.assertFalse((root / "stop.requested").exists())
+            arguments[3] = "a" * 32
+            with patch.object(Path, "home", return_value=home), patch.object(helper.sys, "argv", arguments), \
+                 patch.object(helper.sys, "stdout", io.StringIO()):
+                exec(helper.CONTROL, {})
+            self.assertTrue((root / "stop.requested").exists())
+            manifest.pop("controller_protocol")
+            path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError, "monitor-only"):
+                helper.controlled_manifest(path)
+
+    def run_fixture(self, *, stop_while_paused):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        home = Path(temporary.name)
+        root = home / "run"
+        (root / "source").mkdir(parents=True)
+        cache = home / helper.TASK_BASE
+        (cache / "target/release").mkdir(parents=True)
+        (cache / "target/release/ball-filter-tuner").write_text("fixture binary")
+        manifest = dict(run="owned", workers=1, build_jobs=1, toolchain="test", tmux_session="owned",
+                        start_paused=True, initial=False, seed=7, trials=2,
+                        reference_frame="field", reference_topic="truth", namespace="")
+        (root / "manifest.json").write_text(json.dumps(manifest))
+        events = []
+        def sleep(_seconds):
+            self.assertEqual(json.loads((root / "status.json").read_text())["state"], "ready")
+            self.assertNotIn("tuner", events)
+            (root / ("stop.requested" if stop_while_paused else "activate.requested")).touch()
+            events.append("stop-paused" if stop_while_paused else "activate")
+        def run(command, **kwargs):
+            if command[0] == "cargo":
+                events.append("build")
+                return Mock(returncode=0)
+            self.assertIn("activate", events)
+            events.append("tuner")
+            output = Path(command[command.index("--output") + 1])
+            output.mkdir()
+            (output / "report.json").write_text(json.dumps(dict(replay_matches_live=True,
+                continuity_policy="baseline", training={"optimized": {"loss": 1.0}})))
+            (output / "ball_filter.json5").write_text("{}")
+            # Request stop during the round. Its successful result must still be
+            # committed before the worker exits, with no second round launched.
+            (root / "stop.requested").touch()
+            return Mock(returncode=0)
+        with patch.object(helper, "__file__", str(root / "controller.py")), \
+             patch.object(Path, "home", return_value=home), \
+             patch.object(helper.subprocess, "run", side_effect=run), \
+             patch.object(helper.subprocess, "check_output", return_value="rustc test"), \
+             patch.object(helper.time, "sleep", side_effect=sleep), \
+             patch.object(helper.sys, "stdout", io.StringIO()):
+            helper.run_remote()
+        return root, events
+
+    def test_paused_build_starts_no_workers_until_activated_then_finishes_current_round(self):
+        root, events = self.run_fixture(stop_while_paused=False)
+        self.assertEqual(events, ["build", "activate", "tuner"])
+        self.assertEqual(json.loads((root / "status.json").read_text())["state"], "stopped")
+        self.assertEqual(json.loads((root / "worker-00.json").read_text())["state"], "stopped")
+        self.assertTrue((root / "results/worker-00/round-000001/complete.json").is_file())
+        self.assertFalse((root / "results/worker-00/round-000002").exists())
+        self.assertEqual(json.loads((root / "best.json").read_text())["round"], 1)
+
+    def test_paused_generation_can_stop_without_ever_spawning_a_tuner(self):
+        root, events = self.run_fixture(stop_while_paused=True)
+        self.assertEqual(events, ["build", "stop-paused"])
+        self.assertEqual(json.loads((root / "status.json").read_text())["state"], "stopped")
+        self.assertFalse((root / "results").exists())
 
 
 if __name__ == "__main__":

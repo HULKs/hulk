@@ -6,6 +6,7 @@ from pathlib import Path
 import signal
 import subprocess
 import tempfile
+import time
 import unittest
 from unittest.mock import Mock, patch
 
@@ -30,7 +31,7 @@ class BallFilterLauncherTests(unittest.TestCase):
                 launcher.run(args, children)
             command = children.run.call_args.args[0]
             self.assertEqual(command, [launcher.REPOSITORY / "simulator", "--tune-ball-filter",
-                                      output / "local", "--tuning-trials", "256"])
+                                      output / "local", "--tuning-trials", "256", *launcher.simulator_scenario(args)])
             children.start.assert_not_called()
             children.monitor.assert_not_called()
 
@@ -62,7 +63,7 @@ class BallFilterLauncherTests(unittest.TestCase):
             preview = children.start.call_args_list[1].args[0]
             self.assertEqual(bridge[2:], ["bridge", *manifests, "--output", output / "monitor"])
             self.assertEqual(preview[1:], ["--remote-ball-tuning", output / "monitor/remote-progress.json",
-                                          "--remote-tuning-output", output / "preview"])
+                                          "--remote-tuning-output", output / "preview", "--tuning-opponents", "2", "--tuning-opponent-width", "0.44"])
             children.monitor.assert_called_once()
 
     def test_capacity_rejects_another_32_workers_and_bounds_auth_wait(self):
@@ -111,13 +112,14 @@ class BallFilterLauncherTests(unittest.TestCase):
                 if "start" in command:
                     remote = output / "remote"
                     remote.mkdir()
-                    (remote / "manifest.json").write_text("{}")
+                    (remote / "manifest.json").write_text(json.dumps(dict(run="owned", controller_protocol=1,
+                        control_token="a" * 32, workers=4, host="remote-compiler")))
             children.run.side_effect = complete_stage
             with patch.object(launcher, "remote_worker_slots", side_effect=[8, 4]) as capacity, \
                  patch.object(launcher, "log"):
-                launcher.run(self.arguments("remote", output), children)
+                launcher.run(self.arguments("remote", output, "--refresh-minutes", "0"), children)
             stages = children.run.call_args_list
-            self.assertEqual(stages[0].args[0][1:], ["--capture-ball-tuning", output / "recordings"])
+            self.assertEqual(stages[0].args[0][1:], ["--capture-ball-tuning", output / "recordings", "--tuning-opponents", "2", "--tuning-opponent-width", "0.44"])
             remote = stages[1].args[0]
             self.assertEqual(remote[remote.index("--workers") + 1], "4")
             self.assertIn("--full-cpu", remote)
@@ -181,6 +183,164 @@ class BallFilterLauncherTests(unittest.TestCase):
         with patch.object(children, "start", return_value=child):
             with self.assertRaisesRegex(RuntimeError, "check SSH authentication"):
                 children.run(["placeholder"], "Remote start", timeout=300)
+
+
+class RefreshGenerationTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.args = launcher.parser().parse_args(["remote", "--output", str(self.root)])
+        self.old_manifest = self.root / "remote/manifest.json"
+        self.old_manifest.parent.mkdir()
+        self.old_manifest.write_text(json.dumps(dict(run="old-owned", host="remote-compiler", workers=4,
+                                                      controller_protocol=1, control_token="a" * 32)))
+        monitor = self.root / "monitor"
+        monitor.mkdir()
+        (monitor / "bridge-state.json").write_text(json.dumps(dict(identity={"runs": ["old-owned"]}, provenance={"verified": True})))
+        (monitor / "remote-progress.json").write_text(json.dumps(dict(
+            updated_unix_seconds=time.time(), error=None,
+            search={"best_parameters": {"hypothesis_timeout": {"secs": 20, "nanos": 0}, "gain": 1.5}},
+            remote={"best_candidate": "old-owned/worker-0/round-10"})))
+        preview = self.root / "preview"
+        preview.mkdir()
+        (preview / "scenario.json").write_text(json.dumps({"count": 3, "width": 0.7}))
+        self.session = dict(mode="remote", pid=123, output=str(self.root), recordings="/original/recordings",
+                            manifests=[str(self.old_manifest)], generations=[dict(index=0, root=str(self.root), state="active")],
+                            monitor=str(monitor), preview=str(preview), workers=4, active_generation=0)
+        self.children = Mock()
+        self.events = []
+        self.children.close.side_effect = lambda: self.events.append("close-local")
+        self.children.start.side_effect = lambda command, label: self.events.append(("local", command, label))
+        self.children.run.side_effect = self.command
+        status = patch.object(launcher, "remote_generation_status", return_value={"state": "ready", "stop_requested": False})
+        self.remote_status = status.start()
+        self.addCleanup(status.stop)
+
+    def command(self, command, label, **kwargs):
+        self.events.append(("run", command, label))
+        if "--capture-ball-tuning" in command:
+            self.assertFalse(any(isinstance(event, tuple) and "stop" in event[1] for event in self.events))
+        if "start" in command:
+            self.assertIn("--paused", command)
+            self.assertIn("--initial-parameters", command)
+            directory = Path(command[command.index("--local-directory") + 1])
+            directory.mkdir()
+            (directory / "manifest.json").write_text(json.dumps(dict(run="new-owned", host="remote-compiler", workers=4,
+                                                                     controller_protocol=1, control_token="b" * 32)))
+
+    def test_refresh_freezes_best_varies_seed_and_only_swaps_after_replacement_is_ready(self):
+        with patch.object(launcher, "remote_worker_slots", return_value=4), patch.object(launcher, "log"):
+            launcher.refresh_generation(self.args, self.children, self.session)
+        commands = [event[1] for event in self.events if isinstance(event, tuple) and event[0] == "run"]
+        capture, start, ready, stop, activate = commands
+        self.assertIn("--capture-ball-parameters", capture)
+        self.assertEqual(capture[capture.index("--capture-ball-seed-offset") + 1], "1000000")
+        self.assertEqual(capture[capture.index("--tuning-opponents") + 1], "3")
+        self.assertEqual(capture[capture.index("--tuning-opponent-width") + 1], "0.7")
+        self.assertIn("wait-ready", ready)
+        self.assertEqual(stop[2:4], ["stop", self.old_manifest])
+        self.assertIn("--wait", stop)
+        self.assertIn("activate", activate)
+        baseline = Path(capture[capture.index("--capture-ball-parameters") + 1])
+        self.assertEqual(json.loads(baseline.read_text())["gain"], 1.5)
+        self.assertEqual(self.session["active_generation"], 1)
+        self.assertNotEqual(self.session["manifests"], [str(self.old_manifest)])
+        self.assertEqual(self.session["generations"][1]["state"], "active")
+        self.assertIn("generation-0001/monitor", self.session["monitor"])
+        self.assertEqual(json.loads((self.root / "session.json").read_text())["manifests"], self.session["manifests"])
+
+    def test_failed_capture_restores_old_preview_without_stopping_remote_workers(self):
+        def failed_capture(command, label, **kwargs):
+            self.command(command, label, **kwargs)
+            raise RuntimeError("capture failed")
+        self.children.run.side_effect = failed_capture
+        with patch.object(launcher, "log"), self.assertRaisesRegex(RuntimeError, "capture failed"):
+            launcher.refresh_generation(self.args, self.children, self.session)
+        self.assertEqual(self.session["manifests"], [str(self.old_manifest)])
+        self.assertEqual(self.session["generations"][1]["state"], "capture_failed")
+        commands = [event[1] for event in self.events if isinstance(event, tuple)]
+        self.assertFalse(any("stop" in command or "start" in command for command in commands))
+        self.assertTrue(any("--remote-ball-tuning" in command for command in commands))
+
+    def test_failed_upload_preserves_old_search_and_completed_new_capture(self):
+        def failed_upload(command, label, **kwargs):
+            self.command(command, label, **kwargs)
+            if "start" in command:
+                raise RuntimeError("upload failed")
+        self.children.run.side_effect = failed_upload
+        with patch.object(launcher, "log"), self.assertRaisesRegex(RuntimeError, "upload failed"):
+            launcher.refresh_generation(self.args, self.children, self.session)
+        self.assertEqual(self.session["generations"][1]["state"], "prepare_failed")
+        self.assertEqual(self.session["manifests"], [str(self.old_manifest)])
+        self.assertFalse(any(isinstance(event, tuple) and "stop" in event[1] for event in self.events))
+        self.assertTrue((self.root / "generations/generation-0001/baseline.json5").exists())
+
+    def test_stale_snapshot_defers_before_interrupting_live_preview(self):
+        path = Path(self.session["monitor"]) / "remote-progress.json"
+        value = json.loads(path.read_text())
+        value["updated_unix_seconds"] -= 16
+        path.write_text(json.dumps(value))
+        with self.assertRaisesRegex(ValueError, "fresh"):
+            launcher.refresh_generation(self.args, self.children, self.session)
+        self.children.close.assert_not_called()
+        self.children.run.assert_not_called()
+
+    def test_activation_failure_retries_prepared_generation_without_recapturing(self):
+        original = self.command
+        def fail_activate(command, label, **kwargs):
+            original(command, label, **kwargs)
+            if "activate" in command:
+                raise RuntimeError("temporary SSH failure")
+        self.children.run.side_effect = fail_activate
+        with patch.object(launcher, "remote_worker_slots", return_value=4), patch.object(launcher, "log"):
+            with self.assertRaisesRegex(RuntimeError, "temporary SSH failure"):
+                launcher.refresh_generation(self.args, self.children, self.session)
+            self.assertEqual(self.session["generations"][1]["state"], "old_stopped")
+            self.events.clear()
+            self.children.run.side_effect = original
+            launcher.refresh_generation(self.args, self.children, self.session)
+        commands = [event[1] for event in self.events if isinstance(event, tuple) and event[0] == "run"]
+        self.assertEqual(len(commands), 1)
+        self.assertIn("activate", commands[0])
+        self.assertEqual(len(self.session["generations"]), 2)
+
+    def test_lost_activation_ack_adopts_already_running_owned_workers_without_capacity_probe(self):
+        def lose_ack(command, label, **kwargs):
+            self.command(command, label, **kwargs)
+            if "activate" in command:
+                raise RuntimeError("activation acknowledgement lost")
+        self.children.run.side_effect = lose_ack
+        with patch.object(launcher, "remote_worker_slots", return_value=4) as capacity, patch.object(launcher, "log"):
+            with self.assertRaisesRegex(RuntimeError, "acknowledgement"):
+                launcher.refresh_generation(self.args, self.children, self.session)
+            self.remote_status.return_value = {"state": "searching", "stop_requested": False}
+            self.children.run.reset_mock()
+            capacity.reset_mock()
+            launcher.refresh_generation(self.args, self.children, self.session)
+            capacity.assert_not_called()
+            self.children.run.assert_not_called()
+        self.assertEqual(self.session["active_generation"], 1)
+
+    def test_supervisor_does_not_restart_preview_when_stale_result_defers_refresh(self):
+        self.children.monitor.side_effect = [None, launcher.StopRequested(signal.SIGINT)]
+        with patch.object(launcher, "refresh_generation", side_effect=ValueError("stale result")), \
+             patch.object(launcher, "log"), self.assertRaises(launcher.StopRequested):
+            launcher.supervise_remote(self.args, self.children, self.session)
+        self.children.close.assert_not_called()
+        self.children.start.assert_not_called()
+
+    def test_resume_adopts_only_protocol_owned_run_and_starts_no_remote_job(self):
+        output = self.root / "adopted"
+        args = launcher.parser().parse_args(["remote", "--output", str(output), "--resume-manifest",
+                                            str(self.old_manifest), "--refresh-minutes", "0"])
+        with patch.object(launcher, "remote_worker_slots") as capacity, patch.object(launcher, "log"):
+            launcher.run(args, self.children)
+        capacity.assert_not_called()
+        self.children.run.assert_not_called()
+        session = json.loads((output / "session.json").read_text())
+        self.assertEqual(session["manifests"], [str(self.old_manifest)])
+        self.assertEqual(session["workers"], 4)
 
 
 if __name__ == "__main__":

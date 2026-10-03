@@ -69,6 +69,17 @@ struct Args {
     /// Capture the six labelled ROS-Z recordings without running parameter search.
     #[arg(long, value_name = "NEW_DIRECTORY", conflicts_with_all = ["tune_ball_filter", "remote_ball_tuning", "no_robotics", "router", "robot", "parameter_root", "ball_perception"])]
     capture_ball_tuning: Option<PathBuf>,
+    /// Effective ball-filter parameters for a fresh recording generation.
+    #[arg(long, requires = "capture_ball_tuning")]
+    capture_ball_parameters: Option<PathBuf>,
+    #[arg(long, default_value_t = 0, requires = "capture_ball_tuning")]
+    capture_ball_seed_offset: u64,
+    /// Opponents in tuning recordings or the live tuning preview.
+    #[arg(long, default_value_t = 2, value_parser = clap::value_parser!(u32).range(0..=8))]
+    tuning_opponents: u32,
+    /// Opponent cylinder diameter in metres (0.1..1.2).
+    #[arg(long, default_value_t = 0.44)]
+    tuning_opponent_width: f32,
     /// Monitor a remote bridge snapshot and preview its verified best parameters locally.
     #[arg(long, value_name = "SNAPSHOT_JSON", requires = "remote_tuning_output", conflicts_with_all = ["tune_ball_filter", "no_robotics", "router", "robot", "parameter_root", "ball_perception"])]
     remote_ball_tuning: Option<PathBuf>,
@@ -96,6 +107,11 @@ struct Args {
 fn main() -> Result<()> {
     color_eyre::install()?;
     let args = Args::parse();
+    let opponents = types::ball_filter_tuning::OpponentParameters {
+        count: args.tuning_opponents,
+        width: args.tuning_opponent_width,
+    };
+    color_eyre::eyre::ensure!(opponents.is_valid(), "invalid opponent count or width");
     if args.watch_ball_tuning {
         return scene::tuning_viewer::run();
     }
@@ -106,9 +122,13 @@ fn main() -> Result<()> {
             &args.robotics_parameter_root,
             &args.location,
             false,
-            ball_tuning::TuningSource::RecordOnly,
+            ball_tuning::TuningSource::RecordOnly {
+                parameters: args.capture_ball_parameters.as_deref(),
+                seed_offset: args.capture_ball_seed_offset,
+            },
             true,
             1,
+            opponents,
         );
     }
     if let (Some(snapshot), Some(output)) = (&args.remote_ball_tuning, &args.remote_tuning_output) {
@@ -121,6 +141,7 @@ fn main() -> Result<()> {
             ball_tuning::TuningSource::Remote(snapshot),
             false,
             1,
+            opponents,
         );
     }
     if let Some(output) = args.tune_ball_filter {
@@ -136,6 +157,7 @@ fn main() -> Result<()> {
             ),
             args.tuning_once,
             usize::from(args.tuning_preview_balls),
+            opponents,
         );
     }
     let parameter_root = args
@@ -265,6 +287,29 @@ mod cli_tests {
 
     #[test]
     fn remote_preview_and_capture_are_separate_from_local_search() {
+        let refreshed = Args::try_parse_from([
+            "simulate",
+            "--capture-ball-tuning",
+            "capture",
+            "--capture-ball-parameters",
+            "best.json5",
+            "--capture-ball-seed-offset",
+            "10000",
+            "--tuning-opponents",
+            "0",
+            "--tuning-opponent-width",
+            "0.7",
+        ])
+        .unwrap();
+        assert_eq!(refreshed.capture_ball_seed_offset, 10000);
+        assert_eq!(refreshed.tuning_opponents, 0);
+        assert_eq!(
+            refreshed.capture_ball_parameters,
+            Some(PathBuf::from("best.json5"))
+        );
+        assert!(
+            Args::try_parse_from(["simulate", "--capture-ball-parameters", "best.json5"]).is_err()
+        );
         let capture =
             Args::try_parse_from(["simulate", "--capture-ball-tuning", "capture"]).unwrap();
         assert!(capture.tune_ball_filter.is_none());

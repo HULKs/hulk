@@ -29,7 +29,10 @@ use std::{
     time::Duration,
 };
 use types::{
-    ball_filter_tuning::{NAMESPACE, OPEN_VIEWER_TOPIC, PROGRESS_TOPIC, Progress, ROUTER},
+    ball_filter_tuning::{
+        NAMESPACE, OPEN_VIEWER_TOPIC, OPPONENTS_TOPIC, OpponentParameters, PROGRESS_TOPIC,
+        Progress, ROUTER,
+    },
     field_dimensions::GlobalFieldSide,
     filtered_game_state::FilteredGameState,
     motion_command::MotionCommand,
@@ -48,11 +51,13 @@ const TOPICS: &[&str] = &[
     "ball_filter/update_schedule",
     "ball_filter/field_prior_pose",
     "ball_filter/ball_position",
+    "ball_filter/ball_filter_state",
     "ball_filter/ball_percepts",
     "visual_kick/ball_position",
     "ball_state",
     "simulation/ball_ground_truth",
     "simulation/ball_ground_truth_field",
+    "simulation/false_ball_detections",
     "simulation/ball_poses_world",
     "simulation/ball_velocities_world",
     "simulation/obstacle_positions_world",
@@ -97,7 +102,10 @@ fn launch_viewer(log_path: &Path) -> std::io::Result<std::process::Child> {
 #[derive(Clone, Copy)]
 pub enum TuningSource<'a> {
     Record,
-    RecordOnly,
+    RecordOnly {
+        parameters: Option<&'a Path>,
+        seed_offset: u64,
+    },
     Recordings(&'a Path),
     Remote(&'a Path),
 }
@@ -111,6 +119,7 @@ pub fn run(
     source: TuningSource<'_>,
     once: bool,
     preview_balls: usize,
+    opponents: OpponentParameters,
 ) -> Result<()> {
     ensure!(
         !output.exists(),
@@ -118,6 +127,25 @@ pub fn run(
         output.display()
     );
     ensure!(trials > 0, "tuning trials must be positive");
+    ensure!(opponents.is_valid(), "invalid opponent count or width");
+    let (capture_parameters, seed_offset) = match source {
+        TuningSource::RecordOnly {
+            parameters,
+            seed_offset,
+        } => (
+            parameters
+                .map(|path| -> Result<BallFilterParameters> {
+                    Ok(json5::from_str(&std::fs::read_to_string(path)?)?)
+                })
+                .transpose()?,
+            seed_offset,
+        ),
+        _ => (None, 0),
+    };
+    ensure!(
+        seed_offset <= u64::MAX - 4250,
+        "capture seed offset is too large"
+    );
     ensure!(
         (1..=3).contains(&preview_balls),
         "preview ball count must be 1 to 3"
@@ -144,6 +172,10 @@ pub fn run(
         }
     }
     std::fs::create_dir_all(output)?;
+    write_checkpoint(
+        &output.join("scenario.json"),
+        &serde_json::to_vec_pretty(&opponents)?,
+    )?;
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let runtime = tokio::runtime::Runtime::new()?;
     let shutdown = Arc::new(AtomicBool::new(false));
@@ -176,6 +208,7 @@ pub fn run(
             .build()
             .await?;
         let open_viewer = node.subscriber::<bool>(OPEN_VIEWER_TOPIC).build().await?;
+        let opponent_requests = node.subscriber::<OpponentParameters>(OPPONENTS_TOPIC).build().await?;
         let (progress, mut updates) = tokio::sync::watch::channel(Progress {
             status: if matches!(source, TuningSource::Remote(_)) {
                 "Waiting for remote optimizer"
@@ -185,10 +218,12 @@ pub fn run(
             output_directory: output.display().to_string(),
             recordings: 6,
             duration_seconds: EPISODE_SECONDS,
+            opponents,
             ..Default::default()
         });
         let viewer_updates = progress.clone();
         let viewer_log = output.join("3d-viewer.log");
+        let scenario_path = output.join("scenario.json");
         let parameter_node = node.clone();
         let task = tokio::spawn(async move {
             let _node = node;
@@ -196,6 +231,22 @@ pub fn run(
             let mut heartbeat = tokio::time::interval(Duration::from_millis(500));
             loop {
                 tokio::select! {
+                    request = opponent_requests.recv() => {
+                        if let Ok(request) = request {
+                            if request.is_valid() {
+                                let saved = serde_json::to_vec_pretty(&request)
+                                    .map_err(color_eyre::Report::from)
+                                    .and_then(|bytes| write_checkpoint(&scenario_path, &bytes));
+                                viewer_updates.send_modify(|state| {
+                                    if let Err(error) = saved {
+                                        state.error = Some(format!("Cannot save opponent settings: {error:#}"));
+                                    } else {
+                                        state.opponents = request;
+                                    }
+                                });
+                            }
+                        }
+                    },
                     _ = heartbeat.tick() => {
                         if let Some(child) = &mut viewer {
                             match child.try_wait() {
@@ -250,7 +301,10 @@ pub fn run(
                 .map(|seed| recordings_root.join(format!("{kind}-{seed}.mcap")))
                 .collect()
         };
-        if matches!(source, TuningSource::Record | TuningSource::RecordOnly) {
+        if matches!(
+            source,
+            TuningSource::Record | TuningSource::RecordOnly { .. }
+        ) {
             for (index, (name, seed)) in training_seeds
                 .iter()
                 .map(|seed| ("train", *seed))
@@ -271,16 +325,18 @@ pub fn run(
                     parameter_root,
                     location,
                     &output.join(format!("{name}-{seed}.mcap")),
-                    seed,
+                    seed + seed_offset,
                     1, // One unambiguous reference ball in every optimization recording.
                     RosTime::from_nanos(index as i64 * 41_000_000_000),
                     &progress,
+                    capture_parameters.as_ref(),
+                    opponents,
                     None,
                     &shutdown,
                 )?;
             }
         }
-        if matches!(source, TuningSource::RecordOnly) {
+        if matches!(source, TuningSource::RecordOnly { .. }) {
             return Ok(());
         }
         // Parameter binding includes all robotics layers. Persist the actual effective
@@ -540,6 +596,7 @@ impl LivePreview {
                     state.elapsed_seconds = 0.0;
                 });
                 let stop = updates.stop.clone();
+                let opponents = progress.borrow().opponents;
                 let result = record(
                     &runtime,
                     &root,
@@ -550,6 +607,8 @@ impl LivePreview {
                     ball_count,
                     RosTime::from_nanos((6 + episode) as i64 * 41_000_000_000),
                     &progress,
+                    None,
+                    opponents,
                     Some(&mut updates),
                     &stop,
                 );
@@ -644,6 +703,8 @@ fn record(
     ball_count: usize,
     start_time: RosTime,
     progress: &tokio::sync::watch::Sender<Progress>,
+    capture_parameters: Option<&BallFilterParameters>,
+    opponents: OpponentParameters,
     mut live: Option<&mut LiveUpdates>,
     stop: &AtomicBool,
 ) -> Result<()> {
@@ -658,16 +719,21 @@ fn record(
     let initial = live
         .as_mut()
         .and_then(|updates| updates.best.borrow_and_update().clone());
-    if let Some(candidate) = &initial {
+    if let Some(parameters) = initial
+        .as_ref()
+        .map(|candidate| &candidate.parameters)
+        .or(capture_parameters)
+    {
         std::fs::write(
             layer.path().join("ball_filter.json5"),
-            serde_json::to_string(&candidate.parameters)?,
+            serde_json::to_string(parameters)?,
         )?;
     }
     let mut parameters: SimulatorParameters = json5::from_str(&std::fs::read_to_string(
         root.join("tools/simulate/parameters/simulator.json5"),
     )?)?;
     parameters.ball_perception.seed = seed;
+    parameters.opponents = opponents;
     if !seed.is_multiple_of(2) {
         let noise = &mut parameters.ball_perception;
         noise.center_noise_pixels = 5.0;
@@ -771,6 +837,7 @@ fn record(
     io.input_game.global_field_side = GlobalFieldSide::Home;
     io.clear_injection()?;
     runtime.block_on(parameters_pub.publish(&parameters))?;
+    progress.send_modify(|state| state.active_opponents = Some(opponents));
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, MujocoWorldPlugin));
     app.insert_resource(SimulationMode::Paused);
@@ -813,21 +880,36 @@ fn record(
         ));
     }
     let dimensions = parameters.field_dimensions;
-    let mut challenge = crate::scene::tuning_obstacles::Challenge::new(
+    let mut challenge = crate::scene::tuning_obstacles::Challenge::with_opponents(
         seed,
         [
             f64::from(dimensions.length / 2.0 + dimensions.border_strip_width),
             f64::from(dimensions.width / 2.0 + dimensions.border_strip_width),
         ],
         f64::from(radius),
-    );
+        opponents,
+    )
+    .map_err(|error| eyre!(error))?;
+    let initial_balls: Vec<_> = balls
+        .iter()
+        .map(|entity| {
+            let transform = app.world().get::<Transform>(*entity).unwrap();
+            [
+                f64::from(transform.translation.x),
+                -f64::from(transform.translation.z),
+            ]
+        })
+        .collect();
+    challenge
+        .avoid_initial_balls(&initial_balls)
+        .map_err(|error| eyre!(error))?;
     let obstacles: Vec<_> = challenge
         .positions()
         .into_iter()
         .map(|position| {
             app.world_mut()
                 .spawn((
-                    crate::scene::tuning_obstacles::object(),
+                    crate::scene::tuning_obstacles::object(opponents.width / 2.0),
                     crate::scene::tuning_obstacles::transform(position),
                 ))
                 .id()
@@ -883,6 +965,13 @@ fn record(
 
     for frame in 0..2500 {
         ensure!(!stop.load(Ordering::Relaxed), "tuning stopped");
+        if live.is_some() && progress.borrow().opponents != opponents {
+            progress.send_modify(|state| {
+                state.active_opponents = None;
+                state.live_status = Some("Restarting preview to apply opponent settings".into());
+            });
+            return Ok(());
+        }
         if let Some(updates) = live.as_mut() {
             if updates.stop.load(Ordering::Relaxed) {
                 return Ok(());
@@ -1013,7 +1102,7 @@ fn record(
                 .iter()
                 .map(|p| crate::ball_perception::Occluder {
                     center: Point3::wrap(binding.point_in_ground(world.data(), *p)),
-                    radius: crate::scene::tuning_obstacles::RADIUS,
+                    radius: opponents.width / 2.0,
                     height: crate::scene::tuning_obstacles::HEIGHT,
                 })
                 .collect();
@@ -1054,7 +1143,7 @@ fn record(
             if blocked_in_view {
                 occluded_in_view_seconds += 0.002;
             }
-            for (&entity, position) in obstacles.iter().zip(obstacle_positions) {
+            for (&entity, &position) in obstacles.iter().zip(&obstacle_positions) {
                 world
                     .set_object_pose(entity, crate::scene::tuning_obstacles::transform(position))
                     .map_err(|error| eyre!(error))?;
@@ -1158,7 +1247,7 @@ fn record(
                         .iter()
                         .map(|p| crate::ball_perception::Occluder {
                             center: Point3::wrap(binding.point_in_ground(data, *p)),
-                            radius: crate::scene::tuning_obstacles::RADIUS,
+                            radius: opponents.width / 2.0,
                             height: crate::scene::tuning_obstacles::HEIGHT,
                         })
                         .collect::<Vec<_>>(),

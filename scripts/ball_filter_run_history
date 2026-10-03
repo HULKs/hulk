@@ -1,0 +1,491 @@
+#!/usr/bin/env python3
+"""Discover optimizer runs and move explicitly selected, stopped runs to trash."""
+import argparse
+import datetime
+import fcntl
+import hashlib
+import importlib.machinery
+import importlib.util
+import inspect
+import json
+import math
+import os
+from pathlib import Path
+import re
+import sys
+import time
+import uuid
+
+REPOSITORY = Path(__file__).resolve().parent.parent
+TASK_BASE = ".cache/hulk-ball-filter-tuning"
+CACHE_NAME = "ball-filter-run-history.json"
+SKIP_NAMES = {"source", "data", "results", "target", "monitor", "preview", "optimized", ".trash", "ball-filter-trash"}
+
+
+def read_json(path, default=None):
+    if path.is_symlink():
+        raise ValueError(f"refusing symlink: {path}")
+    try:
+        return json.loads(path.read_text())
+    except FileNotFoundError:
+        return default
+
+
+def safe_directory(path, base):
+    path, base = Path(path).absolute(), Path(base).absolute()
+    if not path.is_relative_to(base) or path == base or ".." in path.parts:
+        raise ValueError("run path must be a dedicated descendant of its run directory")
+    for component in [path, *path.parents]:
+        if component.is_symlink():
+            raise ValueError(f"refusing symlink in run path: {component}")
+        if component == base:
+            break
+    if base.is_symlink() or base.resolve() != base:
+        raise ValueError("run directory ancestors must not be symlinks")
+    return path
+
+
+def valid_name(name):
+    if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}", name):
+        raise ValueError("invalid remote run name")
+    return name
+
+
+def validate_manifest(manifest):
+    run = valid_name(manifest["run"])
+    host = manifest["host"]
+    if not isinstance(host, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.@-]*", host):
+        raise ValueError("invalid SSH host")
+    if manifest.get("remote") != f"{TASK_BASE}/runs/{run}":
+        raise ValueError("manifest does not identify a dedicated remote tuning run")
+    return host, run
+
+
+def run_id(kind, location):
+    return kind + "-" + hashlib.sha256(location.encode()).hexdigest()[:24]
+
+
+def date_string(timestamp):
+    return datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+
+def process_activity(root, proc=Path("/proc")):
+    """Inspect live argv/cwd, including processes using this run's input files."""
+    root = Path(root).absolute()
+    unknown = False
+    try:
+        processes = list(proc.iterdir())
+    except OSError:
+        return None
+    for process in processes:
+        if not process.name.isdigit():
+            continue
+        try:
+            # Other users cannot be our launched optimizers. Avoid treating
+            # ordinary proc permissions on unrelated system services as activity.
+            if process.stat().st_uid != os.getuid():
+                continue
+            arguments = process.joinpath("cmdline").read_bytes().split(b"\0")
+            if not any(arguments):
+                continue
+            try:
+                cwd = Path(os.readlink(process / "cwd"))
+            except PermissionError:
+                # Protected desktop agents commonly hide cwd even from their
+                # owner. Their readable argv still identifies absolute inputs;
+                # an opaque optimizer/interpreter remains unknown and blocked.
+                executable = Path(arguments[0].decode(errors="replace")).name
+                relevant = any(token in executable for token in ("python", "cargo", "simulate", "ball", "controller", "worker"))
+                relevant |= any(b".mcap" in argument for argument in arguments)
+                unknown |= relevant
+                cwd = None
+            if cwd is not None and (cwd == root or cwd.is_relative_to(root)):
+                return True
+            skip_payload = False
+            for raw in arguments:
+                value = raw.decode(errors="replace")
+                if skip_payload:
+                    skip_payload = False
+                    continue
+                if value in {"-c", "--command"}:
+                    skip_payload = True
+                    continue
+                if value.startswith("-") and "=" in value:
+                    value = value.split("=", 1)[1]
+                if not value or value.startswith("-"):
+                    continue
+                candidate = Path(value)
+                was_absolute = candidate.is_absolute()
+                if not was_absolute:
+                    if cwd is None:
+                        continue
+                    candidate = cwd / candidate
+                try:
+                    # Ordinary argv values are not necessarily paths; malformed
+                    # code/JSON payloads must not make process status unknown.
+                    if not was_absolute and not candidate.exists():
+                        continue
+                    candidate = candidate.resolve()
+                except (OSError, ValueError):
+                    continue
+                if candidate == root or candidate.is_relative_to(root):
+                    return True
+        except (FileNotFoundError, ProcessLookupError):
+            continue
+        except (OSError, ValueError):
+            unknown = True
+    return None if unknown else False
+
+
+def controller_state(root, proc=Path("/proc")):
+    status = read_json(root / "status.json", {})
+    pid = status.get("pid")
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+        return None
+    try:
+        command = (proc / str(pid) / "cmdline").read_bytes().split(b"\0")
+        return str(root / "controller.py").encode() in command and b"_run" in command
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return None
+
+
+def metrics(report):
+    result = {}
+    for partition in ("training", "validation"):
+        for variant in ("baseline", "optimized"):
+            value = report.get(partition, {}).get(variant)
+            if not isinstance(value, dict):
+                result[f"{partition}_{variant}"] = None
+                continue
+            result[f"{partition}_{variant}"] = {
+                key: number for key, number in value.items()
+                if isinstance(number, (float, int)) and not isinstance(number, bool) and math.isfinite(number)
+            }
+    return result
+
+
+def report_summary(paths):
+    choices, errors = [], []
+    trials = 0
+    for path in paths:
+        try:
+            report = read_json(path)
+            loss = report["training"]["optimized"]["loss"]
+            if isinstance(loss, bool) or not isinstance(loss, (int, float)) or not math.isfinite(loss):
+                raise ValueError("nonfinite training loss")
+            choices.append((loss, str(path), report))
+            trials += max(0, int(report.get("trials", 0)))
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            errors.append(f"{path.name}: {error}")
+    if not choices:
+        return dict(report=None, completed_trials=trials, metrics={}, verified=False, error="; ".join(errors) or None)
+    _, path, report = min(choices, key=lambda item: (item[0], item[1]))
+    return dict(report=path, completed_trials=trials, metrics=metrics(report),
+                verified=report.get("replay_matches_live") is True,
+                error="; ".join(errors) or None)
+
+
+def is_ball_report(path):
+    try:
+        report = read_json(path)
+        return (report.get("reference_frame") in {"ground", "field"}
+                and isinstance(report.get("training_recordings"), list)
+                and "maximum_matching_cost" in report.get("optimized_parameters", {}))
+    except (OSError, ValueError, AttributeError, TypeError):
+        return False
+
+
+def local_reports(root):
+    rounds = sorted(path for path in root.glob("round-*/report.json")
+                    if re.fullmatch(r"round-\d+", path.parent.name) and not path.parent.is_symlink())
+    if rounds:
+        return rounds
+    if (root / "optimized/report.json").is_file() and not (root / "optimized").is_symlink():
+        return [root / "optimized/report.json"]
+    if (root / "report.json").is_file():
+        return [root / "report.json"]
+    return []
+
+
+def discover(repository):
+    logs = repository / "logs"
+    if not logs.is_dir() or logs.is_symlink():
+        return {}, {}
+    locals_found, remotes = {}, {}
+    for directory, names, _ in os.walk(logs, followlinks=False):
+        root = Path(directory)
+        depth = len(root.relative_to(logs).parts)
+        names[:] = [name for name in names if depth < 6 and name not in SKIP_NAMES
+                    and not name.startswith(("fetched", "fetch-", "round-", "preview-"))
+                    and not (root / name).is_symlink()]
+        if root == logs:
+            continue
+        manifest_path = root / "manifest.json"
+        if manifest_path.is_file():
+            try:
+                manifest = read_json(manifest_path)
+                host, run = validate_manifest(manifest)
+                identity = run_id("remote", f"{host}:{run}")
+                remotes.setdefault(identity, dict(manifest=manifest, manifest_paths=[]))["manifest_paths"].append(str(manifest_path))
+                # Snapshot/fetch content under a remote-launch directory is not
+                # another independent local optimization run.
+                names[:] = []
+                continue
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
+        reports = [path for path in local_reports(root) if is_ball_report(path)]
+        if reports:
+            identity = run_id("local", str(root))
+            locals_found[identity] = dict(root=root, reports=reports)
+    return locals_found, remotes
+
+
+def local_dependency_reason(root, repository):
+    """Reject deletion if another retained report/session references these inputs."""
+    def inaccessible(error):
+        raise error
+
+    logs = repository / "logs"
+    for directory, names, files in os.walk(logs, followlinks=False, onerror=inaccessible):
+        directory = Path(directory)
+        names[:] = [name for name in names if name not in {"ball-filter-trash", "source", "target"}
+                    and not (directory / name).is_symlink()]
+        if directory == root or directory.is_relative_to(root):
+            names[:] = []
+            continue
+        for name in set(files) & {"report.json", "session.json"}:
+            try:
+                document = read_json(directory / name)
+                references = []
+                if name == "report.json":
+                    references = document.get("training_recordings", []) + document.get("validation_recordings", [])
+                else:
+                    references = [document.get("recordings")] + [entry.get("recordings") for entry in document.get("generations", [])]
+                for reference in filter(None, references):
+                    candidate = Path(reference)
+                    candidates = [candidate] if candidate.is_absolute() else [repository / candidate, directory / candidate]
+                    for candidate in candidates:
+                        candidate = candidate.resolve()
+                        # A reference to the containing directory also shares captures.
+                        if candidate == root or candidate.is_relative_to(root) or root.is_relative_to(candidate):
+                            return f"Recordings are referenced by {directory / name}"
+            except (OSError, ValueError, TypeError, AttributeError):
+                return f"Could not verify recording dependencies in {directory / name}"
+    return None
+
+
+def local_row(identity, run, proc=Path("/proc"), repository=None):
+    root, reports = run["root"], run["reports"]
+    active = process_activity(root, proc)
+    reason = "Run is active or its files are in use" if active else None
+    if active is None:
+        reason = "Could not determine local process activity"
+    if repository is not None:
+        for ancestor in root.parents:
+            if ancestor == repository / "logs":
+                break
+            if (ancestor / "session.json").is_file() and process_activity(ancestor, proc) is not False:
+                reason = "Owning optimization session is active or its status is unknown"
+                active = True
+                break
+        reason = reason or local_dependency_reason(root, repository)
+    else:
+        reason = reason or "Recording dependencies have not been checked"
+    summary = report_summary(reports)
+    return dict(id=identity, kind="local", name=root.name, location=str(root),
+                date=date_string(root.stat().st_mtime), updated_unix_seconds=time.time(),
+                status="running" if active else "stopped" if active is False else "unknown",
+                stale=False, can_delete=reason is None, delete_reason=reason,
+                **summary)
+
+
+def remote_rows(names, base=None, proc=Path("/proc")):
+    base = base or Path.home() / TASK_BASE / "runs"
+    rows = []
+    for name in names:
+        try:
+            root = safe_directory(base / valid_name(name), base)
+            manifest = read_json(root / "manifest.json")
+            validate_manifest(manifest)
+            if manifest["run"] != name:
+                raise ValueError("remote run identity mismatch")
+            controller = controller_state(root, proc)
+            active = process_activity(root, proc)
+            control = read_json(root / "status.json", {})
+            reason = None
+            if controller is True or active is True:
+                reason = "Remote controller or worker is active"
+            elif controller is None or active is None:
+                reason = "Could not determine remote controller/worker activity"
+            best = read_json(root / "best.json", {})
+            output = best.get("output", "")
+            if output and not re.fullmatch(r"results/worker-\d+/round-\d+", output):
+                raise ValueError("invalid remote best report path")
+            paths = [safe_directory(root / output, base) / "report.json"] if output else []
+            summary = report_summary(paths)
+            completed = len(list(root.glob("results/worker-*/round-*/complete.json")))
+            summary["completed_trials"] = completed * max(0, int(manifest.get("trials", 0)))
+            rows.append(dict(run=name, status=control.get("state", "running") if reason and active else "stopped" if reason is None else "unknown",
+                             can_delete=reason is None, delete_reason=reason, date=date_string(root.stat().st_mtime), **summary))
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            rows.append(dict(run=name, status="unknown", can_delete=False, delete_reason=str(error), error=str(error)))
+    return rows
+
+
+def remote_delete(name, base=None, proc=Path("/proc")):
+    base = base or Path.home() / TASK_BASE / "runs"
+    root = safe_directory(base / valid_name(name), base)
+    manifest = read_json(root / "manifest.json")
+    validate_manifest(manifest)
+    if manifest["run"] != name:
+        raise ValueError("remote run identity mismatch")
+    if controller_state(root, proc) is not False or process_activity(root, proc) is not False:
+        raise ValueError("refusing to delete active or unknown remote controller/worker")
+    trash_base = base.parent / "trash"
+    if trash_base.is_symlink():
+        raise ValueError("remote trash must not be a symlink")
+    trash_base.mkdir(exist_ok=True)
+    target = trash_base / f"{name}-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+    root.rename(target)
+    return str(target)
+
+
+def remote_helper():
+    loader = importlib.machinery.SourceFileLoader("ball_history_remote", str(REPOSITORY / "scripts/remote_ball_filter_tuning"))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def remote_command(names, delete=False):
+    functions = [read_json, safe_directory, valid_name, validate_manifest, date_string,
+                 process_activity, controller_state, metrics, report_summary, remote_rows, remote_delete]
+    source = "import datetime, json, math, os, re, sys, time, uuid\nfrom pathlib import Path\n"
+    source += f"TASK_BASE = {TASK_BASE!r}\n"
+    source += "\n".join(inspect.getsource(function) for function in functions)
+    call = "remote_delete(sys.argv[1])" if delete else "remote_rows(sys.argv[1:])"
+    source += f"\nprint(json.dumps({call}, allow_nan=False))\n"
+    return ["python3", "-c", source, *names]
+
+
+def atomic_cache(path, cache):
+    if path.is_symlink():
+        raise ValueError("history cache must not be a symlink")
+    temporary = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
+    with temporary.open("x") as destination:
+        json.dump(cache, destination, allow_nan=False, indent=2)
+        destination.write("\n")
+    temporary.replace(path)
+
+
+def list_runs(repository=REPOSITORY, ssh=None, proc=Path("/proc")):
+    logs = repository / "logs"
+    logs.mkdir(exist_ok=True)
+    if logs.is_symlink():
+        raise ValueError("logs must not be a symlink")
+    cache_path = logs / CACHE_NAME
+    cache = read_json(cache_path, {"runs": [], "deleted": []})
+    previous = {row["id"]: row for row in cache.get("runs", [])}
+    deleted = {row["id"] for row in cache.get("deleted", [])}
+    local, remote = discover(repository)
+    rows = [local_row(identity, run, proc, repository) for identity, run in local.items() if identity not in deleted]
+    hosts = {}
+    for identity, run in remote.items():
+        if identity not in deleted:
+            hosts.setdefault(run["manifest"]["host"], []).append((identity, run))
+    warnings = []
+    for host, runs in hosts.items():
+        try:
+            ssh = ssh or remote_helper().ssh
+            response = ssh(host, remote_command([run["manifest"]["run"] for _, run in runs]),
+                           capture_output=True, text=True, timeout=30)
+            snapshots = {row["run"]: row for row in json.loads(response.stdout)}
+            for identity, run in runs:
+                name = run["manifest"]["run"]
+                row = snapshots[name]
+                stale = row.get("status") == "unknown"
+                if stale:
+                    old = previous.get(identity, {})
+                    row = {**{key: old[key] for key in ("metrics", "report", "completed_trials", "date", "verified") if key in old}, **row}
+                rows.append(dict(id=identity, kind="remote", name=name, location=f"{host}:~/{TASK_BASE}/runs/{name}",
+                                 host=host, manifest_paths=run["manifest_paths"], stale=stale,
+                                 updated_unix_seconds=time.time(), **row))
+        except Exception as error:
+            warnings.append(f"{host}: {error}")
+            for identity, run in runs:
+                name = run["manifest"]["run"]
+                row = dict(previous.get(identity, {}))
+                row.update(id=identity, kind="remote", name=name, location=f"{host}:~/{TASK_BASE}/runs/{name}",
+                           host=host, manifest_paths=run["manifest_paths"], stale=True, can_delete=False,
+                           status="unknown (cached)", delete_reason="SSH status is unavailable; deletion is disabled", error=str(error))
+                rows.append(row)
+    result = dict(version=1, updated_unix_seconds=time.time(), runs=sorted(rows, key=lambda row: row.get("date", ""), reverse=True),
+                  deleted=cache.get("deleted", []), warnings=warnings)
+    atomic_cache(cache_path, result)
+    return result
+
+
+def delete_run(identity, repository=REPOSITORY, ssh=None, proc=Path("/proc")):
+    logs = repository / "logs"
+    cache_path = logs / CACHE_NAME
+    cache = read_json(cache_path, {"runs": [], "deleted": []})
+    known = next((row for row in cache.get("runs", []) if row["id"] == identity), None)
+    if known is None or not re.fullmatch(r"(?:local|remote)-[a-f0-9]{24}", identity):
+        raise ValueError("delete requires an exact run ID from refreshed history")
+    local, remote = discover(repository)
+    if identity in local:
+        run = local[identity]
+        root = safe_directory(run["root"], logs)
+        row = local_row(identity, run, proc, repository)
+        if not row["can_delete"]:
+            raise ValueError(row["delete_reason"])
+        trash = logs / "ball-filter-trash"
+        if trash.is_symlink():
+            raise ValueError("local trash must not be a symlink")
+        trash.mkdir(exist_ok=True)
+        target = trash / f"{root.name}-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+        root.rename(target)
+        destination = str(target)
+    elif identity in remote:
+        run = remote[identity]
+        host, name = validate_manifest(run["manifest"])
+        ssh = ssh or remote_helper().ssh
+        response = ssh(host, remote_command([name], delete=True), capture_output=True, text=True, timeout=30)
+        destination = json.loads(response.stdout)
+    else:
+        raise ValueError("run is no longer a validated local run or known remote manifest")
+    deletion = dict(id=identity, location=known["location"], trash=destination, deleted_unix_seconds=time.time())
+    cache.setdefault("deleted", []).append(deletion)
+    cache["runs"] = [row for row in cache.get("runs", []) if row["id"] != identity]
+    atomic_cache(cache_path, cache)
+    return dict(deleted=deletion, history=cache)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="command", required=True)
+    for command in ("list", "delete"):
+        sub = commands.add_parser(command)
+        sub.add_argument("--json", action="store_true")
+        if command == "delete":
+            sub.add_argument("--id", required=True)
+    args = parser.parse_args(argv)
+    logs = REPOSITORY / "logs"
+    logs.mkdir(exist_ok=True)
+    if logs.is_symlink() or (logs / ".ball-filter-history.lock").is_symlink():
+        raise ValueError("history paths must not be symlinks")
+    with (logs / ".ball-filter-history.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        result = list_runs() if args.command == "list" else delete_run(args.id)
+    print(json.dumps(result, allow_nan=False))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as error:
+        print(f"History error: {error}", file=sys.stderr)
+        raise SystemExit(1)

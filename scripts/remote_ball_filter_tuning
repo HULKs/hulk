@@ -171,6 +171,8 @@ def start(args):
         initial=bool(args.initial_parameters), resources=resources,
         reference_frame=args.reference_frame, reference_topic=args.reference_topic,
         namespace=args.namespace,
+        controller_protocol=1, control_token=uuid.uuid4().hex,
+        start_paused=getattr(args, "paused", False), recordings_directory=str(recordings),
     )
     archive = snapshot(repository, recordings, args.initial_parameters, local, manifest)
     # mkdir without exist_ok makes each remote run exclusive. All writes stay in
@@ -186,7 +188,7 @@ def start(args):
     print(f"Controller started/building; {workers} workers planned, {args.trials} trials per continuous round.")
     print(f"Manifest: {local / 'manifest.json'}")
     print("Attach: " + shlex.join(["ssh", "-t", args.host, "tmux", "attach-session", "-t", "=" + manifest["tmux_session"]]))
-    print("Twix/live parameter application is not connected to these offline workers.")
+    print("Use bridge or the ball_filter_optimization launcher for Twix and local live preview.")
 
 
 def tuner_command(root, manifest, worker, round_number, initial):
@@ -236,6 +238,15 @@ def run_remote():
             "rustc": subprocess.check_output(["rustc", "+" + manifest["toolchain"], "--version"], text=True).strip(),
             "binary_sha256": digest(root / "bin/ball-filter-tuner"),
         })
+        if manifest.get("start_paused"):
+            atomic_json(state, {"state": "ready", "workers": manifest["workers"], "pid": os.getpid(),
+                                "tmux_session": manifest["tmux_session"]})
+            print("Build ready; waiting for explicit activation before starting workers.", flush=True)
+            while not (root / "activate.requested").exists() and not (root / "stop.requested").exists():
+                time.sleep(0.2)
+        if (root / "stop.requested").exists():
+            atomic_json(state, {"state": "stopped", "workers": 0, "pid": os.getpid()})
+            return
         atomic_json(state, {"state": "searching", "workers": manifest["workers"], "pid": os.getpid(),
                             "tmux_session": manifest["tmux_session"]})
         print(f"Build complete; starting {manifest['workers']} continuous workers.", flush=True)
@@ -247,7 +258,7 @@ def run_remote():
             initial = root / "data/initial.json5" if manifest["initial"] else None
             round_number = 0
             worker_state = root / f"worker-{index:02d}.json"
-            while True:
+            while not (root / "stop.requested").exists():
                 round_number += 1
                 command, output = tuner_command(root, manifest, index, round_number, initial)
                 output.parent.mkdir(parents=True, exist_ok=True)
@@ -272,19 +283,97 @@ def run_remote():
                     atomic_json(worker_state, {"state": "failed", "round": round_number, "error": str(error),
                                                "log": str(output.with_suffix('.log').relative_to(root))})
                     raise
+            atomic_json(worker_state, {"state": "stopped", "round": round_number,
+                                       "reason": "cooperative stop after completed round"})
+            print(f"Worker {index}: stopped after round {round_number}; checkpoints retained.", flush=True)
 
+        failed_workers = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=manifest["workers"]) as executor:
             futures = [executor.submit(worker, index) for index in range(manifest["workers"])]
             for future in concurrent.futures.as_completed(futures):
                 try:
                     future.result()
                 except Exception as error:
+                    failed_workers.append(str(error))
                     atomic_json(state, {"state": "worker failed; inspect worker statuses", "error": str(error), "pid": os.getpid()})
+        atomic_json(state, {"state": "stopped" if (root / "stop.requested").exists() else "failed",
+                            "workers": 0, "failed_workers": failed_workers, "pid": os.getpid()})
     except Exception as error:
         print(f"Controller failed: {error}", flush=True)
         atomic_json(state, {"state": "failed", "error": str(error), "log": "build.log"})
         raise
 
+
+
+CONTROL = r'''
+import json, sys
+from pathlib import Path
+root = Path.home()/sys.argv[1]
+expected_run, token, action = sys.argv[2:]
+manifest = json.loads((root/'manifest.json').read_text())
+if manifest.get('controller_protocol') != 1 or manifest.get('run') != expected_run or manifest.get('control_token') != token:
+    raise ValueError('controller ownership/protocol does not match; legacy runs cannot be controlled')
+status_path = root/'status.json'
+status = json.loads(status_path.read_text()) if status_path.exists() else {'state': 'starting'}
+if status['state'] in ('ready', 'searching', 'building'):
+    try:
+        argv = (Path('/proc')/str(status.get('pid', 0))/'cmdline').read_bytes().split(b'\0')
+        alive = str(root/'controller.py').encode() in argv and b'_run' in argv
+    except (FileNotFoundError, PermissionError):
+        alive = False
+    if not alive:
+        status['state'] = 'controller exited'
+if action == 'stop':
+    (root/'stop.requested').touch(exist_ok=True)
+elif action == 'activate':
+    if (root/'stop.requested').exists() or status['state'] not in ('ready', 'searching'):
+        raise ValueError('only a ready, non-stopping generation can be activated')
+    (root/'activate.requested').touch(exist_ok=True)
+elif action != 'status':
+    raise ValueError('unknown controller action')
+status['stop_requested'] = (root/'stop.requested').exists()
+print(json.dumps(status))
+'''
+
+
+def controlled_manifest(path):
+    manifest = json.loads(path.read_text())
+    checked_name(manifest['run'])
+    if manifest.get('controller_protocol') != 1 or not re.fullmatch(r'[0-9a-f]{32}', manifest.get('control_token', '')):
+        raise ValueError('this run has no cooperative ownership protocol; legacy runs are monitor-only')
+    return manifest
+
+
+def control_once(manifest, action):
+    run = checked_name(manifest['run'])
+    result = ssh(manifest['host'], ['python3', '-c', CONTROL, f'{TASK_BASE}/runs/{run}',
+                 run, manifest['control_token'], action], capture_output=True, text=True, timeout=30)
+    return json.loads(result.stdout)
+
+
+def control(args):
+    manifest = controlled_manifest(args.manifest)
+    action = 'status' if args.command == 'wait-ready' else args.command
+    status = control_once(manifest, action)
+    if args.command == 'activate' or (args.command == 'stop' and not args.wait):
+        print(json.dumps(status), flush=True)
+        return
+    wanted = {'ready', 'searching'} if args.command == 'wait-ready' else {'stopped'}
+    deadline = time.monotonic() + args.timeout
+    last_state = None
+    while True:
+        state = status.get('state')
+        if state != last_state:
+            print(f"{manifest['run']}: {state}", flush=True)
+            last_state = state
+        if state in wanted:
+            return
+        if state in {'failed', 'controller exited'} or (args.command == 'wait-ready' and state == 'stopped'):
+            raise ValueError(f"remote generation {manifest['run']} is {state}: {status}")
+        if time.monotonic() >= deadline:
+            raise ValueError(f"timed out waiting for {manifest['run']} to reach {sorted(wanted)}; checkpoints retained")
+        time.sleep(1)
+        status = control_once(manifest, 'status')
 
 def export_results():
     root = Path(__file__).resolve().parent
@@ -456,7 +545,7 @@ def read_remote_runs(run_names, base=None):
             status = state.get("state", control.get("state", "preparing"))
             if not isinstance(status, str):
                 raise ValueError(f"invalid worker status in {path}")
-            if alive is False and status in {"searching", "building", "preparing"}:
+            if alive is False and status in {"searching", "building", "preparing", "ready"}:
                 status = "controller exited"
             workers.append(dict(run=name, worker=worker, round=unsigned(state.get("round", 0)), status=status))
         completed_trials, best, compatibility = 0, None, None
@@ -494,18 +583,26 @@ def read_remote_runs(run_names, base=None):
     return results
 
 
+_INSPECTION_CODE = None
+
+
 def bridge_inspection_command(run_names):
-    # Ship just inspection code in this command. Already-running controller.py
-    # and all remote jobs remain untouched, including older controller versions.
-    import inspect
-    functions = (checked_name, training_loss, unsigned, finite_json, progress_metrics,
-                 parameter_shape, parameters_equal, report_compatibility, controller_alive, read_remote_runs)
-    code = "import json, math, re, struct, sys\nfrom pathlib import Path\n"
-    for key in ("TASK_BASE", "DATA_FILES", "METRIC_FIELDS", "OPTIONAL_METRICS"):
-        code += f"{key} = {globals()[key]!r}\n"
-    code += "\n".join(inspect.getsource(function) for function in functions)
-    code += "\nprint(json.dumps(read_remote_runs(sys.argv[1:]), allow_nan=False))\n"
-    return ["python3", "-c", code, *run_names]
+    # Freeze source while it still corresponds to the imported functions. Later
+    # workspace edits can move their lines; asking inspect.getsource each poll
+    # would then send unrelated/invalid code from the modified file.
+    global _INSPECTION_CODE
+    if _INSPECTION_CODE is None:
+        import inspect
+        functions = (checked_name, training_loss, unsigned, finite_json, progress_metrics,
+                     parameter_shape, parameters_equal, report_compatibility, controller_alive, read_remote_runs)
+        code = "import json, math, re, struct, sys\nfrom pathlib import Path\n"
+        for key in ("TASK_BASE", "DATA_FILES", "METRIC_FIELDS", "OPTIONAL_METRICS"):
+            code += f"{key} = {globals()[key]!r}\n"
+        code += "\n".join(inspect.getsource(function) for function in functions)
+        code += "\nprint(json.dumps(read_remote_runs(sys.argv[1:]), allow_nan=False))\n"
+        compile(code, "remote-ball-filter-inspection", "exec")
+        _INSPECTION_CODE = code
+    return ["python3", "-c", _INSPECTION_CODE, *run_names]
 
 
 def empty_progress(host):
@@ -638,9 +735,10 @@ def bridge(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    commands = parser.add_subparsers(dest="command", required=True, metavar="{start,status,fetch,bridge}")
+    commands = parser.add_subparsers(dest="command", required=True, metavar="{start,status,fetch,bridge,stop,activate,wait-ready}")
     start_parser = commands.add_parser("start")
     start_parser.add_argument("--host", default="remote-compiler")
+    start_parser.add_argument("--paused", action="store_true", help="build, then wait for explicit activate before starting workers")
     start_parser.add_argument("--recordings", type=Path, required=True)
     start_parser.add_argument("--initial-parameters", type=Path)
     start_parser.add_argument("--workers", type=int, default=4)
@@ -660,6 +758,12 @@ def main():
         subparser.add_argument("manifest", type=Path)
         if name == "fetch":
             subparser.add_argument("--output", type=Path)
+    for name in ["stop", "activate", "wait-ready"]:
+        subparser = commands.add_parser(name)
+        subparser.add_argument("manifest", type=Path)
+        subparser.add_argument("--timeout", type=float, default=1800.0)
+        if name == "stop":
+            subparser.add_argument("--wait", action="store_true", help="wait for all current rounds to finish")
     bridge_parser = commands.add_parser("bridge", help="poll remote workers into an atomic local progress file")
     bridge_parser.add_argument("manifests", nargs="+", type=Path)
     bridge_parser.add_argument("--output", required=True, type=Path)
@@ -671,6 +775,10 @@ def main():
         if not 1 <= args.workers <= 32 or not 1 <= args.build_jobs <= 32 or args.trials < 1 or args.seed < 0:
             parser.error("workers/build-jobs must be 1..32, trials positive, and seed nonnegative")
         start(args)
+    elif args.command in {"stop", "activate", "wait-ready"}:
+        if not math.isfinite(args.timeout) or args.timeout <= 0:
+            parser.error("timeout must be finite and positive")
+        control(args)
     elif args.command == "bridge":
         if not math.isfinite(args.interval) or args.interval < 0.1:
             parser.error("bridge interval must be finite and at least 0.1 seconds")
@@ -686,5 +794,5 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (ValueError, OSError, subprocess.CalledProcessError) as error:
+    except (ValueError, OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
         sys.exit(str(error))

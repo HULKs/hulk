@@ -1,10 +1,11 @@
 //! Read-only 3D view of the optimizer's original robot sensor and reference topics.
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, VecDeque},
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
+use ball_filter::BallFilter;
 use bevy::{
     asset::AssetPlugin, camera::visibility::RenderLayers,
     camera_controller::free_camera::FreeCameraPlugin, prelude::*,
@@ -26,6 +27,7 @@ use types::{
 };
 
 use crate::{
+    ball_perception::{FALSE_DETECTIONS_TOPIC, FalseDetectionMarker, FalseDetectionProjection},
     bevy_mujoco::{
         MujocoModelUpdateSet, MujocoWorld, MujocoWorldPlugin, SimulationMode, from_mujoco,
     },
@@ -42,19 +44,66 @@ struct Snapshot {
     ball_velocities: Option<TimeWrapper<Vec<nalgebra::Vector3<f32>>>>,
     obstacles: Option<TimeWrapper<Vec<nalgebra::Point3<f32>>>>,
     estimate: Option<(RosTime, Option<BallPosition<Ground>>)>,
+    filter: Option<(RosTime, BallFilter)>,
+    false_flashes: VecDeque<FalseFlash>,
+    last_false_time: Option<RosTime>,
+    overlay_generation: u64,
     ground_to_field: BTreeMap<RosTime, Isometry2<Ground, Field>>,
     progress: Option<Progress>,
     parameters: Option<Arc<SimulatorParameters>>,
     received_at: Option<Instant>,
 }
+const FALSE_FLASH_LIFETIME: Duration = Duration::from_millis(200);
+
+struct FalseFlash {
+    marker: FalseDetectionMarker,
+    expires_at: Instant,
+}
+
+impl Snapshot {
+    fn reset_overlays(&mut self) {
+        self.ground_to_field.clear();
+        self.estimate = None;
+        self.filter = None;
+        self.false_flashes.clear();
+        self.last_false_time = None;
+        self.overlay_generation = self.overlay_generation.wrapping_add(1);
+    }
+
+    fn receive_false_detections(
+        &mut self,
+        frame: TimeWrapper<Vec<FalseDetectionMarker>>,
+        now: Instant,
+    ) {
+        if self.last_false_time.is_some_and(|last| frame.time < last) {
+            self.reset_overlays();
+        }
+        self.last_false_time = Some(frame.time);
+        self.expire_false_flashes(now);
+        self.false_flashes
+            .extend(frame.inner.into_iter().map(|marker| FalseFlash {
+                marker,
+                expires_at: now + FALSE_FLASH_LIFETIME,
+            }));
+    }
+
+    fn expire_false_flashes(&mut self, now: Instant) {
+        while self
+            .false_flashes
+            .front()
+            .is_some_and(|flash| flash.expires_at <= now)
+        {
+            self.false_flashes.pop_front();
+        }
+    }
+}
+
 #[derive(Resource)]
 struct ViewerData(Arc<Mutex<Snapshot>>);
 #[derive(Component)]
 struct ViewedRobot;
 #[derive(Component)]
 struct ViewedBall(usize);
-#[derive(Component)]
-struct ViewedObstacle(usize);
 #[derive(Component)]
 struct StatusText;
 
@@ -72,6 +121,9 @@ pub fn run() -> Result<()> {
         let balls = node.subscriber::<TimeWrapper<Vec<nalgebra::Isometry3<f32>>>>("simulation/ball_poses_world").build().await?;
         let ball_velocities = node.subscriber::<TimeWrapper<Vec<nalgebra::Vector3<f32>>>>("simulation/ball_velocities_world").build().await?;
         let obstacles = node.subscriber::<TimeWrapper<Vec<nalgebra::Point3<f32>>>>("simulation/obstacle_positions_world").build().await?;
+        let filter = node.subscriber::<BallFilter>("ball_filter/ball_filter_state").build().await?;
+        let false_detections = node.subscriber::<TimeWrapper<Vec<FalseDetectionMarker>>>(FALSE_DETECTIONS_TOPIC)
+            .qos(QosProfile { history: QosHistory::KeepAll, ..Default::default() }).build().await?;
         let estimate = node.subscriber::<Option<BallPosition<Ground>>>("ball_filter/ball_position").build().await?;
         let ground_to_field = node.subscriber::<Isometry2<Ground, Field>>("ground_to_field").build().await?;
         let progress = node.subscriber::<Progress>(PROGRESS_TOPIC).qos(QosProfile {
@@ -112,6 +164,14 @@ pub fn run() -> Result<()> {
                         let Ok(message) = message else { break; };
                         state.lock().expect("viewer state lock").estimate = Some((message.source_time, message.into_message()));
                     }
+                    message = filter.recv_with_metadata() => {
+                        let Ok(message) = message else { break; };
+                        state.lock().expect("viewer state lock").filter = Some((message.source_time, message.into_message()));
+                    }
+                    message = false_detections.recv() => {
+                        let Ok(message) = message else { break; };
+                        state.lock().expect("viewer state lock").receive_false_detections(message, Instant::now());
+                    }
                     message = ground_to_field.recv_with_metadata() => {
                         let Ok(message) = message else { break; };
                         let mut state = state.lock().expect("viewer state lock");
@@ -122,8 +182,7 @@ pub fn run() -> Result<()> {
                         let Ok(message) = message else { break; };
                         let mut state = state.lock().expect("viewer state lock");
                         if state.progress.as_ref().is_some_and(|old| old.output_directory != message.output_directory) {
-                            state.ground_to_field.clear();
-                            state.estimate = None;
+                            state.reset_overlays();
                         }
                         state.progress = Some(message);
                         state.received_at = Some(Instant::now());
@@ -160,6 +219,7 @@ pub fn run() -> Result<()> {
                 }),
         )
         .init_resource::<ObjectVisualAssets>()
+        .init_resource::<OverlayPool>()
         .add_plugins((MujocoWorldPlugin, FieldPlugin, FreeCameraPlugin))
         .configure_sets(
             PreUpdate,
@@ -184,7 +244,12 @@ pub fn run() -> Result<()> {
         )
         .add_systems(
             PreUpdate,
-            (show_recorded_pose, show_ball_model, show_obstacles)
+            (
+                show_recorded_pose,
+                show_ball_model,
+                show_obstacles,
+                show_diagnostic_overlays,
+            )
                 .chain()
                 .after(MujocoModelUpdateSet),
         );
@@ -224,34 +289,33 @@ fn spawn_view(mut commands: Commands, assets: Res<ObjectVisualAssets>) {
     ));
 }
 
+#[derive(Resource)]
+struct ObstacleVisuals {
+    mesh: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+    entities: Vec<Entity>,
+}
+
 fn spawn_obstacles(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mesh = meshes.add(Cylinder::new(
-        super::tuning_obstacles::RADIUS,
-        super::tuning_obstacles::HEIGHT,
-    ));
-    let material = materials.add(StandardMaterial {
-        base_color: Color::srgb(1.0, 0.45, 0.05),
-        ..default()
+    commands.insert_resource(ObstacleVisuals {
+        mesh: meshes.add(Cylinder::new(0.5, 1.0)),
+        material: materials.add(StandardMaterial {
+            base_color: Color::srgb(1.0, 0.45, 0.05),
+            ..default()
+        }),
+        entities: Vec::new(),
     });
-    for index in 0..super::tuning_obstacles::COUNT {
-        commands.spawn((
-            ViewedObstacle(index),
-            Mesh3d(mesh.clone()),
-            MeshMaterial3d(material.clone()),
-            Transform::default(),
-            Visibility::Hidden,
-            Pickable::IGNORE,
-        ));
-    }
 }
 
 fn show_obstacles(
     input: Res<ViewerData>,
-    mut obstacles: Query<(&ViewedObstacle, &mut Transform, &mut Visibility)>,
+    parameters: Res<CurrentSimulatorParameters>,
+    mut visuals: ResMut<ObstacleVisuals>,
+    mut commands: Commands,
 ) {
     let state = input.0.lock().expect("viewer state lock");
     let positions = state.obstacles.as_ref().filter(|positions| {
@@ -259,12 +323,35 @@ fn show_obstacles(
             torso.time.as_nanos().abs_diff(positions.time.as_nanos()) <= 100_000_000
         })
     });
-    for (index, mut transform, mut visibility) in &mut obstacles {
-        if let Some(p) = positions.and_then(|positions| positions.inner.get(index.0)) {
-            *transform = Transform::from_xyz(p.x, p.z, -p.y);
-            *visibility = Visibility::Visible;
-        } else {
-            *visibility = Visibility::Hidden;
+    let count = positions
+        .map_or(0, |positions| positions.inner.len())
+        .min(parameters.parameters.opponents.count as usize);
+    while visuals.entities.len() < count {
+        let entity = commands
+            .spawn((
+                Mesh3d(visuals.mesh.clone()),
+                MeshMaterial3d(visuals.material.clone()),
+                Transform::default(),
+                Visibility::Hidden,
+                Pickable::IGNORE,
+            ))
+            .id();
+        visuals.entities.push(entity);
+    }
+    for entity in visuals.entities.drain(count..) {
+        commands.entity(entity).despawn();
+    }
+    if let Some(positions) = positions {
+        let width = parameters.parameters.opponents.width;
+        for (&entity, position) in visuals.entities.iter().zip(&positions.inner) {
+            commands.entity(entity).insert((
+                Transform::from_xyz(position.x, position.z, -position.y).with_scale(Vec3::new(
+                    width,
+                    super::tuning_obstacles::HEIGHT,
+                    width,
+                )),
+                Visibility::Visible,
+            ));
         }
     }
 }
@@ -317,7 +404,7 @@ fn show_recorded_pose(
         .received_at
         .is_none_or(|time| time.elapsed() > Duration::from_secs(3));
     **text = Text::new(format!(
-        "{status}{}\nRead-only view | hold right mouse + WASD to move | Q down / E up\nBlue ball / arrow: filter | original balls / green arrows: truth | arrows: 1 m per m/s\nOrange cylinders: moving opponents that block camera detections",
+        "{status}{}\nRead-only view | hold right mouse + WASD to move | Q down / E up\nBlue: selected model | grey: other hypotheses | original balls / green arrows: truth\nOrange flashes: false detections on ground | red flashes: false pixels projected 3 m down camera ray\nArrows: 1 m per m/s | orange cylinders: moving opponents that block camera detections",
         if stale { " | no live updates" } else { "" }
     ));
     let (Some((joint_time, joints)), Some(torso)) = (&state.joints, &state.torso) else {
@@ -427,6 +514,30 @@ fn spawn_ball_model(
         radius: 1.0,
         height: 1.0,
     });
+    let mut ball_material = |color: Color| {
+        let mut material = materials
+            .get(&assets.ball.material(false))
+            .expect("ball material loaded")
+            .clone();
+        material.base_color = color;
+        materials.add(material)
+    };
+    let grey_ball = ball_material(Color::srgb(0.55, 0.55, 0.55));
+    let false_ground = ball_material(Color::srgb(1.0, 0.4, 0.02));
+    let false_ray = ball_material(Color::srgb(1.0, 0.04, 0.08));
+    let grey_arrow = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.6, 0.6, 0.6),
+        unlit: true,
+        ..default()
+    });
+    commands.insert_resource(OverlayAssets {
+        grey_ball,
+        grey_arrow,
+        false_ground,
+        false_ray,
+        shaft: shaft.clone(),
+        tip: tip.clone(),
+    });
     let mut arrows = vec![
         (BallModelPart::Shaft, shaft.clone(), arrow.clone()),
         (BallModelPart::Tip, tip.clone(), arrow),
@@ -479,16 +590,51 @@ fn model_in_field(state: &Snapshot, time: RosTime) -> Option<BallPosition<Field>
         return None;
     }
     let estimate = estimate?;
-    let before = state.ground_to_field.range(..=estimate_time).next_back();
-    let after = state.ground_to_field.range(estimate_time..).next();
+    Some(*field_pose_at(state, estimate_time)? * estimate)
+}
+
+fn field_pose_at(state: &Snapshot, time: RosTime) -> Option<&Isometry2<Ground, Field>> {
+    let before = state.ground_to_field.range(..=time).next_back();
+    let after = state.ground_to_field.range(time..).next();
     let (pose_time, pose) = before
         .into_iter()
         .chain(after)
-        .min_by_key(|(time, _)| time.as_nanos().abs_diff(estimate_time.as_nanos()))?;
-    if pose_time.as_nanos().abs_diff(estimate_time.as_nanos()) > 20_000_000 {
-        return None;
+        .min_by_key(|(stamp, _)| stamp.as_nanos().abs_diff(time.as_nanos()))?;
+    (pose_time.as_nanos().abs_diff(time.as_nanos()) <= 20_000_000).then_some(pose)
+}
+
+fn hypotheses_in_field(state: &Snapshot, time: RosTime) -> Vec<BallPosition<Field>> {
+    let Some((source_time, filter)) = &state.filter else {
+        return Vec::new();
+    };
+    if source_time.as_nanos().abs_diff(time.as_nanos()) > 100_000_000 {
+        return Vec::new();
     }
-    Some(*pose * estimate)
+    let Some(pose) = field_pose_at(state, *source_time) else {
+        return Vec::new();
+    };
+    // Show the complete internal state, including weak hypotheses that are not
+    // eligible for selected output. Match the selected position only to avoid
+    // drawing a grey ball over the blue one; do not apply confidence thresholds.
+    let selected = model_in_field(state, time);
+    let mut selected_removed = false;
+    filter
+        .hypotheses
+        .iter()
+        .filter_map(|hypothesis| {
+            let ball = *pose * hypothesis.position();
+            if !selected_removed
+                && selected.is_some_and(|selected| {
+                    (ball.position - selected.position).norm_squared() < 1e-8
+                })
+            {
+                selected_removed = true;
+                None
+            } else {
+                Some(ball)
+            }
+        })
+        .collect()
 }
 
 fn show_ball_model(
@@ -538,10 +684,250 @@ fn show_ball_model(
     }
 }
 
+#[derive(Resource)]
+struct OverlayAssets {
+    grey_ball: Handle<StandardMaterial>,
+    grey_arrow: Handle<StandardMaterial>,
+    false_ground: Handle<StandardMaterial>,
+    false_ray: Handle<StandardMaterial>,
+    shaft: Handle<Mesh>,
+    tip: Handle<Mesh>,
+}
+
+#[derive(Resource, Default)]
+struct OverlayPool {
+    hypotheses: Vec<[Entity; 3]>,
+    false_flashes: Vec<Entity>,
+    generation: u64,
+}
+
+fn show_diagnostic_overlays(
+    input: Res<ViewerData>,
+    parameters: Res<CurrentSimulatorParameters>,
+    assets: Res<ObjectVisualAssets>,
+    overlay_assets: Res<OverlayAssets>,
+    mut pool: ResMut<OverlayPool>,
+    mut commands: Commands,
+) {
+    use super::command_vectors::{Arrow, part_transform};
+    let mut state = input.0.lock().expect("viewer state lock");
+    state.expire_false_flashes(Instant::now());
+    if pool.generation != state.overlay_generation {
+        for entities in pool.hypotheses.drain(..) {
+            for entity in entities {
+                commands.entity(entity).despawn();
+            }
+        }
+        for entity in pool.false_flashes.drain(..) {
+            commands.entity(entity).despawn();
+        }
+        pool.generation = state.overlay_generation;
+    }
+    let hypotheses = state
+        .torso
+        .as_ref()
+        .map(|torso| hypotheses_in_field(&state, torso.time))
+        .unwrap_or_default();
+    while pool.hypotheses.len() < hypotheses.len() {
+        let ball = assets.ball.spawn_visual(
+            &mut commands,
+            Transform::default(),
+            false,
+            RenderLayers::default(),
+        );
+        commands.entity(ball).insert((
+            MeshMaterial3d(overlay_assets.grey_ball.clone()),
+            Visibility::Hidden,
+            bevy::light::NotShadowCaster,
+        ));
+        let arrows = [overlay_assets.shaft.clone(), overlay_assets.tip.clone()].map(|mesh| {
+            commands
+                .spawn((
+                    Mesh3d(mesh),
+                    MeshMaterial3d(overlay_assets.grey_arrow.clone()),
+                    Transform::default(),
+                    Visibility::Hidden,
+                    bevy::light::NotShadowCaster,
+                    Pickable::IGNORE,
+                ))
+                .id()
+        });
+        pool.hypotheses.push([ball, arrows[0], arrows[1]]);
+    }
+    for entities in pool.hypotheses.drain(hypotheses.len()..) {
+        for entity in entities {
+            commands.entity(entity).despawn();
+        }
+    }
+    let radius = parameters.parameters.field_dimensions.ball_radius;
+    for (entities, ball) in pool.hypotheses.iter().zip(hypotheses) {
+        let origin = Vec3::new(ball.position.x(), radius, -ball.position.y());
+        let arrow = Arrow {
+            origin,
+            vector: Vec3::new(ball.velocity.x(), 0.0, -ball.velocity.y()),
+        };
+        let transforms = [
+            origin
+                .is_finite()
+                .then(|| Transform::from_translation(origin)),
+            part_transform(arrow, false),
+            part_transform(arrow, true),
+        ];
+        for (&entity, transform) in entities.iter().zip(transforms) {
+            if let Some(transform) = transform {
+                commands
+                    .entity(entity)
+                    .insert((transform, Visibility::Visible));
+            } else {
+                commands.entity(entity).insert(Visibility::Hidden);
+            }
+        }
+    }
+    while pool.false_flashes.len() < state.false_flashes.len() {
+        let ball = assets.ball.spawn_visual(
+            &mut commands,
+            Transform::default(),
+            false,
+            RenderLayers::default(),
+        );
+        commands.entity(ball).insert(bevy::light::NotShadowCaster);
+        pool.false_flashes.push(ball);
+    }
+    for entity in pool.false_flashes.drain(state.false_flashes.len()..) {
+        commands.entity(entity).despawn();
+    }
+    for (&entity, flash) in pool.false_flashes.iter().zip(&state.false_flashes) {
+        let position = flash.marker.position;
+        let material = match flash.marker.projection {
+            FalseDetectionProjection::GroundPlane => &overlay_assets.false_ground,
+            FalseDetectionProjection::CameraRay => &overlay_assets.false_ray,
+        };
+        // Larger than a real ball so a false percept at the actual ball remains
+        // visible as a diagnostic flash instead of being hidden inside its mesh.
+        commands.entity(entity).insert((
+            Transform::from_xyz(position.x(), position.z(), -position.y())
+                .with_scale(Vec3::splat(1.08)),
+            MeshMaterial3d(material.clone()),
+            Visibility::Visible,
+        ));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use linear_algebra::{point, vector};
+
+    #[test]
+    fn all_stored_hypotheses_use_source_pose_even_with_low_validity() {
+        let time = RosTime::from_nanos(1_000_000_000);
+        let mut filter = BallFilter::default();
+        for (x, validity) in [(1.0, 10.0), (2.0, 0.01), (3.0, 0.0)] {
+            let mut hypothesis = ball_filter::BallHypothesis::new(
+                types::multivariate_normal_distribution::MultivariateNormalDistribution {
+                    mean: nalgebra::vector![x, 0.0, 0.5, 0.0],
+                    covariance: nalgebra::Matrix4::identity(),
+                },
+                time,
+            );
+            hypothesis.validity = validity;
+            filter.hypotheses.push(hypothesis);
+        }
+        let selected = filter.hypotheses[0].position();
+        let mut state = Snapshot {
+            filter: Some((time, filter)),
+            estimate: Some((time, Some(selected))),
+            ..Default::default()
+        };
+        state.ground_to_field.insert(
+            time,
+            Isometry2::from_parts(vector![2.0, 3.0], std::f32::consts::FRAC_PI_2),
+        );
+        let later = RosTime::from_nanos(1_040_000_000);
+        state
+            .ground_to_field
+            .insert(later, Isometry2::from_parts(vector![20.0, 30.0], 0.0));
+        let grey = hypotheses_in_field(&state, later);
+        assert_eq!(
+            grey.len(),
+            2,
+            "only the selected blue hypothesis is omitted"
+        );
+        assert!((grey[0].position - point![2.0, 5.0]).norm() < 1e-5);
+        assert!((grey[1].position - point![2.0, 6.0]).norm() < 1e-5);
+        assert!((grey[0].velocity - vector![0.0, 0.5]).norm() < 1e-5);
+        state.estimate = Some((time, None));
+        assert_eq!(
+            hypotheses_in_field(&state, later).len(),
+            3,
+            "no output threshold is applied"
+        );
+        assert!(hypotheses_in_field(&state, RosTime::from_nanos(1_101_000_000)).is_empty());
+        state.ground_to_field.remove(&time);
+        assert!(
+            hypotheses_in_field(&state, later).is_empty(),
+            "40ms pose must be rejected"
+        );
+    }
+
+    #[test]
+    fn false_flashes_queue_every_event_then_expire_and_reset_on_run_change() {
+        let now = Instant::now();
+        let marker = FalseDetectionMarker {
+            position: point![1.0, 2.0, 0.105],
+            projection: FalseDetectionProjection::GroundPlane,
+        };
+        let mut state = Snapshot::default();
+        state.receive_false_detections(
+            TimeWrapper {
+                time: RosTime::from_nanos(1_000_000_000),
+                inner: vec![marker, marker],
+            },
+            now,
+        );
+        state.receive_false_detections(
+            TimeWrapper {
+                time: RosTime::from_nanos(1_040_000_000),
+                inner: vec![marker],
+            },
+            now + Duration::from_millis(40),
+        );
+        assert_eq!(
+            state.false_flashes.len(),
+            3,
+            "receiving another frame must not replace older flashes"
+        );
+        state.expire_false_flashes(now + Duration::from_millis(199));
+        assert_eq!(state.false_flashes.len(), 3);
+        state.expire_false_flashes(now + Duration::from_millis(200));
+        assert_eq!(state.false_flashes.len(), 1);
+        state.expire_false_flashes(now + Duration::from_millis(240));
+        assert!(state.false_flashes.is_empty());
+        state.receive_false_detections(
+            TimeWrapper {
+                time: RosTime::from_nanos(1_080_000_000),
+                inner: vec![marker],
+            },
+            now + Duration::from_millis(280),
+        );
+        let generation = state.overlay_generation;
+        state.receive_false_detections(
+            TimeWrapper {
+                time: RosTime::zero(),
+                inner: vec![marker],
+            },
+            now + Duration::from_millis(300),
+        );
+        assert_eq!(
+            state.false_flashes.len(),
+            1,
+            "clock reset drops previous-run flashes"
+        );
+        assert_ne!(state.overlay_generation, generation);
+        state.reset_overlays();
+        assert!(state.false_flashes.is_empty());
+        assert!(state.last_false_time.is_none());
+    }
 
     #[test]
     fn truth_velocity_uses_world_axes_and_requires_a_present_synchronized_ball() {

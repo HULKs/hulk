@@ -7,6 +7,29 @@ pub const ROUTER: &str = "tcp/127.0.0.1:7448";
 pub const NAMESPACE: &str = "/ball_tuning";
 pub const PROGRESS_TOPIC: &str = "tuning/progress";
 pub const OPEN_VIEWER_TOPIC: &str = "/ball_tuning/tuning/open_viewer";
+pub const OPPONENTS_TOPIC: &str = "/ball_tuning/tuning/opponents";
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, ros_z::Message)]
+pub struct OpponentParameters {
+    pub count: u32,
+    /// Cylinder diameter in metres, shared by physics, occlusion and rendering.
+    pub width: f32,
+}
+
+impl Default for OpponentParameters {
+    fn default() -> Self {
+        Self {
+            count: 2,
+            width: 0.44,
+        }
+    }
+}
+
+impl OpponentParameters {
+    pub fn is_valid(self) -> bool {
+        self.count <= 8 && self.width.is_finite() && (0.1..=1.2).contains(&self.width)
+    }
+}
 pub const TUNED_PARAMETER_POINTERS: &[&str] = &[
     "/noise/detection_noise",
     "/noise/process_noise_resting",
@@ -81,4 +104,8 @@ pub struct Progress {
     /// Last successful remote status poll, independent of the local heartbeat.
     #[serde(default)]
     pub remote_updated_unix_seconds: Option<f64>,
+    #[serde(default)]
+    pub opponents: OpponentParameters,
+    #[serde(default)]
+    pub active_opponents: Option<OpponentParameters>,
 }

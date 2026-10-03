@@ -122,6 +122,41 @@ Twix remote bridge and launch controls (2026-10-03)
 - Remote startup capacity is sampled, not reserved. Full-history checkpoint
   inspection should eventually use a validated immutable-round cache as runs grow.
 
+Visualization, history and fresh capture follow-up (2026-10-03, in progress)
+- User asks all hypotheses as grey soccer balls/arrows, every injected false
+  detection as a brief marker, past-run history/deletion in Twix, regular fresh
+  captures using best parameters, and configurable opponent count/width in Twix.
+- Parallel ownership: viewer/perception diagnostics; history/deletion/UI;
+  recurring remote generation lifecycle. Root integrates capture/config/physics.
+- False markers are diagnostic-only, never physical balls or ground truth.
+  Orange uses ball-radius plane, red represents an above-horizon pixel3m down
+  its camera ray. All received events queue for200ms. Grey tracks include weak
+  stored hypotheses. Full filter-state source timestamp corrected to state time.
+- Opponents range0..8, diameter0.1..1.2m; identical width in physics, avoidance,
+  perception occlusion and rendering. Live edits restart an episode; captures
+  freeze their scenario. Capture parameters override only temporary filter layer.
+- Overnight result at2,121,472 candidate slots: heldoutloss1.4081->1.0718,
+  missing4.798->1.076s, longestgap3.504->.680s, spatiallag.1048->.0857s, but
+  closeRMSE.4718->.7837m and false-tracktime7.920->8.320s. Retention improved,
+  kicking quality remains worse. Snapshot saved logs/ball-overnight-results-20261003.json.
+- Fresh generations must stay separate in history/scoring. Futureremote protocol
+  builds next snapshot paused while current workers continue, then finishes old
+  rounds before activating next. Existing legacy32-worker sessions need explicit
+  migration only after next generation is prepared; preserve all checkpoints.
+- Combined Rust validation: 41 ball_filter, 62 simulator and 82 Twix tests pass;
+  one existing simulator test remains ignored. See logs/ball-run-history-tests.log.
+- History read-only integration discovers14 local runs and both active remote
+  searches. Active/unknown runs and externally referenced recordings cannot be
+  trashed. No real run was deleted during validation.
+- Current camera simulation projects physical balls into ideal camera pixels,
+  injects detection errors, then uses production measured kinematics/projection.
+  No rendered camera images or neural detector inference; image realism and
+  sensor calibration/timing perturbations remain in the backlog below.
+- Restarted the old local monitor after source edits invalidated its generated
+  inspection script. Remote workers were untouched. Fresh verified candidate
+  retention-fullcpu-20261003/worker-18/round-000220 saved for new capture in
+  logs/ball-refresh-integration-1791011886/baseline.json5 (seed offset10000).
+
 Next evaluation direction (user priorities, 2026-10-03)
 - Further remote progress confirms scalar loss is insufficient: around round20,
   training-selected loss1.26348 has closeRMSE1.210m versus baseline.715m;

@@ -106,6 +106,62 @@ impl Parameters {
     }
 }
 
+pub(crate) const FALSE_DETECTIONS_TOPIC: &str = "simulation/false_ball_detections";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Message)]
+pub enum FalseDetectionProjection {
+    GroundPlane,
+    CameraRay,
+}
+
+/// Simulator-only provenance; never used as a production percept or reference ball.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Message)]
+pub struct FalseDetectionMarker {
+    pub position: Point3<Field>,
+    pub projection: FalseDetectionProjection,
+}
+
+struct DetectionFrame {
+    detections: Vec<Object<RobocupObjectLabel>>,
+    false_pixels: Vec<Point2<Pixel>>,
+}
+
+fn false_detection_marker(
+    camera: &CameraMatrix,
+    ground_to_field: Isometry2<Ground, Field>,
+    pixel: Point2<Pixel>,
+    radius: f32,
+) -> FalseDetectionMarker {
+    let (ground, projection) = match camera.pixel_to_ground_with_z(pixel, radius) {
+        Ok(position)
+            if position
+                .inner
+                .coords
+                .iter()
+                .all(|coordinate| coordinate.is_finite()) =>
+        {
+            (
+                nalgebra::point![position.x(), position.y(), radius],
+                FalseDetectionProjection::GroundPlane,
+            )
+        }
+        _ => {
+            // Above-horizon false pixels have no ground intersection. Keep them
+            // visible as explicitly diagnostic markers three metres down the ray.
+            let bearing = camera.bearing(pixel).inner.normalize();
+            (
+                camera.ground_to_camera.inverse().inner * nalgebra::Point3::from(bearing * 3.0),
+                FalseDetectionProjection::CameraRay,
+            )
+        }
+    };
+    let field = ground_to_field * point![ground.x, ground.y];
+    FalseDetectionMarker {
+        position: point![field.x(), field.y(), ground.z],
+        projection,
+    }
+}
+
 pub struct Detector {
     rng: ChaCha8Rng,
     seed: u64,
@@ -166,6 +222,7 @@ impl Detector {
         }
     }
 
+    #[cfg(test)]
     pub fn detect(
         &mut self,
         camera: &CameraMatrix,
@@ -173,10 +230,22 @@ impl Detector {
         radius: f32,
         parameters: &Parameters,
     ) -> Vec<Object<RobocupObjectLabel>> {
+        self.detect_with_provenance(camera, balls, radius, parameters)
+            .detections
+    }
+
+    fn detect_with_provenance(
+        &mut self,
+        camera: &CameraMatrix,
+        balls: &[Point3<Ground>],
+        radius: f32,
+        parameters: &Parameters,
+    ) -> DetectionFrame {
         if self.seed != parameters.seed {
             *self = Self::new(parameters.seed);
         }
         let mut detections = Vec::new();
+        let mut false_pixels = Vec::new();
         if self.dropout_remaining == 0
             && parameters.dropout_burst_probability > 0.0
             && self.rng.random::<f32>() < parameters.dropout_burst_probability
@@ -225,6 +294,7 @@ impl Detector {
             self.false_remaining = parameters.false_positive_burst_frames;
         }
         if self.false_remaining > 0 {
+            false_pixels.push(self.false_center);
             detections.push(detection(
                 self.false_center,
                 parameters.false_positive_radius,
@@ -232,7 +302,10 @@ impl Detector {
             ));
             self.false_remaining -= 1;
         }
-        detections
+        DetectionFrame {
+            detections,
+            false_pixels,
+        }
     }
 }
 
@@ -352,6 +425,7 @@ pub struct PerceptionIo {
     detections: AnnouncingPublisher<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>,
     truth: Publisher<TimeWrapper<Vec<Point3<Ground>>>>,
     field_truth: Publisher<TimeWrapper<Vec<Point3<Field>>>>,
+    false_detections: Publisher<TimeWrapper<Vec<FalseDetectionMarker>>>,
     history: TruthHistory,
     metrics_task: JoinHandle<()>,
     last_frame: Option<Time>,
@@ -368,6 +442,7 @@ impl PerceptionIo {
             .publisher("simulation/ball_ground_truth_field")
             .build()
             .await?;
+        let false_detections = node.publisher(FALSE_DETECTIONS_TOPIC).build().await?;
         let estimates = node
             .subscriber::<Option<BallPosition<Ground>>>("ball_filter/ball_position")
             .build()
@@ -440,6 +515,7 @@ impl PerceptionIo {
             detections,
             truth,
             field_truth,
+            false_detections,
             history,
             metrics_task,
             last_frame: None,
@@ -531,15 +607,33 @@ impl PerceptionIo {
                             .any(|obstacle| occludes(camera, *ball, obstacle))
                     })
                     .collect();
-                let detections = self.detector.detect(camera, &visible, radius, parameters);
+                let frame = self
+                    .detector
+                    .detect_with_provenance(camera, &visible, radius, parameters);
+                let false_markers: Vec<_> = frame
+                    .false_pixels
+                    .iter()
+                    .map(|&pixel| false_detection_marker(camera, ground_to_field, pixel, radius))
+                    .collect();
                 self.detections
                     .announce(time)
                     .await?
                     .publish(&TimeWrapper {
                         time,
-                        inner: detections,
+                        inner: frame.detections,
                     })
                     .await?;
+                if !false_markers.is_empty() {
+                    self.false_detections
+                        .publish_with_source_time(
+                            &TimeWrapper {
+                                time,
+                                inner: false_markers,
+                            },
+                            time,
+                        )
+                        .await?;
+                }
                 self.last_frame = Some(time);
             }
             Ok(())
@@ -581,6 +675,74 @@ mod tests {
             false_positive_probability: 0.0,
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn false_diagnostic_preserves_detection_sequence_and_reports_every_emission() {
+        let camera = camera();
+        let parameters = Parameters {
+            false_positive_probability: 1.0,
+            false_positive_burst_frames: 3,
+            dropout_probability: 0.1,
+            center_noise_pixels: 2.0,
+            ..clean()
+        };
+        let mut ordinary = Detector::new(parameters.seed);
+        let mut diagnostic = Detector::new(parameters.seed);
+        let mut count = 0;
+        for _ in 0..200 {
+            let expected = ordinary.detect(&camera, &[point![2.0, 0.0, 0.105]], 0.105, &parameters);
+            let actual = diagnostic.detect_with_provenance(
+                &camera,
+                &[point![2.0, 0.0, 0.105]],
+                0.105,
+                &parameters,
+            );
+            assert_eq!(
+                serde_json::to_value(&expected).unwrap(),
+                serde_json::to_value(&actual.detections).unwrap()
+            );
+            for pixel in actual.false_pixels {
+                count += 1;
+                assert_eq!(
+                    actual.detections.last().unwrap().bounding_box.area.center(),
+                    pixel
+                );
+                let marker = false_detection_marker(&camera, Isometry2::identity(), pixel, 0.105);
+                assert!(
+                    marker
+                        .position
+                        .inner
+                        .coords
+                        .iter()
+                        .all(|value| value.is_finite())
+                );
+            }
+        }
+        assert_eq!(
+            count, 200,
+            "every injected false frame must carry provenance"
+        );
+        // Both streams consumed exactly the same RNG draws, including future frames.
+        assert_eq!(ordinary.rng.random::<u64>(), diagnostic.rng.random::<u64>());
+    }
+
+    #[test]
+    fn false_marker_uses_ground_plane_or_explicit_above_horizon_ray() {
+        let camera = camera();
+        let pose = Isometry2::from_parts(vector![2.0, 3.0], std::f32::consts::FRAC_PI_2);
+        let ground = point![2.0, 0.2];
+        let pixel = camera.ground_with_z_to_pixel(ground, 0.105).unwrap();
+        let marker = false_detection_marker(&camera, pose, pixel, 0.105);
+        assert_eq!(marker.projection, FalseDetectionProjection::GroundPlane);
+        assert!((marker.position.xy() - pose * ground).norm() < 1e-4);
+        assert_eq!(marker.position.z(), 0.105);
+        let high_pixel = point![320.0, 0.0];
+        assert!(camera.pixel_to_ground_with_z(high_pixel, 0.105).is_err());
+        let ray = false_detection_marker(&camera, Isometry2::identity(), high_pixel, 0.105);
+        assert_eq!(ray.projection, FalseDetectionProjection::CameraRay);
+        let camera_origin = camera.ground_to_camera.inverse().inner.translation.vector;
+        assert!(((ray.position.inner.coords - camera_origin).norm() - 3.0).abs() < 1e-5);
     }
 
     #[test]

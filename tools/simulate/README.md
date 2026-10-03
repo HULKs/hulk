@@ -86,11 +86,20 @@ Startup failures appear in the panel; viewer output is saved to
 the executable while tuning runs.
 Ball position and spin come directly from MuJoCo via the recorded ROS-Z
 `simulation/ball_poses_world` topic; the viewer does not invent rolling animation.
-The blue soccer ball shows the live filter's position, with a blue velocity
-arrow. The physical ball has a green velocity arrow, taken directly from MuJoCo
-via `simulation/ball_velocities_world`. Both arrows use 1 m per m/s. The filter's
-ground-to-field transform is matched to the filter
-timestamp within 20 ms; missing estimates or stale transforms hide the overlay.
+The blue soccer ball shows the live filter's selected position and velocity.
+Grey soccer balls show every other stored hypothesis, including weak hypotheses,
+with matching grey velocity arrows. The selected hypothesis is not drawn twice.
+The physical ball has a green velocity arrow, taken directly from MuJoCo via
+`simulation/ball_velocities_world`. All arrows use 1 m per m/s. Selected and grey
+models use the filter's logical state timestamp, matching `ground_to_field`
+within 20 ms; missing estimates or stale transforms hide the affected overlay.
+Injected false detections flash for 0.2 seconds: orange soccer balls show their
+projection onto the ball-radius plane, while red balls show a point 3 m along the
+camera ray when no ground projection exists, such as an above-horizon pixel.
+These markers are diagnostics, not physical balls. Every emitted false detection
+is queued for display. Their timestamped provenance is recorded on
+`simulation/false_ball_detections`; all stored hypotheses are recorded on
+`ball_filter/ball_filter_state`.
 During capture this is the baseline filter; during optimization it uses the best
 parameters found so far. Candidate scores always come from the fixed MCAP dataset.
 The panel's live map shows the robot and both ball positions on the field. Filter
@@ -161,6 +170,30 @@ filter and applies the selected parameters for the map and 3D viewer. The local
 preview performs no parameter search. It waits for the bridge's first snapshot
 and can remain open while remote workers compile or start another round.
 
+New **remote** sessions refresh their dataset every 30 minutes by default.
+Set `--refresh-minutes 0` to keep one fixed dataset, or choose another interval
+with `--refresh-minutes N`. A refresh records four new training clips and two
+holdouts using the current best parameters as the new baseline, fresh scenario
+seeds, and the current opponent settings. The local preview pauses during capture;
+the previous remote search continues while recording, uploading and building the
+replacement. Replacement workers remain paused until their build is ready. The
+launcher then asks the old workers to finish their current rounds and save their
+checkpoints before starting the replacement generation. Failed preparation keeps
+the existing search running and retains the failed generation's artifacts.
+
+Each generation has its own baseline, training recordings and holdouts. Its loss
+is compared only within that generation; refreshing starts a new progress history
+rather than ranking results from different datasets together. `OUTPUT/session.json`
+records ownership and the active generation. Later captures, baselines, manifests
+and preview outputs live under `OUTPUT/generations/generation-NNNN/`.
+
+**connect** only monitors existing runs and never refreshes their datasets or
+stops their workers. For a run created with the cooperative-control helper, an
+explicit `remote --resume-manifest MANIFEST --output NEW_DIRECTORY` can resume
+ownership and periodic refresh without starting duplicate workers. Legacy remote
+runs support monitoring but cannot be adopted this way. Stopping the local launcher
+also stops its refresh schedule; its remote workers continue on their current data.
+
 The launcher defaults to 256 candidates per round and up to 32 remote workers.
 Before capturing and again before starting remote jobs, it samples active tuner
 processes and available CPU/memory capacity. Existing workers reduce the new
@@ -185,6 +218,22 @@ launcher and use **connect** with a new output directory and the desired
 manifests. The ordinary **Connect to simulator / optimizer** action observes a
 local endpoint that is already running.
 
+The panel's **Past optimization runs** section lists local runs and known remote
+sessions, including their location, status, date, trial count and separate
+training/held-out baseline-to-best metrics. Click **Refresh history** to update
+it. Unreachable remote runs retain cached scores marked **Cached / stale**.
+Scores from different recordings are not a shared leaderboard.
+
+For a stopped run, **Move to trash** shows its full location and requires
+**Confirm move to trash**. The action moves the entire dedicated run, including
+its recordings and results, into recoverable trash: `logs/ball-filter-trash`
+locally, or `~/.cache/hulk-ball-filter-tuning/trash` remotely. It does not stop
+workers or permanently erase files. Active runs, unknown process status, stale
+remote status and local recordings referenced by another retained session/report
+block the action, with a reason shown in the panel. Process state and references
+are checked again when confirming. History is cached in
+`logs/ball-filter-run-history.json`.
+
 Focused launcher tests require no SSH, recordings, or simulator build:
 
 ```sh
@@ -198,9 +247,15 @@ For a separate, unscored multi-ball visualization, start tuning with
 `--tuning-preview-balls 2` (or `3`). Only the live preview changes; training and
 holdout captures still contain one ball. Every physical ball has its own green
 velocity arrow; the blue ball remains the production filter's selected track.
-Two orange robot-sized cylinders approach and flank the nearest ball as MuJoCo
-mocap obstacles. The leading opponent tries to shield the ball from the controlled
-robot, then applies a physical sideways kick after reaching a plausible foot
+Orange robot-sized cylinders approach and flank the nearest ball as MuJoCo
+mocap obstacles. The default is two opponents, each 0.44 m in diameter. Set
+**Opponents** (0–8) and **Opponent diameter (m)** (0.1–1.2 m) in the panel, or pass
+`--opponents N --opponent-width METRES` to the launcher. Changing the live settings
+restarts the preview episode so collision geometry, perception and rendering
+agree. Capture freezes these settings for all six recordings; changes to the live
+preview do not alter existing recordings. A later remote refresh captures the
+latest live opponent settings. The leading opponent tries to shield the ball from
+the controlled robot, then applies a physical sideways kick after reaching a plausible foot
 stance. Pursuit has speed and acceleration limits, robot clearance, wall bounds,
 a kick cooldown and an airborne-ball check. They remain simplified cylinders;
 the opponents do not run articulated walking or a second behavior stack.

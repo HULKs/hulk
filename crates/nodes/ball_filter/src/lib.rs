@@ -249,7 +249,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         })?;
 
         ball_percepts_pub.publish(&output.ball_percepts).await?;
-        filter_state_pub.publish(&output.filter_state).await?;
         best_ball_hypothesis_pub
             .publish(&output.best_hypothesis)
             .await?;
@@ -260,6 +259,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         // Preserve the state timestamp: publication happens after the fusion safety lag.
         // Consumers comparing estimates with sensor truth must not use delivery time.
         if let Some(time) = output.time {
+            filter_state_pub
+                .publish_with_source_time(&output.filter_state, time)
+                .await?;
             last_field_prior_pose = output.field_prior_pose;
             field_prior_pose_pub
                 .publish_with_source_time(

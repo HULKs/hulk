@@ -13,6 +13,8 @@ pub struct SimulatorParameters {
     pub ball: BallParameters,
     #[serde(default)]
     pub ball_perception: crate::ball_perception::Parameters,
+    #[serde(default)]
+    pub opponents: types::ball_filter_tuning::OpponentParameters,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ros_z::Message)]
@@ -32,6 +34,9 @@ pub struct BallParameters {
 
 impl SimulatorParameters {
     pub fn validate(parameters: &Self) -> Result<(), String> {
+        if !parameters.opponents.is_valid() {
+            return Err("opponents require count 0..8 and width 0.1..1.2 metres".into());
+        }
         let dimensions = &parameters.field_dimensions;
         let positive = [
             ("ball_radius", dimensions.ball_radius),

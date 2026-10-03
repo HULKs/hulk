@@ -17,8 +17,8 @@ use serde::{Deserialize, Serialize};
 use tokio::{sync::oneshot, task::JoinHandle};
 use twix_visualization::twix_painter::{Orientation, TwixPainter};
 use types::ball_filter_tuning::{
-    Metrics, NAMESPACE, OPEN_VIEWER_TOPIC, PROGRESS_TOPIC, Progress, ROUTER,
-    TUNED_PARAMETER_POINTERS,
+    Metrics, NAMESPACE, OPEN_VIEWER_TOPIC, OPPONENTS_TOPIC, OpponentParameters, PROGRESS_TOPIC,
+    Progress, ROUTER, TUNED_PARAMETER_POINTERS,
 };
 use types::{
     ball_position::BallPosition, field_dimensions::FieldDimensions, time_wrapper::TimeWrapper,
@@ -35,6 +35,13 @@ pub struct BallFilterOptimizationPanel {
     pending: Option<PendingConnection>,
     error: Option<String>,
     viewer_request: Option<oneshot::Receiver<Result<()>>>,
+    opponents_request: Option<oneshot::Receiver<Result<()>>>,
+    opponents_status: Option<String>,
+    run_history: RunHistory,
+    history_request: Option<oneshot::Receiver<Result<RunHistory>>>,
+    history_loaded: bool,
+    history_error: Option<String>,
+    delete_confirmation: Option<String>,
     startup: StartupSettings,
     launch: Option<Arc<Mutex<LaunchStatus>>>,
     auto_connect: bool,
@@ -49,6 +56,9 @@ struct StartupSettings {
     host: String,
     workers: u32,
     manifests: String,
+    refresh_minutes: u32,
+    opponent_count: u32,
+    opponent_width: f32,
 }
 
 impl Default for StartupSettings {
@@ -59,6 +69,9 @@ impl Default for StartupSettings {
             host: "remote-compiler".into(),
             workers: 32,
             manifests: String::new(),
+            refresh_minutes: 30,
+            opponent_count: 2,
+            opponent_width: 0.44,
         }
     }
 }
@@ -116,6 +129,13 @@ impl Panel for BallFilterOptimizationPanel {
             pending: None,
             error: None,
             viewer_request: None,
+            opponents_request: None,
+            opponents_status: None,
+            run_history: RunHistory::default(),
+            history_request: None,
+            history_loaded: false,
+            history_error: None,
+            delete_confirmation: None,
             startup: context
                 .value
                 .and_then(|value| serde_json::from_value(value.clone()).ok())
@@ -129,6 +149,8 @@ impl Panel for BallFilterOptimizationPanel {
     fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
         ui.strong("Ball-filter optimization");
         self.startup_ui(ui, &context);
+        self.history_ui(ui);
+        self.opponents_ui(ui, &context);
         if self.auto_connect
             && self.connection.is_none()
             && self.pending.is_none()
@@ -506,6 +528,15 @@ impl BallFilterOptimizationPanel {
                     ui.label("Remote host");
                     ui.text_edit_singleline(&mut self.startup.host);
                     ui.end_row();
+                    ui.label("New recordings every (minutes)").on_hover_text("Remote optimization only. Zero keeps the initial recordings.");
+                    ui.add(egui::DragValue::new(&mut self.startup.refresh_minutes).range(0..=1440));
+                    ui.end_row();
+                    ui.label("Opponents");
+                    ui.add(egui::DragValue::new(&mut self.startup.opponent_count).range(0..=8));
+                    ui.end_row();
+                    ui.label("Opponent diameter (m)");
+                    ui.add(egui::DragValue::new(&mut self.startup.opponent_width).range(0.1..=1.2).speed(0.01));
+                    ui.end_row();
                     ui.label("Remote workers");
                     ui.add(egui::DragValue::new(&mut self.startup.workers).range(1..=32));
                     ui.end_row();
@@ -557,6 +588,356 @@ impl BallFilterOptimizationPanel {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
+struct RunHistory {
+    updated_unix_seconds: f64,
+    runs: Vec<HistoryRun>,
+    warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
+struct HistoryRun {
+    id: String,
+    kind: String,
+    name: String,
+    location: String,
+    date: String,
+    status: String,
+    stale: bool,
+    can_delete: bool,
+    delete_reason: Option<String>,
+    error: Option<String>,
+    completed_trials: u64,
+    verified: bool,
+    report: Option<String>,
+    metrics: HistoryMetrics,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
+struct HistoryMetrics {
+    training_baseline: Option<HistoryScore>,
+    training_optimized: Option<HistoryScore>,
+    validation_baseline: Option<HistoryScore>,
+    validation_optimized: Option<HistoryScore>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
+struct HistoryScore {
+    loss: Option<f64>,
+    close_range_position_rmse_metres: Option<f64>,
+    missing_seconds: Option<f64>,
+    motion_lag_seconds: Option<f64>,
+}
+
+impl RunHistory {
+    fn mark_cached(&mut self) {
+        for run in &mut self.runs {
+            run.stale = true;
+            run.can_delete = false;
+            run.delete_reason = Some("Refresh history to verify current activity".into());
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+enum HistoryAction {
+    Cached,
+    Refresh,
+    Delete(String),
+}
+
+fn history_arguments(action: &HistoryAction) -> Vec<String> {
+    match action {
+        HistoryAction::Cached => Vec::new(),
+        HistoryAction::Refresh => vec!["list".into(), "--json".into()],
+        HistoryAction::Delete(id) => {
+            vec!["delete".into(), "--id".into(), id.clone(), "--json".into()]
+        }
+    }
+}
+
+fn read_run_history(action: HistoryAction) -> Result<RunHistory> {
+    let root = repository_root();
+    if matches!(action, HistoryAction::Cached) {
+        let path = root.join("logs/ball-filter-run-history.json");
+        let mut history: RunHistory = match File::open(&path) {
+            Ok(file) => {
+                serde_json::from_reader(file).wrap_err("could not read saved run history")?
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => RunHistory::default(),
+            Err(error) => return Err(error.into()),
+        };
+        history.mark_cached();
+        return Ok(history);
+    }
+    let output = Command::new("python3")
+        .arg(root.join("scripts/ball_filter_run_history"))
+        .args(history_arguments(&action))
+        .current_dir(&root)
+        .stdin(Stdio::null())
+        .output()
+        .wrap_err("could not start run-history helper")?;
+    color_eyre::eyre::ensure!(
+        output.status.success(),
+        "Run-history helper: {}",
+        String::from_utf8_lossy(&output.stderr).trim()
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&output.stdout).wrap_err("could not decode run history")?;
+    let value = if matches!(action, HistoryAction::Delete(_)) {
+        value
+            .get("history")
+            .cloned()
+            .ok_or_else(|| color_eyre::eyre::eyre!("missing updated history"))?
+    } else {
+        value
+    };
+    serde_json::from_value(value).wrap_err("invalid run history")
+}
+
+impl BallFilterOptimizationPanel {
+    fn request_history(&mut self, action: HistoryAction, repaint: egui::Context) {
+        let (sender, receiver) = oneshot::channel();
+        match std::thread::Builder::new()
+            .name("ball-filter-history".into())
+            .spawn(move || {
+                let _ = sender.send(read_run_history(action));
+                repaint.request_repaint();
+            }) {
+            Ok(_) => {
+                self.history_request = Some(receiver);
+                self.history_error = None;
+            }
+            Err(error) => {
+                self.history_error = Some(format!("Could not start history helper: {error}"))
+            }
+        }
+    }
+
+    fn history_ui(&mut self, ui: &mut Ui) {
+        if !self.history_loaded {
+            self.history_loaded = true;
+            self.request_history(HistoryAction::Cached, ui.ctx().clone());
+        }
+        if let Some(request) = &mut self.history_request {
+            match request.try_recv() {
+                Ok(result) => {
+                    self.history_request = None;
+                    match result {
+                        Ok(history) => self.run_history = history,
+                        Err(error) => self.history_error = Some(format!("{error:#}")),
+                    }
+                }
+                Err(oneshot::error::TryRecvError::Empty) => {
+                    ui.ctx().request_repaint_after(Duration::from_millis(250));
+                }
+                Err(error) => {
+                    self.history_request = None;
+                    self.history_error = Some(error.to_string());
+                }
+            }
+        }
+        let busy = self.history_request.is_some();
+        let mut action = None;
+        egui::CollapsingHeader::new(format!("Past optimization runs ({})", self.run_history.runs.len()))
+            .id_salt("ball_filter_run_history").show(ui, |ui| {
+            ui.horizontal(|ui| {
+                if ui.add_enabled(!busy, egui::Button::new("Refresh history")).clicked() { action = Some(HistoryAction::Refresh); }
+                if busy { ui.spinner(); ui.label("Reading run history…"); }
+                if self.run_history.updated_unix_seconds > 0.0 {
+                    ui.label(format!("Snapshot {:.0} min ago", ((unix_seconds() - self.run_history.updated_unix_seconds) / 60.0).max(0.0)));
+                }
+            });
+            if let Some(error) = &self.history_error { ui.colored_label(ui.visuals().error_fg_color, error); }
+            for warning in &self.run_history.warnings { ui.colored_label(ui.visuals().warn_fg_color, warning); }
+            ui.label("Each run uses its own recordings. Best candidates are selected by training loss; held-out results remain separate.");
+            egui::ScrollArea::vertical().id_salt("ball_filter_history_rows").max_height(330.0).show(ui, |ui| {
+                for run in &self.run_history.runs {
+                    ui.push_id(&run.id, |ui| {
+                        ui.separator();
+                        ui.horizontal_wrapped(|ui| {
+                            ui.strong(&run.name);
+                            ui.label(format!("{} · {} · {} · {} trials", run.kind, run.status, run.date, run.completed_trials));
+                            if run.stale { ui.colored_label(ui.visuals().warn_fg_color, "Cached / stale"); }
+                        });
+                        ui.label(&run.location);
+                        history_scores(ui, &run.metrics);
+                        if let Some(error) = &run.error { ui.colored_label(ui.visuals().warn_fg_color, error); }
+                        ui.collapsing("Report details", |ui| {
+                            if let Some(report) = &run.report { ui.label(report); }
+                            ui.label(if run.verified { "Recorded output replay verified" } else { "Replay verification unavailable" });
+                        });
+                        if self.delete_confirmation.as_deref() == Some(&run.id) {
+                            ui.label(format!("Move {} and its recordings/results to recoverable trash?", run.location));
+                            ui.horizontal(|ui| {
+                                if ui.add_enabled(!busy && run.can_delete && !run.stale, egui::Button::new("Confirm move to trash")).clicked() {
+                                    action = Some(HistoryAction::Delete(run.id.clone()));
+                                    self.delete_confirmation = None;
+                                }
+                                if ui.button("Cancel").clicked() { self.delete_confirmation = None; }
+                            });
+                        } else {
+                            let response = ui.add_enabled(!busy && run.can_delete && !run.stale, egui::Button::new("Move to trash"));
+                            if response.clicked() { self.delete_confirmation = Some(run.id.clone()); }
+                            if let Some(reason) = &run.delete_reason { response.on_hover_text(reason); ui.label(reason); }
+                        }
+                    });
+                }
+                if self.run_history.runs.is_empty() { ui.label("Refresh to discover local runs and known remote sessions."); }
+            });
+        });
+        if let Some(action) = action {
+            self.request_history(action, ui.ctx().clone());
+        }
+    }
+
+    fn opponents_ui(&mut self, ui: &mut Ui, context: &PanelUiContext<'_>) {
+        if let Some(request) = &mut self.opponents_request {
+            match request.try_recv() {
+                Ok(result) => {
+                    self.opponents_request = None;
+                    self.opponents_status = Some(match result {
+                        Ok(()) => "Request sent; waiting for the next live episode.".into(),
+                        Err(error) => format!("Could not update opponents: {error:#}"),
+                    });
+                }
+                Err(oneshot::error::TryRecvError::Empty) => {
+                    ui.ctx().request_repaint_after(Duration::from_millis(250));
+                }
+                Err(error) => {
+                    self.opponents_request = None;
+                    self.opponents_status = Some(error.to_string());
+                }
+            }
+        }
+        let Some(connection) = &self.connection else {
+            return;
+        };
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Live opponents");
+            ui.add(egui::DragValue::new(&mut self.startup.opponent_count).range(0..=8));
+            ui.label("Diameter (m)");
+            ui.add(
+                egui::DragValue::new(&mut self.startup.opponent_width)
+                    .range(0.1..=1.2)
+                    .speed(0.01),
+            );
+            if ui
+                .add_enabled(
+                    self.opponents_request.is_none(),
+                    egui::Button::new("Apply opponents"),
+                )
+                .clicked()
+            {
+                let parameters = OpponentParameters {
+                    count: self.startup.opponent_count,
+                    width: self.startup.opponent_width,
+                };
+                let node = connection._backend.node();
+                let repaint = context.egui_context.clone();
+                let (sender, receiver) = oneshot::channel();
+                context.backend.runtime_handle().spawn(async move {
+                    let result = async {
+                        let publisher = node
+                            .publisher::<OpponentParameters>(OPPONENTS_TOPIC)
+                            .build()
+                            .await?;
+                        publisher.publish(&parameters).await?;
+                        Ok::<_, color_eyre::Report>(())
+                    };
+                    let result = tokio::time::timeout(Duration::from_secs(3), result)
+                        .await
+                        .map_err(color_eyre::Report::from)
+                        .and_then(|result| result);
+                    let _ = sender.send(result);
+                    repaint.request_repaint();
+                });
+                self.opponents_request = Some(receiver);
+                self.opponents_status = None;
+            }
+        });
+        if let Some(sample) = connection.progress.latest() {
+            let progress = &sample.value;
+            let requested = &progress.opponents;
+            let actual = progress
+                .active_opponents
+                .as_ref()
+                .map(|actual| format!("{} × {:.2} m", actual.count, actual.width))
+                .unwrap_or_else(|| "waiting for episode".into());
+            ui.label(format!(
+                "Requested: {} × {:.2} m · Active: {actual}",
+                requested.count, requested.width
+            ));
+        }
+        if let Some(status) = &self.opponents_status {
+            ui.label(status);
+        }
+        ui.label("Changes restart the live episode; existing recordings remain unchanged.");
+    }
+}
+
+fn history_scores(ui: &mut Ui, metrics: &HistoryMetrics) {
+    fn number(value: Option<f64>) -> String {
+        value
+            .filter(|value| value.is_finite())
+            .map_or_else(|| "—".into(), |value| format!("{value:.3}"))
+    }
+    egui::Grid::new("run_scores").num_columns(5).show(ui, |ui| {
+        for label in [
+            "Baseline → best",
+            "Loss",
+            "Close RMSE (m)",
+            "Missing (s)",
+            "Motion lag (s)",
+        ] {
+            ui.label(label);
+        }
+        ui.end_row();
+        for (label, baseline, best) in [
+            (
+                "Training",
+                &metrics.training_baseline,
+                &metrics.training_optimized,
+            ),
+            (
+                "Held out",
+                &metrics.validation_baseline,
+                &metrics.validation_optimized,
+            ),
+        ] {
+            ui.label(label);
+            for values in [
+                (
+                    baseline.as_ref().and_then(|m| m.loss),
+                    best.as_ref().and_then(|m| m.loss),
+                ),
+                (
+                    baseline
+                        .as_ref()
+                        .and_then(|m| m.close_range_position_rmse_metres),
+                    best.as_ref()
+                        .and_then(|m| m.close_range_position_rmse_metres),
+                ),
+                (
+                    baseline.as_ref().and_then(|m| m.missing_seconds),
+                    best.as_ref().and_then(|m| m.missing_seconds),
+                ),
+                (
+                    baseline.as_ref().and_then(|m| m.motion_lag_seconds),
+                    best.as_ref().and_then(|m| m.motion_lag_seconds),
+                ),
+            ] {
+                ui.label(format!("{} → {}", number(values.0), number(values.1)));
+            }
+            ui.end_row();
+        }
+    });
+}
+
 fn repository_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -597,7 +978,20 @@ fn startup_arguments(settings: &StartupSettings, action: StartupAction) -> Resul
     ];
     match action {
         StartupAction::Local | StartupAction::Remote => {
-            arguments.extend(["--trials".into(), "256".into()]);
+            color_eyre::eyre::ensure!(
+                settings.opponent_count <= 8
+                    && settings.opponent_width.is_finite()
+                    && (0.1..=1.2).contains(&settings.opponent_width),
+                "Opponents must be 0–8, with diameter 0.1–1.2 metres"
+            );
+            arguments.extend([
+                "--trials".into(),
+                "256".into(),
+                "--opponents".into(),
+                settings.opponent_count.to_string(),
+                "--opponent-width".into(),
+                settings.opponent_width.to_string(),
+            ]);
             if !settings.recordings.trim().is_empty() {
                 arguments.extend(["--recordings".into(), settings.recordings.trim().into()]);
             }
@@ -615,6 +1009,8 @@ fn startup_arguments(settings: &StartupSettings, action: StartupAction) -> Resul
                     settings.host.trim().into(),
                     "--workers".into(),
                     settings.workers.to_string(),
+                    "--refresh-minutes".into(),
+                    settings.refresh_minutes.to_string(),
                 ]);
             }
         }
@@ -1044,6 +1440,61 @@ mod tests {
     use super::*;
 
     #[test]
+    fn cached_history_preserves_holdout_tradeoffs_but_disables_deletion() {
+        let mut history: RunHistory = serde_json::from_value(serde_json::json!({
+            "runs": [{"id": "remote-example", "can_delete": true, "metrics": {
+                "validation_baseline": {"loss": 1.408, "close_range_position_rmse_metres": 0.472, "missing_seconds": 4.798},
+                "validation_optimized": {"loss": 1.072, "close_range_position_rmse_metres": 0.784, "missing_seconds": 1.076, "motion_lag_seconds": null}
+            }}]
+        })).unwrap();
+        history.mark_cached();
+        let run = &history.runs[0];
+        assert!(run.stale);
+        assert!(!run.can_delete);
+        let baseline = run.metrics.validation_baseline.as_ref().unwrap();
+        let best = run.metrics.validation_optimized.as_ref().unwrap();
+        assert!(best.loss < baseline.loss);
+        assert!(best.close_range_position_rmse_metres > baseline.close_range_position_rmse_metres);
+        assert!(best.motion_lag_seconds.is_none());
+        assert!(run.metrics.training_optimized.is_none());
+    }
+
+    #[test]
+    fn history_delete_passes_only_the_exact_id_as_a_literal_argument() {
+        assert_eq!(
+            history_arguments(&HistoryAction::Delete("remote-a; $(not-a-command)".into())),
+            ["delete", "--id", "remote-a; $(not-a-command)", "--json"]
+        );
+        assert_eq!(
+            history_arguments(&HistoryAction::Refresh),
+            ["list", "--json"]
+        );
+    }
+
+    #[test]
+    fn startup_scenario_arguments_validate_ranges_and_disable_remote_refresh() {
+        let mut settings = StartupSettings {
+            refresh_minutes: 0,
+            opponent_count: 8,
+            opponent_width: 1.2,
+            ..Default::default()
+        };
+        let remote = startup_arguments(&settings, StartupAction::Remote).unwrap();
+        assert!(
+            remote
+                .windows(2)
+                .any(|pair| pair == ["--refresh-minutes", "0"])
+        );
+        let local = startup_arguments(&settings, StartupAction::Local).unwrap();
+        assert!(!local.contains(&"--refresh-minutes".to_string()));
+        settings.opponent_count = 9;
+        assert!(startup_arguments(&settings, StartupAction::Local).is_err());
+        settings.opponent_count = 2;
+        settings.opponent_width = f32::NAN;
+        assert!(startup_arguments(&settings, StartupAction::Remote).is_err());
+    }
+
+    #[test]
     fn startup_arguments_keep_paths_literal_and_capture_when_recordings_are_empty() {
         let settings = StartupSettings {
             output: "logs/new run; $(do-not-run)".into(),
@@ -1056,7 +1507,11 @@ mod tests {
                 "--output",
                 "logs/new run; $(do-not-run)",
                 "--trials",
-                "256"
+                "256",
+                "--opponents",
+                "2",
+                "--opponent-width",
+                "0.44"
             ]
         );
         let settings = StartupSettings {
@@ -1072,12 +1527,18 @@ mod tests {
                 "logs/new run; $(do-not-run)",
                 "--trials",
                 "256",
+                "--opponents",
+                "2",
+                "--opponent-width",
+                "0.44",
                 "--recordings",
                 "logs/existing run",
                 "--host",
                 "remote-compiler",
                 "--workers",
-                "32"
+                "32",
+                "--refresh-minutes",
+                "30"
             ]
         );
     }
