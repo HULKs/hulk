@@ -112,6 +112,37 @@ ball is available. A message is sent only when the robot has a field pose, the
 send interval has elapsed, and the remaining game message budget is high
 enough.
 
+The send interval adapts to the game-controller state. The GameController's
+`secsRemaining` describes only the current half, but `messageBudget` covers the
+remainder of the game and is not reset at halftime. The `firstHalf` flag is
+preserved through both game-controller filters so the sender can include the
+second half in its budget calculation.
+
+Each unpenalized player, including the sender, gets an equal share of the
+remaining message budget after subtracting
+`remaining_amount_of_messages_to_stop_sending` as a reserve:
+
+```text
+time_left = remaining_time_in_half + (half_duration if first_half else 0)
+interval_seconds = time_left_seconds * unpenalized_players / usable_messages
+```
+
+The network parameters `half_duration` (600 seconds) and `extra_half_duration`
+(300 seconds) must match the GameController's competition configuration because
+half lengths are not transmitted. During extra time, the same calculation uses
+`extra_half_duration`. Extra time is not included before it starts: the
+GameController grants an additional message budget when entering extra time.
+Added stoppage time and its extra messages are reflected in the live clock and
+budget.
+
+These semantics are defined in the GameController's
+[packet format](https://github.com/RoboCup-HumanoidSoccerLeague/GameController/blob/02b9db9685f8faa7124ef3d464fbf47c1f6bf106/game_controller_msgs/headers/RoboCupGameControlData.h#L72-L100),
+[half-switch action](https://github.com/RoboCup-HumanoidSoccerLeague/GameController/blob/02b9db9685f8faa7124ef3d464fbf47c1f6bf106/game_controller_core/src/actions/switch_half.rs#L12-L47),
+and [extra-time action](https://github.com/RoboCup-HumanoidSoccerLeague/GameController/blob/02b9db9685f8faa7124ef3d464fbf47c1f6bf106/game_controller_core/src/actions/start_extra_time.rs#L25-L49).
+
+Penalized players and substitutes are excluded from the player count. State
+messages stop when no usable messages, game time, or unpenalized players remain.
+
 Received teammate states provide the poses used for closest-to-ball selection
 and supporter positioning. Team communication can be absent or delayed, so the
 tree retains branches for simple operation, the last active robot, and missing
