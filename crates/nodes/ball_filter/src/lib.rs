@@ -353,7 +353,7 @@ fn remove_invalid_and_merge_hypotheses(
         };
         let validity_high_enough =
             hypothesis.validity >= filter_parameters.validity_discard_threshold;
-        is_ball_inside_field(ball, field_dimensions)
+        is_ball_within_field_range(ball, field_dimensions)
             && validity_high_enough
             && duration_since_last_observation < filter_parameters.hypothesis_timeout
     };
@@ -495,9 +495,13 @@ fn decide_validity_decay_for_hypothesis(
     }
 }
 
-fn is_ball_inside_field(ball: BallPosition<Ground>, field_dimensions: &FieldDimensions) -> bool {
-    ball.position.x().abs() < field_dimensions.length / 2.0
-        && ball.position.y().abs() < field_dimensions.width / 2.0
+fn is_ball_within_field_range(
+    ball: BallPosition<Ground>,
+    field_dimensions: &FieldDimensions,
+) -> bool {
+    let length = field_dimensions.length + 2.0 * field_dimensions.border_strip_width;
+    let width = field_dimensions.width + 2.0 * field_dimensions.border_strip_width;
+    ball.position.coords().norm_squared() <= length * length + width * width
 }
 
 fn project_to_image(
