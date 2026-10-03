@@ -115,6 +115,14 @@
       nanos: 0,
       secs: 1,
     },
+    half_duration: {
+      nanos: 0,
+      secs: 600,
+    },
+    extra_half_duration: {
+      nanos: 0,
+      secs: 300,
+    },
     remaining_amount_of_messages_to_stop_sending: 20,
     silence_interval_between_messages: {
       nanos: 0,
@@ -123,10 +131,6 @@
     hsl_striker_message_receive_timeout: {
       nanos: 0,
       secs: 3,
-    },
-    hsl_state_message_send_interval: {
-      nanos: 300000000,
-      secs: 0,
     },
   },
 }
