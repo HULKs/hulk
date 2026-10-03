@@ -230,19 +230,72 @@ pub struct BallFilterNoise {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
 pub struct BallFilterParameters {
+    /// Maximum absolute offset between image exposure and camera geometry.
+    #[serde(default = "default_ball_camera_tolerance")]
+    pub maximum_camera_matrix_time_difference: Duration,
+    /// Distance outside the field for an e-fold confidence reduction; <= 0 disables.
+    #[serde(default = "default_ball_field_confidence_decay_distance")]
+    pub field_boundary_confidence_decay_distance: f32,
+    /// Maximum additional confidence decay per second outside the field.
+    /// Zero preserves historical recordings without time-based field decay.
+    #[serde(default)]
+    pub field_boundary_validity_decay_rate: f32,
+    /// Maximum projected detection distance in Ground metres; zero disables.
+    #[serde(default)]
+    pub maximum_detection_distance: f32,
     pub hypothesis_timeout: Duration,
+    /// Confirmed clear-view miss time before deleting a hypothesis; zero disables.
+    /// Legacy recording baselines omit this field and retain their original behavior.
+    #[serde(default)]
+    pub visible_missed_detection_timeout: Duration,
+    /// Continuous clear-view miss time for a nearby ball; zero keeps legacy behavior.
+    #[serde(default)]
+    pub near_visible_missed_detection_timeout: Duration,
+    /// Ground distance in metres for the fast near-ball miss rule; zero disables it.
+    #[serde(default)]
+    pub near_visible_missed_detection_distance: f32,
+    /// Maximum age of the obstacle model used to establish a clear camera view.
+    #[serde(default = "default_ball_obstacle_tolerance")]
+    pub maximum_obstacle_time_difference: Duration,
     pub maximum_number_of_hypotheses: usize,
     pub ball_confidence_threshold: f32,
     pub log_likelihood_of_zero_velocity_threshold: f32,
     pub hypothesis_merge_distance: f32,
     pub visible_validity_exponential_decay_factor: f32,
     pub hidden_validity_exponential_decay_factor: f32,
+    /// Unmatched hidden-track decay per second. None preserves the legacy factor.
+    #[serde(default)]
+    pub hidden_validity_decay_rate: Option<f32>,
+    /// Clear-view unmatched-track decay per second. None preserves the legacy factor.
+    #[serde(default)]
+    pub visible_missed_validity_decay_rate: Option<f32>,
+    /// Additional decay per second for clearly missed balls in kick range.
+    /// None preserves historical behavior; zero applies no extra near-ball decay.
+    #[serde(default)]
+    pub near_visible_missed_validity_decay_rate: Option<f32>,
+    /// Extra decay per second for unmatched competitors of a persistently observed,
+    /// confident leader. None preserves legacy behavior; zero disables the penalty.
+    #[serde(default)]
+    pub competing_hypothesis_validity_decay_rate: Option<f32>,
     pub validity_output_threshold: f32,
     pub validity_discard_threshold: f32,
     pub velocity_decay_factor: f32,
     pub noise: BallFilterNoise,
     pub maximum_matching_cost: f32,
+    /// Legacy compatibility field; rejected associations no longer penalize track validity.
     pub maximum_matching_cost_validity_penalty_factor: f32,
+}
+
+fn default_ball_field_confidence_decay_distance() -> f32 {
+    0.3
+}
+
+fn default_ball_obstacle_tolerance() -> Duration {
+    Duration::from_millis(100)
+}
+
+fn default_ball_camera_tolerance() -> Duration {
+    Duration::from_millis(20)
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]

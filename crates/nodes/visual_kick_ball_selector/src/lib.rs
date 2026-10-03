@@ -30,7 +30,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    let mut held_ball = None;
+    let mut selector = VisualKickBallSelector::default();
 
     loop {
         let ball_percepts = ball_percepts_sub.recv_with_metadata().await?;
@@ -38,25 +38,61 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
 
-        if let Some(position) = nearest_visual_kick_ball_position(&ball_percepts.message) {
-            held_ball = Some(BallPosition {
-                position,
-                velocity: Vector2::zeros(),
-                last_seen: output_time,
-            });
+        if let Some(output) = selector.process_frame(
+            &ball_percepts.message,
+            output_time,
+            node.clock().now(),
+            parameters.percept_timeout,
+        ) {
+            ball_position_pub
+                .publish_with_source_time(&output, output_time)
+                .await?;
         }
+    }
+}
 
-        let output = held_ball_if_fresh(held_ball, output_time, parameters.percept_timeout);
-        if output.is_none() {
-            held_ball = None;
+#[derive(Default)]
+struct VisualKickBallSelector {
+    last_frame_time: Option<Time>,
+}
+
+impl VisualKickBallSelector {
+    /// Each message is one actual camera frame, stamped at exposure. An empty
+    /// frame revokes authorization immediately; there is no model/held fallback.
+    /// Outer None ignores duplicate/backdated delivery without reviving an old hit.
+    fn process_frame(
+        &mut self,
+        percepts: &[BallPercept],
+        exposure: Time,
+        now: Time,
+        timeout: Duration,
+    ) -> Option<Option<BallPosition<Ground>>> {
+        if exposure > now
+            || self
+                .last_frame_time
+                .is_some_and(|previous| exposure <= previous)
+        {
+            return None;
         }
-        ball_position_pub.publish(&output).await?;
+        self.last_frame_time = Some(exposure);
+        let observed = nearest_visual_kick_ball_position(percepts).map(|position| BallPosition {
+            position,
+            velocity: Vector2::zeros(),
+            last_seen: exposure,
+        });
+        Some(observed_ball_if_fresh(observed, now, timeout))
     }
 }
 
 fn nearest_visual_kick_ball_position(ball_percepts: &[BallPercept]) -> Option<Point2<Ground>> {
     ball_percepts
         .iter()
+        .filter(|ball| {
+            ball.percept_in_ground
+                .mean
+                .iter()
+                .all(|value| value.is_finite())
+        })
         .min_by(|a, b| {
             a.percept_in_ground
                 .mean
@@ -66,12 +102,12 @@ fn nearest_visual_kick_ball_position(ball_percepts: &[BallPercept]) -> Option<Po
         .map(|ball| ball.percept_in_ground.mean.framed().as_point())
 }
 
-fn held_ball_if_fresh(
-    held_ball: Option<BallPosition<Ground>>,
+fn observed_ball_if_fresh(
+    observed_ball: Option<BallPosition<Ground>>,
     now: Time,
     sample_timeout: Duration,
 ) -> Option<BallPosition<Ground>> {
-    held_ball.filter(|ball| ball.age_at(now).is_some_and(|age| age <= sample_timeout))
+    observed_ball.filter(|ball| ball.age_at(now).is_some_and(|age| age <= sample_timeout))
 }
 
 #[cfg(test)]
@@ -93,11 +129,91 @@ mod tests {
     use super::*;
 
     #[test]
-    fn held_ball_expires_after_timeout() {
+    fn actual_empty_frame_revokes_immediately_and_old_hits_cannot_restore_it() {
+        let mut selector = VisualKickBallSelector::default();
+        let timeout = Duration::from_millis(100);
+        let first = Time::from_nanos(1_000_000_000);
+        let hit = [test_ball_percept(0.3, 0.0)];
+        let output = selector
+            .process_frame(&hit, first, first + Duration::from_millis(50), timeout)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            output.last_seen, first,
+            "publication delay must not reset observation age"
+        );
+        let missed = first + Duration::from_millis(40);
+        assert!(
+            selector
+                .process_frame(&[], missed, missed + Duration::from_millis(50), timeout)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            selector
+                .process_frame(&hit, first, missed + Duration::from_millis(50), timeout)
+                .is_none()
+        );
+        assert!(
+            selector
+                .process_frame(&hit, missed, missed + Duration::from_millis(50), timeout)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn delayed_nonfinite_and_future_observations_cannot_authorize_a_kick() {
+        let mut selector = VisualKickBallSelector::default();
+        let timeout = Duration::from_millis(100);
+        let first = Time::from_nanos(1_000_000_000);
+        assert!(
+            selector
+                .process_frame(
+                    &[test_ball_percept(0.3, 0.0)],
+                    first,
+                    first + Duration::from_millis(101),
+                    timeout
+                )
+                .unwrap()
+                .is_none()
+        );
+        let next = first + Duration::from_millis(200);
+        assert!(
+            selector
+                .process_frame(&[test_ball_percept(f32::NAN, 0.0)], next, next, timeout)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            selector
+                .process_frame(
+                    &[test_ball_percept(0.3, 0.0)],
+                    next + Duration::from_secs(1),
+                    next,
+                    timeout
+                )
+                .is_none()
+        );
+        // A future timestamp must not poison the monotonic gate forever.
+        assert!(
+            selector
+                .process_frame(
+                    &[test_ball_percept(0.3, 0.0)],
+                    next + Duration::from_millis(40),
+                    next + Duration::from_millis(50),
+                    timeout
+                )
+                .unwrap()
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn observation_expires_after_timeout() {
         let ball = test_ball_percept(1.0, 0.0);
 
         assert!(
-            held_ball_if_fresh(
+            observed_ball_if_fresh(
                 Some(BallPosition {
                     position: ball.percept_in_ground.mean.framed().as_point(),
                     velocity: Vector2::zeros(),
@@ -109,7 +225,7 @@ mod tests {
             .is_some()
         );
         assert!(
-            held_ball_if_fresh(
+            observed_ball_if_fresh(
                 Some(BallPosition {
                     position: ball.percept_in_ground.mean.framed().as_point(),
                     velocity: Vector2::zeros(),
