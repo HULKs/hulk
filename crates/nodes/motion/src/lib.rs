@@ -540,8 +540,7 @@ impl MotionState {
         let elapsed = clock.now().duration_since(self.last_joints_command.time);
 
         let legs = legs
-            .clone() // I hate this and will fix it later
-            .map(|motor_command| motor_command.position)
+            .map_ref(|motor_command| motor_command.position)
             .clamp(BodyJoints::from(joint_limits.position).into());
 
         let ratio =

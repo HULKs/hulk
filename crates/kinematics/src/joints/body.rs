@@ -166,6 +166,13 @@ impl<T> LowerBodyJoints<T> {
             right_leg: self.right_leg.map(&f),
         }
     }
+
+    pub fn map_ref<U>(&self, f: impl Fn(&T) -> U) -> LowerBodyJoints<U> {
+        LowerBodyJoints {
+            left_leg: self.left_leg.map_ref(&f),
+            right_leg: self.right_leg.map_ref(&f),
+        }
+    }
 }
 
 impl<T> LowerBodyJoints<T>

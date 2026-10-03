@@ -54,6 +54,17 @@ impl<T> LegJoints<T> {
             ankle_down: f(self.ankle_down),
         }
     }
+
+    pub fn map_ref<U>(&self, f: impl Fn(&T) -> U) -> LegJoints<U> {
+        LegJoints {
+            hip_pitch: f(&self.hip_pitch),
+            hip_roll: f(&self.hip_roll),
+            hip_yaw: f(&self.hip_yaw),
+            knee: f(&self.knee),
+            ankle_up: f(&self.ankle_up),
+            ankle_down: f(&self.ankle_down),
+        }
+    }
 }
 
 impl LegJoints<f32> {
