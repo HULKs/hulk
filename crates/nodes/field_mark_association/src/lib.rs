@@ -1,40 +1,27 @@
-use coordinate_systems::{Camera, Robot};
-use linear_algebra::Isometry3;
-use projection::camera_matrix::CameraMatrix;
-
 mod api;
-mod debug;
 mod features;
 mod frame_processing;
 mod global_association;
+mod map;
 mod node;
 mod parameters;
 mod tracking;
 
 pub use api::{
-    GlobalVisualLocalization, associate_visual_features, localize_global_visual_features,
-    localize_global_visual_features_detailed_debug,
+    AssociationInput, AssociationResult, GlobalAssociationInput, HeadingConstraint,
+    TrackingAssociationInput, associate_global_visual_features, associate_tracking_visual_features,
+    associate_visual_features,
 };
 pub use features::{
-    DetectedVisualFeature, DetectedVisualFeatures, find_detected_goalposts,
-    find_detected_visual_features,
+    DetectedVisualFeature, DetectedVisualFeatures, VisualFeatureClass,
+    find_detected_visual_features, raw_detections,
 };
-pub use global_association::{
-    GlobalAssociationConfig as GlobalLocalizerParameters, GlobalLocalizationDebugAssociation,
-    GlobalLocalizationDebugDetection, GlobalLocalizationDebugProjection,
-    GlobalLocalizationDetailedDebug, GlobalLocalizationDetailedStatus, GlobalLocalizationScore,
-    PoseHintAssociationConfig as PoseHintAssociationParameters, VisualFeatureClass,
-};
+pub use global_association::GlobalAssociationConfig as GlobalLocalizerParameters;
+pub use map::candidate_points;
 pub use node::{run, run_boxed};
-pub use parameters::FieldMarkAssociationParameters;
-pub use tracking::FieldMarkAssociationState;
-pub use types::visual_localization::{
-    FieldMarkAssociation, FieldMarkAssociationSource,
-    FieldMarkAssociationSource as FieldMarkAssociationKind, GLOBAL_LOCALIZATION_DEBUG_TOPIC,
-    GlobalLocalizationDebug, GlobalLocalizationDebugStatus, VisualLocalizationFrame,
-    VisualLocalizationFrame as FieldMarkAssociations,
+pub use parameters::{
+    AssociationCapacities, FieldMarkAssociationParameters, TrackingAssociationParameters,
 };
-
-pub(crate) fn robot_to_camera(camera_matrix: &CameraMatrix) -> Isometry3<Robot, Camera> {
-    camera_matrix.head_to_camera * camera_matrix.robot_to_head
-}
+pub use types::visual_localization::{
+    AssociationGeometry, FieldMarkAssociation, GlobalLocalizationDebug, VisualLocalizationFrame,
+};

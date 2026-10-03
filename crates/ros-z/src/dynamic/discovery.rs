@@ -518,6 +518,11 @@ async fn discover_raw_subscriber_builder(
 }
 
 impl DynamicSubscriberDiscoveryBuilder {
+    /// Accept samples only from this publisher, including retained delivery.
+    pub fn publisher(mut self, publisher: crate::attachment::EndpointGlobalId) -> Self {
+        self.options.publisher = Some(publisher);
+        self
+    }
     pub(crate) fn new(
         context: EndpointBuilderContext,
         topic: String,
@@ -614,6 +619,11 @@ impl DynamicSubscriberDiscoveryBuilder {
 }
 
 impl DynamicRawSubscriberDiscoveryBuilder {
+    /// Accept samples only from this publisher, including retained delivery.
+    pub fn publisher(mut self, publisher: crate::attachment::EndpointGlobalId) -> Self {
+        self.options.publisher = Some(publisher);
+        self
+    }
     /// Set the QoS profile used by the built raw dynamic subscriber.
     pub fn qos(mut self, qos: QosProfile) -> Self {
         self.options = self.options.qos(qos);
