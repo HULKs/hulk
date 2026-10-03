@@ -1,5 +1,6 @@
 use std::{fmt::Display, pin::Pin, sync::Arc, time::Duration};
 
+use booster::MotorState;
 use color_eyre::{
     Result,
     eyre::{WrapErr, ensure, eyre},
@@ -30,14 +31,13 @@ use ros_z::{
     pubsub::Publisher,
     qos::{QosDurability, QosProfile},
     service::ServiceClient,
-    time::Clock,
+    time::{Clock, Time},
 };
 use types::{
     joint_limits::JointLimits,
     motion_command::{HeadMotion, MotionCommand},
     motor_command::MotorCommand,
     robot_command::RobotCommand,
-    time_wrapper::TimeWrapper,
 };
 
 use crate::walking::{WalkingParameters, step_from_walk_command};
@@ -90,6 +90,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await
         .wrap_err("failed to build motion_command subscriber")?;
+
+    let serial_motor_states_sub = node
+        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")
+        .cache(1)
+        .build()
+        .await?;
 
     let motion_emergency_stop_pub = node
         .publisher::<()>("motion/emergency_stop")
@@ -153,10 +159,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         motion_emergency_stop_pub,
 
         // TODO probably bad defaults
-        last_joints_command: TimeWrapper {
-            time: clock.now(),
-            inner: Joints::fill(MotorCommand::damping()),
-        },
+        last_joints_command: Joints::fill(MotorCommand::damping()),
+        last_timestamp: clock.now(),
     };
 
     let mut timer = node.create_timer(Duration::from_millis(2));
@@ -201,8 +205,28 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             cycles_since_last_inference = 0;
         }
 
+        let joint_state = serial_motor_states_sub
+            .get_latest()
+            .map(|joints_state| {
+                joints_state
+                    .upper_body_as_ref()
+                    .map(|motor_state| motor_state.position)
+            })
+            .unwrap_or_else(|| {
+                warn!("no serial motor state available, using a fallback. Arms might look wonky.");
+
+                UpperBodyJoints::default()
+            });
+
         let robot_command = motion_state
-            .infer(motion_plan, clock, parameters, &joint_limits, do_inference)
+            .infer(
+                motion_plan,
+                clock,
+                parameters,
+                &joint_limits,
+                joint_state,
+                do_inference,
+            )
             .await?;
 
         robot_command_pub.publish(&robot_command).await?;
@@ -215,7 +239,8 @@ struct MotionState {
     kick_inference_client: ServiceClient<KickInferenceService>,
     get_up_inference_client: ServiceClient<GetUpInferenceService>,
     motion_emergency_stop_pub: Publisher<()>,
-    last_joints_command: TimeWrapper<Joints<MotorCommand>>,
+    last_joints_command: Joints<MotorCommand>,
+    last_timestamp: Time,
 }
 
 enum MotionPlan {
@@ -318,6 +343,7 @@ impl MotionState {
         clock: &Clock,
         parameters: &Parameters,
         joint_limits: &JointLimits,
+        current_arms: UpperBodyJoints<f32>,
         do_inference: bool,
     ) -> Result<RobotCommand> {
         let now = clock.now();
@@ -338,6 +364,7 @@ impl MotionState {
                     clock,
                     parameters,
                     joint_limits,
+                    current_arms,
                     do_inference,
                 )
                 .await?
@@ -352,6 +379,7 @@ impl MotionState {
                     clock,
                     parameters,
                     joint_limits,
+                    current_arms,
                     do_inference,
                 )
                 .await?
@@ -370,15 +398,14 @@ impl MotionState {
         };
 
         if let RobotCommand::Custom { joints_command } = &robot_command {
-            self.last_joints_command = TimeWrapper {
-                time: now,
-                inner: joints_command.clone(),
-            };
+            self.last_joints_command = joints_command.clone();
+            self.last_timestamp = now;
         }
 
         Ok(robot_command)
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn infer_generic<S: Service<Response = Result<LowerBodyJoints<MotorCommand>, E>>, E>(
         &mut self,
         head_motion: HeadMotion,
@@ -386,6 +413,7 @@ impl MotionState {
         clock: &Clock,
         parameters: &Parameters,
         joint_limits: &JointLimits,
+        current_arms: UpperBodyJoints<f32>,
         do_inference: bool,
     ) -> Result<RobotCommand>
     where
@@ -406,7 +434,6 @@ impl MotionState {
             (
                 Ok(Ok(self
                     .last_joints_command
-                    .inner
                     .lower_body_as_ref()
                     .map(Clone::clone))),
                 head_motion_fut.await,
@@ -455,6 +482,7 @@ impl MotionState {
                 lower_body_joints_command,
             } => {
                 let arms = self.generate_walking_arm_joints(
+                    current_arms,
                     &lower_body_joints_command,
                     clock,
                     &parameters.arms,
@@ -479,7 +507,7 @@ impl MotionState {
     ) -> Result<RobotCommand> {
         if !do_inference {
             return Ok(RobotCommand::Custom {
-                joints_command: self.last_joints_command.inner.clone(),
+                joints_command: self.last_joints_command.clone(),
             });
         }
 
@@ -508,12 +536,14 @@ impl MotionState {
 
     fn generate_walking_arm_joints(
         &mut self,
+        current_arms: UpperBodyJoints<f32>,
         lower_body_joints_command: &LowerBodyJoints<MotorCommand>,
         clock: &Clock,
         parameters: &ArmParameters,
         joint_limits: &JointLimits,
     ) -> UpperBodyJoints<MotorCommand> {
         let arms_result = self.try_generate_walking_arm_joints(
+            current_arms,
             lower_body_joints_command,
             clock,
             parameters,
@@ -532,12 +562,13 @@ impl MotionState {
 
     fn try_generate_walking_arm_joints(
         &self,
+        current_arms: UpperBodyJoints<f32>,
         legs: &LowerBodyJoints<MotorCommand>,
         clock: &Clock,
         parameters: &ArmParameters,
         joint_limits: &JointLimits,
     ) -> Result<UpperBodyJoints<MotorCommand>> {
-        let elapsed = clock.now().duration_since(self.last_joints_command.time);
+        let elapsed = clock.now().duration_since(self.last_timestamp);
 
         let legs = legs
             .map_ref(|motor_command| motor_command.position)
@@ -551,20 +582,14 @@ impl MotionState {
                 true,
                 &mut target.left_arm,
                 &legs.left_leg,
-                self.last_joints_command
-                    .inner
-                    .left_arm
-                    .map_ref(|motor_command| motor_command.position),
+                current_arms.left_arm,
                 1.0,
             ),
             (
                 false,
                 &mut target.right_arm,
                 &legs.right_leg,
-                self.last_joints_command
-                    .inner
-                    .right_arm
-                    .map_ref(|motor_command| motor_command.position),
+                current_arms.right_arm,
                 -1.0,
             ),
         ] {
