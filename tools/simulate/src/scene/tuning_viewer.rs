@@ -404,7 +404,7 @@ fn show_recorded_pose(
         .received_at
         .is_none_or(|time| time.elapsed() > Duration::from_secs(3));
     **text = Text::new(format!(
-        "{status}{}\nRead-only view | hold right mouse + WASD to move | Q down / E up\nBlue: selected model | grey: other hypotheses | original balls / green arrows: truth\nOrange flashes: false detections on ground | red flashes: false pixels projected 3 m down camera ray\nVelocity arrows: 1 m per m/s | upward arrows: raw confidence, 50 = 1 m (0.02 m per unit)\nSelection also uses the field prior | orange cylinders: moving opponents that block camera detections",
+        "{status}{}\nRead-only view | hold right mouse + WASD to move | Q down / E up\nBlue: selected model | grey: other hypotheses | original balls / green arrows: truth\nOrange flashes: false detections on ground | red flashes: false pixels projected 3 m down camera ray\nVelocity arrows: 1 m per m/s | upward arrows: raw confidence, 50 = 3 m (0.06 m per unit)\nSelection also uses the field prior | orange cylinders: moving opponents that block camera detections",
         if stale { " | no live updates" } else { "" }
     ));
     let (Some((joint_time, joints)), Some(torso)) = (&state.joints, &state.torso) else {
@@ -644,7 +644,7 @@ fn hypotheses_in_field(state: &Snapshot, time: RosTime) -> Vec<ViewedHypothesis>
         .collect()
 }
 
-const CONFIDENCE_METRES_PER_UNIT: f32 = 0.02;
+const CONFIDENCE_METRES_PER_UNIT: f32 = 0.06;
 
 /// Stored validity is an accumulated score, not a probability. Scale linearly
 /// without normalizing or capping; field-prior weighting is separate.
@@ -922,7 +922,7 @@ mod tests {
     }
 
     #[test]
-    fn confidence_geometry_points_up_at_two_centimetres_per_raw_unit_without_capping() {
+    fn confidence_geometry_points_up_at_six_centimetres_per_raw_unit_without_capping() {
         use super::super::command_vectors::part_transform;
         let ball = BallPosition {
             position: point![2.0, -3.0],
@@ -930,12 +930,12 @@ mod tests {
             last_seen: RosTime::zero(),
         };
         for (confidence, height) in [
-            (0.01, 0.0002),
-            (1.0, 0.02),
-            (3.0, 0.06),
-            (25.0, 0.5),
-            (50.0, 1.0),
-            (100.0, 2.0),
+            (0.01, 0.0006),
+            (1.0, 0.06),
+            (3.0, 0.18),
+            (25.0, 1.5),
+            (50.0, 3.0),
+            (100.0, 6.0),
         ] {
             let arrow = confidence_arrow(ball, 0.105, confidence).unwrap();
             assert_eq!(arrow.origin, Vec3::new(2.0, 0.21, 3.0));

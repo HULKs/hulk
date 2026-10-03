@@ -653,3 +653,22 @@ Additional user requests during visibility-decay implementation (2026-10-03)
   and preview remain healthy. New matching windows will open after application
   build. SavedTwix30min preference migratedto5min with backup
   logs/twix-before-five-minute-refresh.ron; unrelated preferences preserved.
+
+Runtime follow-ups after f5b4866d0 (2026-10-03)
+- Combined248Rust+64Python checks and bothappbuilds passed. Initiallive2x preview
+  exposed actual inference rejection outside trainedwalking envelope; policy
+  does NOT automatically clamp pathplanner velocities. Revertedpreview to1x
+  while implementing upstream generated-command limits, preserving inference
+  rejection for invalid/directcommands. Need validate2x physicalcapturebefore
+  promotion. Notes correcting earlier capdescription: isotropicpathspeed can
+  exceed backward/lateral1m/s despite legal forward2m/s.
+- User requests confidencearrows3x previoussmallscale: now0.06m/rawunit,
+  score25=1.5m,score50=3m. Updatedlegend,documentation,andexistinggeometrytest.
+  Latestadjustmentnotyetbuilt/reopened inviewer.
+- Useraskedwhy19workers: measured32cores/load19.3,39.94GiBMemAvailable,
+  workerRSS232MiB/peak270MiB. Default2GiB/workerestimate overlyconservative
+  forthisdataset. Addexplicitper-workerbudget1GiB forthisrun, retaindefault
+  2GiB forunknownlongdata and2GiBheadroom; target32nextgeneration.
+- Manualcurrentpreviewmetadata remains logs/ball-negative-evidence-current.json;
+  newviewer142153/Twix142152 opened withf5binary; previewresumed1x PID146898.
+  No automaticowner/newcapturerunningyet;19remotejobscontinuehealthily.
