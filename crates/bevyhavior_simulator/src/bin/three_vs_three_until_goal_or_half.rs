@@ -6,7 +6,8 @@ use std::{
 use bevy::prelude::*;
 use bevyhavior_simulator::behavior_tree_simulator::{
     AutoRefereeConfig, BehaviorTreeSimulatorSet, SimulatedBall, SimulatorBall, SimulatorClock,
-    SimulatorGameState, SimulatorRobotBundle, default_behavior_parameters,
+    SimulatorFieldDimensions, SimulatorGameState, SimulatorRobotBundle,
+    default_behavior_parameters,
 };
 use coordinate_systems::{Ground, World};
 use hsl_network_messages::{GameState, PlayerNumber, Team};
@@ -20,10 +21,14 @@ fn three_vs_three_until_goal_or_half(app: &mut App) {
         .add_systems(Update, update.in_set(BehaviorTreeSimulatorSet::Scenario));
 }
 
-fn startup(mut commands: Commands, mut ball: ResMut<SimulatorBall>) {
+fn startup(
+    mut commands: Commands,
+    field_dimensions: Res<SimulatorFieldDimensions>,
+    mut ball: ResMut<SimulatorBall>,
+) {
     let mut parameters =
         default_behavior_parameters().expect("failed to load default behavior parameters");
-    parameters.goalkeeper.player_number = Some(PlayerNumber::One);
+    parameters.goalkeeper.player_number = PlayerNumber::One;
     parameters.ball.last_ball_timeout = Duration::from_secs(2);
 
     for (team, player_number, pose) in [
@@ -35,9 +40,15 @@ fn startup(mut commands: Commands, mut ball: ResMut<SimulatorBall>) {
         (Team::Opponent, PlayerNumber::Five, pose(1.5, 1.0, PI)),
     ] {
         commands.spawn(
-            SimulatorRobotBundle::new(team, player_number, pose, parameters.clone())
-                .expect("failed to create robot bundle")
-                .with_primary_state(PrimaryState::Playing),
+            SimulatorRobotBundle::new(
+                team,
+                player_number,
+                pose,
+                field_dimensions.0,
+                parameters.clone(),
+            )
+            .expect("failed to create robot bundle")
+            .with_primary_state(PrimaryState::Playing),
         );
     }
 

@@ -1,6 +1,5 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use hsl_network_messages::PlayerNumber;
 use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +17,7 @@ use crate::{
     rule_obstacles::RuleObstacle,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize, Message)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Message)]
 pub struct WorldState {
     pub ball: Option<BallState>,
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
@@ -64,8 +63,16 @@ impl BallState {
 #[derive(Clone, Debug, Serialize, Deserialize, Message)]
 pub struct RobotState {
     pub ground_to_field: Option<Isometry2<Ground, Field>>,
-    pub player_number: Option<PlayerNumber>,
-    pub primary_state: Option<PrimaryState>,
+    pub primary_state: PrimaryState,
+}
+
+impl Default for RobotState {
+    fn default() -> Self {
+        Self {
+            ground_to_field: None,
+            primary_state: PrimaryState::Damping,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Message)]

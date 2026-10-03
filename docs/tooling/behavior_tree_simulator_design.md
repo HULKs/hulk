@@ -588,7 +588,6 @@ For each robot, construct `WorldState` with:
 
 - `now` from simulation time.
 - `robot.ground_to_field` converted from simulated `ground_to_world` using the robot team's local `GlobalFieldSide`.
-- `robot.player_number` from simulated robot identity.
 - `robot.primary_state` from robot or simulated game state.
 - `ball` from robot perception, not directly from shared truth.
 - `rule_ball` from shared truth when rule logic needs it.
@@ -598,6 +597,8 @@ For each robot, construct `WorldState` with:
 - `suggested_search_position` from scenario or search model.
 - `obstacles` from other robots and scenario obstacles.
 - `rule_obstacles` from simulated game/rule state.
+
+The behavior blackboard stores the player number separately, from simulated robot identity.
 - `hypothetical_ball_positions` from scenario or a simple lost-ball model.
 - `position_of_interest` from scenario defaults or UI input.
 

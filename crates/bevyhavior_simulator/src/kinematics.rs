@@ -477,13 +477,12 @@ mod tests {
     use coordinate_systems::{Ground, World};
     use hsl_network_messages::{PlayerNumber, Team};
     use linear_algebra::{Isometry2, Orientation2, point, vector};
-    use ros_z::time::Time;
     use types::{
         behavior_tree::{NodeTrace, Status},
         field_dimensions::{FieldDimensions, Side},
         motion_command::{HeadMotion, ImageRegion, KickPower, MotionCommand, OrientationMode},
         path::direct_path,
-        world_state::{RobotState, WorldState},
+        world_state::WorldState,
     };
 
     use super::*;
@@ -509,24 +508,7 @@ mod tests {
         .insert_resource(SimulatorRobotFrames(BTreeMap::from([(
             robot_id,
             RobotFrame {
-                world_state: WorldState {
-                    ball: None,
-                    filtered_game_controller_state: None,
-                    hypothetical_ball_positions: Vec::new(),
-                    now: Time::zero(),
-                    obstacles: Vec::new(),
-                    player_states: Default::default(),
-                    position_of_interest: point![0.0, 0.0],
-                    robot: RobotState {
-                        ground_to_field: None,
-                        player_number: Some(PlayerNumber::Three),
-                        primary_state: None,
-                    },
-                    rule_ball: None,
-                    rule_obstacles: Vec::new(),
-                    fall_down_state: None,
-                    suggested_search_position: None,
-                },
+                world_state: WorldState::default(),
                 motion_command: MotionCommand::Walk {
                     head: HeadMotion::ZeroAngles,
                     path: direct_path(point![0.0, 0.0], point![2.0, 0.0]),

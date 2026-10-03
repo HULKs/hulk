@@ -85,9 +85,9 @@ pub struct LookActionParameters {
     pub position_of_interest_switch_interval: Duration,
 }
 
-#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, ros_z::Message)]
 pub struct GoalkeeperParameters {
-    pub player_number: Option<PlayerNumber>,
+    pub player_number: PlayerNumber,
     pub x_offset: f32,
     pub passive_distance: f32,
     pub striker_distance: f32,
