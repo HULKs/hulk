@@ -28,6 +28,7 @@ impl CachedSubscriptionNodeExt for Arc<Node> {
 /// target node name. Dropping the returned subscription handle stops the receive
 /// task when no other handles remain.
 pub struct CachedSubscriptionBuilder {
+    publisher: Option<ros_z::attachment::EndpointGlobalId>,
     node: Arc<Node>,
     topic: TopicReference,
     target_identity: TargetIdentity,
@@ -39,12 +40,19 @@ impl CachedSubscriptionBuilder {
     /// Create a builder for a cached subscription owned by the returned handle.
     pub fn new(node: Arc<Node>, topic: impl Into<String>) -> Result<Self> {
         Ok(Self {
+            publisher: None,
             node,
             topic: TopicReference::new(topic.into())?,
             target_identity: TargetIdentity::new("/").expect("root namespace is valid"),
             policy: ObservationPolicy::default(),
             schema_discovery_timeout: Duration::from_secs(5),
         })
+    }
+
+    /// Restrict live and retained samples to one publisher identity.
+    pub fn publisher(mut self, publisher: ros_z::attachment::EndpointGlobalId) -> Self {
+        self.publisher = Some(publisher);
+        self
     }
 
     /// Configure how many samples the handle retains.
@@ -116,6 +124,7 @@ impl CachedSubscriptionBuilder {
             target_identity,
             policy,
             schema_discovery_timeout: _,
+            publisher,
         } = self;
         let resolved_topic = topic.resolve(&target_identity)?;
         let mut subscriber_builder = node.subscriber::<T>(&resolved_topic);
@@ -124,6 +133,15 @@ impl CachedSubscriptionBuilder {
         }
         if let Some(queue_capacity) = policy.subscriber_queue_capacity() {
             subscriber_builder = subscriber_builder.queue_capacity(queue_capacity);
+        }
+        if let Some(publisher) = publisher {
+            subscriber_builder =
+                subscriber_builder
+                    .publisher(publisher)
+                    .qos(ros_z::qos::QosProfile {
+                        durability: ros_z::qos::QosDurability::TransientLocal,
+                        ..policy.subscriber_qos().unwrap_or_default()
+                    });
         }
         let subscriber = subscriber_builder
             .queue_overflow_reporting(policy.queue_overflow_reporting())
@@ -174,6 +192,7 @@ impl CachedSubscriptionBuilder {
             target_identity,
             policy,
             schema_discovery_timeout,
+            publisher,
         } = self;
         let resolved_topic = topic.resolve(&target_identity)?;
         let mut subscriber_builder =
@@ -183,6 +202,15 @@ impl CachedSubscriptionBuilder {
         }
         if let Some(queue_capacity) = policy.subscriber_queue_capacity() {
             subscriber_builder = subscriber_builder.queue_capacity(queue_capacity);
+        }
+        if let Some(publisher) = publisher {
+            subscriber_builder =
+                subscriber_builder
+                    .publisher(publisher)
+                    .qos(ros_z::qos::QosProfile {
+                        durability: ros_z::qos::QosDurability::TransientLocal,
+                        ..policy.subscriber_qos().unwrap_or_default()
+                    });
         }
         let subscriber = subscriber_builder
             .queue_overflow_reporting(policy.queue_overflow_reporting())

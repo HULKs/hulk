@@ -273,6 +273,48 @@ pub struct CameraMatrixParameters {
     pub camera_to_head_pitch: f32,
     pub correction_in_robot: Vector3<Robot>,
     pub correction_in_camera: Vector3<Camera>,
+    #[serde(default)]
+    pub synchronization: CameraMatrixSynchronization,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, ros_z::Message)]
+#[serde(default, deny_unknown_fields)]
+pub struct CameraMatrixSynchronization {
+    /// Maximum source-time difference of ground geometry, seconds/nanoseconds.
+    pub max_ground_time_distance: Duration,
+    /// Startup-only cache capacities; changes require restarting the node.
+    pub ground_cache_capacity: usize,
+    pub camera_info_cache_capacity: usize,
+}
+
+impl Default for CameraMatrixSynchronization {
+    fn default() -> Self {
+        Self {
+            max_ground_time_distance: Duration::from_millis(20),
+            ground_cache_capacity: 32,
+            camera_info_cache_capacity: 1,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, ros_z::Message)]
+#[serde(default, deny_unknown_fields)]
+pub struct Localization2dParameters {
+    /// Maximum source-time difference of ground geometry, seconds/nanoseconds.
+    pub max_ground_time_distance: Duration,
+    /// Startup-only cache capacities; changes require restarting the node.
+    pub ground_cache_capacity: usize,
+    pub status_cache_capacity: usize,
+}
+
+impl Default for Localization2dParameters {
+    fn default() -> Self {
+        Self {
+            max_ground_time_distance: Duration::from_millis(100),
+            ground_cache_capacity: 128,
+            status_cache_capacity: 1,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]

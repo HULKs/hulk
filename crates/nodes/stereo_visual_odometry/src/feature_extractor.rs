@@ -5,8 +5,11 @@ use color_eyre::{
     eyre::{ContextCompat, bail, ensure},
 };
 
+#[cfg(feature = "ort-webgpu")]
+use ort::ep::WebGPU;
+#[cfg(feature = "ort-cuda-tensorrt")]
+use ort::ep::{CUDA, TensorRT};
 use ort::{
-    ep::{CUDA, TensorRT},
     inputs,
     session::{
         HasSelectedOutputs, OutputSelector, RunOptions, Session, SessionOutputs,
@@ -66,17 +69,31 @@ pub struct Matches<'a, From, To> {
 
 impl FeatureExtractor {
     pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+        ort::init().commit();
+        #[cfg(feature = "ort-cuda-tensorrt")]
         let parent = path.as_ref().parent().wrap_err("failed to find parent")?;
+        #[cfg(feature = "ort-cuda-tensorrt")]
         let tensorrt = TensorRT::default()
             .with_device_id(0)
             .with_fp16(true)
             .with_engine_cache(true)
             .with_engine_cache_path(parent.display())
             .build();
+        #[cfg(feature = "ort-cuda-tensorrt")]
         let cuda = CUDA::default().build();
-        let session = Session::builder()?
+        let session = Session::builder()?;
+        #[cfg(feature = "ort-cuda-tensorrt")]
+        let session = session
             .with_execution_providers([tensorrt, cuda])
-            .map_err(ort::Error::<()>::from)?
+            .map_err(ort::Error::<()>::from)?;
+        #[cfg(feature = "ort-webgpu")]
+        let session = session
+            .with_execution_providers([WebGPU::default()
+                .with_device_id(0)
+                .build()
+                .error_on_failure()])
+            .map_err(ort::Error::<()>::from)?;
+        let session = session
             .with_optimization_level(GraphOptimizationLevel::All)
             .map_err(ort::Error::<()>::from)?
             .with_intra_threads(2)
@@ -303,18 +320,15 @@ fn keypoint(keypoints: &[f32], index: usize) -> Option<[f32; 2]> {
 }
 
 impl<From, To> Matches<'_, From, To> {
-    pub fn left_to_right(&self) -> impl Iterator<Item = (usize, usize, f32)> + '_ {
+    pub fn matched_pairs(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
         self.matches
             .iter()
             .zip(self.scores.iter())
             .enumerate()
-            .filter_map(|(left_index, (&right_index, &score))| {
-                let right_index = usize::try_from(right_index).ok()?;
-                (score > 0.0 && right_index < NUM_KEYPOINTS).then_some((
-                    left_index,
-                    right_index,
-                    score,
-                ))
+            .filter_map(|(source_index, (&target_index, &score))| {
+                let target_index = usize::try_from(target_index).ok()?;
+                (score > 0.0 && target_index < NUM_KEYPOINTS)
+                    .then_some((source_index, target_index))
             })
     }
 }
@@ -330,7 +344,7 @@ fn image_tensor(image: &Image) -> Result<TensorRef<'_, u8>> {
 fn check_stereo_pair_support(stereo: &StereoImagePair) -> Result<()> {
     check_image_support(&stereo.left)?;
     check_image_support(&stereo.right)?;
-    ensure_same_shape(&stereo.left, &stereo.right, "left", "right")
+    ensure_same_shape(&stereo.left, &stereo.right)
 }
 
 fn check_image_support(image: &Image) -> Result<()> {
@@ -356,13 +370,13 @@ fn check_image_support(image: &Image) -> Result<()> {
     Ok(())
 }
 
-fn ensure_same_shape(left: &Image, right: &Image, left_name: &str, right_name: &str) -> Result<()> {
+fn ensure_same_shape(left: &Image, right: &Image) -> Result<()> {
     if left.height != right.height
         || left.width != right.width
         || left.data.len() != right.data.len()
     {
         bail!(
-            "{left_name} and {right_name} images must have the same shape: {}x{} ({} bytes) != {}x{} ({} bytes)",
+            "left and right images must have the same shape: {}x{} ({} bytes) != {}x{} ({} bytes)",
             left.width,
             left.height,
             left.data.len(),
@@ -373,4 +387,56 @@ fn ensure_same_shape(left: &Image, right: &Image, left_name: &str, right_name: &
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(feature = "ort-webgpu")]
+    use std::sync::Arc;
+
+    use super::*;
+
+    #[test]
+    fn matched_pairs_preserve_indices_and_score_filtering() {
+        let matches = Matches::<PreviousLeft, CurrentLeft> {
+            matches: &[4, -1, NUM_KEYPOINTS as i32, 5, 6, 7],
+            scores: &[0.5, 1.0, 1.0, 0.0, f32::NAN, 0.9],
+            _frames: PhantomData,
+        };
+        assert_eq!(
+            matches.matched_pairs().collect::<Vec<_>>(),
+            [(0, 4), (5, 7)]
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "ort-webgpu")]
+    #[ignore = "requires ONNX Runtime WebGPU"]
+    fn webgpu_extracts_one_stereo_frame() {
+        let model = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../etc/neural_networks/xfeat-lighterglue.onnx");
+        let mut extractor = FeatureExtractor::new(model).unwrap();
+        let image = Image {
+            height: 448,
+            width: 544,
+            encoding: "nv12".to_string(),
+            step: 544,
+            data: Arc::from(vec![128; 544 * 448 * 3 / 2]),
+            ..Default::default()
+        };
+        let pair = StereoImagePair {
+            frame_identifier: 0,
+            left: image.clone(),
+            right: image,
+        };
+
+        let output = extractor
+            .extract(&pair, &PreviousFeatureState::new())
+            .unwrap();
+        assert!(output.current_left().is_ok());
+        let mut previous = PreviousFeatureState::new();
+        output.copy_current_left_to(&mut previous).unwrap();
+        drop(output);
+        assert!(extractor.extract(&pair, &previous).is_ok());
+    }
 }

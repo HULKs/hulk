@@ -6,6 +6,7 @@ pub mod behavior_tree;
 pub mod bounding_box;
 pub mod buttons;
 pub mod calibration;
+pub mod camera_geometry;
 pub mod color;
 pub mod condition_input;
 pub mod controller_input;

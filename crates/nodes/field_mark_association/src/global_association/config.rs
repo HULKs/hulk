@@ -1,259 +1,148 @@
-use std::time::Duration;
-
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
-use super::types::VisualFeatureClass;
-
-pub(crate) const GLOBAL_LOCALIZER_MAX_DETECTIONS: usize = 32;
-
-/// Configuration for global field-feature association and pose recovery.
-///
-/// These parameters gate detections, candidate associations, and uniqueness certification before
-/// any visual associations are exposed to the backend as fixed reprojection factors.
+/// Guided gravity-constrained matching and measurement noise shared with tracking.
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize, Message)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub struct GlobalAssociationConfig {
-    /// Minimum accepted fixed associations for any published result.
+    /// Per-axis metric tolerance when matching half-turn landmark partners.
+    pub symmetry_epsilon: f32,
+    /// Minimum pair distance in unit-height projected coordinates before normalization.
+    pub min_pair_distance: f32,
+    /// Floor for the squared-edge denominator in normalized seed triangle quality.
+    pub min_triangle_denominator: f32,
+    /// Maximum supported detections accepted before filtering.
+    pub max_input_detections: usize,
+    /// Maximum detections retained after filtering and de-duplication.
+    pub max_retained_detections: usize,
+    /// Highest-ranked inliers considered for a non-collinear consensus check.
+    pub seed_pool_size: usize,
     pub min_inliers: usize,
-    /// Minimum detector confidence for goalpost detections.
-    pub goal_post_confidence_threshold: f32,
-    /// Minimum detector confidence for L-spot detections.
-    pub l_spot_confidence_threshold: f32,
-    /// Minimum detector confidence for T-spot detections.
-    pub t_spot_confidence_threshold: f32,
-    /// Minimum detector confidence for X-spot detections.
-    pub x_spot_confidence_threshold: f32,
-    /// Minimum detector confidence for penalty-spot detections.
-    pub penalty_spot_confidence_threshold: f32,
-    /// Minimum normalized-ray baseline between two detections.
+    pub confidence_threshold: f32,
+    /// Same-class detections closer than this are treated as duplicates.
+    pub duplicate_pixel_distance: f32,
+    /// Minimum seed edge length in meters.
     pub min_detection_baseline: f32,
-    /// Minimum metric baseline between two map landmarks.
-    pub min_map_baseline: f32,
-    /// Lower plausible camera-height scale for global association hypotheses.
-    pub height_min: f32,
-    /// Upper plausible camera-height scale for global association hypotheses.
-    pub height_max: f32,
-    /// Maximum metric distance from a predicted landmark to an accepted same-class landmark.
-    pub association_gate: f32,
-    /// Maximum RMS metric association residual for an accepted candidate.
-    pub rms_threshold: f32,
-    /// Minimum weighted internal candidate score used by acceptance.
-    pub min_score: f32,
-    /// Minimum best-to-second-best non-equivalent score ratio.
+    /// Minimum normalized downward ray component accepted by global matching.
+    pub min_downward_ray_fraction: f32,
+    /// Minimum normalized triangle quality used for seed selection.
+    pub min_seed_quality: f32,
+    /// Pixel measurement/calibration floor, shared with image-space tracking.
+    pub detection_pixel_sigma: f32,
+    /// Shared local roll/pitch uncertainty in radians.
+    pub imu_tilt_sigma: f32,
+    /// Height uncertainty floor for image-space tracking, in metres. Startup fits
+    /// height from landmarks and does not use this parameter.
+    pub height_sigma: f32,
+    /// Squared bound: global invariant gates use its square root; tracking uses it
+    /// directly for 2D residuals and preserves its chi-square tail probability in
+    /// joint residuals. This is not an assignment-certification probability.
+    pub mahalanobis_gate: f32,
+    /// Required fraction of confidence-filtered, deduplicated detections supporting
+    /// the winning pose; uncertain-ray pruning does not reduce this denominator.
+    pub min_inlier_fraction: f32,
+    /// L/T/X class disagreement adds this to the squared pixel Mahalanobis error.
+    /// Goalposts and penalty spots are never reclassified.
+    pub class_mismatch_penalty: f32,
+    /// Required sampled-pose score ratio and fixed-pose assignment separation.
     pub score_ratio: f32,
-    /// Metric residual penalty in the candidate score.
-    pub residual_weight: f32,
+    /// Optical-center height above the field, not robot-body height.
+    pub min_camera_height: f32,
+    pub max_camera_height: f32,
+    /// Unweighted pixel RMS ceiling for the fitted consensus.
+    pub max_rms_px: f32,
+    /// Minimum fitted optical depth for global reprojection validation.
+    pub min_reprojection_depth: f32,
+    /// Per-call work ceiling. Global matching charges proposals, landmark projections,
+    /// assignment-row scans, bounded refinement observations and assignment certification.
+    /// A row scans the fixed field map. At most 128 hypotheses and 2048 proposals are sampled;
+    /// this is not exhaustive assignment certification. Exhaustion rejects the frame.
+    /// Joint tracking retains its candidate-extension accounting and exhaustion semantics.
+    pub max_work: usize,
 }
 
 impl Default for GlobalAssociationConfig {
     fn default() -> Self {
         Self {
-            min_inliers: 5,
-            goal_post_confidence_threshold: 0.3,
-            l_spot_confidence_threshold: 0.3,
-            t_spot_confidence_threshold: 0.3,
-            x_spot_confidence_threshold: 0.3,
-            penalty_spot_confidence_threshold: 0.3,
-            min_detection_baseline: 0.1,
-            min_map_baseline: 0.25,
-            height_min: 0.2,
-            height_max: 1.0,
-            association_gate: 0.6,
-            rms_threshold: 0.45,
-            min_score: 0.0,
+            symmetry_epsilon: 1.0e-4,
+            min_pair_distance: 1.0e-6,
+            min_triangle_denominator: 1.0e-12,
+            max_input_detections: 128,
+            max_retained_detections: 32,
+            seed_pool_size: 8,
+            min_inliers: 3,
+            confidence_threshold: 0.35,
+            duplicate_pixel_distance: 1.0,
+            min_detection_baseline: 0.25,
+            min_downward_ray_fraction: 1.0e-4,
+            min_seed_quality: 1.0e-5,
+            detection_pixel_sigma: 2.0,
+            imu_tilt_sigma: 0.02,
+            height_sigma: 0.02,
+            mahalanobis_gate: 9.21,
+            min_inlier_fraction: 0.7,
+            class_mismatch_penalty: 4.0,
             score_ratio: 1.05,
-            residual_weight: 0.1,
+            min_camera_height: 0.25,
+            max_camera_height: 2.0,
+            max_rms_px: 10.0,
+            min_reprojection_depth: 0.01,
+            max_work: 100_000,
         }
     }
 }
 
 impl GlobalAssociationConfig {
-    /// Validates that global-localizer parameters are finite, positive where required, and
-    /// consistent with the solver's fixed detection cap.
     pub fn validate(&self) -> Result<(), String> {
-        if self.min_inliers < 3 {
-            return Err("global_localizer.min_inliers must be at least 3".to_string());
+        let map_size =
+            crate::map::candidate_points(&types::field_dimensions::FieldDimensions::SPL_2025).len();
+        if !(3..=map_size).contains(&self.min_inliers) {
+            return Err("global_localizer.min_inliers must be between 3 and the map size".into());
         }
-        if self.min_inliers > GLOBAL_LOCALIZER_MAX_DETECTIONS {
-            return Err(format!(
-                "global_localizer.min_inliers must be <= {GLOBAL_LOCALIZER_MAX_DETECTIONS} \
-                     because the solver caps detections"
-            ));
+        if !(0.0..=1.0).contains(&self.confidence_threshold) {
+            return Err("global_localizer.confidence_threshold must be in [0, 1]".into());
         }
-        validate_confidence_threshold(
-            self.goal_post_confidence_threshold,
-            "global_localizer.goal_post_confidence_threshold must be finite and in [0, 1]",
-        )?;
-        validate_confidence_threshold(
-            self.l_spot_confidence_threshold,
-            "global_localizer.l_spot_confidence_threshold must be finite and in [0, 1]",
-        )?;
-        validate_confidence_threshold(
-            self.t_spot_confidence_threshold,
-            "global_localizer.t_spot_confidence_threshold must be finite and in [0, 1]",
-        )?;
-        validate_confidence_threshold(
-            self.x_spot_confidence_threshold,
-            "global_localizer.x_spot_confidence_threshold must be finite and in [0, 1]",
-        )?;
-        validate_confidence_threshold(
-            self.penalty_spot_confidence_threshold,
-            "global_localizer.penalty_spot_confidence_threshold must be finite and in [0, 1]",
-        )?;
-        validate_positive_f32(
-            self.min_detection_baseline,
-            "global_localizer.min_detection_baseline must be finite and > 0",
-        )?;
-        validate_positive_f32(
-            self.min_map_baseline,
-            "global_localizer.min_map_baseline must be finite and > 0",
-        )?;
-        validate_positive_f32(
-            self.height_min,
-            "global_localizer.height_min must be finite and > 0",
-        )?;
-        validate_positive_f32(
-            self.height_max,
-            "global_localizer.height_max must be finite and > 0",
-        )?;
-        if self.height_min > self.height_max {
-            return Err("global_localizer.height_min must be <= height_max".to_string());
-        }
-        validate_positive_f32(
-            self.association_gate,
-            "global_localizer.association_gate must be finite and > 0",
-        )?;
-        validate_positive_f32(
-            self.rms_threshold,
-            "global_localizer.rms_threshold must be finite and > 0",
-        )?;
-        if !self.min_score.is_finite() || self.min_score < 0.0 {
-            return Err("global_localizer.min_score must be finite and >= 0".to_string());
-        }
-        if !self.score_ratio.is_finite() || self.score_ratio < 1.0 {
-            return Err("global_localizer.score_ratio must be finite and >= 1".to_string());
-        }
-        if !self.residual_weight.is_finite() || self.residual_weight < 0.0 {
-            return Err("global_localizer.residual_weight must be finite and >= 0".to_string());
-        }
-        Ok(())
-    }
-
-    pub(crate) fn confidence_threshold_for_class(self, class: VisualFeatureClass) -> f32 {
-        match class {
-            VisualFeatureClass::GoalPost => self.goal_post_confidence_threshold,
-            VisualFeatureClass::LSpot => self.l_spot_confidence_threshold,
-            VisualFeatureClass::TSpot => self.t_spot_confidence_threshold,
-            VisualFeatureClass::XSpot => self.x_spot_confidence_threshold,
-            VisualFeatureClass::PenaltySpot => self.penalty_spot_confidence_threshold,
-        }
-    }
-}
-
-/// Configuration for pose-hint per-class association fallback.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct PoseHintAssociationConfig {
-    /// Enables pose-hint fallback when global uniqueness is unavailable.
-    pub enabled: bool,
-    /// Maximum accepted age difference between image time and pose hint time.
-    pub max_pose_age: Duration,
-    /// Maximum reprojection error under the current pose hint.
-    pub max_reprojection_error_px: f32,
-    /// Minimum single-detection pixel gap between closest and second-closest same-class landmark.
-    /// Multiple viable same-class detections are disambiguated by joint assignment instead.
-    pub second_best_reprojection_margin_px: f32,
-    /// Minimum pose-hint associations needed to consider tracking healthy.
-    pub healthy_min_inliers: usize,
-    /// Maximum pose-hint frame reprojection RMSE for healthy tracking.
-    pub healthy_max_rmse_px: f32,
-    /// Consecutive agreeing global-localization frames required before recovery is accepted.
-    pub recovery_frames: usize,
-    /// Maximum translation difference for accepting a global result against a pose hint.
-    pub recovery_max_pose_distance: f32,
-    /// Maximum yaw difference for accepting a global result against a pose hint.
-    pub recovery_max_pose_angle: f32,
-    /// Maximum yaw difference for accepting a global recovery on the same symmetry branch.
-    pub recovery_max_branch_yaw_error: f32,
-}
-
-impl Default for PoseHintAssociationConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            max_pose_age: Duration::from_millis(250),
-            max_reprojection_error_px: 80.0,
-            second_best_reprojection_margin_px: 15.0,
-            healthy_min_inliers: 3,
-            healthy_max_rmse_px: 30.0,
-            recovery_frames: 5,
-            recovery_max_pose_distance: 0.5,
-            recovery_max_pose_angle: 15.0_f32.to_radians(),
-            recovery_max_branch_yaw_error: 70.0_f32.to_radians(),
-        }
-    }
-}
-
-impl PoseHintAssociationConfig {
-    pub fn validate(&self) -> Result<(), String> {
-        if self.max_pose_age.is_zero() {
-            return Err("pose_hint.max_pose_age must be > 0".to_string());
-        }
-        validate_positive_f32(
-            self.max_reprojection_error_px,
-            "pose_hint.max_reprojection_error_px must be finite and > 0",
-        )?;
-        if !self.second_best_reprojection_margin_px.is_finite()
-            || self.second_best_reprojection_margin_px < 0.0
+        if self.max_retained_detections < 3
+            || self.seed_pool_size < 3
+            || self.seed_pool_size > self.max_retained_detections
+            || self.max_input_detections < self.max_retained_detections
         {
-            return Err(
-                "pose_hint.second_best_reprojection_margin_px must be finite and >= 0".to_string(),
-            );
+            return Err("invalid global detection limits".into());
         }
-        if self.healthy_min_inliers == 0 {
-            return Err("pose_hint.healthy_min_inliers must be > 0".to_string());
+        for (name, value) in [
+            ("symmetry_epsilon", self.symmetry_epsilon),
+            ("min_pair_distance", self.min_pair_distance),
+            ("min_triangle_denominator", self.min_triangle_denominator),
+            ("min_detection_baseline", self.min_detection_baseline),
+            ("duplicate_pixel_distance", self.duplicate_pixel_distance),
+            ("min_downward_ray_fraction", self.min_downward_ray_fraction),
+            ("min_seed_quality", self.min_seed_quality),
+            ("detection_pixel_sigma", self.detection_pixel_sigma),
+            ("imu_tilt_sigma", self.imu_tilt_sigma),
+            ("height_sigma", self.height_sigma),
+            ("mahalanobis_gate", self.mahalanobis_gate),
+            ("class_mismatch_penalty", self.class_mismatch_penalty),
+            ("min_camera_height", self.min_camera_height),
+            ("max_camera_height", self.max_camera_height),
+            ("max_rms_px", self.max_rms_px),
+            ("min_reprojection_depth", self.min_reprojection_depth),
+        ] {
+            if !value.is_finite() || value <= 0.0 {
+                return Err(format!("global_localizer.{name} must be finite and > 0"));
+            }
         }
-        validate_positive_f32(
-            self.healthy_max_rmse_px,
-            "pose_hint.healthy_max_rmse_px must be finite and > 0",
-        )?;
-        if self.recovery_frames == 0 {
-            return Err("pose_hint.recovery_frames must be > 0".to_string());
-        }
-        validate_positive_f32(
-            self.recovery_max_pose_distance,
-            "pose_hint.recovery_max_pose_distance must be finite and > 0",
-        )?;
-        validate_positive_f32(
-            self.recovery_max_pose_angle,
-            "pose_hint.recovery_max_pose_angle must be finite and > 0",
-        )?;
-        if !self.recovery_max_branch_yaw_error.is_finite()
-            || self.recovery_max_branch_yaw_error <= 0.0
-            || self.recovery_max_branch_yaw_error >= std::f32::consts::FRAC_PI_2
+        if !self.min_inlier_fraction.is_finite()
+            || !(0.0..=1.0).contains(&self.min_inlier_fraction)
+            || self.min_inlier_fraction == 0.0
+            || !self.score_ratio.is_finite()
+            || self.score_ratio <= 1.0
+            || self.min_camera_height >= self.max_camera_height
         {
-            return Err(
-                "pose_hint.recovery_max_branch_yaw_error must be finite and in (0, pi/2)"
-                    .to_string(),
-            );
+            return Err("invalid global consensus, score ratio or camera height limits".into());
+        }
+        if self.max_work == 0 {
+            return Err("global_localizer.max_work must be > 0".into());
         }
         Ok(())
-    }
-}
-
-fn validate_positive_f32(value: f32, message: &str) -> Result<(), String> {
-    if value.is_finite() && value > 0.0 {
-        Ok(())
-    } else {
-        Err(message.to_string())
-    }
-}
-
-fn validate_confidence_threshold(value: f32, message: &str) -> Result<(), String> {
-    if value.is_finite() && (0.0..=1.0).contains(&value) {
-        Ok(())
-    } else {
-        Err(message.to_string())
     }
 }

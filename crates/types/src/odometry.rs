@@ -1,5 +1,18 @@
 use coordinate_systems::{Ground, Odometry};
 use linear_algebra::{Isometry2, Pose2};
+use ros_z::{Message, time::Time};
+use serde::{Deserialize, Serialize};
+
+pub const KINEMATIC_ODOMETRY_TOPIC: &str = "odometry/kinematic_delta";
+
+/// Measured motion over a continuous contact interval. Missing observations are
+/// not zero motion. Translation is expressed in the previous leveled robot frame.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Message)]
+pub struct KinematicOdometryDelta {
+    pub previous_time: Time,
+    pub time: Time,
+    pub current_to_previous: Isometry2<Ground, Ground>,
+}
 
 pub fn current_to_previous(
     previous: Pose2<Odometry>,

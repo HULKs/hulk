@@ -43,6 +43,8 @@ nav:
       - Fanta: tooling/fanta.md
       - Machine Learning: tooling/machine-learning.md
       - Behavior Simulator: tooling/behavior_simulator.md
+      - Localization Simulator: tooling/localization_simulator.md
+      - 3D Localization Evaluation: tooling/localization_pipeline_evaluation.md
       - Behavior Tree Simulator Design: tooling/behavior_tree_simulator_design.md
       - Remote Control: tooling/remote_control.md
       - Debugging with GDB/LLDB: tooling/debugging.md
