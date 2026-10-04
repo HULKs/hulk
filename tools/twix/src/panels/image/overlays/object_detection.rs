@@ -13,10 +13,13 @@ use twix_visualization::twix_painter::TwixPainter;
 use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 
 pub(in crate::panels::image) struct ObjectDetectionOverlay {
-    object_detections: OverlayObservation<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>,
+    pub(in crate::panels::image) object_detections:
+        OverlayObservation<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>,
 }
 
 impl ImageOverlay for ObjectDetectionOverlay {
+    type Sample =
+        std::sync::Arc<ros_z_debug::SampleRecord<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>>;
     const NAME: &'static str = "Object Detection";
     const STORAGE_KEY: &'static str = "object_detection";
 
@@ -29,15 +32,12 @@ impl ImageOverlay for ObjectDetectionOverlay {
         })
     }
 
-    fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
-        let Some(object_detections) = self.object_detections.at_time(image_time) else {
-            return;
-        };
-        paint_bounding_boxes(painter, &object_detections.value.inner, Color32::LIGHT_RED);
+    fn prepare(&self, image_time: Time) -> Option<Self::Sample> {
+        self.object_detections.at_time(image_time)
     }
 
-    fn latest_time(&self) -> Option<Time> {
-        self.object_detections.latest_time()
+    fn paint(painter: &TwixPainter<Pixel>, object_detections: &Self::Sample) {
+        paint_bounding_boxes(painter, &object_detections.value.inner, Color32::LIGHT_RED);
     }
 }
 

@@ -40,11 +40,11 @@ pub(super) struct TransientLocalReplayGuard {
 }
 
 impl TransientLocalReplayGuard {
-    pub(super) fn new(cancelled: Arc<AtomicBool>, task: tokio::task::JoinHandle<()>) -> Self {
-        Self {
-            cancelled,
-            task: Some(task),
-        }
+    pub(super) fn new(
+        cancelled: Arc<AtomicBool>,
+        task: Option<tokio::task::JoinHandle<()>>,
+    ) -> Self {
+        Self { cancelled, task }
     }
 }
 
