@@ -8,7 +8,8 @@ use types::{
     field_dimensions::FieldDimensions,
     motion_command::{BodyMotion, MotionCommand, OrientationMode},
     motion_type::MotionType,
-    parameters::{KickOffPose, KickoffParameters, VoronoiParameters}, parameters::{VoronoiParameters, WalkToBallPredictionParameters},
+    parameters::WalkToBallPredictionParameters,
+    parameters::{KickOffPose, KickoffParameters, VoronoiParameters},
     path::{Path, direct_path},
     world_state::WorldState,
 };
