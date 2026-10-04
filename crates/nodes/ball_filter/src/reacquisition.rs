@@ -75,7 +75,7 @@ mod tests {
         };
         let parameters = BallFilterParameters {
             velocity_decay_factor: 0.998,
-            ..Default::default()
+            ..crate::test_parameters()
         };
         let time = Time::from_nanos(2_000_000_000);
         assert!(protect_prior(&make(1.0, 0.0), time, Some(&[]), &parameters));
