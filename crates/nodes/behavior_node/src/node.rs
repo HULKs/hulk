@@ -1,5 +1,6 @@
 use std::{
     net::SocketAddr,
+    num::NonZeroUsize,
     pin::Pin,
     sync::Arc,
     time::{Duration, SystemTime},
@@ -10,8 +11,13 @@ use color_eyre::Result;
 
 use coordinate_systems::{Field, Ground};
 use hsl_network_messages::PlayerNumber;
+use kinematics::joints::head::HeadJoints;
 use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
-use ros_z::{prelude::*, qos::QosDurability, time::Time};
+use ros_z::{
+    prelude::*,
+    qos::{QosDurability, QosHistory},
+    time::Time,
+};
 use serde::{Deserialize, Serialize};
 use tokio::task::block_in_place;
 use tracing::info;
@@ -31,7 +37,7 @@ use types::{
     primary_state::PrimaryState,
     rule_obstacles::RuleObstacle,
     time_wrapper::TimeWrapper,
-    world_state::{BallState, PlayerState, RobotState, WorldState},
+    world_state::{BallSource, BallState, PlayerState, RobotState, WorldState},
 };
 use voronoi::VoronoiGrid;
 
@@ -43,11 +49,13 @@ pub struct LastBall {
     pub velocity: Vector2<Ground>,
     pub age: Time,
     pub field_side: Side,
+    pub source: BallSource,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 pub struct Blackboard {
     pub field_dimensions: FieldDimensions,
+    pub head_yaw: f32,
     pub parameters: BehaviorParameters,
     pub world_state: WorldState,
     pub controller_input: Option<ControllerInput>,
@@ -81,6 +89,13 @@ pub struct Blackboard {
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
+}
+
+pub fn ball_timeout(parameters: &BehaviorParameters, source: BallSource) -> Duration {
+    match source {
+        BallSource::Own => parameters.ball.last_ball_timeout,
+        BallSource::Team => parameters.ball.team_ball_timeout,
+    }
 }
 
 fn validate_behavior_parameters(
@@ -196,6 +211,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
+    let head_joints_command_cache = node
+        .subscriber::<HeadJoints<f32>>("head_joints_command")
+        .cache(1)
+        .build()
+        .await?;
     let hypothetical_ball_positions_cache = node
         .subscriber::<Vec<HypotheticalBallPosition<Ground>>>("hypothetical_ball_positions")
         .cache(1)
@@ -231,7 +251,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let suggested_search_position_cache = node
-        .subscriber::<Point2<Field>>("suggested_search_position")
+        .subscriber::<Option<Point2<Field>>>("suggested_search_position")
         .cache(1)
         .build()
         .await?;
@@ -255,6 +275,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .publisher::<OutgoingMessage>("outputs/message")
         .build()
         .await?;
+    let hsl_state_message_send_interval_pub = node
+        .publisher::<Duration>("hsl_state_message_send_interval")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            history: QosHistory::KeepLast(NonZeroUsize::MIN),
+            ..Default::default()
+        })
+        .build()
+        .await?;
     let motion_command_pub = node
         .publisher::<MotionCommand>("behavior/motion_command")
         .build()
@@ -272,6 +301,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .get_latest()
             .map(|dimensions| *dimensions)
             .unwrap_or_default(),
+        head_yaw: 0.0,
         parameters: parameters.snapshot().typed().clone(),
         world_state: WorldState::default(),
         controller_input: None,
@@ -303,6 +333,14 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         voronoi_map: None,
     };
 
+    let mut published_state_message_send_interval = blackboard
+        .parameters
+        .network
+        .hsl_state_message_send_interval;
+    hsl_state_message_send_interval_pub
+        .publish(&published_state_message_send_interval)
+        .await?;
+
     loop {
         timer.tick().await;
 
@@ -326,7 +364,21 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .get_latest()
             .map(|n| *n)
             .unwrap_or_default();
+        blackboard.head_yaw = head_joints_command_cache
+            .get_latest()
+            .map(|head_joints| head_joints.yaw)
+            .unwrap_or_default();
         blackboard.parameters = parameters.snapshot().typed().clone();
+        let state_message_send_interval = blackboard
+            .parameters
+            .network
+            .hsl_state_message_send_interval;
+        if state_message_send_interval != published_state_message_send_interval {
+            hsl_state_message_send_interval_pub
+                .publish(&state_message_send_interval)
+                .await?;
+            published_state_message_send_interval = state_message_send_interval;
+        }
 
         let was_start_pressed = blackboard
             .controller_input
@@ -401,7 +453,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .unwrap_or_default();
         blackboard.world_state.suggested_search_position = suggested_search_position_cache
             .get_latest()
-            .map(|position| *position);
+            .and_then(|position| *position);
 
         if let Some(ball) = blackboard.world_state.ball {
             blackboard.ball = Some(LastBall {
@@ -409,11 +461,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 velocity: ball.ball_in_ground_velocity,
                 age: blackboard.world_state.now,
                 field_side: ball.field_side,
+                source: ball.source,
             });
             blackboard.last_ball.clone_from(&blackboard.ball);
         } else if let Some(last_ball) = &blackboard.ball
             && blackboard.world_state.now.duration_since(last_ball.age)
-                >= blackboard.parameters.ball.last_ball_timeout
+                >= ball_timeout(&blackboard.parameters, last_ball.source)
         {
             blackboard.ball = None;
         }
