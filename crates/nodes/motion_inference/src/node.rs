@@ -265,8 +265,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     }
 }
 
-const SENSOR_TIMEOUT: Duration = Duration::from_millis(40);
-const POLICY_STATE_MAX_AGE: Duration = Duration::from_millis(200);
+const SENSOR_TIMEOUT: Duration = Duration::from_millis(300);
+const POLICY_STATE_MAX_AGE: Duration = Duration::from_millis(1000);
 
 #[derive(Clone)]
 struct SensorLifetime {
