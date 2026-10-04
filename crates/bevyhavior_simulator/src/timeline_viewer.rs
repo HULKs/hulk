@@ -17,7 +17,7 @@ use eframe::{
 };
 use egui_dock::{DockArea, DockState, Node, NodePath, Split, TabViewer};
 use hsl_network_messages::{PlayerNumber, Team};
-use linear_algebra::{Orientation2, Pose2, point, vector};
+use linear_algebra::{Isometry2, Orientation2, Pose2, point, vector};
 use serde_json::{Value, json};
 use twix_visualization::{
     behavior_tree::BehaviorTreeVisualizer,
@@ -29,9 +29,12 @@ use types::{
     motion_command::MotionCommand, obstacles::ObstacleKind, path::traits::EndPoints,
 };
 
-use crate::behavior_tree_simulator::{
-    SimulationConfig, SimulatorFailure, SimulatorObstacle, SimulatorRobotId,
-    SimulatorTimelineMarker, TimelineFrame,
+use crate::{
+    behavior_tree_simulator::{
+        RobotFrame, SimulationConfig, SimulatorFailure, SimulatorObstacle, SimulatorRobotId,
+        SimulatorTimelineMarker, TimelineFrame,
+    },
+    coordinates::world_to_field_transform,
 };
 
 const SCRUBBER_MARGIN: f32 = 8.0;
@@ -73,6 +76,8 @@ struct TimelineViewerApp {
     inspector_cache_frame: Option<usize>,
     inspector_cache: Option<Value>,
     zoom_and_pan: ZoomAndPanTransform,
+    show_voronoi: bool,
+    selected_voronoi_robot: Option<SimulatorRobotId>,
     selected_trace_robot: Option<SimulatorRobotId>,
     behavior_tree_visualizer: BehaviorTreeVisualizer,
     dock_state: DockState<TimelineViewerTab>,
@@ -106,6 +111,8 @@ impl TimelineViewerApp {
             inspector_cache_frame: None,
             inspector_cache: None,
             zoom_and_pan: ZoomAndPanTransform::default(),
+            show_voronoi: false,
+            selected_voronoi_robot: None,
             selected_trace_robot: None,
             behavior_tree_visualizer: BehaviorTreeVisualizer::default(),
             dock_state,
@@ -455,6 +462,8 @@ impl TimelineViewerApp {
                 data: &self.data,
                 selected_frame: self.selected_frame,
                 zoom_and_pan: &mut self.zoom_and_pan,
+                show_voronoi: &mut self.show_voronoi,
+                selected_voronoi_robot: &mut self.selected_voronoi_robot,
                 selected_trace_robot: &mut self.selected_trace_robot,
                 behavior_tree_visualizer: &mut self.behavior_tree_visualizer,
             };
@@ -687,6 +696,8 @@ struct TimelineDockViewer<'a> {
     data: &'a TimelineViewerData,
     selected_frame: usize,
     zoom_and_pan: &'a mut ZoomAndPanTransform,
+    show_voronoi: &'a mut bool,
+    selected_voronoi_robot: &'a mut Option<SimulatorRobotId>,
     selected_trace_robot: &'a mut Option<SimulatorRobotId>,
     behavior_tree_visualizer: &'a mut BehaviorTreeVisualizer,
 }
@@ -701,7 +712,14 @@ impl TabViewer for TimelineDockViewer<'_> {
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
         match tab {
             TimelineViewerTab::Field => {
-                show_map(ui, self.data, self.selected_frame, self.zoom_and_pan);
+                show_map(
+                    ui,
+                    self.data,
+                    self.selected_frame,
+                    self.zoom_and_pan,
+                    self.show_voronoi,
+                    self.selected_voronoi_robot,
+                );
             }
             TimelineViewerTab::BehaviorTree => {
                 show_behavior_tree(
@@ -787,7 +805,53 @@ fn show_map(
     data: &TimelineViewerData,
     selected_frame: usize,
     zoom_and_pan: &mut ZoomAndPanTransform,
+    show_voronoi: &mut bool,
+    selected_voronoi_robot: &mut Option<SimulatorRobotId>,
 ) {
+    let frame = data.frames.get(selected_frame);
+    ui.horizontal_wrapped(|ui| {
+        ui.checkbox(show_voronoi, "Voronoi Cells")
+            .on_hover_text("Show a robot's recorded Voronoi grid and input poses");
+        if !*show_voronoi {
+            return;
+        }
+        let Some(frame) = frame else {
+            return;
+        };
+
+        if selected_voronoi_robot.is_none_or(|robot| !frame.robot_frames.contains_key(&robot)) {
+            *selected_voronoi_robot = frame
+                .robot_frames
+                .iter()
+                .find(|(_, robot_frame)| robot_frame.voronoi_map.is_some())
+                .or_else(|| frame.robot_frames.first_key_value())
+                .map(|(robot_id, _)| *robot_id);
+        }
+
+        ComboBox::from_id_salt("voronoi_robot")
+            .selected_text(
+                selected_voronoi_robot
+                    .map(|robot| robot.to_string())
+                    .unwrap_or_else(|| "none".to_string()),
+            )
+            .show_ui(ui, |ui| {
+                for robot_id in frame.robot_frames.keys() {
+                    ui.selectable_value(
+                        selected_voronoi_robot,
+                        Some(*robot_id),
+                        robot_id.to_string(),
+                    );
+                }
+            });
+
+        if selected_voronoi_robot
+            .and_then(|robot_id| frame.robot_frames.get(&robot_id))
+            .is_none_or(|robot_frame| robot_frame.voronoi_map.is_none())
+        {
+            ui.label("no Voronoi grid in this frame");
+        }
+    });
+
     let available_size = ui.available_size_before_wrap();
     if available_size.x <= 1.0 || available_size.y <= 1.0 {
         ui.label("not enough space to draw field");
@@ -812,7 +876,14 @@ fn show_map(
     zoom_and_pan.apply(ui, &mut painter, &response);
     painter.field(&field_dimensions);
 
-    if let Some(frame) = data.frames.get(selected_frame) {
+    if let Some(frame) = frame {
+        if *show_voronoi
+            && let Some(robot_frame) =
+                selected_voronoi_robot.and_then(|robot_id| frame.robot_frames.get(&robot_id))
+        {
+            paint_voronoi_grid(&painter, robot_frame);
+        }
+
         if let Some(ball) = frame.ball {
             painter.ball(
                 point_world_to_field(ball.position),
@@ -845,6 +916,22 @@ fn show_map(
             paint_robot_label(ui, &painter, pose, *robot_id);
         }
     }
+}
+
+fn paint_voronoi_grid(painter: &TwixPainter<Field>, robot_frame: &RobotFrame) {
+    let (Some(grid), Some(game_controller_state)) = (
+        &robot_frame.voronoi_map,
+        &robot_frame.world_state.filtered_game_controller_state,
+    ) else {
+        return;
+    };
+
+    let world_painter = painter.transform_painter(Isometry2::<Field, World>::identity());
+    let painter = world_painter.transform_painter(world_to_field_transform(
+        game_controller_state.global_field_side,
+    ));
+
+    painter.voronoi_grid(grid, &robot_frame.voronoi_inputs);
 }
 
 fn paint_scenario_obstacle(painter: &TwixPainter<Field>, obstacle: SimulatorObstacle) {

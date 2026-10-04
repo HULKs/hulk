@@ -11682,7 +11682,6 @@ dependencies = [
  "twix_visualization",
  "types",
  "uuid",
- "voronoi",
 ]
 
 [[package]]
@@ -11692,10 +11691,12 @@ dependencies = [
  "coordinate_systems",
  "eframe",
  "geometry",
+ "hsl_network_messages",
  "linear_algebra",
  "nalgebra 0.34.2",
  "serde",
  "types",
+ "voronoi",
 ]
 
 [[package]]
