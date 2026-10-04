@@ -3,7 +3,9 @@ mod status;
 
 use std::time::Duration;
 
-use eframe::egui::{Align, Button, Color32, DragValue, Layout, Popup, ScrollArea, Ui, vec2};
+use eframe::egui::{
+    Align, Button, Color32, DragValue, Label, Layout, Popup, RichText, ScrollArea, Tooltip, Ui,
+};
 use egui_plot::{Legend, Line, Plot, PlotPoints, Points};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -205,14 +207,22 @@ impl Panel for PlotPanel {
                             ui.checkbox(&mut line.visible, "")
                                 .on_hover_text("Show line");
                             ui.color_edit_button_srgba(&mut line.color);
-                            let button_size = ui.spacing().interact_size.y;
-                            let source_width = (ui.available_width()
-                                - 2.0 * (button_size + ui.spacing().item_spacing.x))
-                                .max(0.0);
-                            ui.allocate_ui_with_layout(
-                                vec2(source_width, button_size),
-                                Layout::left_to_right(Align::Center),
-                                |ui| {
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                if ui
+                                    .add_enabled(
+                                        !self.paused,
+                                        Button::new(
+                                            egui_material_icons::icons::ICON_CLOSE.codepoint,
+                                        ),
+                                    )
+                                    .on_hover_text("Remove item")
+                                    .clicked()
+                                {
+                                    remove = Some(line.id);
+                                }
+                                let info =
+                                    ui.button(egui_material_icons::icons::ICON_INFO.codepoint);
+                                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                                     ui.add_enabled_ui(!self.paused, |ui| {
                                         ui.spacing_mut().text_edit_width = f32::INFINITY;
                                         let sample = self.history.latest(line.source.topic());
@@ -222,42 +232,34 @@ impl Panel for PlotPanel {
                                             sample.as_ref().map(|record| &record.value),
                                         );
                                     });
-                                },
-                            );
-                            self.history.project(
-                                line.source.topic(),
-                                line.source.field_path(),
-                                &mut line.data,
-                            );
-                            let status = self.history.status(line.source.topic());
-                            let info = ui.add_sized(
-                                vec2(button_size, button_size),
-                                Button::new(egui_material_icons::icons::ICON_INFO.codepoint),
-                            );
-                            let show_info = |ui: &mut Ui| {
-                                ui.label(&status);
-                                ui.label(format!("{} gaps", line.data.gaps));
-                                if let Some(issue) = &line.data.issue {
-                                    ui.colored_label(ui.visuals().warn_fg_color, issue);
-                                }
-                            };
-                            info.clone().on_hover_ui(show_info);
-                            Popup::menu(&info).show(show_info);
-                            if ui
-                                .add_enabled_ui(!self.paused, |ui| {
-                                    ui.add_sized(
-                                        vec2(button_size, button_size),
-                                        Button::new(
-                                            egui_material_icons::icons::ICON_CLOSE.codepoint,
-                                        ),
-                                    )
-                                })
-                                .inner
-                                .on_hover_text("Remove item")
-                                .clicked()
-                            {
-                                remove = Some(line.id);
-                            }
+                                });
+                                self.history.project(
+                                    line.source.topic(),
+                                    line.source.field_path(),
+                                    &mut line.data,
+                                );
+                                let status = self.history.status(line.source.topic());
+                                let info_width = 320.0_f32
+                                    .min((ui.ctx().content_rect().width() - 32.0).max(0.0));
+                                let show_info = |ui: &mut Ui| {
+                                    ui.set_width(info_width);
+                                    ui.add(Label::new(&status).wrap());
+                                    ui.label(format!("{} gaps", line.data.gaps));
+                                    if let Some(issue) = &line.data.issue {
+                                        ui.add(
+                                            Label::new(
+                                                RichText::new(issue)
+                                                    .color(ui.visuals().warn_fg_color),
+                                            )
+                                            .wrap(),
+                                        );
+                                    }
+                                };
+                                Tooltip::for_enabled(&info)
+                                    .width(info_width)
+                                    .show(show_info);
+                                Popup::menu(&info).width(info_width).show(show_info);
+                            });
                         });
                     });
                 }
