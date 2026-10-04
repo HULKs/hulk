@@ -2,16 +2,19 @@ use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
 use hsl_network_messages::{HulkMessage, PlayerNumber, StateMessage};
 use linear_algebra::{Isometry2, Point2};
-use ros_z::{prelude::*, qos::QosDurability};
+use ros_z::{
+    prelude::*,
+    qos::{QosDurability, QosHistory},
+};
 use search_heatmap::{Heatmap, SearchOccluder, SearchVoronoiSelection};
-use std::{boxed::Box, future::Future, pin::Pin, sync::Arc, time::Duration};
+use std::{boxed::Box, future::Future, num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
     messages::IncomingMessage,
     obstacles::{Obstacle, ObstacleKind},
-    parameters::{HslNetworkParameters, SearchSuggestorParameters},
+    parameters::SearchSuggestorParameters,
     players::Players,
     primary_state::PrimaryState,
     time_wrapper::TimeWrapper,
@@ -46,10 +49,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-    let hsl_network_parameters_cache = node
-        .subscriber::<HslNetworkParameters>("hsl_network")
+    let hsl_state_message_send_interval_cache = node
+        .subscriber::<Duration>("hsl_state_message_send_interval")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
+            history: QosHistory::KeepLast(NonZeroUsize::MIN),
             ..Default::default()
         })
         .cache(1)
@@ -114,10 +118,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
-        let Some(hsl_network_parameters) = hsl_network_parameters_cache.get_latest() else {
-            continue;
-        };
-        let hsl_network_parameters = hsl_network_parameters.as_ref();
+        let teammate_freshness_window = hsl_state_message_send_interval_cache
+            .get_latest()
+            .map(|interval| interval.mul_f32(1.2));
 
         let ground_to_field = ground_to_field_cache
             .get_latest()
@@ -162,7 +165,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 network_message,
                 &mut last_teammate_messages,
                 parameters,
-                hsl_network_parameters,
+                teammate_freshness_window,
                 elapsed_since_last_priority_update,
             );
         }
@@ -239,9 +242,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             own_voronoi_site,
             &last_teammate_messages,
             now,
-            hsl_network_parameters
-                .hsl_state_message_send_interval
-                .mul_f32(1.2),
+            teammate_freshness_window,
         ) {
             heatmap.update_suggested_search_position_with_voronoi(
                 field_dimensions,
@@ -290,7 +291,7 @@ fn search_voronoi_selection_from_teammates(
     own_voronoi_site: Option<(Isometry2<Ground, Field>, PlayerNumber)>,
     last_teammate_messages: &Players<Option<TeammateStateMessage>>,
     now: ros_z::time::Time,
-    freshness_window: Duration,
+    freshness_window: Option<Duration>,
 ) -> Option<SearchVoronoiSelection> {
     let (ground_to_field, own_player_number) = own_voronoi_site?;
     let mut sites = vec![(ground_to_field.as_pose(), own_player_number)];
@@ -302,7 +303,9 @@ fn search_voronoi_selection_from_teammates(
         if player_number == own_player_number || now < teammate_message.received_at {
             continue;
         }
-        if now.duration_since(teammate_message.received_at) <= freshness_window {
+        if freshness_window
+            .is_some_and(|window| now.duration_since(teammate_message.received_at) <= window)
+        {
             sites.push((teammate_message.state.pose, player_number));
         }
     }
@@ -320,7 +323,7 @@ fn decay_with_teammate_message(
     message: TimeWrapper<IncomingMessage>,
     last_teammate_messages: &mut Players<Option<TeammateStateMessage>>,
     parameters: &SearchSuggestorParameters,
-    hsl_network_parameters: &HslNetworkParameters,
+    freshness_window: Option<Duration>,
     local_tick_duration: Duration,
 ) {
     let TimeWrapper {
@@ -331,13 +334,11 @@ fn decay_with_teammate_message(
         return;
     };
 
-    if let Some(previous) = last_teammate_messages[state.player_number]
+    if let Some(freshness_window) = freshness_window
+        && let Some(previous) = last_teammate_messages[state.player_number]
         && time >= previous.received_at
         && let elapsed_since_previous_message = time.duration_since(previous.received_at)
-        && elapsed_since_previous_message
-            <= hsl_network_parameters
-                .hsl_state_message_send_interval
-                .mul_f32(1.2)
+        && elapsed_since_previous_message <= freshness_window
     {
         let tick_count = replay_tick_count(elapsed_since_previous_message, local_tick_duration);
         heatmap.decay_tiles_from_teammate_motion(

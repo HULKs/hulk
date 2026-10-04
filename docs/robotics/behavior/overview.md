@@ -112,6 +112,13 @@ ball is available. A message is sent only when the robot has a field pose, the
 send interval has elapsed, and the remaining game message budget is high
 enough.
 
+`behavior_node.network.hsl_state_message_send_interval` is the configuration
+source for the send interval. Behavior publishes the applied value as a
+`Duration` on `hsl_state_message_send_interval` at startup and when it changes,
+retaining the latest value for late subscribers. The search suggestor uses it
+to determine teammate freshness and replay their observations; local search
+continues while the interval is unavailable.
+
 Received teammate states provide the poses used for closest-to-ball selection
 and supporter positioning. Team communication can be absent or delayed, so the
 tree retains branches for simple operation, the last active robot, and missing
