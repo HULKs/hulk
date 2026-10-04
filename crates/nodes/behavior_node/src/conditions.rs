@@ -197,21 +197,24 @@ pub fn hulks_is_kicking_team(blackboard: &mut Blackboard) -> bool {
     )
 }
 
-pub fn is_opponent_kickoff(blackboard: &mut Blackboard) -> bool {
+pub fn is_ball_free(blackboard: &mut Blackboard) -> bool {
     matches!(
         blackboard.world_state.filtered_game_controller_state,
         Some(FilteredGameControllerState {
             game_state: FilteredGameState::Playing {
-                kick_off: true,
-                ball_is_free: false,
+                ball_is_free: true,
                 ..
             },
             ..
         })
-    ) && !matches!(
+    )
+}
+
+pub fn is_kickoff(blackboard: &mut Blackboard) -> bool {
+    matches!(
         blackboard.world_state.filtered_game_controller_state,
         Some(FilteredGameControllerState {
-            kicking_team: Some(Team::Hulks),
+            game_state: FilteredGameState::Playing { kick_off: true, .. },
             ..
         })
     )
