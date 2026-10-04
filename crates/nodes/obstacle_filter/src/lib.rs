@@ -112,6 +112,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(10)
         .build()
         .await?;
+    let odometry_cache = node
+        .subscriber::<Pose2<Odometry>>("inputs/odometry")
+        .cache(100)
+        .build()
+        .await?;
     let fall_down_state_cache = node
         .subscriber::<FallDownState>("inputs/fall_down_state")
         .cache(10)
@@ -225,6 +230,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                             parameters,
                             &player_state,
                             ground_to_field.as_ref(),
+                            odometry_cache.get_nearest(player_state_time).as_deref().copied(),
                         );
                         last_ground_to_field = Some(ground_to_field);
                         processed_player_state = true;
@@ -316,14 +322,32 @@ impl ObstacleFilter {
         parameters: &ObstacleFilterParameters,
         player_state: &PlayerState,
         ground_to_field: &Isometry2<Ground, Field>,
+        odometry: Option<Pose2<Odometry>>,
     ) {
-        let player_position = measured_player_position(player_state, ground_to_field);
+        // Player states can arrive between detector frames. Transform the derived
+        // teammate position and measurement covariance into the hypotheses' frame.
+        let measurement_to_hypotheses = odometry
+            .zip(self.last_odometry)
+            .map(|(current, previous)| types::odometry::current_to_previous(previous, current))
+            .unwrap_or_default();
+        if self.last_odometry.is_none() {
+            self.last_odometry = odometry;
+        }
+        let player_position =
+            measurement_to_hypotheses * measured_player_position(player_state, ground_to_field);
+        let rotation = measurement_to_hypotheses
+            .inner
+            .rotation
+            .to_rotation_matrix();
+        let measurement_noise_in_hypotheses_frame = rotation.matrix()
+            * Matrix2::from_diagonal(&parameters.network_robot_measurement_noise)
+            * rotation.matrix().transpose();
         self.update_hypotheses_with_measurement(
             player_position,
             ObstacleKind::Robot,
             player_state_time,
             parameters.network_robot_measurement_matching_distance,
-            Matrix2::from_diagonal(&parameters.network_robot_measurement_noise),
+            measurement_noise_in_hypotheses_frame,
             MeasurementKind::NetworkRobot,
         );
     }
@@ -629,6 +653,83 @@ fn calculate_goal_post_positions(
 mod tests {
     use super::*;
     use types::obstacles::ObstacleKind;
+
+    #[test]
+    fn network_updates_between_detector_frames_share_the_hypotheses_frame() {
+        for angle in [0.0, std::f32::consts::FRAC_PI_2] {
+            for existing_hypothesis in [false, true] {
+                let mut filter = ObstacleFilter::default();
+                let start = Time::from_nanos(1_000_000_000);
+                let parameters = ObstacleFilterParameters {
+                    network_robot_measurement_matching_distance: 0.1,
+                    network_robot_measurement_noise: na::vector![2.0, 3.0],
+                    ..Default::default()
+                };
+                filter.process_detection(
+                    start,
+                    &parameters,
+                    &[],
+                    None,
+                    Some(Pose2::new(point![0.0, 0.0], 0.0)),
+                );
+                if existing_hypothesis {
+                    filter.spawn_hypothesis(
+                        point![5.0, 0.0],
+                        ObstacleKind::Robot,
+                        start,
+                        Matrix2::identity(),
+                    );
+                }
+
+                // The robot moves before a teammate update arrives, while the
+                // hypotheses still belong to the previous detector frame.
+                let current = Pose2::new(point![1.0, 0.0], angle);
+                let ground_to_field =
+                    Pose2::<Field>::new(point![1.0, 0.0], angle).as_transform::<Ground>();
+                let teammate = PlayerState {
+                    pose: point![5.0, 0.0].into(),
+                    ball_position: None,
+                };
+                let received = start + Duration::from_millis(20);
+                filter.process_network_player_state(
+                    received,
+                    &parameters,
+                    &teammate,
+                    &ground_to_field,
+                    Some(current),
+                );
+                assert_eq!(filter.hypotheses.len(), 1);
+                let hypothesis = &filter.hypotheses[0];
+                assert!((hypothesis.state.mean - na::vector![5.0, 0.0]).norm() < 1e-5);
+                assert_eq!(
+                    hypothesis.measurement_count,
+                    if existing_hypothesis { 2 } else { 1 }
+                );
+                assert_eq!(hypothesis.last_update, received);
+
+                filter.process_detection(
+                    start + Duration::from_millis(40),
+                    &parameters,
+                    &[],
+                    None,
+                    Some(current),
+                );
+                let hypothesis = &filter.hypotheses[0];
+                let expected_position = if angle == 0.0 {
+                    na::vector![4.0, 0.0]
+                } else {
+                    na::vector![0.0, -4.0]
+                };
+                assert!((hypothesis.state.mean - expected_position).norm() < 1e-5);
+                if !existing_hypothesis {
+                    let expected_covariance = Matrix2::from_diagonal(
+                        &(parameters.network_robot_measurement_noise + parameters.process_noise),
+                    );
+                    assert!((hypothesis.state.covariance - expected_covariance).norm() < 1e-5);
+                }
+            }
+        }
+    }
 
     #[test]
     fn detector_frames_compensate_full_odometry_delta() {
