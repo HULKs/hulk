@@ -37,8 +37,9 @@
   // Correct implausibly small detections using independently supported history.
   publication_filter_blend: 0.7,
   publication_detection_noise: 0.2,
-  publication_maximum_age: { secs: 5, nanos: 0 },
+  publication_maximum_age: { secs: 4, nanos: 0 },
   publication_maximum_distance: 0.0,
+  publication_maximum_covariance_ratio: 1.0,
   publication_field_boundary_margin: 1.5,
   noise: {
     detection_noise: [5.0, 5.0],

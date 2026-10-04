@@ -222,25 +222,21 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             let field_prior_pose = output_time
                 .map(|time| field_poses.at(time))
                 .unwrap_or(last_field_prior_pose);
-            if let Some(time) = output_time {
+            let filtered_ball = output_time.and_then(|time| {
+                sequence += 1;
                 tracker.finish_with_field_pose(
                     time,
                     parameters,
                     &field_dimensions,
                     field_prior_pose,
-                );
-                sequence += 1;
-            }
+                )
+            });
             let ball_filter = &tracker.filter;
 
             let filter_state = ball_filter.clone();
             let best_hypothesis = ball_filter
                 .best_hypothesis_with_field_pose(parameters, &field_dimensions, field_prior_pose)
                 .cloned();
-            let filtered_ball = best_hypothesis
-                .as_ref()
-                .map(|hypothesis| hypothesis.position());
-
             let output_balls: Vec<_> = ball_filter
                 .hypotheses
                 .iter()

@@ -302,6 +302,10 @@ pub struct BallFilterParameters {
     pub publication_maximum_age: Duration,
     /// Maximum alternate ball distance for correction; zero disables this gate.
     pub publication_maximum_distance: f32,
+    /// Maximum auxiliary/main position-covariance trace ratio for correction.
+    /// A finite positive value enables the gate; zero leaves it disabled.
+    #[serde(default)]
+    pub publication_maximum_covariance_ratio: f32,
     /// Additional field-boundary uncertainty buffer for the auxiliary history.
     /// The main filter's existing margin remains a lower bound.
     pub publication_field_boundary_margin: f32,

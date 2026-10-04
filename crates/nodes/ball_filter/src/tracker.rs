@@ -207,7 +207,18 @@ impl Tracker {
             .as_mut()
             .zip(publication_parameters(parameters))
             .and_then(|(tracker, alternate)| {
-                tracker.finish_with_field_pose(time, &alternate, dimensions, ground_to_field)
+                let ball = tracker.finish_with_field_pose(
+                    time,
+                    &alternate,
+                    dimensions,
+                    ground_to_field,
+                )?;
+                let covariance_trace = tracker
+                    .filter
+                    .best_hypothesis_with_field_pose(&alternate, dimensions, ground_to_field)?
+                    .position_covariance()
+                    .trace();
+                Some((ball, covariance_trace))
             });
         let valid_pose = ground_to_field.is_some_and(|pose| {
             pose.inner
@@ -239,15 +250,30 @@ impl Tracker {
         if hypothesis.last_observation_size_plausible != Some(false) {
             return Some(baseline);
         }
-        let alternate = alternate.filter(|ball| {
+        let alternate = alternate.filter(|(ball, covariance_trace)| {
+            // Retained history can survive long after its motion prediction
+            // becomes less certain than a newly observed primary track.
+            let maximum_ratio = parameters.publication_maximum_covariance_ratio;
+            let covariance_supported = if maximum_ratio.is_finite() && maximum_ratio > 0.0 {
+                let primary_trace = hypothesis.position_covariance().trace();
+                primary_trace.is_finite()
+                    && primary_trace >= 0.0
+                    && covariance_trace.is_finite()
+                    && *covariance_trace >= 0.0
+                    && f64::from(*covariance_trace)
+                        <= f64::from(maximum_ratio) * f64::from(primary_trace)
+            } else {
+                true
+            };
             (parameters.publication_maximum_age.is_zero()
                 || time.as_nanos().saturating_sub(ball.last_seen.as_nanos()) as u128
                     <= parameters.publication_maximum_age.as_nanos())
                 && (parameters.publication_maximum_distance <= 0.0
                     || ball.position.coords().norm() <= parameters.publication_maximum_distance)
+                && covariance_supported
         });
         Some(match alternate {
-            Some(alternate) => {
+            Some((alternate, _)) => {
                 let blend = parameters.publication_filter_blend.clamp(0.0, 1.0);
                 BallPosition {
                     position: (baseline.position.coords() * (1.0 - blend)
@@ -319,6 +345,67 @@ mod tests {
         parameters.hypothesis_timeout = Duration::from_secs(30);
         parameters.noise.detection_noise.inner.fill(0.01);
         (tracker, camera, parameters, dimensions)
+    }
+
+    #[test]
+    fn uncertain_retained_history_does_not_displace_a_confident_moving_track() {
+        let (mut tracker, _, mut parameters, dimensions) = negative_evidence_fixture();
+        let time = Time::from_nanos(19_548_000_000);
+        let primary = &mut tracker.filter.hypotheses[0];
+        primary.mode = BallMode::Moving(MultivariateNormalDistribution {
+            mean: nalgebra::vector![0.89, 0.29, 0.42, 0.17],
+            covariance: Matrix4::from_diagonal(&nalgebra::vector![0.10, 0.08, 3.3, 3.3]),
+        });
+        primary.last_seen = Time::from_nanos(19_522_000_000);
+        primary.last_observation_size_plausible = Some(false);
+        let baseline = primary.position();
+        let mut retained = primary.clone();
+        retained.mode = BallMode::Moving(MultivariateNormalDistribution {
+            mean: nalgebra::vector![0.18, 0.08, -0.07, 0.03],
+            covariance: Matrix4::from_diagonal(&nalgebra::vector![2.28, 2.28, 4.36, 4.36]),
+        });
+        retained.last_seen = Time::from_nanos(19_002_000_000);
+        tracker.publication_tracker = Some(Box::new(Tracker {
+            filter: BallFilter {
+                hypotheses: vec![retained],
+            },
+            ..Default::default()
+        }));
+        parameters.publication_filter_blend = 0.7;
+        let unguarded = tracker.finish(time, &parameters, &dimensions).unwrap();
+        assert!((unguarded.position - baseline.position).norm() > 0.5);
+
+        parameters.publication_maximum_covariance_ratio = 1.0;
+        let guarded = tracker.finish(time, &parameters, &dimensions).unwrap();
+        assert_eq!(guarded.position, baseline.position);
+        assert_eq!(guarded.velocity, baseline.velocity);
+        assert_eq!(guarded.last_seen, baseline.last_seen);
+
+        // The same independent history remains available when the guard is
+        // disabled; rejecting a correction must not delete its track.
+        parameters.publication_maximum_covariance_ratio = 0.0;
+        let disabled = tracker.finish(time, &parameters, &dimensions).unwrap();
+        assert_eq!(disabled.position, unguarded.position);
+        assert_eq!(disabled.velocity, unguarded.velocity);
+        assert_eq!(disabled.last_seen, unguarded.last_seen);
+
+        // A confidently supported auxiliary estimate may still correct the
+        // geometrically suspect primary observation.
+        parameters.publication_maximum_covariance_ratio = 1.0;
+        let retained = &mut tracker
+            .publication_tracker
+            .as_mut()
+            .unwrap()
+            .filter
+            .hypotheses[0];
+        let BallMode::Moving(state) = &mut retained.mode else {
+            panic!("retained moving history changed mode");
+        };
+        state.covariance = Matrix4::identity() * 0.02;
+        let supported = tracker.finish(time, &parameters, &dimensions).unwrap();
+        assert_eq!(supported.position, unguarded.position);
+        assert_eq!(supported.velocity, unguarded.velocity);
+        assert_eq!(supported.last_seen, unguarded.last_seen);
     }
 
     #[test]
