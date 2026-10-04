@@ -2306,27 +2306,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "booster_sdk_interface"
-version = "0.1.0"
-dependencies = [
- "booster",
- "cdr",
- "color-eyre",
- "kinematics",
- "linear_algebra",
- "ros-z",
- "ros2",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
- "types",
- "uuid",
- "zenoh",
-]
-
-[[package]]
 name = "bs58"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5303,7 +5282,7 @@ dependencies = [
  "ros2",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
+ "thiserror 2.0.21",
  "tokio",
  "tracing",
  "types",
@@ -5393,7 +5372,7 @@ dependencies = [
  "ros-z",
  "ros-z-schema",
  "serde",
- "thiserror 2.0.18",
+ "thiserror 2.0.21",
  "tokio",
  "tracing",
  "types",
@@ -6743,7 +6722,7 @@ dependencies = [
  "localization-3d",
  "nalgebra 0.34.2",
  "projection",
- "rand 0.9.4",
+ "rand 0.9.5",
  "rand_chacha 0.9.0",
  "rand_distr 0.5.1",
  "ros-z",
@@ -7123,7 +7102,7 @@ dependencies = [
  "ros-z",
  "ros-z-schema",
  "serde",
- "thiserror 2.0.18",
+ "thiserror 2.0.21",
  "tokio",
  "tracing",
  "types",
@@ -7488,31 +7467,6 @@ dependencies = [
  "portable-atomic",
  "portable-atomic-util",
  "rawpointer",
-]
-
-[[package]]
-name = "ndarray-conv"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61a04cd712622c289a7b523d3195e4fb5e2bf30c44de12355463fe58aa12213b"
-dependencies = [
- "ndarray 0.16.1",
- "ndarray-rand",
- "num",
- "realfft",
- "rustfft",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "ndarray-rand"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f093b3db6fd194718dcdeea6bd8c829417deae904e3fcc7732dabcd4416d25d8"
-dependencies = [
- "ndarray 0.16.1",
- "rand 0.8.8",
- "rand_distr 0.4.3",
 ]
 
 [[package]]
