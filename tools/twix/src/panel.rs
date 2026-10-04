@@ -29,6 +29,9 @@ pub trait Panel {
     /// Focus this panel's topic input on its next render, if it has one.
     fn focus_topic(&mut self) {}
 
+    /// Toggle playback when the pane itself has keyboard focus.
+    fn toggle_pause(&mut self) {}
+
     fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>);
 
     fn save(&self) -> Value {
