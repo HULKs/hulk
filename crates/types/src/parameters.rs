@@ -228,6 +228,7 @@ pub struct BallFilterNoise {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
 pub struct BallFilterParameters {
     pub hypothesis_timeout: Duration,
+    pub maximum_camera_matrix_age: Duration,
     pub maximum_number_of_hypotheses: usize,
     pub ball_confidence_threshold: f32,
     pub log_likelihood_of_zero_velocity_threshold: f32,
