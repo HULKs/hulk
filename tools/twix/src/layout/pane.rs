@@ -48,6 +48,8 @@ pub(super) fn panel_creation_context<'a>(
         backend: backend.clone(),
         value,
         egui_context: egui_context.clone(),
+        render_state: egui_context
+            .data(|data| data.get_temp(eframe::egui::Id::new("render_state"))),
     }
 }
 

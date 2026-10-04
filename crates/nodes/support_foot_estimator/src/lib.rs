@@ -62,7 +62,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let mut last_support_foot = SoleSide::Left;
-    let mut last_maybe_support_side = None;
+    // Distinguish no publication yet from a published unavailable support side.
+    let mut last_maybe_support_side: Option<Option<SupportFootState>> = None;
 
     loop {
         let parameters = parameters.snapshot().typed().clone();

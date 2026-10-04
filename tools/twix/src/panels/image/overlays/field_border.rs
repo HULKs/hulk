@@ -1,7 +1,6 @@
 use color_eyre::Report;
 use coordinate_systems::Pixel;
 use eframe::egui::{Color32, Stroke};
-use linear_algebra::Point2;
 use ros_z::time::Time;
 use types::{field_border::FieldBorder as FieldBorderData, time_wrapper::TimeWrapper};
 
@@ -12,10 +11,10 @@ use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 
 pub(in crate::panels::image) struct FieldBorderOverlay {
     border_lines: OverlayObservation<TimeWrapper<Option<FieldBorderData>>>,
-    candidates: OverlayObservation<Vec<Point2<Pixel>>>,
 }
 
 impl ImageOverlay for FieldBorderOverlay {
+    type Sample = std::sync::Arc<ros_z_debug::SampleRecord<TimeWrapper<Option<FieldBorderData>>>>;
     const NAME: &'static str = "Field Border";
     const STORAGE_KEY: &'static str = "field_border";
 
@@ -25,21 +24,15 @@ impl ImageOverlay for FieldBorderOverlay {
     {
         Ok(Self {
             border_lines: OverlayObservation::new(context, "field_border")?,
-            candidates: OverlayObservation::new(context, "field_border_points")?,
         })
     }
 
-    fn paint(&self, painter: &TwixPainter<Pixel>, _image_time: Time) {
-        let Some(candidates) = self.candidates.latest() else {
-            return;
-        };
-        for point in &candidates.value {
-            painter.circle_filled(*point, 2.0, Color32::BLUE);
-        }
+    fn prepare(&self, image_time: Time) -> Option<Self::Sample> {
+        // Candidate debug points have no image timestamp and are intentionally omitted.
+        self.border_lines.at_time(image_time)
+    }
 
-        let Some(border_lines) = self.border_lines.latest() else {
-            return;
-        };
+    fn paint(painter: &TwixPainter<Pixel>, border_lines: &Self::Sample) {
         let Some(field_border) = &border_lines.value.inner else {
             return;
         };
