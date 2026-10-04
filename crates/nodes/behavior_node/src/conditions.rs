@@ -4,7 +4,7 @@ use hsl_network_messages::Team;
 use linear_algebra::{point, vector};
 use types::{
     controller_input::Button, filtered_game_controller_state::FilteredGameControllerState,
-    primary_state::PrimaryState,
+    filtered_game_state::FilteredGameState, primary_state::PrimaryState,
 };
 use voronoi::Ownership;
 
@@ -199,6 +199,26 @@ pub fn has_hypothetical_ball_position(blackboard: &mut Blackboard) -> bool {
 
 pub fn hulks_is_kicking_team(blackboard: &mut Blackboard) -> bool {
     matches!(
+        blackboard.world_state.filtered_game_controller_state,
+        Some(FilteredGameControllerState {
+            kicking_team: Some(Team::Hulks),
+            ..
+        })
+    )
+}
+
+pub fn is_opponent_kickoff(blackboard: &mut Blackboard) -> bool {
+    matches!(
+        blackboard.world_state.filtered_game_controller_state,
+        Some(FilteredGameControllerState {
+            game_state: FilteredGameState::Playing {
+                kick_off: true,
+                ball_is_free: false,
+                ..
+            },
+            ..
+        })
+    ) && !matches!(
         blackboard.world_state.filtered_game_controller_state,
         Some(FilteredGameControllerState {
             kicking_team: Some(Team::Hulks),
