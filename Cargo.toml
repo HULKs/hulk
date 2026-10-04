@@ -9,7 +9,6 @@ members = [
   "crates/calibration",
   "crates/coordinate_systems",
   "crates/egui_bevy",
-  "crates/energy_optimization",
   "crates/filtering",
   "crates/geometry",
   "crates/hsl_network",
@@ -162,7 +161,6 @@ egui_material_icons = { version = "0.8.0", default-features = false, features = 
 ] }
 egui_plot = "0.37.0"
 egui_tiles = "0.17.1"
-energy_optimization = { path = "crates/energy_optimization" }
 enum-iterator = "2.1.0"
 enum_dispatch = "0.3.13"
 env_logger = "0.11.8"
