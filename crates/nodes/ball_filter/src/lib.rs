@@ -1039,7 +1039,7 @@ mod tests {
     fn above_horizon_and_excessively_distant_percepts_never_spawn_hypotheses() {
         let camera = horizontal_test_camera();
         let dimensions = FieldDimensions::SPL_2025;
-        let mut parameters = BallFilterParameters::default();
+        let mut parameters = crate::test_parameters();
         parameters.maximum_camera_matrix_age = Duration::from_millis(20);
         parameters.maximum_detection_distance = 15.0;
         parameters.noise.detection_noise.inner.fill(0.05);
@@ -1138,7 +1138,7 @@ mod tests {
         let radius = FieldDimensions::SPL_2025.ball_radius;
         let mut parameters = BallFilterParameters {
             maximum_detection_radius_ratio: 2.0,
-            ..Default::default()
+            ..crate::test_parameters()
         };
         parameters.noise.detection_noise.inner.fill(0.05);
         for distance in [0.8, 2.0, 6.0] {
@@ -1166,7 +1166,7 @@ mod tests {
         let mut parameters = BallFilterParameters {
             maximum_detection_radius_ratio: 2.0,
             radius_consistency_maximum_distance: 1.5,
-            ..Default::default()
+            ..crate::test_parameters()
         };
         parameters.noise.detection_noise.inner.fill(0.05);
         for distance in [0.8, 2.0, 6.0] {
@@ -1189,7 +1189,7 @@ mod tests {
     fn malformed_boxes_and_nonfinite_projection_noise_are_rejected() {
         let camera = horizontal_test_camera();
         let radius = FieldDimensions::SPL_2025.ball_radius;
-        let mut parameters = BallFilterParameters::default();
+        let mut parameters = crate::test_parameters();
         parameters.noise.detection_noise.inner.fill(0.05);
         let center = camera
             .ground_with_z_to_pixel(point![2.0, 0.0], radius)
@@ -1288,7 +1288,7 @@ mod tests {
         let radius = FieldDimensions::SPL_2025.ball_radius;
         let mut parameters = BallFilterParameters {
             visibility_uncertainty_scale: 1.0,
-            ..Default::default()
+            ..crate::test_parameters()
         };
         let mut hypothesis = BallHypothesis::new(
             MultivariateNormalDistribution {
@@ -1322,7 +1322,7 @@ mod tests {
                 maximum_matching_cost: 1.0,
                 association_uncertainty_weight: weight,
                 hidden_validity_exponential_decay_factor: 1.0,
-                ..Default::default()
+                ..crate::test_parameters()
             };
             let make = |x, variance| {
                 BallHypothesis::new(
@@ -1369,7 +1369,7 @@ mod tests {
                 hidden_validity_exponential_decay_factor: 1.0,
                 maximum_matching_cost: 1.0,
                 maximum_matching_distance: distance_gate,
-                ..Default::default()
+                ..crate::test_parameters()
             };
             let mut parent = BallHypothesis::new(
                 MultivariateNormalDistribution {
@@ -1429,7 +1429,7 @@ mod tests {
                 hidden_validity_exponential_decay_factor: 1.0,
                 maximum_matching_cost: 0.25,
                 nearby_spawn_validity_factor: Some(0.5),
-                ..Default::default()
+                ..crate::test_parameters()
             };
             let mut parent = BallHypothesis::new(
                 MultivariateNormalDistribution {
@@ -1486,7 +1486,7 @@ mod tests {
             let parameters = BallFilterParameters {
                 resting_velocity_threshold: threshold,
                 log_likelihood_of_zero_velocity_threshold: f32::INFINITY,
-                ..Default::default()
+                ..crate::test_parameters()
             };
             let mut filter = BallFilter {
                 hypotheses: vec![BallHypothesis::new(
@@ -1518,7 +1518,7 @@ mod tests {
     fn reacquisition_gate_preserves_prior_and_requires_an_observation_gap() {
         for (gate, millis, should_branch) in [(0.0, 200, false), (0.1, 40, false), (0.1, 200, true)]
         {
-            let mut parameters = BallFilterParameters::default();
+            let mut parameters = crate::test_parameters();
             parameters.reacquisition_matching_distance = gate;
             parameters.maximum_matching_cost = 1.0;
             parameters.velocity_decay_factor = 0.998;
@@ -1574,7 +1574,7 @@ mod tests {
     #[test]
     fn unseen_kick_spawns_at_detection_without_destroying_the_old_track() {
         let dimensions = FieldDimensions::SPL_2025;
-        let mut parameters = BallFilterParameters::default();
+        let mut parameters = crate::test_parameters();
         parameters.hidden_validity_exponential_decay_factor = 1.0;
         parameters.maximum_matching_cost = 0.25;
         parameters.maximum_matching_cost_validity_penalty_factor = 0.14;
@@ -1662,7 +1662,7 @@ mod tests {
     #[test]
     fn coherent_kick_observations_replace_high_validity_resting_track_promptly() {
         let dimensions = FieldDimensions::SPL_2025;
-        let mut parameters = BallFilterParameters::default();
+        let mut parameters = crate::test_parameters();
         parameters.hidden_validity_exponential_decay_factor = 0.9997;
         parameters.maximum_matching_cost = 0.25;
         parameters.validity_discard_threshold = 0.2;
@@ -1843,7 +1843,6 @@ mod odometry_pose_tests {
     use coordinate_systems::Odometry;
     use linear_algebra::{Pose2, point};
     use ros_z::time::Time;
-    use types::parameters::BallFilterParameters;
 
     use super::*;
 
@@ -1852,7 +1851,7 @@ mod odometry_pose_tests {
         let mut ball_filter = BallFilter::default();
         let mut last_odometry = None;
         let mut last_prediction_time = None;
-        let parameters = BallFilterParameters::default();
+        let parameters = crate::test_parameters();
 
         predict_hypotheses_from_odometry(
             &mut ball_filter,
@@ -1875,4 +1874,12 @@ mod odometry_pose_tests {
         assert!(last_odometry.is_some());
         assert_eq!(last_prediction_time, Some(Time::from_nanos(1_010_000_000)));
     }
+}
+
+#[cfg(test)]
+fn test_parameters() -> BallFilterParameters {
+    json5::from_str(include_str!(
+        "../../../../etc/parameters/base/ball_filter.json5"
+    ))
+    .expect("base ball_filter parameters must deserialize")
 }
