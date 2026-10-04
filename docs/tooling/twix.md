@@ -136,7 +136,8 @@ The axis stops advancing when no new samples arrive.
 Numeric values use `f64` plot coordinates, so very large integers can lose precision.
 
 **History** defaults to 30 seconds and accepts 1–600 seconds.
-Each topic retains at most 4096 samples, so high-rate topics may cover less than the requested duration.
+Each topic retains all samples in the selected source-time window, without a sample-count cap.
+Memory usage grows with topic rate, payload size, and history duration; stalled source timestamps prevent time-based eviction.
 Changing history starts a new buffer.
 **Pause** freezes the displayed samples and time origin while live collection continues.
 While paused, drag to pan, scroll to zoom, or use the secondary mouse button to box-zoom.
@@ -151,7 +152,7 @@ Changing the robot namespace also clears displayed history and resumes the plot.
 
 ```mermaid
 flowchart LR
-    Topic[ROS-Z topic] --> Cache[Bounded dynamic observation]
+    Topic[ROS-Z topic] --> Cache[Time-window dynamic observation]
     Cache --> Snapshot[Shared history snapshot]
     Snapshot --> FieldA[Numeric field A]
     Snapshot --> FieldB[Numeric field B]
@@ -164,7 +165,7 @@ Within a plot, `PlotHistory` owns one observation per distinct topic reference a
 Notifications request redraws and refresh the history snapshot, which can include multiple samples received between frames.
 Field changes reproject that history without reconnecting.
 `SeriesData` applies `ValuePath` directly to dynamic values, caches the numeric projection until the snapshot or path changes, and separates gaps before rendering.
-Pausing stops snapshot refresh, leaving the bounded live observations running.
+Pausing stops snapshot refresh, leaving the live observations running.
 Removing the last line using a topic releases its observation.
 
 ## Keybindings

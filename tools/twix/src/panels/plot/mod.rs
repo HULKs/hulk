@@ -173,7 +173,7 @@ impl Panel for PlotPanel {
                     .suffix(" s"),
             )
             .on_hover_text(
-                "Changing history starts a new buffer. Up to 4096 samples per topic are retained.",
+                "Changing history starts a new buffer. All samples in the selected time window are retained.",
             );
             if ui
                 .add_enabled(!self.paused, Button::new("Add line"))
