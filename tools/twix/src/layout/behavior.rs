@@ -1,8 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
 use eframe::egui::{
-    Button, Context, CornerRadius, Id, Margin, Rect, Response, Sense, StrokeKind, Ui, UiBuilder,
-    WidgetInfo, WidgetText, WidgetType, vec2,
+    Button, Context, CornerRadius, Event, Id, Key, Margin, Modifiers, Popup, Rect, Response, Sense,
+    StrokeKind, Ui, UiBuilder, WidgetInfo, WidgetText, WidgetType, vec2,
 };
 use egui_tiles::{
     Behavior, EditAction, SimplificationOptions, TabState, TileId, Tiles, UiResponse,
@@ -48,6 +48,27 @@ impl Behavior<SelectablePanel> for LayoutBehavior<'_> {
                 if clicked_in_pane {
                     ui.response().request_focus();
                 }
+                if ui.response().has_focus()
+                    && !self.preset_ui.dialog_open()
+                    && !Popup::is_any_open(ui.ctx())
+                    && ui.input_mut(|input| {
+                        let pressed = input.events.iter().any(|event| {
+                            matches!(event, Event::Key {
+                                key: Key::Space,
+                                pressed: true,
+                                repeat: false,
+                                modifiers,
+                                ..
+                            } if modifiers.is_none())
+                        });
+                        if pressed {
+                            input.consume_key(Modifiers::NONE, Key::Space);
+                        }
+                        pressed
+                    })
+                {
+                    pane.toggle_pause();
+                }
                 eframe::egui::Frame::new()
                     .inner_margin(Margin::same(4))
                     .show(ui, |ui| {
@@ -72,6 +93,11 @@ impl Behavior<SelectablePanel> for LayoutBehavior<'_> {
         );
         pane.response
             .widget_info(|| WidgetInfo::labeled(WidgetType::Panel, true, kind.display_name()));
+        // Request focus after the pane response is finalized: clicking a child
+        // plot can otherwise make egui surrender the parent pane's focus.
+        if clicked_in_pane && ui.memory(|memory| memory.focused().is_none()) {
+            pane.response.request_focus();
+        }
         if clicked_in_pane || pane.response.gained_focus() {
             *self.focused = Some(tile_id);
         }

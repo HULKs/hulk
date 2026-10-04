@@ -158,10 +158,10 @@ impl Panel for PlotPanel {
         ui.horizontal_wrapped(|ui| {
             if ui
                 .button(if self.paused { "Resume" } else { "Pause" })
+                .on_hover_text("Space toggles pause/resume when the plot is focused.")
                 .clicked()
             {
-                self.paused = !self.paused;
-                self.reset_view = !self.paused;
+                self.toggle_pause();
             }
             if ui.button("Reset view").clicked() {
                 self.reset_view = true;
@@ -184,9 +184,14 @@ impl Panel for PlotPanel {
                 self.add_line();
             }
             if self.paused {
-                ui.label("Paused: drag to pan, scroll to zoom.");
+                ui.label("Paused: drag or scroll to pan; pinch or Ctrl/Cmd+scroll to zoom.");
             }
         });
+    }
+
+    fn toggle_pause(&mut self) {
+        self.paused = !self.paused;
+        self.reset_view = !self.paused;
     }
 
     fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
@@ -287,6 +292,7 @@ impl Panel for PlotPanel {
                 );
                 format!("{value}s")
             })
+            .allow_double_click_reset(false)
             .allow_drag(self.paused)
             .allow_zoom(self.paused)
             .allow_scroll(self.paused)
@@ -297,7 +303,7 @@ impl Panel for PlotPanel {
         if reset {
             plot = plot.reset();
         }
-        plot.show(ui, |plot_ui| {
+        let response = plot.show(ui, |plot_ui| {
             if !self.paused || reset {
                 plot_ui.set_auto_bounds([false, true]);
                 plot_ui.set_plot_bounds_x(-self.history_seconds..=0.0);
@@ -327,6 +333,10 @@ impl Panel for PlotPanel {
                 }
             }
         });
+        if response.response.double_clicked() {
+            self.reset_view = true;
+            ui.ctx().request_repaint();
+        }
     }
 
     fn save(&self) -> Value {
