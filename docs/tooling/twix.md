@@ -140,8 +140,10 @@ Each topic retains all samples in the selected source-time window, without a sam
 Memory usage grows with topic rate, payload size, and history duration; stalled source timestamps prevent time-based eviction.
 Changing history starts a new buffer.
 **Pause** freezes the displayed samples and time origin while live collection continues.
-While paused, drag to pan, scroll to zoom, or use the secondary mouse button to box-zoom.
-**Reset view** fits the snapshot; **Resume** returns to the current live window.
+Click the plot to focus it, then press **Space** to toggle pause/resume.
+Space does not toggle the plot while editing a text field.
+Zooming and panning are available while paused: drag or scroll with two fingers to pan, pinch or hold **Ctrl** (**Cmd** on macOS) while scrolling to zoom under the pointer, or drag with the secondary mouse button to box-zoom.
+**Reset view** or a double-click/double-tap restores the exact configured history interval and fits the Y axis; **Resume** returns to the current live window.
 Source and history controls are disabled while paused, but colors and visibility remain editable.
 
 Layouts save source paths, colors, visibility, and history duration.
