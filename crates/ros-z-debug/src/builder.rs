@@ -1,7 +1,10 @@
 use std::{error::Error as _, fmt::Write as _, sync::Arc, time::Duration};
 
 use ros_z::{
-    Message, dynamic::DynamicPayload, entity::EndpointEntity, node::Node,
+    Message,
+    dynamic::DynamicPayload,
+    entity::EndpointEntity,
+    node::Node,
     qos::{QosDurability, QosProfile},
 };
 use tokio_util::sync::CancellationToken;
@@ -121,9 +124,11 @@ impl CachedSubscriptionBuilder {
             schema_discovery_timeout: _,
         } = self;
         let resolved_topic = topic.resolve(&target_identity)?;
-        let mut subscriber_builder = node
-            .subscriber::<T>(&resolved_topic)
-            .qos(subscriber_qos(&node, &resolved_topic, policy));
+        let mut subscriber_builder = node.subscriber::<T>(&resolved_topic).qos(subscriber_qos(
+            &node,
+            &resolved_topic,
+            policy,
+        ));
         if let Some(queue_capacity) = policy.subscriber_queue_capacity() {
             subscriber_builder = subscriber_builder.queue_capacity(queue_capacity);
         }
