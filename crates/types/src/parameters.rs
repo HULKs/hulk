@@ -168,10 +168,11 @@ pub struct ImageRegionParameters {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct HslNetworkParameters {
     pub game_controller_return_message_interval: Duration,
+    pub half_duration: Duration,
+    pub extra_half_duration: Duration,
     pub remaining_amount_of_messages_to_stop_sending: u16,
     pub silence_interval_between_messages: Duration,
     pub hsl_striker_message_receive_timeout: Duration,
-    pub hsl_state_message_send_interval: Duration,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, ros_z::Message)]

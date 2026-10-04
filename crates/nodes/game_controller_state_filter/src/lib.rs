@@ -210,6 +210,7 @@ impl GameControllerStateFilter {
         FilteredGameControllerState {
             game_state: game_states.own,
             opponent_game_state: game_states.opponent,
+            half: game_controller_state.half,
             remaining_time_in_half: game_controller_state.remaining_time_in_half,
             game_phase: game_controller_state.game_phase,
             kicking_team,
