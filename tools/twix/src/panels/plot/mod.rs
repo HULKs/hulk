@@ -4,7 +4,8 @@ mod status;
 use std::time::Duration;
 
 use eframe::egui::{
-    Align, Button, Color32, DragValue, Label, Layout, Popup, RichText, ScrollArea, Tooltip, Ui,
+    Align, Button, Color32, DragValue, Frame, Label, Layout, Popup, RichText, ScrollArea, Tooltip,
+    Ui,
 };
 use egui_plot::{Legend, Line, Plot, PlotPoints, Points};
 use serde::{Deserialize, Serialize};
@@ -244,10 +245,11 @@ impl Panel for PlotPanel {
                                     &mut line.data,
                                 );
                                 let status = self.history.status(line.source.topic());
-                                let info_width = 320.0_f32
-                                    .min((ui.ctx().content_rect().width() - 32.0).max(0.0));
+                                let max_info_width = (ui.ctx().content_rect().width()
+                                    - Frame::popup(ui.style()).total_margin().sum().x)
+                                    .max(0.0);
                                 let show_info = |ui: &mut Ui| {
-                                    ui.set_width(info_width);
+                                    ui.set_max_width(max_info_width);
                                     ui.add(Label::new(&status).wrap());
                                     ui.label(format!("{} gaps", line.data.gaps));
                                     if let Some(issue) = &line.data.issue {
@@ -262,11 +264,11 @@ impl Panel for PlotPanel {
                                 };
                                 Tooltip::for_enabled(&info)
                                     .layout(Layout::top_down(Align::Min))
-                                    .width(info_width)
+                                    .width(max_info_width)
                                     .show(show_info);
                                 Popup::menu(&info)
                                     .layout(Layout::top_down(Align::Min))
-                                    .width(info_width)
+                                    .width(max_info_width)
                                     .show(show_info);
                             });
                         });
