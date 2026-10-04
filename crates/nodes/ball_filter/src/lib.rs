@@ -149,7 +149,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                             camera_is_recent(
                                 time,
                                 camera.time,
-                                parameters.maximum_camera_matrix_time_difference,
+                                parameters.maximum_camera_matrix_age,
                             )
                         })
                         .map(|camera_matrix| &camera_matrix.inner);
@@ -211,7 +211,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 && camera_is_recent(
                     time,
                     timed_camera_matrix.time,
-                    parameters.maximum_camera_matrix_time_difference,
+                    parameters.maximum_camera_matrix_age,
                 ) {
                 project_to_image(&output_balls, &timed_camera_matrix.inner, ball_radius)
             } else {
