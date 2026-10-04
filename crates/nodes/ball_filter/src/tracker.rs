@@ -372,6 +372,7 @@ mod tests {
             ..Default::default()
         }));
         parameters.publication_filter_blend = 0.7;
+        parameters.publication_maximum_covariance_ratio = 0.0;
         let unguarded = tracker.finish(time, &parameters, &dimensions).unwrap();
         assert!((unguarded.position - baseline.position).norm() > 0.5);
 
