@@ -8,8 +8,8 @@
     knee_lateral_offset: 0.096,
     elbow_degrees: -30.0,
     elbow_scale: 1.3,
-    kp: 40.0,
-    kd: 1.0,
+    kp: 15.0,
+    kd: 1.5,
   },
   walking: {
     hybrid_align_distance: 1.0,
