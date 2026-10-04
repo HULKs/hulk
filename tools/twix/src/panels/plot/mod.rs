@@ -256,9 +256,13 @@ impl Panel for PlotPanel {
                                     }
                                 };
                                 Tooltip::for_enabled(&info)
+                                    .layout(Layout::top_down(Align::Min))
                                     .width(info_width)
                                     .show(show_info);
-                                Popup::menu(&info).width(info_width).show(show_info);
+                                Popup::menu(&info)
+                                    .layout(Layout::top_down(Align::Min))
+                                    .width(info_width)
+                                    .show(show_info);
                             });
                         });
                     });
