@@ -3,7 +3,7 @@ use std::{boxed::Box, future::Future, pin::Pin};
 
 use color_eyre::Result;
 
-use coordinate_systems::{Ground, Robot};
+use coordinate_systems::{Camera, Ground, Head, Robot};
 use kinematics::{forward::head_to_camera, robot_kinematics::RobotKinematics};
 use linear_algebra::{Isometry3, Rotation3, vector};
 use projection::camera_matrix::CameraMatrix;
