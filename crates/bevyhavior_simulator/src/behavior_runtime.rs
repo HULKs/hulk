@@ -79,7 +79,7 @@ impl SimulatorRobotBehavior {
                 .world_state
                 .now
                 .duration_since(last_ball.age)
-                >= self.blackboard.parameters.ball.last_ball_timeout
+                >= behavior_node::node::ball_timeout(&self.blackboard.parameters, last_ball.source)
         {
             self.blackboard.ball = None;
         }

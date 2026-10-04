@@ -15,11 +15,11 @@ use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     heatmap::Heatmap as HeatmapMessage,
     messages::IncomingMessage,
-    parameters::{SearchSuggestorParameters, VoronoiParameters},
+    parameters::SearchSuggestorParameters,
     primary_state::PrimaryState,
     time_wrapper::TimeWrapper,
 };
-use voronoi::{Ownership, VoronoiBounds, VoronoiGrid};
+use voronoi::{Ownership, VoronoiGrid};
 
 #[derive(Clone, Copy, Debug)]
 pub struct SearchOccluder {
@@ -48,7 +48,7 @@ impl SearchVoronoiSelection {
         sites: impl IntoIterator<Item = (Pose2<Field>, PlayerNumber)>,
     ) -> Self {
         let mut grid = search_voronoi_grid(field_dimensions);
-        grid.multi_source_dijkstra(&sites.into_iter().collect_vec(), 0.0);
+        grid.multi_source_dijkstra(&sites.into_iter().collect_vec());
         Self { owner, grid }
     }
 
@@ -614,18 +614,7 @@ fn search_voronoi_grid(field_dimensions: FieldDimensions) -> VoronoiGrid {
         -field_dimensions.width / 2.0
     ];
     let grid_max = point![grid_min.x() + length as f32, grid_min.y() + width as f32];
-    VoronoiGrid::new(
-        VoronoiBounds {
-            grid_min,
-            grid_max,
-            centroid_min: grid_min,
-            centroid_max: grid_max,
-        },
-        VoronoiParameters {
-            grid_resolution: 1.0,
-            ..Default::default()
-        },
-    )
+    VoronoiGrid::new(grid_min, grid_max, 1.0)
 }
 
 fn heatmap_tile_center(field_dimensions: FieldDimensions, (x, y): (usize, usize)) -> Point2<Field> {
