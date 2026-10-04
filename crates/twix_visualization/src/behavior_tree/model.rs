@@ -7,7 +7,7 @@ use types::behavior_tree::{NodeTrace, Status};
 
 const SUBTREE_PREFIX: &str = "subtree_";
 const INITIALLY_COLLAPSED_SUBTREES: &[&str] = &[
-    "kick_power_subtree",
+    "kick_strength_subtree",
     "kick_alternatives_subtree",
     "walk_alternatives_subtree",
     "look_at_ball_subtree",
