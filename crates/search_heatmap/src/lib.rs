@@ -1,7 +1,11 @@
 use std::{f32::consts::LN_2, ops::Range, time::Duration, time::SystemTime};
 
 use coordinate_systems::{Field, Ground};
-use geometry::direction::{Direction, Rotate90Degrees};
+use geometry::{
+    circle::Circle,
+    direction::{Direction, Rotate90Degrees},
+    line_segment::LineSegment,
+};
 use hsl_network_messages::{HulkMessage, PlayerNumber, StateMessage, SubState, Team};
 use itertools::Itertools;
 use linear_algebra::{Isometry2, Point2, Pose2, Vector2, point, vector};
@@ -21,11 +25,7 @@ use types::{
 };
 use voronoi::{Ownership, VoronoiGrid};
 
-#[derive(Clone, Copy, Debug)]
-pub struct SearchOccluder {
-    pub center: Point2<Field>,
-    pub radius: f32,
-}
+pub type SearchOccluder = Circle<Field>;
 
 struct FieldOfViewDecay<'a> {
     distance_factor: f32,
@@ -720,9 +720,8 @@ fn is_occluded(
     tile_center: Vector2<Field>,
     occluders: &[SearchOccluder],
 ) -> bool {
-    let observer_to_tile = tile_center - observer;
-    let tile_distance_squared = observer_to_tile.norm_squared();
-    if tile_distance_squared <= f32::EPSILON {
+    let sight_line = LineSegment::new(observer.as_point(), tile_center.as_point());
+    if sight_line.length_squared() <= f32::EPSILON {
         return false;
     }
 
@@ -730,13 +729,11 @@ fn is_occluded(
         if occluder.radius <= 0.0 {
             return false;
         }
-        let observer_to_occluder = occluder.center.coords() - observer;
-        let projection = observer_to_occluder.dot(&observer_to_tile) / tile_distance_squared;
-        if !(0.0..1.0).contains(&projection) {
+        let projection_along_sight_line = sight_line.projection_factor(occluder.center);
+        if !(0.0..1.0).contains(&projection_along_sight_line) {
             return false;
         }
-        let closest_point = observer + observer_to_tile * projection;
-        (occluder.center.coords() - closest_point).norm() <= occluder.radius
+        occluder.intersects_line_segment(&sight_line)
     })
 }
 
