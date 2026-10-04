@@ -3,7 +3,7 @@ mod status;
 
 use std::time::Duration;
 
-use eframe::egui::{Button, Color32, DragValue, ScrollArea, Ui};
+use eframe::egui::{Align, Button, Color32, DragValue, Layout, Popup, ScrollArea, Ui, vec2};
 use egui_plot::{Legend, Line, Plot, PlotPoints, Points};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -176,7 +176,7 @@ impl Panel for PlotPanel {
                 "Changing history starts a new buffer. All samples in the selected time window are retained.",
             );
             if ui
-                .add_enabled(!self.paused, Button::new("Add line"))
+                .add_enabled(!self.paused, Button::new("Add item"))
                 .clicked()
             {
                 self.add_line();
@@ -201,45 +201,64 @@ impl Panel for PlotPanel {
             .show(ui, |ui| {
                 for line in &mut self.lines {
                     ui.push_id(line.id, |ui| {
-                        ui.horizontal_wrapped(|ui| {
+                        ui.horizontal(|ui| {
                             ui.checkbox(&mut line.visible, "")
                                 .on_hover_text("Show line");
                             ui.color_edit_button_srgba(&mut line.color);
-                            ui.add_enabled_ui(!self.paused, |ui| {
-                                ui.spacing_mut().text_edit_width =
-                                    (ui.available_width() - 65.0).max(80.0);
-                                let sample = self.history.latest(line.source.topic());
-                                line.source.ui(
-                                    ui,
-                                    context.backend,
-                                    sample.as_ref().map(|record| &record.value),
-                                );
-                                if ui.small_button("Remove").clicked() {
-                                    remove = Some(line.id);
+                            let button_size = ui.spacing().interact_size.y;
+                            let source_width = (ui.available_width()
+                                - 2.0 * (button_size + ui.spacing().item_spacing.x))
+                                .max(0.0);
+                            ui.allocate_ui_with_layout(
+                                vec2(source_width, button_size),
+                                Layout::left_to_right(Align::Center),
+                                |ui| {
+                                    ui.add_enabled_ui(!self.paused, |ui| {
+                                        ui.spacing_mut().text_edit_width = f32::INFINITY;
+                                        let sample = self.history.latest(line.source.topic());
+                                        line.source.ui(
+                                            ui,
+                                            context.backend,
+                                            sample.as_ref().map(|record| &record.value),
+                                        );
+                                    });
+                                },
+                            );
+                            self.history.project(
+                                line.source.topic(),
+                                line.source.field_path(),
+                                &mut line.data,
+                            );
+                            let status = self.history.status(line.source.topic());
+                            let info = ui.add_sized(
+                                vec2(button_size, button_size),
+                                Button::new(egui_material_icons::icons::ICON_INFO.codepoint),
+                            );
+                            let show_info = |ui: &mut Ui| {
+                                ui.label(&status);
+                                ui.label(format!("{} gaps", line.data.gaps));
+                                if let Some(issue) = &line.data.issue {
+                                    ui.colored_label(ui.visuals().warn_fg_color, issue);
                                 }
-                            });
+                            };
+                            info.clone().on_hover_ui(show_info);
+                            Popup::menu(&info).show(show_info);
+                            if ui
+                                .add_enabled_ui(!self.paused, |ui| {
+                                    ui.add_sized(
+                                        vec2(button_size, button_size),
+                                        Button::new(
+                                            egui_material_icons::icons::ICON_CLOSE.codepoint,
+                                        ),
+                                    )
+                                })
+                                .inner
+                                .on_hover_text("Remove item")
+                                .clicked()
+                            {
+                                remove = Some(line.id);
+                            }
                         });
-                        self.history.project(
-                            line.source.topic(),
-                            line.source.field_path(),
-                            &mut line.data,
-                        );
-                        let status = self.history.status(line.source.topic());
-                        if let Some(issue) = &line.data.issue {
-                            ui.colored_label(ui.visuals().warn_fg_color, issue)
-                                .on_hover_text(status);
-                        } else if line.data.segments.is_empty() {
-                            ui.weak(status);
-                        } else {
-                            ui.add(
-                                eframe::egui::Label::new(format!(
-                                    "{status} · {} gaps",
-                                    line.data.gaps
-                                ))
-                                .truncate(),
-                            )
-                            .on_hover_text(status);
-                        }
                     });
                 }
             });
@@ -248,7 +267,7 @@ impl Panel for PlotPanel {
         }
         self.reconcile(&context);
         if self.lines.is_empty() {
-            ui.label("Add a line to plot a numeric topic or field.");
+            ui.label("Add an item to plot a numeric topic or field.");
         }
 
         let end = self.history.end_time();
