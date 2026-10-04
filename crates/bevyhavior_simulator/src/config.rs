@@ -1,8 +1,9 @@
 use std::{net::SocketAddr, time::Duration};
 
-use booster::walking::WalkingParameters;
 use color_eyre::{Result, eyre::Context};
 use serde::Deserialize;
+
+use motion::walking::WalkingParameters;
 use types::parameters::BehaviorParameters;
 
 pub const DEFAULT_TICK_DURATION: Duration = Duration::from_millis(10);
@@ -12,8 +13,8 @@ pub struct SimulationConfig {
     pub walk_translation_speed: f32,
     pub walk_rotation_speed: f32,
     pub walk_with_velocity_scale: f32,
-    pub kick_ball_speed_rumpelstilzchen: f32,
-    pub kick_ball_speed_schlong: f32,
+    pub kick_speed_limits: [f32; 2],
+    pub soft_kick_speed_limits: [f32; 2],
     pub kick_cooldown: Duration,
     pub ball_friction_per_second: f32,
     pub ball_visibility_range: f32,
@@ -36,8 +37,8 @@ impl Default for SimulationConfig {
             walk_translation_speed: 2.0,
             walk_rotation_speed: 3.0,
             walk_with_velocity_scale: 1.0,
-            kick_ball_speed_rumpelstilzchen: 2.0,
-            kick_ball_speed_schlong: 3.0,
+            kick_speed_limits: [0.5, 3.4],
+            soft_kick_speed_limits: [0.1, 1.7],
             kick_cooldown: Duration::from_millis(750),
             ball_friction_per_second: 0.6,
             ball_visibility_range: 4.0,
@@ -62,22 +63,14 @@ pub fn default_behavior_parameters() -> Result<BehaviorParameters> {
 }
 
 #[derive(Deserialize)]
-struct BoosterInterfaceParametersFile {
-    walking: BoosterWalkingParameters,
-}
-
-#[derive(Deserialize)]
-struct BoosterWalkingParameters {
-    hybrid_align_distance: f32,
-    max_alignment_rate: f32,
-    deceleration_distance: f32,
+struct MotionParametersFile {
+    walking: WalkingParameters,
 }
 
 pub fn default_walking_parameters() -> Result<WalkingParameters> {
-    let file: BoosterInterfaceParametersFile = json5::from_str(include_str!(
-        "../../../etc/parameters/base/booster_interface.json5"
-    ))
-    .wrap_err("failed to parse walking parameters")?;
+    let file: MotionParametersFile =
+        json5::from_str(include_str!("../../../etc/parameters/base/motion.json5"))
+            .wrap_err("failed to parse walking parameters")?;
     Ok(WalkingParameters {
         hybrid_align_distance: file.walking.hybrid_align_distance,
         max_alignment_rate: file.walking.max_alignment_rate,
