@@ -69,23 +69,4 @@
       right_leg: { hip_pitch: 68.0, hip_roll: 43.0, hip_yaw: 38.3, knee: 112.0, ankle_up: 38.3, ankle_down: 38.3 },
     },
   },
-  hsl_network: {
-    game_controller_return_message_interval: {
-      nanos: 0,
-      secs: 1,
-    },
-    remaining_amount_of_messages_to_stop_sending: 20,
-    silence_interval_between_messages: {
-      nanos: 0,
-      secs: 1,
-    },
-    hsl_striker_message_receive_timeout: {
-      nanos: 0,
-      secs: 3,
-    },
-    hsl_state_message_send_interval: {
-      nanos: 300000000,
-      secs: 0,
-    },
-  },
 }

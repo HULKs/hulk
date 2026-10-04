@@ -1,5 +1,6 @@
 use std::{
     net::SocketAddr,
+    num::NonZeroUsize,
     pin::Pin,
     sync::Arc,
     time::{Duration, SystemTime},
@@ -12,7 +13,11 @@ use coordinate_systems::{Field, Ground};
 use hsl_network_messages::PlayerNumber;
 use kinematics::joints::head::HeadJoints;
 use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
-use ros_z::{prelude::*, qos::QosDurability, time::Time};
+use ros_z::{
+    prelude::*,
+    qos::{QosDurability, QosHistory},
+    time::Time,
+};
 use serde::{Deserialize, Serialize};
 use tokio::task::block_in_place;
 use tracing::info;
@@ -288,6 +293,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .publisher::<OutgoingMessage>("outputs/message")
         .build()
         .await?;
+    let hsl_state_message_send_interval_pub = node
+        .publisher::<Duration>("hsl_state_message_send_interval")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            history: QosHistory::KeepLast(NonZeroUsize::MIN),
+            ..Default::default()
+        })
+        .build()
+        .await?;
     let motion_command_pub = node
         .publisher::<MotionCommand>("behavior/motion_command")
         .build()
@@ -350,6 +364,14 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         voronoi_map: None,
     };
 
+    let mut published_state_message_send_interval = blackboard
+        .parameters
+        .network
+        .hsl_state_message_send_interval;
+    hsl_state_message_send_interval_pub
+        .publish(&published_state_message_send_interval)
+        .await?;
+
     loop {
         timer.tick().await;
 
@@ -381,6 +403,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             && limits.validate().is_ok()
         {
             blackboard.walking_velocity_limits = *limits;
+        }
+        let state_message_send_interval = blackboard
+            .parameters
+            .network
+            .hsl_state_message_send_interval;
+        if state_message_send_interval != published_state_message_send_interval {
+            hsl_state_message_send_interval_pub
+                .publish(&state_message_send_interval)
+                .await?;
+            published_state_message_send_interval = state_message_send_interval;
+
         }
 
         let was_start_pressed = blackboard
