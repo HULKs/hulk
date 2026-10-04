@@ -72,7 +72,7 @@
     quick: false,
     target_speed: 1.0, // Desired outgoing ball speed in m/s.
     allow_strong_kicks: false,
-    kick_activation_distance: 3.0,
+    kick_activation_distance: 1.5,
     kick_activation_hysteresis: 0.5,
     strong_kick_min_target_distance: 6.0,
     approach_ball_standoff: 0.3,
