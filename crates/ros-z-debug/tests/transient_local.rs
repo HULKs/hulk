@@ -4,7 +4,9 @@ use ros_z::{
     context::ContextBuilder,
     qos::{QosDurability, QosProfile},
 };
-use ros_z_debug::{ObservationPolicy, TopicObserver, TopicObserverOptions};
+use ros_z_debug::{
+    CachedSubscriptionBuilder, ObservationPolicy, TopicObserver, TopicObserverOptions,
+};
 
 async fn wait_until(check: impl Fn() -> bool) {
     tokio::time::timeout(Duration::from_secs(3), async {
@@ -17,7 +19,7 @@ async fn wait_until(check: impl Fn() -> bool) {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn typed_and_dynamic_observations_replay_retained_values_unless_overridden()
+async fn cached_and_observed_subscriptions_replay_retained_values_unless_overridden()
 -> ros_z_debug::Result<()> {
     let context = ContextBuilder::default()
         .disable_multicast_scouting()
@@ -27,6 +29,14 @@ async fn typed_and_dynamic_observations_replay_retained_values_unless_overridden
         .await?;
     let robot = context.create_node("robot").build().await?;
     let twix = Arc::new(context.create_node("twix").build().await?);
+    let mut cached = Box::pin(
+        CachedSubscriptionBuilder::new(twix.clone(), "layout")?.build_json(Default::default()),
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_millis(10), &mut cached)
+            .await
+            .is_err()
+    );
     let publisher = robot
         .publisher::<i32>("layout")
         .qos(QosProfile {
@@ -36,6 +46,7 @@ async fn typed_and_dynamic_observations_replay_retained_values_unless_overridden
         .build()
         .await?;
     assert!(publisher.publish_if_subscribed(|| async { 42 }).await?);
+    let cached = cached.await?;
 
     let observer = TopicObserver::new(twix, TopicObserverOptions::default());
     let typed = observer.observe_typed::<i32>("layout")?.spawn();
@@ -48,7 +59,8 @@ async fn typed_and_dynamic_observations_replay_retained_values_unless_overridden
     wait_until(|| {
         typed.latest().is_some_and(|record| record.value == 42)
             && dynamic.latest_json() == Some(serde_json::json!(42))
-            && publisher.subscriber_count() == 3
+            && cached.latest_json() == Some(serde_json::json!(42))
+            && publisher.subscriber_count() == 4
     })
     .await;
     assert_eq!(

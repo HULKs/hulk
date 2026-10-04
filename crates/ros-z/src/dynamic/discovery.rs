@@ -599,6 +599,14 @@ impl DynamicSubscriberDiscoveryBuilder {
     /// declaration. The returned subscriber decodes payloads using the
     /// discovered schema.
     pub async fn build(self) -> crate::Result<DynamicSubscriber> {
+        self.discover().await?.build().await
+    }
+
+    /// Discover the topic schema, allowing subscriber options to be configured
+    /// after discovery and before subscriber declaration.
+    pub async fn discover(
+        self,
+    ) -> crate::Result<SubscriberBuilder<DynamicPayload, DynamicCdrCodec>> {
         let Self {
             context,
             topic,
@@ -606,10 +614,7 @@ impl DynamicSubscriberDiscoveryBuilder {
             options,
         } = self;
 
-        discover_dynamic_subscriber_builder(context, topic, discovery_timeout, options)
-            .await?
-            .build()
-            .await
+        discover_dynamic_subscriber_builder(context, topic, discovery_timeout, options).await
     }
 }
 

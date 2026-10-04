@@ -180,6 +180,8 @@ impl CachedSubscriptionBuilder {
         let resolved_topic = topic.resolve(&target_identity)?;
         let mut subscriber_builder = node
             .dynamic_subscriber_auto(&resolved_topic, schema_discovery_timeout)
+            .discover()
+            .await?
             .qos(subscriber_qos(&node, &resolved_topic, policy));
         if let Some(queue_capacity) = policy.subscriber_queue_capacity() {
             subscriber_builder = subscriber_builder.queue_capacity(queue_capacity);
