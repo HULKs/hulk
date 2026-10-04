@@ -140,11 +140,7 @@ pub fn search_subtree() -> Node<Blackboard> {
         subtree!(search_for_lost_ball_subtree),
         switch_motion_type(
             MotionType::Walk,
-            // selection!(
-            // condition!(has_suggested_search_position),
-            // action!(walk_to_search_position),
             action!(leuchtturm),
-            // ),
             subtree!(walk_alternatives_subtree),
         )
     )
