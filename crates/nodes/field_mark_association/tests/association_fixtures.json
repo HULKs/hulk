@@ -28,6 +28,12 @@
           -0.24558586
         ]
       },
+      "correction_in_robot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
       "head_to_camera": {
         "rotation": [
           0.50092673,

@@ -1,8 +1,9 @@
 use linear_algebra::vector;
 use types::{
     behavior_tree::Status,
-    controller_input::{Axis, Button},
-    motion_command::{BodyMotion, HeadMotion},
+    controller_input::{Axis, Button, ControllerInput},
+    motion_command::{BodyMotion, HeadMotion, MotionCommand},
+    walking_velocity_limits::WalkingVelocityLimits,
 };
 
 use crate::node::Blackboard;
@@ -36,18 +37,25 @@ pub fn remote_control(blackboard: &mut Blackboard) -> Status {
         return Status::Failure;
     };
 
-    blackboard.body_motion = Some(BodyMotion::WalkWithVelocity {
-        velocity: vector![
-            input.axis_value(Axis::LeftStickY),
-            -input.axis_value(Axis::LeftStickX)
-        ],
-        angular_velocity: -input.axis_value(Axis::RightStickX),
-    });
+    blackboard.body_motion = Some(gamepad_walking_command(
+        input,
+        blackboard.walking_velocity_limits,
+    ));
     blackboard.head_motion = Some(HeadMotion::MoveWithVelocity {
         yaw: input.button_value(Button::DPadLeft) - input.button_value(Button::DPadRight),
         pitch: input.button_value(Button::DPadDown) - input.button_value(Button::DPadUp),
     });
     Status::Success
+}
+
+fn gamepad_walking_command(input: &ControllerInput, limits: WalkingVelocityLimits) -> BodyMotion {
+    BodyMotion::WalkWithVelocity {
+        velocity: vector![
+            limits.scale_forward_axis(input.axis_value(Axis::LeftStickY)),
+            limits.scale_lateral_axis(-input.axis_value(Axis::LeftStickX)),
+        ],
+        angular_velocity: limits.scale_angular_axis(-input.axis_value(Axis::RightStickX)),
+    }
 }
 
 pub fn stand(blackboard: &mut Blackboard) -> Status {
@@ -56,6 +64,10 @@ pub fn stand(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn stand_up(blackboard: &mut Blackboard) -> Status {
-    blackboard.body_motion = Some(BodyMotion::StandUp);
+    let fast = match blackboard.last_motion_command {
+        MotionCommand::StandUp { fast } => fast,
+        _ => blackboard.parameters.stand_up.fast,
+    };
+    blackboard.body_motion = Some(BodyMotion::StandUp { fast });
     Status::Success
 }

@@ -5,14 +5,21 @@ use hsl_network_messages::PlayerNumber;
 use serde::{Deserialize, Serialize};
 
 use ros_z::{prelude::*, qos::QosDurability};
-use types::{field_dimensions::FieldDimensions, parameters::HslNetworkParameters};
+use types::{
+    field_dimensions::FieldDimensions,
+    joint_limits::JointLimits,
+    parameters::HslNetworkParameters,
+    walking_velocity_limits::{WALKING_VELOCITY_LIMITS_TOPIC, WalkingVelocityLimits},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
 pub struct Parameters {
+    pub joint_limits: JointLimits,
     pub player_number: PlayerNumber,
     pub field_dimensions: FieldDimensions,
     pub hsl_network: HslNetworkParameters,
+    pub walking_velocity_limits: WalkingVelocityLimits,
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -23,6 +30,20 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("global_parameter_provider").build().await?;
 
     let node_parameters = node.bind_parameter_as::<Parameters>("global")?;
+
+    node_parameters.add_validation_hook(|parameters| {
+        parameters.joint_limits.validate()?;
+        parameters.walking_velocity_limits.validate()
+    })?;
+
+    let joint_limits_pub = node
+        .publisher::<JointLimits>("joint_limits")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await?;
 
     let player_number_pub = node
         .publisher::<PlayerNumber>("player_number")
@@ -57,18 +78,31 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     field_dimensions_pub
         .publish(&parameters.field_dimensions)
         .await?;
+    let walking_velocity_limits_pub = node
+        .publisher::<WalkingVelocityLimits>(WALKING_VELOCITY_LIMITS_TOPIC)
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await?;
     hsl_network_pub.publish(&parameters.hsl_network).await?;
 
     let mut parameters_receiver = node_parameters.subscribe();
-    loop {
-        let _ = parameters_receiver.changed().await;
-        let parameters = parameters_receiver.borrow_and_update().clone();
-        let parameters = parameters.typed();
 
+    loop {
+        let parameters_snapshot = parameters_receiver.borrow_and_update().clone();
+        let parameters = parameters_snapshot.typed();
+        joint_limits_pub.publish(&parameters.joint_limits).await?;
         player_number_pub.publish(&parameters.player_number).await?;
         field_dimensions_pub
-            .publish(&parameters.field_dimensions.clone())
+            .publish(&parameters.field_dimensions)
             .await?;
         hsl_network_pub.publish(&parameters.hsl_network).await?;
+        walking_velocity_limits_pub
+            .publish(&parameters.walking_velocity_limits)
+            .await?;
+
+        parameters_receiver.changed().await?;
     }
 }

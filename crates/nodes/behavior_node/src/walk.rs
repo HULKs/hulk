@@ -19,7 +19,7 @@ use crate::{
     actions::stand,
     behavior_tree::Node,
     condition,
-    kick::{kick, select_kick_target, use_last_kick_power},
+    kick::{kick, select_kick_target, use_last_kick_settings},
     node::Blackboard,
     selection, sequence, subtree,
     switch_motion_type::{is_last_motion_type, switch_motion_type},
@@ -149,7 +149,7 @@ pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
 
         let target_position = ball_in_ground
             - (goal_position - ball_in_ground).normalize()
-                * blackboard.parameters.kicking.kick_position_ball_distance;
+                * blackboard.parameters.kicking.approach_ball_standoff;
         walk_to(
             blackboard,
             Pose2::from_parts(target_position, orientation),
@@ -178,7 +178,7 @@ pub fn walk_alternatives_subtree() -> Node<Blackboard> {
             sequence!(
                 action!(kick),
                 action!(select_kick_target),
-                action!(use_last_kick_power),
+                action!(use_last_kick_settings),
             )
         ),
         action!(stand)
