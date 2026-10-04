@@ -3,8 +3,12 @@ use std::{sync::Arc, time::Duration};
 use color_eyre::{Report, eyre::Context as _};
 use coordinate_systems::Pixel;
 use eframe::egui::{Popup, PopupCloseBehavior, Ui};
-use ros_z::{Message, time::Time};
-use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
+use ros_z::{
+    Message,
+    qos::{QosDurability, QosProfile},
+    time::Time,
+};
+use ros_z_debug::{ObservationPolicy, RetentionPolicy, SampleRecord, TopicObservation};
 use serde_json::{Value, json};
 use types::time_wrapper::TimeWrapper;
 
@@ -12,15 +16,20 @@ use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
 use twix_visualization::twix_painter::TwixPainter;
 
 use super::overlays::{
-    BallDetectionOverlay, FieldBorderOverlay, HorizonOverlay, LineDetectionOverlay,
-    ObjectDetectionOverlay, PoseDetectionOverlay,
+    BallDetectionConfidenceOverlay, BallFilterConfidenceOverlay, BallFilterOverlay,
+    BallPerceptsOverlay, BallPositionOverlay, FieldBorderOverlay, HorizonOverlay,
+    LineDetectionOverlay, ObjectDetectionOverlay, PoseDetectionOverlay,
 };
 
 const OVERLAY_RETENTION_WINDOW: Duration = Duration::from_secs(2);
 
 pub(super) struct ImageOverlays {
     line_detection: OverlaySlot<LineDetectionOverlay>,
-    ball_detection: OverlaySlot<BallDetectionOverlay>,
+    ball_percepts: OverlaySlot<BallPerceptsOverlay>,
+    ball_detection_confidence: OverlaySlot<BallDetectionConfidenceOverlay>,
+    ball_position: OverlaySlot<BallPositionOverlay>,
+    ball_filter: OverlaySlot<BallFilterOverlay>,
+    ball_filter_confidence: OverlaySlot<BallFilterConfidenceOverlay>,
     horizon: OverlaySlot<HorizonOverlay>,
     field_border: OverlaySlot<FieldBorderOverlay>,
     object_detection: OverlaySlot<ObjectDetectionOverlay>,
@@ -34,7 +43,11 @@ impl ImageOverlays {
     {
         Self {
             line_detection: OverlaySlot::new(value, context),
-            ball_detection: OverlaySlot::new(value, context),
+            ball_percepts: OverlaySlot::new(value, context),
+            ball_detection_confidence: OverlaySlot::new(value, context),
+            ball_position: OverlaySlot::new(value, context),
+            ball_filter: OverlaySlot::new(value, context),
+            ball_filter_confidence: OverlaySlot::new(value, context),
             horizon: OverlaySlot::new(value, context),
             field_border: OverlaySlot::new(value, context),
             object_detection: OverlaySlot::new(value, context),
@@ -50,7 +63,11 @@ impl ImageOverlays {
             .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
             .show(|ui| {
                 self.line_detection.checkbox(ui, context);
-                self.ball_detection.checkbox(ui, context);
+                self.ball_percepts.checkbox(ui, context);
+                self.ball_detection_confidence.checkbox(ui, context);
+                self.ball_position.checkbox(ui, context);
+                self.ball_filter.checkbox(ui, context);
+                self.ball_filter_confidence.checkbox(ui, context);
                 self.horizon.checkbox(ui, context);
                 self.field_border.checkbox(ui, context);
                 self.object_detection.checkbox(ui, context);
@@ -60,15 +77,44 @@ impl ImageOverlays {
 
     pub(super) fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
         self.line_detection.paint(painter, image_time);
-        self.ball_detection.paint(painter, image_time);
         self.horizon.paint(painter, image_time);
         self.field_border.paint(painter, image_time);
         self.object_detection.paint(painter, image_time);
         self.pose_detection.paint(painter, image_time);
+        self.ball_percepts.paint(painter, image_time);
+        self.ball_filter.paint(painter, image_time);
+        self.ball_position.paint(painter, image_time);
+        self.ball_filter_confidence.paint(painter, image_time);
+        self.ball_detection_confidence.paint(painter, image_time);
+    }
+
+    pub(super) fn legend(&self, ui: &mut Ui) {
+        crate::panels::ball_visualization::BallLegend {
+            percepts: self.ball_percepts.active,
+            position: self.ball_position.active,
+            filter: self.ball_filter.active,
+        }
+        .show(ui);
+        if let Some(status) = self
+            .ball_filter
+            .overlay
+            .as_ref()
+            .and_then(ImageOverlay::status)
+            .or_else(|| {
+                self.ball_filter_confidence
+                    .overlay
+                    .as_ref()
+                    .and_then(ImageOverlay::status)
+            })
+        {
+            ui.small(status);
+        }
     }
 
     pub(super) fn preferred_image_time(&self) -> Option<Time> {
         [
+            self.ball_percepts.latest_time(),
+            self.ball_detection_confidence.latest_time(),
             self.object_detection.latest_time(),
             self.pose_detection.latest_time(),
         ]
@@ -80,7 +126,11 @@ impl ImageOverlays {
     pub(super) fn save(&self) -> Value {
         json!({
             LineDetectionOverlay::STORAGE_KEY: self.line_detection.save(),
-            BallDetectionOverlay::STORAGE_KEY: self.ball_detection.save(),
+            BallPerceptsOverlay::STORAGE_KEY: self.ball_percepts.save(),
+            BallDetectionConfidenceOverlay::STORAGE_KEY: self.ball_detection_confidence.save(),
+            BallPositionOverlay::STORAGE_KEY: self.ball_position.save(),
+            BallFilterOverlay::STORAGE_KEY: self.ball_filter.save(),
+            BallFilterConfidenceOverlay::STORAGE_KEY: self.ball_filter_confidence.save(),
             HorizonOverlay::STORAGE_KEY: self.horizon.save(),
             FieldBorderOverlay::STORAGE_KEY: self.field_border.save(),
             ObjectDetectionOverlay::STORAGE_KEY: self.object_detection.save(),
@@ -93,7 +143,11 @@ impl Default for ImageOverlays {
     fn default() -> Self {
         Self {
             line_detection: OverlaySlot::inactive(),
-            ball_detection: OverlaySlot::inactive(),
+            ball_percepts: OverlaySlot::inactive(),
+            ball_detection_confidence: OverlaySlot::inactive(),
+            ball_position: OverlaySlot::inactive(),
+            ball_filter: OverlaySlot::inactive(),
+            ball_filter_confidence: OverlaySlot::inactive(),
             horizon: OverlaySlot::inactive(),
             field_border: OverlaySlot::inactive(),
             object_detection: OverlaySlot::inactive(),
@@ -152,6 +206,9 @@ where
         if let Some(error) = &self.error {
             ui.colored_label(ui.visuals().error_fg_color, error);
         }
+        if let Some(status) = self.overlay.as_ref().and_then(ImageOverlay::status) {
+            ui.small(status);
+        }
     }
 
     fn recreate<C>(&mut self, context: &C)
@@ -198,6 +255,10 @@ pub(super) trait ImageOverlay: Sized {
     fn latest_time(&self) -> Option<Time> {
         None
     }
+
+    fn status(&self) -> Option<String> {
+        None
+    }
 }
 
 pub(super) struct OverlayObservation<T> {
@@ -214,7 +275,28 @@ where
     where
         C: ObservationContext,
     {
-        let (observation, repaint) = create_typed_observation(context, topic)?;
+        Self::with_policy(context, topic, ObservationPolicy::default())
+    }
+
+    pub(super) fn latched<C>(context: &C, topic: &str) -> Result<Self, Report>
+    where
+        C: ObservationContext,
+    {
+        Self::with_policy(
+            context,
+            topic,
+            ObservationPolicy::default().with_subscriber_qos(QosProfile {
+                durability: QosDurability::TransientLocal,
+                ..Default::default()
+            }),
+        )
+    }
+
+    fn with_policy<C>(context: &C, topic: &str, policy: ObservationPolicy) -> Result<Self, Report>
+    where
+        C: ObservationContext,
+    {
+        let (observation, repaint) = create_typed_observation(context, topic, policy)?;
         Ok(Self {
             observation,
             _repaint: repaint,
@@ -223,6 +305,19 @@ where
 
     pub(super) fn latest(&self) -> Option<Arc<SampleRecord<T>>> {
         self.observation.latest()
+    }
+
+    pub(super) fn status(&self) -> ros_z_debug::TopicObservationStatus {
+        self.observation.status()
+    }
+
+    pub(super) fn nearest_source_time(
+        &self,
+        time: Time,
+        tolerance: Duration,
+    ) -> Option<Arc<SampleRecord<T>>> {
+        let sample = self.observation.get_nearest(time)?;
+        (time_distance(sample.source_time, time) <= tolerance).then_some(sample)
     }
 
     fn get_all(&self) -> Vec<Arc<SampleRecord<T>>> {
@@ -268,6 +363,7 @@ fn time_distance(first: Time, second: Time) -> Duration {
 fn create_typed_observation<T>(
     context: &impl ObservationContext,
     topic: &str,
+    policy: ObservationPolicy,
 ) -> Result<(TopicObservation<T>, ObservationRepaint), Report>
 where
     T: Message + Send + Sync + 'static,
@@ -281,6 +377,7 @@ where
         .observer()
         .observe_typed::<T>(topic)
         .wrap_err_with(|| format!("failed to create typed topic observation for {topic}"))?
+        .policy(policy)
         .retention(RetentionPolicy::time_window(OVERLAY_RETENTION_WINDOW)?)
         .spawn();
     let repaint = observation.repaint_on_updates(context);

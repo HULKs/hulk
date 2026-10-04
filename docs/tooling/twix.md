@@ -78,3 +78,42 @@ ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`. Legacy Twix keeps usi
 Supported action names are `open_split`, `open_tab`, `focus_namespace`, `focus_panel`, `focus_left`, `focus_below`, `focus_above`, `focus_right`, `close_tab`, `duplicate_tab`, `close_all`, and `no_op`.
 
 Directional focus selects the nearest visible panel and outlines it. Press `Tab` after moving focus to enter that panel's controls; subsequent `Tab` and `Shift-Tab` presses follow the normal control order.
+
+## Ball overlays in Map and Image
+
+Both panels offer the same independent controls under **Overlays**:
+
+| Option | Display |
+| --- | --- |
+| Ball Filter | The selected local ball in blue; the team ball in purple. Map also shows the local ball's recent trail. |
+| Ball Filter Candidates | Unselected filter hypotheses in gray, including those below the output threshold. |
+| Ball Filter Confidence | Positional covariance ellipses: blue for the selected hypothesis, gray for other candidates. These represent spatial uncertainty, not detection scores or filter validity. |
+| Ball Percepts | Accepted ball observations in green. |
+| Ball Percept Confidence | Small green numerical detector scores beside the observations. |
+
+The selected ball is the filter's highest-validity hypothesis above its output threshold.
+The legend lists only enabled ball icon types; confidence options add no legend entries.
+Map draws in ground or field coordinates. Image projects filter positions and covariance
+into camera pixels; percepts match the image's exact capture timestamp. Enabled percept
+and detection overlays can make Image display a retained frame while processing catches up.
+Map redraws on observation updates instead of polling continuously.
+
+Filter state and selection must carry the same cycle timestamp. Percepts must carry their
+original image capture timestamp, with separate messages for separate frames. Run a robot
+build containing these publisher changes alongside Twix. Older ball-overlay settings are
+not migrated; reselect the desired options if they are missing after an update.
+
+To check the overlays with a connected robot:
+
+1. Open Map and Image for the same robot namespace, using the detection camera's image topic.
+2. Enable each ball option separately, then together. Check blue selection, gray alternatives,
+   purple team ball, green percepts, and the legend as options are switched off.
+3. When multiple filter hypotheses exist, confirm the candidate count and gray alternatives.
+   A count of one can legitimately leave **Ball Filter Candidates** empty if that ball is selected.
+4. Enable **Ball Filter Confidence** and check the blue/gray ellipses in both panels while the
+   robot moves. Their axes should follow positional uncertainty and camera perspective.
+5. Enable percepts and their scores; check they stay on their corresponding image frame when
+   detections are delayed. A frame with no accepted percepts should show no green percept icons.
+6. Disable the overlays or disconnect the stream and check that Map no longer causes continuous
+   redraws. If candidates are absent, read the status below the legend or in **Overlays** for
+   missing publishers, incompatible schemas, or an empty received candidate list.

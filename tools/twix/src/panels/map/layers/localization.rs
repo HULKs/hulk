@@ -1,3 +1,4 @@
+use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
 use std::sync::Arc;
 
 use color_eyre::Result;
@@ -31,6 +32,10 @@ impl Layer<Field> for Localization {
             .spawn();
 
         Self { poses }
+    }
+
+    fn repaint_on_updates(&self, context: &impl ObservationContext) -> Vec<ObservationRepaint> {
+        vec![self.poses.repaint_on_updates(context)]
     }
 
     fn paint(
