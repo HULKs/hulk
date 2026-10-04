@@ -122,12 +122,12 @@ For example, `detected_objects.inner[2].bounding_box.confidence` plots the third
 Integer and floating-point scalars are supported, including present optional numbers.
 Collections, strings, booleans, and enums need a numeric field selection; conversions and state backgrounds are deferred.
 
-Use **Add line** to compare sources on the same axes.
-Each line has a color picker, visibility checkbox, and Remove button.
+Use **Add item** to compare sources on the same axes.
+Each item has a color picker, visibility checkbox, and X button beside the topic field to remove it.
 The legend identifies each source, and hovering over a line shows coordinates.
 A lone sample is drawn as a point.
 Missing array elements, absent optionals, inactive enum variants, and NaN/infinite values break lines into separate segments.
-The source row shows the latest selection problem and the number of gaps in its retained history.
+Hover over or click the info button beside the topic field to see the observation status, sample count, gap count, and any selection problem.
 
 The live view follows a common newest publisher timestamp, displayed as zero seconds on the X axis.
 All lines use source timestamps, so comparisons across publishers assume a shared clock.
