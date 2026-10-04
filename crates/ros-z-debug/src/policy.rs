@@ -15,7 +15,7 @@ const DEFAULT_UPDATE_BUFFER_CAPACITY: usize = 256;
 /// update notifications, and retention controls how many decoded samples the
 /// cache keeps.
 ///
-/// Use [`ObservationPolicy::default`] to preserve the historic defaults. Use
+/// By default, durability follows the currently discovered publishers. Use
 /// [`ObservationPolicy::latest`] for latest-only observation with quieter queue
 /// overflow logging, then apply builder-style overrides for expert tuning.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -42,7 +42,7 @@ impl Default for ObservationPolicy {
 impl ObservationPolicy {
     /// Return the latest-only observation preset.
     ///
-    /// This keeps subscriber QoS at the default, derives local subscriber queue
+    /// This infers subscriber durability, derives local subscriber queue
     /// capacity from that QoS, keeps the update broadcast buffer at its default,
     /// and reports local queue overflow at debug level.
     pub fn latest() -> Self {
@@ -72,7 +72,10 @@ impl ObservationPolicy {
 
     /// Optional advertised subscriber QoS override.
     ///
-    /// `None` means the underlying `ros-z` subscriber uses its default QoS.
+    /// `None` selects transient-local durability when at least one publisher is
+    /// discovered and all discovered publishers offer it; otherwise it selects
+    /// volatile durability. Other QoS settings keep their defaults. Topic
+    /// observations reevaluate this when publishers change.
     pub fn subscriber_qos(self) -> Option<QosProfile> {
         self.subscriber_qos
     }

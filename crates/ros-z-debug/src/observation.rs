@@ -12,6 +12,7 @@ use ros_z::{
     dynamic::{DynamicPayload, TopicSchemaFingerprint, topic_schema_fingerprints_from_publishers},
     entity::{EndpointEntity, TypeInfo},
     node::Node,
+    qos::QosDurability,
     time::Time,
     topic_name::qualify_service_name,
 };
@@ -21,6 +22,7 @@ use crate::{
     CachedSubscription, CachedSubscriptionBuilder, CachedSubscriptionStatusSnapshot,
     CachedSubscriptionUpdate, CachedSubscriptionUpdateReceiver, Error, JsonRenderPolicy,
     ObservationPolicy, Result, RetentionPolicy, TargetIdentity, TopicReference,
+    builder::inferred_durability,
     sample::{dynamic_record_json_value, dynamic_record_to_json_sample},
 };
 
@@ -866,6 +868,7 @@ impl DesiredObservation {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TopicGraphFingerprint {
     publishers: Vec<TopicSchemaFingerprint>,
+    durability: QosDurability,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -913,6 +916,7 @@ enum GraphChangeFilter<'a> {
 fn topic_graph_fingerprint_from_publishers(publishers: &[EndpointEntity]) -> TopicGraphFingerprint {
     TopicGraphFingerprint {
         publishers: topic_schema_fingerprints_from_publishers(publishers),
+        durability: inferred_durability(publishers.iter()),
     }
 }
 

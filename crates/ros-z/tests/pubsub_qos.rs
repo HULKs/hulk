@@ -183,6 +183,34 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn publish_if_subscribed_keeps_volatile_messages_lazy() -> Result<()> {
+        let context = ContextBuilder::default()
+            .disable_multicast_scouting()
+            .with_connect_endpoints(Vec::<String>::new())
+            .with_listen_endpoints(Vec::<String>::new())
+            .build()
+            .await?;
+        let node = context.create_node("conditional_publish").build().await?;
+        let publisher = node.publisher::<i32>("lazy").build().await?;
+        assert!(
+            !publisher
+                .publish_if_subscribed(|| async { panic!("no subscriber needs this value") })
+                .await?
+        );
+
+        let subscriber = node.subscriber::<i32>("lazy").build().await?;
+        assert!(
+            publisher
+                .wait_for_subscribers(1, Duration::from_secs(2))
+                .await
+        );
+        assert!(publisher.publish_if_subscribed(|| async { 42 }).await?);
+        let received = tokio::time::timeout(Duration::from_secs(2), subscriber.recv()).await??;
+        assert_eq!(received, 42);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn transient_local_replays_last_sample_to_late_subscriber() -> Result<()> {
         let context = ContextBuilder::default().build().await?;
         let pub_node = context.create_node("transient_late_pub").build().await?;
