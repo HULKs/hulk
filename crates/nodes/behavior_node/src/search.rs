@@ -1,14 +1,10 @@
-use linear_algebra::{Pose2, vector};
+use linear_algebra::vector;
 use types::{
     behavior_tree::Status,
-    motion_command::{BodyMotion, MotionCommand, OrientationMode},
+    motion_command::{BodyMotion, MotionCommand},
 };
 
-use crate::{node::Blackboard, walk::walk_to};
-
-pub fn has_suggested_search_position(blackboard: &mut Blackboard) -> bool {
-    blackboard.world_state.suggested_search_position.is_some()
-}
+use crate::node::Blackboard;
 
 pub fn leuchtturm(blackboard: &mut Blackboard) -> Status {
     let angular_velocity = get_leuchtturm_direction(blackboard);
@@ -41,26 +37,4 @@ fn get_leuchtturm_direction(blackboard: &Blackboard) -> f32 {
     }
 
     1.0
-}
-
-pub fn walk_to_search_position(blackboard: &mut Blackboard) -> Status {
-    if let (Some(search_position), Some(ground_to_field)) = (
-        blackboard.world_state.suggested_search_position,
-        blackboard.world_state.robot.ground_to_field,
-    ) {
-        let search_position_in_ground = ground_to_field.inverse() * search_position;
-        let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
-        let search_speed = blackboard.parameters.walking.speed.search;
-
-        return walk_to(
-            blackboard,
-            Pose2::from(search_position_in_ground),
-            search_speed,
-            OrientationMode::AlignWithPath,
-            walk_and_stand.normal_distance_to_be_aligned,
-            walk_and_stand.hysteresis,
-        );
-    }
-
-    Status::Failure
 }
