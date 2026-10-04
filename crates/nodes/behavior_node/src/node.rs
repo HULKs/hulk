@@ -86,7 +86,7 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
     Box::pin(run(ctx))
 }
 
-fn ball_timeout(parameters: &BehaviorParameters, source: BallSource) -> Duration {
+pub fn ball_timeout(parameters: &BehaviorParameters, source: BallSource) -> Duration {
     match source {
         BallSource::Own => parameters.ball.last_ball_timeout,
         BallSource::Team => parameters.ball.team_ball_timeout,
