@@ -29,10 +29,31 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut ticker = interval(Duration::from_millis(20));
     ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
+    let mut input_handler = ExtraInputHandler::default();
+
     loop {
         ticker.tick().await;
         let controller_input = read_controller_input(&mut gilrs);
+        input_handler.handle_controller_input(&controller_input);
         controller_input_pub.publish(&controller_input).await?;
+    }
+}
+
+#[derive(Debug, Default)]
+struct ExtraInputHandler {
+    marker_counter: u32,
+    east_pressed: bool,
+}
+
+impl ExtraInputHandler {
+    fn handle_controller_input(&mut self, controller_input: &ControllerInput) {
+        let east_pressed = controller_input.is_pressed(Button::East);
+        if east_pressed != self.east_pressed && east_pressed {
+            self.east_pressed = true;
+            warn!("===== Marker {} =====", self.marker_counter);
+            self.marker_counter += 1;
+        }
+        self.east_pressed = controller_input.is_pressed(Button::East);
     }
 }
 
