@@ -1,14 +1,14 @@
 use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::less_than_with_relative_hysteresis;
 use hsl_network_messages::{PlayerNumber, Team};
-use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, point};
+use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, Vector2, point, vector};
 use path_planner::path_planner::PathPlanner;
 use types::{
     behavior_tree::Status,
     field_dimensions::FieldDimensions,
     motion_command::{BodyMotion, MotionCommand, OrientationMode},
     motion_type::MotionType,
-    parameters::{KickOffPose, KickoffParameters, VoronoiParameters},
+    parameters::{KickOffPose, KickoffParameters, VoronoiParameters}, parameters::{VoronoiParameters, WalkToBallPredictionParameters},
     path::{Path, direct_path},
     world_state::WorldState,
 };
@@ -141,15 +141,38 @@ pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
         &blackboard.world_state.robot.ground_to_field,
     ) {
         let field_to_ground = ground_to_field.inverse();
-        let ball_in_ground = field_to_ground * ball.position;
-        let goal_position = field_to_ground * point!(blackboard.field_dimensions.length / 2.0, 0.0);
-        let orientation = Orientation2::from_vector(goal_position - ball_in_ground);
+        let ball_in_field = blackboard
+            .world_state
+            .ball
+            .filter(|current_ball| {
+                blackboard
+                    .world_state
+                    .now
+                    .to_wallclock()
+                    .duration_since(current_ball.last_seen_ball)
+                    .is_ok_and(|age| age < blackboard.parameters.ball.last_ball_timeout)
+            })
+            .map(|current_ball| {
+                predict_ball_position(
+                    current_ball.ball_in_field,
+                    *ground_to_field * current_ball.ball_in_ground_velocity,
+                    blackboard.parameters.walking.ball_prediction,
+                    blackboard.field_dimensions,
+                )
+            })
+            .unwrap_or(ball.position);
+        let ball_in_ground = field_to_ground * ball_in_field;
+        let goal_position_in_field = point!(blackboard.field_dimensions.length / 2.0, 0.0);
+        let direction_to_goal = field_to_ground
+            * (goal_position_in_field - ball_in_field)
+                .try_normalize(f32::EPSILON)
+                .unwrap_or_else(|| vector![1.0, 0.0]);
+        let orientation = Orientation2::from_vector(direction_to_goal);
         let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
         let kicking_speed = blackboard.parameters.walking.speed.kicking;
 
         let target_position = ball_in_ground
-            - (goal_position - ball_in_ground).normalize()
-                * blackboard.parameters.kicking.approach_ball_standoff;
+            - direction_to_goal * blackboard.parameters.kicking.approach_ball_standoff;
         walk_to(
             blackboard,
             Pose2::from_parts(target_position, orientation),
@@ -161,6 +184,38 @@ pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
     } else {
         Status::Failure
     }
+}
+
+fn predict_ball_position(
+    position: Point2<Field>,
+    velocity: Vector2<Field>,
+    parameters: WalkToBallPredictionParameters,
+    field_dimensions: FieldDimensions,
+) -> Point2<Field> {
+    if !velocity.x().is_finite()
+        || !velocity.y().is_finite()
+        || velocity.x() > parameters.maximum_forward_velocity_for_prediction
+    {
+        return position;
+    }
+
+    let time = parameters.time.as_secs_f32();
+    let maximum_displacement = parameters.maximum_displacement;
+    let projected = position
+        + vector![
+            (velocity.x() * time).clamp(-maximum_displacement.x(), maximum_displacement.x()),
+            (velocity.y() * time).clamp(-maximum_displacement.y(), maximum_displacement.y())
+        ];
+
+    point![
+        projected.x().clamp(
+            -field_dimensions.length / 2.0,
+            field_dimensions.length / 2.0
+        ),
+        projected
+            .y()
+            .clamp(-field_dimensions.width / 2.0, field_dimensions.width / 2.0)
+    ]
 }
 
 pub fn walk_to_ball_subtree() -> Node<Blackboard> {
@@ -387,4 +442,57 @@ fn target_player_position(
     }
 
     best_target.map(|(_, point)| point)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use linear_algebra::{point, vector};
+    use types::{field_dimensions::FieldDimensions, parameters::WalkToBallPredictionParameters};
+
+    use super::predict_ball_position;
+
+    #[test]
+    fn ball_prediction_limits_displacement_and_stays_inside_field() {
+        let parameters = WalkToBallPredictionParameters {
+            time: Duration::from_secs(1),
+            maximum_displacement: vector![0.5, 0.25],
+            maximum_forward_velocity_for_prediction: 0.2,
+        };
+        let field = FieldDimensions::SPL_2025;
+
+        let projected =
+            predict_ball_position(point![1.0, 1.0], vector![-2.0, -1.0], parameters, field);
+        assert!((projected - point![0.5, 0.75]).norm() < 1e-6);
+
+        let projected =
+            predict_ball_position(point![4.4, 2.9], vector![0.1, 1.0], parameters, field);
+        assert!((projected - point![4.5, 3.0]).norm() < 1e-6);
+    }
+
+    #[test]
+    fn forward_ball_uses_current_position_on_both_axes() {
+        let parameters = WalkToBallPredictionParameters {
+            time: Duration::from_secs(1),
+            maximum_displacement: vector![0.5, 0.25],
+            maximum_forward_velocity_for_prediction: 0.2,
+        };
+
+        let projected = predict_ball_position(
+            point![1.0, 1.0],
+            vector![0.3, 1.0],
+            parameters,
+            FieldDimensions::SPL_2025,
+        );
+        assert!((projected - point![1.0, 1.0]).norm() < 1e-6);
+
+        let projected = predict_ball_position(
+            point![1.0, 1.0],
+            vector![0.2, 0.0],
+            parameters,
+            FieldDimensions::SPL_2025,
+        );
+        assert!((projected - point![1.2, 1.0]).norm() < 1e-6);
+    }
 }
