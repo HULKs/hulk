@@ -1,3 +1,4 @@
+use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
 use color_eyre::Result;
 use coordinate_systems::Field;
 use eframe::epaint::Color32;
@@ -29,6 +30,10 @@ impl Layer<Field> for BallSearchHeatmap {
         Self {
             ball_search_heatmap,
         }
+    }
+
+    fn repaint_on_updates(&self, context: &impl ObservationContext) -> Vec<ObservationRepaint> {
+        vec![self.ball_search_heatmap.repaint_on_updates(context)]
     }
 
     fn paint(

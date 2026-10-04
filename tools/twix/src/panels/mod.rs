@@ -1,4 +1,5 @@
 mod audio;
+mod ball_visualization;
 mod behavior_tree;
 mod image;
 mod map;

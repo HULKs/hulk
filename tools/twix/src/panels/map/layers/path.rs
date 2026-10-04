@@ -1,3 +1,4 @@
+use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
 use std::sync::Arc;
 
 use color_eyre::Result;
@@ -29,6 +30,10 @@ impl Layer<Ground> for Path {
             .spawn();
 
         Self { motion_command }
+    }
+
+    fn repaint_on_updates(&self, context: &impl ObservationContext) -> Vec<ObservationRepaint> {
+        vec![self.motion_command.repaint_on_updates(context)]
     }
 
     fn paint(

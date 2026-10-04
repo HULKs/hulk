@@ -33,7 +33,8 @@ mod filter;
 mod hypothesis;
 
 struct BallFilterOutput {
-    ball_percepts: Vec<BallPercept>,
+    ball_percepts: Vec<TimeWrapper<Vec<BallPercept>>>,
+    state_time: Time,
     filter_state: BallFilter,
     best_hypothesis: Option<BallHypothesis>,
     filtered_ball: Option<BallPosition<Ground>>,
@@ -162,8 +163,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                         continue;
                     };
 
-                    ball_percepts.extend_from_slice(&projected_balls);
-
                     advance_all_hypotheses(
                         &mut ball_filter,
                         &mut assignment_solver,
@@ -173,6 +172,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                         parameters,
                         &field_dimensions,
                     )?;
+
+                    ball_percepts.push(TimeWrapper {
+                        time: detected_objects.time,
+                        inner: projected_balls,
+                    });
                 }
             }
 
@@ -222,6 +226,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
             Ok(BallFilterOutput {
                 ball_percepts,
+                state_time: node.clock().now(),
                 filter_state,
                 best_hypothesis,
                 filtered_ball,
@@ -230,16 +235,26 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             })
         })?;
 
-        ball_percepts_pub.publish(&output.ball_percepts).await?;
-        filter_state_pub.publish(&output.filter_state).await?;
+        // Preserve each detection frame even when a filter cycle processes several.
+        for percepts in &output.ball_percepts {
+            ball_percepts_pub
+                .publish_with_source_time(&percepts.inner, percepts.time)
+                .await?;
+        }
+        // State, selection, and position form one snapshot for debug consumers.
+        filter_state_pub
+            .publish_with_source_time(&output.filter_state, output.state_time)
+            .await?;
         best_ball_hypothesis_pub
-            .publish(&output.best_hypothesis)
+            .publish_with_source_time(&output.best_hypothesis, output.state_time)
             .await?;
         filtered_balls_in_image_pub
             .publish(&output.filtered_balls_in_image)
             .await?;
 
-        ball_position_pub.publish(&output.filtered_ball).await?;
+        ball_position_pub
+            .publish_with_source_time(&output.filtered_ball, output.state_time)
+            .await?;
         hypothetical_ball_positions_pub
             .publish(&output.hypothetical_ball_positions)
             .await?;

@@ -233,6 +233,8 @@ impl Panel for ImagePanel {
             ui.label("Enter an image topic.");
             return;
         }
+        self.overlays.legend(ui);
+
         let observed = match &self.observation {
             Ok(Some(observed)) => observed,
             Ok(None) => {
@@ -516,6 +518,118 @@ mod tests {
         })
         .await
         .unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn ball_percepts_match_capture_time_despite_later_empty_frame() {
+        use geometry::circle::Circle;
+        use types::{
+            ball_percept::BallPercept,
+            multivariate_normal_distribution::MultivariateNormalDistribution,
+        };
+
+        let namespace = format!("/percept_frames_{}", Uuid::new_v4().simple());
+        let backend = Arc::new(
+            RobotBackend::new(Handle::current(), None, namespace.clone())
+                .await
+                .unwrap(),
+        );
+        let images = backend
+            .node()
+            .publisher::<RosImage>(&format!("{namespace}/{DEFAULT_IMAGE_TOPIC}"))
+            .build()
+            .await
+            .unwrap();
+        let percepts = backend
+            .node()
+            .publisher::<Vec<BallPercept>>(&format!("{namespace}/ball_filter/ball_percepts"))
+            .build()
+            .await
+            .unwrap();
+        let saved = json!({"overlays":{"ball_percepts":{"active":true}}});
+        let context = PanelCreationContext {
+            backend: backend.clone(),
+            value: Some(&saved),
+            egui_context: Context::default(),
+        };
+        let mut panel = ImagePanel::new(PanelCreationContext {
+            backend: backend.clone(),
+            value: Some(&saved),
+            egui_context: context.egui_context.clone(),
+        });
+        let percept = BallPercept {
+            image_location: Circle::new(point![32.0, 32.0], 4.0),
+            percept_in_ground: MultivariateNormalDistribution {
+                mean: nalgebra::vector![1.0, 0.0],
+                covariance: nalgebra::Matrix2::identity(),
+            },
+        };
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                for time in [10, 11, 20] {
+                    images.publish(&image(time, [255, 0, 0])).await.unwrap();
+                }
+                percepts
+                    .publish_with_source_time(&vec![percept], Time::from_nanos(10))
+                    .await
+                    .unwrap();
+                percepts
+                    .publish_with_source_time(&vec![], Time::from_nanos(20))
+                    .await
+                    .unwrap();
+                panel.refresh(&context);
+                let observed = panel.observation.as_ref().unwrap().as_ref().unwrap();
+                if let State::Ready(Some(frame)) = observed.observation.snapshot().state
+                    && frame.primary.record.time == Time::from_nanos(20)
+                    && matches!(&frame.inputs[0], State::Ready(records) if !records.is_empty())
+                {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+
+        for (nanos, expected) in [(10, vec![Color32::GREEN]), (20, vec![]), (11, vec![])] {
+            let time = Time::from_nanos(nanos);
+            backend.query_connection().cursor.set(Cursor::At(time));
+            tokio::time::timeout(Duration::from_secs(5), async {
+                loop {
+                    panel.refresh(&context);
+                    let observed = panel.observation.as_ref().unwrap().as_ref().unwrap();
+                    if let State::Ready(Some(frame)) = observed.observation.snapshot().state
+                        && frame.primary.record.time == time
+                        && matches!(&frame.inputs[0], State::Ready(_))
+                    {
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            })
+            .await
+            .unwrap();
+            let output = context.egui_context.run_ui(Default::default(), |ui| {
+                eframe::egui::CentralPanel::default().show(ui, |ui| {
+                    let (_, painter) = TwixPainter::allocate(
+                        ui,
+                        vector![64.0, 64.0],
+                        point![0.0, 0.0],
+                        Orientation::LeftHanded,
+                    );
+                    panel.overlays.paint(&painter, time);
+                });
+            });
+            let colors: Vec<_> = output
+                .shapes
+                .iter()
+                .filter_map(|shape| match &shape.shape {
+                    eframe::egui::Shape::Circle(circle) => Some(circle.fill),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(colors, expected);
+        }
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

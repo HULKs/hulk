@@ -1,3 +1,4 @@
+use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 use color_eyre::Result;
@@ -46,6 +47,13 @@ impl Layer<Field> for Odometry {
             .spawn();
 
         Self { pose, booster_pose }
+    }
+
+    fn repaint_on_updates(&self, context: &impl ObservationContext) -> Vec<ObservationRepaint> {
+        vec![
+            self.pose.repaint_on_updates(context),
+            self.booster_pose.repaint_on_updates(context),
+        ]
     }
 
     fn paint(
