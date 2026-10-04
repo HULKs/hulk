@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
   "click>=8.3.1",
+  "nvidia-ml-py>=13.610.43",
   "onnxruntime>=1.24.3",
   "onnxscript>=0.6.2",
   "onnxslim>=0.1.87",

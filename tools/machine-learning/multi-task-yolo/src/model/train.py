@@ -1,23 +1,30 @@
-import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
-import wandb
 import yaml
 from ultralytics.models.yolo.model import YOLO
+from ultralytics.nn.tasks import DetectionModel
 from wonderwords import RandomWord
 
+import wandb
+from model.hydra import get_backbone, set_backbone
 from utils.model_naming import (
     HYDRA_MODEL_NAME_TYPE,
     HydraModelName,
     TaskType,
+    resolve_model_path,
 )
 from validation.validator import DatasetNotFoundError
 
 DEVICE_FORMAT_ERROR = "must be a comma-separated list of integers, e.g. 0,1"
 DEVICE_EMPTY_ERROR = "must contain at least one device index, e.g. 0"
+DATASET_NOTE_NAMES = {
+    "coco-pose": "COCO-Pose",
+    "dhrp_yolo": "DHRP",
+    "hslvision_yolo_updated": "HSLVision",
+}
 
 
 @dataclass(frozen=True)
@@ -54,6 +61,15 @@ class TrainingConfig:
         # Apply any overrides
         result.update(overrides)
         return result
+
+
+def dataset_note(dataset_name: Path) -> str:
+    short_name = (
+        dataset_name.parent.name
+        if dataset_name.stem == "data"
+        else dataset_name.stem
+    )
+    return DATASET_NOTE_NAMES.get(short_name.lower(), short_name)
 
 
 def do_hyperparameter_tuning(config: TrainingConfig, model_path: Path) -> Path:
@@ -96,6 +112,28 @@ def do_hyperparameter_tuning(config: TrainingConfig, model_path: Path) -> Path:
     return model_path.parent / "best_hyperparameters.yaml"
 
 
+def create_hydra_checkpoint(
+    hydra_model: HydraModelName,
+    model_path: Path,
+    assets_dir: Path,
+) -> None:
+    backbone_model = cast(
+        DetectionModel,
+        YOLO(resolve_model_path(hydra_model.backbone.name, assets_dir)).model,
+    )
+    head_model_yolo_wrapper = YOLO(
+        resolve_model_path(hydra_model.heads[0].name, assets_dir)
+    )
+    head_model = cast(DetectionModel, head_model_yolo_wrapper.model)
+    backbone = get_backbone(
+        backbone_model, hydra_model.number_of_frozen_modules
+    )
+    set_backbone(head_model, backbone, hydra_model.number_of_frozen_modules)
+
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    head_model_yolo_wrapper.save(model_path)
+
+
 @click.command(
     context_settings={"help_option_names": ["-h", "--help"]},
     help="Finetune models based on a hydra model name.",
@@ -107,7 +145,8 @@ def do_hyperparameter_tuning(config: TrainingConfig, model_path: Path) -> Path:
     type=HYDRA_MODEL_NAME_TYPE,
     help=(
         "Hydra model name using the given naming convention. "
-        "Example: yolo26m=f11+yolo26m-pose"
+        "Supported sizes: n, s, m, l, x. "
+        "Example: yolo26s=f11+yolo26s-pose"
     ),
 )
 @click.option(
@@ -200,12 +239,15 @@ def main(
         for head in hydra_model_name.heads
     ]
 
-    repo_root = os.path.abspath(".")
+    repo_root = Path.cwd()
     runs_dir = repo_root / runs_dir
     val_path = runs_dir / val_dir
 
     for hydra_model in flattened_hydra_model_names:
         model_path = val_path / str(hydra_model) / (str(hydra_model) + ".pt")
+        if not model_path.exists():
+            print(f"Creating missing Hydra checkpoint: {model_path}")
+            create_hydra_checkpoint(hydra_model, model_path, assets_dir)
 
         dataset_name = None
         match hydra_model.heads[0].task_type():
@@ -232,7 +274,11 @@ def main(
                     include_categories=["nouns"],
                 )
             )
-            wandb.init(project="multi-task-yolo", name=run_name)
+            wandb.init(
+                project="multi-task-yolo",
+                name=run_name,
+                notes=dataset_note(dataset_name),
+            )
 
             config = TrainingConfig(
                 data=data,
@@ -264,7 +310,11 @@ def main(
                 include_categories=["nouns"],
             )
         )
-        wandb.init(project="multi-task-yolo", name=run_name)
+        wandb.init(
+            project="multi-task-yolo",
+            name=run_name,
+            notes=dataset_note(dataset_name),
+        )
 
         config = TrainingConfig(
             data=data,
