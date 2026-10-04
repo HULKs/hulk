@@ -295,9 +295,19 @@ mod tests {
             },
             ..Default::default()
         };
-        let mut parameters = BallFilterParameters::default();
+        let mut parameters = crate::test_parameters();
         parameters.maximum_camera_matrix_age = Duration::from_millis(20);
         parameters.visible_missed_detection_timeout = Duration::from_millis(160);
+        // Each scenario enables the additional policies it exercises.
+        parameters.near_visible_missed_detection_timeout = Duration::ZERO;
+        parameters.near_visible_missed_detection_distance = 0.0;
+        parameters.hidden_validity_decay_rate = None;
+        parameters.visible_missed_validity_decay_rate = None;
+        parameters.near_visible_missed_validity_decay_rate = None;
+        parameters.competing_hypothesis_validity_decay_rate = None;
+        parameters.nearby_spawn_validity_factor = None;
+        parameters.publication_filter_blend = 0.0;
+        parameters.hypothesis_merge_distance = 0.0;
         parameters.maximum_obstacle_time_difference = Duration::from_millis(100);
         parameters.hidden_validity_exponential_decay_factor = 1.0;
         parameters.visible_validity_exponential_decay_factor = 1.0;
@@ -1782,7 +1792,7 @@ mod tests {
             Isometry3::from_translation(0.0, 0.0, 1.0),
         );
         let dimensions = FieldDimensions::SPL_2025;
-        let mut parameters = BallFilterParameters::default();
+        let mut parameters = crate::test_parameters();
         parameters.maximum_camera_matrix_age = Duration::from_millis(20);
         parameters.hidden_validity_exponential_decay_factor = 1.0;
         parameters.visible_validity_exponential_decay_factor = 1.0;
@@ -1880,7 +1890,7 @@ mod tests {
                 confidence: 0.9,
             },
         }];
-        let mut parameters = BallFilterParameters::default();
+        let mut parameters = crate::test_parameters();
         parameters.maximum_camera_matrix_age = Duration::from_millis(20);
         parameters.noise.initial_covariance.fill(1.0);
         parameters.velocity_decay_factor = 1.0;

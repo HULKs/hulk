@@ -151,8 +151,11 @@ mod tests {
     use super::*;
 
     fn parameters() -> BallFilterParameters {
-        let mut parameters = BallFilterParameters::default();
+        let mut parameters = crate::test_parameters();
         parameters.field_boundary_confidence_decay_distance = 0.3;
+        parameters.field_boundary_margin = 0.0;
+        parameters.field_boundary_validity_decay_rate = 0.0;
+        parameters.validity_discard_threshold = 0.0;
         parameters.validity_output_threshold = 0.5;
         parameters.hypothesis_timeout = Duration::from_secs(20);
         parameters.maximum_number_of_hypotheses = 15;
@@ -495,7 +498,7 @@ mod tests {
     }
 
     #[test]
-    fn default_or_invalid_boundary_margin_preserves_legacy_geometry() {
+    fn zero_or_invalid_boundary_margin_preserves_legacy_geometry() {
         let mut parameters = parameters();
         assert_eq!(parameters.field_boundary_margin, 0.0);
         let dimensions = FieldDimensions::SPL_2025;
