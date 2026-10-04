@@ -248,7 +248,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 UpperBodyJoints::default()
             });
 
-        let robot_command = motion_state
+        let mut robot_command = motion_state
             .infer(
                 motion_plan,
                 clock,
@@ -258,6 +258,20 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 do_inference,
             )
             .await?;
+
+        // dirty hack
+        if let (
+            &MotionCommand::Stand { .. },
+            &mut RobotCommand::Custom {
+                ref mut joints_command,
+            },
+        ) = (motion_command.as_ref(), &mut robot_command)
+        {
+            joints_command.left_leg.ankle_up.kp /= 2.0;
+            joints_command.left_leg.ankle_down.kp /= 2.0;
+            joints_command.right_leg.ankle_up.kp /= 2.0;
+            joints_command.right_leg.ankle_down.kp /= 2.0;
+        }
 
         robot_command_pub.publish(&robot_command).await?;
     }
