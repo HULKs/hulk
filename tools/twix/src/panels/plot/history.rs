@@ -5,8 +5,8 @@ use ros_z::{
     time::Time,
 };
 use ros_z_debug::{
-    CachedSubscriptionStatus, DynamicTopicObservation, ObservationPolicy, SampleRecord,
-    TopicObservationStatus, TopicObservationUpdateReceiver,
+    CachedSubscriptionStatus, DynamicTopicObservation, ObservationPolicy, RetentionPolicy,
+    SampleRecord, TopicObservationStatus, TopicObservationUpdateReceiver,
 };
 
 use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
@@ -15,7 +15,7 @@ use super::status::format_topic_observation_status;
 
 type Records = Arc<[Arc<SampleRecord<DynamicPayload>>]>;
 
-/// One bounded observation per distinct topic in this panel. Field selections
+/// One time-window observation per distinct topic in this panel. Field selections
 /// share its decoded history, including samples received between UI frames.
 #[derive(Default)]
 pub(super) struct PlotHistory {
@@ -129,7 +129,10 @@ impl TopicHistory {
             .backend()
             .observer()
             .observe_dynamic(topic)?
-            .policy(ObservationPolicy::time_window(duration)?)
+            .policy(
+                ObservationPolicy::time_window(duration)?
+                    .with_retention(RetentionPolicy::time_window_without_sample_limit(duration)?),
+            )
             .spawn();
         let repaint = observation.repaint_on_updates(context);
         let updates = observation
