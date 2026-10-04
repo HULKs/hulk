@@ -279,7 +279,14 @@ impl Panel for PlotPanel {
         let end = self.history.end_time();
         let mut plot = Plot::new(ui.id().with("time-series"))
             .legend(Legend::default())
-            .x_axis_label("Seconds relative to newest sample (source time)")
+            .x_axis_formatter(|mark, _| {
+                let decimals = (-mark.step_size.log10().round()).max(0.0) as usize;
+                let value = eframe::egui::emath::format_with_decimals_in_range(
+                    mark.value,
+                    decimals..=decimals,
+                );
+                format!("{value}s")
+            })
             .allow_drag(self.paused)
             .allow_zoom(self.paused)
             .allow_scroll(self.paused)
