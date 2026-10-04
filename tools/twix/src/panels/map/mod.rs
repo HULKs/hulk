@@ -8,6 +8,8 @@ use serde_json::{Value, json};
 use types::field_dimensions::FieldDimensions;
 
 use crate::panel::{Panel, PanelCreationContext, PanelUiContext};
+use crate::panels::ball_visualization::BallLegend;
+use crate::repaint::{ObservationRepaint, RepaintOnUpdates};
 use twix_visualization::{
     twix_painter::{Orientation, TwixPainter},
     zoom_and_pan::ZoomAndPanTransform,
@@ -60,6 +62,7 @@ impl<T: Layer<Ground>> GenericLayer for EnabledLayer<T, Ground> {
 
 pub struct MapPanel {
     current_plot_type: PlotType,
+    _repaints: Vec<ObservationRepaint>,
 
     field_dimensions: TopicObservation<FieldDimensions>,
     ground_to_field: TopicObservation<Isometry2<Ground, Field>>,
@@ -73,6 +76,8 @@ pub struct MapPanel {
     robot_pose: EnabledLayer<layers::RobotPose, Ground>,
     odometry: EnabledLayer<layers::Odometry, Field>,
     ball_percepts: EnabledLayer<layers::BallPercepts, Ground>,
+    ball_detection_confidence: EnabledLayer<layers::BallDetectionConfidence, Ground>,
+    ball_filter_confidence: EnabledLayer<layers::BallFilterConfidence, Ground>,
     ball_position: EnabledLayer<layers::BallPosition, Field>,
     ball_filter: EnabledLayer<layers::BallFilter, Ground>,
     obstacle_filter: EnabledLayer<layers::ObstacleFilter, Ground>,
@@ -86,19 +91,21 @@ impl Panel for MapPanel {
     const ICON: &'static str = egui_material_icons::icons::ICON_MAP.codepoint;
 
     fn new(context: PanelCreationContext) -> Self {
-        let field = EnabledLayer::new(context.backend.clone(), context.value, true);
-        let ball_search_heatmap = EnabledLayer::new(context.backend.clone(), context.value, false);
-        let path_obstacles = EnabledLayer::new(context.backend.clone(), context.value, false);
-        let obstacles = EnabledLayer::new(context.backend.clone(), context.value, false);
-        let path = EnabledLayer::new(context.backend.clone(), context.value, false);
-        let robot_pose = EnabledLayer::new(context.backend.clone(), context.value, true);
-        let odometry = EnabledLayer::new(context.backend.clone(), context.value, false);
-        let ball_percepts = EnabledLayer::new(context.backend.clone(), context.value, false);
-        let ball_position = EnabledLayer::new(context.backend.clone(), context.value, true);
-        let ball_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
-        let obstacle_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
-        let localization = EnabledLayer::new(context.backend.clone(), context.value, false);
-        let voronoi_cells = EnabledLayer::new(context.backend.clone(), context.value, false);
+        let field = EnabledLayer::new(&context, context.value, true);
+        let ball_search_heatmap = EnabledLayer::new(&context, context.value, false);
+        let path_obstacles = EnabledLayer::new(&context, context.value, false);
+        let obstacles = EnabledLayer::new(&context, context.value, false);
+        let path = EnabledLayer::new(&context, context.value, false);
+        let robot_pose = EnabledLayer::new(&context, context.value, true);
+        let odometry = EnabledLayer::new(&context, context.value, false);
+        let ball_percepts = EnabledLayer::new(&context, context.value, false);
+        let ball_detection_confidence = EnabledLayer::new(&context, context.value, false);
+        let ball_filter_confidence = EnabledLayer::new(&context, context.value, false);
+        let ball_position = EnabledLayer::new(&context, context.value, true);
+        let ball_filter = EnabledLayer::new(&context, context.value, false);
+        let obstacle_filter = EnabledLayer::new(&context, context.value, false);
+        let localization = EnabledLayer::new(&context, context.value, false);
+        let voronoi_cells = EnabledLayer::new(&context, context.value, false);
 
         let runtime_handle = context.backend.runtime_handle().clone();
         let _runtime_context = runtime_handle.enter();
@@ -132,7 +139,12 @@ impl Panel for MapPanel {
             .and_then(|value| serde_json::from_value::<ZoomAndPanTransform>(value.clone()).ok())
             .unwrap_or_default();
 
+        let repaints = vec![
+            field_dimensions.repaint_on_updates(&context),
+            ground_to_field.repaint_on_updates(&context),
+        ];
         Self {
+            _repaints: repaints,
             current_plot_type,
             field_dimensions,
             ground_to_field,
@@ -145,6 +157,8 @@ impl Panel for MapPanel {
             robot_pose,
             odometry,
             ball_percepts,
+            ball_detection_confidence,
+            ball_filter_confidence,
             ball_position,
             ball_filter,
             obstacle_filter,
@@ -166,8 +180,10 @@ impl Panel for MapPanel {
             "robot_pose": self.robot_pose.save(),
             "odometry": self.odometry.save(),
             "ball_percepts": self.ball_percepts.save(),
-            "ball_position": self.ball_position.save(),
-            "ball_filter": self.ball_filter.save(),
+            "ball_percept_confidence": self.ball_detection_confidence.save(),
+            "ball_filter_confidence": self.ball_filter_confidence.save(),
+            "selected_ball_filter": self.ball_position.save(),
+            "ball_filter_candidates": self.ball_filter.save(),
             "obstacle_filter": self.obstacle_filter.save(),
             "localization": self.localization.save(),
             "voronoi_cells": self.voronoi_cells.save(),
@@ -186,8 +202,10 @@ impl Panel for MapPanel {
                 self.robot_pose.checkbox(ui);
                 self.odometry.checkbox(ui);
                 self.ball_percepts.checkbox(ui);
+                self.ball_detection_confidence.checkbox(ui);
                 self.ball_position.checkbox(ui);
                 self.ball_filter.checkbox(ui);
+                self.ball_filter_confidence.checkbox(ui);
                 self.obstacle_filter.checkbox(ui);
                 self.localization.checkbox(ui);
                 self.voronoi_cells.checkbox(ui);
@@ -201,6 +219,19 @@ impl Panel for MapPanel {
     }
 
     fn ui(&mut self, ui: &mut Ui, _context: PanelUiContext<'_>) {
+        BallLegend {
+            percepts: self.ball_percepts.is_active(),
+            position: self.ball_position.is_active(),
+            filter: self.ball_filter.is_active(),
+        }
+        .show(ui);
+        if let Some(status) = self
+            .ball_filter
+            .status()
+            .or_else(|| self.ball_filter_confidence.status())
+        {
+            ui.small(status);
+        }
         let field_dimensions: FieldDimensions = match self.field_dimensions.latest().as_deref() {
             Some(sample_record) => sample_record.value,
             None => {
@@ -258,17 +289,21 @@ impl Panel for MapPanel {
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.odometry
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.ball_percepts
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.ball_position
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.ball_filter
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.obstacle_filter
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.localization
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.voronoi_cells
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.ball_percepts
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.ball_filter
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.ball_position
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.ball_filter_confidence
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.ball_detection_confidence
             .generic_paint(&painter, ground_to_field, &field_dimensions);
     }
 }

@@ -1,3 +1,4 @@
+mod ball_detection_confidence;
 mod ball_filter;
 mod ball_percepts;
 mod ball_position;
@@ -12,7 +13,8 @@ mod path_obstacles;
 mod robot_pose;
 mod voronoi_cell;
 
-pub use ball_filter::BallFilter;
+pub use ball_detection_confidence::BallDetectionConfidence;
+pub use ball_filter::{BallFilter, BallFilterConfidence};
 pub use ball_percepts::BallPercepts;
 pub use ball_position::BallPosition;
 pub use ball_search_heatmap::BallSearchHeatmap;

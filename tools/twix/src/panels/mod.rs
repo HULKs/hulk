@@ -1,4 +1,5 @@
 mod audio;
+mod ball_visualization;
 mod image;
 mod map;
 mod parameter;

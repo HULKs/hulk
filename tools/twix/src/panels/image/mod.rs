@@ -132,6 +132,8 @@ impl Panel for ImagePanel {
             return;
         }
 
+        self.overlays.legend(ui);
+
         match &mut self.observation {
             ObservationState::Idle => {
                 ui.label("No observation.");

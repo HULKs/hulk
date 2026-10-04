@@ -1,3 +1,4 @@
+use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
 use std::sync::Arc;
 
 use behavior_node::node::Blackboard;
@@ -28,6 +29,10 @@ impl Layer<Ground> for PathObstacles {
             .spawn();
 
         Self { blackboard }
+    }
+
+    fn repaint_on_updates(&self, context: &impl ObservationContext) -> Vec<ObservationRepaint> {
+        vec![self.blackboard.repaint_on_updates(context)]
     }
 
     fn paint(
