@@ -891,6 +891,7 @@ dependencies = [
  "filtering",
  "geometry",
  "hsl_network_messages",
+ "kinematics",
  "linear_algebra",
  "log",
  "nalgebra 0.34.2",
@@ -7471,7 +7472,6 @@ dependencies = [
  "portable-atomic",
  "portable-atomic-util",
  "rawpointer",
- "rayon",
  "serde",
 ]
 
@@ -7640,20 +7640,6 @@ checksum = "bf33f538733d1a5a3494b836ba913207f14d9d4a1d3cd67030c5061bdd2cac85"
 dependencies = [
  "memchr",
  "unicode-segmentation",
-]
-
-[[package]]
-name = "num"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35bd024e8b2ff75562e5f34e7f4905839deb4b22955ef5e73d2fea1b9813cb23"
-dependencies = [
- "num-bigint",
- "num-complex",
- "num-integer",
- "num-iter",
- "num-rational",
- "num-traits",
 ]
 
 [[package]]
@@ -9578,15 +9564,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "realfft"
-version = "3.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f821338fddb99d089116342c46e9f1fbf3828dba077674613e734e01d6ea8677"
-dependencies = [
- "rustfft",
-]
-
-[[package]]
 name = "reborrow"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10291,6 +10268,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "search_heatmap"
+version = "0.1.0"
+dependencies = [
+ "coordinate_systems",
+ "geometry",
+ "hsl_network_messages",
+ "itertools 0.14.0",
+ "linear_algebra",
+ "nalgebra 0.34.2",
+ "ndarray 0.16.1",
+ "ros-z",
+ "serde",
+ "types",
+ "voronoi",
+]
+
+[[package]]
 name = "search_suggestor"
 version = "0.1.0"
 dependencies = [
@@ -10302,9 +10296,8 @@ dependencies = [
  "linear_algebra",
  "nalgebra 0.34.2",
  "ndarray 0.16.1",
- "ndarray-conv",
  "ros-z",
- "serde",
+ "search_heatmap",
  "tokio",
  "types",
 ]

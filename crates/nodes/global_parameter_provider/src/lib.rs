@@ -8,6 +8,7 @@ use ros_z::{prelude::*, qos::QosDurability};
 use types::{
     field_dimensions::FieldDimensions,
     joint_limits::JointLimits,
+    parameters::HslNetworkParameters,
     walking_velocity_limits::{WALKING_VELOCITY_LIMITS_TOPIC, WalkingVelocityLimits},
 };
 
@@ -18,6 +19,7 @@ pub struct Parameters {
     pub player_number: PlayerNumber,
     pub field_dimensions: FieldDimensions,
     pub walking_velocity_limits: WalkingVelocityLimits,
+    pub hsl_network: HslNetworkParameters,
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -61,6 +63,21 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
+    let hsl_network_pub = node
+        .publisher::<HslNetworkParameters>("hsl_network")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await?;
+
+    let parameters_snapshot = node_parameters.snapshot();
+    let parameters = parameters_snapshot.typed();
+    player_number_pub.publish(&parameters.player_number).await?;
+    field_dimensions_pub
+        .publish(&parameters.field_dimensions)
+        .await?;
     let walking_velocity_limits_pub = node
         .publisher::<WalkingVelocityLimits>(WALKING_VELOCITY_LIMITS_TOPIC)
         .qos(QosProfile {
@@ -69,6 +86,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
+    hsl_network_pub.publish(&parameters.hsl_network).await?;
 
     let mut parameters_receiver = node_parameters.subscribe();
 
@@ -80,6 +98,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         field_dimensions_pub
             .publish(&parameters.field_dimensions)
             .await?;
+        hsl_network_pub.publish(&parameters.hsl_network).await?;
         walking_velocity_limits_pub
             .publish(&parameters.walking_velocity_limits)
             .await?;
