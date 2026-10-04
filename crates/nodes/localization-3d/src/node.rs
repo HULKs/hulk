@@ -24,7 +24,7 @@ use types::{
         ASSOCIATION_POSE_HINT_TOPIC, AssociationPoseHint, LOCALIZATION_POSE_3D_TOPIC,
         VISUAL_LOCALIZATION_TOPIC, VisualLocalizationFrame,
     },
-    visual_odometry::{VisualOdometer, VisualOdometryDelta as VisualOdometryDeltaMessage},
+    visual_odometry::VisualOdometer,
 };
 
 use crate::{
@@ -90,12 +90,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    let visual_odometry_subscriber = node
-        .subscriber::<VisualOdometryDeltaMessage>(
-            "visual_odometry/current_left_camera_to_previous_left_camera",
-        )
-        .build()
-        .await?;
     let visual_odometer_cache = node
         .subscriber::<VisualOdometer>(VISUAL_ODOMETER_TOPIC)
         .cache(128)
@@ -209,17 +203,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 frontend.ingest_imu(imu.source_time.to_wallclock(), imu.message)
                     .wrap_err("failed to ingest imu measurement into frontend")?;
             }
-            visual_odometry = visual_odometry_subscriber.recv() => {
-                let visual_odometry = visual_odometry?;
-                if should_drop_input_while_damping(&primary_state_cache) {
-                    continue;
-                }
-                handle_visual_odometry(&mut frontend, visual_odometry, &camera_matrix_cache)?;
-            }
             visual_odometer = visual_odometer_subscriber.recv() => {
                 let visual_odometer = visual_odometer?;
                 if should_drop_input_while_damping(&primary_state_cache) {
                     continue;
+                }
+                if let Some(delta) = visual_odometer.delta.clone() {
+                    handle_visual_odometry(&mut frontend, visual_odometer.time, delta, &camera_matrix_cache)?;
                 }
                 handle_visual_odometer(
                     &mut live_localization,
