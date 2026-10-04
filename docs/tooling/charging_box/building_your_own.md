@@ -46,9 +46,12 @@ Furthermore, a small amount of appropriately colored 1.5mm² wire is required fo
 
 ## 3D printed parts and laser cut covers
 
-We designed most of the charging box in Fusion360. The source files are located in the [`tools/charging-box/cad`](https://github.com/HULKs/hulk/tree/main/tools/charging-box/cad) folder in our main repository. The exported parts can be found under [`tools/charging-box/cad/exports`](https://github.com/HULKs/hulk/tree/main/tools/charging-box/cad/exports).
+We designed most of the charging box in Fusion360.
+The source files are located in the [`tools/charging-box/cad`](https://github.com/HULKs/hulk/tree/main/tools/charging-box/cad) folder in our main repository.
+The exported parts can be found under [`tools/charging-box/cad/exports`](https://github.com/HULKs/hulk/tree/main/tools/charging-box/cad/exports).
 
-Many components of the charging box are 3D printed. We printed everything except the mains inlet cover in PETG, which was printed using PC Blend.
+Many components of the charging box are 3D printed.
+We printed everything except the mains inlet cover in PETG, which was printed using PC Blend.
 The following parts from the `exports` subfolder have to be 3D printed:
 
 | File                     | Amount       | Description                                                                |

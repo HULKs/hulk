@@ -21,7 +21,9 @@ Find changes that would be easier, safer, and faster to review as smaller commit
 
 ## Output Guidance
 
-Report only atomicity and splitting findings. Suggest concrete split boundaries such as crates, features, generated output, refactor-first, behavior-second, docs-third, or migration slices. If nothing matches, write `No findings for atomicity and splitting.`
+Report only atomicity and splitting findings.
+Suggest concrete split boundaries such as crates, features, generated output, refactor-first, behavior-second, docs-third, or migration slices.
+If nothing matches, write `No findings for atomicity and splitting.`
 
 ## Criterion-Specific Do Not
 

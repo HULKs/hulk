@@ -20,7 +20,9 @@ Find Rust code that panics in production paths, weakens error information, or ha
 
 ## Output Guidance
 
-Report only Rust error-handling findings. Include why the current failure behavior matters at the cited call site. If nothing matches, write `No findings for Rust error handling.`
+Report only Rust error-handling findings.
+Include why the current failure behavior matters at the cited call site.
+If nothing matches, write `No findings for Rust error handling.`
 
 ## Criterion-Specific Do Not
 

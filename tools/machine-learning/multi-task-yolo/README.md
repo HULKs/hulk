@@ -1,7 +1,6 @@
 # multi-task-yolo
 
-Utilities for building, validating, and exporting a Hydra-style multi-task
-YOLO model that shares one backbone across detection and pose heads.
+Utilities for building, validating, and exporting a Hydra-style multi-task YOLO model that shares one backbone across detection and pose heads.
 
 ## Requirements
 
@@ -63,14 +62,11 @@ uv run -m utils.model_complexity --help
 Finetunes one YOLO model and can optionally run hyperparameter tuning first.
 
 - `--project-tune-dir` and `--project-train-dir` override output roots.
-- If omitted, output roots resolve from `--repo-root` to
-  `<repo-root>/runs/tune` and `<repo-root>/runs/train`.
-- `--device` accepts a comma-separated list and is parsed to `list[int]`
-  (example: `--device 0,1`).
+- If omitted, output roots resolve from `--repo-root` to `<repo-root>/runs/tune` and `<repo-root>/runs/train`.
+- `--device` accepts a comma-separated list and is parsed to `list[int]` (example: `--device 0,1`).
 - `--dev-mode` is opt-in and switches to short development settings.
 - `--do-tuning` is opt-in and runs `model.tune()` before `model.train()`.
-- `--use-tuned-hyperparameters` loads
-  `runs/tune/<tuning-folder-name>/best_hyperparameters.yaml`.
+- `--use-tuned-hyperparameters` loads `runs/tune/<tuning-folder-name>/best_hyperparameters.yaml`.
 
 Examples:
 
@@ -90,8 +86,7 @@ uv run python src/model/train.py --do-tuning
 
 ## Validation (`src/validation/validator.py`)
 
-Runs Ultralytics validation for Hydra heads and can optionally validate the
-original source checkpoints first.
+Runs Ultralytics validation for Hydra heads and can optionally validate the original source checkpoints first.
 
 - Default checkpoints:
   - `--backbone assets/yolo26m.pt`
@@ -100,8 +95,7 @@ original source checkpoints first.
 - Default datasets:
   - `--detection-data assets/datasets/coco.yaml`
   - `--pose-data assets/datasets/coco-pose.yaml`
-- `--validate-original` enables baseline validation of the original task
-  models before multi-task validation.
+- `--validate-original` enables baseline validation of the original task models before multi-task validation.
 
 Example:
 
@@ -123,13 +117,11 @@ Validation outputs are saved under `runs/val/...` and include:
 
 ## Compare validation runs (`src/validation/compare_results.py`)
 
-Compares two saved validation run directories of the same task type and writes
-a JSON report.
+Compares two saved validation run directories of the same task type and writes a JSON report.
 
 - Required inputs: `--baseline <run_dir>` and `--candidate <run_dir>`.
 - By default, writes output to `<candidate>/comparison.json`.
-- Supports `--task auto|detect|pose`, strict config checks via
-  `--strict-config`, custom primary metric, and regression threshold.
+- Supports `--task auto|detect|pose`, strict config checks via `--strict-config`, custom primary metric, and regression threshold.
 
 Example:
 
@@ -142,13 +134,11 @@ uv run -m validation.compare_results \
 
 ## Model complexity (`src/utils/model_complexity.py`)
 
-Reports checkpoint file size, parameter counts, MACs, and FLOPs for YOLO
-`.pt` files and assembled Hydra model names. FLOPs use the Ultralytics
-convention: `1 MAC = 2 FLOPs`. Checkpoint reports are saved under
-`runs/complexity/<checkpoint-name>/report.json`. For Hydra model names, the
-assembled model is exported first, then `size MB` is measured from that
-exported file. Hydra exports and per-model reports are saved under
-`runs/complexity/<model-name>/`.
+Reports checkpoint file size, parameter counts, MACs, and FLOPs for YOLO `.pt` files and assembled Hydra model names.
+FLOPs use the Ultralytics convention: `1 MAC = 2 FLOPs`.
+Checkpoint reports are saved under `runs/complexity/<checkpoint-name>/report.json`.
+For Hydra model names, the assembled model is exported first, then `size MB` is measured from that exported file.
+Hydra exports and per-model reports are saved under `runs/complexity/<model-name>/`.
 
 Examples:
 
@@ -193,8 +183,7 @@ Use `--subsample` to enable chroma subsampling behavior in the wrapper.
 
 ### Export Hydra model (`src/utils/export_hydra.py`)
 
-Builds a Hydra model from a backbone checkpoint plus one or more heads,
-then exports ONNX (`--format onnx`) or TorchScript (`--format pt`).
+Builds a Hydra model from a backbone checkpoint plus one or more heads, then exports ONNX (`--format onnx`) or TorchScript (`--format pt`).
 
 - Repeat `--head NAME=MODEL_PATH` for each task head.
 - Optional `--with-nv12-layer` prepends NV12 preprocessing before export.
@@ -222,6 +211,5 @@ uv run -m utils.export_hydra \
 
 ## Local predictor note
 
-`src/validation/predictor.py` contains a local smoke workflow. Its `main()`
-uses a hardcoded example image path under `assets/datasets/...` and is not a
-general-purpose CLI entrypoint.
+`src/validation/predictor.py` contains a local smoke workflow.
+Its `main()` uses a hardcoded example image path under `assets/datasets/...` and is not a general-purpose CLI entrypoint.

@@ -8,7 +8,8 @@
 ## Environment and Tooling
 
 - Python is pinned to `3.13` (`.python-version`) and `pyproject.toml` requires `>=3.13`.
-- Dependencies are managed with `uv` (`uv.lock` is present). Prefer `uv run ...` over bare `python`/`pip`.
+- Dependencies are managed with `uv` (`uv.lock` is present).
+  Prefer `uv run ...` over bare `python`/`pip`.
 - Lint config is in `ruff.toml` (line length `80`, broad strict rule set, tests get limited `S101`/`S603` ignores).
 - No `pytest`/`mypy`/`pre-commit`/CI config exists in this project directory.
 

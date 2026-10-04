@@ -100,7 +100,10 @@ All BitBake and Devtool commands should be executed from within this shell.
 
 !!! hint
 
-    Your `TERM` variable may request a terminfo that is not available in the kas container image. This results in e.g. progress bars not displaying correctly. Make sure, your terminfo is supported within the container. You may be able to just override it with xterm:
+    Your `TERM` variable may request a terminfo that is not available in the kas container image.
+    This results in e.g. progress bars not displaying correctly.
+    Make sure, your terminfo is supported within the container.
+    You may be able to just override it with xterm:
     ```sh
     export TERM=xterm-256color
     ```
@@ -161,7 +164,8 @@ This versioning system increases version numbers based on the nature of the chan
 - Images and SDKs with the same major and minor version numbers are compatible with each other.
 - Major changes, refactorings, or implementations necessitate an increase in the major version number.
 - Minor changes, additions, and iterations necessitate an increase in the minor version number.
-- Changes in the image that do not require SDK recreation result in an increase in the patch version number. Consequently, only a new image needs to be created, not necessarily a redistribution of new SDKs.
+- Changes in the image that do not require SDK recreation result in an increase in the patch version number.
+  Consequently, only a new image needs to be created, not necessarily a redistribution of new SDKs.
 
 Before building new images, the version number must be set in `meta-nao/meta-hulks/conf/distro/HULKs-OS.conf`.
 Only modify the `DISTROVERSION`; the `SDKVERSION` is automatically derived from the `DISTRO_VERSION`.

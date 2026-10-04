@@ -8,13 +8,15 @@ For detailed usage instructions, run `pepsi --help` or `pepsi <subcommand> --hel
 
 ## Typical Webots Workflow
 
-This is pretty simple. Open Webots, load the `webots/worlds/penalized_extern.wbt` world file and execute
+This is pretty simple.
+Open Webots, load the `webots/worlds/penalized_extern.wbt` world file and execute
 
 ```bash
 ./pepsi run webots
 ```
 
-in your terminal. This will build (if necessary) and then run the webots binary.
+in your terminal.
+This will build (if necessary) and then run the webots binary.
 The simulation is paused automatically until the binary starts.
 
 ## Typical NAO Workflow
@@ -77,7 +79,9 @@ For remote native builds that retrieve binaries, use a relative `--target-dir`; 
 
 ## Aliveness
 
-Using the `aliveness` subcommand, pepsi can query information from NAOs connected via ethernet. By default, only irregular information like non-active services, outdated HULKs-OS versions and battery charge levels below 95% are displayed. Using `-v`/`--verbose` or `-j`/`--json`, you can retrieve all information available via aliveness in either a human- or machine-readable format.
+Using the `aliveness` subcommand, pepsi can query information from NAOs connected via ethernet.
+By default, only irregular information like non-active services, outdated HULKs-OS versions and battery charge levels below 95% are displayed.
+Using `-v`/`--verbose` or `-j`/`--json`, you can retrieve all information available via aliveness in either a human- or machine-readable format.
 
 You can also set a timeout via `-t`/`--timeout` (defaulting to 200ms) and specify NAO addresses (e.g. `22` or `10.1.24.22`) for querying the aliveness information only from specific NAOs.
 
@@ -126,5 +130,6 @@ This will sync your local files to the remote, run the build command there, and 
 Other pepsi commands such as `run`, `upload`, or `pregame` also have a `--remote` option.
 
 To use the remote compile functionality from outside the lab, you need a VPN connection.
-Ask one of the older team members to provide you a `.ovpn` file. Create a new VPN client with this configuration file.
+Ask one of the older team members to provide you a `.ovpn` file.
+Create a new VPN client with this configuration file.
 Using the VPN, you can access the remote compiler and all other internal services from outside the lab.

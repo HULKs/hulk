@@ -24,7 +24,9 @@ Find changes where configuration, parameters, defaults, deployment files, or run
 
 ## Output Guidance
 
-Report only config and deployment findings. Name the code path and the missing or inconsistent artifact. If nothing matches, write `No findings for config and deployment.`
+Report only config and deployment findings.
+Name the code path and the missing or inconsistent artifact.
+If nothing matches, write `No findings for config and deployment.`
 
 ## Criterion-Specific Do Not
 

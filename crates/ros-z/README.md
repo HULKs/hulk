@@ -2,18 +2,15 @@
 
 Zenoh-native robotics middleware in Rust.
 
-`ros-z` provides typed publish/subscribe, services, graph discovery, parameters,
-runtime clocks, shared-memory payload support, and CDR serialization without ROS 2
-C/C++ runtime dependencies.
+`ros-z` provides typed publish/subscribe, services, graph discovery, parameters, runtime clocks, shared-memory payload support, and CDR serialization without ROS 2 C/C++ runtime dependencies.
 
 > [!NOTE]
-> This crate is part of the HULKs workspace. APIs are still evolving while the
-> native `ros-z` stack is integrated.
+> This crate is part of the HULKs workspace.
+> APIs are still evolving while the native `ros-z` stack is integrated.
 
 ## What It Includes
 
-- `ros-z`: the main runtime crate for contexts, nodes, pub/sub, services,
-  parameters, graph discovery, QoS, time, and shared memory.
+- `ros-z`: the main runtime crate for contexts, nodes, pub/sub, services, parameters, graph discovery, QoS, time, and shared memory.
 - `ros-z-cdr`: CDR serialization primitives and Serde integration.
 - `ros-z-protocol`: Zenoh key-expression formats and protocol entities.
 - `ros-z-schema`: schema and type-shape support for generated and dynamic data.
@@ -37,13 +34,12 @@ async fn demo() -> ros_z::Result<()> {
 }
 ```
 
-Builders that create runtime resources are async. Build contexts, nodes,
-publishers, subscribers, services, and caches inside a Tokio-compatible runtime.
-Endpoint factories return builders directly and defer schema, type, and graph-name
-validation until `.build().await`.
+Builders that create runtime resources are async.
+Build contexts, nodes, publishers, subscribers, services, and caches inside a Tokio-compatible runtime.
+Endpoint factories return builders directly and defer schema, type, and graph-name validation until `.build().await`.
 
-Core endpoint builders use one `?` at build time. Service examples assume a
-user-defined `AddTwoInts` type that implements `Service` and `ServiceTypeInfo`:
+Core endpoint builders use one `?` at build time.
+Service examples assume a user-defined `AddTwoInts` type that implements `Service` and `ServiceTypeInfo`:
 
 ```rust,ignore
 let publisher = node.publisher::<String>("/chatter").build().await?;
@@ -55,18 +51,15 @@ let client = node.service_client::<AddTwoInts>("add_two_ints").build().await?;
 
 ## Name Rules
 
-`ros-z` uses Zenoh-native concrete graph names. Namespace, node, topic, and
-service components may start with digits, so a namespace such as `/42` is valid.
+`ros-z` uses Zenoh-native concrete graph names.
+Namespace, node, topic, and service components may start with digits, so a namespace such as `/42` is valid.
 
-Names must still qualify to concrete Zenoh keys. Components cannot be empty and
-cannot contain `/`, `%`, `#`, `$`, `?`, or `*`. Slash separates components, `%`
-is reserved by the current ros-z liveliness identity encoding, and `*` is a
-selector wildcard rather than a concrete endpoint character.
+Names must still qualify to concrete Zenoh keys.
+Components cannot be empty and cannot contain `/`, `%`, `#`, `$`, `?`, or `*`.
+Slash separates components, `%` is reserved by the current ros-z liveliness identity encoding, and `*` is a selector wildcard rather than a concrete endpoint character.
 
-Applications should pass graph names through unchanged except for adding a
-leading slash where they accept a bare namespace. For example, a bare robot
-number `42` becomes namespace `/42`; invalid names such as `robot%01` are
-rejected instead of rewritten.
+Applications should pass graph names through unchanged except for adding a leading slash where they accept a bare namespace.
+For example, a bare robot number `42` becomes namespace `/42`; invalid names such as `robot%01` are rejected instead of rewritten.
 
 ## Examples
 
@@ -80,9 +73,7 @@ cargo run -p ros-z --example service_client
 cargo run -p ros-z --example zenoh_router
 ```
 
-Dynamic message examples live under `examples/dynamic_message` and are exposed as
-`dynamic_message_basic`, `dynamic_message_serialization`, and
-`dynamic_message_interop`.
+Dynamic message examples live under `examples/dynamic_message` and are exposed as `dynamic_message_basic`, `dynamic_message_serialization`, and `dynamic_message_interop`.
 
 ## Common Imports
 
@@ -92,9 +83,7 @@ Use the prelude for application code:
 use ros_z::prelude::*;
 ```
 
-Import lower-level types from their modules when you need narrower control, such
-as `ros_z::pubsub`, `ros_z::service`, `ros_z::parameter`, `ros_z::time`, or
-`ros_z::shm`.
+Import lower-level types from their modules when you need narrower control, such as `ros_z::pubsub`, `ros_z::service`, `ros_z::parameter`, `ros_z::time`, or `ros_z::shm`.
 
 ## Testing
 

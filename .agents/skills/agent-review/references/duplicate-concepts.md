@@ -20,7 +20,9 @@ Find added code that reimplements an existing concept instead of reusing, extend
 
 ## Output Guidance
 
-Report findings only for duplicate or missed-reuse issues. Include evidence from both the changed code and the existing implementation. If nothing matches, write `No findings for duplicate concepts.`
+Report findings only for duplicate or missed-reuse issues.
+Include evidence from both the changed code and the existing implementation.
+If nothing matches, write `No findings for duplicate concepts.`
 
 ## Criterion-Specific Do Not
 

@@ -21,7 +21,9 @@ Find changes that add behavior in one surface but forget another surface that us
 
 ## Output Guidance
 
-Report only surface consistency findings. Name the changed surface, the missing or inconsistent surface, and the expected relationship. If nothing matches, write `No findings for API surface consistency.`
+Report only surface consistency findings.
+Name the changed surface, the missing or inconsistent surface, and the expected relationship.
+If nothing matches, write `No findings for API surface consistency.`
 
 ## Criterion-Specific Do Not
 

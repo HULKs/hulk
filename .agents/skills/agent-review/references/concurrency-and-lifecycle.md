@@ -21,7 +21,9 @@ Find async, threading, channel, lock, cancellation, node-cycle, and resource-lif
 
 ## Output Guidance
 
-Report only concurrency and lifecycle findings. Name the runtime path and explain the concrete lifecycle or concurrency risk. If nothing matches, write `No findings for concurrency and lifecycle.`
+Report only concurrency and lifecycle findings.
+Name the runtime path and explain the concrete lifecycle or concurrency risk.
+If nothing matches, write `No findings for concurrency and lifecycle.`
 
 ## Criterion-Specific Do Not
 

@@ -58,7 +58,8 @@ For games, a strict schedule is created, which looks like this:
     All branches are ready to be merged and deployed.
     Sometimes parameter changes are still made after this stage.
 -   30 minutes prior: Golden Goal <br>
-    A kick-off against an empty field is performed. This is the final test before the game.
+    A kick-off against an empty field is performed.
+    This is the final test before the game.
 
 ## Game Rules
 

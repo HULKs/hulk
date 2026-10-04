@@ -21,7 +21,9 @@ Find obvious or evidenced runtime performance risks that affect timing, latency,
 
 ## Output Guidance
 
-Report only runtime performance findings. Cite the changed hot path or repeated work and explain why the risk is concrete rather than speculative. If nothing matches, write `No findings for runtime performance.`
+Report only runtime performance findings.
+Cite the changed hot path or repeated work and explain why the risk is concrete rather than speculative.
+If nothing matches, write `No findings for runtime performance.`
 
 ## Criterion-Specific Do Not
 

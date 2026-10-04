@@ -21,7 +21,9 @@ Find Rust changes where the type system should carry invariants that are current
 
 ## Output Guidance
 
-Report only type-design findings. Explain the invariant and name a compact Rust type shape that would encode it. If nothing matches, write `No findings for Rust type design.`
+Report only type-design findings.
+Explain the invariant and name a compact Rust type shape that would encode it.
+If nothing matches, write `No findings for Rust type design.`
 
 ## Criterion-Specific Do Not
 

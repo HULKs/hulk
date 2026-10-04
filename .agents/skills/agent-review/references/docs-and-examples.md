@@ -20,7 +20,9 @@ Find user-facing or contributor-facing changes that need documentation, examples
 
 ## Output Guidance
 
-Report only documentation and example findings. Name the stale or missing doc surface and the change it should reflect. If nothing matches, write `No findings for docs and examples.`
+Report only documentation and example findings.
+Name the stale or missing doc surface and the change it should reflect.
+If nothing matches, write `No findings for docs and examples.`
 
 ## Criterion-Specific Do Not
 

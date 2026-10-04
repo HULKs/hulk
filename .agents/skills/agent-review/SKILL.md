@@ -5,15 +5,20 @@ description: Use when reviewing PRs, branch diffs, staged changes, commit ranges
 
 # Agent Review
 
-Run focused pre-review checks before human review. By default, review all criteria listed below. If the caller names criteria, review only those criteria.
+Run focused pre-review checks before human review.
+By default, review all criteria listed below.
+If the caller names criteria, review only those criteria.
 
 ## Scope
 
-Use the caller-provided review scope. If no scope is provided, review `git diff $(git merge-base HEAD main)..HEAD`. If local `main` is unavailable, try `origin/main`; if neither base is available, state the limitation and review only the safe subset.
+Use the caller-provided review scope.
+If no scope is provided, review `git diff $(git merge-base HEAD main)..HEAD`.
+If local `main` is unavailable, try `origin/main`; if neither base is available, state the limitation and review only the safe subset.
 
 Accepted scopes include branch diffs, non-main bases, commit ranges, staged changes, unstaged changes, and file subsets.
 
-If the scope is ambiguous, ask one short clarification. If the base is unavailable, state the limitation and review only the safe subset.
+If the scope is ambiguous, ask one short clarification.
+If the base is unavailable, state the limitation and review only the safe subset.
 
 Within that scope, inspect changed files and enough surrounding repository context to evaluate each selected criterion.
 
@@ -41,15 +46,18 @@ Accept common aliases such as `rust-ownership`, `api-surface`, `concurrency`, `l
 
 ## Execution
 
-When the caller does not name criteria, dispatch one independent subagent for every criterion in the table. Give each subagent:
+When the caller does not name criteria, dispatch one independent subagent for every criterion in the table.
+Give each subagent:
 
 - The exact review scope.
 - The relevant reference file.
 - This shared scope, severity, output, and Do Not contract.
 
-For a targeted review, dispatch only the requested criteria. Keep each subagent focused on one criterion.
+For a targeted review, dispatch only the requested criteria.
+Keep each subagent focused on one criterion.
 
-Each subagent returns only findings for its criterion. Combine reports by deduplicating repeated findings while preserving the strongest severity and clearest evidence.
+Each subagent returns only findings for its criterion.
+Combine reports by deduplicating repeated findings while preserving the strongest severity and clearest evidence.
 
 ## Severity
 
@@ -59,7 +67,8 @@ Each subagent returns only findings for its criterion. Combine reports by dedupl
 
 ## Output
 
-Report only review results using this format. Do not include summaries beyond these sections:
+Report only review results using this format.
+Do not include summaries beyond these sections:
 
 ```markdown
 ## Findings
