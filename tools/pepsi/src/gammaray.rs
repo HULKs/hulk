@@ -427,16 +427,11 @@ async fn set_up_wifi(
         command.stderr(Stdio::piped());
         command.stdin(Stdio::piped());
         let mut child = command.spawn()?;
-        let second_octet = match network {
-            Network::HslA => 107,
-            Network::HslB => 108,
-            Network::HslC => 109,
-            _ => 0,
-        };
+        const WIFI_SECOND_OCTET: u8 = 0;
         let content = generate_nmconnection_file(
             &ssid,
             WIFI_PASSWORD,
-            second_octet,
+            WIFI_SECOND_OCTET,
             team_number,
             team_robot.number,
         );
