@@ -128,7 +128,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let primary_state = primary_state_cache.get_latest();
         let primary_state = primary_state.as_deref();
         let mut ball_was_seen = false;
-        let mut received_filtered_game_controller_state = None;
+        let mut received_filtered_game_controller_state = false;
 
         while ball_position_sub.is_ready() {
             match (ball_position_sub.recv().await?, ground_to_field) {
@@ -158,7 +158,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         }
         while network_message_sub.is_ready() {
             let network_message = network_message_sub.recv().await?;
-            heatmap.update_with_team_ball(field_dimensions, network_message.clone(), parameters);
+            heatmap.update_with_team_ball(field_dimensions, &network_message, parameters);
             decay_with_teammate_message(
                 &mut heatmap,
                 field_dimensions,
@@ -171,7 +171,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         }
         while filtered_game_controller_state_sub.is_ready() {
             let filtered_game_controller_state = filtered_game_controller_state_sub.recv().await?;
-            received_filtered_game_controller_state = Some(filtered_game_controller_state.clone());
+            received_filtered_game_controller_state = true;
             latest_filtered_game_controller_state = Some(filtered_game_controller_state);
         }
 
@@ -185,8 +185,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             },
         );
         if !restart_regenerated
+            && received_filtered_game_controller_state
             && let (Some(filtered_game_controller_state), Some(primary_state)) =
-                (&received_filtered_game_controller_state, primary_state)
+                (&latest_filtered_game_controller_state, primary_state)
         {
             heatmap.update_with_rule_ball(
                 filtered_game_controller_state,
