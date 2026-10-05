@@ -58,10 +58,10 @@ impl Heatmap {
     pub fn update_with_team_ball(
         &mut self,
         field_dimensions: FieldDimensions,
-        network_message: TimeWrapper<IncomingMessage>,
+        network_message: &TimeWrapper<IncomingMessage>,
         parameters: &SearchSuggestorParameters,
     ) {
-        let IncomingMessage::Hsl(message) = network_message.inner else {
+        let IncomingMessage::Hsl(message) = &network_message.inner else {
             return;
         };
         self.add_team_ball(
@@ -76,7 +76,7 @@ impl Heatmap {
         &mut self,
         field_dimensions: FieldDimensions,
         time: SystemTime,
-        message: HulkMessage,
+        message: &HulkMessage,
         team_ball_weight: f32,
     ) {
         let ball = match message {
