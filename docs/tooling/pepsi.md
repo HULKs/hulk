@@ -50,8 +50,17 @@ Many subcommands can act on multiple robots concurrently.
 
 `logs` or and `postgame` can be used after a (test-)game to download logs, the latter also shuts down the HULKs binary and disables wifi.
 
-On K1 robots, `gammaray` configures HULK and disables manufacturer controller programs; `boosterize` restores manufacturer control.
+On K1 robots, `gammaray` configures HULK and disables Booster controller programs; `boosterize` restores Booster control.
+Both commands replace `/opt/booster/Daemon/bin/child.ini` with the corresponding checked-in configuration from `tools/k1-setup/child-hulk.ini` or `child-booster.ini` and restart `booster-daemon`.
+The configurations differ only in whether they include the `RemoteController` section.
 See [Remote Control](remote_control.md) for setup, gamepad bindings, and restoration instructions.
+
+`gammaray` also reserves the K1 microphone array for HULK by installing `/etc/udev/rules.d/99-hulk-microphone.rules`.
+The rule matches USB device `1d6b:a4a7` and sets `PULSE_IGNORE=1`, leaving speaker playback available to PulseAudio.
+Setup stops HULK, refreshes the sound cards' udev properties, and restarts the `booster` user's PulseAudio service if it is already running.
+
+`boosterize` removes the rule, refreshes the sound cards' udev properties, and restarts the running PulseAudio service before restoring Booster programs.
+It also works on robots without this rule.
 
 ## Build Options
 
