@@ -1,6 +1,12 @@
 use std::{error::Error as _, fmt::Write as _, sync::Arc, time::Duration};
 
-use ros_z::{Message, dynamic::DynamicPayload, node::Node};
+use ros_z::{
+    Message,
+    dynamic::DynamicPayload,
+    entity::EndpointEntity,
+    node::Node,
+    qos::{QosDurability, QosProfile},
+};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -118,10 +124,11 @@ impl CachedSubscriptionBuilder {
             schema_discovery_timeout: _,
         } = self;
         let resolved_topic = topic.resolve(&target_identity)?;
-        let mut subscriber_builder = node.subscriber::<T>(&resolved_topic);
-        if let Some(qos) = policy.subscriber_qos() {
-            subscriber_builder = subscriber_builder.qos(qos);
-        }
+        let mut subscriber_builder = node.subscriber::<T>(&resolved_topic).qos(subscriber_qos(
+            &node,
+            &resolved_topic,
+            policy,
+        ));
         if let Some(queue_capacity) = policy.subscriber_queue_capacity() {
             subscriber_builder = subscriber_builder.queue_capacity(queue_capacity);
         }
@@ -176,11 +183,11 @@ impl CachedSubscriptionBuilder {
             schema_discovery_timeout,
         } = self;
         let resolved_topic = topic.resolve(&target_identity)?;
-        let mut subscriber_builder =
-            node.dynamic_subscriber_auto(&resolved_topic, schema_discovery_timeout);
-        if let Some(qos) = policy.subscriber_qos() {
-            subscriber_builder = subscriber_builder.qos(qos);
-        }
+        let mut subscriber_builder = node
+            .dynamic_subscriber_auto(&resolved_topic, schema_discovery_timeout)
+            .discover()
+            .await?
+            .qos(subscriber_qos(&node, &resolved_topic, policy));
         if let Some(queue_capacity) = policy.subscriber_queue_capacity() {
             subscriber_builder = subscriber_builder.queue_capacity(queue_capacity);
         }
@@ -209,6 +216,28 @@ impl CachedSubscriptionBuilder {
 
         Ok(state.handle())
     }
+}
+
+fn subscriber_qos(node: &Node, topic: &str, policy: ObservationPolicy) -> QosProfile {
+    policy.subscriber_qos().unwrap_or_else(|| QosProfile {
+        durability: inferred_durability(node.graph().lock().publishers_on(topic)),
+        ..Default::default()
+    })
+}
+
+pub(crate) fn inferred_durability<'a>(
+    publishers: impl Iterator<Item = &'a EndpointEntity>,
+) -> QosDurability {
+    let mut durability = QosDurability::Volatile;
+    for publisher in publishers {
+        if !QosProfile::try_from(publisher.qos)
+            .is_ok_and(|qos| qos.durability == QosDurability::TransientLocal)
+        {
+            return QosDurability::Volatile;
+        }
+        durability = QosDurability::TransientLocal;
+    }
+    durability
 }
 
 async fn receive_typed_loop<T>(

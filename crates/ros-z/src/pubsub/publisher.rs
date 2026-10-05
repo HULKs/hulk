@@ -664,13 +664,14 @@ where
         }
     }
 
-    /// Publish a lazily constructed message only when a subscriber is matched.
+    /// Publish when subscribed or when transient-local history must be retained.
+    /// Returns whether a message was published.
     pub async fn publish_if_subscribed<F, Fut>(&self, build: F) -> Result<bool>
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = T>,
     {
-        if !self.has_subscribers() {
+        if self.transient_local_cache.is_none() && !self.has_subscribers() {
             return Ok(false);
         }
 
