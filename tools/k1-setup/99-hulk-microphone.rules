@@ -1,0 +1,3 @@
+# Disable PulseAudio access to the K1 microphone array so HULK can use it.
+# Speaker playback uses a separate card and remains available to PulseAudio.
+SUBSYSTEM=="sound", KERNEL=="card*", ATTRS{idVendor}=="1d6b", ATTRS{idProduct}=="a4a7", ENV{PULSE_IGNORE}="1"
