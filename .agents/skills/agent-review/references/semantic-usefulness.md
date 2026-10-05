@@ -21,7 +21,9 @@ Find changes that appear implemented but do not produce useful, reachable, or co
 
 ## Output Guidance
 
-Report only semantic usefulness findings. State the claimed or implied behavior and the missing path that makes it useful. If nothing matches, write `No findings for semantic usefulness.`
+Report only semantic usefulness findings.
+State the claimed or implied behavior and the missing path that makes it useful.
+If nothing matches, write `No findings for semantic usefulness.`
 
 ## Criterion-Specific Do Not
 

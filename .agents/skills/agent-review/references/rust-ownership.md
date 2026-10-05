@@ -23,7 +23,9 @@ Find Rust code and newly introduced API surfaces that fight ownership, allocate 
 
 ## Output Guidance
 
-Report only Rust ownership findings. Include why the current ownership behavior matters at the cited call site or API boundary. If nothing matches, write `No findings for Rust ownership.`
+Report only Rust ownership findings.
+Include why the current ownership behavior matters at the cited call site or API boundary.
+If nothing matches, write `No findings for Rust ownership.`
 
 ## Criterion-Specific Do Not
 

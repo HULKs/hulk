@@ -1,10 +1,12 @@
 # Profiling on the Nao Robot
 
-We use the perf command to profile applications running on the Nao robot. It comes preinstalled in our robot image.
+We use the perf command to profile applications running on the Nao robot.
+It comes preinstalled in our robot image.
 
 !!!warning
     Important: Ensure that your hulk binary includes debug symbols; without them, the profile will be unusable.
-    Enable debug symbols by adding the --profile with-debug option to either the pepsi upload or pepsi build command. This preserves compiler optimizations while retaining symbol information for profiling.
+    Enable debug symbols by adding the --profile with-debug option to either the pepsi upload or pepsi build command.
+    This preserves compiler optimizations while retaining symbol information for profiling.
 
 ### Step 1: SSH into the Robot
 

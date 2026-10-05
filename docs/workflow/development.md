@@ -1,4 +1,5 @@
-We use GitHub for our development workflow. This includes:
+We use GitHub for our development workflow.
+This includes:
 
 -   **Issues** for bug reports, feature requests, and general discussions
 -   **Pull requests** for code reviews and contributions
@@ -55,8 +56,7 @@ The _Open_ section contains by the dev-leads selected **issues** that are import
 
 !!! note
 
-    If you want to work on issues that are not in _Open_:
-    Feel free to do so, but please create and issue beforehand and assign yourself to it, so that others know that you are working on it.
+    If you want to work on issues that are not in _Open_: Feel free to do so, but please create and issue beforehand and assign yourself to it, so that others know that you are working on it.
 
 Move or add an issue to _In Progress_ **and** assign yourself when you start working on it.
 
@@ -78,7 +78,8 @@ The _Request for Review_ section contains pull requests that are ready to be rev
 
 !!! warning "Attention"
 
-    This section is a prioritized FIFO queue. Add new cards at the bottom.
+    This section is a prioritized FIFO queue.
+    Add new cards at the bottom.
     The dev-leads might decide to move it further up if the pull request is rather important.
 
 !!! tip

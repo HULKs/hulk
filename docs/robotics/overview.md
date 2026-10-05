@@ -10,7 +10,8 @@ This cycler runs with higher priority than the other cyclers and with a higher f
 
 !!! tip
 
-    For more insights, open the [code](https://github.com/hulks/hulk) and have a look at the behavior and motion folders in the `control` crate. Follow the documentation here and in the code in parallel.
+    For more insights, open the [code](https://github.com/hulks/hulk) and have a look at the behavior and motion folders in the `control` crate.
+    Follow the documentation here and in the code in parallel.
 
 ## Vision
 

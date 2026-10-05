@@ -1,8 +1,7 @@
 # Checking your code
 
 We use a number of tools to automatically check our code for common mistakes.
-These checks are automatically executed by GitHub when you submit new code,
-but you can also run them locally to check your code before submitting.
+These checks are automatically executed by GitHub when you submit new code, but you can also run them locally to check your code before submitting.
 
 These are the most important checks:
 

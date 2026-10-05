@@ -1,10 +1,8 @@
 # TensorRT compile guide (Hydra NV12 ONNX)
 
-This guide describes the host + robot workflow for compiling TensorRT engines
-for a Hydra ONNX model and syncing the compiled cache back into the repository.
+This guide describes the host + robot workflow for compiling TensorRT engines for a Hydra ONNX model and syncing the compiled cache back into the repository.
 
-The example model can be produced with
-[`tools/machine-learning/multi-task-yolo/REPRODUCE.md`](../machine-learning/multi-task-yolo/REPRODUCE.md).
+The example model can be produced with [`tools/machine-learning/multi-task-yolo/REPRODUCE.md`](../machine-learning/multi-task-yolo/REPRODUCE.md).
 
 ## Workflow overview
 
@@ -23,8 +21,7 @@ Run from repository root:
 ./pepsi build tools/tensorrt-compile
 ```
 
-This uses the cross-compilation environment and produces an aarch64 binary
-under `target/container/aarch64-unknown-linux-gnu/debug/`.
+This uses the cross-compilation environment and produces an aarch64 binary under `target/container/aarch64-unknown-linux-gnu/debug/`.
 
 ## Step 2: Upload to sync model file to robot
 
@@ -34,8 +31,8 @@ under `target/container/aarch64-unknown-linux-gnu/debug/`.
 
 ## Step 3: Sync binary to robot
 
-Copy the binary to the robot. If you built with `--target-dir`, use that directory
-in the source path instead:
+Copy the binary to the robot.
+If you built with `--target-dir`, use that directory in the source path instead:
 
 ```bash
 rsync -av target/container/aarch64-unknown-linux-gnu/debug/tensorrt-compile \
@@ -94,11 +91,8 @@ Now deploy as usual:
 ./pepsi upload <ROBOT_NUMBER_OR_IP>
 ```
 
-Because `etc/neural_networks` now contains compiled TensorRT cache files,
-`pepsi upload` syncs them to the robot and HULK can start without waiting for
-first-run engine compilation.
+Because `etc/neural_networks` now contains compiled TensorRT cache files, `pepsi upload` syncs them to the robot and HULK can start without waiting for first-run engine compilation.
 
 ## Notes
 
-- `hydra-nv12.onnx` should stay in `etc/neural_networks` with that name unless
-  runtime code is changed.
+- `hydra-nv12.onnx` should stay in `etc/neural_networks` with that name unless runtime code is changed.

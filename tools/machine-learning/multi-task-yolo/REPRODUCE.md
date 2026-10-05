@@ -6,11 +6,9 @@ This guide reproduces the multi-head model that was deployed on the robot:
 - detection head: finetuned on `nao_coco_k1_data.yaml`
 - pose head: off-the-shelf `yolo26m-pose`
 
-If you need dataset access/details, ask the hulk members
-(for example @alexschmander or @knoellle).
+If you need dataset access/details, ask the hulk members (for example @alexschmander or @knoellle).
 
-Note: CLI command blocks that omit defaulted arguments end with
-`# implied defaults:` comments listing those implicitly applied values.
+Note: CLI command blocks that omit defaulted arguments end with `# implied defaults:` comments listing those implicitly applied values.
 
 ## Step overview
 
@@ -33,8 +31,7 @@ Required:
 
 - Python `3.13`
 - `uv`
-- dataset YAML (default expected by training CLI):
-  `/opt/data/nao_coco_k1_data.yaml`
+- dataset YAML (default expected by training CLI): `/opt/data/nao_coco_k1_data.yaml`
 - model checkpoints:
   - `assets/yolo26m.pt` (base checkpoint)
   - `assets/yolo26m-pose.pt` (pose checkpoint)
@@ -137,8 +134,7 @@ uv run -m validation.compare_results \
 
 ## Step 3: Export Hydra to NV12 ONNX
 
-Export the Hydra model directly to the deployment filename/location expected by
-the runtime:
+Export the Hydra model directly to the deployment filename/location expected by the runtime:
 
 ```bash
 uv run -m utils.export_hydra \
@@ -158,8 +154,7 @@ uv run -m utils.export_hydra \
 Why these flags matter:
 
 - `--with-nv12-layer` makes the model accept nv12 image bytes as input directly.
-- the deployed object detection node expects
-  `etc/neural_networks/hydra-nv12.onnx` by name.
+- the deployed object detection node expects `etc/neural_networks/hydra-nv12.onnx` by name.
 
 ## Step 4: Compile TensorRT engine cache
 
@@ -178,5 +173,4 @@ cd ../../../
 ./pepsi upload <ROBOT_NUMBER_OR_IP>
 ```
 
-`pepsi upload` transfers binary + configuration + `etc/neural_networks`
-artifacts to the robot and restarts HULK service.
+`pepsi upload` transfers binary + configuration + `etc/neural_networks` artifacts to the robot and restarts HULK service.

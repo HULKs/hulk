@@ -21,7 +21,9 @@ Find changes that do not fit the repository's crate boundaries, node model, fram
 
 ## Output Guidance
 
-Report only architecture-fit findings. Cite the changed location and the existing convention it should follow. If nothing matches, write `No findings for architecture fit.`
+Report only architecture-fit findings.
+Cite the changed location and the existing convention it should follow.
+If nothing matches, write `No findings for architecture fit.`
 
 ## Criterion-Specific Do Not
 

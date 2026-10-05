@@ -6,11 +6,13 @@ Each feature that lands in the software in the end has a purpose and should fulf
 The purpose is described with requirements which allow to design a solution that meets the requirements.
 The solution can later be implemented, tested, and integrated into the software.
 
-The section ["Tasks in large scale projects"](https://en.wikipedia.org/wiki/Software_engineering#Tasks_in_large_scale_projects) gives a rough outline over the software engineering duties. Team HULKs is interpreting this in the following ways:
+The section ["Tasks in large scale projects"](https://en.wikipedia.org/wiki/Software_engineering#Tasks_in_large_scale_projects) gives a rough outline over the software engineering duties.
+Team HULKs is interpreting this in the following ways:
 
 - Requirements:
     - What problem do you want to solve?
-    - Is that problem worth solving? Cost vs. benefit, measure to acquire facts
+    - Is that problem worth solving?
+      Cost vs. benefit, measure to acquire facts
     - What is required?
     - What is not required?
 - Design:

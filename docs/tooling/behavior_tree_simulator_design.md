@@ -24,7 +24,8 @@ The simulator initializes the behavior blackboard, repeatedly evaluates the beha
 - Simulating perception pipelines in detail.
 - Changing behavior tree semantics.
 - Implementing new behavior actions as part of the simulator.
-- Implementing every HSL rule in the initial auto-referee. Game-state transitions are in scope first; penalties, free-kick correctness, and detailed ball-out rules can follow later.
+- Implementing every HSL rule in the initial auto-referee.
+  Game-state transitions are in scope first; penalties, free-kick correctness, and detailed ball-out rules can follow later.
 
 # Existing Runtime Shape
 
@@ -38,7 +39,8 @@ The production behavior cycle already has the shape the simulator needs:
 - The persistent `Blackboard` keeps selected state between cycles.
 - The behavior node publishes trace and debug outputs.
 
-The simulator should not use the retired `world_state::behavior` tree. It should store one `behavior_node::node::Blackboard` and one `behavior_node::behavior_tree::Node` per robot and tick that same tree directly.
+The simulator should not use the retired `world_state::behavior` tree.
+It should store one `behavior_node::node::Blackboard` and one `behavior_node::behavior_tree::Node` per robot and tick that same tree directly.
 
 # High-Level Architecture
 
@@ -49,9 +51,12 @@ The simulator has two layers:
 - A behavior adapter over `crates/nodes/behavior_node` that can tick `create_tree()` and plan communication without ROS/network side effects.
 - A Bevy runtime in `crates/bevyhavior_simulator` that owns entities, resources, systems, scenario registration, simple kinematics, invariant checks, and timeline recording.
 
-The Bevy runtime is the only supported simulator API. Scenarios are authored against Bevy `App` so they can register systems flexibly.
+The Bevy runtime is the only supported simulator API.
+Scenarios are authored against Bevy `App` so they can register systems flexibly.
 
-Do not abbreviate `Simulator`, `Simulated`, or `Simulation` to `Sim` in type names. Prefer names such as `SimulatorRobot`, `SimulatorTimeline`, `SimulatorIncomingMessages`, and `SimulatedBall`. Avoid names such as `SimRobot`, `SimTimeline`, or `SimBall`.
+Do not abbreviate `Simulator`, `Simulated`, or `Simulation` to `Sim` in type names.
+Prefer names such as `SimulatorRobot`, `SimulatorTimeline`, `SimulatorIncomingMessages`, and `SimulatedBall`.
+Avoid names such as `SimRobot`, `SimTimeline`, or `SimBall`.
 
 # Behavior Tick API
 
@@ -118,7 +123,8 @@ This keeps behavior tree evaluation independent from communication side effects 
 
 # Persistent Behavior State
 
-Each simulated robot owns one `SimulatorRobotBehavior` with one `behavior_node::node::Blackboard`. This preserves the same state as production:
+Each simulated robot owns one `SimulatorRobotBehavior` with one `behavior_node::node::Blackboard`.
+This preserves the same state as production:
 
 - `ball`
 - `last_ball`
@@ -133,11 +139,17 @@ The simulator also stores `last_motion_command` per robot because production kee
 
 # Simulation State Model
 
-The Bevy runtime owns simulator state as components and resources. A non-Bevy `Simulation` wrapper is not supported. Shared simulator behavior must live in Bevy systems, components, and resources.
+The Bevy runtime owns simulator state as components and resources.
+A non-Bevy `Simulation` wrapper is not supported.
+Shared simulator behavior must live in Bevy systems, components, and resources.
 
-Simulator-owned physical state is stored in `coordinate_systems::World`, not `Field`. `World` is the neutral field coordinate system: it is identical to `Field` for the home team and rotated by 180 degrees for the away team. Before building each robot's behavior `WorldState`, the simulator converts the robot pose, ball, rule obstacles, and other world-owned physical values into that robot team's `Field` frame using `GameControllerState::global_field_side` for HULKs and the mirrored field side for opponents.
+Simulator-owned physical state is stored in `coordinate_systems::World`, not `Field`.
+`World` is the neutral field coordinate system: it is identical to `Field` for the home team and rotated by 180 degrees for the away team.
+Before building each robot's behavior `WorldState`, the simulator converts the robot pose, ball, rule obstacles, and other world-owned physical values into that robot team's `Field` frame using `GameControllerState::global_field_side` for HULKs and the mirrored field side for opponents.
 
-For HULKs behavior, `GlobalFieldSide::Home` means `World == Field`; `GlobalFieldSide::Away` means `Field` is `World` flipped by 180 degrees. For opponent behavior, the simulator mirrors that field side so the opponent also sees its own goal-to-opponent-goal direction as local `+X`. Auto-referee logic that reasons about physical events, such as goals and stationary robots, uses `World`; behavior-tree inputs and outputs remain in `Field`/`Ground` exactly as production expects.
+For HULKs behavior, `GlobalFieldSide::Home` means `World == Field`; `GlobalFieldSide::Away` means `Field` is `World` flipped by 180 degrees.
+For opponent behavior, the simulator mirrors that field side so the opponent also sees its own goal-to-opponent-goal direction as local `+X`.
+Auto-referee logic that reasons about physical events, such as goals and stationary robots, uses `World`; behavior-tree inputs and outputs remain in `Field`/`Ground` exactly as production expects.
 
 Core resources:
 
@@ -237,9 +249,12 @@ pub struct SimulatorReceivedHslMessage {
 }
 ```
 
-`SimulatorGameState` keeps both the full `GameControllerState` and the filtered state consumed by behavior. Auto-referee systems should mutate the full state through helper methods and then synchronize the filtered state so behavior sees a consistent game-controller view in the same tick.
+`SimulatorGameState` keeps both the full `GameControllerState` and the filtered state consumed by behavior.
+Auto-referee systems should mutate the full state through helper methods and then synchronize the filtered state so behavior sees a consistent game-controller view in the same tick.
 
-`AutoRefereeConfig` is intentionally separate from `SimulationConfig`. `SimulationConfig` controls simulator physics, perception, communication, and kinematics. `AutoRefereeConfig` controls HSL rule timing and game-controller transitions.
+`AutoRefereeConfig` is intentionally separate from `SimulationConfig`.
+`SimulationConfig` controls simulator physics, perception, communication, and kinematics.
+`AutoRefereeConfig` controls HSL rule timing and game-controller transitions.
 
 Robot entities use components and a bundle:
 
@@ -284,7 +299,8 @@ pub struct SimulatorRobotBundle {
 }
 ```
 
-Each robot is represented by a Bevy entity with `SimulatorRobotBundle` components. Tests and scenarios should use `App` plus `BehaviorTreeSimulatorPlugin`, not a separate non-Bevy runtime.
+Each robot is represented by a Bevy entity with `SimulatorRobotBundle` components.
+Tests and scenarios should use `App` plus `BehaviorTreeSimulatorPlugin`, not a separate non-Bevy runtime.
 
 The shared ball has world pose and velocity:
 
@@ -314,7 +330,8 @@ Each simulation tick runs these steps in order through Bevy systems:
 12. Record a frame for scenarios and future viewers, including filtered game state and any invariant failures.
 13. Run scenario systems/hooks.
 
-Tree ticking should be logically simultaneous for all robots. Kinematic updates should use the motion commands from the same tick after all robots have evaluated behavior.
+Tree ticking should be logically simultaneous for all robots.
+Kinematic updates should use the motion commands from the same tick after all robots have evaluated behavior.
 
 # Bevy Plugin and System Sets
 
@@ -365,7 +382,8 @@ pub enum BehaviorTreeSimulatorSet {
 }
 ```
 
-The plugin should configure these sets in a deterministic chain. Scenarios can insert custom systems with `.in_set(...)`, `.before(...)`, and `.after(...)`.
+The plugin should configure these sets in a deterministic chain.
+Scenarios can insert custom systems with `.in_set(...)`, `.before(...)`, and `.after(...)`.
 
 Examples:
 
@@ -390,23 +408,31 @@ This is required for scenarios that implement custom physics, inject observation
 
 # Robot-To-Robot Communication Routing
 
-The simulator should route HSL robot-to-robot messages through Bevy resources instead of using a network interface. Message creation remains pure and owned by `behavior_node::node::Blackboard` methods.
+The simulator should route HSL robot-to-robot messages through Bevy resources instead of using a network interface.
+Message creation remains pure and owned by `behavior_node::node::Blackboard` methods.
 
 Default routing semantics:
 
 - Treat `OutgoingMessage::Hsl(HulkMessage)` as a broadcast packet sent by one robot.
 - Deliver each HSL packet to every spawned `SimulatorRobot` on the sender's team except the sender.
-- Do not deliver self messages. This matches production filtering where `filtered_message` excludes packets from the same player number.
-- Ignore `OutgoingMessage::GameController(...)` for robot-to-robot delivery. Scenarios may inspect these messages through `SimulatorOutgoingMessages`.
-- Apply routed messages on the next simulator tick. This keeps all robots' behavior ticks logically simultaneous and avoids same-tick feedback loops.
+- Do not deliver self messages.
+  This matches production filtering where `filtered_message` excludes packets from the same player number.
+- Ignore `OutgoingMessage::GameController(...)` for robot-to-robot delivery.
+  Scenarios may inspect these messages through `SimulatorOutgoingMessages`.
+- Apply routed messages on the next simulator tick.
+  This keeps all robots' behavior ticks logically simultaneous and avoids same-tick feedback loops.
 - Store the last received HSL message per `(receiver_id, sender_id)` for inspection.
 - Convert received state messages into persistent per-receiver `PlayerState`s so teammate state remains available when no new packet arrives on a later tick.
 
 The live HSL message budgets are owned by `SimulatorGameState.game_controller_state.hulks_team.remaining_amount_of_messages` and `opponent_team.remaining_amount_of_messages`.
 
-Initial budgets come directly from `SimulatorGameState::default()`. Scenarios can adjust a team's counter during startup and call `sync_filtered_game_controller_state()`. Planning and routing always use the sender's team's live game-controller budget.
+Initial budgets come directly from `SimulatorGameState::default()`.
+Scenarios can adjust a team's counter during startup and call `sync_filtered_game_controller_state()`.
+Planning and routing always use the sender's team's live game-controller budget.
 
-The plugin's default HSL network parameters come from the `network` section of `etc/parameters/base/behavior_node.json5`, including the 300 ms state-message interval. Scenarios can override `BehaviorTreeSimulatorPlugin::hsl_network_parameters` or the `SimulatorHslNetworkParameters` resource. Communication planning continues during `VisualKick`; teammate poses are updated on message receipt and retained between messages.
+The plugin's default HSL network parameters come from the `network` section of `etc/parameters/base/behavior_node.json5`, including the 300 ms state-message interval.
+Scenarios can override `BehaviorTreeSimulatorPlugin::hsl_network_parameters` or the `SimulatorHslNetworkParameters` resource.
+Communication planning continues during `VisualKick`; teammate poses are updated on message receipt and retained between messages.
 
 Communication planning should expose the current live budget through `WorldState.filtered_game_controller_state.remaining_number_of_messages`:
 
@@ -427,17 +453,20 @@ Routing should handle the budget authoritatively:
 - Do not decrement the HSL message budget for `OutgoingMessage::GameController(...)`.
 - After decrementing, call `SimulatorGameState::sync_filtered_game_controller_state()` so the next `WorldState.filtered_game_controller_state.remaining_number_of_messages` is consistent.
 
-`build_world_states` should construct teammate `WorldState::player_states` from the receiver's persisted communication-derived `PlayerState`s rather than from ground-truth robot poses. A `HulkMessage::State` maps to `PlayerState` on receipt as follows:
+`build_world_states` should construct teammate `WorldState::player_states` from the receiver's persisted communication-derived `PlayerState`s rather than from ground-truth robot poses.
+A `HulkMessage::State` maps to `PlayerState` on receipt as follows:
 
 - `state_message.pose` becomes `PlayerState::pose`.
 - `state_message.ball_position` becomes `PlayerState::ball_position`.
 - Ball age should be interpreted relative to the message receive time, matching `PlayerStatesReceiver` semantics.
 
-The robot's own `WorldState::robot.ground_to_field` remains simulator truth. Teammate poses should come from communication so scenarios can test lost, delayed, dropped, duplicated, or stale HSL packets.
+The robot's own `WorldState::robot.ground_to_field` remains simulator truth.
+Teammate poses should come from communication so scenarios can test lost, delayed, dropped, duplicated, or stale HSL packets.
 
 # Auto-Referee
 
-The auto-referee should be a Bevy resource plus ordered rules. It should be extensible, but the first expansion should focus on game-state transitions only.
+The auto-referee should be a Bevy resource plus ordered rules.
+It should be extensible, but the first expansion should focus on game-state transitions only.
 
 Rule sources:
 
@@ -453,7 +482,9 @@ Relevant state flow from the rules:
 - `Playing -> Ready` for restarts after events such as goals or dropped ball.
 - `Playing -> Finished` at half end.
 
-Current protocol types provide `GameState::{Initial, Ready, Set, Playing, Finished}`. Brief stop should be represented through `GameControllerState::stopped`, not as a separate game state. Timeout should be represented through `GamePhase::Timeout`, not as a separate game state.
+Current protocol types provide `GameState::{Initial, Ready, Set, Playing, Finished}`.
+Brief stop should be represented through `GameControllerState::stopped`, not as a separate game state.
+Timeout should be represented through `GamePhase::Timeout`, not as a separate game state.
 
 The auto-referee config should be a standalone Bevy resource:
 
@@ -524,7 +555,8 @@ pub struct AutoRefereeContext<'a> {
 - `set_stopped(stopped)`
 - `sync_filtered_game_controller_state()`
 
-These helpers keep the full `GameControllerState` and `FilteredGameControllerState` synchronized. Scenarios may still mutate resources directly when necessary, but default auto-referee rules should use helpers.
+These helpers keep the full `GameControllerState` and `FilteredGameControllerState` synchronized.
+Scenarios may still mutate resources directly when necessary, but default auto-referee rules should use helpers.
 
 Default auto-referee rules should run in this order:
 
@@ -554,9 +586,11 @@ Default auto-referee rules should run in this order:
 `HalftimeTimeoutRule`:
 
 - If `finish_on_halftime_timeout` is enabled and the game is `Playing`, transition to `Finished` after `halftime_duration` has elapsed since `halftime_started_at`.
-- Do not implement the ball-stop extension initially. That can be added later behind a separate config field.
+- Do not implement the ball-stop extension initially.
+  That can be added later behind a separate config field.
 
-The simulator should default to `GameState::Playing` so simple behavior scenarios and smoke tests start immediately. Scenarios that need full match flow can explicitly set `Initial`, `Ready`, or `Set`.
+The simulator should default to `GameState::Playing` so simple behavior scenarios and smoke tests start immediately.
+Scenarios that need full match flow can explicitly set `Initial`, `Ready`, or `Set`.
 
 Scenario control can be added through a Bevy message API:
 
@@ -614,7 +648,8 @@ After the tick, leave persistent fields on the blackboard as production does.
 
 # Simple Kinematics
 
-Simple kinematics should be deterministic and configurable. Accuracy is less important than stable, understandable behavior tests.
+Simple kinematics should be deterministic and configurable.
+Accuracy is less important than stable, understandable behavior tests.
 
 Use a `SimulationConfig` for constants:
 
@@ -633,7 +668,9 @@ Use a `SimulationConfig` for constants:
 - `head_glance_angle`
 - `robot_radius`
 
-Use invented defaults initially, but keep them compile-time configurable through a plain Rust config struct with a `Default` implementation. Scenario code can construct `SimulationConfig` directly or use `SimulationConfig { field: value, ..Default::default() }`. Do not require parameter files for these constants in the first version.
+Use invented defaults initially, but keep them compile-time configurable through a plain Rust config struct with a `Default` implementation.
+Scenario code can construct `SimulationConfig` directly or use `SimulationConfig { field: value, ..Default::default() }`.
+Do not require parameter files for these constants in the first version.
 
 Initial defaults:
 
@@ -731,11 +768,13 @@ The first perception model should be intentionally simple:
 - If not visible, set `WorldState::ball` to `None`; persistent `Blackboard::ball` and `Blackboard::last_ball` handle timeout behavior.
 - `WorldState::obstacles` combines persistent scenario obstacles and simulator-generated obstacles.
 - Scenario obstacles live in `SimulatorScenarioObstacles` and persist until scenario code mutates that resource.
-- Simulator-generated obstacles are recalculated while building world states and stay separate from scenario-owned obstacles. The generated source may be empty initially.
+- Simulator-generated obstacles are recalculated while building world states and stay separate from scenario-owned obstacles.
+  The generated source may be empty initially.
 - Other robots may become generated obstacles later; teammate `player_states` entries come from received HSL state.
 - Scenario code can override visibility, ball observations, hypothetical ball positions, fall state, game state, and search position.
 
-Timeline snapshots should record `SimulatorHeadYaw`. The viewer should draw each robot's visibility cone from `ball_visibility_range`, `ball_visibility_angle`, robot pose, and recorded head yaw.
+Timeline snapshots should record `SimulatorHeadYaw`.
+The viewer should draw each robot's visibility cone from `ball_visibility_range`, `ball_visibility_angle`, robot pose, and recorded head yaw.
 
 # Multi-Robot Behavior
 
@@ -748,7 +787,8 @@ The core should simulate robots together instead of running independent single-r
 - Search/support behavior can use teammate positions and Voronoi inputs.
 - Closest-to-ball behavior currently returns `true`; the simulator should still provide correct inputs so a future implementation can be tested without simulator changes.
 
-The simulator routes HSL messages between robots and builds `player_states` from persisted received state rather than ground truth. This keeps communication loss, delay, and staleness testable.
+The simulator routes HSL messages between robots and builds `player_states` from persisted received state rather than ground truth.
+This keeps communication loss, delay, and staleness testable.
 
 # Rust Scenario API
 
@@ -819,7 +859,8 @@ fn mark_goal(
 
 # Invariant Checks
 
-All simulator runs must support invariant checks that execute every cycle. These checks validate properties that should hold independent of a specific scenario assertion.
+All simulator runs must support invariant checks that execute every cycle.
+These checks validate properties that should hold independent of a specific scenario assertion.
 
 Invariant checks must have access to the complete simulator state:
 
@@ -845,31 +886,40 @@ pub struct InvariantViolation {
 }
 ```
 
-Invariant failures must not abort the scenario. They should:
+Invariant failures must not abort the scenario.
+They should:
 
 - Mark the current timeline frame with the violation.
 - Mark the scenario result as failed.
 - Allow the scenario to continue until its normal end condition.
 - Be included in the final scenario error/report after the timeline has been finalized.
 
-Behavior tick errors are represented as invariant violations with check name `behavior_tick_error`. They mark the scenario as failed and stop the run without panicking, so the viewer can still show the recorded timeline.
+Behavior tick errors are represented as invariant violations with check name `behavior_tick_error`.
+They mark the scenario as failed and stop the run without panicking, so the viewer can still show the recorded timeline.
 
 Initial checks should include:
 
 - A robot should not knowingly try to walk into a rule obstacle.
 - A robot should not knowingly try to walk outside the field.
 
-"Knowingly" means the prohibited target or path is visible in the data passed to behavior for that tick, such as `WorldState::rule_obstacles`, field dimensions, planned walking path, or path-obstacle debug output. The check should not fail for hidden state that the robot could not have known from its inputs.
+"Knowingly" means the prohibited target or path is visible in the data passed to behavior for that tick, such as `WorldState::rule_obstacles`, field dimensions, planned walking path, or path-obstacle debug output.
+The check should not fail for hidden state that the robot could not have known from its inputs.
 
 # Viewer and Twix Integration
 
-The simulator opens a local viewer after scenario binaries unless `BEVYHAVIOR_SIMULATOR_NO_VIEWER` is set. The viewer consumes recorded `TimelineFrame` data and must not reconstruct blackboards or tick behavior directly.
+The simulator opens a local viewer after scenario binaries unless `BEVYHAVIOR_SIMULATOR_NO_VIEWER` is set.
+The viewer consumes recorded `TimelineFrame` data and must not reconstruct blackboards or tick behavior directly.
 
-The viewer shows field state, a behavior-tree trace view, a frame inspector, scenario failures, and a timeline scrubber. The behavior-tree view reuses Twix's `BehaviorTreeVisualizer` rendering code and includes a robot selector for choosing which robot's `NodeTrace` and static layout are shown.
+The viewer shows field state, a behavior-tree trace view, a frame inspector, scenario failures, and a timeline scrubber.
+The behavior-tree view reuses Twix's `BehaviorTreeVisualizer` rendering code and includes a robot selector for choosing which robot's `NodeTrace` and static layout are shown.
 
-The Field tab has a `Voronoi Cells` checkbox, disabled by default, and a robot selector for displaying that robot's recorded Voronoi grid and input poses using Twix's colors. The overlay follows the selected timeline frame and transforms each team's field coordinates into the shared world view. Frames without a grid for the selected robot are labeled accordingly.
+The Field tab has a `Voronoi Cells` checkbox, disabled by default, and a robot selector for displaying that robot's recorded Voronoi grid and input poses using Twix's colors.
+The overlay follows the selected timeline frame and transforms each team's field coordinates into the shared world view.
+Frames without a grid for the selected robot are labeled accordingly.
 
-The timeline scrubber is color-coded by filtered game state. Hovering the timeline shows an immediate cursor-anchored tooltip above the timeline. Marker labels are listed first; frame index, simulation time, and game-state name follow.
+The timeline scrubber is color-coded by filtered game state.
+Hovering the timeline shows an immediate cursor-anchored tooltip above the timeline.
+Marker labels are listed first; frame index, simulation time, and game-state name follow.
 
 # Recording and Outputs
 
@@ -890,11 +940,16 @@ Each recorded frame should include:
 - Voronoi map and inputs.
 - Invariant failures and scenario result failures.
 
-Timeline markers are stored separately from frames. Each marker has a `frame_time`, an `egui::Color32`, and a label. Markers are rendered on the scrubber and their labels appear in the hover tooltip.
+Timeline markers are stored separately from frames.
+Each marker has a `frame_time`, an `egui::Color32`, and a label.
+Markers are rendered on the scrubber and their labels appear in the hover tooltip.
 
-The frame format should be serializable so it can be saved for debugging failed scenarios. Viewer-only marker data may use UI types such as `Color32` because it is consumed directly by the local viewer.
+The frame format should be serializable so it can be saved for debugging failed scenarios.
+Viewer-only marker data may use UI types such as `Color32` because it is consumed directly by the local viewer.
 
-Scenario failures must still produce a viewable timeline. The runner should always finalize and show or save the recording before returning the scenario error. Invariant violations should be attached to recorded frames, and the timeline should include all frames up to the normal scenario end, failure stop, or timeout.
+Scenario failures must still produce a viewable timeline.
+The runner should always finalize and show or save the recording before returning the scenario error.
+Invariant violations should be attached to recorded frames, and the timeline should include all frames up to the normal scenario end, failure stop, or timeout.
 
 # Integration with Existing Bevyhavior Simulator
 

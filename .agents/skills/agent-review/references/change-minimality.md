@@ -21,7 +21,9 @@ Find changes that make review harder without serving the stated behavior: large 
 
 ## Output Guidance
 
-Report only minimality and reviewability findings. Identify the unrelated or excessive part and the smaller boundary that would preserve intent. If nothing matches, write `No findings for change minimality.`
+Report only minimality and reviewability findings.
+Identify the unrelated or excessive part and the smaller boundary that would preserve intent.
+If nothing matches, write `No findings for change minimality.`
 
 ## Criterion-Specific Do Not
 

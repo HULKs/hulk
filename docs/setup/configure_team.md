@@ -12,9 +12,11 @@ There is nothing to do, all the configuration should be ready to go if you clone
 
 ### Set up Team Number
 
-In the HULKs code release, the SPL team number is hardcoded in a few places. Change this to your own team number before continuing.
+In the HULKs code release, the SPL team number is hardcoded in a few places.
+Change this to your own team number before continuing.
 
--   `crates/spl_network/src/lib.rs` contains a constant called `HULKS_TEAM_NUMBER`. You may also wish to rename this constant.
+-   `crates/spl_network/src/lib.rs` contains a constant called `HULKS_TEAM_NUMBER`.
+    You may also wish to rename this constant.
 -   `tools/pepsi` contains a bunch of `24`s, however most of them are in comments or CLI command help text.
     -   `tools/pepsi/src/parsers.rs` has a default and a check value that use 24 literals.
 -   `tools/twix-legacy/src/main.rs` still packages the legacy Twix address suggestions with team number `24` hardcoded.

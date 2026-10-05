@@ -36,19 +36,30 @@ This frame represents the robot's effective position on the field and is used by
 
 ### Step Planning and Execution
 
-The walking engine interpolates the robot's foot positions over time during each step. When a step ends - i.e., when the swing foot contacts the ground and becomes the support foot - a new step is planned. At every control cycle, the step planner assumes the current step will complete within that cycle and generates a plan for the next step accordingly.
+The walking engine interpolates the robot's foot positions over time during each step.
+When a step ends - i.e., when the swing foot contacts the ground and becomes the support foot - a new step is planned.
+At every control cycle, the step planner assumes the current step will complete within that cycle and generates a plan for the next step accordingly.
 
 ### The Return Offset
 
-After a non-zero movement step, the robot's feet are no longer side-by-side. To halt walking cleanly, the robot must place the swing foot next to the support foot, bringing the feet back to a resting position. This final adjustment moving the feet together inevitably shifts the Ground frame. The return offset is this shift: the isometric transformation (rotation and translation in 2D) of the Ground frame that occurs even when planning a nominal zero step.
+After a non-zero movement step, the robot's feet are no longer side-by-side.
+To halt walking cleanly, the robot must place the swing foot next to the support foot, bringing the feet back to a resting position.
+This final adjustment moving the feet together inevitably shifts the Ground frame.
+The return offset is this shift: the isometric transformation (rotation and translation in 2D) of the Ground frame that occurs even when planning a nominal zero step.
 
-For example, if the last step was 4 cm forward, the feet end 4 cm apart. To come to rest, the swing foot (now 2 cm behind the torso) must move forward 4 cm to align with the support foot. This results in a 2 cm forward movement of the Ground frame, even though the walking engine executes a 0 cm step. This movement must be compensated in planning.
+For example, if the last step was 4 cm forward, the feet end 4 cm apart.
+To come to rest, the swing foot (now 2 cm behind the torso) must move forward 4 cm to align with the support foot.
+This results in a 2 cm forward movement of the Ground frame, even though the walking engine executes a 0 cm step.
+This movement must be compensated in planning.
 
 ### Why Compensation Is Necessary
 
-All behavior-level movement requests are relative to the Ground frame. If the return offset is not accounted for, actual movement will differ from intended movement. For example, if behavior requests a 10 cm forward move, but the return offset will already advance the robot 2 cm, the step planner must only request an 8 cm step to achieve the intended net movement.
+All behavior-level movement requests are relative to the Ground frame.
+If the return offset is not accounted for, actual movement will differ from intended movement.
+For example, if behavior requests a 10 cm forward move, but the return offset will already advance the robot 2 cm, the step planner must only request an 8 cm step to achieve the intended net movement.
 
-Similarly, actions like kicking, which depend on the position of the support foot relative to the ball, must consider where the Ground frame will be after the current step ends. This ensures correct timing and positioning for actions relative to other elements in the environment.
+Similarly, actions like kicking, which depend on the position of the support foot relative to the ball, must consider where the Ground frame will be after the current step ends.
+This ensures correct timing and positioning for actions relative to other elements in the environment.
 
 ### Summary
 

@@ -1,6 +1,7 @@
 # Aliveness
 
-Aliveness is a system for querying status information from NAOs in the network. It consists of two parts: The service running on the NAOs and a client for sending aliveness requests to the network and processing answers.
+Aliveness is a system for querying status information from NAOs in the network.
+It consists of two parts: The service running on the NAOs and a client for sending aliveness requests to the network and processing answers.
 
 ## Information available via aliveness
 
@@ -18,7 +19,8 @@ The following information can be queried from NAOs connected via Ethernet:
 
 ## Aliveness service
 
-The aliveness service is built together with the HULKs-OS image and included in it. It is started upon the first connection with the network via Ethernet and listens for all messages send to the multicast address `224.0.0.42` as well as its own IP address.
+The aliveness service is built together with the HULKs-OS image and included in it.
+It is started upon the first connection with the network via Ethernet and listens for all messages send to the multicast address `224.0.0.42` as well as its own IP address.
 
 When receiving a UDP packet with content `BEACON`, it responds by sending the above described information encoded via JSON to the sender.
 
@@ -35,7 +37,8 @@ Example usage:
 ./pepsi aliveness --timeout 500 -v
 ```
 
-When executing any of the aliveness subcommands in pepsi, it will send the aforementioned beacon message to the multicast address or to a list of NAO IP addresses. It then collects all responses within a timeout and filters their content according to the chosen verbosity level.
+When executing any of the aliveness subcommands in pepsi, it will send the aforementioned beacon message to the multicast address or to a list of NAO IP addresses.
+It then collects all responses within a timeout and filters their content according to the chosen verbosity level.
 
 ## Potential firewall issues
 
