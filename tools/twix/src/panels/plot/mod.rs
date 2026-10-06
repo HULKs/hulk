@@ -8,7 +8,7 @@ use eframe::egui::{
     Ui, emath::format_with_decimals_in_range,
 };
 use egui_plot::{HoverPosition, Line, Plot, PlotPoints, Points};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
 use crate::{
@@ -31,6 +31,7 @@ const COLORS: [Color32; 6] = [
 #[serde(default)]
 struct SavedPlot {
     history_seconds: f64,
+    #[serde(deserialize_with = "lenient_items")]
     lines: Vec<SavedLine>,
 }
 
@@ -41,6 +42,42 @@ impl Default for SavedPlot {
             lines: vec![SavedLine::default()],
         }
     }
+}
+
+/// Load saved settings field by field, so an invalid field, for example from
+/// an older or hand-edited layout, falls back to its default instead of
+/// discarding the whole plot.
+fn load_lenient<T: Serialize + DeserializeOwned + Default>(value: &Value) -> T {
+    if let Ok(loaded) = T::deserialize(value) {
+        return loaded;
+    }
+    let (Ok(Value::Object(mut merged)), Value::Object(saved)) =
+        (serde_json::to_value(T::default()), value)
+    else {
+        return T::default();
+    };
+    for (key, field) in saved {
+        let default = merged.insert(key.clone(), field.clone());
+        if T::deserialize(&Value::Object(merged.clone())).is_err() {
+            match default {
+                Some(default) => merged.insert(key.clone(), default),
+                None => merged.remove(key),
+            };
+        }
+    }
+    T::deserialize(&Value::Object(merged)).unwrap_or_default()
+}
+
+/// Load each item on its own, so one invalid item keeps the others.
+fn lenient_items<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Serialize + DeserializeOwned + Default,
+{
+    Ok(Vec::<Value>::deserialize(deserializer)?
+        .iter()
+        .map(load_lenient)
+        .collect())
 }
 
 #[derive(Serialize, Deserialize)]
@@ -148,7 +185,7 @@ impl Panel for PlotPanel {
     fn new(context: PanelCreationContext<'_>) -> Self {
         let saved: SavedPlot = context
             .value
-            .and_then(|value| serde_json::from_value(value.clone()).ok())
+            .map(load_lenient::<SavedPlot>)
             .unwrap_or_default();
         let mut panel = Self {
             next_id: saved.lines.len(),
@@ -442,7 +479,7 @@ fn valid_history_seconds(value: f64) -> f64 {
 mod tests {
     use serde_json::json;
 
-    use super::{DrawStyle, SavedLine};
+    use super::{DrawStyle, SavedLine, SavedPlot, load_lenient};
 
     #[test]
     fn layouts_without_a_style_draw_lines() {
@@ -462,5 +499,33 @@ mod tests {
         assert_eq!(value["style"], "scatter");
         let restored: SavedLine = serde_json::from_value(value).unwrap();
         assert!(restored.style == DrawStyle::Scatter);
+    }
+
+    #[test]
+    fn invalid_fields_fall_back_without_discarding_the_plot() {
+        let saved: SavedPlot = load_lenient(&json!({
+            "history_seconds": "long",
+            "lines": [
+                { "topic": "a", "color": "red", "style": "scatter" },
+                "not a line",
+                { "topic": "b", "visible": false },
+            ],
+        }));
+
+        assert_eq!(saved.history_seconds, 30.0);
+        let lines: Vec<_> = saved
+            .lines
+            .iter()
+            .map(|line| (line.topic.as_str(), line.visible, line.style))
+            .collect();
+        assert!(
+            lines
+                == [
+                    ("a", true, DrawStyle::Scatter),
+                    ("", true, DrawStyle::Line),
+                    ("b", false, DrawStyle::Line),
+                ]
+        );
+        assert_eq!(saved.lines[0].color, SavedLine::default().color);
     }
 }

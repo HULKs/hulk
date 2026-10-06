@@ -79,8 +79,15 @@ impl PlotHistory {
         }
     }
 
+    /// Newest sample of the displayed snapshot, which stays fixed while paused.
     pub fn latest(&self, topic: &str) -> Option<Arc<SampleRecord<DynamicPayload>>> {
-        self.topics.get(topic)?.as_ref().ok()?.observation.latest()
+        self.topics
+            .get(topic)?
+            .as_ref()
+            .ok()?
+            .records
+            .last()
+            .cloned()
     }
 
     pub fn end_time(&self) -> Option<Time> {
