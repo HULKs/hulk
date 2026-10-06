@@ -1,13 +1,14 @@
 mod history;
+mod states;
 mod status;
 
 use std::time::Duration;
 
 use eframe::egui::{
-    Align, Button, Color32, DragValue, Frame, Label, Layout, Popup, RichText, ScrollArea, Tooltip,
-    Ui, emath::format_with_decimals_in_range,
+    Align, Button, Color32, DragValue, Frame, Label, Layout, Popup, Response, RichText, ScrollArea,
+    Tooltip, Ui, emath::format_with_decimals_in_range,
 };
-use egui_plot::{HoverPosition, Line, Plot, PlotPoints, Points};
+use egui_plot::{HoverPosition, Line, Plot, PlotMemory, PlotPoints, Points};
 use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
@@ -17,6 +18,7 @@ use crate::{
 };
 
 use history::{PlotHistory, SeriesData, seconds_from};
+use states::{StateLane, StateLaneItem, state_at, visible_spans};
 
 const COLORS: [Color32; 6] = [
     Color32::from_rgb(31, 119, 180),
@@ -266,6 +268,7 @@ impl Panel for PlotPanel {
         if !self.paused {
             self.history.refresh();
         }
+        let paused = self.paused;
         let mut remove = None;
         ScrollArea::vertical()
             .id_salt("plot-sources")
@@ -273,77 +276,47 @@ impl Panel for PlotPanel {
             .show(ui, |ui| {
                 for line in &mut self.lines {
                     ui.push_id(line.id, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.checkbox(&mut line.visible, "")
-                                .on_hover_text("Show line");
-                            ui.color_edit_button_srgba(&mut line.color);
-                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                if ui
-                                    .add_enabled(
-                                        !self.paused,
-                                        Button::new(
-                                            egui_material_icons::icons::ICON_CLOSE.codepoint,
-                                        ),
-                                    )
-                                    .on_hover_text("Remove item")
-                                    .clicked()
-                                {
-                                    remove = Some(line.id);
-                                }
-                                let info =
-                                    ui.button(egui_material_icons::icons::ICON_INFO.codepoint);
-                                // Drawing style only affects display, so it remains
-                                // editable while paused, like colors.
-                                if ui
-                                    .button(line.style.icon())
-                                    .on_hover_text(line.style.description())
-                                    .clicked()
-                                {
-                                    line.style = line.style.toggled();
-                                }
-                                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                                    ui.add_enabled_ui(!self.paused, |ui| {
-                                        ui.spacing_mut().text_edit_width = f32::INFINITY;
-                                        let sample = self.history.latest(line.source.topic());
-                                        line.source.ui(
-                                            ui,
-                                            context.backend,
-                                            sample.as_ref().map(|record| &record.value),
-                                        );
-                                    });
-                                });
-                                self.history.project(
-                                    line.source.topic(),
-                                    line.source.field_path(),
-                                    &mut line.data,
+                        let row = item_row(
+                            ui,
+                            paused,
+                            ItemControls {
+                                visible: &mut line.visible,
+                                color: &mut line.color,
+                                style: (!line.data.is_state()).then_some(&mut line.style),
+                            },
+                            if line.data.is_state() {
+                                ItemKind::States
+                            } else {
+                                ItemKind::Line
+                            },
+                            |ui| {
+                                ui.spacing_mut().text_edit_width = f32::INFINITY;
+                                let sample = self.history.latest(line.source.topic());
+                                line.source.ui(
+                                    ui,
+                                    context.backend,
+                                    sample.as_ref().map(|record| &record.value),
                                 );
-                                let status = self.history.status(line.source.topic());
-                                let max_info_width = (ui.ctx().content_rect().width()
-                                    - Frame::popup(ui.style()).total_margin().sum().x)
-                                    .max(0.0);
-                                let show_info = |ui: &mut Ui| {
-                                    ui.set_max_width(max_info_width);
-                                    ui.add(Label::new(&status).wrap());
-                                    ui.label(format!("{} gaps", line.data.gaps));
-                                    if let Some(issue) = &line.data.issue {
-                                        ui.add(
-                                            Label::new(
-                                                RichText::new(issue)
-                                                    .color(ui.visuals().warn_fg_color),
-                                            )
-                                            .wrap(),
-                                        );
-                                    }
-                                };
-                                Tooltip::for_enabled(&info)
-                                    .layout(Layout::top_down(Align::Min))
-                                    .width(max_info_width)
-                                    .show(show_info);
-                                Popup::menu(&info)
-                                    .layout(Layout::top_down(Align::Min))
-                                    .width(max_info_width)
-                                    .show(show_info);
-                            });
+                            },
+                        );
+                        if row.remove {
+                            remove = Some(line.id);
+                        }
+                        self.history.project(
+                            line.source.topic(),
+                            line.source.field_path(),
+                            &mut line.data,
+                        );
+                        let status = self.history.status(line.source.topic());
+                        show_info(ui, &row.info, |ui| {
+                            ui.add(Label::new(&status).wrap());
+                            if line.data.is_state() {
+                                ui.label(format!("{} state intervals", line.data.states.len()));
+                            }
+                            ui.label(format!("{} gaps", line.data.gaps));
+                            if let Some(issue) = &line.data.issue {
+                                warning(ui, issue);
+                            }
                         });
                     });
                 }
@@ -357,9 +330,33 @@ impl Panel for PlotPanel {
         }
 
         let end = self.history.end_time();
+        let window = end.map(|end| {
+            (
+                end.saturating_sub(Duration::from_secs_f64(self.history_seconds)),
+                end,
+            )
+        });
+        let state_lanes: Vec<_> = self
+            .lines
+            .iter()
+            .filter(|line| line.visible && line.data.is_state())
+            .enumerate()
+            .map(|(lane, line)| StateLane {
+                label: line.source.source(),
+                color: line.color,
+                spans: window
+                    .map(|(start, end)| visible_spans(&line.data.states, start, end).collect())
+                    .unwrap_or_default(),
+                lane,
+            })
+            .collect();
+        let plot_id = ui.id().with("time-series");
+        // Hover labels map positions to lanes with the last drawn bounds.
+        let bounds = PlotMemory::load(ui.ctx(), plot_id).map(|memory| *memory.bounds());
         // Grid and crosshair only guide reading; keep them behind the data.
         let guide_color = ui.visuals().text_color().gamma_multiply(0.3);
-        let mut plot = Plot::new(ui.id().with("time-series"))
+        let mut plot = Plot::new("time-series")
+            .id(plot_id)
             .x_axis_formatter(|mark, _| {
                 let decimals = (-mark.step_size.log10().round()).max(0.0) as usize;
                 let value = format_with_decimals_in_range(mark.value, decimals..=decimals);
@@ -375,9 +372,18 @@ impl Panel for PlotPanel {
                 } => Some(format!(
                     "{plot_name}\n{}\nat {}s",
                     format_with_decimals_in_range(position.y, 0..=6),
-                    format_with_decimals_in_range(position.x, 3..=3),
+                    format_seconds(position.x),
                 )),
-                HoverPosition::Elsewhere { .. } => None,
+                HoverPosition::Elsewhere { position } => {
+                    let (lane, span) = state_at(&state_lanes, bounds.as_ref()?, *position)?;
+                    Some(format!(
+                        "{}\n{}\nfrom {}s to {}s",
+                        lane.label,
+                        span.name,
+                        format_seconds(span.x.start),
+                        format_seconds(span.x.end),
+                    ))
+                }
             })
             .allow_double_click_reset(false)
             .allow_drag(self.paused)
@@ -395,10 +401,13 @@ impl Panel for PlotPanel {
                 plot_ui.set_auto_bounds([false, true]);
                 plot_ui.set_plot_bounds_x(-self.history_seconds..=0.0);
             }
-            let Some(end) = end else {
+            // Draw states first, so lines stay on top.
+            for lane in &state_lanes {
+                plot_ui.add(StateLaneItem::new(lane, state_lanes.len()));
+            }
+            let Some((start, end)) = window else {
                 return;
             };
-            let start = end.saturating_sub(Duration::from_secs_f64(self.history_seconds));
             for line in self.lines.iter().filter(|line| line.visible) {
                 let label = line.source.source();
                 for segment in &line.data.segments {
@@ -473,6 +482,118 @@ fn valid_history_seconds(value: f64) -> f64 {
     } else {
         30.0
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ItemKind {
+    Line,
+    States,
+}
+
+impl ItemKind {
+    fn icon(self) -> &'static str {
+        match self {
+            Self::Line => egui_material_icons::icons::ICON_SHOW_CHART.codepoint,
+            Self::States => egui_material_icons::icons::ICON_VIEW_TIMELINE.codepoint,
+        }
+    }
+
+    fn description(self) -> &'static str {
+        match self {
+            Self::Line => "Topic plotted as a line",
+            Self::States => "Topic states shown in the background",
+        }
+    }
+}
+
+/// Display settings of an item's row. Items without a drawing style choice
+/// show a disabled style button, so all rows keep the same layout.
+struct ItemControls<'a> {
+    visible: &'a mut bool,
+    color: &'a mut Color32,
+    style: Option<&'a mut DrawStyle>,
+}
+
+struct ItemRow {
+    remove: bool,
+    info: Response,
+}
+
+/// Controls shared by all items: type icon, visibility, color, the source
+/// editor, and info and remove buttons. Sources cannot change while paused,
+/// but display settings remain editable.
+fn item_row(
+    ui: &mut Ui,
+    paused: bool,
+    controls: ItemControls<'_>,
+    kind: ItemKind,
+    editor: impl FnOnce(&mut Ui),
+) -> ItemRow {
+    ui.horizontal(|ui| {
+        ui.label(kind.icon()).on_hover_text(kind.description());
+        ui.checkbox(controls.visible, "").on_hover_text("Show item");
+        ui.color_edit_button_srgba(controls.color);
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            let remove = ui
+                .add_enabled(
+                    !paused,
+                    Button::new(egui_material_icons::icons::ICON_CLOSE.codepoint),
+                )
+                .on_hover_text("Remove item")
+                .clicked();
+            let info = ui.button(egui_material_icons::icons::ICON_INFO.codepoint);
+            // Drawing style only affects display, so it remains editable while
+            // paused, like colors.
+            match controls.style {
+                Some(style) => {
+                    if ui
+                        .button(style.icon())
+                        .on_hover_text(style.description())
+                        .clicked()
+                    {
+                        *style = style.toggled();
+                    }
+                }
+                None => {
+                    ui.add_enabled(false, Button::new(DrawStyle::Line.icon()))
+                        .on_disabled_hover_text("Only topic lines can switch to scatter mode.");
+                }
+            }
+            ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                ui.add_enabled_ui(!paused, editor);
+            });
+            ItemRow { remove, info }
+        })
+        .inner
+    })
+    .inner
+}
+
+/// Show item details on hover or click, fitting the window width.
+fn show_info(ui: &Ui, info: &Response, content: impl Fn(&mut Ui)) {
+    let max_width = (ui.ctx().content_rect().width()
+        - Frame::popup(ui.style()).total_margin().sum().x)
+        .max(0.0);
+    let show = |ui: &mut Ui| {
+        ui.set_max_width(max_width);
+        content(ui);
+    };
+    Tooltip::for_enabled(info)
+        .layout(Layout::top_down(Align::Min))
+        .width(max_width)
+        .show(show);
+    Popup::menu(info)
+        .layout(Layout::top_down(Align::Min))
+        .width(max_width)
+        .show(show);
+}
+
+fn warning(ui: &mut Ui, text: &str) {
+    ui.add(Label::new(RichText::new(text).color(ui.visuals().warn_fg_color)).wrap());
+}
+
+fn format_seconds(seconds: f64) -> String {
+    format_with_decimals_in_range(seconds, 3..=3)
 }
 
 #[cfg(test)]
