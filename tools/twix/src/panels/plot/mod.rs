@@ -5,9 +5,9 @@ use std::time::Duration;
 
 use eframe::egui::{
     Align, Button, Color32, DragValue, Frame, Label, Layout, Popup, RichText, ScrollArea, Tooltip,
-    Ui,
+    Ui, emath::format_with_decimals_in_range,
 };
-use egui_plot::{Legend, Line, Plot, PlotPoints, Points};
+use egui_plot::{HoverPosition, Legend, Line, Plot, PlotPoints, Points};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -284,15 +284,28 @@ impl Panel for PlotPanel {
         }
 
         let end = self.history.end_time();
+        // Grid and crosshair only guide reading; keep them behind the data.
+        let guide_color = ui.visuals().text_color().gamma_multiply(0.3);
         let mut plot = Plot::new(ui.id().with("time-series"))
             .legend(Legend::default())
             .x_axis_formatter(|mark, _| {
                 let decimals = (-mark.step_size.log10().round()).max(0.0) as usize;
-                let value = eframe::egui::emath::format_with_decimals_in_range(
-                    mark.value,
-                    decimals..=decimals,
-                );
+                let value = format_with_decimals_in_range(mark.value, decimals..=decimals);
                 format!("{value}s")
+            })
+            .grid_color(guide_color)
+            .cursor_color(guide_color)
+            .label_formatter(|position| match position {
+                HoverPosition::NearDataPoint {
+                    plot_name,
+                    position,
+                    ..
+                } => Some(format!(
+                    "{plot_name}\n{}\nat {}s",
+                    format_with_decimals_in_range(position.y, 0..=6),
+                    format_with_decimals_in_range(position.x, 3..=3),
+                )),
+                HoverPosition::Elsewhere { .. } => None,
             })
             .allow_double_click_reset(false)
             .allow_drag(self.paused)
