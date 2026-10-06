@@ -167,6 +167,9 @@ pub(super) struct SeriesData {
     pub states: Vec<StateInterval>,
     pub issue: Option<String>,
     pub gaps: usize,
+    /// Whether the last projection with data had states, kept while no data
+    /// is available, so the item's kind does not flicker.
+    shows_states: bool,
 }
 
 /// A run of one enum variant or boolean value. The current state has no end
@@ -185,9 +188,10 @@ enum SampleValue<'a> {
 }
 
 impl SeriesData {
-    /// True when the selected field is a boolean or enum.
+    /// True when the selected field is a boolean or enum. Without any valid
+    /// samples, the previous kind is kept.
     pub fn is_state(&self) -> bool {
-        !self.states.is_empty()
+        self.shows_states
     }
 
     fn refresh(&mut self, records: Option<&Records>, path: &str) {
@@ -269,6 +273,9 @@ impl SeriesData {
             self.segments.push(segment);
         }
         self.states.extend(state);
+        if !self.segments.is_empty() || !self.states.is_empty() {
+            self.shows_states = !self.states.is_empty();
+        }
     }
 
     fn close_state(&mut self, state: &mut Option<StateInterval>, end: Time) {
@@ -468,5 +475,22 @@ mod tests {
             ]
         );
         assert_eq!(series.gaps, 1);
+    }
+
+    #[test]
+    fn items_keep_their_kind_without_valid_samples() {
+        let optional_bool = |value: Option<bool>| {
+            DynamicValue::Optional(value.map(|value| Box::new(DynamicValue::Bool(value))))
+        };
+        let mut series = project(
+            TypeDef::Optional(Box::new(TypeDef::Primitive(PrimitiveTypeDef::Bool))),
+            Default::default(),
+            vec![optional_bool(Some(true))],
+        );
+        assert!(series.is_state());
+
+        series.states.clear();
+        series.project_samples(&ValuePath::default(), std::iter::empty());
+        assert!(series.is_state());
     }
 }
