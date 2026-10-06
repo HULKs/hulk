@@ -203,10 +203,13 @@ impl SeriesData {
                 .select(payload)
                 .map_err(|error| error.to_string())
                 .and_then(numeric_value);
-            self.issue = value.as_ref().err().cloned();
             match value {
-                Ok(value) => segment.push((time, value)),
-                Err(_) => {
+                Ok(value) => {
+                    self.issue = None;
+                    segment.push((time, value));
+                }
+                Err(error) => {
+                    self.issue = Some(error);
                     self.gaps += 1;
                     if !segment.is_empty() {
                         self.segments.push(std::mem::take(&mut segment));

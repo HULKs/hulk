@@ -129,18 +129,6 @@ impl PlotLine {
             style: self.style,
         }
     }
-
-    fn label(&self) -> String {
-        let topic = self.source.topic();
-        let path = self.source.field_path();
-        if path.is_empty() {
-            topic.to_owned()
-        } else if path.starts_with('[') || path.starts_with("::") {
-            format!("{topic}{path}")
-        } else {
-            format!("{topic}.{path}")
-        }
-    }
 }
 
 pub struct PlotPanel {
@@ -375,7 +363,7 @@ impl Panel for PlotPanel {
             };
             let start = end.saturating_sub(Duration::from_secs_f64(self.history_seconds));
             for line in self.lines.iter().filter(|line| line.visible) {
-                let label = line.label();
+                let label = line.source.source();
                 for segment in &line.data.segments {
                     let points: Vec<_> = segment
                         .iter()

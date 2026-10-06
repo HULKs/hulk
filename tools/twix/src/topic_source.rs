@@ -43,6 +43,11 @@ impl TopicSourceEditor {
         &self.field_path
     }
 
+    /// Topic and field path formatted as one source, as entered in the input.
+    pub fn source(&self) -> String {
+        format!("{}{}", self.topic, self.field_path)
+    }
+
     pub fn request_focus(&mut self) {
         self.focus_requested = true;
     }
