@@ -7,7 +7,7 @@ use eframe::egui::{
     Align, Button, Color32, DragValue, Frame, Label, Layout, Popup, RichText, ScrollArea, Tooltip,
     Ui, emath::format_with_decimals_in_range,
 };
-use egui_plot::{HoverPosition, Legend, Line, Plot, PlotPoints, Points};
+use egui_plot::{HoverPosition, Line, Plot, PlotPoints, Points};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -287,7 +287,6 @@ impl Panel for PlotPanel {
         // Grid and crosshair only guide reading; keep them behind the data.
         let guide_color = ui.visuals().text_color().gamma_multiply(0.3);
         let mut plot = Plot::new(ui.id().with("time-series"))
-            .legend(Legend::default())
             .x_axis_formatter(|mark, _| {
                 let decimals = (-mark.step_size.log10().round()).max(0.0) as usize;
                 let value = format_with_decimals_in_range(mark.value, decimals..=decimals);
