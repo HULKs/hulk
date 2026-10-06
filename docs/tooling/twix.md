@@ -124,7 +124,8 @@ Collections, strings, booleans, and enums need a numeric field selection; conver
 
 Use **Add item** to compare sources on the same axes.
 Each item has a color picker, visibility checkbox, and X button beside the topic field to remove it.
-The legend identifies each source, and hovering over a line shows coordinates.
+The legend identifies each source, and hovering near a line shows its name, value, and time in a tooltip.
+The grid and crosshair are drawn faintly so they guide reading without competing with the data.
 A lone sample is drawn as a point.
 Missing array elements, absent optionals, inactive enum variants, and NaN/infinite values break lines into separate segments.
 Hover over or click the info button beside the topic field to see the observation status, sample count, gap count, and any selection problem.
