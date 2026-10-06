@@ -135,6 +135,7 @@ States follow the same time axis, history window, and pause/zoom behavior as the
 
 Use **Add threshold** to draw a parameter as a dashed horizontal line, for example while tuning a threshold that guards an output.
 Enter the parameter **Node**, relative to the robot namespace or absolute, and a dot-separated **Path**, for example node `obstacle_filter` and path `robot_confidence_threshold`.
+Like topics, both inputs apply when you press Enter or choose a completion.
 Nodes complete from discovered parameter services, and paths complete from the node's parameter snapshot.
 A number draws one line, and an array of numbers, such as `[0.05, 0.1]`, draws one line per element.
 Thresholds follow the node's parameter events, so a line moves when the parameter changes, including writes from the Parameter panel.
