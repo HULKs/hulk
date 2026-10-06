@@ -343,7 +343,6 @@ impl Panel for PlotPanel {
             .enumerate()
             .map(|(lane, line)| StateLane {
                 label: line.source.source(),
-                color: line.color,
                 spans: window
                     .map(|(start, end)| visible_spans(&line.data.states, start, end).collect())
                     .unwrap_or_default(),
@@ -532,7 +531,12 @@ fn item_row(
     ui.horizontal(|ui| {
         ui.label(kind.icon()).on_hover_text(kind.description());
         ui.checkbox(controls.visible, "").on_hover_text("Show item");
-        ui.color_edit_button_srgba(controls.color);
+        // State intervals use fixed colors per variant, so the item color has
+        // no effect. Keep it for switching back to a numeric field.
+        ui.add_enabled_ui(kind != ItemKind::States, |ui| {
+            ui.color_edit_button_srgba(controls.color)
+                .on_disabled_hover_text("States use fixed colors per variant.");
+        });
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             let remove = ui
                 .add_enabled(

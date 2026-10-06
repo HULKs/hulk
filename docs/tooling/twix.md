@@ -134,7 +134,8 @@ Hover over or click the info button beside the topic field to see the observatio
 Select an enum or boolean field, for example `primary_state`, to show its states as labeled, colored intervals behind the numeric lines.
 This helps correlate state changes, such as transitions between motion states, with numeric data.
 Each state item gets its own horizontal lane, so several enums can be compared at once; hiding an item through its checkbox gives its lane to the others.
-A thin bar at the top of a lane matches the item's color, while faint interval colors identify the variants and stay the same for a given enum, keeping the lines in the foreground.
+Faint interval colors identify the variants and stay the same for a given enum, keeping the lines in the foreground.
+Because variants have their own colors, the color picker is disabled for state items; the chosen color is kept for switching back to a numeric field.
 Labels that do not fit an interval are shortened; hover over an interval away from the lines to see the item, state, and its time range.
 A state lasts until a sample with another variant arrives, and the current state extends to the newest displayed time.
 Unavailable values, such as absent optionals or inactive parent variants, end the current state and count as gaps.
