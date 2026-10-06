@@ -73,7 +73,7 @@ Choose a panel from the **+** picker.
 | Map | Display field or ground views with selectable layers for robot pose, balls, obstacles, and paths. |
 | Parameter | Discover nodes with remote parameter services, display snapshots or selected paths as JSON, and write selected paths to active layers with revision checks. |
 | Audio | Display microphone spectra and a waterfall for the selected channel, defaulting to `audio_spectrums`. |
-| [Plot](#plot-panel) | Compare numeric topics or fields over time. |
+| [Plot](#plot-panel) | Compare numeric topics or fields over time, with enum and boolean states in the background. |
 
 ## Topic and field selection
 
@@ -120,15 +120,25 @@ Select **Plot** in the panel picker.
 Enter a numeric topic, or choose a topic and continue into its fields using the same completion input as Text.
 For example, `detected_objects.inner[2].bounding_box.confidence` plots the third detection's confidence.
 Integer and floating-point scalars are supported, including present optional numbers.
-Collections, strings, booleans, and enums need a numeric field selection; conversions and state backgrounds are deferred.
+Enums and booleans are shown as states in the background; collections and strings need a numeric, enum, or boolean field selection.
 
 Use **Add item** to compare sources on the same axes.
 Each item has a color picker, visibility checkbox, and X button beside the topic field to remove it.
+An icon at the start of each row shows the item type: a line chart for numeric topic lines and a timeline for topic states.
 The item list identifies each source by its color, and hovering near a line shows its name, value, and time in a tooltip.
 The grid and crosshair are drawn faintly so they guide reading without competing with the data.
 A lone sample is drawn as a point.
 Missing array elements, absent optionals, inactive enum variants, and NaN/infinite values break lines into separate segments.
 Hover over or click the info button beside the topic field to see the observation status, sample count, gap count, and any selection problem.
+
+Select an enum or boolean field, for example `primary_state`, to show its states as labeled, colored intervals behind the numeric lines.
+This helps correlate state changes, such as transitions between motion states, with numeric data.
+Each state item gets its own horizontal lane, so several enums can be compared at once; hiding an item through its checkbox gives its lane to the others.
+A thin bar at the top of a lane matches the item's color, while faint interval colors identify the variants and stay the same for a given enum, keeping the lines in the foreground.
+Labels that do not fit an interval are shortened; hover over an interval away from the lines to see the item, state, and its time range.
+A state lasts until a sample with another variant arrives, and the current state extends to the newest displayed time.
+Unavailable values, such as absent optionals or inactive parent variants, end the current state and count as gaps.
+States follow the same time axis, history window, and pause/zoom behavior as the lines, and do not affect the Y axis range.
 
 The live view follows a common newest publisher timestamp, displayed as zero seconds on the X axis.
 All lines use source timestamps, so comparisons across publishers assume a shared clock.
@@ -167,7 +177,7 @@ flowchart LR
 Within a plot, `PlotHistory` owns one observation per distinct topic reference and shares decoded snapshots across its lines.
 Notifications request redraws and refresh the history snapshot, which can include multiple samples received between frames.
 Field changes reproject that history without reconnecting.
-`SeriesData` applies `ValuePath` directly to dynamic values, caches the numeric projection until the snapshot or path changes, and separates gaps before rendering.
+`SeriesData` applies `ValuePath` directly to dynamic values, merges enum and boolean samples into state intervals, caches the projection until the snapshot or path changes, and separates gaps before rendering.
 Pausing stops snapshot refresh, leaving the live observations running.
 Removing the last line using a topic releases its observation.
 
