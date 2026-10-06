@@ -26,6 +26,9 @@ pub trait Panel {
 
     fn header_ui(&mut self, _ui: &mut Ui, _context: PanelUiContext<'_>) {}
 
+    /// Focus this panel's topic input on its next render, if it has one.
+    fn focus_topic(&mut self) {}
+
     fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>);
 
     fn save(&self) -> Value {

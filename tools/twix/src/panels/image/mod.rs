@@ -56,6 +56,7 @@ fn decode_color_image(image: &RosImage) -> Result<ColorImage, ImageDecodeError> 
 
 pub struct ImagePanel {
     topic_editor: String,
+    focus_topic_requested: bool,
     topic: String,
     observation: ObservationState,
     overlays: Box<ImageOverlays>,
@@ -89,6 +90,7 @@ impl Panel for ImagePanel {
 
         let mut panel = Self {
             topic_editor: topic.clone(),
+            focus_topic_requested: false,
             topic,
             observation: ObservationState::Idle,
             overlays: Box::new(ImageOverlays::new(
@@ -105,6 +107,10 @@ impl Panel for ImagePanel {
         panel
     }
 
+    fn focus_topic(&mut self) {
+        self.focus_topic_requested = true;
+    }
+
     fn header_ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
         self.overlays.ui(ui, &context);
         ui.label("Topic");
@@ -116,11 +122,14 @@ impl Panel for ImagePanel {
                 .type_name(RosImage::type_name())
                 .complete(graph.publishers())
         };
-        let response = ui.add(CompletionEdit::new(
-            ui.id().with("image_topic"),
-            &completions,
-            &mut self.topic_editor,
-        ));
+        let response = ui.add(
+            CompletionEdit::new(
+                ui.id().with("image_topic"),
+                &completions,
+                &mut self.topic_editor,
+            )
+            .request_focus(std::mem::take(&mut self.focus_topic_requested)),
+        );
         if response.changed() {
             self.commit_topic(&context);
         }

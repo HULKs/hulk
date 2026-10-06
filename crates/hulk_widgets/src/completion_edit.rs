@@ -1,8 +1,8 @@
 use std::{hash::Hash, sync::Arc};
 
 use egui::{
-    Color32, Context, Id, Key, Popup, PopupCloseBehavior, Response, ScrollArea, TextEdit,
-    TextStyle, Ui, Widget,
+    Color32, Context, EventFilter, Id, Key, Modifiers, Popup, PopupCloseBehavior, Response,
+    ScrollArea, TextEdit, TextStyle, Ui, Widget,
     cache::{ComputerMut, FrameCache},
     response::Flags,
     text::{CCursor, CCursorRange},
@@ -20,6 +20,8 @@ pub struct CompletionEdit<'a, T> {
     id: Id,
     suggestions: &'a [T],
     selected: &'a mut String,
+    select_all_on_focus: bool,
+    request_focus: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -83,7 +85,22 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
             id: id_salt.into(),
             suggestions: items,
             selected,
+            select_all_on_focus: true,
+            request_focus: false,
         }
+    }
+
+    /// Disable automatic selection of the entire input when restoring focus with
+    /// a specific cursor selection, such as an array-index placeholder.
+    pub fn select_all_on_focus(mut self, enabled: bool) -> Self {
+        self.select_all_on_focus = enabled;
+        self
+    }
+
+    /// Request keyboard focus and select the input for replacement this frame.
+    pub fn request_focus(mut self, requested: bool) -> Self {
+        self.request_focus = requested;
+        self
     }
 
     pub fn ui(
@@ -103,9 +120,21 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
         state: &mut CompletionEditState,
         mut show_value: impl FnMut(&mut Ui, bool, &T) -> Response,
     ) -> Response {
+        if self.request_focus {
+            state.selection.clear();
+        }
         let mut matching_items = get_matching_items(ui, self.selected, self.suggestions);
         state.selection.clamp(matching_items.len());
         let popup_id = self.id.with("popup");
+        let text_edit_id = self.id.with("text-edit");
+        if ui.memory(|memory| memory.has_focus(text_edit_id))
+            && ui.input(|input| input.key_pressed(Key::ArrowDown))
+        {
+            // Focus navigation is computed before widgets consume key events.
+            ui.memory_mut(|memory| memory.move_focus(egui::FocusDirection::None));
+            state.typed_since_focused = true;
+            Popup::open_id(ui.ctx(), popup_id);
+        }
         let is_popup_open = Popup::is_id_open(ui.ctx(), popup_id);
         let list_input = ListInput::consume(ui, is_popup_open, false);
         let TextEditOutput {
@@ -115,6 +144,7 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
         } = ui
             .scope(|ui| match state.selection.highlighted() {
                 None => TextEdit::singleline(self.selected)
+                    .id(text_edit_id)
                     .hint_text("Search")
                     .show(ui),
                 Some(index) => {
@@ -127,6 +157,7 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
                         .map(|(_, value)| value.clone())
                         .unwrap_or_default();
                     let output = TextEdit::singleline(&mut selected)
+                        .id(text_edit_id)
                         .text_color(Color32::GRAY)
                         .hint_text("Search")
                         .show(ui);
@@ -147,6 +178,9 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
             })
             .inner;
         let mut response = response.response;
+        if self.request_focus {
+            response.request_focus();
+        }
 
         let text_changed = response.changed();
         if text_changed {
@@ -155,7 +189,9 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
             matching_items = get_matching_items(ui, self.selected, self.suggestions);
         }
         state.selection.clamp(matching_items.len());
-        if !state.textedit_was_focused && response.has_focus() {
+        if self.request_focus
+            || self.select_all_on_focus && !state.textedit_was_focused && response.has_focus()
+        {
             // Select all
             set_cursor(
                 ui.ctx(),
@@ -165,7 +201,12 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
                 self.selected.chars().count(),
             );
         }
-        state.textedit_was_focused = response.has_focus();
+        if response.has_focus()
+            && ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::Space))
+        {
+            state.typed_since_focused = true;
+            Popup::open_id(ui.ctx(), popup_id);
+        }
         // Report changes only when the user commits the edited value.
         response.flags.set(Flags::CHANGED, false);
 
@@ -240,7 +281,28 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
                 *self.selected = self.suggestions[actual_index].to_string();
                 state.selection.clear();
             }
+            response.request_focus();
+            ui.memory_mut(|memory| {
+                memory.set_focus_lock_filter(
+                    response.id,
+                    EventFilter {
+                        horizontal_arrows: true,
+                        vertical_arrows: true,
+                        ..Default::default()
+                    },
+                );
+            });
+            let cursor_position = self.selected.chars().count();
+            set_cursor(
+                ui.ctx(),
+                &response,
+                TextEditState::load(ui.ctx(), response.id).unwrap_or_default(),
+                cursor_position,
+                cursor_position,
+            );
+            state.typed_since_focused = false;
         }
+        state.textedit_was_focused = response.has_focus();
 
         response
     }

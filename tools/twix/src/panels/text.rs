@@ -2,21 +2,18 @@ use std::sync::Arc;
 
 use color_eyre::{Report, eyre::Context as _};
 use eframe::egui::{ScrollArea, TextEdit, Ui};
-use hulk_widgets::CompletionEdit;
-use ros_z::dynamic::DynamicPayload;
-use ros_z::entity::EndpointKind;
+use ros_z::dynamic::{DynamicPayload, SelectionError, ValuePath};
 use ros_z_debug::{DynamicTopicObservation, SampleRecord};
 use serde_json::{Value, json};
 
 use crate::{
-    graph::TopicCompletionQuery,
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
+    topic_source::TopicSourceEditor,
 };
 
 pub struct TextPanel {
-    topic_editor: String,
-    topic: String,
+    source: TopicSourceEditor,
     pretty: bool,
     observation: ObservationState,
 }
@@ -36,6 +33,8 @@ struct ObservedTopic {
 #[derive(Default)]
 struct RenderedRecordCache {
     sample: Option<Arc<SampleRecord<DynamicPayload>>>,
+    field_path: String,
+    selection_error: Option<SelectionError>,
     value: Option<Value>,
     pretty: Option<String>,
     compact: Option<String>,
@@ -58,10 +57,15 @@ impl Panel for TextPanel {
             .and_then(|value| value.get("pretty"))
             .and_then(Value::as_bool)
             .unwrap_or(true);
+        let field_path = context
+            .value
+            .and_then(|value| value.get("field_path"))
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
 
         let mut panel = Self {
-            topic_editor: topic.clone(),
-            topic,
+            source: TopicSourceEditor::new(topic, field_path),
             pretty,
             observation: ObservationState::Idle,
         };
@@ -69,28 +73,35 @@ impl Panel for TextPanel {
         panel
     }
 
+    fn focus_topic(&mut self) {
+        self.source.request_focus();
+    }
+
     fn header_ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
-        ui.label("Topic");
-        let namespace = context.backend.namespace();
-        let completions = {
-            let graph = context.backend.graph().lock();
-            TopicCompletionQuery::new(&namespace, &self.topic_editor)
-                .endpoint_kind(EndpointKind::Publisher)
-                .complete(graph.publishers())
+        let sample = match &self.observation {
+            ObservationState::Observing(observed) => observed.observation.latest(),
+            _ => None,
         };
-        let response = ui.add(CompletionEdit::new(
-            ui.id().with("topic"),
-            &completions,
-            &mut self.topic_editor,
-        ));
-        if response.changed() {
-            self.commit_topic(&context);
-        }
-        ui.checkbox(&mut self.pretty, "Pretty");
+        ui.vertical(|ui| {
+            ui.spacing_mut().text_edit_width = ui
+                .spacing()
+                .text_edit_width
+                .min((ui.available_width() - 55.0).max(0.0));
+            ui.horizontal_wrapped(|ui| {
+                if self.source.ui(
+                    ui,
+                    context.backend,
+                    sample.as_ref().map(|sample| &sample.value),
+                ) {
+                    self.recreate_observation(&context);
+                }
+                ui.checkbox(&mut self.pretty, "Pretty");
+            });
+        });
     }
 
     fn ui(&mut self, ui: &mut Ui, _context: PanelUiContext<'_>) {
-        if self.topic.is_empty() {
+        if self.source.topic().is_empty() {
             ui.label("Enter a topic.");
             return;
         }
@@ -106,26 +117,39 @@ impl Panel for TextPanel {
                     ui.colored_label(ui.visuals().error_fg_color, error);
                 }
                 ObservationState::Observing(observed) => {
-                    observed.render_cache.refresh(&observed.observation);
+                    observed
+                        .render_cache
+                        .refresh(observed.observation.latest(), self.source.field_path());
 
-                    let Some(rendered) = observed.render_cache.rendered_json_buffer(self.pretty)
-                    else {
+                    if let Some(error) = &observed.render_cache.selection_error {
+                        let color = if error.is_unavailable() {
+                            ui.visuals().warn_fg_color
+                        } else {
+                            ui.visuals().error_fg_color
+                        };
+                        ui.colored_label(color, error.to_string());
+                    }
+
+                    if observed.render_cache.sample.is_none() {
                         ui.label("no data yet");
-                        return;
-                    };
-                    ui.add(
-                        TextEdit::multiline(rendered)
-                            .font(eframe::egui::TextStyle::Monospace)
-                            .desired_width(f32::INFINITY)
-                            .interactive(false),
-                    );
+                    }
+                    if let Some(rendered) = observed.render_cache.rendered_json_buffer(self.pretty)
+                    {
+                        ui.add(
+                            TextEdit::multiline(rendered)
+                                .font(eframe::egui::TextStyle::Monospace)
+                                .desired_width(f32::INFINITY)
+                                .interactive(false),
+                        );
+                    }
                 }
             });
     }
 
     fn save(&self) -> Value {
         json!({
-            "topic": self.topic,
+            "topic": self.source.topic(),
+            "field_path": self.source.field_path(),
             "pretty": self.pretty,
         })
     }
@@ -138,11 +162,11 @@ impl TextPanel {
     {
         self.observation = ObservationState::Idle;
 
-        if self.topic.is_empty() {
+        if self.source.topic().is_empty() {
             return;
         }
 
-        match create_observation(context, &self.topic) {
+        match create_observation(context, self.source.topic()) {
             Ok((observation, repaint)) => {
                 self.observation = ObservationState::Observing(Box::new(ObservedTopic {
                     observation,
@@ -155,40 +179,30 @@ impl TextPanel {
             }
         }
     }
-
-    fn commit_topic<C>(&mut self, context: &C)
-    where
-        C: ObservationContext,
-    {
-        let next_topic = self.topic_editor.trim().to_string();
-        if next_topic == self.topic {
-            return;
-        }
-        self.topic = next_topic;
-        self.recreate_observation(context);
-    }
 }
 
 impl RenderedRecordCache {
-    fn refresh(&mut self, observation: &DynamicTopicObservation) {
-        let sample = observation.latest();
-        if same_sample(self.sample.as_ref(), sample.as_ref()) {
+    fn refresh(&mut self, sample: Option<Arc<SampleRecord<DynamicPayload>>>, field_path: &str) {
+        if same_sample(self.sample.as_ref(), sample.as_ref()) && self.field_path == field_path {
             return;
         }
 
         self.sample = sample;
+        self.field_path = field_path.to_owned();
+        self.selection_error = None;
         self.value = None;
         self.pretty = None;
         self.compact = None;
 
-        if self.sample.is_none() {
+        let Some(record) = &self.sample else {
             return;
-        }
-
-        if let Some(record) = observation.latest_json_record() {
-            self.value = Some(record.value);
-        } else {
-            self.sample = None;
+        };
+        match field_path
+            .parse::<ValuePath>()
+            .and_then(|path| path.select(&record.value))
+        {
+            Ok(value) => self.value = Some(value.to_json(Default::default())),
+            Err(error) => self.selection_error = Some(error),
         }
     }
 
@@ -292,10 +306,12 @@ mod tests {
     }
 
     #[test]
-    fn save_preserves_topic_and_pretty_flag() {
+    fn save_preserves_topic_field_and_pretty_flag() {
         let panel = TextPanel {
-            topic_editor: "/draft/topic".to_string(),
-            topic: "/output/text".to_string(),
+            source: crate::topic_source::TopicSourceEditor::new(
+                "/output/text".to_owned(),
+                "pose.x".to_owned(),
+            ),
             pretty: false,
             observation: ObservationState::Idle,
         };
@@ -304,12 +320,13 @@ mod tests {
             panel.save(),
             json!({
                 "topic": "/output/text",
+                "field_path": "pose.x",
                 "pretty": false,
             })
         );
         assert_eq!(
             serde_json::to_value(crate::SelectablePanel::TextPanel(Box::new(panel))).unwrap(),
-            json!({"kind": "text", "state": {"topic": "/output/text", "pretty": false}})
+            json!({"kind": "text", "state": {"topic": "/output/text", "field_path": "pose.x", "pretty": false}})
         );
     }
 
@@ -328,17 +345,21 @@ mod tests {
                 ))
                 .expect("backend should build"),
         );
-        let saved = json!({
-            "topic": "/output/text",
-            "pretty": true,
-        });
-
-        let panel = TextPanel::new(PanelCreationContext {
-            backend,
-            value: Some(&saved),
-            egui_context: Context::default(),
-        });
-
-        assert_eq!(panel.topic, "/output/text");
+        for field_path in [None, Some("pose.x")] {
+            let mut saved = json!({
+                "topic": "/output/text",
+                "pretty": true,
+            });
+            if let Some(path) = field_path {
+                saved["field_path"] = path.into();
+            }
+            let panel = TextPanel::new(PanelCreationContext {
+                backend: Arc::clone(&backend),
+                value: Some(&saved),
+                egui_context: Context::default(),
+            });
+            assert_eq!(panel.source.topic(), "/output/text");
+            assert_eq!(panel.source.field_path(), field_path.unwrap_or_default());
+        }
     }
 }
