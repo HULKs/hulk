@@ -20,6 +20,9 @@ const PALETTE: [Color32; 8] = [
 const FILL_OPACITY: f32 = 0.07;
 const BOUNDARY_OPACITY: f32 = 0.25;
 const LABEL_PADDING: f32 = 4.0;
+/// Spans narrower than this many pixels are merged into one neutral run, so
+/// fast-changing states draw a bounded number of shapes.
+const MIN_SPAN_WIDTH: f32 = 1.0;
 
 /// Background color of a state, stable across sessions for a given schema.
 pub(super) fn state_color(index: u32) -> Color32 {
@@ -87,6 +90,32 @@ pub(super) fn state_at<'a>(
     Some((lane, span))
 }
 
+/// Adjacent spans too narrow to tell apart, drawn as one neutral fill.
+#[derive(Default)]
+struct DenseRun(Option<Rect>);
+
+impl DenseRun {
+    fn extend(&mut self, rect: Rect, shapes: &mut Vec<Shape>, color: Color32) {
+        match &mut self.0 {
+            Some(run) if rect.left() - run.right() < MIN_SPAN_WIDTH => *run = run.union(rect),
+            _ => {
+                self.flush(shapes, color);
+                self.0 = Some(rect);
+            }
+        }
+    }
+
+    fn flush(&mut self, shapes: &mut Vec<Shape>, color: Color32) {
+        if let Some(run) = self.0.take() {
+            shapes.push(Shape::rect_filled(
+                run,
+                0.0,
+                color.gamma_multiply(FILL_OPACITY),
+            ));
+        }
+    }
+}
+
 /// Plot item for a [`StateLane`]. It has no Y extent, so it never affects
 /// the numeric axis bounds.
 pub(super) struct StateLaneItem<'a> {
@@ -109,6 +138,7 @@ impl PlotItem for StateLaneItem<'_> {
     fn shapes(&self, ui: &Ui, transform: &PlotTransform, shapes: &mut Vec<Shape>) {
         let lane = lane_rect(*transform.frame(), self.lane.lane, self.lanes);
         let text_color = ui.visuals().weak_text_color();
+        let mut dense = DenseRun::default();
         for span in &self.lane.spans {
             let left = transform.position_from_point_x(span.x.start);
             let right = transform.position_from_point_x(span.x.end);
@@ -116,6 +146,11 @@ impl PlotItem for StateLaneItem<'_> {
             if !rect.is_positive() {
                 continue;
             }
+            if rect.width() < MIN_SPAN_WIDTH {
+                dense.extend(rect, shapes, text_color);
+                continue;
+            }
+            dense.flush(shapes, text_color);
             let color = state_color(span.index);
             shapes.push(Shape::rect_filled(
                 rect,
@@ -150,6 +185,7 @@ impl PlotItem for StateLaneItem<'_> {
                 }
             }
         }
+        dense.flush(shapes, text_color);
     }
 
     fn initialize(&mut self, _x_range: std::ops::RangeInclusive<f64>) {}
@@ -252,5 +288,26 @@ mod tests {
             lane_rect(frame, 2, 3),
             Rect::from_min_max(pos2(0.0, 70.0), pos2(100.0, 100.0))
         );
+    }
+
+    #[test]
+    fn narrow_spans_merge_into_one_shape() {
+        let lane = Rect::from_min_size(pos2(0.0, 0.0), vec2(100.0, 10.0));
+        let mut shapes = Vec::new();
+        let mut dense = DenseRun::default();
+        for index in 0..50 {
+            let left = index as f32 * 0.2;
+            let rect = Rect::from_x_y_ranges(left..=left + 0.2, lane.y_range());
+            dense.extend(rect, &mut shapes, Color32::WHITE);
+        }
+        dense.extend(
+            Rect::from_x_y_ranges(50.0..=50.5, lane.y_range()),
+            &mut shapes,
+            Color32::WHITE,
+        );
+        dense.flush(&mut shapes, Color32::WHITE);
+
+        assert_eq!(shapes.len(), 2);
+        assert_eq!(shapes[0].visual_bounding_rect().width(), 10.0);
     }
 }

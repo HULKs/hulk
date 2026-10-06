@@ -137,6 +137,7 @@ Each state item gets its own horizontal lane, so several enums can be compared a
 Faint interval colors identify the variants and stay the same for a given enum, keeping the lines in the foreground.
 Because variants have their own colors, the color picker is disabled for state items; the chosen color is kept for switching back to a numeric field.
 Labels that do not fit an interval are shortened; hover over an interval away from the lines to see the item, state, and its time range.
+States narrower than a pixel merge into one neutral band, so fast-changing values stay cheap to draw; zoom in while paused to tell them apart.
 A state lasts until a sample with another variant arrives, and the current state extends to the newest displayed time.
 Unavailable values, such as absent optionals or inactive parent variants, end the current state and count as gaps.
 States follow the same time axis, history window, and pause/zoom behavior as the lines, and do not affect the Y axis range.
