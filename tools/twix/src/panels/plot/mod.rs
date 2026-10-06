@@ -1,15 +1,17 @@
+mod conversion;
 mod history;
 mod states;
 mod status;
 mod threshold;
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use eframe::egui::{
-    Align, Button, Color32, DragValue, Frame, Label, Layout, Popup, Response, RichText, ScrollArea,
-    Tooltip, Ui, emath::format_with_decimals_in_range,
+    Align, Button, Color32, DragValue, Frame, Label, Layout, Popup, PopupCloseBehavior, Response,
+    RichText, ScrollArea, Tooltip, Ui, emath::format_with_decimals_in_range,
 };
 use egui_plot::{HLine, HoverPosition, Line, LineStyle, Plot, PlotMemory, PlotPoints, Points};
+use ros_z::dynamic::ValuePath;
 use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
@@ -18,9 +20,14 @@ use crate::{
     topic_source::TopicSourceEditor,
 };
 
+use conversion::Conversion;
 use history::{PlotHistory, SeriesData, seconds_from};
 use states::{StateLane, StateLaneItem, state_at, visible_spans};
 use threshold::{SavedThreshold, Threshold};
+
+/// Time per frame for converting samples. Longer conversions continue in the
+/// next frames, so slow scripts cannot freeze the UI.
+const PROJECTION_BUDGET: Duration = Duration::from_millis(8);
 
 const COLORS: [Color32; 6] = [
     Color32::from_rgb(31, 119, 180),
@@ -95,6 +102,7 @@ struct SavedLine {
     color: Color32,
     visible: bool,
     style: DrawStyle,
+    conversion: Conversion,
 }
 
 /// How an item's samples are drawn.
@@ -139,6 +147,7 @@ impl Default for SavedLine {
             color: COLORS[0],
             visible: true,
             style: DrawStyle::Line,
+            conversion: Conversion::default(),
         }
     }
 }
@@ -149,6 +158,7 @@ struct PlotLine {
     color: Color32,
     visible: bool,
     style: DrawStyle,
+    conversion: Conversion,
     data: SeriesData,
 }
 
@@ -160,6 +170,7 @@ impl PlotLine {
             color: saved.color,
             visible: saved.visible,
             style: saved.style,
+            conversion: saved.conversion,
             data: SeriesData::default(),
         }
     }
@@ -171,6 +182,15 @@ impl PlotLine {
             color: self.color,
             visible: self.visible,
             style: self.style,
+            conversion: self.conversion.clone(),
+        }
+    }
+
+    fn label(&self) -> String {
+        let source = self.source.source();
+        match self.conversion.label() {
+            Some(conversion) => format!("{source} ({conversion})"),
+            None => source,
         }
     }
 }
@@ -299,12 +319,15 @@ impl Panel for PlotPanel {
         let paused = self.paused;
         let mut remove = None;
         let mut remove_threshold = None;
+        let deadline = Instant::now() + PROJECTION_BUDGET;
         ScrollArea::vertical()
             .id_salt("plot-sources")
             .max_height((ui.available_height() * 0.4).max(40.0))
             .show(ui, |ui| {
                 for line in &mut self.lines {
                     ui.push_id(line.id, |ui| {
+                        let latest = self.history.latest(line.source.topic());
+                        let field_path = line.source.field_path().to_owned();
                         let row = item_row(
                             ui,
                             paused,
@@ -312,6 +335,19 @@ impl Panel for PlotPanel {
                                 visible: &mut line.visible,
                                 color: &mut line.color,
                                 style: (!line.data.is_state()).then_some(&mut line.style),
+                            },
+                            &mut line.conversion,
+                            move || {
+                                let record = latest?;
+                                Some(
+                                    field_path
+                                        .parse::<ValuePath>()
+                                        .and_then(|path| {
+                                            path.select(&record.value)
+                                                .map(|value| value.to_json(Default::default()))
+                                        })
+                                        .map_err(|error| error.to_string()),
+                                )
                             },
                             if line.data.is_state() {
                                 ItemKind::States
@@ -331,11 +367,15 @@ impl Panel for PlotPanel {
                         if row.remove {
                             remove = Some(line.id);
                         }
-                        self.history.project(
+                        if self.history.project(
                             line.source.topic(),
                             line.source.field_path(),
+                            &line.conversion,
                             &mut line.data,
-                        );
+                            deadline,
+                        ) {
+                            ui.ctx().request_repaint();
+                        }
                         let status = self.history.status(line.source.topic());
                         show_info(ui, &row.info, |ui| {
                             ui.add(Label::new(&status).wrap());
@@ -351,6 +391,7 @@ impl Panel for PlotPanel {
                 }
                 for threshold in &mut self.thresholds {
                     ui.push_id(("threshold", threshold.id), |ui| {
+                        let preview = threshold.preview_input();
                         let row = item_row(
                             ui,
                             paused,
@@ -359,6 +400,8 @@ impl Panel for PlotPanel {
                                 color: &mut threshold.color,
                                 style: None,
                             },
+                            &mut threshold.conversion,
+                            move || preview,
                             ItemKind::Threshold,
                             |ui| threshold.source.ui(ui, context.backend),
                         );
@@ -407,7 +450,7 @@ impl Panel for PlotPanel {
             .filter(|line| line.visible && line.data.is_state())
             .enumerate()
             .map(|(lane, line)| StateLane {
-                label: line.source.source(),
+                label: line.label(),
                 spans: window
                     .map(|(start, end)| visible_spans(&line.data.states, start, end).collect())
                     .unwrap_or_default(),
@@ -485,7 +528,7 @@ impl Panel for PlotPanel {
                 return;
             };
             for line in self.lines.iter().filter(|line| line.visible) {
-                let label = line.source.source();
+                let label = line.label();
                 for segment in &line.data.segments {
                     let points: Vec<_> = segment
                         .iter()
@@ -614,13 +657,15 @@ struct ItemRow {
     info: Response,
 }
 
-/// Controls shared by all items: type icon, visibility, color, the source
-/// editor, and info and remove buttons. Sources cannot change while paused,
+/// Controls shared by all items: visibility, color, the source editor, and
+/// conversion, info, and remove buttons. Sources cannot change while paused,
 /// but display settings remain editable.
 fn item_row(
     ui: &mut Ui,
     paused: bool,
     controls: ItemControls<'_>,
+    conversion: &mut Conversion,
+    preview: impl FnOnce() -> Option<Result<Value, String>>,
     kind: ItemKind,
     editor: impl FnOnce(&mut Ui),
 ) -> ItemRow {
@@ -659,6 +704,20 @@ fn item_row(
                         .on_disabled_hover_text("Only topic lines can switch to scatter mode.");
                 }
             }
+            // Conversions only affect the displayed projection, so they remain
+            // editable while paused, like colors.
+            let conversion_button = ui
+                .add(Button::selectable(
+                    !conversion.is_identity(),
+                    egui_material_icons::icons::ICON_FUNCTIONS.codepoint,
+                ))
+                .on_hover_text(match conversion.label() {
+                    Some(label) => format!("Conversion: {label}"),
+                    None => "Convert displayed values".to_owned(),
+                });
+            Popup::menu(&conversion_button)
+                .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
+                .show(|ui| conversion.ui(ui, preview));
             ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                 ui.add_enabled_ui(!paused, editor);
             });
@@ -748,5 +807,16 @@ mod tests {
                 ]
         );
         assert_eq!(saved.lines[0].color, SavedLine::default().color);
+    }
+
+    #[test]
+    fn older_conversion_formats_load_as_no_conversion() {
+        let saved: SavedLine = load_lenient(&json!({
+            "topic": "a",
+            "conversion": { "scale": 2.0, "offset": 0.0 },
+        }));
+
+        assert_eq!(saved.topic, "a");
+        assert!(saved.conversion.is_identity());
     }
 }

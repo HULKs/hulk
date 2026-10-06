@@ -30,6 +30,7 @@ nalgebra = { workspace = true }
 ndarray = { workspace = true }
 projection = { workspace = true }
 repository = { workspace = true }
+rhai = { workspace = true }
 ros-z = { workspace = true }
 ros-z-debug = { workspace = true }
 ros2 = { workspace = true }

@@ -119,7 +119,7 @@ Select **Plot** in the panel picker.
 Enter a numeric topic, or choose a topic and continue into its fields using the same completion input as Text.
 For example, `detected_objects.inner[2].bounding_box.confidence` plots the third detection's confidence.
 Integer and floating-point scalars are supported, including present optional numbers.
-Enums and booleans are shown as states in the background; collections and strings need a numeric, enum, or boolean field selection.
+Enums and booleans are shown as states in the background; collections and strings need a numeric, enum, or boolean field selection, or a [conversion](#conversions) that computes one.
 
 Use **Add item** to compare sources on the same axes.
 Each item has a color picker, visibility checkbox, and X button beside the topic field to remove it.
@@ -130,6 +130,39 @@ Items are drawn as lines by default; the style button beside the info button tog
 In line mode, a lone sample is drawn as a point.
 Missing array elements, absent optionals, inactive enum variants, and NaN/infinite values break lines into separate segments.
 Hover over or click the info button beside the topic field to see the observation status, sample count, gap count, and any selection problem.
+
+### Conversions
+
+Click an item's conversion button (Σ) to compute the displayed value with a [Rhai](https://rhai.rs/book/) script, for example to compare an angle in degrees with other signals.
+The selected field is available as `value`, with the same structure the Text panel shows: structs are maps, sequences are arrays, absent optionals are `()`, and enums are maps with `variant_index`, `variant_name`, and `payload`.
+All numbers are floats, so `value / 2` does not round.
+A script can be a single expression, such as `value.to_degrees()` or `hypot(value.x, value.y)`, or several statements whose last expression is the result:
+
+```rhai
+let speed = hypot(value.x, value.y);
+if speed > 0.1 { speed } else { () }
+```
+
+The result decides how a sample is drawn:
+
+| Result | Display |
+| --- | --- |
+| Number | Point of the item's line |
+| Boolean or string | State in the background, for example `value > 0.5` or `if value > 1.0 { "fast" } else { "slow" }` |
+| `()` | Skipped sample that breaks the line without counting as a gap |
+
+So a script can turn a struct or array into a number, turn an enum into a number with `value.variant_index`, or turn numbers into states.
+**Examples** inserts common scripts such as unit conversions, absolute value, vector and array length, and a fallback for absent optionals; **Clear** restores the received values.
+The editor previews the latest selected value and its result.
+While the script does not compile, the editor shows the error, and the last valid script stays applied and is saved with the layout.
+Runtime errors, such as a missing field, and NaN or infinite results break the line and count as gaps; the info button shows the latest error.
+
+The button is highlighted while a conversion is active, and hover tooltips append short scripts to the item's name, for example `inputs/imu_state.roll_pitch_yaw[0] (value.to_degrees())`.
+Conversions apply to the item's entire displayed history without changing the received samples, so they can be edited while paused.
+Changing a script converts the history within a few milliseconds per frame, so long histories fill in over several frames instead of freezing the UI.
+Scripts from layouts cannot access files, the network, or other modules, and each sample's conversion is limited to 50,000 operations.
+
+### States
 
 Select an enum or boolean field, for example `primary_state`, to show its states as labeled, colored intervals behind the numeric lines.
 This helps correlate state changes, such as transitions between motion states, with numeric data.
@@ -142,15 +175,20 @@ A state lasts until a sample with another variant arrives, and the current state
 Unavailable values, such as absent optionals or inactive parent variants, end the current state and count as gaps.
 States follow the same time axis, history window, and pause/zoom behavior as the lines, and do not affect the Y axis range.
 
+### Thresholds
+
 Use **Add threshold** to draw a parameter as a dashed horizontal line, for example while tuning a threshold that guards an output.
 Enter the parameter **Node**, relative to the robot namespace or absolute, and a dot-separated **Path**, for example node `obstacle_filter` and path `robot_confidence_threshold`.
 Like topics, both inputs apply when you press Enter or choose a completion.
 Nodes complete from discovered parameter services, and paths complete from the node's parameter snapshot.
 A number draws one line, and an array of numbers, such as `[0.05, 0.1]`, draws one line per element.
 Thresholds follow the node's parameter events, so a line moves when the parameter changes, including writes from the Parameter panel.
-Thresholds have the same color, visibility, info, and remove controls as topic items.
+Thresholds have the same color, visibility, conversion, info, and remove controls as topic items; apply the same conversion as the compared signal to keep units consistent.
+Threshold conversions receive each number as `value` and must return a number.
 They are drawn without topic data and are included in the Y axis range.
 If the node is unavailable, the info button shows the error, the last known value stays visible, and Twix keeps retrying.
+
+### Time and history
 
 The live view follows a common newest publisher timestamp, displayed as zero seconds on the X axis.
 All lines use source timestamps, so comparisons across publishers assume a shared clock.
@@ -167,10 +205,10 @@ Click the plot to focus it, then press **Space** to toggle pause/resume.
 Space does not toggle the plot while editing a text field.
 Zooming and panning are available while paused: drag or scroll with two fingers to pan, pinch or hold **Ctrl** (**Cmd** on macOS) while scrolling to zoom under the pointer, or drag with the secondary mouse button to box-zoom.
 **Reset view** or a double-click/double-tap restores the exact configured history interval and fits the Y axis; **Resume** returns to the current live window.
-Source and history controls are disabled while paused, but colors, visibility, and drawing styles remain editable.
+Source and history controls are disabled while paused, but colors, visibility, drawing styles, and conversions remain editable.
 Pausing also freezes threshold values until the plot resumes.
 
-Layouts save source paths, threshold nodes and paths, colors, visibility, drawing styles, and history duration.
+Layouts save source paths, threshold nodes and paths, colors, visibility, drawing styles, conversions, and history duration.
 Invalid saved fields, for example from a hand-edited layout, fall back to their defaults without discarding the rest of the plot.
 Restoring a plot starts fresh observations in live mode.
 Changing the robot namespace also clears displayed history and resumes the plot.
@@ -191,7 +229,9 @@ flowchart LR
 Within a plot, `PlotHistory` owns one observation per distinct topic reference and shares decoded snapshots across its lines.
 Notifications request redraws and refresh the history snapshot, which can include multiple samples received between frames.
 Field changes reproject that history without reconnecting.
-`SeriesData` applies `ValuePath` directly to dynamic values, merges enum and boolean samples into state intervals, caches the projection until the snapshot or path changes, and separates gaps before rendering.
+`SeriesData` applies `ValuePath` directly to dynamic values, runs the conversion script, and caches each sample's result until the path or script changes.
+New snapshots reuse the results of samples that are still retained, so only new samples are converted.
+Numbers become line segments, and enum, boolean, and converted string samples merge into state intervals, with gaps separated before rendering.
 Pausing stops snapshot refresh, leaving the live observations running.
 Removing the last line using a topic releases its observation.
 Each threshold subscribes to its node's parameter events and fetches a new snapshot when an event announces a newer revision.

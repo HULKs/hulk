@@ -1,7 +1,13 @@
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{
+    collections::{BTreeMap, HashMap, VecDeque},
+    rc::Rc,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
+use rhai::AST;
 use ros_z::{
-    dynamic::{DynamicPayload, DynamicValue, SelectedValue, ValuePath},
+    dynamic::{DynamicPayload, DynamicValue, SelectedValue, SelectionError, ValuePath},
     time::Time,
 };
 use ros_z_debug::{
@@ -11,7 +17,10 @@ use ros_z_debug::{
 
 use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
 
-use super::status::format_topic_observation_status;
+use super::{
+    conversion::{Conversion, Output, json_to_dynamic, run},
+    status::format_topic_observation_status,
+};
 
 type Records = Arc<[Arc<SampleRecord<DynamicPayload>>]>;
 
@@ -119,9 +128,23 @@ impl PlotHistory {
         }
     }
 
-    pub fn project(&self, topic: &str, path: &str, series: &mut SeriesData) {
+    /// Project a topic's history, converting samples until `deadline`.
+    /// Returns true when samples remain for a later frame.
+    pub fn project(
+        &self,
+        topic: &str,
+        path: &str,
+        conversion: &Conversion,
+        series: &mut SeriesData,
+        deadline: Instant,
+    ) -> bool {
         let records = self.topics.get(topic).and_then(|entry| entry.as_ref().ok());
-        series.refresh(records.map(|history| &history.records), path);
+        series.refresh(
+            records.map(|history| &history.records),
+            path,
+            conversion,
+            deadline,
+        )
     }
 }
 
@@ -155,25 +178,65 @@ impl TopicHistory {
     }
 }
 
-/// Projection of one retained snapshot into numeric segments or
-/// state intervals, depending on the selected field's type. Missing and
-/// non-finite values separate both, so the renderer cannot draw across
-/// unavailable data.
-#[derive(Default)]
-pub(super) struct SeriesData {
-    records: Option<Records>,
+/// A retained sample. Snapshots of one history share sample allocations, so
+/// a projection reuses the results of samples it has already converted.
+pub(super) trait Sample {
+    fn time(&self) -> Time;
+    fn payload(&self) -> &DynamicPayload;
+}
+
+impl Sample for SampleRecord<DynamicPayload> {
+    fn time(&self) -> Time {
+        self.source_time
+    }
+
+    fn payload(&self) -> &DynamicPayload {
+        &self.value
+    }
+}
+
+/// Projection of retained samples into numeric segments or state intervals,
+/// depending on the type of the (converted) value. Missing and non-finite
+/// values separate both, so the renderer cannot draw across unavailable data.
+pub(super) struct SeriesData<S = SampleRecord<DynamicPayload>> {
+    records: Option<Arc<[Arc<S>]>>,
     path: String,
+    selection: Result<ValuePath, String>,
+    script: Option<Rc<AST>>,
+    /// Converted samples, covering a prefix of `records` while `pending`.
+    projected: VecDeque<(Arc<S>, Projected)>,
+    state_names: HashMap<u32, String>,
+    pending: bool,
     pub segments: Vec<Vec<(Time, f64)>>,
     pub states: Vec<StateInterval>,
-    pub issue: Option<String>,
+    pub issue: Option<Arc<str>>,
     pub gaps: usize,
     /// Whether the last projection with data had states, kept while no data
     /// is available, so the item's kind does not flicker.
     shows_states: bool,
 }
 
-/// A run of one enum variant or boolean value. The current state has no end
-/// and extends to the newest displayed time.
+impl<S> Default for SeriesData<S> {
+    fn default() -> Self {
+        Self {
+            records: None,
+            path: String::new(),
+            selection: parse_path(""),
+            script: None,
+            projected: VecDeque::new(),
+            state_names: HashMap::new(),
+            pending: false,
+            segments: Vec::new(),
+            states: Vec::new(),
+            issue: None,
+            gaps: 0,
+            shows_states: false,
+        }
+    }
+}
+
+/// A run of one enum variant, boolean, or converted string. The current state
+/// has no end and extends to the newest displayed time.
 #[derive(Debug, PartialEq)]
 pub(super) struct StateInterval {
     pub start: Time,
@@ -182,90 +245,129 @@ pub(super) struct StateInterval {
     pub name: String,
 }
 
+/// One converted sample. States refer to their names by index, so repeated
+/// samples do not allocate.
+enum Projected {
+    Number(f64),
+    State(u32),
+    Skipped,
+    Error(Arc<str>),
+}
+
 enum SampleValue<'a> {
     Number(f64),
     State { index: u32, name: &'a str },
 }
 
-impl SeriesData {
-    /// True when the selected field is a boolean or enum. Without any valid
-    /// samples, the previous kind is kept.
+impl<S: Sample> SeriesData<S> {
+    /// True when the item shows states. Without any valid samples, the
+    /// previous kind is kept.
     pub fn is_state(&self) -> bool {
         self.shows_states
     }
 
-    fn refresh(&mut self, records: Option<&Records>, path: &str) {
-        if self.path == path
-            && match (&self.records, records) {
-                (Some(old), Some(new)) => Arc::ptr_eq(old, new),
+    /// Convert samples that are not yet projected until `deadline`, then
+    /// rebuild the displayed data. Returns true when samples remain for a
+    /// later frame.
+    fn refresh(
+        &mut self,
+        records: Option<&Arc<[Arc<S>]>>,
+        path: &str,
+        conversion: &Conversion,
+        deadline: Instant,
+    ) -> bool {
+        let script = conversion.script();
+        let same_source = self.path == path
+            && match (&self.script, script) {
+                (Some(old), Some(new)) => Rc::ptr_eq(old, new),
                 (None, None) => true,
                 _ => false,
-            }
-        {
-            return;
+            };
+        let same_records = match (&self.records, records) {
+            (Some(old), Some(new)) => Arc::ptr_eq(old, new),
+            (None, None) => true,
+            _ => false,
+        };
+        if same_source && same_records && !self.pending {
+            return false;
+        }
+        if !same_source {
+            self.path = path.to_owned();
+            self.selection = parse_path(path);
+            self.script = script.cloned();
+            self.projected.clear();
+            self.state_names.clear();
         }
         self.records = records.cloned();
-        self.path = path.to_owned();
-        self.segments.clear();
-        self.states.clear();
-        self.issue = None;
-        self.gaps = 0;
-        let path = match path.parse::<ValuePath>() {
-            Ok(path) => path,
-            Err(error) => {
-                self.issue = Some(error.to_string());
-                return;
+        let records: &[Arc<S>] = records.map_or(&[], |records| records);
+        align(&mut self.projected, records);
+        self.pending = false;
+        if let Ok(selection) = &self.selection {
+            let mut last_error = match self.projected.back() {
+                Some((_, Projected::Error(error))) => Some(error.clone()),
+                _ => None,
+            };
+            for record in &records[self.projected.len()..] {
+                if Instant::now() >= deadline {
+                    self.pending = true;
+                    break;
+                }
+                let projected = project(
+                    record.payload(),
+                    selection,
+                    self.script.as_deref(),
+                    &mut self.state_names,
+                    &mut last_error,
+                );
+                self.projected.push_back((record.clone(), projected));
             }
-        };
-        if let Some(records) = records {
-            self.project_samples(
-                &path,
-                records
-                    .iter()
-                    .map(|record| (record.source_time, &record.value)),
-            );
         }
+        self.rebuild();
+        self.pending
     }
 
-    fn project_samples<'a>(
-        &mut self,
-        path: &ValuePath,
-        samples: impl Iterator<Item = (Time, &'a DynamicPayload)>,
-    ) {
+    fn rebuild(&mut self) {
+        self.segments.clear();
+        self.states.clear();
+        self.gaps = 0;
+        self.issue = self
+            .selection
+            .as_ref()
+            .err()
+            .map(|error| error.as_str().into());
         let mut segment = Vec::new();
         let mut state: Option<StateInterval> = None;
-        for (time, payload) in samples {
-            let value = path
-                .select(payload)
-                .map_err(|error| error.to_string())
-                .and_then(sample_value);
-            match value {
-                Ok(SampleValue::Number(value)) => {
+        for (record, projected) in &self.projected {
+            let time = record.time();
+            if !matches!(projected, Projected::Number(_)) && !segment.is_empty() {
+                self.segments.push(std::mem::take(&mut segment));
+            }
+            let continues_state = matches!(
+                (projected, &state),
+                (Projected::State(index), Some(state)) if state.index == *index
+            );
+            if !continues_state && let Some(mut state) = state.take() {
+                state.end = Some(time);
+                self.states.push(state);
+            }
+            match projected {
+                Projected::Number(value) => {
                     self.issue = None;
-                    segment.push((time, value));
+                    segment.push((time, *value));
                 }
-                Ok(SampleValue::State { index, name }) => {
+                Projected::State(index) => {
                     self.issue = None;
-                    // Variant indices identify states within one schema, so
-                    // repeated samples extend the run without allocating.
-                    if state.as_ref().is_some_and(|state| state.index == index) {
-                        continue;
-                    }
-                    self.close_state(&mut state, time);
-                    state = Some(StateInterval {
+                    state.get_or_insert_with(|| StateInterval {
                         start: time,
                         end: None,
-                        index,
-                        name: name.to_owned(),
+                        index: *index,
+                        name: self.state_names.get(index).cloned().unwrap_or_default(),
                     });
                 }
-                Err(error) => {
-                    self.issue = Some(error);
+                Projected::Skipped => self.issue = None,
+                Projected::Error(error) => {
+                    self.issue = Some(error.clone());
                     self.gaps += 1;
-                    if !segment.is_empty() {
-                        self.segments.push(std::mem::take(&mut segment));
-                    }
-                    self.close_state(&mut state, time);
                 }
             }
         }
@@ -277,13 +379,88 @@ impl SeriesData {
             self.shows_states = !self.states.is_empty();
         }
     }
+}
 
-    fn close_state(&mut self, state: &mut Option<StateInterval>, end: Time) {
-        if let Some(mut state) = state.take() {
-            state.end = Some(end);
-            self.states.push(state);
+fn parse_path(path: &str) -> Result<ValuePath, String> {
+    path.parse()
+        .map_err(|error: SelectionError| error.to_string())
+}
+
+/// Drop projected samples that left the history and keep the rest when they
+/// are still in the same order. Otherwise, the history starts over.
+fn align<S>(projected: &mut VecDeque<(Arc<S>, Projected)>, records: &[Arc<S>]) {
+    let start = records.first().and_then(|first| {
+        projected
+            .iter()
+            .position(|(record, _)| Arc::ptr_eq(record, first))
+    });
+    match start {
+        Some(start) => {
+            projected.drain(..start);
         }
+        None => projected.clear(),
     }
+    let in_order = projected.len() <= records.len()
+        && projected
+            .iter()
+            .zip(records)
+            .all(|((projected, _), record)| Arc::ptr_eq(projected, record));
+    if !in_order {
+        projected.clear();
+    }
+}
+
+fn project(
+    payload: &DynamicPayload,
+    selection: &ValuePath,
+    script: Option<&AST>,
+    state_names: &mut HashMap<u32, String>,
+    last_error: &mut Option<Arc<str>>,
+) -> Projected {
+    let mut state = |index: u32, name: &str| {
+        state_names.entry(index).or_insert_with(|| name.to_owned());
+        Projected::State(index)
+    };
+    let result = selection
+        .select(payload)
+        .map_err(|error| error.to_string())
+        .and_then(|selected| match script {
+            None => sample_value(selected).map(|value| match value {
+                SampleValue::Number(value) => Projected::Number(value),
+                SampleValue::State { index, name } => state(index, name),
+            }),
+            Some(script) => run(
+                script,
+                json_to_dynamic(&selected.to_json(Default::default())),
+            )
+            .and_then(|output| match output {
+                Output::Number(value) => finite(value, "Converted value").map(Projected::Number),
+                Output::Bool(value) => Ok(state(u32::from(value), bool_name(value))),
+                Output::Text(text) => Ok(state(text_index(&text), &text)),
+                Output::Nothing => Ok(Projected::Skipped),
+            }),
+        });
+    result.unwrap_or_else(|message| {
+        // Errors usually repeat for many samples, so share their text.
+        let error = match last_error {
+            Some(last) if **last == *message => last.clone(),
+            _ => Arc::from(message),
+        };
+        *last_error = Some(error.clone());
+        Projected::Error(error)
+    })
+}
+
+fn bool_name(value: bool) -> &'static str {
+    if value { "true" } else { "false" }
+}
+
+/// Stable state index of a converted string, so its color does not change
+/// between sessions. This is the 32-bit FNV-1a hash.
+fn text_index(text: &str) -> u32 {
+    text.bytes().fold(0x811c_9dc5, |hash, byte| {
+        (hash ^ u32::from(byte)).wrapping_mul(0x0100_0193)
+    })
 }
 
 fn sample_value(selected: SelectedValue<'_>) -> Result<SampleValue<'_>, String> {
@@ -303,7 +480,7 @@ fn sample_value(selected: SelectedValue<'_>) -> Result<SampleValue<'_>, String> 
             DynamicValue::Bool(value) => {
                 return Ok(SampleValue::State {
                     index: u32::from(*value),
-                    name: if *value { "true" } else { "false" },
+                    name: bool_name(*value),
                 });
             }
             DynamicValue::Enum(value) => {
@@ -325,7 +502,8 @@ fn sample_value(selected: SelectedValue<'_>) -> Result<SampleValue<'_>, String> 
     finite(value, "Value").map(SampleValue::Number)
 }
 
-const UNSUPPORTED_SELECTION: &str = "Select a numeric, boolean, or enum field to plot.";
+const UNSUPPORTED_SELECTION: &str =
+    "Select a numeric, boolean, or enum field, or convert the value with a script.";
 
 fn finite(value: f64, subject: &str) -> Result<f64, String> {
     if value.is_finite() {
@@ -343,39 +521,82 @@ pub(super) fn seconds_from(time: Time, origin: Time) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{
+        sync::Arc,
+        time::{Duration, Instant},
+    };
 
     use ros_z::{
         dynamic::{
             DynamicPayload, DynamicValue, EnumDef, EnumPayloadDef, EnumPayloadValue, EnumValue,
             EnumVariantDef, PrimitiveTypeDef, SchemaBundle, TypeDef, TypeDefinition,
-            TypeDefinitions, TypeName, ValuePath,
+            TypeDefinitions, TypeName,
         },
         time::Time,
     };
 
-    use super::{SeriesData, StateInterval};
+    use super::{Conversion, Sample, SeriesData, StateInterval, text_index};
 
-    fn project(
-        root: TypeDef,
-        definitions: TypeDefinitions,
-        values: Vec<DynamicValue>,
-    ) -> SeriesData {
+    struct TestSample {
+        time: Time,
+        payload: DynamicPayload,
+    }
+
+    impl Sample for TestSample {
+        fn time(&self) -> Time {
+            self.time
+        }
+
+        fn payload(&self) -> &DynamicPayload {
+            &self.payload
+        }
+    }
+
+    type Records = Arc<[Arc<TestSample>]>;
+
+    fn later() -> Instant {
+        Instant::now() + Duration::from_secs(60)
+    }
+
+    fn samples(root: TypeDef, definitions: TypeDefinitions, values: Vec<DynamicValue>) -> Records {
         let schema = Arc::new(SchemaBundle { root, definitions });
-        let samples: Vec<_> = values
+        values
             .into_iter()
             .enumerate()
             .map(|(index, value)| {
-                let payload = DynamicPayload::new(schema.clone(), value).unwrap();
-                (Time::from_nanos(index as i64), payload)
+                Arc::new(TestSample {
+                    time: Time::from_nanos(index as i64),
+                    payload: DynamicPayload::new(schema.clone(), value).unwrap(),
+                })
             })
-            .collect();
+            .collect()
+    }
+
+    fn numbers(values: &[f64]) -> Records {
+        samples(
+            TypeDef::Primitive(PrimitiveTypeDef::F64),
+            Default::default(),
+            values.iter().copied().map(DynamicValue::Float64).collect(),
+        )
+    }
+
+    fn project(records: &Records, source: &str) -> SeriesData<TestSample> {
         let mut series = SeriesData::default();
-        series.project_samples(
-            &ValuePath::default(),
-            samples.iter().map(|(time, payload)| (*time, payload)),
+        let pending = series.refresh(
+            Some(records),
+            "",
+            &Conversion::new(source.to_owned()),
+            later(),
         );
+        assert!(!pending);
         series
+    }
+
+    fn points(values: &[(i64, f64)]) -> Vec<(Time, f64)> {
+        values
+            .iter()
+            .map(|(time, value)| (Time::from_nanos(*time), *value))
+            .collect()
     }
 
     fn state(start: i64, end: Option<i64>, index: u32, name: &str) -> StateInterval {
@@ -387,30 +608,7 @@ mod tests {
         }
     }
 
-    #[test]
-    fn invalid_numbers_break_the_line() {
-        let series = project(
-            TypeDef::Primitive(PrimitiveTypeDef::F64),
-            Default::default(),
-            [1.0, f64::NAN, 2.0]
-                .into_iter()
-                .map(DynamicValue::Float64)
-                .collect(),
-        );
-
-        assert_eq!(
-            series.segments,
-            [
-                vec![(Time::from_nanos(0), 1.0)],
-                vec![(Time::from_nanos(2), 2.0)]
-            ]
-        );
-        assert_eq!(series.gaps, 1);
-        assert!(!series.is_state());
-    }
-
-    #[test]
-    fn enum_samples_merge_into_state_runs() {
+    fn motion() -> (TypeDef, TypeDefinitions, impl Fn(u32, &str) -> DynamicValue) {
         let name = TypeName::new("test::Motion").unwrap();
         let definitions = [(
             name.clone(),
@@ -425,9 +623,58 @@ mod tests {
         let variant = |index: u32, name: &str| {
             DynamicValue::Enum(EnumValue::new(index, name, EnumPayloadValue::Unit))
         };
+        (TypeDef::Named(name), definitions, variant)
+    }
 
+    #[test]
+    fn projection_applies_conversion() {
+        let series = project(&numbers(&[1.0, 2.0]), "value * 2.0 + 1.0");
+
+        assert_eq!(series.segments, [points(&[(0, 3.0), (1, 5.0)])]);
+        assert_eq!(series.gaps, 0);
+        assert!(!series.is_state());
+    }
+
+    #[test]
+    fn overflowing_conversion_breaks_the_line() {
+        let series = project(&numbers(&[1.0, f64::MAX, 2.0]), "value * 10.0");
+
+        assert_eq!(
+            series.segments,
+            [points(&[(0, 10.0)]), points(&[(2, 20.0)])]
+        );
+        assert_eq!(series.gaps, 1);
+        assert_eq!(series.issue, None);
+    }
+
+    #[test]
+    fn script_errors_are_gaps_with_the_latest_issue() {
         let series = project(
-            TypeDef::Named(name),
+            &numbers(&[1.0, 2.0]),
+            "if value > 1.0 { value.x } else { value }",
+        );
+
+        assert_eq!(series.segments, [points(&[(0, 1.0)])]);
+        assert_eq!(series.gaps, 1);
+        assert!(series.issue.is_some());
+    }
+
+    #[test]
+    fn unit_results_skip_samples_without_issues() {
+        let series = project(
+            &numbers(&[1.0, 5.0, 2.0]),
+            "if value > 4.0 { () } else { value }",
+        );
+
+        assert_eq!(series.segments, [points(&[(0, 1.0)]), points(&[(2, 2.0)])]);
+        assert_eq!((series.gaps, series.issue), (0, None));
+    }
+
+    #[test]
+    fn enum_samples_merge_into_state_runs() {
+        let (root, definitions, variant) = motion();
+        let records = samples(
+            root,
             definitions,
             vec![
                 variant(0, "Stand"),
@@ -436,6 +683,8 @@ mod tests {
                 variant(0, "Stand"),
             ],
         );
+
+        let series = project(&records, "");
 
         assert_eq!(
             series.states,
@@ -450,12 +699,45 @@ mod tests {
     }
 
     #[test]
+    fn scripts_turn_enums_into_numbers_and_numbers_into_states() {
+        let (root, definitions, variant) = motion();
+        let records = samples(
+            root,
+            definitions,
+            vec![variant(0, "Stand"), variant(1, "Walk")],
+        );
+        let series = project(&records, "value.variant_index");
+        assert_eq!(series.segments, [points(&[(0, 0.0), (1, 1.0)])]);
+        assert!(!series.is_state());
+
+        let records = numbers(&[0.2, 0.7, 0.9, 0.1]);
+        let series = project(&records, "value > 0.5");
+        assert_eq!(
+            series.states,
+            [
+                state(0, Some(1), 0, "false"),
+                state(1, Some(3), 1, "true"),
+                state(3, None, 0, "false"),
+            ]
+        );
+
+        let series = project(&records, "if value > 0.5 { \"high\" } else { \"low\" }");
+        assert_eq!(
+            series.states,
+            [
+                state(0, Some(1), text_index("low"), "low"),
+                state(1, Some(3), text_index("high"), "high"),
+                state(3, None, text_index("low"), "low"),
+            ]
+        );
+    }
+
+    #[test]
     fn unavailable_states_end_the_current_run() {
         let optional_bool = |value: Option<bool>| {
             DynamicValue::Optional(value.map(|value| Box::new(DynamicValue::Bool(value))))
         };
-
-        let series = project(
+        let records = samples(
             TypeDef::Optional(Box::new(TypeDef::Primitive(PrimitiveTypeDef::Bool))),
             Default::default(),
             vec![
@@ -465,6 +747,8 @@ mod tests {
                 optional_bool(Some(false)),
             ],
         );
+
+        let series = project(&records, "");
 
         assert_eq!(
             series.states,
@@ -478,19 +762,52 @@ mod tests {
     }
 
     #[test]
-    fn items_keep_their_kind_without_valid_samples() {
-        let optional_bool = |value: Option<bool>| {
-            DynamicValue::Optional(value.map(|value| Box::new(DynamicValue::Bool(value))))
-        };
-        let mut series = project(
-            TypeDef::Optional(Box::new(TypeDef::Primitive(PrimitiveTypeDef::Bool))),
-            Default::default(),
-            vec![optional_bool(Some(true))],
+    fn new_snapshots_reuse_converted_samples() {
+        let records = numbers(&[1.0, 2.0, 3.0]);
+        let conversion = Conversion::new("value * 2.0".to_owned());
+        let mut series = SeriesData::default();
+        series.refresh(Some(&records), "", &conversion, later());
+
+        // The oldest sample left the window and a new one arrived. Without
+        // time to convert, only the shared samples remain projected.
+        let added = numbers(&[0.0, 0.0, 0.0, 4.0]);
+        let next: Records = [records[1].clone(), records[2].clone(), added[3].clone()].into();
+        assert!(series.refresh(Some(&next), "", &conversion, Instant::now()));
+        assert_eq!(series.segments, [points(&[(1, 4.0), (2, 6.0)])]);
+
+        assert!(!series.refresh(Some(&next), "", &conversion, later()));
+        assert_eq!(series.segments, [points(&[(1, 4.0), (2, 6.0), (3, 8.0)])]);
+    }
+
+    #[test]
+    fn changing_the_script_reprojects_the_history() {
+        let records = numbers(&[1.0, 2.0]);
+        let mut series = SeriesData::default();
+        series.refresh(Some(&records), "", &Conversion::default(), later());
+        assert_eq!(series.segments, [points(&[(0, 1.0), (1, 2.0)])]);
+
+        series.refresh(
+            Some(&records),
+            "",
+            &Conversion::new("-value".to_owned()),
+            later(),
         );
+        assert_eq!(series.segments, [points(&[(0, -1.0), (1, -2.0)])]);
+    }
+
+    #[test]
+    fn items_keep_their_kind_without_valid_samples() {
+        let records = numbers(&[0.7]);
+        let mut series = project(&records, "value > 0.5");
         assert!(series.is_state());
 
-        series.states.clear();
-        series.project_samples(&ValuePath::default(), std::iter::empty());
+        series.refresh(
+            Some(&records),
+            "",
+            &Conversion::new("value.x".to_owned()),
+            later(),
+        );
+        assert!(series.states.is_empty() && series.segments.is_empty());
         assert!(series.is_state());
     }
 }
