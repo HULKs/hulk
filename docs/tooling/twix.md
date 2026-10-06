@@ -62,28 +62,117 @@ Validation checks the tree structure before constructing any panels.
 Run `cargo test -p twix --bin twix` for preset validation, session, and headless layout tests.
 These cover bundled presets, file operations, picker dialogs, and layout rendering and round trips.
 
-## Panels and keybindings
+## Panels
 
-ROS-Z Twix currently contains Text, Image, Map, Parameter, and Audio panels.
-The Text panel observes one ROS-Z topic through `ros-z-debug` and renders the latest dynamic payload as JSON.
-The Image panel observes `TimeWrapper<ros2::sensor_msgs::image::Image>` topics, defaults to `inputs/left_image`, and renders the latest raw camera frame.
-The Parameter panel discovers ROS-Z nodes with remote parameter services, shows full snapshots or selected paths as JSON, and writes selected paths to active layers with revision checks.
-The Audio panel defaults to `audio_spectrums` and displays microphone spectra and a waterfall for the selected channel.
+Choose a panel from the **+** picker.
 
-The Text panel's **Topic** input accepts both a topic and a nested field path. Enter just the topic to display its whole message, or append a field path with a dot and press Enter:
+| Panel | Purpose |
+| --- | --- |
+| Text | Display a topic's latest payload or a selected field as JSON. |
+| Image | Display the latest raw camera frame from a `TimeWrapper<ros2::sensor_msgs::image::Image>` topic, defaulting to `inputs/left_image`. |
+| Map | Display field or ground views with selectable layers for robot pose, balls, obstacles, and paths. |
+| Parameter | Discover nodes with remote parameter services, display snapshots or selected paths as JSON, and write selected paths to active layers with revision checks. |
+| Audio | Display microphone spectra and a waterfall for the selected channel, defaulting to `audio_spectrums`. |
+| [Plot](#plot-panel) | Compare numeric topics or fields over time. |
+
+## Topic and field selection
+
+The Text and Plot panels' **Topic** inputs accept both a topic and a nested field path.
+In Text, enter just the topic to display its whole message, or append a field path with a dot and press Enter:
 
 - `detected_objects.inner` selects the wrapped detections.
-- `detected_objects.inner[2].bounding_box.confidence` selects the third detected object's confidence. Arrays and sequences use zero-based indices, and paths can continue through nested structs and arrays.
-- `status.state::Walking.speed` selects a field in an enum variant's payload. The selected value is unavailable while another variant is active.
-- `topic."field.with.dots"` selects a field whose name contains punctuation. Field and variant names can be JSON-quoted.
+- `detected_objects.inner[2].bounding_box.confidence` selects the third detected object's confidence.
+  Arrays and sequences use zero-based indices, and paths can continue through nested structs and arrays.
+- `status.state::Walking.speed` selects a field in an enum variant's payload.
+  The selected value is unavailable while another variant is active.
+- `topic."field.with.dots"` selects a field whose name contains punctuation.
+  Field and variant names can be JSON-quoted.
 
-Topics and fields autocomplete in the same input. Array completions include templates such as `detected_objects.inner[...]`. Selecting a template highlights `...` so you can replace it with an index, move past the closing bracket, and continue into the element's fields. Templates also work when the current array is empty. For a topic whose root is an array, use `topic[2]`.
+Topics and fields autocomplete in the same input.
+Array completions include templates such as `detected_objects.inner[...]`.
+Selecting a template highlights `...` so you can replace it with an index, move past the closing bracket, and continue into the element's fields.
+Templates also work when the current array is empty.
+For a topic whose root is an array, use `topic[2]`.
 
-Press **Ctrl+F** to focus and select the topic input in the active Text or Image panel. Press **Ctrl+Space** or **Arrow Down** in a completion input to open its dropdown, including when the input is empty. Arrow Down also highlights the first suggestion. Use the arrow keys to choose a completion and Enter to apply it. The input keeps focus with the cursor after the completion, so you can continue typing the path.
+Press **Ctrl+F** to focus and select the topic input in the active Text, Image, or live Plot panel.
+In Plot, this focuses the first line; adding a line focuses its own input.
+Press **Ctrl+Space** or **Arrow Down** in a completion input to open its dropdown, including when the input is empty.
+Arrow Down also highlights the first suggestion.
+Use the arrow keys to choose a completion and Enter to apply it.
+The input keeps focus with the cursor after the completion, so you can continue typing the path.
 
-Present optionals are unwrapped when continuing through a path. Absent optionals and missing sequence elements appear as unavailable values; invalid paths show an error. Selecting an optional or enum itself displays its full value. Map entries are not traversable in this first version, but the whole map can be displayed.
+Present optionals are unwrapped when continuing through a path.
+Absent optionals and missing sequence elements appear as unavailable values; invalid paths show an error.
+In Text, selecting an optional or enum itself displays its full value.
+Map entries are not traversable in this first version, but Text can display the whole map.
 
-Field completions use the schema from the latest received sample of the selected topic, including fields in absent optionals and inactive enum variants. Select a topic first to browse its fields, or enter a full path directly. Sequence index suggestions use the current length and show at most 64 indices; larger indices can be entered manually. Changing the field does not reconnect the topic subscription. Existing saved topic/field selections restore into the combined input. For topic names containing dots, the longest matching discovered topic takes precedence when separating topic and field path.
+Field completions use the schema from the latest received sample of the selected topic, including fields in absent optionals and inactive enum variants.
+Select a topic first to browse its fields, or enter a full path directly.
+Sequence index suggestions use the current length and show at most 64 indices; larger indices can be entered manually.
+Changing the field does not reconnect the topic subscription.
+Existing saved topic/field selections restore into the combined input.
+For topic names containing dots, the longest matching discovered topic takes precedence when separating topic and field path.
+
+## Plot panel
+
+Select **Plot** in the panel picker.
+Enter a numeric topic, or choose a topic and continue into its fields using the same completion input as Text.
+For example, `detected_objects.inner[2].bounding_box.confidence` plots the third detection's confidence.
+Integer and floating-point scalars are supported, including present optional numbers.
+Collections, strings, booleans, and enums need a numeric field selection; conversions and state backgrounds are deferred.
+
+Use **Add item** to compare sources on the same axes.
+Each item has a color picker, visibility checkbox, and X button beside the topic field to remove it.
+The item list identifies each source by its color, and hovering near a line shows its name, value, and time in a tooltip.
+The grid and crosshair are drawn faintly so they guide reading without competing with the data.
+Items are drawn as lines by default; the style button beside the info button toggles an item between line and scatter mode, which draws each sample as an unconnected point.
+In line mode, a lone sample is drawn as a point.
+Missing array elements, absent optionals, inactive enum variants, and NaN/infinite values break lines into separate segments.
+Hover over or click the info button beside the topic field to see the observation status, sample count, gap count, and any selection problem.
+
+The live view follows a common newest publisher timestamp, displayed as zero seconds on the X axis.
+All lines use source timestamps, so comparisons across publishers assume a shared clock.
+This uses publication metadata, not a nested `TimeWrapper.time` field.
+The axis stops advancing when no new samples arrive.
+Numeric values use `f64` plot coordinates, so very large integers can lose precision.
+
+**History** defaults to 30 seconds and accepts 1–600 seconds.
+Each topic retains all samples in the selected source-time window, without a sample-count cap.
+Memory usage grows with topic rate, payload size, and history duration; stalled source timestamps prevent time-based eviction.
+Changing history starts a new buffer.
+**Pause** freezes the displayed samples and time origin while live collection continues.
+Click the plot to focus it, then press **Space** to toggle pause/resume.
+Space does not toggle the plot while editing a text field.
+Zooming and panning are available while paused: drag or scroll with two fingers to pan, pinch or hold **Ctrl** (**Cmd** on macOS) while scrolling to zoom under the pointer, or drag with the secondary mouse button to box-zoom.
+**Reset view** or a double-click/double-tap restores the exact configured history interval and fits the Y axis; **Resume** returns to the current live window.
+Source and history controls are disabled while paused, but colors, visibility, and drawing styles remain editable.
+
+Layouts save source paths, colors, visibility, drawing styles, and history duration.
+Invalid saved fields, for example from a hand-edited layout, fall back to their defaults without discarding the rest of the plot.
+Restoring a plot starts fresh observations in live mode.
+Changing the robot namespace also clears displayed history and resumes the plot.
+
+### Dataflow
+
+```mermaid
+flowchart LR
+    Topic[ROS-Z topic] --> Cache[Time-window dynamic observation]
+    Cache --> Snapshot[Shared history snapshot]
+    Snapshot --> FieldA[Numeric field A]
+    Snapshot --> FieldB[Numeric field B]
+    FieldA --> Plot[Time-series plot]
+    FieldB --> Plot
+```
+
+`ros-z-debug` owns sample retention and observation recovery.
+Within a plot, `PlotHistory` owns one observation per distinct topic reference and shares decoded snapshots across its lines.
+Notifications request redraws and refresh the history snapshot, which can include multiple samples received between frames.
+Field changes reproject that history without reconnecting.
+`SeriesData` applies `ValuePath` directly to dynamic values, caches the numeric projection until the snapshot or path changes, and separates gaps before rendering.
+Pausing stops snapshot refresh, leaving the live observations running.
+Removing the last line using a topic releases its observation.
+
+## Keybindings
 
 ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`.
 Legacy Twix keeps using `hulks/twix.toml`, so the two tools do not share incompatible keybinding schemas.
@@ -104,7 +193,8 @@ The default ROS-Z keybindings are:
 | `C-d` | `duplicate_tab` |
 | `C-S-Backspace` | `close_all` |
 
-Supported action names are `open_split`, `open_tab`, `focus_namespace`, `focus_panel`, `focus_topic`, `focus_left`, `focus_below`, `focus_above`, `focus_right`, `close_tab`, `duplicate_tab`, `close_all`, and `no_op`. The `focus_topic` binding is configurable in `hulks/twix-ros-z.toml`, like the other actions.
+Supported action names are `open_split`, `open_tab`, `focus_namespace`, `focus_panel`, `focus_topic`, `focus_left`, `focus_below`, `focus_above`, `focus_right`, `close_tab`, `duplicate_tab`, `close_all`, and `no_op`.
+The `focus_topic` binding is configurable in `hulks/twix-ros-z.toml`, like the other actions.
 
 Directional focus selects the nearest visible panel and outlines it.
 Press `Tab` after moving focus to enter that panel's controls; subsequent `Tab` and `Shift-Tab` presses follow the normal control order.

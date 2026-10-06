@@ -11635,7 +11635,7 @@ dependencies = [
 
 [[package]]
 name = "twix"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "ball_filter",
  "behavior_node",
@@ -11647,6 +11647,7 @@ dependencies = [
  "eframe",
  "egui_extras",
  "egui_material_icons",
+ "egui_plot",
  "egui_tiles",
  "geometry",
  "hsl_network_messages",

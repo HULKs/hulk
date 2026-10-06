@@ -1,6 +1,6 @@
 [package]
 name = "twix"
-version = "0.18.0"
+version = "0.19.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -17,6 +17,7 @@ dirs = { workspace = true }
 eframe = { workspace = true }
 egui_extras = { workspace = true }
 egui_material_icons = { workspace = true }
+egui_plot = { workspace = true }
 egui_tiles = { workspace = true }
 geometry = { workspace = true }
 hsl_network_messages = { workspace = true }
