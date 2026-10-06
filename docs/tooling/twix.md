@@ -73,7 +73,7 @@ Choose a panel from the **+** picker.
 | Map | Display field or ground views with selectable layers for robot pose, balls, obstacles, and paths. |
 | Parameter | Discover nodes with remote parameter services, display snapshots or selected paths as JSON, and write selected paths to active layers with revision checks. |
 | Audio | Display microphone spectra and a waterfall for the selected channel, defaulting to `audio_spectrums`. |
-| [Plot](#plot-panel) | Compare numeric topics or fields over time, with enum and boolean states in the background. |
+| [Plot](#plot-panel) | Compare numeric topics or fields over time, with enum and boolean states in the background and parameters as threshold lines. |
 
 ## Topic and field selection
 
@@ -124,7 +124,7 @@ Enums and booleans are shown as states in the background; collections and string
 
 Use **Add item** to compare sources on the same axes.
 Each item has a color picker, visibility checkbox, and X button beside the topic field to remove it.
-An icon at the start of each row shows the item type: a line chart for numeric topic lines and a timeline for topic states.
+An icon at the start of each row shows the item type: a line chart for numeric topic lines, a timeline for topic states, and a threshold icon for parameter thresholds.
 The item list identifies each source by its color, and hovering near a line shows its name, value, and time in a tooltip.
 The grid and crosshair are drawn faintly so they guide reading without competing with the data.
 A lone sample is drawn as a point.
@@ -139,6 +139,15 @@ Labels that do not fit an interval are shortened; hover over an interval away fr
 A state lasts until a sample with another variant arrives, and the current state extends to the newest displayed time.
 Unavailable values, such as absent optionals or inactive parent variants, end the current state and count as gaps.
 States follow the same time axis, history window, and pause/zoom behavior as the lines, and do not affect the Y axis range.
+
+Use **Add threshold** to draw a parameter as a dashed horizontal line, for example while tuning a threshold that guards an output.
+Enter the parameter **Node**, relative to the robot namespace or absolute, and a dot-separated **Path**, for example node `obstacle_filter` and path `robot_confidence_threshold`.
+Nodes complete from discovered parameter services, and paths complete from the node's parameter snapshot.
+A number draws one line, and an array of numbers, such as `[0.05, 0.1]`, draws one line per element.
+Thresholds follow the node's parameter events, so a line moves when the parameter changes, including writes from the Parameter panel.
+Thresholds have the same color, visibility, info, and remove controls as topic items.
+They are drawn without topic data and are included in the Y axis range.
+If the node is unavailable, the info button shows the error, the last known value stays visible, and Twix keeps retrying.
 
 The live view follows a common newest publisher timestamp, displayed as zero seconds on the X axis.
 All lines use source timestamps, so comparisons across publishers assume a shared clock.
@@ -156,8 +165,9 @@ Space does not toggle the plot while editing a text field.
 Zooming and panning are available while paused: drag or scroll with two fingers to pan, pinch or hold **Ctrl** (**Cmd** on macOS) while scrolling to zoom under the pointer, or drag with the secondary mouse button to box-zoom.
 **Reset view** or a double-click/double-tap restores the exact configured history interval and fits the Y axis; **Resume** returns to the current live window.
 Source and history controls are disabled while paused, but colors and visibility remain editable.
+Pausing also freezes threshold values until the plot resumes.
 
-Layouts save source paths, colors, visibility, and history duration.
+Layouts save source paths, threshold nodes and paths, colors, visibility, and history duration.
 Restoring a plot starts fresh observations in live mode.
 Changing the robot namespace also clears displayed history and resumes the plot.
 
@@ -180,6 +190,8 @@ Field changes reproject that history without reconnecting.
 `SeriesData` applies `ValuePath` directly to dynamic values, merges enum and boolean samples into state intervals, caches the projection until the snapshot or path changes, and separates gaps before rendering.
 Pausing stops snapshot refresh, leaving the live observations running.
 Removing the last line using a topic releases its observation.
+Each threshold subscribes to its node's parameter events and fetches a new snapshot when an event announces a newer revision.
+Path changes reuse that snapshot, and changing the node or namespace restarts the subscription.
 
 ## Keybindings
 
