@@ -148,6 +148,7 @@ Zooming and panning are available while paused: drag or scroll with two fingers 
 Source and history controls are disabled while paused, but colors, visibility, and drawing styles remain editable.
 
 Layouts save source paths, colors, visibility, drawing styles, and history duration.
+Invalid saved fields, for example from a hand-edited layout, fall back to their defaults without discarding the rest of the plot.
 Restoring a plot starts fresh observations in live mode.
 Changing the robot namespace also clears displayed history and resumes the plot.
 
