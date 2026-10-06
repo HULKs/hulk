@@ -50,6 +50,41 @@ struct SavedLine {
     field_path: String,
     color: Color32,
     visible: bool,
+    style: DrawStyle,
+}
+
+/// How an item's samples are drawn.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum DrawStyle {
+    /// Connect consecutive samples, breaking at gaps.
+    #[default]
+    Line,
+    /// Draw each sample as an unconnected point.
+    Scatter,
+}
+
+impl DrawStyle {
+    fn toggled(self) -> Self {
+        match self {
+            Self::Line => Self::Scatter,
+            Self::Scatter => Self::Line,
+        }
+    }
+
+    fn icon(self) -> &'static str {
+        match self {
+            Self::Line => egui_material_icons::icons::ICON_TIMELINE.codepoint,
+            Self::Scatter => egui_material_icons::icons::ICON_SCATTER_PLOT.codepoint,
+        }
+    }
+
+    fn description(self) -> &'static str {
+        match self {
+            Self::Line => "Drawn as a line. Click to draw individual samples.",
+            Self::Scatter => "Drawn as individual samples. Click to connect them.",
+        }
+    }
 }
 
 impl Default for SavedLine {
@@ -59,6 +94,7 @@ impl Default for SavedLine {
             field_path: String::new(),
             color: COLORS[0],
             visible: true,
+            style: DrawStyle::Line,
         }
     }
 }
@@ -68,6 +104,7 @@ struct PlotLine {
     source: TopicSourceEditor,
     color: Color32,
     visible: bool,
+    style: DrawStyle,
     data: SeriesData,
 }
 
@@ -78,6 +115,7 @@ impl PlotLine {
             source: TopicSourceEditor::new(saved.topic, saved.field_path),
             color: saved.color,
             visible: saved.visible,
+            style: saved.style,
             data: SeriesData::default(),
         }
     }
@@ -88,6 +126,7 @@ impl PlotLine {
             field_path: self.source.field_path().to_owned(),
             color: self.color,
             visible: self.visible,
+            style: self.style,
         }
     }
 
@@ -228,6 +267,15 @@ impl Panel for PlotPanel {
                                 }
                                 let info =
                                     ui.button(egui_material_icons::icons::ICON_INFO.codepoint);
+                                // Drawing style only affects display, so it remains
+                                // editable while paused, like colors.
+                                if ui
+                                    .button(line.style.icon())
+                                    .on_hover_text(line.style.description())
+                                    .clicked()
+                                {
+                                    line.style = line.style.toggled();
+                                }
                                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                                     ui.add_enabled_ui(!self.paused, |ui| {
                                         ui.spacing_mut().text_edit_width = f32::INFINITY;
@@ -334,14 +382,19 @@ impl Panel for PlotPanel {
                         .filter(|(time, _)| *time >= start && *time <= end)
                         .map(|(time, value)| [seconds_from(*time, end), *value])
                         .collect();
-                    match points.len() {
-                        0 => {}
-                        1 => plot_ui.points(
+                    match (line.style, points.len()) {
+                        (_, 0) => {}
+                        (DrawStyle::Scatter, _) => plot_ui.points(
+                            Points::new(&label, PlotPoints::new(points))
+                                .color(line.color)
+                                .radius(2.0),
+                        ),
+                        (DrawStyle::Line, 1) => plot_ui.points(
                             Points::new(&label, PlotPoints::new(points))
                                 .color(line.color)
                                 .radius(3.0),
                         ),
-                        _ => plot_ui
+                        (DrawStyle::Line, _) => plot_ui
                             .line(Line::new(&label, PlotPoints::new(points)).color(line.color)),
                     }
                 }
@@ -394,5 +447,32 @@ fn valid_history_seconds(value: f64) -> f64 {
         value.clamp(1.0, 600.0)
     } else {
         30.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::{DrawStyle, SavedLine};
+
+    #[test]
+    fn layouts_without_a_style_draw_lines() {
+        let saved: SavedLine = serde_json::from_value(json!({ "topic": "a" })).unwrap();
+
+        assert!(saved.style == DrawStyle::Line);
+    }
+
+    #[test]
+    fn style_round_trips_through_layouts() {
+        let saved = SavedLine {
+            style: DrawStyle::Line.toggled(),
+            ..Default::default()
+        };
+        let value = serde_json::to_value(&saved).unwrap();
+
+        assert_eq!(value["style"], "scatter");
+        let restored: SavedLine = serde_json::from_value(value).unwrap();
+        assert!(restored.style == DrawStyle::Scatter);
     }
 }

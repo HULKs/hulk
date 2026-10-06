@@ -125,7 +125,8 @@ Use **Add item** to compare sources on the same axes.
 Each item has a color picker, visibility checkbox, and X button beside the topic field to remove it.
 The item list identifies each source by its color, and hovering near a line shows its name, value, and time in a tooltip.
 The grid and crosshair are drawn faintly so they guide reading without competing with the data.
-A lone sample is drawn as a point.
+Items are drawn as lines by default; the style button beside the info button toggles an item between line and scatter mode, which draws each sample as an unconnected point.
+In line mode, a lone sample is drawn as a point.
 Missing array elements, absent optionals, inactive enum variants, and NaN/infinite values break lines into separate segments.
 Hover over or click the info button beside the topic field to see the observation status, sample count, gap count, and any selection problem.
 
@@ -144,9 +145,9 @@ Click the plot to focus it, then press **Space** to toggle pause/resume.
 Space does not toggle the plot while editing a text field.
 Zooming and panning are available while paused: drag or scroll with two fingers to pan, pinch or hold **Ctrl** (**Cmd** on macOS) while scrolling to zoom under the pointer, or drag with the secondary mouse button to box-zoom.
 **Reset view** or a double-click/double-tap restores the exact configured history interval and fits the Y axis; **Resume** returns to the current live window.
-Source and history controls are disabled while paused, but colors and visibility remain editable.
+Source and history controls are disabled while paused, but colors, visibility, and drawing styles remain editable.
 
-Layouts save source paths, colors, visibility, and history duration.
+Layouts save source paths, colors, visibility, drawing styles, and history duration.
 Restoring a plot starts fresh observations in live mode.
 Changing the robot namespace also clears displayed history and resumes the plot.
 
