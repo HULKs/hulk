@@ -344,3 +344,113 @@ impl fmt::Display for ValuePath {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{SelectionError, ValuePath, ValuePathStep};
+
+    fn field(name: &str) -> ValuePathStep {
+        ValuePathStep::Field(name.to_owned())
+    }
+
+    fn variant(name: &str) -> ValuePathStep {
+        ValuePathStep::Variant(name.to_owned())
+    }
+
+    fn parse(input: &str) -> Result<ValuePath, SelectionError> {
+        input.parse()
+    }
+
+    #[test]
+    fn parses_fields_indices_and_variants() {
+        assert_eq!(parse(""), Ok(ValuePath(Vec::new())));
+        assert_eq!(
+            parse("inner[2].bounding_box.confidence"),
+            Ok(ValuePath(vec![
+                field("inner"),
+                ValuePathStep::Index(2),
+                field("bounding_box"),
+                field("confidence"),
+            ]))
+        );
+        assert_eq!(
+            parse("state::Walking.speed"),
+            Ok(ValuePath(vec![
+                field("state"),
+                variant("Walking"),
+                field("speed")
+            ]))
+        );
+        assert_eq!(
+            parse("[0][1]"),
+            Ok(ValuePath(vec![
+                ValuePathStep::Index(0),
+                ValuePathStep::Index(1)
+            ]))
+        );
+        assert_eq!(parse("::Walking"), Ok(ValuePath(vec![variant("Walking")])));
+    }
+
+    #[test]
+    fn parses_quoted_names() {
+        assert_eq!(
+            parse(r#""field.with.dots".x"#),
+            Ok(ValuePath(vec![field("field.with.dots"), field("x")]))
+        );
+        assert_eq!(
+            parse(r#"state::"Has space""#),
+            Ok(ValuePath(vec![field("state"), variant("Has space")]))
+        );
+        assert_eq!(
+            parse(r#""quote\"inside""#),
+            Ok(ValuePath(vec![field("quote\"inside")]))
+        );
+    }
+
+    #[test]
+    fn display_reads_back_as_the_same_path() {
+        for input in [
+            "",
+            "inner[2].bounding_box.confidence",
+            "state::Walking.speed",
+            "[0][1].x",
+            "::Walking",
+            r#""field.with.dots".x"#,
+            r#"state::"Has space"[3]"#,
+            r#""1st""#,
+            r#""quote\"inside""#,
+        ] {
+            let path = parse(input).unwrap();
+            assert_eq!(path.to_string(), input);
+            assert_eq!(parse(&path.to_string()), Ok(path));
+        }
+    }
+
+    #[test]
+    fn quotes_are_only_kept_where_needed() {
+        assert_eq!(parse(r#""speed""#).unwrap().to_string(), "speed");
+    }
+
+    #[test]
+    fn invalid_paths_report_the_offset_of_the_step() {
+        for (input, offset) in [
+            (".a", 0),
+            ("a.", 1),
+            ("a..b", 1),
+            ("a b", 1),
+            ("a::", 1),
+            ("a[1]b", 4),
+            ("1a", 0),
+            ("[x]", 0),
+            ("[]", 0),
+            ("[1", 0),
+            ("[-1]", 0),
+            ("[18446744073709551616]", 0),
+            (r#""""#, 0),
+            (r#""unterminated"#, 0),
+            (r#"a."b"#, 1),
+        ] {
+            assert_eq!(parse(input), Err(SelectionError::Syntax(offset)), "{input}");
+        }
+    }
+}
