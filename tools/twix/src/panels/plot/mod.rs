@@ -1,6 +1,7 @@
 mod history;
 mod states;
 mod status;
+mod threshold;
 
 use std::time::Duration;
 
@@ -8,7 +9,7 @@ use eframe::egui::{
     Align, Button, Color32, DragValue, Frame, Label, Layout, Popup, Response, RichText, ScrollArea,
     Tooltip, Ui, emath::format_with_decimals_in_range,
 };
-use egui_plot::{HoverPosition, Line, Plot, PlotMemory, PlotPoints, Points};
+use egui_plot::{HLine, HoverPosition, Line, LineStyle, Plot, PlotMemory, PlotPoints, Points};
 use ros_z::time::Time;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -20,6 +21,7 @@ use crate::{
 
 use history::{PlotHistory, SeriesData, seconds_from};
 use states::{StateLane, StateLaneItem, state_at, visible_spans};
+use threshold::{SavedThreshold, Threshold};
 
 const COLORS: [Color32; 6] = [
     Color32::from_rgb(31, 119, 180),
@@ -35,6 +37,7 @@ const COLORS: [Color32; 6] = [
 struct SavedPlot {
     history_seconds: f64,
     lines: Vec<SavedLine>,
+    thresholds: Vec<SavedThreshold>,
 }
 
 impl Default for SavedPlot {
@@ -42,6 +45,7 @@ impl Default for SavedPlot {
         Self {
             history_seconds: 30.0,
             lines: vec![SavedLine::default()],
+            thresholds: Vec::new(),
         }
     }
 }
@@ -135,6 +139,7 @@ impl PlotLine {
 
 pub struct PlotPanel {
     lines: Vec<PlotLine>,
+    thresholds: Vec<Threshold>,
     next_id: usize,
     history_seconds: f64,
     history: PlotHistory,
@@ -152,13 +157,20 @@ impl Panel for PlotPanel {
             .value
             .and_then(|value| SavedPlot::deserialize(value).ok())
             .unwrap_or_default();
+        let line_count = saved.lines.len();
         let mut panel = Self {
-            next_id: saved.lines.len(),
+            next_id: line_count + saved.thresholds.len(),
             lines: saved
                 .lines
                 .into_iter()
                 .enumerate()
                 .map(|(id, saved)| PlotLine::new(id, saved))
+                .collect(),
+            thresholds: saved
+                .thresholds
+                .into_iter()
+                .enumerate()
+                .map(|(index, saved)| Threshold::new(line_count + index, saved))
                 .collect(),
             history_seconds: valid_history_seconds(saved.history_seconds),
             history: PlotHistory::default(),
@@ -170,6 +182,11 @@ impl Panel for PlotPanel {
             panel.lines.iter().map(|line| line.source.topic()),
             Duration::from_secs_f64(panel.history_seconds),
         );
+        for threshold in &mut panel.thresholds {
+            threshold
+                .source
+                .reconcile(&context.backend, &context.egui_context);
+        }
         panel
     }
 
@@ -213,6 +230,13 @@ impl Panel for PlotPanel {
             {
                 self.add_line();
             }
+            if ui
+                .add_enabled(!self.paused, Button::new("Add threshold"))
+                .on_hover_text("Draw a numeric parameter as a horizontal line.")
+                .clicked()
+            {
+                self.add_threshold();
+            }
             if self.paused {
                 ui.label("Paused: drag or scroll to pan; pinch or Ctrl/Cmd+scroll to zoom.");
             }
@@ -229,8 +253,14 @@ impl Panel for PlotPanel {
         // snapshots, including paused data, before displaying the new target.
         self.reconcile(&context);
         self.history.refresh(self.paused);
+        if !self.paused {
+            for threshold in &mut self.thresholds {
+                threshold.source.refresh();
+            }
+        }
         let paused = self.paused;
         let mut remove = None;
+        let mut remove_threshold = None;
         ScrollArea::vertical()
             .id_salt("plot-sources")
             .max_height((ui.available_height() * 0.4).max(40.0))
@@ -281,12 +311,48 @@ impl Panel for PlotPanel {
                         });
                     });
                 }
+                for threshold in &mut self.thresholds {
+                    ui.push_id(("threshold", threshold.id), |ui| {
+                        let row = item_row(
+                            ui,
+                            paused,
+                            ItemControls {
+                                visible: &mut threshold.visible,
+                                color: &mut threshold.color,
+                                style: None,
+                            },
+                            ItemKind::Threshold,
+                            |ui| threshold.source.ui(ui, context.backend),
+                        );
+                        if row.remove {
+                            remove_threshold = Some(threshold.id);
+                        }
+                        let values = threshold.values();
+                        show_info(ui, &row.info, |ui| {
+                            ui.add(Label::new(threshold.source.status()).wrap());
+                            match &values {
+                                Ok(values) => {
+                                    let values: Vec<_> =
+                                        values.iter().map(f64::to_string).collect();
+                                    ui.label(format!("Displayed: {}", values.join(", ")));
+                                }
+                                Err(error) => warning(ui, error),
+                            }
+                            if let Some(error) = threshold.source.error() {
+                                warning(ui, error);
+                            }
+                        });
+                    });
+                }
             });
         if let Some(id) = remove {
             self.lines.retain(|line| line.id != id);
         }
+        if let Some(id) = remove_threshold {
+            self.thresholds.retain(|threshold| threshold.id != id);
+        }
         self.reconcile(&context);
-        if self.lines.is_empty() {
+        if self.lines.is_empty() && self.thresholds.is_empty() {
             ui.label("Add an item to plot a numeric topic or field.");
         }
 
@@ -361,9 +427,21 @@ impl Panel for PlotPanel {
                 plot_ui.set_auto_bounds([false, true]);
                 plot_ui.set_plot_bounds_x(-self.history_seconds..=0.0);
             }
-            // Draw states first, so lines stay on top.
+            // Draw states first, then thresholds, so lines stay on top.
             for lane in &state_lanes {
                 plot_ui.add(StateLaneItem::new(lane, state_lanes.len()));
+            }
+            // Thresholds need no samples, so draw them even before data arrives.
+            for threshold in self.thresholds.iter().filter(|threshold| threshold.visible) {
+                let label = threshold.label();
+                for value in threshold.values().unwrap_or_default() {
+                    plot_ui.hline(
+                        HLine::new(&label, value)
+                            .color(threshold.color)
+                            .style(LineStyle::dashed_loose())
+                            .width(1.5),
+                    );
+                }
             }
             let Some((start, end)) = window else {
                 return;
@@ -398,6 +476,7 @@ impl Panel for PlotPanel {
         serde_json::to_value(SavedPlot {
             history_seconds: self.history_seconds,
             lines: self.lines.iter().map(PlotLine::save).collect(),
+            thresholds: self.thresholds.iter().map(Threshold::save).collect(),
         })
         .expect("plot settings are serializable")
     }
@@ -417,7 +496,22 @@ impl PlotPanel {
         self.next_id += 1;
     }
 
+    fn add_threshold(&mut self) {
+        let mut threshold = Threshold::new(
+            self.next_id,
+            SavedThreshold::with_color(COLORS[self.next_id % COLORS.len()]),
+        );
+        threshold.source.request_focus();
+        self.thresholds.push(threshold);
+        self.next_id += 1;
+    }
+
     fn reconcile(&mut self, context: &PanelUiContext<'_>) {
+        for threshold in &mut self.thresholds {
+            threshold
+                .source
+                .reconcile(context.backend, context.egui_context);
+        }
         self.history_seconds = valid_history_seconds(self.history_seconds);
         if self.history.reconcile(
             context,
@@ -451,6 +545,7 @@ fn visible_segment(segment: &[(Time, f64)], start: Time, end: Time) -> &[(Time, 
 enum ItemKind {
     Line,
     States,
+    Threshold,
 }
 
 impl ItemKind {
@@ -458,6 +553,7 @@ impl ItemKind {
         match self {
             Self::Line => egui_material_icons::icons::ICON_SHOW_CHART.codepoint,
             Self::States => egui_material_icons::icons::ICON_VIEW_TIMELINE.codepoint,
+            Self::Threshold => egui_material_icons::icons::ICON_DATA_THRESHOLDING.codepoint,
         }
     }
 
@@ -465,6 +561,7 @@ impl ItemKind {
         match self {
             Self::Line => "Topic plotted as a line",
             Self::States => "Topic states shown in the background",
+            Self::Threshold => "Parameter drawn as a threshold line",
         }
     }
 }
