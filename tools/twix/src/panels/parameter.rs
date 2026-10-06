@@ -1052,7 +1052,11 @@ where
     nodes
 }
 
-fn parameter_node_completions<I, S>(services: I, active_namespace: &str, input: &str) -> Vec<String>
+pub(super) fn parameter_node_completions<I, S>(
+    services: I,
+    active_namespace: &str,
+    input: &str,
+) -> Vec<String>
 where
     I: IntoIterator<Item = S>,
     S: AsRef<str>,
@@ -1084,14 +1088,8 @@ where
     S: AsRef<str>,
 {
     let input = input.trim();
-    if input.is_empty() {
+    let Some(candidate) = parameter_node_fqn(active_namespace, input) else {
         return Err(eyre!("select a parameter node"));
-    }
-
-    let candidate = if input.starts_with('/') {
-        input.to_string()
-    } else {
-        format!("{}{}", completion_namespace_prefix(active_namespace), input)
     };
 
     let nodes = parameter_nodes_from_service_names(services);
@@ -1099,6 +1097,23 @@ where
         Ok(candidate)
     } else {
         Err(eyre!("parameter node not found: {input}"))
+    }
+}
+
+/// Fully qualified name of a node entered relative to the active namespace or
+/// as an absolute name, without checking that the node exists.
+pub(super) fn parameter_node_fqn(active_namespace: &str, input: &str) -> Option<String> {
+    let input = input.trim();
+    if input.is_empty() {
+        None
+    } else if input.starts_with('/') {
+        Some(input.to_string())
+    } else {
+        Some(format!(
+            "{}{}",
+            completion_namespace_prefix(active_namespace),
+            input
+        ))
     }
 }
 
@@ -1117,7 +1132,7 @@ fn parse_snapshot_path_completions(value_json: &str) -> Result<Vec<String>, Repo
     Ok(collect_parameter_paths(&value))
 }
 
-fn collect_parameter_paths(value: &Value) -> Vec<String> {
+pub(super) fn collect_parameter_paths(value: &Value) -> Vec<String> {
     let mut paths = BTreeSet::new();
     collect_parameter_paths_inner("", value, &mut paths);
     paths.into_iter().collect()
@@ -1151,7 +1166,10 @@ fn parse_editor_json(input: &str) -> Result<Value, Report> {
     )
 }
 
-async fn run_remote_operation<T, F>(operation: &'static str, future: F) -> Result<T, String>
+pub(super) async fn run_remote_operation<T, F>(
+    operation: &'static str,
+    future: F,
+) -> Result<T, String>
 where
     F: Future<Output = Result<T, Report>>,
 {
