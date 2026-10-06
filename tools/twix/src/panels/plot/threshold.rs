@@ -156,14 +156,16 @@ impl ParameterSource {
         ui.label("Node");
         let node = ui
             .add(
-                CompletionEdit::new(ui.id().with("node"), &nodes, &mut self.node_editor)
+                CompletionEdit::new(ui.scope_id().with("node"), &nodes, &mut self.node_editor)
                     .request_focus(std::mem::take(&mut self.focus_requested)),
             )
             .on_hover_text(
                 "Parameter node, relative to the robot namespace or absolute. \
-                 Ctrl+Space opens completions.",
+                 Ctrl+Space opens completions. Press Enter to apply.",
             );
-        if node.changed() || node.lost_focus() {
+        // Like topics, apply only on Enter or a chosen completion, so a
+        // partial name never starts following a node.
+        if node.changed() {
             self.node = self.node_editor.trim().to_owned();
         }
         ui.label("Path");
@@ -171,12 +173,14 @@ impl ParameterSource {
         ui.spacing_mut().text_edit_width = f32::INFINITY;
         let path = ui
             .add(CompletionEdit::new(
-                ui.id().with("path"),
+                ui.scope_id().with("path"),
                 paths,
                 &mut self.path_editor,
             ))
-            .on_hover_text("Dot-separated path to a number or an array of numbers.");
-        if path.changed() || path.lost_focus() {
+            .on_hover_text(
+                "Dot-separated path to a number or an array of numbers. Press Enter to apply.",
+            );
+        if path.changed() {
             self.path = self.path_editor.trim().to_owned();
         }
     }
@@ -385,9 +389,8 @@ mod tests {
         Node,
         NodeParameters<ThresholdParameters>,
     ) {
-        let context = ContextBuilder::default()
+        let context = ContextBuilder::isolated_for_test()
             .with_mode("peer")
-            .disable_multicast_scouting()
             .with_connect_endpoints([endpoint])
             .with_parameter_layers(layers.iter().cloned())
             .build()
@@ -423,9 +426,8 @@ mod tests {
             .unwrap()
             .port();
         let endpoint = format!("tcp/127.0.0.1:{port}");
-        let context = ContextBuilder::default()
+        let context = ContextBuilder::isolated_for_test()
             .with_mode("peer")
-            .disable_multicast_scouting()
             .with_listen_endpoints([endpoint.as_str()])
             .build()
             .await
