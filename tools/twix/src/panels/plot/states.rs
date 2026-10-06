@@ -1,0 +1,263 @@
+use std::ops::Range;
+
+use eframe::egui::{Color32, Rect, Shape, Stroke, TextStyle, Ui, pos2, text::LayoutJob};
+use egui_plot::{PlotBounds, PlotGeometry, PlotItem, PlotItemBase, PlotPoint, PlotTransform};
+use ros_z::time::Time;
+
+use super::history::{StateInterval, seconds_from};
+
+const PALETTE: [Color32; 8] = [
+    Color32::from_rgb(78, 121, 167),
+    Color32::from_rgb(242, 142, 43),
+    Color32::from_rgb(89, 161, 79),
+    Color32::from_rgb(225, 87, 89),
+    Color32::from_rgb(176, 122, 161),
+    Color32::from_rgb(237, 201, 72),
+    Color32::from_rgb(118, 183, 178),
+    Color32::from_rgb(156, 117, 95),
+];
+// Faint fills keep the plotted lines in the foreground.
+const FILL_OPACITY: f32 = 0.07;
+const BOUNDARY_OPACITY: f32 = 0.25;
+const LABEL_PADDING: f32 = 4.0;
+
+/// Background color of a state, stable across sessions for a given schema.
+pub(super) fn state_color(index: u32) -> Color32 {
+    PALETTE[index as usize % PALETTE.len()]
+}
+
+/// One displayed state run, in seconds relative to the plot's time origin.
+pub(super) struct StateSpan<'a> {
+    pub x: Range<f64>,
+    pub name: &'a str,
+    pub index: u32,
+}
+
+/// Clip state runs to the displayed window. Open runs extend to its end.
+pub(super) fn visible_spans<'a>(
+    states: &'a [StateInterval],
+    start: Time,
+    end: Time,
+) -> impl Iterator<Item = StateSpan<'a>> {
+    states.iter().filter_map(move |state| {
+        let state_end = state.end.unwrap_or(end).min(end);
+        let state_start = state.start.max(start);
+        (state_start < state_end).then(|| StateSpan {
+            x: seconds_from(state_start, end)..seconds_from(state_end, end),
+            name: &state.name,
+            index: state.index,
+        })
+    })
+}
+
+/// Vertical share of the plot frame used by one of `count` stacked lanes.
+pub(super) fn lane_rect(frame: Rect, lane: usize, count: usize) -> Rect {
+    let height = frame.height() / count.max(1) as f32;
+    let top = frame.top() + lane as f32 * height;
+    Rect::from_x_y_ranges(frame.x_range(), top..=top + height)
+}
+
+/// Labeled state intervals of one state item, drawn behind numeric lines.
+/// Each state item gets its own lane, so several enums can be compared
+/// without overlapping fills.
+pub(super) struct StateLane<'a> {
+    pub label: String,
+    pub color: Color32,
+    pub spans: Vec<StateSpan<'a>>,
+    pub lane: usize,
+}
+
+/// Find the lane and state under a hovered plot position, using the bounds
+/// that map the plot frame to plot coordinates.
+pub(super) fn state_at<'a>(
+    lanes: &'a [StateLane<'a>],
+    bounds: &PlotBounds,
+    position: PlotPoint,
+) -> Option<(&'a StateLane<'a>, &'a StateSpan<'a>)> {
+    let height = bounds.max()[1] - bounds.min()[1];
+    let fraction = (bounds.max()[1] - position.y) / height;
+    if !(0.0..1.0).contains(&fraction) {
+        return None;
+    }
+    let index = (fraction * lanes.len() as f64) as usize;
+    let lane = lanes.iter().find(|lane| lane.lane == index)?;
+    let span = lane
+        .spans
+        .iter()
+        .find(|span| span.x.contains(&position.x))?;
+    Some((lane, span))
+}
+
+/// Plot item for a [`StateLane`]. It has no Y extent, so it never affects
+/// the numeric axis bounds.
+pub(super) struct StateLaneItem<'a> {
+    base: PlotItemBase,
+    lane: &'a StateLane<'a>,
+    lanes: usize,
+}
+
+impl<'a> StateLaneItem<'a> {
+    pub fn new(lane: &'a StateLane<'a>, lanes: usize) -> Self {
+        Self {
+            base: PlotItemBase::new(lane.label.clone()),
+            lane,
+            lanes,
+        }
+    }
+}
+
+impl PlotItem for StateLaneItem<'_> {
+    fn shapes(&self, ui: &Ui, transform: &PlotTransform, shapes: &mut Vec<Shape>) {
+        let lane = lane_rect(*transform.frame(), self.lane.lane, self.lanes);
+        let text_color = ui.visuals().weak_text_color();
+        for span in &self.lane.spans {
+            let left = transform.position_from_point_x(span.x.start);
+            let right = transform.position_from_point_x(span.x.end);
+            let rect = Rect::from_x_y_ranges(left..=right, lane.y_range()).intersect(lane);
+            if !rect.is_positive() {
+                continue;
+            }
+            let color = state_color(span.index);
+            shapes.push(Shape::rect_filled(
+                rect,
+                0.0,
+                color.gamma_multiply(FILL_OPACITY),
+            ));
+            if lane.x_range().contains(left) {
+                shapes.push(Shape::vline(
+                    left,
+                    lane.y_range(),
+                    Stroke::new(1.0, color.gamma_multiply(BOUNDARY_OPACITY)),
+                ));
+            }
+            let width = rect.width() - 2.0 * LABEL_PADDING;
+            if width > 0.0 {
+                let mut job = LayoutJob::simple_singleline(
+                    span.name.to_owned(),
+                    TextStyle::Small.resolve(ui.style()),
+                    text_color,
+                );
+                job.wrap.max_width = width;
+                job.wrap.max_rows = 1;
+                job.wrap.break_anywhere = true;
+                job.wrap.overflow_character = Some('…');
+                let galley = ui.painter().layout_job(job);
+                if galley.size().y + 2.0 * LABEL_PADDING <= rect.height() {
+                    shapes.push(Shape::galley(
+                        pos2(rect.left() + LABEL_PADDING, rect.top() + LABEL_PADDING),
+                        galley,
+                        text_color,
+                    ));
+                }
+            }
+        }
+        // Identify the lane by its item color, matching the item list.
+        shapes.push(Shape::hline(
+            lane.x_range(),
+            lane.top() + 1.0,
+            Stroke::new(1.5, self.lane.color.gamma_multiply(0.7)),
+        ));
+    }
+
+    fn initialize(&mut self, _x_range: std::ops::RangeInclusive<f64>) {}
+
+    fn color(&self) -> Color32 {
+        self.lane.color
+    }
+
+    fn geometry(&self) -> PlotGeometry<'_> {
+        PlotGeometry::None
+    }
+
+    fn bounds(&self) -> PlotBounds {
+        PlotBounds::NOTHING
+    }
+
+    fn base(&self) -> &PlotItemBase {
+        &self.base
+    }
+
+    fn base_mut(&mut self) -> &mut PlotItemBase {
+        &mut self.base
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use eframe::egui::{pos2, vec2};
+
+    use super::*;
+
+    fn interval(start: i64, end: Option<i64>, index: u32) -> StateInterval {
+        StateInterval {
+            start: Time::from_nanos(start * 1_000_000_000),
+            end: end.map(|end| Time::from_nanos(end * 1_000_000_000)),
+            index,
+            name: format!("S{index}"),
+        }
+    }
+
+    #[test]
+    fn spans_are_clipped_to_window_and_open_runs_reach_the_end() {
+        let states = [
+            interval(0, Some(4), 0),
+            interval(4, Some(6), 1),
+            interval(8, None, 2),
+        ];
+
+        let spans: Vec<_> = visible_spans(
+            &states,
+            Time::from_nanos(2_000_000_000),
+            Time::from_nanos(10_000_000_000),
+        )
+        .map(|span| (span.x, span.index))
+        .collect();
+
+        assert_eq!(spans, [(-8.0..-6.0, 0), (-6.0..-4.0, 1), (-2.0..0.0, 2)]);
+    }
+
+    #[test]
+    fn spans_outside_window_are_skipped() {
+        let states = [interval(0, Some(1), 0), interval(12, None, 1)];
+
+        let spans = visible_spans(
+            &states,
+            Time::from_nanos(2_000_000_000),
+            Time::from_nanos(10_000_000_000),
+        );
+
+        assert_eq!(spans.count(), 0);
+    }
+
+    #[test]
+    fn hovered_position_finds_the_lane_and_state() {
+        let states = [interval(0, Some(4), 0), interval(4, None, 1)];
+        let window = (Time::from_nanos(0), Time::from_nanos(10_000_000_000));
+        let lanes: Vec<_> = (0..2)
+            .map(|lane| StateLane {
+                label: format!("lane {lane}"),
+                color: Color32::WHITE,
+                spans: visible_spans(&states, window.0, window.1).collect(),
+                lane,
+            })
+            .collect();
+        let bounds = PlotBounds::from_min_max([-10.0, -1.0], [0.0, 1.0]);
+
+        let (lane, span) = state_at(&lanes, &bounds, PlotPoint::new(-8.0, 0.5)).unwrap();
+        assert_eq!((lane.lane, span.name), (0, "S0"));
+        let (lane, span) = state_at(&lanes, &bounds, PlotPoint::new(-2.0, -0.5)).unwrap();
+        assert_eq!((lane.lane, span.name), (1, "S1"));
+        assert!(state_at(&lanes, &bounds, PlotPoint::new(-2.0, 2.0)).is_none());
+    }
+
+    #[test]
+    fn lanes_split_the_frame_height() {
+        let frame = Rect::from_min_size(pos2(0.0, 10.0), vec2(100.0, 90.0));
+
+        assert_eq!(lane_rect(frame, 0, 1), frame);
+        assert_eq!(
+            lane_rect(frame, 2, 3),
+            Rect::from_min_max(pos2(0.0, 70.0), pos2(100.0, 100.0))
+        );
+    }
+}
