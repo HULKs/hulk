@@ -62,7 +62,6 @@ pub(super) fn lane_rect(frame: Rect, lane: usize, count: usize) -> Rect {
 /// without overlapping fills.
 pub(super) struct StateLane<'a> {
     pub label: String,
-    pub color: Color32,
     pub spans: Vec<StateSpan<'a>>,
     pub lane: usize,
 }
@@ -151,18 +150,13 @@ impl PlotItem for StateLaneItem<'_> {
                 }
             }
         }
-        // Identify the lane by its item color, matching the item list.
-        shapes.push(Shape::hline(
-            lane.x_range(),
-            lane.top() + 1.0,
-            Stroke::new(1.5, self.lane.color.gamma_multiply(0.7)),
-        ));
     }
 
     fn initialize(&mut self, _x_range: std::ops::RangeInclusive<f64>) {}
 
+    /// Variants have their own colors, so the item has none.
     fn color(&self) -> Color32 {
-        self.lane.color
+        Color32::TRANSPARENT
     }
 
     fn geometry(&self) -> PlotGeometry<'_> {
@@ -236,7 +230,6 @@ mod tests {
         let lanes: Vec<_> = (0..2)
             .map(|lane| StateLane {
                 label: format!("lane {lane}"),
-                color: Color32::WHITE,
                 spans: visible_spans(&states, window.0, window.1).collect(),
                 lane,
             })
