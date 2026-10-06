@@ -37,6 +37,7 @@ struct SavedPlot {
     history_seconds: f64,
     #[serde(deserialize_with = "lenient_items")]
     lines: Vec<SavedLine>,
+    #[serde(deserialize_with = "lenient_items")]
     thresholds: Vec<SavedThreshold>,
 }
 

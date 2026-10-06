@@ -144,6 +144,7 @@ States follow the same time axis, history window, and pause/zoom behavior as the
 
 Use **Add threshold** to draw a parameter as a dashed horizontal line, for example while tuning a threshold that guards an output.
 Enter the parameter **Node**, relative to the robot namespace or absolute, and a dot-separated **Path**, for example node `obstacle_filter` and path `robot_confidence_threshold`.
+Like topics, both inputs apply when you press Enter or choose a completion.
 Nodes complete from discovered parameter services, and paths complete from the node's parameter snapshot.
 A number draws one line, and an array of numbers, such as `[0.05, 0.1]`, draws one line per element.
 Thresholds follow the node's parameter events, so a line moves when the parameter changes, including writes from the Parameter panel.
@@ -194,7 +195,8 @@ Field changes reproject that history without reconnecting.
 Pausing stops snapshot refresh, leaving the live observations running.
 Removing the last line using a topic releases its observation.
 Each threshold subscribes to its node's parameter events and fetches a new snapshot when an event announces a newer revision.
-It also refetches the snapshot every two seconds, because revisions restart when the node restarts.
+It also refetches the full snapshot every two seconds, because a restarted node starts again at revision zero without sending events.
+Each threshold follows its node separately, so several thresholds on one node multiply these requests.
 Path changes reuse that snapshot, and changing the node or namespace restarts the subscription.
 
 ## Keybindings

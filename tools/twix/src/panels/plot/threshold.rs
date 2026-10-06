@@ -161,9 +161,11 @@ impl ParameterSource {
             )
             .on_hover_text(
                 "Parameter node, relative to the robot namespace or absolute. \
-                 Ctrl+Space opens completions.",
+                 Ctrl+Space opens completions. Press Enter to apply.",
             );
-        if node.changed() || node.lost_focus() {
+        // Like topics, apply only on Enter or a chosen completion, so a
+        // partial name never starts following a node.
+        if node.changed() {
             self.node = self.node_editor.trim().to_owned();
         }
         ui.label("Path");
@@ -175,8 +177,10 @@ impl ParameterSource {
                 paths,
                 &mut self.path_editor,
             ))
-            .on_hover_text("Dot-separated path to a number or an array of numbers.");
-        if path.changed() || path.lost_focus() {
+            .on_hover_text(
+                "Dot-separated path to a number or an array of numbers. Press Enter to apply.",
+            );
+        if path.changed() {
             self.path = self.path_editor.trim().to_owned();
         }
     }
