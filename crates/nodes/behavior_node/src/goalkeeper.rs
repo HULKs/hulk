@@ -233,7 +233,7 @@ fn is_ball_close_enough_to_goal_to_become_striker(blackboard: &mut Blackboard) -
 
 fn is_ball_near_own_goal(blackboard: &mut Blackboard) -> bool {
     blackboard.ball.as_ref().is_some_and(|ball| {
-        let own_goal_x = blackboard.field_dimensions.length / 2.0;
+        let own_goal_x = -blackboard.field_dimensions.length / 2.0;
         let maximum_ball_x = own_goal_x + blackboard.parameters.goalkeeper.passive_distance;
 
         ball.position.x() < maximum_ball_x
