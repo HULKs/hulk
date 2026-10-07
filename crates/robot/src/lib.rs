@@ -289,6 +289,7 @@ impl Robot {
     pub async fn power_off(&self) -> Result<()> {
         let status = self
             .ssh_to_robot()?
+            .arg("sudo")
             .arg("systemctl")
             .arg("poweroff")
             .status()
