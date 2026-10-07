@@ -169,7 +169,7 @@ fn is_goalkeeper_interception_candidate(blackboard: &mut Blackboard) -> bool {
         }
 
         let ball_in_ground = ground_to_field.inverse() * ball.position;
-        let velocity = ball.velocity;
+        let velocity = ground_to_field.inverse() * ball.velocity;
         let time_to_closest_approach =
             -ball_in_ground.coords().dot(&velocity) / velocity.norm_squared();
         if time_to_closest_approach < 0.0 {
@@ -362,9 +362,7 @@ fn select_goalkeeper_kick_away_target(blackboard: &mut Blackboard) -> Status {
 
 fn ball_interception_velocity_in_field(blackboard: &Blackboard) -> Option<Vector2<Field>> {
     let ball = blackboard.ball.as_ref()?;
-    let ground_to_field = blackboard.world_state.robot.ground_to_field?;
-
-    Some(ground_to_field * ball.velocity)
+    Some(ball.velocity)
 }
 
 fn is_interception_velocity_towards_own_half(
