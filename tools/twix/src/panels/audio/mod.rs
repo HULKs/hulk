@@ -373,12 +373,8 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
         _tile_id: egui_tiles::TileId,
         pane: &mut AudioPane,
     ) -> egui_tiles::UiResponse {
-        ui.label(format!("Frequency: 0–{:.0} Hz", self.max_frequency));
-
         match pane {
             AudioPane::Spectrum(hidden_channels) => {
-                ui.label(format!("Magnitude: 0–{:.3}", self.max_magnitude));
-
                 let (saturation, value) = if ui.visuals().dark_mode {
                     (0.65, 0.95)
                 } else {
@@ -427,8 +423,13 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
                     }
                 });
 
-                let (rect, _response) = ui
-                    .allocate_exact_size(ui.available_size().max(Vec2::ZERO), egui::Sense::hover());
+                let rect = allocate_plot(
+                    ui,
+                    self.max_frequency,
+                    [self.max_magnitude, 0.0],
+                    "Magnitude",
+                    |magnitude| format!("{magnitude:.3}"),
+                );
 
                 if rect.is_positive() && ui.is_rect_visible(rect) {
                     let painter = screen_painter(ui, rect);
@@ -511,9 +512,12 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
                 ui.label(format!("History: {:.2} s; newest at top", self.total_time,));
 
                 if let Some(texture) = self.texture {
-                    let (rect, _response) = ui.allocate_exact_size(
-                        ui.available_size().max(Vec2::ZERO),
-                        egui::Sense::hover(),
+                    let rect = allocate_plot(
+                        ui,
+                        self.max_frequency,
+                        [0.0, self.total_time],
+                        "Time ago (s)",
+                        |seconds| format!("{seconds:.1}"),
                     );
                     if rect.is_positive() && ui.is_rect_visible(rect) {
                         let painter = screen_painter(ui, rect);
@@ -533,6 +537,112 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
 
         egui_tiles::UiResponse::None
     }
+}
+
+fn allocate_plot(
+    ui: &mut Ui,
+    max_frequency: f32,
+    vertical_range: [f32; 2],
+    vertical_label: &str,
+    format_vertical: impl Fn(f32) -> String,
+) -> egui::Rect {
+    let (rect, _) =
+        ui.allocate_exact_size(ui.available_size().max(Vec2::ZERO), egui::Sense::hover());
+    let font_id = egui::TextStyle::Body.resolve(ui.style());
+    let text_color = ui.visuals().text_color();
+    let line_height = ui.text_style_height(&egui::TextStyle::Body);
+    let spacing = ui.spacing().item_spacing;
+    let tick_length = 4.0;
+    let top_margin = 1.5 * line_height + spacing.y;
+    let bottom_margin = 2.0 * (line_height + spacing.y) + tick_length;
+    let plot_height = rect.height() - top_margin - bottom_margin;
+    let vertical_ticks = ((plot_height / (line_height * 3.0)) as usize).clamp(1, 5);
+    let vertical_labels: Vec<_> = (0..=vertical_ticks)
+        .map(|tick| {
+            let fraction = tick as f32 / vertical_ticks as f32;
+            format_vertical(vertical_range[0] + fraction * (vertical_range[1] - vertical_range[0]))
+        })
+        .collect();
+    let label_width = vertical_labels
+        .iter()
+        .map(|label| {
+            ui.painter()
+                .layout_no_wrap(label.clone(), font_id.clone(), text_color)
+                .size()
+                .x
+        })
+        .fold(0.0, f32::max);
+    let frequency_label = "Frequency (Hz)";
+    let minimum_width = ui
+        .painter()
+        .layout_no_wrap(frequency_label.to_string(), font_id.clone(), text_color)
+        .size()
+        .x;
+    let plot_rect = egui::Rect::from_min_max(
+        rect.min + egui::vec2(label_width + spacing.x + tick_length, top_margin),
+        rect.max - egui::vec2(0.0, bottom_margin),
+    );
+    if plot_rect.width() < minimum_width
+        || plot_rect.height() < line_height + spacing.y
+        || !ui.is_rect_visible(rect)
+    {
+        return egui::Rect::NOTHING;
+    }
+
+    let painter = screen_painter(ui, rect);
+    let left = plot_rect.left() - rect.left();
+    let top = plot_rect.top() - rect.top();
+    let right = plot_rect.right() - rect.left();
+    let bottom = plot_rect.bottom() - rect.top();
+    let stroke = ui.visuals().widgets.noninteractive.fg_stroke;
+    painter.line_segment(point![left, top], point![left, bottom], stroke);
+    painter.line_segment(point![left, bottom], point![right, bottom], stroke);
+    painter.floating_text(
+        point![0.0, 0.0],
+        egui::Align2::LEFT_TOP,
+        vertical_label.to_string(),
+        font_id.clone(),
+        text_color,
+    );
+    for (tick, label) in vertical_labels.into_iter().enumerate() {
+        let y = top + tick as f32 / vertical_ticks as f32 * plot_rect.height();
+        painter.line_segment(point![left - tick_length, y], point![left, y], stroke);
+        painter.floating_text(
+            point![left - tick_length - spacing.x, y],
+            egui::Align2::RIGHT_CENTER,
+            label,
+            font_id.clone(),
+            text_color,
+        );
+    }
+    let horizontal_ticks = ((plot_rect.width() / 80.0) as usize).clamp(1, 8);
+    for tick in 0..=horizontal_ticks {
+        let fraction = tick as f32 / horizontal_ticks as f32;
+        let x = left + fraction * plot_rect.width();
+        let align = if tick == 0 {
+            egui::Align2::LEFT_TOP
+        } else if tick == horizontal_ticks {
+            egui::Align2::RIGHT_TOP
+        } else {
+            egui::Align2::CENTER_TOP
+        };
+        painter.line_segment(point![x, bottom], point![x, bottom + tick_length], stroke);
+        painter.floating_text(
+            point![x, bottom + tick_length + spacing.y],
+            align,
+            format!("{:.0}", fraction * max_frequency),
+            font_id.clone(),
+            text_color,
+        );
+    }
+    painter.floating_text(
+        point![(left + right) / 2.0, rect.height()],
+        egui::Align2::CENTER_BOTTOM,
+        frequency_label.to_string(),
+        font_id,
+        text_color,
+    );
+    plot_rect
 }
 
 fn screen_painter(ui: &mut Ui, rect: egui::Rect) -> TwixPainter<Screen> {
