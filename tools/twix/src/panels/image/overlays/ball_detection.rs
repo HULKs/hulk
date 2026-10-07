@@ -3,9 +3,9 @@ use coordinate_systems::Pixel;
 use eframe::egui::{Color32, Stroke};
 use geometry::circle::Circle;
 use ros_z::time::Time;
+use twix_visualization::twix_painter::TwixPainter;
 
 use crate::repaint::ObservationContext;
-use twix_visualization::twix_painter::TwixPainter;
 
 use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 
