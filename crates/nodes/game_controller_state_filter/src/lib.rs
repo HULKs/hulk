@@ -207,6 +207,8 @@ impl GameControllerStateFilter {
             kicking_team,
         );
 
+        self.last_game_controller_state = Some(game_controller_state.clone());
+
         FilteredGameControllerState {
             game_state: game_states.own,
             opponent_game_state: game_states.opponent,
@@ -322,10 +324,6 @@ impl GameControllerStateFilter {
         detected_free_kick_kicking_team: Option<Team>,
         filtered_whistle: &FilteredWhistle,
     ) -> Option<Team> {
-        if let Some(kicking_team) = game_controller_state.kicking_team {
-            return Some(kicking_team);
-        }
-
         let ball_is_in_opponent_half = latest_ball_state
             .map(|(_, ball_state)| ball_state.ball_in_field.x().is_sign_positive());
 
@@ -355,6 +353,10 @@ impl GameControllerStateFilter {
             })
         {
             self.last_time_opponent_was_penalized = None;
+        }
+
+        if let Some(kicking_team) = game_controller_state.kicking_team {
+            return Some(kicking_team);
         }
 
         match game_controller_state {
