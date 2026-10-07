@@ -3,7 +3,7 @@
 Robot behavior runs in the ROS-Z `behavior_node`.
 The node receives the latest game, robot, localization, ball, obstacle, and team state, ticks the behavior tree every 20 ms, and publishes the resulting motion command and network messages.
 
-The behavior tree chooses *what* the robot should do.
+The behavior tree chooses _what_ the robot should do.
 Motion execution is handled by the Booster interface, which consumes `behavior/motion_command` as described in [motion](../motion/overview.md#ros-z-booster-path).
 
 ## Behavior Tree
