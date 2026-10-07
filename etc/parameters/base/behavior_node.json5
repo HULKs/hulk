@@ -93,13 +93,13 @@
   kickoff: {
     goalkeeper_pose: { position: [-4.2, 0.0], rotation: 0.0 },
     striker_pose: { position: [-0.6, 0.0], rotation: 0.0 },
-    // Remaining players fill these support slots in descending player-number order.
+    /// Own-kickoff support slots, filled in order by descending active player number.
     aggressive_positions: [
       { position: [-1.7, 1.5], rotation: -0.7 },
       { position: [-1.7, -1.5], rotation: 0.7 },
       { position: [-3.0, 0.0], rotation: 0.0 },
     ],
-    // On opponent/unknown kickoff, all field players fill these slots in order.
+    /// Opponent-kickoff slots, filled in order by descending active player number.
     defensive_positions: [
       { position: [-1.8, 0.0], rotation: 0.0 },
       { position: [-2.8, 1.6], rotation: -0.5 },

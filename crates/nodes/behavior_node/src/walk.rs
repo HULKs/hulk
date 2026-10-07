@@ -6,11 +6,11 @@ use path_planner::path_planner::PathPlanner;
 use types::{
     behavior_tree::Status,
     field_dimensions::FieldDimensions,
+    filtered_game_controller_state::FilteredGameControllerState,
     motion_command::{BodyMotion, MotionCommand, OrientationMode},
     motion_type::MotionType,
     parameters::{KickOffPose, KickoffParameters, VoronoiParameters},
     path::{Path, direct_path},
-    world_state::WorldState,
 };
 use voronoi::{Ownership, VoronoiGrid};
 
@@ -216,62 +216,69 @@ pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
     let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field else {
         return Status::Failure;
     };
-    let Some(kickoff_pose) = select_kickoff_pose(
-        &blackboard.world_state,
-        blackboard.parameters.goalkeeper.player_number,
-        &blackboard.parameters.kickoff,
-    ) else {
+
+    let Some(game_controller_state) = blackboard
+        .world_state
+        .filtered_game_controller_state
+        .as_ref()
+    else {
         return Status::Failure;
     };
+
+    let player_number = blackboard.world_state.robot.player_number;
+
+    if game_controller_state.penalties[player_number].is_some() {
+        return Status::Failure;
+    }
+
+    let kickoff_pose = select_kickoff_pose(
+        player_number,
+        game_controller_state,
+        blackboard.parameters.goalkeeper.player_number,
+        &blackboard.parameters.kickoff,
+    );
 
     let kickoff_pose_in_field = Pose2::from_parts(
         kickoff_pose.position,
         Orientation2::new(kickoff_pose.rotation),
     );
-    let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
+    let walk_and_stand_parameters = blackboard.parameters.walking.walk_and_stand;
 
     walk_to(
         blackboard,
         ground_to_field.inverse() * kickoff_pose_in_field,
         blackboard.parameters.walking.speed.walk_to_kickoff,
         OrientationMode::AlignWithPath,
-        walk_and_stand.normal_distance_to_be_aligned,
-        walk_and_stand.hysteresis,
+        walk_and_stand_parameters.normal_distance_to_be_aligned,
+        walk_and_stand_parameters.hysteresis,
     )
 }
 
 fn select_kickoff_pose(
-    world_state: &WorldState,
+    player_number: PlayerNumber,
+    game_controller_state: &FilteredGameControllerState,
     goalkeeper_player_number: PlayerNumber,
     parameters: &KickoffParameters,
-) -> Option<KickOffPose> {
-    let player_number = world_state.robot.player_number;
-    let game_controller_state = world_state.filtered_game_controller_state.as_ref()?;
-    if game_controller_state.penalties[player_number].is_some() {
-        return None;
-    }
-
+) -> KickOffPose {
     if player_number == goalkeeper_player_number {
-        return Some(parameters.goalkeeper_pose);
+        return parameters.goalkeeper_pose;
     }
 
     let field_player_rank = game_controller_state
         .penalties
         .iter()
-        .rev()
-        .filter(|(number, penalty)| *number != goalkeeper_player_number && penalty.is_none())
-        .position(|(number, _)| number == player_number)?;
+        .filter(|(number, penalty)| {
+            *number > player_number && *number != goalkeeper_player_number && penalty.is_none()
+        })
+        .count();
 
     if game_controller_state.kicking_team == Some(Team::Hulks) {
         match field_player_rank {
-            0 => Some(parameters.striker_pose),
-            rank => parameters.aggressive_positions.get(rank - 1).copied(),
+            0 => parameters.striker_pose,
+            rank => parameters.aggressive_positions[rank - 1],
         }
     } else {
-        parameters
-            .defensive_positions
-            .get(field_player_rank)
-            .copied()
+        parameters.defensive_positions[field_player_rank]
     }
 }
 
