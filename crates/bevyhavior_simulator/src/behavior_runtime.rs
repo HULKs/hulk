@@ -60,6 +60,7 @@ impl SimulatorRobotBehavior {
         self.blackboard.voronoi_inputs.clear();
         self.blackboard.is_injected_motion_command = false;
         self.blackboard.walk_position = None;
+        self.blackboard.kick_target = None;
         self.blackboard.body_motion = None;
         self.blackboard.head_motion = None;
         self.blackboard.voronoi_map = None;
@@ -88,10 +89,10 @@ impl SimulatorRobotBehavior {
         self.blackboard.last_motion_command = motion_command.clone();
 
         let motion_type = match motion_command.clone() {
-            MotionCommand::VisualKick { .. } => Some(types::motion_type::MotionType::Kick),
+            MotionCommand::Kick { .. } => Some(types::motion_type::MotionType::Kick),
             MotionCommand::Walk { .. } => Some(types::motion_type::MotionType::Walk),
             MotionCommand::Stand { .. } => Some(types::motion_type::MotionType::Stand),
-            MotionCommand::StandUp => Some(types::motion_type::MotionType::StandUp),
+            MotionCommand::StandUp { .. } => Some(types::motion_type::MotionType::StandUp),
             MotionCommand::Prepare => Some(types::motion_type::MotionType::Prepare),
             MotionCommand::Damping => Some(types::motion_type::MotionType::Damping),
             _ => None,
@@ -172,6 +173,7 @@ fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackbo
         visual_kick_ball_position: None,
         last_ball: None,
         last_close_enough_to_kick: false,
+        kick_target: None,
         last_kick_target: None,
         last_motion_command: MotionCommand::default(),
         last_motion_switch_time: ros_z::time::Time::zero(),
@@ -285,6 +287,147 @@ mod tests {
         DEFAULT_TICK_DURATION, SimulatorFieldDimensions, default_behavior_parameters,
         default_walking_parameters,
     };
+
+    fn kick_blackboard(ball_position: Point2<Ground>) -> BehaviorBlackboard {
+        let mut blackboard = create_behavior_blackboard(default_behavior_parameters().unwrap());
+        blackboard.field_dimensions = FieldDimensions::SPL_2025;
+        blackboard.world_state.robot.ground_to_field = Some(linear_algebra::Isometry2::identity());
+        blackboard.visual_kick_ball_position = Some(BallPosition {
+            position: ball_position,
+            velocity: Vector2::zeros(),
+            last_seen: ros_z::time::Time::zero(),
+        });
+        blackboard
+    }
+
+    #[test]
+    fn strong_kick_selection_uses_ball_to_target_distance() {
+        use behavior_node::kick::{apply_kick_target, kick, kick_strength_subtree};
+        use linear_algebra::point;
+        use types::motion_command::BodyMotion;
+
+        for (ball_x, target_x, expected_strong) in [
+            (1.0, 6.0, false), // Robot-to-target distance alone would enable strong.
+            (-1.0, 5.0, true), // Ball-to-target distance reaches the threshold.
+            (1.0, 7.0, true),
+            (1.0, 6.9, false),
+        ] {
+            let mut blackboard = kick_blackboard(point![ball_x, 0.0]);
+            blackboard.parameters.kicking.allow_strong_kicks = true;
+            blackboard.parameters.kicking.target_speed = 1.2;
+            assert_eq!(kick(&mut blackboard), Status::Success);
+            assert_eq!(
+                apply_kick_target(&mut blackboard, point![target_x, 0.0]),
+                Status::Success
+            );
+            let (status, _) = kick_strength_subtree().tick_with_trace(&mut blackboard);
+            assert_eq!(status, Status::Success);
+            let Some(BodyMotion::Kick {
+                strong,
+                target_speed,
+                kick_direction,
+                ..
+            }) = blackboard.body_motion
+            else {
+                panic!("expected kick command")
+            };
+            assert_eq!(strong, expected_strong);
+            assert_eq!(target_speed, 1.2);
+            assert_eq!(blackboard.kick_target, Some(point![target_x, 0.0]));
+            assert_eq!(kick_direction.angle(), 0.0);
+
+            blackboard.parameters.kicking.allow_strong_kicks = false;
+            kick_strength_subtree().tick_with_trace(&mut blackboard);
+            assert!(matches!(
+                blackboard.body_motion,
+                Some(BodyMotion::Kick {
+                    strong: false,
+                    target_speed: 1.2,
+                    ..
+                })
+            ));
+        }
+    }
+
+    #[test]
+    fn kick_target_stays_in_behavior_and_is_reset_for_a_new_request() {
+        use behavior_node::kick::{apply_kick_target, is_target_in_strong_kick_range, kick};
+        use linear_algebra::point;
+
+        let mut blackboard = kick_blackboard(point![0.3, 0.1]);
+        assert_eq!(kick(&mut blackboard), Status::Success);
+        assert_eq!(
+            apply_kick_target(&mut blackboard, point![8.0, 0.0]),
+            Status::Success
+        );
+        assert!(is_target_in_strong_kick_range(&mut blackboard));
+        let command = assemble_motion_command(&blackboard, Status::Success).unwrap();
+        let serialized = serde_json::to_value(command).unwrap();
+        let kick_fields = serialized["Kick"].as_object().unwrap();
+        assert!(kick_fields.contains_key("kick_direction"));
+        assert!(!kick_fields.contains_key("target_position"));
+        assert!(!kick_fields.contains_key("robot_theta_to_field"));
+        assert_eq!(blackboard.kick_target, Some(point![8.0, 0.0]));
+
+        assert_eq!(kick(&mut blackboard), Status::Success);
+        assert_eq!(blackboard.kick_target, None);
+        assert!(!is_target_in_strong_kick_range(&mut blackboard));
+    }
+
+    #[test]
+    fn interception_cutoff_is_independent_of_approach_standoff() {
+        use behavior_node::kick::{intercept, kick};
+        use linear_algebra::{point, vector};
+        use types::world_state::BallState;
+
+        let mut blackboard = kick_blackboard(point![0.5, 1.0]);
+        blackboard.world_state.ball = Some(BallState {
+            ball_in_ground_velocity: vector![0.0, -1.0],
+            ..Default::default()
+        });
+        blackboard
+            .parameters
+            .ball
+            .interception
+            .maximum_intercept_distance = 2.0;
+        blackboard
+            .parameters
+            .kicking
+            .minimum_interception_forward_distance = 0.4;
+        for standoff in [0.3, 1.5] {
+            blackboard.parameters.kicking.approach_ball_standoff = standoff;
+            assert_eq!(kick(&mut blackboard), Status::Success);
+            assert_eq!(intercept(&mut blackboard), Status::Success);
+        }
+        blackboard
+            .parameters
+            .kicking
+            .minimum_interception_forward_distance = 0.6;
+        assert_eq!(intercept(&mut blackboard), Status::Failure);
+    }
+
+    #[test]
+    fn approach_alignment_uses_standoff_independently_of_interception_cutoff() {
+        use behavior_node::{conditions::is_close_to_ball_aligned, node::LastBall};
+        use linear_algebra::{point, vector};
+        use types::field_dimensions::Side;
+
+        let mut blackboard = kick_blackboard(point![1.0, 0.0]);
+        blackboard.ball = Some(LastBall {
+            position: point![1.0, 0.0],
+            velocity: vector![0.0, 0.0],
+            age: ros_z::time::Time::zero(),
+            field_side: Side::Left,
+        });
+        blackboard
+            .parameters
+            .kicking
+            .minimum_interception_forward_distance = 5.0;
+        blackboard.parameters.kicking.approach_ball_standoff = 0.3;
+        assert!(!is_close_to_ball_aligned(&mut blackboard));
+        blackboard.parameters.kicking.approach_ball_standoff = 1.0;
+        assert!(is_close_to_ball_aligned(&mut blackboard));
+    }
 
     #[test]
     fn behavior_tick_failure_marks_scenario_failed_and_exits() {
