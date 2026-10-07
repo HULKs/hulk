@@ -795,6 +795,7 @@ dependencies = [
  "coordinate_systems",
  "filtering",
  "geometry",
+ "json5",
  "linear_algebra",
  "linear_sum_assignment",
  "nalgebra 0.34.2",
