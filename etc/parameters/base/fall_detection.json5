@@ -1,0 +1,23 @@
+{
+  maximum_input_age: { secs: 0, nanos: 50000000 },
+  // Torso tilt from vertical in radians. Between upright_tilt and falling_tilt the posture holds.
+  upright_tilt: 0.349066,
+  falling_tilt: 0.785398,
+  fallen_tilt: 1.047198,
+  upright_duration: { secs: 0, nanos: 100000000 },
+  falling_duration: { secs: 0, nanos: 20000000 },
+  fallen_duration: { secs: 0, nanos: 150000000 },
+  maximum_fallen_angular_speed: 2.5,
+  stand_up_timeout: { secs: 8, nanos: 0 },
+  // Pose Prepare drives the joints into while fallen. Radians; the head is ignored.
+  stand_up_pose: {
+    head: { yaw: 0.0, pitch: 0.0 },
+    left_arm: { shoulder_pitch: 0.0, shoulder_roll: 0.0, shoulder_yaw: 0.0, elbow: 0.0 },
+    right_arm: { shoulder_pitch: 0.0, shoulder_roll: 0.0, shoulder_yaw: 0.0, elbow: 0.0 },
+    left_leg: { hip_pitch: -0.2, hip_roll: 0.0, hip_yaw: 0.0, knee: 0.4, ankle_up: -0.25, ankle_down: 0.0 },
+    right_leg: { hip_pitch: -0.2, hip_roll: 0.0, hip_yaw: 0.0, knee: 0.4, ankle_up: -0.25, ankle_down: 0.0 },
+  },
+  maximum_stand_up_pose_deviation: 0.5,
+  maximum_stand_up_joint_speed: 1.0,
+  stand_up_stable_duration: { secs: 0, nanos: 150000000 },
+}

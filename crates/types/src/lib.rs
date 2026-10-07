@@ -11,6 +11,7 @@ pub mod condition_input;
 pub mod controller_input;
 pub mod cycle_time;
 pub mod detected_feet;
+pub mod fall_detection;
 pub mod fall_down_state;
 pub mod fall_state;
 pub mod field_border;

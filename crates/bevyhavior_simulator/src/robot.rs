@@ -1,13 +1,13 @@
 use std::time::SystemTime;
 
 use bevy::prelude::*;
-use booster::FallDownState;
 use color_eyre::Result;
 use coordinate_systems::{Field, Ground, World};
 use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{Isometry2, Orientation2, Point2};
 use motion::walking::WalkingParameters;
 use serde::Serializer;
+use types::fall_detection::FallDetection;
 use types::{parameters::BehaviorParameters, primary_state::PrimaryState};
 
 use crate::behavior_tree_simulator::{SimulatorRobotBehavior, default_walking_parameters};
@@ -108,8 +108,8 @@ pub struct SimulatorRobotParameters {
 }
 
 #[derive(Component, Clone, Copy, Debug, Default)]
-pub struct SimulatorFallDownState {
-    pub fall_down_state: Option<FallDownState>,
+pub struct SimulatorFallDetection {
+    pub fall_detection: Option<FallDetection>,
 }
 
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -130,7 +130,7 @@ pub struct SimulatorRobotBundle {
     pub primary_state: SimulatorPrimaryState,
     pub behavior: SimulatorRobotBehavior,
     pub parameters: SimulatorRobotParameters,
-    pub fall_down_state: SimulatorFallDownState,
+    pub fall_detection: SimulatorFallDetection,
     pub suggested_search_position: SimulatorSuggestedSearchPosition,
     pub last_kick_time: SimulatorLastKickTime,
 }
@@ -157,7 +157,7 @@ impl SimulatorRobotBundle {
                 behavior: parameters,
                 walking: default_walking_parameters()?,
             },
-            fall_down_state: SimulatorFallDownState::default(),
+            fall_detection: SimulatorFallDetection::default(),
             suggested_search_position: SimulatorSuggestedSearchPosition::default(),
             last_kick_time: SimulatorLastKickTime {
                 last_kick_time: SystemTime::UNIX_EPOCH,

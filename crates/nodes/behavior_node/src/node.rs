@@ -5,8 +5,8 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use booster::FallDownState;
 use color_eyre::Result;
+use types::fall_detection::FallDetection;
 
 use coordinate_systems::{Field, Ground};
 use hsl_network_messages::PlayerNumber;
@@ -167,8 +167,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-    let fall_down_state_cache = node
-        .subscriber::<FallDownState>("inputs/fall_down_state")
+    let fall_detection_cache = node
+        .subscriber::<FallDetection>("fall_detection/status")
         .cache(1)
         .build()
         .await?;
@@ -381,9 +381,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         blackboard.visual_kick_ball_position = visual_kick_ball_position_cache
             .get_latest()
             .and_then(|ball_position| *ball_position);
-        blackboard.world_state.fall_down_state = fall_down_state_cache
+        blackboard.world_state.fall_detection = fall_detection_cache
             .get_latest()
-            .map(|fall_down_state| *fall_down_state.as_ref());
+            .map(|fall_detection| *fall_detection.as_ref());
         blackboard.world_state.filtered_game_controller_state =
             filtered_game_controller_state_cache.get_latest().map(
                 |filtered_game_controller_state| filtered_game_controller_state.as_ref().clone(),

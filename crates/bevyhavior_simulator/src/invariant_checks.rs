@@ -2,11 +2,11 @@ use std::fmt::{Display, Formatter, Result};
 use std::{collections::BTreeMap, time::SystemTime};
 
 use bevy::prelude::*;
-use booster::FallDownState;
 use coordinate_systems::{Field, Ground, World};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Orientation2, Point2};
 use serde::Serialize;
+use types::fall_detection::FallDetection;
 use types::path::traits::EndPoints;
 use types::{
     field_dimensions::FieldDimensions, motion_command::MotionCommand, primary_state::PrimaryState,
@@ -15,7 +15,7 @@ use types::{
 
 use crate::behavior_tree_simulator::{
     RobotFrame, SimulatedBall, SimulationConfig, SimulatorBall, SimulatorFailure,
-    SimulatorFallDownState, SimulatorFieldDimensions, SimulatorGroundToWorld,
+    SimulatorFallDetection, SimulatorFieldDimensions, SimulatorGroundToWorld,
     SimulatorPrimaryState, SimulatorRobot, SimulatorRobotFrames, SimulatorRobotId,
     SimulatorRuleObstacles, SimulatorScenarioResult,
 };
@@ -36,7 +36,7 @@ pub struct RobotSnapshot {
     pub ground_to_world: Isometry2<Ground, World>,
     pub head_yaw: Orientation2<Ground>,
     pub primary_state: PrimaryState,
-    pub fall_down_state: Option<FallDownState>,
+    pub fall_detection: Option<FallDetection>,
 }
 
 #[derive(Clone, Debug)]
@@ -151,7 +151,7 @@ pub fn run_invariant_checks(
         &SimulatorGroundToWorld,
         &crate::behavior_tree_simulator::SimulatorHeadYaw,
         &SimulatorPrimaryState,
-        &SimulatorFallDownState,
+        &SimulatorFallDetection,
     )>,
 ) {
     current_violations

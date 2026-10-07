@@ -1,10 +1,9 @@
-use booster::{FallDownState, FallDownStateType};
 use filtering::hysteresis::less_than_with_hysteresis;
 use hsl_network_messages::Team;
 use linear_algebra::{point, vector};
 use types::{
-    controller_input::Button, filtered_game_controller_state::FilteredGameControllerState,
-    primary_state::PrimaryState,
+    controller_input::Button, fall_detection::Posture,
+    filtered_game_controller_state::FilteredGameControllerState, primary_state::PrimaryState,
 };
 use voronoi::Ownership;
 
@@ -139,20 +138,30 @@ pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
     is_closest
 }
 
-pub fn is_fallen(blackboard: &mut Blackboard) -> bool {
+fn posture(blackboard: &Blackboard) -> Option<Posture> {
     blackboard
         .world_state
-        .fall_down_state
-        .is_some_and(|state| state.fall_down_state != FallDownStateType::IsReady)
+        .fall_detection
+        .filter(|fall_detection| fall_detection.is_fresh(blackboard.world_state.now))
+        .map(|fall_detection| fall_detection.posture)
 }
 
 pub fn is_falling(blackboard: &mut Blackboard) -> bool {
+    posture(blackboard) == Some(Posture::Falling)
+}
+
+pub fn is_fallen(blackboard: &mut Blackboard) -> bool {
+    matches!(posture(blackboard), Some(Posture::Fallen { .. }))
+}
+
+pub fn is_ready_for_stand_up(blackboard: &mut Blackboard) -> bool {
     matches!(
-        blackboard.world_state.fall_down_state,
-        Some(FallDownState {
-            fall_down_state: FallDownStateType::IsFalling | FallDownStateType::HasFallen,
-            is_recovery_available: false
-        })
+        posture(blackboard),
+        Some(
+            Posture::Fallen {
+                ready_for_standup: true
+            } | Posture::StandingUp
+        )
     )
 }
 

@@ -4138,6 +4138,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fall_detection"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "color-eyre",
+ "kinematics",
+ "ros-z",
+ "serde",
+ "types",
+]
+
+[[package]]
 name = "fall_down_state_receiver"
 version = "0.1.0"
 dependencies = [
@@ -5458,6 +5470,7 @@ dependencies = [
  "color-eyre",
  "controller_handler",
  "detection",
+ "fall_detection",
  "fall_down_state_receiver",
  "field_mark_association",
  "game_controller_filter",
