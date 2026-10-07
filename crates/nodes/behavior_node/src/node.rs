@@ -40,7 +40,7 @@ use crate::{motion_assembler::assemble_motion_command, tree::create_tree};
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 pub struct LastBall {
     pub position: Point2<Field>,
-    pub velocity: Vector2<Ground>,
+    pub velocity: Vector2<Field>,
     pub age: Time,
     pub field_side: Side,
 }
@@ -426,10 +426,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .get_latest()
             .map(|position| *position);
 
-        if let Some(ball) = blackboard.world_state.ball {
+        if let (Some(ball), Some(ground_to_field)) = (
+            blackboard.world_state.ball,
+            blackboard.world_state.robot.ground_to_field,
+        ) {
             blackboard.ball = Some(LastBall {
                 position: ball.ball_in_field,
-                velocity: ball.ball_in_ground_velocity,
+                velocity: ground_to_field * ball.ball_in_ground_velocity,
                 age: blackboard.world_state.now,
                 field_side: ball.field_side,
             });

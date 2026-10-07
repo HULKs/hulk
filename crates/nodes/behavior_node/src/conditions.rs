@@ -21,10 +21,10 @@ pub fn is_ball_interception_candidate(blackboard: &mut Blackboard) -> bool {
         let ball_is_in_front_of_robot = ball_in_ground.coords().norm()
             < parameters.maximum_ball_distance
             && ball_in_ground.x() > 0.0;
-        let ball_is_moving_towards_robot =
-            ball.velocity.x() < -parameters.minimum_ball_velocity_towards_robot;
+        let ball_is_moving_towards_robot = (ground_to_field.inverse() * ball.velocity).x()
+            < -parameters.minimum_ball_velocity_towards_robot;
 
-        let ball_in_field_velocity = ground_to_field * ball.velocity;
+        let ball_in_field_velocity = ball.velocity;
         let ball_is_moving = ball_in_field_velocity.norm() > parameters.minimum_ball_velocity;
         let ball_is_moving_towards_own_half =
             ball_in_field_velocity.x() < -parameters.minimum_ball_velocity_towards_own_half;
