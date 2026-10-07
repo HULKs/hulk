@@ -54,11 +54,11 @@ pub struct PathPlanner {
 impl PathPlanner {
     pub fn with_last_motion(
         &mut self,
-        last_motion_command: &MotionCommand,
+        last_motion_command: Option<&MotionCommand>,
         rotation_penalty_factor: f32,
     ) {
         self.last_path_direction = match last_motion_command {
-            MotionCommand::Walk { path, .. } => path.segments.first().map(|segment| {
+            Some(MotionCommand::Walk { path, .. }) => path.segments.first().map(|segment| {
                 let direction = match segment {
                     PathSegment::LineSegment(line_segment) => line_segment.1.coords(),
                     PathSegment::Arc(arc) => {

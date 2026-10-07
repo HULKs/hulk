@@ -8,7 +8,9 @@ use coordinate_systems::{Field, Ground, World};
 use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{Isometry2, Orientation2, Point2};
 use serde::Serializer;
-use types::{parameters::BehaviorParameters, primary_state::PrimaryState};
+use types::{
+    field_dimensions::FieldDimensions, parameters::BehaviorParameters, primary_state::PrimaryState,
+};
 
 use crate::behavior_tree_simulator::{SimulatorRobotBehavior, default_walking_parameters};
 
@@ -140,6 +142,7 @@ impl SimulatorRobotBundle {
         team: Team,
         player_number: PlayerNumber,
         ground_to_world: Isometry2<Ground, World>,
+        field_dimensions: FieldDimensions,
         parameters: BehaviorParameters,
     ) -> Result<Self> {
         Ok(Self {
@@ -152,7 +155,11 @@ impl SimulatorRobotBundle {
             primary_state: SimulatorPrimaryState {
                 primary_state: PrimaryState::Damping,
             },
-            behavior: SimulatorRobotBehavior::new(parameters.clone()),
+            behavior: SimulatorRobotBehavior::new(
+                field_dimensions,
+                parameters.clone(),
+                player_number,
+            ),
             parameters: SimulatorRobotParameters {
                 behavior: parameters,
                 walking: default_walking_parameters()?,

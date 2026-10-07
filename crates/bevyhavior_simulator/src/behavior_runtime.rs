@@ -7,6 +7,7 @@ use behavior_node::{
 use bevy::{app::AppExit, prelude::*};
 use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
+use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Point2, Pose2, Vector2};
 use types::{
     ball_position::BallPosition,
@@ -35,12 +36,16 @@ pub struct SimulatorRobotBehavior {
 }
 
 impl SimulatorRobotBehavior {
-    pub fn new(parameters: BehaviorParameters) -> Self {
+    pub fn new(
+        field_dimensions: FieldDimensions,
+        parameters: BehaviorParameters,
+        player_number: PlayerNumber,
+    ) -> Self {
         let tree = create_behavior_tree();
         let static_layout = Arc::new(tree.static_layout_trace());
         Self {
             tree,
-            blackboard: create_behavior_blackboard(parameters),
+            blackboard: create_behavior_blackboard(field_dimensions, parameters, player_number),
             static_layout,
         }
     }
@@ -85,7 +90,7 @@ impl SimulatorRobotBehavior {
 
         let (status, trace) = self.tree.tick_with_trace(&mut self.blackboard);
         let motion_command = assemble_motion_command(&self.blackboard, status)?;
-        self.blackboard.last_motion_command = motion_command.clone();
+        self.blackboard.last_motion_command = Some(motion_command.clone());
 
         let motion_type = match motion_command.clone() {
             MotionCommand::VisualKick { .. } => Some(types::motion_type::MotionType::Kick),
@@ -157,10 +162,15 @@ pub struct SimulatorBehaviorTickOutput {
     pub voronoi_inputs: Vec<Pose2<Field>>,
 }
 
-fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackboard {
+fn create_behavior_blackboard(
+    field_dimensions: FieldDimensions,
+    parameters: BehaviorParameters,
+    player_number: PlayerNumber,
+) -> BehaviorBlackboard {
     BehaviorBlackboard {
-        field_dimensions: FieldDimensions::default(),
+        field_dimensions,
         parameters,
+        player_number,
         world_state: WorldState::default(),
         controller_input: None,
         remote_control_enabled: false,
@@ -173,7 +183,7 @@ fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackbo
         last_ball: None,
         last_close_enough_to_kick: false,
         last_kick_target: None,
-        last_motion_command: MotionCommand::default(),
+        last_motion_command: None,
         last_motion_switch_time: ros_z::time::Time::zero(),
         last_motion_type: None,
         last_sent_game_controller_return_message_time: None,
@@ -307,21 +317,24 @@ mod tests {
             .insert_resource(SimulatorScenarioResult::default())
             .add_systems(Update, tick_behavior_trees);
 
+        let robot = SimulatorRobot {
+            team: Team::Hulks,
+            player_number: PlayerNumber::Three,
+        };
+        let parameters = default_behavior_parameters().expect("failed to load behavior parameters");
         let mut behavior = SimulatorRobotBehavior::new(
-            default_behavior_parameters().expect("failed to load behavior parameters"),
+            FieldDimensions::SPL_2025,
+            parameters.clone(),
+            robot.player_number,
         );
         behavior.tree = BehaviorNodeTree::Action {
             name: "return_idle",
             action: Box::new(|_| Status::Idle),
         };
         app.world_mut().spawn((
-            SimulatorRobot {
-                team: Team::Hulks,
-                player_number: PlayerNumber::Three,
-            },
+            robot,
             SimulatorRobotParameters {
-                behavior: default_behavior_parameters()
-                    .expect("failed to load behavior parameters"),
+                behavior: parameters,
                 walking: default_walking_parameters().expect("failed to load walking parameters"),
             },
             behavior,

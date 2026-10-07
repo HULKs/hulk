@@ -402,7 +402,12 @@ mod tests {
                 sender: robot_id(PlayerNumber::Three),
                 message: OutgoingMessage::GameController(
                     "127.0.0.1:3838".parse().expect("valid socket address"),
-                    hsl_network_messages::GameControllerReturnMessage::default(),
+                    hsl_network_messages::GameControllerReturnMessage {
+                        player_number: PlayerNumber::Three,
+                        fallen: false,
+                        pose: Pose2::default(),
+                        ball: None,
+                    },
                 ),
             });
 

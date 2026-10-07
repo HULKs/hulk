@@ -3,13 +3,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::field_dimensions::GlobalFieldSide;
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum PoseKind {
     Ready,
-    FreeKick {
-        global_field_side: GlobalFieldSide,
-    },
-    #[default]
+    FreeKick { global_field_side: GlobalFieldSide },
     UndefinedPose,
 }
 

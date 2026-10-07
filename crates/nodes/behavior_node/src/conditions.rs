@@ -94,7 +94,7 @@ pub fn is_close_to_ball_aligned(blackboard: &mut Blackboard) -> bool {
 }
 
 pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
-    let own_player_number = blackboard.world_state.robot.player_number;
+    let own_player_number = blackboard.player_number;
 
     let raw_is_closest =
         if let (Some(ball), Some(voronoi_map)) = (&blackboard.ball, &blackboard.voronoi_map) {
@@ -146,7 +146,7 @@ pub fn is_fallen(blackboard: &mut Blackboard) -> bool {
 }
 
 pub fn is_goalkeeper(blackboard: &mut Blackboard) -> bool {
-    blackboard.world_state.robot.player_number == blackboard.parameters.goalkeeper.player_number
+    blackboard.player_number == blackboard.parameters.goalkeeper.player_number
 }
 
 pub fn is_primary_state(blackboard: &mut Blackboard, primary_state: PrimaryState) -> bool {
@@ -197,7 +197,7 @@ pub fn hulks_is_kicking_team(blackboard: &mut Blackboard) -> bool {
 }
 
 pub fn is_last_hulk_standing(blackboard: &mut Blackboard) -> bool {
-    let own_player_number = blackboard.world_state.robot.player_number;
+    let own_player_number = blackboard.player_number;
 
     blackboard
         .world_state

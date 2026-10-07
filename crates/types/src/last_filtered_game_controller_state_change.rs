@@ -13,22 +13,3 @@ pub struct LastFilteredGameControllerStateChanges {
     pub penalties: Players<Option<SystemTime>>,
     pub sub_state: Option<SystemTime>,
 }
-
-impl Default for LastFilteredGameControllerStateChanges {
-    fn default() -> Self {
-        Self {
-            game_state: SystemTime::UNIX_EPOCH,
-            opponent_game_state: SystemTime::UNIX_EPOCH,
-            game_phase: SystemTime::UNIX_EPOCH,
-            kicking_team: SystemTime::UNIX_EPOCH,
-            penalties: Players {
-                one: None,
-                two: None,
-                three: None,
-                four: None,
-                five: None,
-            },
-            sub_state: None,
-        }
-    }
-}

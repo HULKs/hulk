@@ -488,6 +488,7 @@ mod tests {
                 Team::Hulks,
                 PlayerNumber::Three,
                 Isometry2::identity(),
+                field_dimensions,
                 parameters,
             )
             .expect("failed to create robot bundle")

@@ -21,9 +21,9 @@ pub fn leuchtturm(blackboard: &mut Blackboard) -> Status {
 }
 
 fn get_leuchtturm_direction(blackboard: &Blackboard) -> f32 {
-    if let MotionCommand::WalkWithVelocity {
+    if let Some(MotionCommand::WalkWithVelocity {
         angular_velocity, ..
-    } = blackboard.last_motion_command
+    }) = blackboard.last_motion_command
         && angular_velocity.abs() > f32::EPSILON
     {
         return angular_velocity.signum();

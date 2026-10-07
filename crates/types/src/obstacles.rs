@@ -4,13 +4,12 @@ use linear_algebra::Point2;
 
 use coordinate_systems::Ground;
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, ros_z::Message)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ros_z::Message)]
 pub enum ObstacleKind {
     Ball,
     GoalPost,
     Robot,
     Person,
-    #[default]
     Unknown,
 }
 
