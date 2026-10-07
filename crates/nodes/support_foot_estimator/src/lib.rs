@@ -1,6 +1,6 @@
 use std::{boxed::Box, future::Future, pin::Pin, sync::Arc};
 
-use booster::{FallDownState, FallDownStateType, ImuState};
+use booster::ImuState;
 use color_eyre::Result;
 use coordinate_systems::{LeftSole, RightSole};
 use kinematics::{
@@ -11,6 +11,7 @@ use kinematics::{
 };
 use linear_algebra::Point3;
 use serde::{Deserialize, Serialize};
+use types::fall_detection::FallDetection;
 
 use ros_z::{prelude::*, qos::QosDurability};
 use types::{support_foot::SupportFootState, time_wrapper::TimeWrapper};
@@ -46,8 +47,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .with_stamp(|wrapper| wrapper.time)
         .build()
         .await?;
-    let fall_down_state_cache = node
-        .subscriber::<FallDownState>("inputs/fall_down_state")
+    let fall_detection_cache = node
+        .subscriber::<FallDetection>("fall_detection/status")
         .cache(10)
         .build()
         .await?;
@@ -72,10 +73,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let imu_source_time = imu_state.source_time;
 
         let maybe_robot_kinematics_wrapper = robot_kinematics_cache.get_nearest(imu_source_time);
-        let maybe_fall_down_state = fall_down_state_cache.get_nearest(imu_source_time);
+        let maybe_fall_detection = fall_detection_cache.get_nearest(imu_source_time);
 
-        let (Some(robot_kinematics_wrapper), Some(fall_down_state)) =
-            (maybe_robot_kinematics_wrapper, maybe_fall_down_state)
+        let (Some(robot_kinematics_wrapper), Some(fall_detection)) =
+            (maybe_robot_kinematics_wrapper, maybe_fall_detection)
         else {
             continue;
         };
@@ -88,8 +89,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             last_support_foot,
         );
 
-        let support_foot = if matches!(fall_down_state.fall_down_state, FallDownStateType::IsReady)
-        {
+        let support_foot = if fall_detection.is_upright(node.clock().now()) {
             match current_support_foot {
                 Some(SupportFootState::Left) => last_support_foot = SoleSide::Left,
                 Some(SupportFootState::Right) => last_support_foot = SoleSide::Right,

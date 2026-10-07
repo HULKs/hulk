@@ -1,9 +1,6 @@
 use std::{net::SocketAddr, time::Duration};
 
-use booster::FallDownStateType;
-use hsl_network_messages::{
-    GameControllerReturnMessage, GamePhase, Half, HulkMessage, StateMessage,
-};
+use hsl_network_messages::{GameControllerReturnMessage, GamePhase, Half, HulkMessage, StateMessage};
 use ros_z::time::Time;
 use types::{
     filtered_game_controller_state::FilteredGameControllerState, messages::OutgoingMessage,
@@ -45,8 +42,8 @@ impl Blackboard {
                 player_number: self.world_state.robot.player_number,
                 fallen: self
                     .world_state
-                    .fall_down_state
-                    .is_some_and(|state| state.fall_down_state != FallDownStateType::IsReady),
+                    .fall_detection
+                    .is_none_or(|state| !state.is_upright(now)),
                 pose: ground_to_field.as_pose(),
                 ball: ball_position,
             },
