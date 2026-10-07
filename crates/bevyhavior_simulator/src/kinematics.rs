@@ -11,7 +11,7 @@ use types::{
 };
 
 use crate::behavior_tree_simulator::{
-    SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDownState,
+    SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDetection,
     SimulatorFieldDimensions, SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw,
     SimulatorLastKickTime, SimulatorRobot, SimulatorRobotFrames, SimulatorRobotId,
     SimulatorRobotParameters,
@@ -79,7 +79,7 @@ pub fn move_robots(
         &SimulatorRobotParameters,
         &mut SimulatorGroundToWorld,
         &mut SimulatorHeadYaw,
-        &mut SimulatorFallDownState,
+        &mut SimulatorFallDetection,
         &mut SimulatorLastKickTime,
     )>,
 ) {
@@ -88,7 +88,7 @@ pub fn move_robots(
         parameters,
         mut ground_to_world,
         mut head_yaw,
-        mut fall_down_state,
+        mut fall_detection,
         mut last_kick_time,
     ) in &mut robots
     {
@@ -157,7 +157,7 @@ pub fn move_robots(
                     kick_ball_speed(&config, *strong, *soft, *target_speed),
                 )
             }
-            MotionCommand::StandUp { .. } => fall_down_state.fall_down_state = None,
+            MotionCommand::StandUp { .. } => fall_detection.fall_detection = None,
             MotionCommand::Damping | MotionCommand::Prepare | MotionCommand::Stand { .. } => {}
         }
 
@@ -574,7 +574,7 @@ mod tests {
                 ground_to_world: Isometry2::identity(),
             },
             SimulatorHeadYaw::default(),
-            SimulatorFallDownState::default(),
+            SimulatorFallDetection::default(),
             SimulatorLastKickTime {
                 last_kick_time: SystemTime::UNIX_EPOCH,
             },

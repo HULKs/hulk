@@ -31,6 +31,7 @@ members = [
   "crates/nodes/controller_handler",
   "crates/nodes/detection",
   "crates/nodes/fall_down_state_receiver",
+  "crates/nodes/fall_detection",
   "crates/nodes/field_mark_association",
   "crates/nodes/game_controller_filter",
   "crates/nodes/game_controller_state_filter",
@@ -164,6 +165,7 @@ enum-iterator = "2.1.0"
 enum_dispatch = "0.3.13"
 env_logger = "0.11.8"
 event-listener = "5"
+fall_detection = { path = "crates/nodes/fall_detection" }
 fall_down_state_receiver = { path = "crates/nodes/fall_down_state_receiver" }
 field_mark_association = { path = "crates/nodes/field_mark_association" }
 filtering = { path = "crates/filtering" }
