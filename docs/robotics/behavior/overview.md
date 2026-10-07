@@ -44,6 +44,15 @@ Most branches first check the robot's `PrimaryState`:
 
 If no branch succeeds, behavior falls back to a safe standing command.
 
+## Ready Formations
+
+Ready uses static poses from `behavior_node.kickoff`, expressed in field coordinates and rotations in radians.
+
+- The player selected by `goalkeeper.player_number` uses `goalkeeper_pose`.
+- On our kickoff, the highest-numbered active field player uses `striker_pose`.
+  The remaining field players fill `aggressive_positions` in array order, from highest to lowest player number.
+- On opponent or unknown kickoff, all field players fill `defensive_positions` in the same order.
+
 ## Playing
 
 The playing subtree assigns one of four high-level tasks:
