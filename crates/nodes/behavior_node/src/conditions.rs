@@ -1,3 +1,4 @@
+use booster::FallDownStateType;
 use filtering::hysteresis::less_than_with_hysteresis;
 use hsl_network_messages::Team;
 use linear_algebra::{point, vector};
@@ -142,7 +143,7 @@ pub fn is_fallen(blackboard: &mut Blackboard) -> bool {
     blackboard
         .world_state
         .fall_down_state
-        .is_some_and(|fall_down_state| fall_down_state.is_recovery_available)
+        .is_some_and(|state| state.fall_down_state != FallDownStateType::IsReady)
 }
 
 pub fn is_goalkeeper(blackboard: &mut Blackboard) -> bool {
