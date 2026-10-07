@@ -54,6 +54,7 @@ pub fn kick(blackboard: &mut Blackboard) -> Status {
         });
         blackboard.head_motion = Some(HeadMotion::LookAt {
             target: ball_in_ground,
+            height_above_ground: blackboard.field_dimensions.ball_radius,
             image_region_target: ImageRegion::Center,
         });
 
