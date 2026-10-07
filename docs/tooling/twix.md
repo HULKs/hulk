@@ -74,19 +74,19 @@ ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`.
 Legacy Twix keeps using `hulks/twix.toml`, so the two tools do not share incompatible keybinding schemas.
 The default ROS-Z keybindings are:
 
-| Key | Action |
-| --- | --- |
-| `C-t` | `open_split` |
-| `C-T` | `open_tab` |
-| `C-o` | `focus_namespace` |
-| `C-p` | `focus_panel` |
-| `C-h`, `C-Left` | `focus_left` |
-| `C-j`, `C-Down` | `focus_below` |
-| `C-k`, `C-Up` | `focus_above` |
-| `C-l`, `C-Right` | `focus_right` |
-| `C-w` | `close_tab` |
-| `C-d` | `duplicate_tab` |
-| `C-S-Backspace` | `close_all` |
+| Key              | Action            |
+| ---------------- | ----------------- |
+| `C-t`            | `open_split`      |
+| `C-T`            | `open_tab`        |
+| `C-o`            | `focus_namespace` |
+| `C-p`            | `focus_panel`     |
+| `C-h`, `C-Left`  | `focus_left`      |
+| `C-j`, `C-Down`  | `focus_below`     |
+| `C-k`, `C-Up`    | `focus_above`     |
+| `C-l`, `C-Right` | `focus_right`     |
+| `C-w`            | `close_tab`       |
+| `C-d`            | `duplicate_tab`   |
+| `C-S-Backspace`  | `close_all`       |
 
 Supported action names are `open_split`, `open_tab`, `focus_namespace`, `focus_panel`, `focus_left`, `focus_below`, `focus_above`, `focus_right`, `close_tab`, `duplicate_tab`, `close_all`, and `no_op`.
 

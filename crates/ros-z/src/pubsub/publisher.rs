@@ -492,7 +492,7 @@ where
     }
 
     /// Return the next unique publication id for this publisher.
-    fn next_publication_id(&self) -> PublicationId {
+    pub(super) fn next_publication_id(&self) -> PublicationId {
         let sequence_number = self.sequence_number.fetch_add(1, Ordering::Relaxed) as i64;
         PublicationId::new(self.endpoint_global_id, sequence_number)
     }
@@ -560,7 +560,7 @@ where
         self.publish_payload(zbytes, attachment).await
     }
 
-    async fn publish_payload(
+    pub(super) async fn publish_payload(
         &self,
         zbytes: zenoh::bytes::ZBytes,
         attachment: Attachment,

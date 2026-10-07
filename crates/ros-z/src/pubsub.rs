@@ -8,7 +8,10 @@ mod subscriber;
 
 pub use metadata::{PublicationId, Received};
 pub use publisher::{PreparedPublication, Publisher, PublisherBuilder};
-pub use raw::{RawPayload, RawPayloadCodec, RawSubscriber, RawSubscriberBuilder};
+pub use raw::{
+    RawPayload, RawPayloadCodec, RawPublisher, RawPublisherBuilder, RawSubscriber,
+    RawSubscriberBuilder,
+};
 pub(crate) use subscriber::SubscriberOptions;
 pub use subscriber::{QueueOverflowReporting, Subscriber, SubscriberBuilder};
 

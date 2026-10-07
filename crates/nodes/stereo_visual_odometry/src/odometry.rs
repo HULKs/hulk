@@ -8,7 +8,8 @@ use crate::{
     feature_extractor::{CurrentLeft, FrameFeatures, Matches, NUM_KEYPOINTS, PreviousLeft},
     parameters::StereoVisualOdometryPoseEstimationParameters,
     pose_refinement::{
-        matrix3_from_mat3a, refine_pose_lm_direct, residual_with_x_offset, vector3_from_vec3a,
+        mat3a_from_matrix3, matrix3_from_mat3a, refine_pose_lm_direct, residual_with_x_offset,
+        vec3a_from_vector3, vector3_from_vec3a,
     },
     triangulator::{StereoPoint, StereoTriangulator},
 };
@@ -17,6 +18,26 @@ use crate::{
 struct PreviousPoint {
     position: Vec3AF32,
     disparity: f32,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct RelativePose {
+    pub(crate) rotation: Mat3AF32,
+    pub(crate) translation: Vec3AF32,
+}
+
+impl From<&PnPResult> for RelativePose {
+    fn from(pose: &PnPResult) -> Self {
+        Self {
+            rotation: pose.rotation,
+            translation: pose.translation,
+        }
+    }
+}
+
+struct EvaluatedPose {
+    pose: RelativePose,
+    metrics: ReprojectionMetrics,
 }
 
 #[derive(Clone, Copy)]
@@ -37,7 +58,12 @@ pub(crate) struct PoseCorrespondence {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct OdometryDiagnostics {
     pub correspondences: usize,
+    pub previous_disparity_mean: Option<f32>,
+    pub previous_disparity_below_4px: usize,
+    pub previous_disparity_below_6px: usize,
+    pub previous_disparity_below_8px: usize,
     pub left_ransac_inliers: usize,
+    pub used_identity_initialization: bool,
     pub right_observations: usize,
     pub trusted_right_observations: usize,
     pub used_outlier_free_pose: bool,
@@ -49,14 +75,17 @@ pub struct OdometryDiagnostics {
     pub lm_delta_rotation_deg: Option<f32>,
     pub left_rmse_before_lm: Option<f32>,
     pub right_rmse_before_lm: Option<f32>,
-    pub stereo_rmse_before_lm: Option<f32>,
-    pub weighted_cost_before_lm: Option<f32>,
     pub left_rmse_after_lm: Option<f32>,
     pub right_rmse_after_lm: Option<f32>,
-    pub stereo_rmse_after_lm: Option<f32>,
-    pub weighted_cost_after_lm: Option<f32>,
-    pub right_bad_fraction_before_lm: Option<f32>,
-    pub right_bad_fraction_after_lm: Option<f32>,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct PoseEvaluationDiagnostics {
+    pub left_rmse: Option<f32>,
+    pub right_rmse: Option<f32>,
+    pub left_inliers_1px: usize,
+    pub left_inliers_2px: usize,
+    pub left_inliers_6px: usize,
 }
 
 pub struct PreviousFrame {
@@ -86,6 +115,53 @@ impl OdometryScratch {
 
     pub fn diagnostics(&self) -> OdometryDiagnostics {
         self.diagnostics
+    }
+
+    pub fn reset_diagnostics(&mut self) {
+        self.diagnostics = OdometryDiagnostics::default();
+    }
+
+    pub fn evaluate_pose(
+        &self,
+        pose: &na::Isometry3<f32>,
+        triangulator: &StereoTriangulator,
+    ) -> Option<PoseEvaluationDiagnostics> {
+        let rotation = pose.rotation.to_rotation_matrix();
+        let rotation = rotation.matrix();
+        let pose = PnPResult {
+            rotation: mat3a_from_matrix3(rotation),
+            translation: vec3a_from_vector3(pose.translation.vector),
+            rvec: Vec3AF32::new(0.0, 0.0, 0.0),
+            reproj_rmse: None,
+            num_iterations: None,
+            converged: None,
+        };
+        let metrics = reprojection_metrics(
+            &RelativePose::from(&pose),
+            &self.correspondences,
+            triangulator.intrinsics_f32(),
+            triangulator.baseline(),
+        )?;
+        let mut diagnostics = PoseEvaluationDiagnostics {
+            left_rmse: metrics.left_rmse(),
+            right_rmse: metrics.right_rmse(),
+            ..Default::default()
+        };
+        for correspondence in &self.correspondences {
+            let camera_point =
+                vector3_from_vec3a(pose.rotation * correspondence.world_point + pose.translation);
+            let error = residual_with_x_offset(
+                camera_point,
+                correspondence.image_point,
+                triangulator.intrinsics_f32(),
+                0.0,
+            )?
+            .norm();
+            diagnostics.left_inliers_1px += (error <= 1.0) as usize;
+            diagnostics.left_inliers_2px += (error <= 2.0) as usize;
+            diagnostics.left_inliers_6px += (error <= 6.0) as usize;
+        }
+        Some(diagnostics)
     }
 }
 
@@ -215,11 +291,11 @@ pub fn estimate_previous_to_current(
     parameters: &StereoVisualOdometryPoseEstimationParameters,
     scratch: &mut OdometryScratch,
 ) -> Option<na::Isometry3<f32>> {
-    scratch.diagnostics = OdometryDiagnostics::default();
+    scratch.reset_diagnostics();
     scratch.correspondences.clear();
     fill_right_observations_by_left_index(current_points, scratch);
 
-    for (previous_index, current_index, _score) in temporal_matches.left_to_right() {
+    for (previous_index, current_index) in temporal_matches.matched_pairs() {
         if !current_left.is_valid(current_index) {
             continue;
         }
@@ -252,6 +328,26 @@ pub fn estimate_previous_to_current(
     }
 
     scratch.diagnostics.correspondences = scratch.correspondences.len();
+    let disparities =
+        temporal_matches
+            .matched_pairs()
+            .filter_map(|(previous_index, current_index)| {
+                current_left
+                    .is_valid(current_index)
+                    .then(|| previous.point(previous_index).map(|point| point.disparity))
+                    .flatten()
+            });
+    let mut disparity_sum = 0.0;
+    let mut disparity_count = 0;
+    for disparity in disparities {
+        disparity_sum += disparity;
+        disparity_count += 1;
+        scratch.diagnostics.previous_disparity_below_4px += (disparity < 4.0) as usize;
+        scratch.diagnostics.previous_disparity_below_6px += (disparity < 6.0) as usize;
+        scratch.diagnostics.previous_disparity_below_8px += (disparity < 8.0) as usize;
+    }
+    scratch.diagnostics.previous_disparity_mean =
+        (disparity_count > 0).then(|| disparity_sum / disparity_count as f32);
     scratch.diagnostics.right_observations = scratch
         .correspondences
         .iter()
@@ -272,13 +368,65 @@ pub fn estimate_previous_to_current(
         &mut scratch.pnp_image_points,
     );
 
-    let pose = if let Some(pose) = estimate_outlier_free_pose(triangulator, parameters, scratch) {
-        pose
-    } else {
-        estimate_ransac_pose(triangulator, parameters, scratch)?
-    };
+    let pose = estimate_identity_initialized_pose(triangulator, parameters, scratch)
+        .or_else(|| estimate_outlier_free_pose(triangulator, parameters, scratch))
+        .or_else(|| estimate_ransac_pose(triangulator, parameters, scratch))?;
 
-    Some(pnp_pose_to_isometry(&pose))
+    Some(pose_to_isometry(&pose.pose))
+}
+
+fn estimate_identity_initialized_pose(
+    triangulator: &StereoTriangulator,
+    parameters: &StereoVisualOdometryPoseEstimationParameters,
+    scratch: &mut OdometryScratch,
+) -> Option<EvaluatedPose> {
+    let mut diagnostics = scratch.diagnostics;
+    let identity = identity_pose();
+    let identity_metrics = reprojection_metrics(
+        &identity,
+        &scratch.correspondences,
+        triangulator.intrinsics_f32(),
+        triangulator.baseline(),
+    )?;
+    if identity_metrics
+        .left_rmse()
+        .is_some_and(|rmse| rmse <= parameters.lm_cost_tolerance.sqrt())
+        && passes_soft_stereo_validation(identity_metrics, parameters.minimum_pnp_correspondences)
+    {
+        diagnostics.used_identity_initialization = true;
+        fill_diagnostics_before_lm(&mut diagnostics, identity_metrics);
+        fill_diagnostics_after_lm(&mut diagnostics, identity_metrics);
+        scratch.diagnostics = diagnostics;
+        return Some(EvaluatedPose {
+            pose: identity,
+            metrics: identity_metrics,
+        });
+    }
+    let pose = refine_pose(
+        &identity,
+        &scratch.correspondences,
+        triangulator,
+        parameters,
+        false,
+        &mut diagnostics,
+    )?;
+    if !pose
+        .metrics
+        .stereo_rmse()
+        .is_some_and(|rmse| rmse.is_finite() && rmse <= parameters.ransac_reprojection_threshold_px)
+    {
+        return None;
+    }
+    diagnostics.used_identity_initialization = true;
+    scratch.diagnostics = diagnostics;
+    Some(pose)
+}
+
+fn identity_pose() -> RelativePose {
+    RelativePose {
+        rotation: Mat3AF32::IDENTITY,
+        translation: Vec3AF32::ZERO,
+    }
 }
 
 fn right_observation_weight(left_pixel: Vec2F32, observation: RightImageObservation) -> f32 {
@@ -304,20 +452,16 @@ fn estimate_outlier_free_pose(
     triangulator: &StereoTriangulator,
     parameters: &StereoVisualOdometryPoseEstimationParameters,
     scratch: &mut OdometryScratch,
-) -> Option<PnPResult> {
-    let pose = match solve_pnp(
+) -> Option<EvaluatedPose> {
+    let pose = solve_pnp(
         &scratch.pnp_world_points,
         &scratch.pnp_image_points,
         triangulator.intrinsics_f32(),
         None,
         PnPMethod::EPnPDefault,
-    ) {
-        Ok(pose) => pose,
-        Err(error) => {
-            tracing::trace!(?error, "all-correspondence PnP failed");
-            return None;
-        }
-    };
+    )
+    .inspect_err(|error| tracing::trace!(?error, "all-correspondence PnP failed"))
+    .ok()?;
 
     if !pose
         .reproj_rmse
@@ -326,16 +470,16 @@ fn estimate_outlier_free_pose(
         return None;
     }
 
-    scratch.diagnostics.used_outlier_free_pose = true;
     let mut diagnostics = scratch.diagnostics;
     let pose = refine_pose(
-        &pose,
+        &RelativePose::from(&pose),
         &scratch.correspondences,
         triangulator,
         parameters,
         true,
         &mut diagnostics,
     );
+    diagnostics.used_outlier_free_pose = pose.is_some();
     scratch.diagnostics = diagnostics;
     pose
 }
@@ -344,7 +488,7 @@ fn estimate_ransac_pose(
     triangulator: &StereoTriangulator,
     parameters: &StereoVisualOdometryPoseEstimationParameters,
     scratch: &mut OdometryScratch,
-) -> Option<PnPResult> {
+) -> Option<EvaluatedPose> {
     let params = RansacParams {
         max_iterations: parameters.ransac_max_iterations,
         reproj_threshold_px: parameters.ransac_reprojection_threshold_px,
@@ -352,24 +496,22 @@ fn estimate_ransac_pose(
         random_seed: None,
         refine: false,
     };
-    let result = match solve_pnp_ransac(
+    let result = solve_pnp_ransac(
         &scratch.pnp_world_points,
         &scratch.pnp_image_points,
         triangulator.intrinsics_f32(),
         None,
         PnPMethod::EPnPDefault,
         &params,
-    ) {
-        Ok(result) => result,
-        Err(error) => {
-            tracing::debug!(
-                ?error,
-                correspondences = scratch.correspondences.len(),
-                "left PnP RANSAC failed"
-            );
-            return None;
-        }
-    };
+    )
+    .inspect_err(|error| {
+        tracing::debug!(
+            ?error,
+            correspondences = scratch.correspondences.len(),
+            "left PnP RANSAC failed"
+        );
+    })
+    .ok()?;
 
     if result.inliers.len() < parameters.minimum_pnp_correspondences {
         return None;
@@ -379,7 +521,7 @@ fn estimate_ransac_pose(
     scratch.diagnostics.left_ransac_inliers = scratch.inlier_correspondences.len();
 
     let ransac_metrics = reprojection_metrics(
-        &result.pose,
+        &RelativePose::from(&result.pose),
         &scratch.inlier_correspondences,
         triangulator.intrinsics_f32(),
         triangulator.baseline(),
@@ -399,38 +541,31 @@ fn estimate_ransac_pose(
     .ok();
     let refit_metrics = refit_pose.as_ref().and_then(|pose| {
         reprojection_metrics(
-            pose,
+            &RelativePose::from(pose),
             &scratch.inlier_correspondences,
             triangulator.intrinsics_f32(),
             triangulator.baseline(),
         )
     });
 
-    if let (Some(refit_pose), Some(refit_metrics), Some(ransac_metrics)) =
-        (refit_pose.as_ref(), refit_metrics, ransac_metrics)
-        && refit_is_left_consistent(ransac_metrics, refit_metrics)
-    {
-        scratch.diagnostics.refit_used = true;
-        let mut diagnostics = scratch.diagnostics;
-        let pose = refine_pose(
-            refit_pose,
-            &scratch.inlier_correspondences,
-            triangulator,
-            parameters,
-            true,
-            &mut diagnostics,
-        );
-        scratch.diagnostics = diagnostics;
-        return pose;
-    }
+    let (initial_pose, allow_initial_fallback) =
+        if let Some(((refit_pose, refit_metrics), ransac_metrics)) =
+            refit_pose.as_ref().zip(refit_metrics).zip(ransac_metrics)
+            && refit_is_left_consistent(ransac_metrics, refit_metrics)
+        {
+            scratch.diagnostics.refit_used = true;
+            (refit_pose, true)
+        } else {
+            (&result.pose, false)
+        };
 
     let mut diagnostics = scratch.diagnostics;
     let pose = refine_pose(
-        &result.pose,
+        &RelativePose::from(initial_pose),
         &scratch.inlier_correspondences,
         triangulator,
         parameters,
-        false,
+        allow_initial_fallback,
         &mut diagnostics,
     );
     scratch.diagnostics = diagnostics;
@@ -439,24 +574,24 @@ fn estimate_ransac_pose(
 
 fn collect_left_inlier_correspondences(result: &PnPRansacResult, scratch: &mut OdometryScratch) {
     scratch.inlier_correspondences.clear();
-    for &index in &result.inliers {
-        if let Some(correspondence) = scratch.correspondences.get(index).copied() {
-            scratch.inlier_correspondences.push(correspondence);
-        }
-    }
+    scratch.inlier_correspondences.extend(
+        result
+            .inliers
+            .iter()
+            .filter_map(|&index| scratch.correspondences.get(index).copied()),
+    );
 }
 
 fn refine_pose(
-    initial_pose: &PnPResult,
+    initial_pose: &RelativePose,
     correspondences: &[PoseCorrespondence],
     triangulator: &StereoTriangulator,
     parameters: &StereoVisualOdometryPoseEstimationParameters,
     allow_initial_fallback: bool,
     diagnostics: &mut OdometryDiagnostics,
-) -> Option<PnPResult> {
+) -> Option<EvaluatedPose> {
     if correspondences.len() < parameters.minimum_pnp_correspondences {
-        return allow_initial_fallback
-            .then(|| pose_with_metrics(initial_pose, correspondences, triangulator))?;
+        return None;
     }
 
     let initial_metrics = reprojection_metrics(
@@ -465,7 +600,10 @@ fn refine_pose(
         triangulator.intrinsics_f32(),
         triangulator.baseline(),
     )?;
-    let initial_pose = with_stereo_rmse(initial_pose.clone(), initial_metrics);
+    let initial = EvaluatedPose {
+        pose: *initial_pose,
+        metrics: initial_metrics,
+    };
     diagnostics.lm_attempted = true;
     fill_diagnostics_before_lm(diagnostics, initial_metrics);
     let refined_pose = match refine_pose_lm_direct(
@@ -473,7 +611,7 @@ fn refine_pose(
         triangulator.intrinsics_f32(),
         triangulator.baseline(),
         parameters,
-        &initial_pose,
+        initial_pose,
     ) {
         Ok(refined_pose) => refined_pose,
         Err(error) => {
@@ -482,9 +620,15 @@ fn refine_pose(
                 correspondences = correspondences.len(),
                 "PnP LM refinement failed"
             );
-            return allow_initial_fallback.then_some(initial_pose);
+            return allow_initial_fallback.then_some(initial);
         }
     };
+    tracing::trace!(
+        iterations = refined_pose.iterations,
+        converged = refined_pose.converged,
+        "LM refinement finished"
+    );
+    let refined_pose = refined_pose.pose;
     let refined_metrics = reprojection_metrics(
         &refined_pose,
         correspondences,
@@ -492,36 +636,30 @@ fn refine_pose(
         triangulator.baseline(),
     );
 
-    match refined_metrics {
-        Some(refined_metrics)
-            if is_refinement_better(initial_metrics, refined_metrics)
-                && passes_soft_stereo_validation(
-                    refined_metrics,
-                    parameters.minimum_pnp_correspondences,
-                ) =>
-        {
-            diagnostics.lm_success = true;
+    if let Some(metrics) = refined_metrics {
+        let accepted = is_refinement_better(initial_metrics, metrics)
+            && passes_soft_stereo_validation(metrics, parameters.minimum_pnp_correspondences);
+        diagnostics.lm_success = true;
+        if accepted {
             diagnostics.lm_accepted = true;
-            fill_diagnostics_after_lm(diagnostics, refined_metrics);
-            fill_lm_delta(diagnostics, &initial_pose, &refined_pose);
-            Some(with_stereo_rmse(refined_pose, refined_metrics))
         }
-        refined_metrics => {
-            if let Some(refined_metrics) = refined_metrics {
-                diagnostics.lm_success = true;
-                fill_diagnostics_after_lm(diagnostics, refined_metrics);
-                fill_lm_delta(diagnostics, &initial_pose, &refined_pose);
-            }
-            tracing::debug!(
-                initial_left_rmse = initial_metrics.left_rmse(),
-                initial_stereo_rmse = initial_metrics.stereo_rmse(),
-                refined_left_rmse = refined_metrics.and_then(|metrics| metrics.left_rmse()),
-                refined_stereo_rmse = refined_metrics.and_then(|metrics| metrics.stereo_rmse()),
-                "stereo LM failed validation or worsened accepted reprojection metrics"
-            );
-            allow_initial_fallback.then_some(initial_pose)
+        fill_diagnostics_after_lm(diagnostics, metrics);
+        fill_lm_delta(diagnostics, initial_pose, &refined_pose);
+        if accepted {
+            return Some(EvaluatedPose {
+                pose: refined_pose,
+                metrics,
+            });
         }
     }
+    tracing::debug!(
+        initial_left_rmse = initial_metrics.left_rmse(),
+        initial_stereo_rmse = initial_metrics.stereo_rmse(),
+        refined_left_rmse = refined_metrics.and_then(|metrics| metrics.left_rmse()),
+        refined_stereo_rmse = refined_metrics.and_then(|metrics| metrics.stereo_rmse()),
+        "stereo LM failed validation or worsened accepted reprojection metrics"
+    );
+    allow_initial_fallback.then_some(initial)
 }
 
 fn disparity_weight(
@@ -535,22 +673,9 @@ fn disparity_weight(
     (disparity / parameters.full_weight_disparity_px).clamp(parameters.min_disparity_weight, 1.0)
 }
 
-fn pose_with_metrics(
-    pose: &PnPResult,
-    correspondences: &[PoseCorrespondence],
-    triangulator: &StereoTriangulator,
-) -> Option<PnPResult> {
-    let metrics = reprojection_metrics(
-        pose,
-        correspondences,
-        triangulator.intrinsics_f32(),
-        triangulator.baseline(),
-    )?;
-    Some(with_stereo_rmse(pose.clone(), metrics))
-}
-
+// Acceptance metrics use unrobust squared errors, not LM's weighted Huber objective.
 fn reprojection_metrics(
-    pose: &PnPResult,
+    pose: &RelativePose,
     correspondences: &[PoseCorrespondence],
     intrinsics: &Mat3AF32,
     baseline: f32,
@@ -603,34 +728,23 @@ fn reprojection_metrics(
     .then_some(metrics)
 }
 
-fn with_stereo_rmse(mut pose: PnPResult, metrics: ReprojectionMetrics) -> PnPResult {
-    pose.reproj_rmse = metrics.stereo_rmse();
-    pose
-}
-
 fn fill_diagnostics_before_lm(diagnostics: &mut OdometryDiagnostics, metrics: ReprojectionMetrics) {
     diagnostics.left_rmse_before_lm = metrics.left_rmse();
     diagnostics.right_rmse_before_lm = metrics.right_rmse();
-    diagnostics.stereo_rmse_before_lm = metrics.stereo_rmse();
-    diagnostics.weighted_cost_before_lm = metrics.weighted_cost();
-    diagnostics.right_bad_fraction_before_lm = metrics.right_bad_fraction();
 }
 
 fn fill_diagnostics_after_lm(diagnostics: &mut OdometryDiagnostics, metrics: ReprojectionMetrics) {
     diagnostics.left_rmse_after_lm = metrics.left_rmse();
     diagnostics.right_rmse_after_lm = metrics.right_rmse();
-    diagnostics.stereo_rmse_after_lm = metrics.stereo_rmse();
-    diagnostics.weighted_cost_after_lm = metrics.weighted_cost();
-    diagnostics.right_bad_fraction_after_lm = metrics.right_bad_fraction();
 }
 
 fn fill_lm_delta(
     diagnostics: &mut OdometryDiagnostics,
-    initial_pose: &PnPResult,
-    refined_pose: &PnPResult,
+    initial_pose: &RelativePose,
+    refined_pose: &RelativePose,
 ) {
-    let initial = pnp_pose_to_isometry(initial_pose);
-    let refined = pnp_pose_to_isometry(refined_pose);
+    let initial = pose_to_isometry(initial_pose);
+    let refined = pose_to_isometry(refined_pose);
     let delta = refined * initial.inverse();
     diagnostics.lm_delta_translation_m = Some(delta.translation.vector.norm());
     diagnostics.lm_delta_rotation_deg = Some(delta.rotation.angle().to_degrees());
@@ -686,7 +800,7 @@ fn is_refinement_better(initial: ReprojectionMetrics, refined: ReprojectionMetri
         && refined_left_rmse <= initial_left_rmse * MAX_LEFT_RMSE_REGRESSION_RATIO
 }
 
-fn pnp_pose_to_isometry(pose: &PnPResult) -> na::Isometry3<f32> {
+fn pose_to_isometry(pose: &RelativePose) -> na::Isometry3<f32> {
     let rotation = na::Rotation3::from_matrix_unchecked(matrix3_from_mat3a(&pose.rotation));
     na::Isometry3::from_parts(
         na::Translation3::new(pose.translation.x, pose.translation.y, pose.translation.z),
@@ -706,21 +820,6 @@ mod tests {
         )
     }
 
-    fn identity_pose(rmse: Option<f32>) -> PnPResult {
-        PnPResult {
-            rotation: Mat3AF32::from_cols(
-                Vec3AF32::new(1.0, 0.0, 0.0),
-                Vec3AF32::new(0.0, 1.0, 0.0),
-                Vec3AF32::new(0.0, 0.0, 1.0),
-            ),
-            translation: Vec3AF32::new(0.0, 0.0, 0.0),
-            rvec: Vec3AF32::new(0.0, 0.0, 0.0),
-            reproj_rmse: rmse,
-            num_iterations: None,
-            converged: None,
-        }
-    }
-
     fn correspondence(right_image_point: Option<Vec2F32>) -> PoseCorrespondence {
         PoseCorrespondence {
             world_point: Vec3AF32::new(0.0, 0.0, 10.0),
@@ -731,9 +830,55 @@ mod tests {
         }
     }
 
+    fn solve_exact_points(
+        points: &[Vec3AF32],
+        previous_to_current: &na::Isometry3<f32>,
+    ) -> na::Isometry3<f32> {
+        let correspondences = points
+            .iter()
+            .map(|world_point| {
+                let point = previous_to_current
+                    * na::Point3::new(world_point.x, world_point.y, world_point.z);
+                let left = Vec2F32::new(100.0 * point.x / point.z, 100.0 * point.y / point.z);
+                PoseCorrespondence {
+                    world_point: *world_point,
+                    image_point: left,
+                    right_image_point: Some(Vec2F32::new(left.x - 50.0 / point.z, left.y)),
+                    weight: 1.0,
+                    right_weight: 1.0,
+                }
+            })
+            .collect::<Vec<_>>();
+        let parameters = StereoVisualOdometryPoseEstimationParameters {
+            minimum_pnp_correspondences: 4,
+            ransac_reprojection_threshold_px: 6.0,
+            ransac_max_iterations: 100,
+            ransac_confidence: 0.99,
+            lm_max_iterations: 100,
+            lm_initial_lambda: 0.001,
+            lm_min_lambda: 1.0e-7,
+            lm_max_lambda: 1.0e10,
+            lm_step_tolerance: 1.0e-7,
+            lm_cost_tolerance: 1.0e-7,
+            lm_huber_threshold_px: 3.0,
+            full_weight_disparity_px: 8.0,
+            min_disparity_weight: 0.5,
+            max_vertical_disparity_px: 3.0,
+        };
+        let result = refine_pose_lm_direct(
+            &correspondences,
+            &intrinsics(),
+            0.5,
+            &parameters,
+            &identity_pose(),
+        )
+        .unwrap();
+        pose_to_isometry(&result.pose)
+    }
+
     #[test]
     fn metrics_mark_good_left_bad_right_correspondence_as_stereo_bad() {
-        let pose = identity_pose(None);
+        let pose = identity_pose();
         let correspondences = [correspondence(Some(Vec2F32::new(20.0, 0.0)))];
 
         let metrics = reprojection_metrics(&pose, &correspondences, &intrinsics(), 0.5)
@@ -746,7 +891,7 @@ mod tests {
 
     #[test]
     fn metrics_accept_matching_left_and_right_correspondence() {
-        let pose = identity_pose(None);
+        let pose = identity_pose();
         let correspondences = [correspondence(Some(Vec2F32::new(-5.0, 0.0)))];
 
         let metrics = reprojection_metrics(&pose, &correspondences, &intrinsics(), 0.5)
@@ -760,7 +905,7 @@ mod tests {
 
     #[test]
     fn metrics_are_left_only_when_right_observation_is_missing() {
-        let pose = identity_pose(None);
+        let pose = identity_pose();
         let correspondences = [correspondence(None)];
 
         let metrics = reprojection_metrics(&pose, &correspondences, &intrinsics(), 0.5)
@@ -801,5 +946,48 @@ mod tests {
 
         assert!(is_refinement_better(initial, better));
         assert!(!is_refinement_better(initial, bad_left_regression));
+    }
+
+    #[test]
+    fn exact_non_planar_identity_lm_returns_previous_to_current() {
+        let points = [
+            Vec3AF32::new(-1.0, -0.7, 3.0),
+            Vec3AF32::new(0.8, -0.5, 3.5),
+            Vec3AF32::new(-0.6, 0.9, 4.0),
+            Vec3AF32::new(1.1, 0.8, 4.5),
+            Vec3AF32::new(-1.2, 0.2, 5.0),
+            Vec3AF32::new(0.3, -0.9, 5.5),
+            Vec3AF32::new(0.7, 0.4, 6.0),
+            Vec3AF32::new(-0.2, 0.6, 6.5),
+        ];
+        let expected = na::Isometry3::new(
+            na::Vector3::new(0.05, -0.02, -0.1),
+            na::Vector3::new(0.01, -0.02, 0.015),
+        );
+        let estimated = solve_exact_points(&points, &expected);
+
+        assert!(
+            (estimated.translation.vector - expected.translation.vector).norm() < 1.0e-3,
+            "expected {expected:?}, got {estimated:?}"
+        );
+        assert!(estimated.rotation.angle_to(&expected.rotation) < 1.0e-3);
+    }
+
+    #[test]
+    fn exact_planar_identity_lm_returns_previous_to_current() {
+        let points = (-2..=2)
+            .flat_map(|x| (-2..=2).map(move |y| Vec3AF32::new(x as f32 * 0.4, y as f32 * 0.3, 4.0)))
+            .collect::<Vec<_>>();
+        let expected = na::Isometry3::new(
+            na::Vector3::new(0.05, -0.02, -0.1),
+            na::Vector3::new(0.01, -0.02, 0.015),
+        );
+        let estimated = solve_exact_points(&points, &expected);
+
+        assert!(
+            (estimated.translation.vector - expected.translation.vector).norm() < 1.0e-3,
+            "expected {expected:?}, got {estimated:?}"
+        );
+        assert!(estimated.rotation.angle_to(&expected.rotation) < 1.0e-3);
     }
 }

@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use color_eyre::Report;
 use coordinate_systems::Pixel;
 use eframe::egui::{Color32, Pos2, Stroke};
@@ -13,13 +11,12 @@ use twix_visualization::twix_painter::TwixPainter;
 
 use super::super::image_overlay::{ImageOverlay, OverlayObservation};
 
-const CAMERA_MATRIX_ALIGNMENT_TOLERANCE: Duration = Duration::from_millis(100);
-
 pub(in crate::panels::image) struct HorizonOverlay {
     camera_matrix: OverlayObservation<TimeWrapper<CameraMatrix>>,
 }
 
 impl ImageOverlay for HorizonOverlay {
+    type Sample = super::super::image_overlay::CameraSample;
     const NAME: &'static str = "Horizon";
     const STORAGE_KEY: &'static str = "horizon";
 
@@ -32,26 +29,21 @@ impl ImageOverlay for HorizonOverlay {
         })
     }
 
-    fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
-        let Some(camera_matrix) = self
-            .camera_matrix
-            .nearest_to_time(image_time, CAMERA_MATRIX_ALIGNMENT_TOLERANCE)
-        else {
-            return;
-        };
-        let Some(horizon) = camera_matrix.value.inner.horizon else {
+    fn prepare(&self, image_time: Time) -> Option<Self::Sample> {
+        self.camera_matrix.camera_at(image_time)
+    }
+
+    fn paint(painter: &TwixPainter<Pixel>, camera_matrix: &Self::Sample) {
+        let Some(horizon) = camera_matrix.horizon else {
             return;
         };
 
-        let painter_rect = painter.pixel_rect();
-        let left = painter.transform_pixel_to_world(Pos2::new(painter_rect.left(), 0.0));
-        let left_horizon_height = horizon.y_at_x(left.x());
-        let right = painter.transform_pixel_to_world(Pos2::new(painter_rect.right(), 0.0));
-        let right_horizon_height = horizon.y_at_x(right.x());
-
+        let rect = painter.pixel_rect();
+        let left = painter.transform_pixel_to_world(Pos2::new(rect.left(), 0.0));
+        let right = painter.transform_pixel_to_world(Pos2::new(rect.right(), 0.0));
         painter.line_segment(
-            point![left.x(), left_horizon_height],
-            point![right.x(), right_horizon_height],
+            point![left.x(), horizon.y_at_x(left.x())],
+            point![right.x(), horizon.y_at_x(right.x())],
             Stroke::new(3.0, Color32::GREEN),
         );
         painter.circle_stroke(
@@ -59,9 +51,5 @@ impl ImageOverlay for HorizonOverlay {
             5.0,
             Stroke::new(3.0, Color32::GREEN),
         );
-    }
-
-    fn latest_time(&self) -> Option<Time> {
-        self.camera_matrix.latest_time()
     }
 }

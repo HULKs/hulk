@@ -53,6 +53,21 @@ where
     pub fn orientation(&self) -> Orientation2<To, T> {
         Orientation2::wrap(self.inner.rotation)
     }
+
+    /// Embeds planar translation and yaw in 3D, preserving the source and target frames.
+    pub fn to_3d(&self) -> Isometry3<From, To, T> {
+        Isometry3::wrap(nalgebra::Isometry3::from_parts(
+            nalgebra::Translation3::new(
+                self.inner.translation.x,
+                self.inner.translation.y,
+                T::zero(),
+            ),
+            nalgebra::UnitQuaternion::from_axis_angle(
+                &nalgebra::Vector3::z_axis(),
+                self.inner.rotation.angle(),
+            ),
+        ))
+    }
 }
 
 impl<From, To, T> core::convert::From<Vector2<To, T>> for Isometry2<From, To, T>
@@ -149,5 +164,21 @@ where
             nalgebra::Translation::identity(),
             value.inner,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn planar_lift_preserves_xy_action_and_height() {
+        let planar: Isometry2<(), (), f64> =
+            Isometry2::wrap(nalgebra::Isometry2::new(nalgebra::vector![1.0, -2.0], 0.7));
+        let point = nalgebra::Point3::new(0.3, -0.4, 0.6);
+        let lifted = planar.to_3d().inner * point;
+        let projected = planar.inner * nalgebra::Point2::new(point.x, point.y);
+        assert!((lifted.xy() - projected).norm() < 1.0e-12);
+        assert_eq!(lifted.z, point.z);
     }
 }

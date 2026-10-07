@@ -1,0 +1,6 @@
+{
+  max_ground_time_distance: { secs: 0, nanos: 100000000 },
+  // Cache capacity changes require a node restart.
+  ground_cache_capacity: 128,
+  status_cache_capacity: 1,
+}

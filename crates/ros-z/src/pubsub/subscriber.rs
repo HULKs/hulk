@@ -57,6 +57,7 @@ pub enum QueueOverflowReporting {
 
 #[derive(Debug, Clone)]
 pub(crate) struct SubscriberOptions {
+    pub(crate) publisher: Option<crate::attachment::EndpointGlobalId>,
     pub(crate) qos: ros_z_protocol::qos::QosProfile,
     pub(crate) locality: Option<zenoh::sample::Locality>,
     pub(crate) transient_local_replay_timeout: Duration,
@@ -67,6 +68,7 @@ pub(crate) struct SubscriberOptions {
 impl Default for SubscriberOptions {
     fn default() -> Self {
         Self {
+            publisher: None,
             qos: crate::endpoint_builder::default_protocol_qos(),
             locality: None,
             transient_local_replay_timeout: crate::pubsub::DEFAULT_TRANSIENT_LOCAL_REPLAY_TIMEOUT,
@@ -211,6 +213,11 @@ async fn declare_liveliness(session: &Session, entity: &EndpointEntity) -> Resul
 }
 
 impl<T, C> SubscriberBuilder<T, C> {
+    /// Accept samples only from this publisher, including retained delivery.
+    pub fn publisher(mut self, publisher: crate::attachment::EndpointGlobalId) -> Self {
+        self.options.publisher = Some(publisher);
+        self
+    }
     pub(crate) fn new(
         context: EndpointBuilderContext,
         topic: String,
@@ -381,7 +388,20 @@ impl PreparedSubscriberBuild {
             log_prefix, key_expr, entity.qos
         );
 
-        let callback: Arc<dyn Fn(Sample) + Send + Sync> = Arc::new(callback);
+        let source = self.options.publisher;
+        let accepts = move |sample: &Sample| {
+            source.is_none_or(|id| {
+                sample
+                    .attachment()
+                    .and_then(|bytes| crate::attachment::Attachment::try_from(bytes).ok())
+                    .is_some_and(|attachment| attachment.source_global_id == id)
+            })
+        };
+        let callback: Arc<dyn Fn(Sample) + Send + Sync> = Arc::new(move |sample| {
+            if accepts(&sample) {
+                callback(sample);
+            }
+        });
 
         if !matches!(entity.qos.durability, QosDurability::TransientLocal) {
             let subscriber_callback = callback.clone();
@@ -441,11 +461,15 @@ impl PreparedSubscriberBuild {
                 cancelled.clone(),
             ));
             let live_coordinator = coordinator.clone();
-            let mut subscriber = self
-                .context
-                .session
-                .declare_subscriber(key_expr)
-                .callback(move |sample| live_coordinator.handle_live(sample));
+            let mut subscriber =
+                self.context
+                    .session
+                    .declare_subscriber(key_expr)
+                    .callback(move |sample| {
+                        if accepts(&sample) {
+                            live_coordinator.handle_live(sample);
+                        }
+                    });
 
             if let Some(locality) = self.options.locality {
                 subscriber = subscriber.allowed_origin(locality);
@@ -456,7 +480,11 @@ impl PreparedSubscriberBuild {
                 .map_err(|source| crate::Error::zenoh("declare subscriber", source))?;
 
             let (initial_replay_publishers, initial_replay_seen) = replay::initial_replay_plan(
-                replay::replay_capable_publishers(&self.context.graph, &entity.topic),
+                source
+                    .map(|id| vec![(id, live_capacity)])
+                    .unwrap_or_else(|| {
+                        replay::replay_capable_publishers(&self.context.graph, &entity.topic)
+                    }),
             );
             for &(publisher_global_id, live_capacity) in &initial_replay_publishers {
                 coordinator.begin_initial_publisher(publisher_global_id, live_capacity);
@@ -474,15 +502,17 @@ impl PreparedSubscriberBuild {
                 replay_result?;
             }
             coordinator.finish_initial_replay();
-            let replay_task = replay::spawn_transient_local_replay_task(
-                self.context.graph.clone(),
-                entity.topic.clone(),
-                coordinator,
-                self.context.session.clone(),
-                topic_key_expr.to_string(),
-                self.options.transient_local_replay_timeout,
-                initial_replay_seen,
-            );
+            let replay_task = source.is_none().then(|| {
+                replay::spawn_transient_local_replay_task(
+                    self.context.graph.clone(),
+                    entity.topic.clone(),
+                    coordinator,
+                    self.context.session.clone(),
+                    topic_key_expr.to_string(),
+                    self.options.transient_local_replay_timeout,
+                    initial_replay_seen,
+                )
+            });
             let replay_guard = replay::TransientLocalReplayGuard::new(cancelled, replay_task);
             let liveliness_token = declare_liveliness(&self.context.session, entity).await?;
             Ok(SubscriberResources {
@@ -584,6 +614,14 @@ where
     /// Check if there are messages available in the queue
     pub fn is_ready(&self) -> bool {
         !self.queue.is_empty()
+    }
+
+    /// Return the number of messages currently waiting in the local receive queue.
+    ///
+    /// Use this to drain a bounded snapshot without chasing messages that arrive
+    /// concurrently with processing.
+    pub fn queued_len(&self) -> usize {
+        self.queue.len()
     }
 
     /// Wait until at least `count` publishers are matched on this subscriber's topic,

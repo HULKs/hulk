@@ -79,9 +79,7 @@ impl StereoVisualOdometryPoseEstimationParameters {
             return Err("lm_max_lambda must be > 0".to_string());
         }
 
-        if self.lm_max_lambda < self.lm_initial_lambda
-            || self.lm_initial_lambda < self.lm_min_lambda
-        {
+        if self.lm_max_lambda < self.lm_initial_lambda {
             return Err(
                 "LM lambda values must satisfy lm_min_lambda <= lm_initial_lambda <= lm_max_lambda"
                     .to_string(),

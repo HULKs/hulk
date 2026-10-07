@@ -234,6 +234,14 @@ struct TopicObserverInner {
     node: Arc<Node>,
     options: Mutex<TopicObserverOptions>,
     target_sender: watch::Sender<TargetIdentity>,
+    replay: Mutex<ReplayObservers>,
+}
+
+#[derive(Default)]
+struct ReplayObservers {
+    sources: Option<Arc<crate::replay::ReplaySources>>,
+    revision: u64,
+    controls: Vec<Weak<TopicObservationControls>>,
 }
 
 struct ObservationTaskContext {
@@ -246,6 +254,40 @@ struct ObservationTaskContext {
 }
 
 impl TopicObserver {
+    /// Select a committed replay generation, immediately hiding previous samples.
+    /// `None` restores ordinary live observation behavior.
+    pub fn set_replay_sources(&self, sources: Option<crate::replay::ReplaySources>) {
+        let mut replay = self.inner.replay.lock();
+        replay.revision += 1;
+        replay.sources = sources.map(Arc::new);
+        let revision = replay.revision;
+        let sources = replay.sources.clone();
+        replay.controls.retain(|control| {
+            let Some(control) = control.upgrade() else {
+                return false;
+            };
+            control.desired_sender.send_modify(|desired| {
+                desired.replay_sources = sources.clone();
+                desired.replay_revision = revision;
+            });
+            true
+        });
+    }
+
+    fn register_controls(
+        &self,
+        desired_sender: watch::Sender<DesiredObservation>,
+    ) -> Arc<TopicObservationControls> {
+        let mut replay = self.inner.replay.lock();
+        desired_sender.send_modify(|desired| {
+            desired.replay_sources = replay.sources.clone();
+            desired.replay_revision = replay.revision;
+        });
+        let control = Arc::new(TopicObservationControls { desired_sender });
+        replay.controls.retain(|control| control.strong_count() > 0);
+        replay.controls.push(Arc::downgrade(&control));
+        control
+    }
     /// Create an observer using `node` for underlying debug subscriptions.
     pub fn new(node: Arc<Node>, options: TopicObserverOptions) -> Self {
         let (target_sender, _) = watch::channel(options.target_identity().clone());
@@ -254,6 +296,7 @@ impl TopicObserver {
                 node,
                 options: Mutex::new(options),
                 target_sender,
+                replay: Mutex::new(ReplayObservers::default()),
             }),
         }
     }
@@ -418,23 +461,24 @@ where
             node_name: self.node_name,
             policy: self.policy,
             reconnect_revision: 0,
+            replay_sources: None,
+            replay_revision: 0,
         });
         let (updates, _) = broadcast::channel(self.policy.update_buffer_capacity().get());
         let state = Arc::new(Mutex::new(TopicObservationState {
             status: TopicObservationStatus::Building,
             display_cache: None,
+            replay_revision: 0,
             updates: Some(updates),
         }));
         let task = self.observer.task_context();
+        let controls = self.observer.register_controls(desired_sender);
         tokio::spawn(run_typed_observation::<T>(
             task,
             desired_receiver,
             Arc::downgrade(&state),
         ));
-        TopicObservation {
-            state,
-            controls: TopicObservationControls { desired_sender },
-        }
+        TopicObservation { state, controls }
     }
 }
 
@@ -446,23 +490,24 @@ impl TopicObservationBuilder<DynamicPayload> {
             node_name: self.node_name,
             policy: self.policy,
             reconnect_revision: 0,
+            replay_sources: None,
+            replay_revision: 0,
         });
         let (updates, _) = broadcast::channel(self.policy.update_buffer_capacity().get());
         let state = Arc::new(Mutex::new(TopicObservationState {
             status: TopicObservationStatus::Building,
             display_cache: None,
+            replay_revision: 0,
             updates: Some(updates),
         }));
         let task = self.observer.task_context();
+        let controls = self.observer.register_controls(desired_sender);
         tokio::spawn(run_dynamic_observation(
             task,
             desired_receiver,
             Arc::downgrade(&state),
         ));
-        TopicObservation {
-            state,
-            controls: TopicObservationControls { desired_sender },
-        }
+        TopicObservation { state, controls }
     }
 }
 
@@ -555,7 +600,7 @@ impl DynamicTopicObservationBuilder {
 /// Handle for reading and retargeting an observed topic.
 pub struct TopicObservation<T> {
     state: Arc<Mutex<TopicObservationState<T>>>,
-    controls: TopicObservationControls,
+    controls: Arc<TopicObservationControls>,
 }
 
 impl<T> TopicObservation<T> {
@@ -574,9 +619,10 @@ impl<T> TopicObservation<T> {
             state: Arc::new(Mutex::new(TopicObservationState {
                 status: TopicObservationStatus::Building,
                 display_cache: None,
+                replay_revision: 0,
                 updates: Some(updates),
             })),
-            controls: TopicObservationControls { desired_sender },
+            controls: Arc::new(TopicObservationControls { desired_sender }),
         }
     }
 
@@ -650,9 +696,17 @@ impl<T> TopicObservation<T> {
         self.state.lock().status.clone()
     }
 
+    fn readable_cache(&self) -> Option<CachedSubscription<T>> {
+        let desired = self.controls.desired_sender.borrow();
+        let state = self.state.lock();
+        (state.replay_revision == desired.replay_revision)
+            .then(|| state.display_cache.clone())
+            .flatten()
+    }
+
     /// Return the latest retained sample, if one has arrived.
     pub fn latest(&self) -> Option<Arc<crate::SampleRecord<T>>> {
-        let cache = self.state.lock().display_cache.clone();
+        let cache = self.readable_cache();
         cache?.latest()
     }
 
@@ -660,7 +714,7 @@ impl<T> TopicObservation<T> {
     ///
     /// Observations with [`RetentionPolicy::LatestOnly`] return an empty window.
     pub fn window(&self, start: Time, end: Time) -> Vec<Arc<crate::SampleRecord<T>>> {
-        let cache = self.state.lock().display_cache.clone();
+        let cache = self.readable_cache();
         cache.map_or_else(Vec::new, |cache| cache.window(start, end))
     }
 
@@ -668,7 +722,7 @@ impl<T> TopicObservation<T> {
     ///
     /// Observations with [`RetentionPolicy::LatestOnly`] return an empty window.
     pub fn get_all(&self) -> Vec<Arc<crate::SampleRecord<T>>> {
-        let cache = self.state.lock().display_cache.clone();
+        let cache = self.readable_cache();
         cache.map_or_else(Vec::new, |cache| cache.get_all())
     }
 
@@ -676,7 +730,7 @@ impl<T> TopicObservation<T> {
     ///
     /// Observations with [`RetentionPolicy::LatestOnly`] return an empty window.
     pub fn get_nearest(&self, time: Time) -> Option<Arc<crate::SampleRecord<T>>> {
-        let cache = self.state.lock().display_cache.clone();
+        let cache = self.readable_cache();
         cache.and_then(|cache| cache.get_nearest(time))
     }
 
@@ -827,6 +881,7 @@ fn format_error_chain(error: &dyn std::error::Error) -> String {
 }
 
 struct TopicObservationState<T> {
+    replay_revision: u64,
     status: TopicObservationStatus,
     display_cache: Option<CachedSubscription<T>>,
     updates: Option<broadcast::Sender<TopicObservationUpdate>>,
@@ -838,6 +893,8 @@ struct TopicObservationControls {
 
 #[derive(Clone)]
 struct DesiredObservation {
+    replay_sources: Option<Arc<crate::replay::ReplaySources>>,
+    replay_revision: u64,
     topic: TopicReference,
     namespace: Option<String>,
     node_name: DesiredNodeName,
@@ -861,6 +918,8 @@ impl DesiredObservation {
             node_name: DesiredNodeName::Inherit,
             policy: ObservationPolicy::default().with_retention(retention),
             reconnect_revision: 0,
+            replay_sources: None,
+            replay_revision: 0,
         }
     }
 }
@@ -888,6 +947,7 @@ struct DynamicGraphFingerprint {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ObservationBuildKey {
+    replay_revision: u64,
     resolved_topic: String,
     policy: ObservationPolicy,
     reconnect_revision: u64,
@@ -1088,10 +1148,7 @@ where
     T: Message + Send + Sync + 'static,
     T::Codec: Send + Sync,
 {
-    CachedSubscriptionBuilder::new(node, desired.topic.as_str())?
-        .target_identity(identity)
-        .schema_discovery_timeout(schema_discovery_timeout)
-        .policy(desired.policy)
+    cache_builder(node, schema_discovery_timeout, identity, desired)?
         .build_typed::<T>()
         .await
 }
@@ -1102,12 +1159,29 @@ async fn build_dynamic_cache(
     identity: TargetIdentity,
     desired: DesiredObservation,
 ) -> Result<CachedSubscription<DynamicPayload>> {
-    CachedSubscriptionBuilder::new(node, desired.topic.as_str())?
-        .target_identity(identity)
-        .schema_discovery_timeout(schema_discovery_timeout)
-        .policy(desired.policy)
+    cache_builder(node, schema_discovery_timeout, identity, desired)?
         .build_dynamic()
         .await
+}
+
+fn cache_builder(
+    node: Arc<Node>,
+    timeout: Duration,
+    identity: TargetIdentity,
+    desired: DesiredObservation,
+) -> Result<CachedSubscriptionBuilder> {
+    let mut builder = CachedSubscriptionBuilder::new(node, desired.topic.as_str())?
+        .target_identity(identity.clone())
+        .schema_discovery_timeout(timeout)
+        .policy(desired.policy);
+    if let Some(sources) = &desired.replay_sources {
+        let topic = desired.topic.resolve(&identity)?;
+        let id = sources
+            .get(&topic)
+            .ok_or_else(|| Error::ReplayTopicUnavailable(topic.clone()))?;
+        builder = builder.publisher((*id).into());
+    }
+    Ok(builder)
 }
 
 enum BuildWait<T> {
@@ -1226,6 +1300,7 @@ fn observation_build_key(
     let identity = effective_identity(observer_identity, desired).ok()?;
     let resolved_topic = desired.topic.resolve(&identity).ok()?;
     Some(ObservationBuildKey {
+        replay_revision: desired.replay_revision,
         resolved_topic,
         policy: desired.policy,
         reconnect_revision: desired.reconnect_revision,
@@ -1332,7 +1407,7 @@ async fn run_typed_observation<T>(
                 ) else {
                     continue;
                 };
-                if !install_cache(&state, built_cache) {
+                if !install_replay_cache(&state, built_cache, target.build_key.replay_revision) {
                     return;
                 }
                 if !refresh_observing_status(&state) {
@@ -1497,7 +1572,7 @@ async fn run_dynamic_observation(
                 ) else {
                     continue;
                 };
-                if !install_cache(&state, built_cache) {
+                if !install_replay_cache(&state, built_cache, target.build_key.replay_revision) {
                     return;
                 }
                 if !refresh_observing_status(&state) {
@@ -1570,6 +1645,7 @@ fn resolve_build_target(
     let identity = effective_identity(observer_identity, desired)?;
     let resolved_topic = desired.topic.resolve(&identity)?;
     let build_key = ObservationBuildKey {
+        replay_revision: desired.replay_revision,
         resolved_topic: resolved_topic.clone(),
         policy: desired.policy,
         reconnect_revision: desired.reconnect_revision,
@@ -1809,9 +1885,18 @@ fn set_blocked_status<T>(
     )
 }
 
+#[cfg(test)]
 fn install_cache<T>(
     state: &Weak<Mutex<TopicObservationState<T>>>,
     cache: CachedSubscription<T>,
+) -> bool {
+    install_replay_cache(state, cache, 0)
+}
+
+fn install_replay_cache<T>(
+    state: &Weak<Mutex<TopicObservationState<T>>>,
+    cache: CachedSubscription<T>,
+    revision: u64,
 ) -> bool {
     let has_retained_sample = cache.latest().is_some();
     let status = TopicObservationStatus::Observing {
@@ -1827,6 +1912,7 @@ fn install_cache<T>(
         }
         let status_changed = state.status != status;
         state.display_cache = Some(cache);
+        state.replay_revision = revision;
         state.status = status.clone();
         let updates = (status_changed || has_retained_sample)
             .then(|| state.updates.clone())
@@ -2011,6 +2097,8 @@ mod tests {
             .with_node_name("behavior")
             .unwrap();
         let desired = DesiredObservation {
+            replay_sources: None,
+            replay_revision: 0,
             topic: TopicReference::new("~trace").unwrap(),
             namespace: None,
             node_name: DesiredNodeName::Inherit,
@@ -2031,6 +2119,8 @@ mod tests {
             .with_node_name("behavior")
             .unwrap();
         let desired = DesiredObservation {
+            replay_sources: None,
+            replay_revision: 0,
             topic: TopicReference::new("~trace").unwrap(),
             namespace: Some("/99".to_string()),
             node_name: DesiredNodeName::Name("vision".to_string()),
@@ -2300,6 +2390,7 @@ mod tests {
         let (observation_update_sender, observation_update_receiver) =
             broadcast::channel(super::UPDATE_BUFFER_CAPACITY);
         let observation_state = Arc::new(Mutex::new(super::TopicObservationState {
+            replay_revision: 0,
             status: TopicObservationStatus::Observing {
                 cache: stale_cache.clone(),
             },
@@ -2368,6 +2459,7 @@ mod tests {
         let (observation_update_sender, observation_update_receiver) =
             broadcast::channel(super::UPDATE_BUFFER_CAPACITY);
         let observation_state = Arc::new(Mutex::new(super::TopicObservationState {
+            replay_revision: 0,
             status: TopicObservationStatus::Observing { cache: stale_cache },
             display_cache: Some(cache.clone()),
             updates: Some(observation_update_sender),
@@ -2417,6 +2509,7 @@ mod tests {
         let (observation_update_sender, observation_update_receiver) =
             broadcast::channel(super::UPDATE_BUFFER_CAPACITY);
         let observation_state = Arc::new(Mutex::new(super::TopicObservationState {
+            replay_revision: 0,
             status: TopicObservationStatus::Building,
             display_cache: None,
             updates: Some(observation_update_sender),
@@ -2443,6 +2536,33 @@ mod tests {
         assert!(matches!(observation_updates.try_recv(), Ok(None)));
     }
 
+    #[test]
+    fn replay_revision_hides_old_samples_until_matching_cache_is_installed() {
+        let observation = TopicObservation::new(DesiredObservation::new(
+            TopicReference::new("/replay/a").unwrap(),
+            RetentionPolicy::LatestOnly,
+        ));
+        let cache_state = Arc::new(CachedSubscriptionState::<String>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+            NonZeroUsize::new(256).unwrap(),
+        ));
+        cache_state.store_latest(string_sample_record("retained"));
+        let state = Arc::downgrade(&observation.state);
+        assert!(super::install_replay_cache(&state, cache_state.handle(), 0));
+        assert_eq!(observation.latest().unwrap().value, "retained");
+        observation.controls.desired_sender.send_modify(|desired| {
+            desired.replay_revision = 1;
+        });
+        assert!(observation.latest().is_none());
+        assert!(observation.get_all().is_empty());
+        // An old in-flight build cannot make its retained sample visible again.
+        assert!(super::install_replay_cache(&state, cache_state.handle(), 0));
+        assert!(observation.latest().is_none());
+        assert!(super::install_replay_cache(&state, cache_state.handle(), 1));
+        assert_eq!(observation.latest().unwrap().value, "retained");
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn subscribed_built_cache_forwards_data_changed_before_observing_wait_starts() {
         let context = ContextBuilder::default().build().await.unwrap();
@@ -2464,6 +2584,7 @@ mod tests {
         let (observation_update_sender, observation_update_receiver) =
             broadcast::channel(super::UPDATE_BUFFER_CAPACITY);
         let observation_state = Arc::new(Mutex::new(super::TopicObservationState {
+            replay_revision: 0,
             status: TopicObservationStatus::Building,
             display_cache: None,
             updates: Some(observation_update_sender),
@@ -2551,6 +2672,7 @@ mod tests {
         let (observation_update_sender, _observation_update_receiver) =
             broadcast::channel(super::UPDATE_BUFFER_CAPACITY);
         let observation_state = Arc::new(Mutex::new(super::TopicObservationState {
+            replay_revision: 0,
             status: TopicObservationStatus::Building,
             display_cache: None,
             updates: Some(observation_update_sender),

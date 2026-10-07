@@ -35,10 +35,12 @@ const POSE_SKELETON_KEYPOINT_LINE_MAPPING: [(usize, usize); 16] = [
 const KEYPOINT_CONFIDENCE_THRESHOLD: f32 = 0.8;
 
 pub(in crate::panels::image) struct PoseDetectionOverlay {
-    poses: OverlayObservation<TimeWrapper<Vec<Pose<YOLOObjectLabel>>>>,
+    pub(in crate::panels::image) poses: OverlayObservation<TimeWrapper<Vec<Pose<YOLOObjectLabel>>>>,
 }
 
 impl ImageOverlay for PoseDetectionOverlay {
+    type Sample =
+        std::sync::Arc<ros_z_debug::SampleRecord<TimeWrapper<Vec<Pose<YOLOObjectLabel>>>>>;
     const NAME: &'static str = "Pose Detection";
     const STORAGE_KEY: &'static str = "pose_detection";
 
@@ -51,15 +53,12 @@ impl ImageOverlay for PoseDetectionOverlay {
         })
     }
 
-    fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
-        let Some(poses) = self.poses.at_time(image_time) else {
-            return;
-        };
-        paint_poses(painter, &poses.value.inner);
+    fn prepare(&self, image_time: Time) -> Option<Self::Sample> {
+        self.poses.at_time(image_time)
     }
 
-    fn latest_time(&self) -> Option<Time> {
-        self.poses.latest_time()
+    fn paint(painter: &TwixPainter<Pixel>, poses: &Self::Sample) {
+        paint_poses(painter, &poses.value.inner);
     }
 }
 

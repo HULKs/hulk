@@ -25,6 +25,7 @@ use bevy::{
         settings::RenderCreation,
         texture::ManualTextureView,
     },
+    window::RequestRedraw,
 };
 use eframe::{
     egui::{
@@ -56,17 +57,33 @@ impl BevyWidget {
 
 impl Widget for &mut BevyWidget {
     fn ui(self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
-        let response = ui.allocate_response(ui.available_size(), Sense::all());
+        let response = ui.allocate_response(
+            ui.available_size(),
+            Sense::all().difference(Sense::focusable_noninteractive()),
+        );
+        let size = response.rect.size() * ui.pixels_per_point();
+        if !size.is_finite() || size.x <= 0.0 || size.y <= 0.0 {
+            return response;
+        }
         process_egui_input(self.bevy_app.world_mut(), ui, &response);
 
         let mut render_target = self.bevy_app.world_mut().resource_mut::<BevyRenderTarget>();
-        render_target.set_output_size(response.rect.size() * ui.pixels_per_point());
+        render_target.set_output_size(size.ceil());
         let image = egui::Image::new(render_target.image_source())
             .maintain_aspect_ratio(false)
             .fit_to_exact_size(response.rect.size())
             .uv(render_target.uv());
 
         self.bevy_app.update();
+        // The camera controller requests redraws while interacting and while momentum settles.
+        if !self
+            .bevy_app
+            .world()
+            .resource::<Messages<RequestRedraw>>()
+            .is_empty()
+        {
+            ui.ctx().request_repaint();
+        }
 
         ui.put(response.rect, image)
     }
@@ -93,6 +110,10 @@ impl BevyRenderTarget {
                 new_size *= 2.0;
             }
             debug!("New render texture size: {new_size}");
+            self.wgpu_state
+                .renderer
+                .write()
+                .free_texture(&self.texture_id);
             (self.texture, self.texture_id) = Self::create_texture(new_size, &self.wgpu_state);
         }
         self.output_size = size;
@@ -151,6 +172,15 @@ impl BevyRenderTarget {
             wgpu::FilterMode::Linear,
         );
         (bevy_render_target, texture_id)
+    }
+}
+
+impl Drop for BevyRenderTarget {
+    fn drop(&mut self) {
+        self.wgpu_state
+            .renderer
+            .write()
+            .free_texture(&self.texture_id);
     }
 }
 
@@ -242,12 +272,12 @@ fn setup_camera(
         },
         RenderTarget::TextureView(BevyRenderTarget::TEXTURE_HANDLE),
         Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-        PanOrbitCamera::default(),
+        PanOrbitCamera::default().with_initial_anchor_depth(Vec3::ONE.length() as f64),
     ));
 }
 
 fn update_camera_render_target(
-    mut camera: Single<&mut Camera>,
+    mut camera: Single<&mut Camera, With<PanOrbitCamera>>,
     target: Res<BevyRenderTarget>,
     mut manual_texture_view: ResMut<ManualTextureViews>,
 ) {
@@ -256,7 +286,7 @@ fn update_camera_render_target(
         BevyRenderTarget::TEXTURE_HANDLE,
         ManualTextureView::with_default_format(
             texture.create_view(&wgpu::TextureViewDescriptor::default()),
-            UVec2::new(target.texture.size().width, target.texture.size().width),
+            UVec2::new(target.texture.size().width, target.texture.size().height),
         ),
     );
     camera.viewport = Some(Viewport {
@@ -365,11 +395,11 @@ fn process_egui_input(world: &mut World, ui: &mut Ui, response: &Response) {
                     phase,
                     modifiers: _,
                 } => {
-                    let unit = match unit {
-                        MouseWheelUnit::Point => MouseScrollUnit::Pixel,
-                        MouseWheelUnit::Line => MouseScrollUnit::Line,
+                    let (unit, delta) = match unit {
+                        MouseWheelUnit::Point => (MouseScrollUnit::Pixel, *delta),
+                        MouseWheelUnit::Line => (MouseScrollUnit::Line, *delta),
                         MouseWheelUnit::Page => {
-                            unimplemented!("this seems to be unused anyways")
+                            (MouseScrollUnit::Pixel, *delta * response.rect.size())
                         }
                     };
                     let mut buttons = world.resource_mut::<Messages<MouseWheel>>();
@@ -390,4 +420,25 @@ fn process_egui_input(world: &mut World, ui: &mut Ui, response: &Response) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_viewport_does_not_access_render_resources() {
+        let context = egui::Context::default();
+        let mut widget = BevyWidget {
+            bevy_app: App::new(),
+        };
+        let _ = context.run_ui(egui::RawInput::default(), |ui| {
+            let mut ui = Ui::new(
+                ui.ctx().clone(),
+                egui::Id::new("empty_viewport"),
+                egui::UiBuilder::new().max_rect(egui::Rect::ZERO),
+            );
+            ui.add(&mut widget);
+        });
+    }
 }

@@ -10,6 +10,7 @@ pub struct PanelCreationContext<'a> {
     pub backend: Arc<RobotBackend>,
     pub value: Option<&'a Value>,
     pub egui_context: Context,
+    pub render_state: Option<eframe::egui_wgpu::RenderState>,
 }
 
 pub struct PanelUiContext<'a> {

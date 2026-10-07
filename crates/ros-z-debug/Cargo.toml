@@ -10,6 +10,7 @@ homepage.workspace = true
 arc-swap = { workspace = true }
 parking_lot = { workspace = true }
 ros-z = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt", "sync"] }

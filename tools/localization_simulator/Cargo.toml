@@ -1,0 +1,35 @@
+[package]
+name = "localization_simulator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+bevy = { workspace = true, features = ["3d_bevy_render"] }
+booster.workspace = true
+clap = { workspace = true, features = ["derive"] }
+color-eyre.workspace = true
+coordinate_systems.workspace = true
+eframe.workspace = true
+egui_bevy.workspace = true
+field_mark_association.workspace = true
+json5.workspace = true
+linear_algebra.workspace = true
+localization-3d.workspace = true
+nalgebra.workspace = true
+projection.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
+rand_distr.workspace = true
+ros-z.workspace = true
+ros2.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+# stereo_visual_odometry = { workspace = true, features = ["ort-webgpu"] }
+stereo_visual_odometry = { workspace = true }
+tracing-subscriber.workspace = true
+types.workspace = true
+
+[dev-dependencies]
+approx.workspace = true

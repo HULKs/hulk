@@ -1,0 +1,29 @@
+{
+  "recording": "recovered.mcap, exposure 23:29.502, 2026-10-02",
+  "field": {
+    "ball_radius": 0.105, "length": 8.98, "width": 5.91,
+    "line_width": 0.05, "penalty_marker_size": 0.11,
+    "goal_box_area_length": 0.61, "goal_box_area_width": 2.18,
+    "penalty_area_length": 1.66, "penalty_area_width": 3.92,
+    "penalty_marker_distance": 1.3, "center_circle_diameter": 1.51,
+    "border_strip_width": 0.3, "goal_inner_width": 2.42,
+    "goal_post_diameter": 0.07, "goal_depth": 0.7, "corner_arc_radius": 0.0
+  },
+  "robot_to_camera": {
+    "rotation": [0.8479940852, -0.3509385570, 0.1518771045, 0.3669897897],
+    "translation": [-0.0039422996, 0.2821372449, 0.1084893271]
+  },
+  "intrinsics": { "focals": [207.8575745, 207.8575745], "optical_center": [251.2420807, 228.1743164] },
+  "roll": 0.0190119464,
+  "pitch": -0.0078967400,
+  "heading": -0.0174503662,
+  "detections": [
+    { "class": "XSpot", "pixel": [503.25, 169.0], "confidence": 0.93701171875, "field": [0.0, -0.755] },
+    { "class": "XSpot", "pixel": [328.625, 128.1875], "confidence": 0.9150390625, "field": [0.0, 0.755] },
+    { "class": "TSpot", "pixel": [210.3125, 100.40625], "confidence": 0.876953125, "field": [0.0, 2.955] },
+    { "class": "LSpot", "pixel": [347.125, 81.46875], "confidence": 0.86474609375, "field": [2.83, 1.96] },
+    { "class": "TSpot", "pixel": [370.75, 72.9375], "confidence": 0.818359375, "field": [4.49, 1.96] },
+    { "class": "LSpot", "pixel": [406.75, 79.46875], "confidence": 0.73583984375, "field": [3.88, 1.09] },
+    { "class": "TSpot", "pixel": [410.125, 76.1875], "confidence": 0.447509765625, "field": [4.49, 1.09] }
+  ]
+}

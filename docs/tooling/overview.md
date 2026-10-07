@@ -8,6 +8,7 @@ Apart from the NAO code our repository contains several tools to aid in the deve
 - [Fanta](./fanta.md): TODO: Irgendwas mit live data auf der CLI
 - [Machine Learning](./machine-learning.md): Our tooling to create datasets and neural networks
 - [Behavior Simulator](./behavior_simulator.md): The simulator and viewer to debug and automatically test behavior
+- [Localization Simulator](./localization_simulator.md): Deterministic 6-DoF localization simulation and visualization
 - [Behavior Tree Simulator Design](./behavior_tree_simulator_design.md): Design for simulating the current behavior tree directly
 - [Debugging with GDB/LLDB](./debugging.md): How to use a debugger with our software
 - [Profiling with `perf`](./profiling.md): How to profile our software with `perf`

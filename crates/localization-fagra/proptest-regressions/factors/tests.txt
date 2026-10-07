@@ -1,0 +1,10 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 061ce23e847408fc7a81c9caacfc9f31d1d4bdc024946805f66d3547c341b79a # shrinks to ImuCase(Inputs { values: [0.0, 0.0, 0.22831018133614936, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], bridge: false })
+cc 3483d9e666c66be5e47981a7b9726383bb23649de1fc7fe8ee7f0fcf1332cb96 # shrinks to FootCase(Inputs { values: [0.07078090279780154, -0.08635550183537462, 0.1934737376252279, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], bridge: false })
+cc 66357e1d374368436ae67d6530d9b56a909fe115f1840058fd67ffdb7937c222 # shrinks to ImuCase(Inputs { values: [-0.15150564591393778, 0.007567300209274318, 0.20450124962810184, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], bridge: false, stationary: false })
+cc a1beb296a00ef95bbe70b86c898ec420d8544031e8180e1fa6c27e31d8b775f4 # shrinks to ImuCase(Inputs { values: [-0.009908289407641813, -0.18459965742966114, -0.08022019909844322, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], bridge: false, stationary: false })
