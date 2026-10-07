@@ -9,8 +9,8 @@ use crate::{
     conditions::{
         has_ball_position, hulks_is_kicking_team, is_ball_interception_candidate, is_close_to_ball,
         is_closest_to_ball, is_controller_connected, is_fallen, is_falling, is_goalkeeper,
-        is_last_hulk_standing, is_primary_state, is_remote_control_enabled, is_remote_kick_mode,
-        is_simple,
+        is_last_hulk_standing, is_primary_state, is_ready_for_stand_up, is_remote_control_enabled,
+        is_remote_kick_mode, is_simple,
     },
     goalkeeper::goalkeeper_subtree,
     head::{look_around, look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
@@ -44,6 +44,7 @@ pub fn create_tree() -> Node<Blackboard> {
                 sequence!(action!(look_straight_ahead), action!(stand))
             )
         ),
+        sequence!(condition!(is_falling), action!(damping)),
         sequence!(
             condition!(is_primary_state, PrimaryState::Stop),
             action!(stand)
@@ -66,8 +67,9 @@ pub fn create_tree() -> Node<Blackboard> {
             action!(look_around),
             action!(stand)
         ),
-        sequence!(condition!(is_falling), action!(damping)),
-        sequence!(condition!(is_fallen), action!(stand_up)),
+        sequence!(condition!(is_ready_for_stand_up), action!(stand_up)),
+        // Prepare stiffens the joints into a known pose, after which the robot becomes ready.
+        sequence!(condition!(is_fallen), action!(prepare)),
         sequence!(
             condition!(is_primary_state, PrimaryState::Set),
             sequence!(subtree!(look_at_ball_subtree), action!(stand))
@@ -171,7 +173,8 @@ fn remote_control_subtree() -> Node<Blackboard> {
     sequence!(
         condition!(is_remote_control_enabled),
         selection!(
-            sequence!(condition!(is_fallen), action!(stand_up)),
+            sequence!(condition!(is_ready_for_stand_up), action!(stand_up)),
+            sequence!(condition!(is_fallen), action!(prepare)),
             sequence!(
                 condition!(is_controller_connected),
                 selection!(
