@@ -86,16 +86,19 @@ impl Blackboard {
         if let Some(ground_to_field) = self.world_state.robot.ground_to_field {
             let pose = ground_to_field.as_pose();
 
-            let ball_position =
-                self.world_state
-                    .ball
-                    .map(|ball| hsl_network_messages::BallPosition {
-                        age: now
-                            .to_wallclock()
-                            .duration_since(ball.last_seen_ball)
-                            .unwrap(),
-                        position: ball.ball_in_field,
-                    });
+            let ball_position = self.world_state.ball.and_then(|ball| {
+                let local_ball = self.local_ball_position?;
+                if local_ball.position != ball.ball_in_ground
+                    || local_ball.velocity != ball.ball_in_ground_velocity
+                    || local_ball.last_seen.to_wallclock() != ball.last_seen_ball
+                {
+                    return None;
+                }
+                Some(hsl_network_messages::BallPosition {
+                    age: local_ball.age_at(now)?,
+                    position: ball.ball_in_field,
+                })
+            });
 
             let message = HulkMessage::State(StateMessage {
                 player_number: self.world_state.robot.player_number,
