@@ -59,6 +59,7 @@ pub struct Blackboard {
     pub voronoi_inputs: Vec<Pose2<Field>>,
 
     pub ball: Option<LastBall>,
+    pub local_ball_position: Option<BallPosition<Ground>>,
     pub visual_kick_ball_position: Option<BallPosition<Ground>>,
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
@@ -199,6 +200,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
+    let local_ball_position_cache = node
+        .subscriber::<Option<BallPosition<Ground>>>("ball_filter/ball_position")
+        .cache(1)
+        .build()
+        .await?;
     let visual_kick_ball_position_cache = node
         .subscriber::<Option<BallPosition<Ground>>>("visual_kick/ball_position")
         .cache(1)
@@ -306,6 +312,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         voronoi_inputs: Vec::new(),
 
         ball: None,
+        local_ball_position: None,
         visual_kick_ball_position: None,
         last_ball: None,
         last_close_enough_to_kick: false,
@@ -393,6 +400,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         };
 
         blackboard.world_state.ball = ball_state_cache.get_latest().and_then(|ball| *ball);
+        blackboard.local_ball_position = local_ball_position_cache
+            .get_latest()
+            .and_then(|ball_position| *ball_position);
         blackboard.visual_kick_ball_position = visual_kick_ball_position_cache
             .get_latest()
             .and_then(|ball_position| *ball_position);
