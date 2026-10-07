@@ -546,7 +546,7 @@ fn allocate_plot(
     vertical_label: &str,
     format_vertical: impl Fn(f32) -> String,
 ) -> egui::Rect {
-    let (rect, _) =
+    let (rect, response) =
         ui.allocate_exact_size(ui.available_size().max(Vec2::ZERO), egui::Sense::hover());
     let font_id = egui::TextStyle::Body.resolve(ui.style());
     let text_color = ui.visuals().text_color();
@@ -587,6 +587,14 @@ fn allocate_plot(
         || !ui.is_rect_visible(rect)
     {
         return egui::Rect::NOTHING;
+    }
+
+    if let Some(position) = response
+        .hover_pos()
+        .filter(|position| plot_rect.contains(*position))
+    {
+        let frequency = (position.x - plot_rect.left()) / plot_rect.width() * max_frequency;
+        response.on_hover_text_at_pointer(format!("Frequency: {frequency:.0} Hz"));
     }
 
     let painter = screen_painter(ui, rect);
