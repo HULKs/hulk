@@ -361,9 +361,21 @@ pub fn walk_to_voronoi_position(blackboard: &mut Blackboard) -> Status {
             OrientationMode::AlignWithPath
         };
 
+        let target_orientation =
+            blackboard
+                .ball
+                .as_ref()
+                .map_or_else(Orientation2::default, |ball| {
+                    Orientation2::from_vector(
+                        ground_to_field.inverse() * (ball.position - target_position),
+                    )
+                });
         walk_to(
             blackboard,
-            Pose2::from(ground_to_field.inverse() * target_position),
+            Pose2::from_parts(
+                ground_to_field.inverse() * target_position,
+                target_orientation,
+            ),
             kicking_speed,
             orientation_mode,
             walk_and_stand.normal_distance_to_be_aligned,
