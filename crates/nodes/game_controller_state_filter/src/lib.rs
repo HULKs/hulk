@@ -399,8 +399,8 @@ impl GameControllerStateFilter {
                 sub_state: None,
                 ..
             } => match (filtered_whistle.is_detected, ball_is_in_opponent_half?) {
-                (true, false) => Some(Team::Opponent),
-                (true, true) => Some(Team::Hulks),
+                (true, false) => Some(Team::Hulks),
+                (true, true) => Some(Team::Opponent),
                 _ => None,
             },
             _ => None,
