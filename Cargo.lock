@@ -3166,6 +3166,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6ca96b45ca70b8045e0462f191bd209fcb3c3bfe8dbfb1257ada54c4dd59169"
 
 [[package]]
+name = "debug_marker"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "log",
+ "ros-z",
+ "types",
+]
+
+[[package]]
 name = "defer"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5450,6 +5460,7 @@ dependencies = [
  "clap",
  "color-eyre",
  "controller_handler",
+ "debug_marker",
  "detection",
  "fall_down_state_receiver",
  "field_mark_association",
