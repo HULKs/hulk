@@ -252,6 +252,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .publisher::<FallDetection>("fall_detection/status")
         .build()
         .await?;
+    let tilt_publisher = node
+        .publisher::<f32>("debug/fall_detection/tilt")
+        .build()
+        .await?;
 
     let mut detector = Detector::default();
     loop {
@@ -259,6 +263,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let Ok(observation) = Observation::from_low_state(&low_state, low_state.source_time) else {
             continue;
         };
+        tilt_publisher.publish(&observation.tilt).await?;
         let parameters = parameters.snapshot();
         let parameters = parameters.typed();
         let now = node.clock().now();
