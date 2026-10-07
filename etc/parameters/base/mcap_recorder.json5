@@ -7,6 +7,7 @@
   schema_discovery_timeout: { secs: 15, nanos: 0 },
   topics: [
     "inputs/low_state",
+    "joint_limits",
     "inputs/odometry",
     "inputs/booster_odometry",
     "support_foot_state",
@@ -15,6 +16,7 @@
     "detected_objects",
     "detected_objects/announce",
     "behavior/motion_command",
+    "motion_inference/status",
     "visual_odometry/current_left_camera_to_visual_odometer",
     "debug/visual_odometry/previous_left_camera_to_current_left_camera",
     "debug/global_localization",
