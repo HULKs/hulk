@@ -133,7 +133,7 @@ impl Div<f32> for BodyJoints<f32> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, ros_z::Message)]
 pub struct LowerBodyJoints<T = f32> {
     pub left_leg: LegJoints<T>,
     pub right_leg: LegJoints<T>,
