@@ -64,10 +64,13 @@ impl SimulatorRobotBehavior {
         self.blackboard.head_motion = None;
         self.blackboard.voronoi_map = None;
 
-        if let Some(ball) = self.blackboard.world_state.ball {
+        if let (Some(ball), Some(ground_to_field)) = (
+            self.blackboard.world_state.ball,
+            self.blackboard.world_state.robot.ground_to_field,
+        ) {
             self.blackboard.ball = Some(behavior_node::node::LastBall {
                 position: ball.ball_in_field,
-                velocity: ball.ball_in_ground_velocity,
+                velocity: ground_to_field * ball.ball_in_ground_velocity,
                 age: self.blackboard.world_state.now,
                 field_side: ball.field_side,
             });

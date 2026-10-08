@@ -168,7 +168,7 @@ pub fn intercept(blackboard: &mut Blackboard) -> Status {
         &blackboard.world_state.robot.ground_to_field,
     ) {
         let ball_in_ground = ground_to_field.inverse() * ball.position;
-        let velocity = ball.velocity;
+        let velocity = ground_to_field.inverse() * ball.velocity;
         if velocity.norm() < f32::EPSILON {
             return Status::Failure;
         }
