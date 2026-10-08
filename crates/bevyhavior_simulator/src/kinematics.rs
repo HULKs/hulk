@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use booster::walking::step_from_motion_command;
 use coordinate_systems::{Ground, World};
 use hsl_network_messages::{GameState, Team};
-use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, vector};
+use linear_algebra::{Isometry2, Orientation2, Point2, Rotation2, Vector2, vector};
 use types::{
     motion_command::{HeadMotion, KickPower, MotionCommand},
     step::Step,
@@ -355,7 +355,7 @@ fn apply_walk_with_velocity_to_pose<Frame>(
 enum KickAttempt {
     Kicked,
     CoolingDown,
-    NotInRange,
+    NotReady,
 }
 
 fn apply_kick_to_ball(
@@ -371,7 +371,7 @@ fn apply_kick_to_ball(
     kick_power: KickPower,
 ) -> KickAttempt {
     let Some(ball) = ball else {
-        return KickAttempt::NotInRange;
+        return KickAttempt::NotReady;
     };
     if now.duration_since(*last_kick_time).unwrap_or_default() < config.kick_cooldown {
         return KickAttempt::CoolingDown;
@@ -379,12 +379,19 @@ fn apply_kick_to_ball(
 
     let expected_ball_in_world = ground_to_world * expected_ball_position;
     if (ball.position - expected_ball_in_world).norm() > config.kick_radius {
-        return KickAttempt::NotInRange;
+        return KickAttempt::NotReady;
     }
 
     let actual_ball_in_ground = ground_to_world.inverse() * ball.position;
-    if actual_ball_in_ground.coords().norm() > config.kick_radius {
-        return KickAttempt::NotInRange;
+    let ball_distance = actual_ball_in_ground.coords().norm();
+    if ball_distance > config.kick_radius
+        || ball_distance <= f32::EPSILON
+        || actual_ball_in_ground
+            .coords()
+            .dot(&kick_direction.as_unit_vector())
+            < ball_distance * config.kick_alignment_tolerance.cos()
+    {
+        return KickAttempt::NotReady;
     }
 
     let speed = match kick_power {
@@ -411,8 +418,8 @@ fn apply_visual_kick_kinematics(
     kick_direction: Orientation2<Ground>,
     kick_power: KickPower,
 ) {
-    let kick_direction_vector = kick_direction.as_unit_vector();
-    match apply_kick_to_ball(
+    let orientation_to_ball = Orientation2::from_vector(ball_position.coords());
+    let kick_pose = match apply_kick_to_ball(
         now,
         ball,
         last_touched_by,
@@ -424,17 +431,30 @@ fn apply_visual_kick_kinematics(
         kick_direction,
         kick_power,
     ) {
-        KickAttempt::Kicked | KickAttempt::CoolingDown => return,
-        KickAttempt::NotInRange => {}
-    }
+        KickAttempt::Kicked | KickAttempt::CoolingDown => Point2::origin(),
+        KickAttempt::NotReady => {
+            let minimum_distance = config.robot_radius + ball_radius;
+            let standoff_distance = (config.kick_radius * 0.9).max(minimum_distance);
+            // Circle the ball without cutting through it or outpacing body rotation.
+            let maximum_orbit_angle = (minimum_distance / standoff_distance)
+                .clamp(0.0, 1.0)
+                .acos()
+                .min(config.walk_rotation_speed * tick_duration.as_secs_f32());
+            let orbit_angle = orientation_to_ball
+                .rotation_to(kick_direction)
+                .angle()
+                .clamp(-maximum_orbit_angle, maximum_orbit_angle);
+            ball_position
+                - Rotation2::new(orbit_angle)
+                    * orientation_to_ball.as_unit_vector()
+                    * standoff_distance
+        }
+    };
 
-    let standoff_distance = (config.kick_radius * 0.9)
-        .min(ball_position.coords().dot(&kick_direction_vector))
-        .max(config.robot_radius + ball_radius);
-    let kick_pose = ball_position - kick_direction_vector * standoff_distance;
+    // Facing the kick direction can put the ball beyond the head's yaw limits.
     *ground_to_world = apply_walk_to_pose(
         *ground_to_world,
-        step_towards_target(kick_pose, kick_direction, 1.0, config, tick_duration),
+        step_towards_target(kick_pose, orientation_to_ball, 1.0, config, tick_duration),
         tick_duration,
         config,
     );
