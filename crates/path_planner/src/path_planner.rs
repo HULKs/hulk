@@ -97,11 +97,12 @@ impl PathPlanner {
             .iter()
             .flat_map(|rule_obstacle| match rule_obstacle {
                 RuleObstacle::Rectangle(rectangle) => {
-                    let bottom_left = field_to_robot * rectangle.min;
-                    let top_right = field_to_robot * rectangle.max;
-                    let top_left = field_to_robot * point![rectangle.min.x(), rectangle.max.y()];
-                    let bottom_right =
-                        field_to_robot * point![rectangle.max.x(), rectangle.min.y()];
+                    let min = rectangle.min - vector![own_robot_radius, own_robot_radius];
+                    let max = rectangle.max + vector![own_robot_radius, own_robot_radius];
+                    let bottom_left = field_to_robot * min;
+                    let top_right = field_to_robot * max;
+                    let top_left = field_to_robot * point![min.x(), max.y()];
+                    let bottom_right = field_to_robot * point![max.x(), min.y()];
                     vec![
                         PathObstacle::from(Circle::new(bottom_left, own_robot_radius)),
                         PathObstacle::from(Circle::new(bottom_right, own_robot_radius)),
