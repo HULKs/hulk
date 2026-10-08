@@ -42,6 +42,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let mut player_states = Players::new(None);
+    let mut game_controller_state = FilteredGameControllerState::default();
     let mut expiry_tick = node.create_timer(Duration::from_millis(100));
     loop {
         tokio::select! {
@@ -52,7 +53,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 }
             }
             received_game_controller_state = filtered_game_controller_state_sub.recv() => {
-                let game_controller_state = received_game_controller_state?;
+                game_controller_state = received_game_controller_state?;
                 clear_penalized_players(&mut player_states, &game_controller_state);
                 let maximum_age = parameters.snapshot().typed().maximum_age;
                 clear_old_player_states(&mut player_states, node.clock().now(), maximum_age);
@@ -60,6 +61,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             }
             received_message = filtered_message_sub.recv() => {
                 apply_message(&mut player_states, received_message?);
+                clear_penalized_players(&mut player_states, &game_controller_state);
                 let maximum_age = parameters.snapshot().typed().maximum_age;
                 clear_old_player_states(&mut player_states, node.clock().now(), maximum_age);
                 player_states_pub.publish(&player_states).await?;
