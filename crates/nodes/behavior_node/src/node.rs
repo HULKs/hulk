@@ -89,6 +89,29 @@ fn validate_behavior_parameters(
     let walk_speed = &parameters.walking.speed;
     let mut errors = Vec::new();
 
+    let maximum_displacement = parameters.walking.ball_prediction.maximum_displacement;
+    let maximum_forward_velocity_for_prediction = parameters
+        .walking
+        .ball_prediction
+        .maximum_forward_velocity_for_prediction;
+    if !maximum_forward_velocity_for_prediction.is_finite()
+        || maximum_forward_velocity_for_prediction <= -10.0
+    {
+        errors.push(format!(
+            "walking.ball_prediction.maximum_forward_velocity_for_prediction must be finite and greater than -10 m/s (got {maximum_forward_velocity_for_prediction})"
+        ));
+    }
+    for (axis, limit) in [
+        ("x", maximum_displacement.x()),
+        ("y", maximum_displacement.y()),
+    ] {
+        if !limit.is_finite() || limit < 0.0 {
+            errors.push(format!(
+                "walking.ball_prediction.maximum_displacement.{axis} must be finite and non-negative (got {limit})"
+            ));
+        }
+    }
+
     if !walk_speed.velocity_fade_distance.is_finite() || walk_speed.velocity_fade_distance <= 0.0 {
         errors.push(format!(
             "walking.speed.velocity_fade_distance must be finite and strictly positive (got {})",
