@@ -11,8 +11,8 @@ use nalgebra as na;
 use serde::{Deserialize, Serialize};
 
 use booster::{FallDownState, FallDownStateType};
-use coordinate_systems::{Field, Ground};
-use linear_algebra::{IntoFramed, Isometry2, Point2, point};
+use coordinate_systems::{Field, Ground, Odometry};
+use linear_algebra::{IntoFramed, Isometry2, Point2, Pose2, point};
 use projection::{Projection, camera_matrix::CameraMatrix};
 use ros_z::{prelude::*, qos::QosDurability, time::Time};
 use ros_z_streams::CreateFutureMapBuilder;
@@ -34,6 +34,7 @@ use types::{
 struct ObstacleFilter {
     hypotheses: Vec<Hypothesis>,
     last_primary_state: PrimaryState,
+    last_odometry: Option<Pose2<Odometry>>,
 }
 
 impl Default for ObstacleFilter {
@@ -41,6 +42,7 @@ impl Default for ObstacleFilter {
         Self {
             hypotheses: Vec::new(),
             last_primary_state: PrimaryState::Damping,
+            last_odometry: None,
         }
     }
 }
@@ -96,11 +98,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
-    let current_odometry_to_last_odometry_cache = node
-        .subscriber::<na::Isometry2<f32>>("current_odometry_to_last_odometry")
-        .cache(10)
-        .build()
-        .await?;
     let primary_state_cache = node
         .subscriber::<PrimaryState>("primary_state")
         .qos(QosProfile {
@@ -123,6 +120,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let mut detections = node
         .create_future_map_builder()
+        .create_future_subscriber::<Pose2<Odometry>>("inputs/odometry", Duration::from_millis(1))
+        .await?
         .create_future_subscriber::<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>(
             "detected_objects",
             Duration::from_millis(50),
@@ -137,9 +136,28 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let obstacles_pub = node.publisher::<Vec<Obstacle>>("obstacles").build().await?;
 
     let mut obstacle_filter = ObstacleFilter::default();
+    let mut latest_odometry = None;
     let mut last_processed_player_state_times = Players::new(None);
+    let mut last_output_ground_to_field = None;
+    let mut expiry_tick = node.create_timer(Duration::from_millis(20));
     loop {
         tokio::select! {
+            _ = expiry_tick.tick() => {
+                expiry_tick.reset();
+                let snapshot = parameters.snapshot();
+                let settings = snapshot.typed();
+                if !obstacle_filter.prune_hypotheses(node.clock().now(), settings.hypothesis_timeout) {
+                    continue;
+                }
+                obstacle_filter_hypotheses_pub.publish(&obstacle_filter.hypotheses).await?;
+                if let Some(dimensions) = field_dimensions_cache.get_latest() {
+                    // Expiry only removes tracks. Keep the geometry from the last output.
+                    let obstacles = obstacle_filter.obstacles(
+                        settings, &dimensions, last_output_ground_to_field.as_ref(),
+                    );
+                    obstacles_pub.publish(&obstacles).await?;
+                }
+            }
             received_detections = detections.recv() => {
                 let parameters_snapshot = parameters.snapshot();
                 let parameters = parameters_snapshot.typed();
@@ -150,21 +168,26 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         return Vec::new();
                     };
                     let mut outputs = Vec::new();
-                    for (detection_time, (detected_objects,)) in item.persistent {
-                        let detected_objects = detected_objects
-                            .map(|detected_objects| detected_objects.inner)
-                            .unwrap_or_default();
+                    for (detection_time, (odometry, detected_objects)) in item.persistent {
+                        if let Some(odometry) = odometry {
+                            latest_odometry = Some(odometry);
+                        }
+                        let Some(detected_objects) = detected_objects else {
+                            continue;
+                        };
+                        let now = node.clock().now();
+                        if !measurement_is_recent(now, detection_time, parameters.hypothesis_timeout) {
+                            continue;
+                        }
                         let camera_matrix = camera_matrix_cache.get_nearest(detection_time);
-                        let current_odometry_to_last_odometry =
-                            current_odometry_to_last_odometry_cache.get_nearest(detection_time);
                         let ground_to_field = ground_to_field_cache.get_nearest(detection_time);
 
                         obstacle_filter.process_detection(
                             detection_time,
                             parameters,
-                            &detected_objects,
+                            &detected_objects.inner,
                             camera_matrix.as_ref().map(|wrapper| &wrapper.inner),
-                            current_odometry_to_last_odometry.as_ref().map(Arc::as_ref),
+                            latest_odometry,
                         );
 
                         let primary_state = primary_state_cache
@@ -181,6 +204,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                             primary_state,
                             fall_down_state.as_ref().map(Arc::as_ref),
                         );
+                        last_output_ground_to_field = ground_to_field.as_deref().copied();
                         outputs.push(ObstacleFilterOutput {
                             hypotheses: obstacle_filter.hypotheses.clone(),
                             obstacles,
@@ -208,6 +232,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         &player_states,
                         own_player_number,
                         &mut last_processed_player_state_times,
+                        node.clock().now(),
+                        parameters.hypothesis_timeout,
                     );
                     let mut last_ground_to_field = None;
                     let mut processed_player_state = false;
@@ -248,6 +274,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         primary_state,
                         fall_down_state.as_ref().map(Arc::as_ref),
                     );
+                    last_output_ground_to_field = last_ground_to_field.as_deref().copied();
 
                     Some(ObstacleFilterOutput {
                         hypotheses: obstacle_filter.hypotheses.clone(),
@@ -273,13 +300,20 @@ impl ObstacleFilter {
         parameters: &ObstacleFilterParameters,
         detected_objects: &[Object<RobocupObjectLabel>],
         camera_matrix: Option<&CameraMatrix>,
-        current_odometry_to_last_odometry: Option<&na::Isometry2<f32>>,
+        odometry: Option<Pose2<Odometry>>,
     ) {
-        let current_odometry_to_last_odometry = current_odometry_to_last_odometry
-            .copied()
+        // Absolute poses capture all movement since the previous detector frame.
+        let previous_to_current = odometry
+            .zip(self.last_odometry)
+            .map(|(current, previous)| {
+                types::odometry::previous_to_current(previous, current).inner
+            })
             .unwrap_or_default();
+        if let Some(odometry) = odometry {
+            self.last_odometry = Some(odometry);
+        }
         self.predict_hypotheses_with_odometry(
-            current_odometry_to_last_odometry.inverse(),
+            previous_to_current,
             Matrix2::from_diagonal(&parameters.process_noise),
         );
 
@@ -352,6 +386,15 @@ impl ObstacleFilter {
                 .retain(|obstacle| obstacle.obstacle_kind != ObstacleKind::Unknown);
         }
 
+        self.obstacles(parameters, field_dimensions, ground_to_field)
+    }
+
+    fn obstacles(
+        &self,
+        parameters: &ObstacleFilterParameters,
+        field_dimensions: &FieldDimensions,
+        ground_to_field: Option<&Isometry2<Ground, Field>>,
+    ) -> Vec<Obstacle> {
         let obstacles = self
             .hypotheses
             .iter()
@@ -479,10 +522,16 @@ impl ObstacleFilter {
         self.hypotheses.push(new_hypothesis);
     }
 
-    fn remove_hypotheses(&mut self, now: Time, hypothesis_timeout: Duration, merge_distance: f32) {
-        self.hypotheses
-            .retain(|hypothesis| now.duration_since(hypothesis.last_update) < hypothesis_timeout);
+    fn prune_hypotheses(&mut self, now: Time, hypothesis_timeout: Duration) -> bool {
+        let previous_count = self.hypotheses.len();
+        self.hypotheses.retain(|hypothesis| {
+            measurement_is_recent(now, hypothesis.last_update, hypothesis_timeout)
+        });
+        self.hypotheses.len() != previous_count
+    }
 
+    fn remove_hypotheses(&mut self, now: Time, hypothesis_timeout: Duration, merge_distance: f32) {
+        self.prune_hypotheses(now, hypothesis_timeout);
         let mut deduplicated_hypotheses = Vec::<Hypothesis>::new();
         for hypothesis in self.hypotheses.drain(..) {
             let hypothesis_in_merge_distance =
@@ -560,6 +609,8 @@ fn new_network_player_states(
     players: &Players<Option<TimeWrapper<PlayerState>>>,
     own_player_number: Option<PlayerNumber>,
     last_processed_player_state_times: &mut Players<Option<Time>>,
+    now: Time,
+    maximum_age: Duration,
 ) -> Vec<(Time, PlayerState)> {
     let Some(own_player_number) = own_player_number else {
         return Vec::new();
@@ -569,6 +620,9 @@ fn new_network_player_states(
         .iter()
         .filter_map(|(player_number, player_state)| {
             let player_state = player_state.as_ref()?;
+            if !measurement_is_recent(now, player_state.time, maximum_age) {
+                return None;
+            }
             if last_processed_player_state_times[player_number]
                 .is_some_and(|last_processed| player_state.time <= last_processed)
             {
@@ -583,6 +637,10 @@ fn new_network_player_states(
             Some((player_state.time, player_state.inner))
         })
         .collect()
+}
+
+fn measurement_is_recent(now: Time, stamp: Time, maximum_age: Duration) -> bool {
+    stamp <= now && now.duration_since(stamp) < maximum_age
 }
 
 fn measured_player_position(
@@ -621,6 +679,157 @@ fn calculate_goal_post_positions(
 mod tests {
     use super::*;
     use types::obstacles::ObstacleKind;
+
+    #[test]
+    fn expiry_removes_tracks_without_merging_or_refreshing_survivors() {
+        let mut filter = ObstacleFilter::default();
+        let start = Time::from_nanos(1_000_000_000);
+        let timeout = Duration::from_millis(100);
+        let settings = ObstacleFilterParameters {
+            hypothesis_timeout: timeout,
+            hypothesis_merge_distance: 1.0,
+            ..Default::default()
+        };
+        for (x, stamp) in [(3.0, start), (1.0, start + timeout), (1.1, start + timeout)] {
+            filter.spawn_hypothesis(
+                point![x, 0.0],
+                ObstacleKind::Robot,
+                stamp,
+                Matrix2::identity(),
+            );
+        }
+        let now = start + timeout;
+        assert!(filter.prune_hypotheses(now, timeout));
+        let geometry = Isometry2::identity();
+        let obstacles = filter.obstacles(&settings, &FieldDimensions::SPL_2025, Some(&geometry));
+        assert_eq!(obstacles.len(), 6); // Two surviving robots and four static goalposts.
+        assert_eq!(filter.hypotheses.len(), 2);
+        for hypothesis in &filter.hypotheses {
+            assert_eq!(hypothesis.state.covariance, Matrix2::identity());
+            assert_eq!(hypothesis.measurement_count, 1);
+            assert_eq!(hypothesis.last_update, now);
+        }
+        // Unchanged ticks do not request another publication.
+        assert!(!filter.prune_hypotheses(now + Duration::from_millis(20), timeout));
+        assert!(filter.prune_hypotheses(now + timeout, timeout));
+        let obstacles = filter.obstacles(&settings, &FieldDimensions::SPL_2025, Some(&geometry));
+        assert_eq!(obstacles.len(), 4);
+        assert!(
+            obstacles
+                .iter()
+                .all(|obstacle| obstacle.kind == ObstacleKind::GoalPost)
+        );
+        assert!(!filter.prune_hypotheses(now + timeout + timeout, timeout));
+    }
+
+    #[test]
+    fn invalid_measurement_times_do_not_poison_network_deduplication() {
+        let now = Time::from_nanos(1_000_000_000);
+        let timeout = Duration::from_millis(100);
+        let mut players = Players::new(None);
+        let mut processed = Players::new(None);
+        for stamp in [now - timeout, now + Duration::from_nanos(1)] {
+            players.four = Some(TimeWrapper {
+                time: stamp,
+                inner: PlayerState {
+                    pose: point![1.0, 2.0].into(),
+                    ball_position: None,
+                },
+            });
+            assert!(
+                new_network_player_states(
+                    &players,
+                    Some(PlayerNumber::Two),
+                    &mut processed,
+                    now,
+                    timeout,
+                )
+                .is_empty()
+            );
+            assert_eq!(processed.four, None);
+        }
+        let valid_stamp = now - timeout + Duration::from_nanos(1);
+        players.four.as_mut().unwrap().time = valid_stamp;
+        assert_eq!(
+            new_network_player_states(
+                &players,
+                Some(PlayerNumber::Two),
+                &mut processed,
+                now,
+                timeout,
+            )
+            .len(),
+            1
+        );
+        assert_eq!(processed.four, Some(valid_stamp));
+        assert!(
+            new_network_player_states(
+                &players,
+                Some(PlayerNumber::Two),
+                &mut processed,
+                now,
+                timeout,
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn detector_frames_compensate_full_odometry_delta() {
+        let mut filter = ObstacleFilter::default();
+        let start = Time::from_nanos(1_000_000_000);
+        let parameters = ObstacleFilterParameters {
+            process_noise: na::vector![0.2, 0.4],
+            ..Default::default()
+        };
+        let previous = Pose2::new(point![10.0, 5.0], 0.0);
+        filter.process_detection(start, &parameters, &[], None, Some(previous));
+        filter.spawn_hypothesis(
+            point![3.0, 1.0],
+            ObstacleKind::Robot,
+            start,
+            Matrix2::from_diagonal(&na::vector![2.0, 3.0]),
+        );
+
+        // Intermediate odometry ticks are represented by the absolute endpoint.
+        let current = Pose2::new(point![11.0, 5.0], std::f32::consts::FRAC_PI_2);
+        let next = start + Duration::from_millis(40);
+        filter.process_detection(next, &parameters, &[], None, Some(current));
+        let hypothesis = &filter.hypotheses[0];
+        assert!((hypothesis.state.mean - na::vector![1.0, -2.0]).norm() < 1e-5);
+        let expected_covariance = Matrix2::from_diagonal(&na::vector![3.2, 2.4]);
+        assert!((hypothesis.state.covariance - expected_covariance).norm() < 1e-5);
+        assert_eq!(hypothesis.last_update, start);
+        assert_eq!(hypothesis.measurement_count, 1);
+
+        // The same absolute pose on the next image must not move the track again.
+        filter.process_detection(
+            next + Duration::from_millis(40),
+            &parameters,
+            &[],
+            None,
+            Some(current),
+        );
+        assert!((filter.hypotheses[0].state.mean - na::vector![1.0, -2.0]).norm() < 1e-5);
+    }
+
+    #[test]
+    fn missing_and_first_odometry_do_not_move_existing_hypotheses() {
+        let mut filter = ObstacleFilter::default();
+        let time = Time::from_nanos(1_000_000_000);
+        filter.spawn_hypothesis(
+            point![3.0, 1.0],
+            ObstacleKind::Robot,
+            time,
+            Matrix2::identity(),
+        );
+        let parameters = ObstacleFilterParameters::default();
+        filter.process_detection(time, &parameters, &[], None, None);
+        let first_pose = Pose2::new(point![10.0, 5.0], 0.5);
+        filter.process_detection(time, &parameters, &[], None, Some(first_pose));
+        assert_eq!(filter.hypotheses[0].state.mean, na::vector![3.0, 1.0]);
+        assert_eq!(filter.last_odometry, Some(first_pose));
+    }
 
     #[test]
     fn obstacle_filter_starts_without_hypotheses() {
@@ -694,6 +903,8 @@ mod tests {
             &players,
             Some(PlayerNumber::Two),
             &mut last_processed_player_state_times,
+            Time::from_nanos(10),
+            Duration::from_secs(1),
         );
 
         assert_eq!(entries.len(), 1);
@@ -712,6 +923,8 @@ mod tests {
             &players,
             Some(PlayerNumber::Two),
             &mut last_processed_player_state_times,
+            Time::from_nanos(10),
+            Duration::from_secs(1),
         );
         assert!(repeated_entries.is_empty());
 
@@ -731,6 +944,8 @@ mod tests {
             &updated_players,
             Some(PlayerNumber::Two),
             &mut last_processed_player_state_times,
+            Time::from_nanos(10),
+            Duration::from_secs(1),
         );
 
         assert_eq!(newer_entries.len(), 1);
