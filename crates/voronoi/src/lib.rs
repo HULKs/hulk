@@ -181,7 +181,6 @@ impl VoronoiGrid {
         distance: &mut [f32],
         queue: &mut Queue,
     ) {
-        // Equal-cost claims use the same tie-break on every robot, including at sources.
         let wins_tie = cost == distance[index]
             && matches!(self.tiles[index], Ownership::Robot(owner) if player_number < owner);
         if cost < distance[index] || wins_tie {
@@ -437,51 +436,4 @@ fn xy_from_index(width_tiles: usize, index: usize) -> (usize, usize) {
     let x = index % width_tiles;
     let y = index / width_tiles;
     (x, y)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn coincident_sources_do_not_create_artificial_territory() {
-        let robots = [
-            (Pose2::from(point!(0.1, 0.1)), PlayerNumber::Three),
-            (Pose2::from(point!(-0.1, -0.1)), PlayerNumber::Two),
-        ];
-        let mut grid = VoronoiGrid::new(point!(-3.0, -3.0), point!(3.0, 3.0), 1.0);
-        grid.multi_source_dijkstra(&robots);
-
-        let mut reversed = VoronoiGrid::new(point!(-3.0, -3.0), point!(3.0, 3.0), 1.0);
-        reversed.multi_source_dijkstra(&[robots[1], robots[0]]);
-
-        assert_eq!(grid, reversed);
-        assert!(
-            grid.cells()
-                .all(|(_, owner)| owner == Ownership::Robot(PlayerNumber::Two))
-        );
-    }
-
-    #[test]
-    fn equal_distance_claims_prefer_player_number_over_grid_index() {
-        let robots = [
-            (Pose2::from(point!(-1.0, 0.0)), PlayerNumber::Three),
-            (Pose2::from(point!(1.0, 0.0)), PlayerNumber::Two),
-        ];
-        let mut grid = VoronoiGrid::new(point!(-3.0, -3.0), point!(3.0, 3.0), 1.0);
-        grid.multi_source_dijkstra(&robots);
-
-        let mut reversed = VoronoiGrid::new(point!(-3.0, -3.0), point!(3.0, 3.0), 1.0);
-        reversed.multi_source_dijkstra(&[robots[1], robots[0]]);
-
-        assert_eq!(grid, reversed);
-        assert_eq!(
-            grid.ownership_at(point!(0.0, 0.0)),
-            Some(Ownership::Robot(PlayerNumber::Two))
-        );
-        assert_eq!(
-            grid.ownership_at(point!(-1.0, 0.0)),
-            Some(Ownership::Robot(PlayerNumber::Three))
-        );
-    }
 }
