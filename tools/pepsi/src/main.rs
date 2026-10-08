@@ -206,7 +206,7 @@ async fn main() -> Result<()> {
         Command::Aliveness(arguments) => aliveness(arguments, repository)
             .await
             .wrap_err("failed to execute aliveness command")?,
-        Command::Boosterize(arguments) => boosterize(arguments)
+        Command::Boosterize(arguments) => boosterize(arguments, &repository?)
             .await
             .wrap_err("failed to execute boosterize command")?,
         Command::Build(arguments) => cargo(arguments, &repository?, &[] as &[&str])

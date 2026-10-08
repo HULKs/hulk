@@ -2,12 +2,10 @@ use clap::Args;
 use color_eyre::Result;
 
 use argument_parsers::RobotAddress;
+use repository::Repository;
 use robot::Robot;
 
-use crate::{
-    gammaray::{CommandExt, MANUFACTURER_CONTROLLER_SCRIPT},
-    progress_indicator::ProgressIndicator,
-};
+use crate::{gammaray::CommandExt, progress_indicator::ProgressIndicator};
 
 #[derive(Args, Debug)]
 pub struct Arguments {
@@ -16,7 +14,8 @@ pub struct Arguments {
     pub robots: Vec<RobotAddress>,
 }
 
-pub async fn boosterize(arguments: Arguments) -> Result<()> {
+pub async fn boosterize(arguments: Arguments, repository: &Repository) -> Result<()> {
+    let setup = &repository.root.join("tools/k1-setup");
     let progress = ProgressIndicator::new();
 
     progress
@@ -38,12 +37,28 @@ pub async fn boosterize(arguments: Arguments) -> Result<()> {
                     .ssh_with_log("disabling hulk", &progress_bar)
                     .await?;
                 robot
+                    .rsync_with_robot()?
+                    .arg("--rsync-path=sudo rsync")
+                    .arg("--info=progress2")
+                    .arg(setup.join("child-booster.ini"))
+                    .arg(format!("{}:/opt/booster/Daemon/bin/child.ini", robot.address))
+                    .rsync_with_log("uploading Booster controller configuration", &progress_bar)
+                    .await?;
+                robot
                     .ssh_to_robot()?
-                    .arg(format!(
-                        "sudo bash -s -- enable /opt/booster/Daemon/bin/child.ini <<'EOF'\n{}\nEOF",
-                        MANUFACTURER_CONTROLLER_SCRIPT
+                    .arg(concat!(
+                        "sudo rm -f /etc/udev/rules.d/99-hulk-microphone.rules && ",
+                        "sudo udevadm control --reload-rules && ",
+                        "sudo udevadm trigger --action=change --subsystem-match=sound --sysname-match='card*' && ",
+                        "sudo udevadm settle --timeout=10 && ",
+                        "XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user try-restart pulseaudio.service",
                     ))
-                    .ssh_with_log("restoring manufacturer controller", &progress_bar)
+                    .ssh_with_log("restoring PulseAudio microphone access", &progress_bar)
+                    .await?;
+                robot
+                    .ssh_to_robot()?
+                    .arg("sudo systemctl restart booster-daemon && sudo systemctl enable --now joystick_ros2")
+                    .ssh_with_log("restoring Booster controller", &progress_bar)
                     .await?;
                 robot
                     .ssh_to_robot()?

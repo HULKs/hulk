@@ -50,36 +50,6 @@ const WIFI_PASSWORD: &str = "HSL?!HSL?!";
 
 const PODMAN_INSTALLATION_SCRIPT: &str = include_str!("install-podman.sh");
 
-pub(super) const MANUFACTURER_CONTROLLER_SCRIPT: &str = r#"set -euo pipefail
-
-mode="$1"
-case "$mode" in
-    enable|disable) ;;
-    *) echo "Expected enable or disable" >&2; exit 1 ;;
-esac
-
-config="$(readlink -f "$2")"
-updated="$(mktemp "${config}.XXXXXX")"
-trap 'rm -f "$updated"' EXIT
-cp --preserve=mode,ownership "$config" "$updated"
-
-awk -v mode="$mode" -v marker='; HULK disabled RemoteController: ' '
-    { sub("^" marker, "") }
-    /^[[:space:]]*\[/ {
-        in_controller = ($0 ~ /^[[:space:]]*\[RemoteController\]/)
-    }
-    { print (mode == "disable" && in_controller ? marker : "") $0 }
-' "$config" > "$updated"
-
-if ! cmp -s "$config" "$updated"; then
-    systemctl stop hulk
-    mv "$updated" "$config"
-    systemctl restart booster-daemon
-fi
-
-systemctl "$mode" --now joystick_ros2
-"#;
-
 static ADD_ZENOH_APT_SOURCES: &str = "
 curl -L https://download.eclipse.org/zenoh/debian-repo/zenoh-public-key | sudo gpg --dearmor --yes --output /etc/apt/keyrings/zenoh-public-key.gpg
 grep \"https://download.eclipse.org/zenoh/debian-repo/\" /etc/apt/sources.list || echo \"deb [signed-by=/etc/apt/keyrings/zenoh-public-key.gpg] https://download.eclipse.org/zenoh/debian-repo/ /\" | sudo tee -a /etc/apt/sources.list > /dev/null
@@ -346,16 +316,57 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_robot()?
+        .arg("sudo systemctl stop hulk && sudo mkdir -p /etc/udev/rules.d")
+        .ssh_with_log(
+            "preparing controller and microphone configuration",
+            &progress_bar,
+        )
+        .await?;
+
+    robot
+        .rsync_with_robot()?
+        .arg("--rsync-path=sudo rsync")
+        .arg("--info=progress2")
+        .arg(setup.join("child-hulk.ini"))
         .arg(format!(
-            "sudo bash -s -- disable /opt/booster/Daemon/bin/child.ini <<'EOF'\n{}\nEOF",
-            MANUFACTURER_CONTROLLER_SCRIPT
+            "{}:/opt/booster/Daemon/bin/child.ini",
+            robot.address
         ))
-        .ssh_with_log("disabling manufacturer controller", &progress_bar)
+        .rsync_with_log("uploading HULK controller configuration", &progress_bar)
+        .await?;
+
+    robot
+        .rsync_with_robot()?
+        .arg("--rsync-path=sudo rsync")
+        .arg("--info=progress2")
+        .arg(setup.join("99-hulk-microphone.rules"))
+        .arg(format!(
+            "{}:/etc/udev/rules.d/99-hulk-microphone.rules",
+            robot.address
+        ))
+        .rsync_with_log("uploading microphone exclusion", &progress_bar)
         .await?;
 
     robot
         .ssh_to_robot()?
-        .arg("sudo systemctl enable hulk && sudo systemctl stop hulk && sudo systemctl restart hulk-runtime && sudo systemctl start hulk")
+        .arg("sudo systemctl restart booster-daemon && sudo systemctl disable --now joystick_ros2")
+        .ssh_with_log("disabling Booster controller", &progress_bar)
+        .await?;
+
+    robot
+        .ssh_to_robot()?
+        .arg(concat!(
+            "sudo udevadm control --reload-rules && ",
+            "sudo udevadm trigger --action=change --subsystem-match=sound --sysname-match='card*' && ",
+            "sudo udevadm settle --timeout=10 && ",
+            "XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user try-restart pulseaudio.service",
+        ))
+        .ssh_with_log("applying microphone exclusion", &progress_bar)
+        .await?;
+
+    robot
+        .ssh_to_robot()?
+        .arg("sudo systemctl enable hulk && sudo systemctl restart hulk-runtime && sudo systemctl start hulk")
         .ssh_with_log("enabling and restarting hulk and its runtime", &progress_bar)
         .await?;
 
