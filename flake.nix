@@ -14,6 +14,7 @@
       workspace = fromTOML (builtins.readFile ./Cargo.toml);
       rustVersion = workspace.workspace.package.rust-version;
       pkgs = import nixpkgs { inherit system; overlays = [ (import rust-overlay) ]; };
+      robotPkgs = import nixpkgs { system = "aarch64-linux"; };
       craneLibrary =
         (crane.mkLib pkgs).overrideToolchain pkgs.rust-bin.stable.${rustVersion}.default;
 
@@ -22,7 +23,7 @@
         fileset = pkgs.lib.fileset.unions [
           (craneLibrary.fileset.commonCargoSources ./.)
           ./crates/hsl_network_messages/headers/RoboCupGameControlData.hpp
-          ./tools/pepsi/src/install-podman.sh
+          ./tools/pepsi/src/install-hulks-bundle.sh
         ];
       };
 
@@ -76,6 +77,12 @@
     in
     {
       packages.${system} = { inherit pepsi twix rosz; };
+
+      packages.aarch64-linux.hulk-runtime = pkgs.buildEnv {
+        name = "hulk-runtime";
+        paths = with robotPkgs; [ podman zenoh zenoh-plugin-dds catatonit nftables ];
+        pathsToLink = [ "/bin" "/libexec" "/lib/systemd" ];
+      };
 
       devShells.${system}.default = craneLibrary.devShell {
         inputsFrom = [ pepsi twix rosz ];

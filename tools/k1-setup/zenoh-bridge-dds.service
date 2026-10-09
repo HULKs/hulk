@@ -1,0 +1,14 @@
+[Unit]
+Description=Zenoh DDS bridge
+Requires=zenohd.service
+After=zenohd.service
+
+[Service]
+User=zenohd
+Group=zenohd
+Environment=ZENOH_HOME=/var/lib/zenoh
+ExecStart=/nix/var/nix/profiles/hulks/bin/zenoh-bridge-dds -c /etc/zenoh-bridge-dds/conf.json5
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

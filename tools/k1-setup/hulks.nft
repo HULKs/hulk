@@ -1,0 +1,5 @@
+# Recreate only our table, atomically. `add table` also works when it exists.
+add table inet hulks
+flush table inet hulks
+add chain inet hulks output { type filter hook output priority 0; policy accept; }
+add rule inet hulks output udp dport 9000 drop
