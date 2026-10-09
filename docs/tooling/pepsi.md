@@ -53,6 +53,32 @@ Many subcommands can act on multiple robots concurrently.
 On K1 robots, `gammaray` configures HULK and disables manufacturer controller programs; `boosterize` restores manufacturer control.
 See [Remote Control](remote_control.md) for setup, gamepad bindings, and restoration instructions.
 
+### K1 root overlay
+
+Gammaray validates the robot ID and enables passwordless sudo before activating a managed writable OverlayFS root for the remaining provisioning steps.
+When run from the lower root, the sudoers change persists across reboot.
+The baseline is NVIDIA L4T with Booster software; an existing HULK, Podman, or Nix installation is not required for overlay activation.
+Activation currently supports systemd 249 and an ext4 root, and requires passwordless sudo, static `/bin/busybox`, and kernel OverlayFS support.
+On a normal root, gammaray creates `/var/lib/hulks-overlay` with a handoff script and `upper`/`work` directories.
+Gammaray enables overlay autostart and reboots if the overlay is not already active.
+An early systemd target waits for root remounting and udev device initialization, then switches into the saved overlay before normal boot continues.
+SSH briefly disconnects, and provisioning waits for the managed overlay to become available.
+The lower root is exposed read-only, while upper/work share its underlying filesystem and grow into available disk space.
+The backing directory is hidden inside the merged root.
+No services are masked; some early system and device-triggered services run before switching.
+Already-active managed overlays are reused, while unrelated overlays are rejected based on their mounts and boot ID.
+While autostart is enabled, subsequent boots reuse the saved upper/work contents.
+Every gammaray invocation runs provisioning against the reused overlay, including applying supplied image or firmware options.
+An interrupted deployment can be retried in the same overlay.
+Use `pepsi gammaray 42 --clean` to discard the saved overlay and provision afresh, including when changing the supplied image or firmware.
+The `--clean` flag requests a reset during the next boot, before upper/work are mounted, and gammaray waits for that reboot before provisioning.
+Use `pepsi overlay enable 42`, `pepsi overlay disable 42`, or `pepsi overlay status 42` to control autostart from either root.
+Multiple robots are supported, for example `pepsi overlay status 42 99`.
+Enabling selects the early overlay target on the lower root; disabling restores its original default target without deleting saved overlay contents.
+These commands affect the next boot and do not switch the current root.
+Boosterize disables autostart before restoring Booster services, so the next reboot returns to the lower root.
+Bootloader and initramfs configuration are unchanged.
+
 ## Build Options
 
 For subcommands that build a binary, you can specify a target and a build profile.

@@ -1,0 +1,8 @@
+[Unit]
+Description=Prepare early HULK overlay switch
+DefaultDependencies=no
+Requires=systemd-remount-fs.service systemd-udev-settle.service
+After=systemd-remount-fs.service systemd-udev-settle.service
+[Service]
+Type=oneshot
+ExecStart=/var/lib/hulks-overlay/prepare

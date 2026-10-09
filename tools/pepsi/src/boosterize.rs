@@ -25,6 +25,7 @@ pub async fn boosterize(arguments: Arguments) -> Result<()> {
             "Boosterizing robot".to_string(),
             |robot, progress_bar| async move {
                 let robot = Robot::try_new_with_ping(robot.ip).await?;
+                crate::gammaray::overlay::disable(&robot, &progress_bar).await?;
                 robot
                     .ssh_to_robot()?
                     .arg("sudo systemctl disable --now")

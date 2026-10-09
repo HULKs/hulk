@@ -21,13 +21,20 @@ use tokio::{
     select,
 };
 
+use self::overlay::RobotOverlayExt;
 use crate::progress_indicator::ProgressIndicator;
+
+pub(crate) mod overlay;
 
 #[derive(Args)]
 pub struct Arguments {
     /// The Robots to flash the image to, e.g. 20w or 10.1.24.22
     #[arg(required = true)]
     robots: Vec<RobotAddress>,
+
+    /// Discard the saved overlay and provision from a clean lower root
+    #[arg(long)]
+    clean: bool,
 
     /// The password for the `booster` user
     #[arg(short, long, default_value = "123456")]
@@ -101,6 +108,7 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
                     robot,
                     progress_bar,
                     &arguments.password,
+                    arguments.clean,
                     arguments.image_file.as_deref(),
                     arguments.update_x5_file.as_deref(),
                     &team,
@@ -118,6 +126,7 @@ async fn gammaray_robot(
     robot: RobotAddress,
     progress_bar: ProgressBar,
     password: &str,
+    clean: bool,
     image_file: Option<&Path>,
     update_x5_file: Option<&Path>,
     team: &Team,
@@ -156,8 +165,10 @@ async fn gammaray_robot(
         .ssh_with_log("enabling passwordless sudo", &progress_bar)
         .await?;
 
+    overlay::ensure(&robot, clean, &progress_bar).await?;
+
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         .arg(format!(
             "echo {} | sudo tee /etc/hostname > /dev/null",
             team_robot.hostname
@@ -169,7 +180,7 @@ async fn gammaray_robot(
     set_up_wifi(&robot, team_robot, team.team_number, &progress_bar).await?;
 
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         .arg(ADD_ZENOH_APT_SOURCES)
         .ssh_with_log("adding zenoh APT sources", &progress_bar)
         .await?;
@@ -180,7 +191,7 @@ async fn gammaray_robot(
     }
     check_string.push_str("true)");
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         // check if packages are installed already
         .arg(check_string)
         .arg("|| (")
@@ -191,7 +202,7 @@ async fn gammaray_robot(
         .await?;
 
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         .arg("sudo ufw default allow &&")
         .arg("sudo ufw deny out proto udp to any port 9000 &&")
         .arg("yes | sudo ufw enable")
@@ -199,7 +210,7 @@ async fn gammaray_robot(
         .await?;
 
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         .arg("sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml")
         .ssh_with_log("generating nvidia CDI", &progress_bar)
         .await?;
@@ -209,8 +220,7 @@ async fn gammaray_robot(
         .wrap_err("failed to install podman on robot")?;
 
     robot
-        .rsync_with_robot()?
-        .arg("--rsync-path=sudo rsync")
+        .rsync_with_overlay_sudo()?
         .arg("--info=progress2")
         .arg(setup.join("zenohd.json5"))
         .arg(format!("{}:/etc/zenohd/zenohd.json5", robot.address))
@@ -218,8 +228,7 @@ async fn gammaray_robot(
         .await?;
 
     robot
-        .rsync_with_robot()?
-        .arg("--rsync-path=sudo rsync")
+        .rsync_with_overlay_sudo()?
         .arg("--info=progress2")
         .arg(setup.join("zenoh-bridge-dds.json5"))
         .arg(format!(
@@ -230,7 +239,7 @@ async fn gammaray_robot(
         .await?;
 
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         .arg("sudo mkdir -p /etc/systemd/system/zenoh-bridge-dds.service.d/")
         .ssh_with_log(
             "creating zenoh-bridge-dds systemd override directory",
@@ -239,8 +248,7 @@ async fn gammaray_robot(
         .await?;
 
     robot
-        .rsync_with_robot()?
-        .arg("--rsync-path=sudo rsync")
+        .rsync_with_overlay_sudo()?
         .arg("--info=progress2")
         .arg(setup.join("zenoh-bridge-dds.service.override.conf"))
         .arg(format!(
@@ -251,8 +259,7 @@ async fn gammaray_robot(
         .await?;
 
     robot
-        .rsync_with_robot()?
-        .arg("--rsync-path=sudo rsync")
+        .rsync_with_overlay_sudo()?
         .arg("--info=progress2")
         .arg(setup.join("hulk.service"))
         .arg(setup.join("jetson-clocks-refresh.service"))
@@ -262,7 +269,7 @@ async fn gammaray_robot(
         .await?;
 
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         .arg("mkdir -p /home/booster/.cache/hulk/tensor-rt/")
         .ssh_with_log("creating tensorrt cache directory", &progress_bar)
         .await?;
@@ -270,14 +277,14 @@ async fn gammaray_robot(
     if let Some(image_file) = image_file {
         const REMOTE_IMAGE_PATH: &str = "/home/booster/.cache/hulk/runtime-container-image.tar";
         robot
-            .rsync_with_robot()?
+            .rsync_with_overlay()?
             .arg("--info=progress2")
             .arg(image_file)
             .arg(format!("{}:{REMOTE_IMAGE_PATH}", robot.address))
             .rsync_with_log("uploading podman image", &progress_bar)
             .await?;
         robot
-            .ssh_to_robot()?
+            .ssh_to_overlay()?
             .arg(format!("sudo podman load -i {REMOTE_IMAGE_PATH}"))
             .ssh_with_log("loading podman image", &progress_bar)
             .await?;
@@ -285,22 +292,21 @@ async fn gammaray_robot(
 
     if let Some(update_x5_file) = update_x5_file {
         robot
-            .rsync_with_robot()?
+            .rsync_with_overlay()?
             .arg("--info=progress2")
             .arg(update_x5_file)
             .arg(format!("{}:.", robot.address))
             .rsync_with_log("uploading update_x5 binary", &progress_bar)
             .await?;
         robot
-            .ssh_to_robot()?
+            .ssh_to_overlay()?
             .arg("sudo ./update_x5")
             .ssh_with_log("executing update_x5 binary", &progress_bar)
             .await?;
     }
 
     robot
-        .rsync_with_robot()?
-        .arg("--rsync-path=sudo rsync")
+        .rsync_with_overlay_sudo()?
         .arg("--info=progress2")
         .arg(setup.join("hulk"))
         .arg(setup.join("launch-hulk"))
@@ -309,8 +315,7 @@ async fn gammaray_robot(
         .await?;
 
     robot
-        .rsync_with_robot()?
-        .arg("--rsync-path=sudo rsync")
+        .rsync_with_overlay_sudo()?
         .arg("--info=progress2")
         .arg(setup.join("hulk-runtime.container"))
         .arg(format!("{}:/etc/containers/systemd/", robot.address))
@@ -318,19 +323,19 @@ async fn gammaray_robot(
         .await?;
 
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         .arg("sudo systemctl daemon-reload")
         .ssh_with_log("reloading service daemon", &progress_bar)
         .await?;
 
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         .arg("sudo systemctl enable zenohd && sudo systemctl restart zenohd")
         .ssh_with_log("enabling and restarting zenohd services", &progress_bar)
         .await?;
 
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         .arg("sudo systemctl enable zenoh-bridge-dds && sudo systemctl restart zenoh-bridge-dds")
         .ssh_with_log(
             "enabling and restarting zenoh-bridge-dds services",
@@ -339,13 +344,13 @@ async fn gammaray_robot(
         .await?;
 
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         .arg("sudo systemctl enable --now jetson-clocks-refresh.timer")
         .ssh_with_log("enabling jetson clocks refresh timer", &progress_bar)
         .await?;
 
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         .arg(format!(
             "sudo bash -s -- disable /opt/booster/Daemon/bin/child.ini <<'EOF'\n{}\nEOF",
             MANUFACTURER_CONTROLLER_SCRIPT
@@ -354,13 +359,13 @@ async fn gammaray_robot(
         .await?;
 
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         .arg("sudo systemctl enable hulk && sudo systemctl stop hulk && sudo systemctl restart hulk-runtime && sudo systemctl start hulk")
         .ssh_with_log("enabling and restarting hulk and its runtime", &progress_bar)
         .await?;
 
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         .arg("sudo systemctl disable --now")
         .args([
             "booster-daemon-perception",
@@ -376,7 +381,7 @@ async fn gammaray_robot(
 
 async fn install_podman(robot: &Robot, progress_bar: &ProgressBar) -> Result<()> {
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         .arg(format!(
             "sudo bash -s <<'EOF'\n{}\nEOF",
             PODMAN_INSTALLATION_SCRIPT
@@ -396,14 +401,14 @@ async fn set_up_static_ips(
     let ethernet_ip = format!("10.1.{}.{}", team_number, team_robot.number);
     const CONNECTION_NAME: &str = "Wired connection 2";
 
-    robot.ssh_to_robot()?.arg(format!(
+    robot.ssh_to_overlay()?.arg(format!(
         // Set the new IP but preserve the 192.168.10.102 which is necessary for services on the
         // robot to work
         r#"sudo nmcli connection modify "{CONNECTION_NAME}" ipv4.addresses "{ethernet_ip}/24, 192.168.10.102/24" ipv4.gateway 10.1.{team_number}.1 802-3-ethernet.cloned-mac-address "E6:4A:A0:37:19:{robot_number}""#,
     )).ssh_with_log("setting static IP", progress_bar).await?;
 
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         // Unlike up/down-ing the connection, reapply doesn't break existing connections
         .arg("sudo nmcli connection up Wired\\ connection\\ 2")
         .ssh_with_log("applying network configuration", progress_bar)
@@ -418,7 +423,7 @@ async fn set_up_wifi(
 ) -> Result<()> {
     for network in Network::all() {
         let ssid = network.to_string();
-        let mut command = robot.ssh_to_robot()?;
+        let mut command = robot.ssh_to_overlay()?;
         command.arg(format!(
             "sudo tee /etc/NetworkManager/system-connections/{ssid}.nmconnection > /dev/null \
              && sudo chmod 0600 /etc/NetworkManager/system-connections/{ssid}.nmconnection"
@@ -447,7 +452,7 @@ async fn set_up_wifi(
     }
 
     robot
-        .ssh_to_robot()?
+        .ssh_to_overlay()?
         .arg("sudo systemctl restart NetworkManager")
         .ssh_with_log("restarting NetworkManager", progress_bar)
         .await?;
