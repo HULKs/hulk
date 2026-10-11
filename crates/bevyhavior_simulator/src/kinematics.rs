@@ -435,7 +435,6 @@ fn apply_visual_kick_kinematics(
         KickAttempt::NotReady => {
             let minimum_distance = config.robot_radius + ball_radius;
             let standoff_distance = (config.kick_radius * 0.9).max(minimum_distance);
-            // Circle the ball without cutting through it or outpacing body rotation.
             let maximum_orbit_angle = (minimum_distance / standoff_distance)
                 .clamp(0.0, 1.0)
                 .acos()
@@ -451,7 +450,6 @@ fn apply_visual_kick_kinematics(
         }
     };
 
-    // Facing the kick direction can put the ball beyond the head's yaw limits.
     *ground_to_world = apply_walk_to_pose(
         *ground_to_world,
         step_towards_target(kick_pose, orientation_to_ball, 1.0, config, tick_duration),
