@@ -27,10 +27,10 @@ fn startup(mut commands: Commands, mut ball: ResMut<SimulatorBall>) {
     parameters.ball.last_ball_timeout = Duration::from_secs(2);
 
     for (team, player_number, pose) in [
-        (Team::Hulks, PlayerNumber::Three, pose(-0.8, 0.0, 0.0)),
+        (Team::Hulks, PlayerNumber::One, pose(-4.0, 0.0, 0.0)),
         (Team::Hulks, PlayerNumber::Four, pose(-1.5, 1.0, 0.0)),
         (Team::Hulks, PlayerNumber::Five, pose(-1.5, -1.0, 0.0)),
-        (Team::Opponent, PlayerNumber::Three, pose(0.8, 0.0, PI)),
+        (Team::Opponent, PlayerNumber::One, pose(4.0, 0.0, PI)),
         (Team::Opponent, PlayerNumber::Four, pose(1.5, -1.0, PI)),
         (Team::Opponent, PlayerNumber::Five, pose(1.5, 1.0, PI)),
     ] {

@@ -1,12 +1,19 @@
-use std::{collections::BTreeMap, time::SystemTime};
+use std::{
+    collections::BTreeMap,
+    time::{Duration, SystemTime},
+};
 
 use bevy::prelude::*;
-use coordinate_systems::{Ground, World};
+use coordinate_systems::{Field, Ground, World};
+use hsl_network_messages::{GamePhase, SubState};
 use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, point};
 use types::{
-    field_dimensions::GlobalFieldSide,
+    ball_position::BallPosition,
+    field_dimensions::{GlobalFieldSide, Side},
+    filtered_game_controller_state::FilteredGameControllerState,
+    players::Players,
     rule_obstacles::RuleObstacle,
-    world_state::{BallState, RobotState, WorldState},
+    world_state::{BallState, PlayerState, RobotState, WorldState},
 };
 
 use crate::{
@@ -23,6 +30,9 @@ use crate::{
 
 #[derive(Resource, Clone, Debug, Default)]
 pub struct SimulatorWorldStates(pub BTreeMap<SimulatorRobotId, WorldState>);
+
+// Matches etc/parameters/base/team_ball_filter.json5.
+const TEAM_BALL_MAXIMUM_AGE: Duration = Duration::from_millis(4500);
 
 pub fn build_world_states(
     clock: Res<SimulatorClock>,
@@ -41,6 +51,7 @@ pub fn build_world_states(
         &SimulatorSuggestedSearchPosition,
     )>,
     mut world_states: ResMut<SimulatorWorldStates>,
+    mut last_ball_field_sides: Local<BTreeMap<SimulatorRobotId, Side>>,
 ) {
     world_states.0.clear();
     let canonical_global_field_side = game_state.game_controller_state.global_field_side;
@@ -63,6 +74,15 @@ pub fn build_world_states(
             global_field_side_for_team(&game_state.game_controller_state, robot.team);
         let ground_to_field =
             ground_to_field_from_world(ground_to_world.ground_to_world, global_field_side);
+        let filtered_game_controller_state =
+            filtered_game_controller_state_for_team(&game_state.game_controller_state, robot.team);
+        let player_states =
+            player_states_from_received_hsl_messages(robot_id, &received_hsl_messages);
+        let team_ball = team_ball_from_player_states(
+            &player_states,
+            &filtered_game_controller_state,
+            clock.now,
+        );
         let perceived_ball = perceived_ball_from_pose(
             ball.state,
             ground_to_world.ground_to_world,
@@ -97,18 +117,17 @@ pub fn build_world_states(
         world_states.0.insert(
             robot_id,
             WorldState {
-                ball: perceived_ball,
-                filtered_game_controller_state: Some(filtered_game_controller_state_for_team(
-                    &game_state.game_controller_state,
-                    robot.team,
-                )),
+                ball: compose_ball_state(
+                    perceived_ball,
+                    team_ball,
+                    ground_to_field,
+                    last_ball_field_sides.entry(robot_id).or_insert(Side::Left),
+                ),
+                filtered_game_controller_state: Some(filtered_game_controller_state),
                 hypothetical_ball_positions: Vec::new(),
                 now: clock.now.into(),
                 obstacles,
-                player_states: player_states_from_received_hsl_messages(
-                    robot_id,
-                    &received_hsl_messages,
-                ),
+                player_states,
                 position_of_interest: Point2::origin(),
                 robot: RobotState {
                     ground_to_field: Some(ground_to_field),
@@ -128,6 +147,58 @@ pub fn build_world_states(
             },
         );
     }
+}
+
+fn team_ball_from_player_states(
+    player_states: &Players<Option<PlayerState>>,
+    game_controller_state: &FilteredGameControllerState,
+    now: SystemTime,
+) -> Option<BallPosition<Field>> {
+    // Mirror team_ball_filter: suppress team balls during penalties and use the newest report.
+    if matches!(
+        game_controller_state.game_phase,
+        GamePhase::PenaltyShootout { .. }
+    ) || game_controller_state.sub_state == Some(SubState::PenaltyKick)
+    {
+        return None;
+    }
+
+    player_states
+        .iter()
+        .filter_map(|(_, player)| player.and_then(|player| player.ball_position))
+        .max_by_key(|ball| ball.last_seen)
+        .filter(|ball| {
+            ball.age_at(now.into())
+                .is_some_and(|age| age < TEAM_BALL_MAXIMUM_AGE)
+        })
+}
+
+fn compose_ball_state(
+    perceived_ball: Option<BallState>,
+    team_ball: Option<BallPosition<Field>>,
+    ground_to_field: Isometry2<Ground, Field>,
+    last_ball_field_side: &mut Side,
+) -> Option<BallState> {
+    // Mirror ball_state_composer: prefer local vision and preserve the team's observation time.
+    let mut ball = perceived_ball.or_else(|| {
+        let team_ball = team_ball?;
+        let ball_in_ground = ground_to_field.inverse() * team_ball;
+        Some(BallState {
+            ball_in_ground: ball_in_ground.position,
+            ball_in_field: team_ball.position,
+            ball_in_ground_velocity: ball_in_ground.velocity,
+            last_seen_ball: team_ball.last_seen.to_wallclock(),
+            field_side: *last_ball_field_side,
+        })
+    })?;
+
+    // Same 0.2-wide hysteresis around the center line as ball_state_composer.
+    let y = ball.ball_in_field.y();
+    if !(-0.1..=0.1).contains(&y) {
+        *last_ball_field_side = if y > 0.1 { Side::Left } else { Side::Right };
+    }
+    ball.field_side = *last_ball_field_side;
+    Some(ball)
 }
 
 fn rule_obstacle_for_team(
@@ -307,6 +378,54 @@ mod tests {
     }
 
     #[test]
+    fn team_ball_selection_uses_newest_observation_and_rejects_penalties() {
+        let now = SystemTime::UNIX_EPOCH + Duration::from_secs(10);
+        let mut game_state = SimulatorGameState::default()
+            .filtered_game_controller_state
+            .expect("filtered game state should exist");
+        let mut player_states = Players::default();
+        for (player_number, age, position) in [
+            (PlayerNumber::One, Duration::from_secs(2), point![1.0, 0.0]),
+            (PlayerNumber::Five, Duration::from_secs(1), point![3.0, 0.0]),
+        ] {
+            player_states[player_number] = Some(PlayerState {
+                pose: Pose2::default(),
+                ball_position: Some(BallPosition::from_network_ball(
+                    hsl_network_messages::BallPosition { age, position },
+                    now.into(),
+                )),
+            });
+        }
+
+        let ball = team_ball_from_player_states(&player_states, &game_state, now)
+            .expect("freshest team ball should be selected");
+        assert_eq!(ball.position, point![3.0, 0.0]);
+        assert_eq!(ball.last_seen.to_wallclock(), now - Duration::from_secs(1));
+
+        for (game_phase, sub_state) in [
+            (
+                GamePhase::PenaltyShootout {
+                    kicking_team: Team::Hulks,
+                },
+                None,
+            ),
+            (GamePhase::Normal, Some(SubState::PenaltyKick)),
+        ] {
+            game_state.game_phase = game_phase;
+            game_state.sub_state = sub_state;
+            assert!(team_ball_from_player_states(&player_states, &game_state, now).is_none());
+        }
+
+        game_state.game_phase = GamePhase::Normal;
+        game_state.sub_state = None;
+        assert!(
+            team_ball_from_player_states(&player_states, &game_state, now - Duration::from_secs(2))
+                .is_none(),
+            "a report from the future must be rejected"
+        );
+    }
+
+    #[test]
     fn world_states_generate_visible_robot_obstacles() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
@@ -373,8 +492,10 @@ mod tests {
     }
 
     #[test]
-    fn world_states_use_received_hsl_messages_for_teammate_state() {
+    fn world_states_use_received_hsl_messages_for_teammate_state_and_ball() {
         let mut app = App::new();
+        let receiver_id = SimulatorRobotId::new(Team::Opponent, PlayerNumber::Four);
+        let sender_id = SimulatorRobotId::new(Team::Opponent, PlayerNumber::Three);
         let received_at = SystemTime::UNIX_EPOCH + Duration::from_secs(2);
         let teammate_message = hsl_state_message(PlayerNumber::Three, 1.0, 0.5);
         app.add_plugins(MinimalPlugins)
@@ -389,9 +510,9 @@ mod tests {
             .insert_resource(SimulatorGameState::default())
             .insert_resource(SimulatorReceivedHslMessages {
                 messages_by_receiver: BTreeMap::from([(
-                    robot_id(PlayerNumber::Four),
+                    receiver_id,
                     BTreeMap::from([(
-                        robot_id(PlayerNumber::Three),
+                        sender_id,
                         SimulatorReceivedHslMessage {
                             message: teammate_message,
                             received_at,
@@ -399,7 +520,7 @@ mod tests {
                     )]),
                 )]),
                 player_states_by_receiver: BTreeMap::from([(
-                    robot_id(PlayerNumber::Four),
+                    receiver_id,
                     Players {
                         three: Some(PlayerState {
                             pose: Pose2::new(point![1.0, 0.5], 0.0),
@@ -422,11 +543,11 @@ mod tests {
             .add_systems(Update, build_world_states);
         app.world_mut().spawn((
             SimulatorRobot {
-                team: Team::Hulks,
+                team: Team::Opponent,
                 player_number: PlayerNumber::Four,
             },
             SimulatorGroundToWorld {
-                ground_to_world: Isometry2::identity(),
+                ground_to_world: Isometry2::from_parts(vector![1.0, -0.5], FRAC_PI_2),
             },
             SimulatorHeadYaw::default(),
             SimulatorPrimaryState {
@@ -441,7 +562,7 @@ mod tests {
         let world_states = app.world().resource::<SimulatorWorldStates>();
         let receiver_world_state = world_states
             .0
-            .get(&robot_id(PlayerNumber::Four))
+            .get(&receiver_id)
             .expect("receiver world state should exist");
         let teammate_state = receiver_world_state.player_states[PlayerNumber::Three]
             .expect("teammate state should come from HSL message");
@@ -454,6 +575,42 @@ mod tests {
             point![2.0, 0.5]
         );
         assert!(receiver_world_state.player_states[PlayerNumber::Four].is_none());
+        let team_ball = receiver_world_state
+            .ball
+            .expect("received team ball should be available without local vision");
+        assert_eq!(team_ball.ball_in_field, point![2.0, 0.5]);
+        assert_relative_eq!(team_ball.ball_in_ground.x(), 0.0, epsilon = 0.0001);
+        assert_relative_eq!(team_ball.ball_in_ground.y(), 3.0, epsilon = 0.0001);
+        assert_eq!(
+            team_ball.last_seen_ball,
+            received_at - Duration::from_millis(500)
+        );
+
+        app.world_mut().resource_mut::<SimulatorBall>().state = ball_at(1.0, 0.5);
+        app.update();
+        let local_ball = app.world().resource::<SimulatorWorldStates>().0[&receiver_id]
+            .ball
+            .expect("local vision should take precedence over the team ball");
+        assert_relative_eq!(local_ball.ball_in_field.x(), -1.0, epsilon = 0.0001);
+        assert_relative_eq!(local_ball.ball_in_field.y(), -0.5, epsilon = 0.0001);
+
+        app.world_mut().resource_mut::<SimulatorBall>().state = None;
+        app.world_mut().resource_mut::<SimulatorClock>().now =
+            team_ball.last_seen_ball + TEAM_BALL_MAXIMUM_AGE - Duration::from_millis(1);
+        app.update();
+        assert_eq!(
+            app.world().resource::<SimulatorWorldStates>().0[&receiver_id].ball,
+            Some(team_ball),
+        );
+
+        app.world_mut().resource_mut::<SimulatorClock>().now += Duration::from_millis(1);
+        app.update();
+        assert!(
+            app.world().resource::<SimulatorWorldStates>().0[&receiver_id]
+                .ball
+                .is_none(),
+            "team ball should expire even though the received player state persists"
+        );
     }
 
     #[test]
