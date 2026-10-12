@@ -1,12 +1,13 @@
 use std::{
-    f32::consts::PI,
+    f32::consts::FRAC_PI_2,
     time::{Duration, SystemTime},
 };
 
 use bevy::prelude::*;
 use bevyhavior_simulator::behavior_tree_simulator::{
     AutoRefereeConfig, BehaviorTreeSimulatorSet, SimulatedBall, SimulatorBall, SimulatorClock,
-    SimulatorGameState, SimulatorRobotBundle, default_behavior_parameters,
+    SimulatorFieldDimensions, SimulatorGameState, SimulatorRobotBundle,
+    default_behavior_parameters,
 };
 use coordinate_systems::{Ground, World};
 use hsl_network_messages::{GameState, PlayerNumber, Team};
@@ -20,25 +21,37 @@ fn three_vs_three_until_goal_or_half(app: &mut App) {
         .add_systems(Update, update.in_set(BehaviorTreeSimulatorSet::Scenario));
 }
 
-fn startup(mut commands: Commands, mut ball: ResMut<SimulatorBall>) {
+fn startup(
+    mut commands: Commands,
+    field_dimensions: Res<SimulatorFieldDimensions>,
+    mut game_state: ResMut<SimulatorGameState>,
+    mut ball: ResMut<SimulatorBall>,
+) {
+    game_state.game_controller_state.game_state = GameState::Ready;
+
     let mut parameters =
         default_behavior_parameters().expect("failed to load default behavior parameters");
     parameters.goalkeeper.player_number = PlayerNumber::One;
     parameters.ball.last_ball_timeout = Duration::from_secs(2);
 
-    for (team, player_number, pose) in [
-        (Team::Hulks, PlayerNumber::Three, pose(-0.8, 0.0, 0.0)),
-        (Team::Hulks, PlayerNumber::Four, pose(-1.5, 1.0, 0.0)),
-        (Team::Hulks, PlayerNumber::Five, pose(-1.5, -1.0, 0.0)),
-        (Team::Opponent, PlayerNumber::Three, pose(0.8, 0.0, PI)),
-        (Team::Opponent, PlayerNumber::Four, pose(1.5, -1.0, PI)),
-        (Team::Opponent, PlayerNumber::Five, pose(1.5, 1.0, PI)),
-    ] {
-        commands.spawn(
-            SimulatorRobotBundle::new(team, player_number, pose, parameters.clone())
-                .expect("failed to create robot bundle")
-                .with_primary_state(PrimaryState::Playing),
-        );
+    let sideline_y = field_dimensions.0.width / 2.0;
+    for (team, team_sign) in [(Team::Hulks, 1.0), (Team::Opponent, -1.0)] {
+        for (player_number, x) in [
+            (PlayerNumber::One, -3.0),
+            (PlayerNumber::Two, -2.0),
+            (PlayerNumber::Three, -1.0),
+        ] {
+            let pose = pose(
+                x * team_sign,
+                -sideline_y * team_sign,
+                FRAC_PI_2 * team_sign,
+            );
+            commands.spawn(
+                SimulatorRobotBundle::new(team, player_number, pose, parameters.clone())
+                    .expect("failed to create robot bundle")
+                    .with_primary_state(PrimaryState::Ready),
+            );
+        }
     }
 
     ball.state = Some(SimulatedBall {
