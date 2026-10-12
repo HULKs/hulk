@@ -2,8 +2,6 @@
   // Angles in radians, velocities in radians per second, lengths in metres.
   maximum_observation_age: { secs: 0, nanos: 50000000 },
   detection_lifetime: { secs: 0, nanos: 100000000 },
-  // Entering Upright only. Once upright, only falling.minimum_torso_tilt applies,
-  // so walking and kicking do not have to hold a standing pose.
   upright: {
     maximum_torso_tilt: 0.349066,
     // Allow the measured terminal get-up oscillation without accepting fast swings.
