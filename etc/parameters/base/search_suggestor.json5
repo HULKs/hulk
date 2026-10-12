@@ -11,6 +11,7 @@
     secs: 20,
   },
   turn_preference_priority_margin: 0.1,
+  border_view_penalty: 0.15,
   decay_distance_factor: 0.06,
   occluded_decay_factor: 0.05,
   teammate_decay_factor: 0.015,
