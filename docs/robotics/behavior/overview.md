@@ -69,7 +69,7 @@ Areas within the estimated field of view lose priority; obstacles reduce this de
 Corner kicks, goal kicks, and throw-ins restrict rule-based search priorities to the corresponding restart locations.
 
 The robot's own pose and fresh teammate poses define its search Voronoi region.
-Within that region, the suggestor selects a cell above the minimum priority, preferring smaller turns among similarly ranked cells.
+Within that region, the suggestor selects a cell above the minimum priority. It slightly lowers the selection score of cells near the field boundary, where more of the search view would fall outside the field, and prefers smaller turns among similarly ranked cells.
 Hysteresis stabilizes the selection.
 The cell center is published as `suggested_search_position`, or `None` when no valid target is available.
 

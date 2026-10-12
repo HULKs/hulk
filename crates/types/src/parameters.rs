@@ -284,6 +284,7 @@ pub struct SearchSuggestorParameters {
     pub last_ball_priority_half_distance: f32,
     pub last_ball_priority_rise_time: Duration,
     pub turn_preference_priority_margin: f32,
+    pub border_view_penalty: f32,
     pub tile_switch_hysteresis: f32,
     pub decay_distance_factor: f32,
     pub occluded_decay_factor: f32,
