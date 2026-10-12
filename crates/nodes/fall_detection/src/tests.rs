@@ -199,14 +199,13 @@ fn base_parameters_are_valid() {
 }
 
 #[test]
-fn validation_names_the_invalid_parameter() {
+fn validation_rejects_overlapping_tilts() {
     let mut parameters = parameters();
     assert_eq!(parameters.validate(), Ok(()));
-    parameters.fallen.maximum_joint_velocity = 0.0;
-    assert_eq!(
-        parameters.validate(),
-        Err("fallen.maximum_joint_velocity must be finite and positive".into())
-    );
+    parameters.falling.minimum_torso_tilt = parameters.fallen.minimum_torso_tilt;
+    assert!(parameters.validate().is_err());
+    parameters.falling.minimum_torso_tilt = f32::NAN;
+    assert!(parameters.validate().is_err());
 }
 
 #[test]
