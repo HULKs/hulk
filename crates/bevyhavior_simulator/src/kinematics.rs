@@ -11,9 +11,9 @@ use types::{
 };
 
 use crate::behavior_tree_simulator::{
-    SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDetection,
-    SimulatorFieldDimensions, SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw,
-    SimulatorLastKickTime, SimulatorRobot, SimulatorRobotFrames, SimulatorRobotId,
+    SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFieldDimensions,
+    SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorLastKickTime,
+    SimulatorPosture, SimulatorRobot, SimulatorRobotFrames, SimulatorRobotId,
     SimulatorRobotParameters,
 };
 
@@ -79,18 +79,12 @@ pub fn move_robots(
         &SimulatorRobotParameters,
         &mut SimulatorGroundToWorld,
         &mut SimulatorHeadYaw,
-        &mut SimulatorFallDetection,
+        &mut SimulatorPosture,
         &mut SimulatorLastKickTime,
     )>,
 ) {
-    for (
-        robot,
-        parameters,
-        mut ground_to_world,
-        mut head_yaw,
-        mut fall_detection,
-        mut last_kick_time,
-    ) in &mut robots
+    for (robot, parameters, mut ground_to_world, mut head_yaw, mut posture, mut last_kick_time) in
+        &mut robots
     {
         let Some(frame) = robot_frames.0.get(&robot.id()) else {
             continue;
@@ -141,7 +135,7 @@ pub fn move_robots(
                     *kick_power,
                 )
             }
-            MotionCommand::StandUp => fall_detection.fall_detection = None,
+            MotionCommand::StandUp => posture.posture = None,
             MotionCommand::Damping | MotionCommand::Prepare | MotionCommand::Stand { .. } => {}
         }
 
@@ -565,7 +559,7 @@ mod tests {
                 ground_to_world: Isometry2::identity(),
             },
             SimulatorHeadYaw::default(),
-            SimulatorFallDetection::default(),
+            SimulatorPosture::default(),
             SimulatorLastKickTime {
                 last_kick_time: SystemTime::UNIX_EPOCH,
             },

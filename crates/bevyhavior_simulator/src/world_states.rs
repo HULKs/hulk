@@ -12,8 +12,8 @@ use types::{
 
 use crate::{
     behavior_tree_simulator::{
-        SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDetection,
-        SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorObstacle,
+        SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorGameState,
+        SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorObstacle, SimulatorPosture,
         SimulatorPrimaryState, SimulatorReceivedHslMessages, SimulatorRobot, SimulatorRobotId,
         SimulatorRuleObstacles, SimulatorScenarioObstacles, SimulatorSuggestedSearchPosition,
     },
@@ -38,7 +38,7 @@ pub fn build_world_states(
         &SimulatorGroundToWorld,
         &SimulatorHeadYaw,
         &SimulatorPrimaryState,
-        &SimulatorFallDetection,
+        &SimulatorPosture,
         &SimulatorSuggestedSearchPosition,
     )>,
     mut world_states: ResMut<SimulatorWorldStates>,
@@ -50,14 +50,8 @@ pub fn build_world_states(
         .map(|(robot, ground_to_world, _, _, _, _)| (robot.id(), ground_to_world.ground_to_world))
         .collect::<Vec<_>>();
 
-    for (
-        robot,
-        ground_to_world,
-        head_yaw,
-        primary_state,
-        fall_detection,
-        suggested_search_position,
-    ) in &robots
+    for (robot, ground_to_world, head_yaw, primary_state, posture, suggested_search_position) in
+        &robots
     {
         let robot_id = robot.id();
         let global_field_side =
@@ -126,9 +120,7 @@ pub fn build_world_states(
                 rule_obstacles,
                 fall_detection: Some(FallDetection {
                     time: ros_z::time::Time::from_wallclock(clock.now),
-                    posture: fall_detection
-                        .fall_detection
-                        .map_or(Posture::Upright, |fall_detection| fall_detection.posture),
+                    posture: posture.posture.unwrap_or(Posture::Upright),
                 }),
                 suggested_search_position: suggested_search_position.position,
             },
@@ -250,8 +242,8 @@ mod tests {
     use crate::{
         behavior_tree_simulator::{
             DEFAULT_TICK_DURATION, SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock,
-            SimulatorFallDetection, SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw,
-            SimulatorIncomingMessage, SimulatorIncomingMessages, SimulatorPrimaryState,
+            SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorIncomingMessage,
+            SimulatorIncomingMessages, SimulatorPosture, SimulatorPrimaryState,
             SimulatorReceivedHslMessage, SimulatorReceivedHslMessages, SimulatorRobot,
             SimulatorRuleObstacles, SimulatorScenarioObstacles, SimulatorSuggestedSearchPosition,
         },
@@ -360,7 +352,7 @@ mod tests {
                 SimulatorPrimaryState {
                     primary_state: PrimaryState::Playing,
                 },
-                SimulatorFallDetection::default(),
+                SimulatorPosture::default(),
                 SimulatorSuggestedSearchPosition::default(),
             ));
         }
@@ -438,7 +430,7 @@ mod tests {
             SimulatorPrimaryState {
                 primary_state: PrimaryState::Playing,
             },
-            SimulatorFallDetection::default(),
+            SimulatorPosture::default(),
             SimulatorSuggestedSearchPosition::default(),
         ));
 
@@ -504,7 +496,7 @@ mod tests {
             SimulatorPrimaryState {
                 primary_state: PrimaryState::Playing,
             },
-            SimulatorFallDetection::default(),
+            SimulatorPosture::default(),
             SimulatorSuggestedSearchPosition::default(),
         ));
 
@@ -569,7 +561,7 @@ mod tests {
             SimulatorPrimaryState {
                 primary_state: PrimaryState::Playing,
             },
-            SimulatorFallDetection::default(),
+            SimulatorPosture::default(),
             SimulatorSuggestedSearchPosition::default(),
         ));
 
@@ -629,7 +621,7 @@ mod tests {
                 SimulatorPrimaryState {
                     primary_state: PrimaryState::Playing,
                 },
-                SimulatorFallDetection::default(),
+                SimulatorPosture::default(),
                 SimulatorSuggestedSearchPosition::default(),
             ));
         }
