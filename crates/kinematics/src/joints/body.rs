@@ -84,6 +84,38 @@ impl<T> From<Joints<T>> for BodyJoints<T> {
     }
 }
 
+impl<T> IntoIterator for BodyJoints<T> {
+    type Item = T;
+
+    type IntoIter =
+        Chain<Chain<Chain<IntoIter<T, 4>, IntoIter<T, 4>>, IntoIter<T, 6>>, IntoIter<T, 6>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.left_arm
+            .into_iter()
+            .chain(self.right_arm)
+            .chain(self.left_leg)
+            .chain(self.right_leg)
+    }
+}
+
+impl<'a, T> IntoIterator for &'a BodyJoints<T> {
+    type Item = &'a T;
+
+    type IntoIter = Chain<
+        Chain<Chain<IntoIter<&'a T, 4>, IntoIter<&'a T, 4>>, IntoIter<&'a T, 6>>,
+        IntoIter<&'a T, 6>,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.left_arm)
+            .into_iter()
+            .chain(&self.right_arm)
+            .chain(&self.left_leg)
+            .chain(&self.right_leg)
+    }
+}
+
 impl<T, O> Add for BodyJoints<T>
 where
     ArmJoints<T>: Add<Output = ArmJoints<O>>,

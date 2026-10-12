@@ -2,7 +2,11 @@ use std::{f32::consts::PI, future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use booster::{JointsMotorState, LowState};
 use color_eyre::{Result, eyre::ensure};
-use kinematics::joints::Joints;
+use kinematics::{
+    forward::{left_sole_to_robot, right_sole_to_robot},
+    joints::Joints,
+};
+use linear_algebra::Point3;
 use ros_z::{
     prelude::*,
     qos::{QosHistory, QosReliability},
@@ -13,8 +17,6 @@ use types::{
     fall_detection::{FallDetection, MAXIMUM_FALL_DETECTION_AGE, Posture},
     motion_command::MotionCommand,
 };
-
-mod posture;
 
 /// Angles in radians, speeds in radians per second, lengths in metres.
 /// Confirmation durations must hold without interruption.
@@ -27,7 +29,7 @@ pub struct Parameters {
     pub upright: UprightParameters,
     pub falling: FallingParameters,
     pub fallen: FallenParameters,
-    pub stand_up: StandUpParameters,
+    pub standing_up: StandingUpParameters,
 }
 
 /// Entering `Upright`: standing on extended legs. Once upright, only `falling` applies.
@@ -61,10 +63,10 @@ pub struct FallenParameters {
     pub confirmation_duration: Duration,
 }
 
-/// Starting a stand up from `Fallen` and ending `StandingUp`.
+/// Entering `StandingUp` from `Fallen` and leaving it again.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
-pub struct StandUpParameters {
+pub struct StandingUpParameters {
     /// Pose Prepare drives the joints into while fallen. The head is ignored.
     pub start_pose: Joints<f32>,
     /// Per joint, from `start_pose`.
@@ -83,7 +85,7 @@ impl Parameters {
             upright,
             falling,
             fallen,
-            stand_up,
+            standing_up,
         } = self;
         if !(0.0 < upright.maximum_torso_tilt
             && upright.maximum_torso_tilt < falling.minimum_torso_tilt
@@ -115,12 +117,12 @@ impl Parameters {
             ),
             ("fallen.maximum_joint_speed", fallen.maximum_joint_speed),
             (
-                "stand_up.maximum_start_pose_deviation",
-                stand_up.maximum_start_pose_deviation,
+                "standing_up.maximum_start_pose_deviation",
+                standing_up.maximum_start_pose_deviation,
             ),
             (
-                "stand_up.maximum_start_joint_speed",
-                stand_up.maximum_start_joint_speed,
+                "standing_up.maximum_start_joint_speed",
+                standing_up.maximum_start_joint_speed,
             ),
         ];
         if let Some((name, _)) = thresholds
@@ -129,8 +131,8 @@ impl Parameters {
         {
             return Err(format!("{name} must be finite and positive"));
         }
-        if !stand_up.start_pose.into_iter().all(f32::is_finite) {
-            return Err("stand_up.start_pose must be finite".into());
+        if !standing_up.start_pose.into_iter().all(f32::is_finite) {
+            return Err("standing_up.start_pose must be finite".into());
         }
         let durations = [
             ("maximum_input_age", *maximum_input_age),
@@ -144,15 +146,15 @@ impl Parameters {
             ),
             ("fallen.confirmation_duration", fallen.confirmation_duration),
             (
-                "stand_up.confirmation_duration",
-                stand_up.confirmation_duration,
+                "standing_up.confirmation_duration",
+                standing_up.confirmation_duration,
             ),
         ];
         if let Some((name, _)) = durations.iter().find(|(_, duration)| duration.is_zero()) {
             return Err(format!("{name} must be positive"));
         }
-        if stand_up.timeout <= upright.confirmation_duration {
-            return Err("stand_up.timeout must exceed upright.confirmation_duration".into());
+        if standing_up.timeout <= upright.confirmation_duration {
+            return Err("standing_up.timeout must exceed upright.confirmation_duration".into());
         }
         Ok(())
     }
@@ -192,6 +194,48 @@ impl Observation {
             positions,
             velocities,
         })
+    }
+
+    /// Standing on extended legs. A level torso alone also matches sitting or kneeling.
+    fn is_standing(&self, parameters: &UprightParameters) -> bool {
+        // Robot-relative kinematics, needing neither ground nor odometry estimates.
+        let left_height = -(left_sole_to_robot(&self.positions.left_leg) * Point3::origin()).z();
+        let right_height = -(right_sole_to_robot(&self.positions.right_leg) * Point3::origin()).z();
+        self.tilt < parameters.maximum_torso_tilt
+            && self.angular_speed < parameters.maximum_torso_angular_speed
+            && self
+                .velocities
+                .left_leg
+                .into_iter()
+                .chain(self.velocities.right_leg)
+                .all(|velocity| velocity.abs() < parameters.maximum_leg_joint_speed)
+            && left_height > parameters.minimum_torso_height_above_soles
+            && right_height > parameters.minimum_torso_height_above_soles
+    }
+
+    /// The head does not affect lying still.
+    fn is_lying_still(&self, parameters: &FallenParameters) -> bool {
+        self.tilt >= parameters.minimum_torso_tilt
+            && self.angular_speed < parameters.maximum_torso_angular_speed
+            && self
+                .velocities
+                .body()
+                .into_iter()
+                .all(|velocity| velocity.abs() < parameters.maximum_joint_speed)
+    }
+
+    /// Compares with the configured Prepare reference, ignoring the head. This is a pose
+    /// envelope, not proof of collision clearance or membership in the policy's training set.
+    fn is_in_start_pose(&self, parameters: &StandingUpParameters) -> bool {
+        (self.positions - parameters.start_pose)
+            .body()
+            .into_iter()
+            .all(|deviation| deviation.abs() < parameters.maximum_start_pose_deviation)
+            && self
+                .velocities
+                .body()
+                .into_iter()
+                .all(|velocity| velocity.abs() < parameters.maximum_start_joint_speed)
     }
 }
 
@@ -257,13 +301,13 @@ impl Detector {
         stand_up_requested: bool,
         parameters: &Parameters,
     ) {
-        if posture::is_in_start_pose(observation, &parameters.stand_up) {
+        if observation.is_in_start_pose(&parameters.standing_up) {
             self.start_pose_since.get_or_insert(observation.time);
         } else {
             self.start_pose_since = None;
         }
         let stable = self.start_pose_since.is_some_and(|since| {
-            observation.time.duration_since(since) >= parameters.stand_up.confirmation_duration
+            observation.time.duration_since(since) >= parameters.standing_up.confirmation_duration
         });
         if let Some(State::Fallen { ready_for_standup }) = &mut self.state {
             // Preserve the accepted start pose while the requested policy moves away from it.
@@ -277,7 +321,7 @@ impl Detector {
         stand_up_requested: bool,
         parameters: &Parameters,
     ) -> Option<(State, Duration)> {
-        let is_standing = posture::is_standing(observation, &parameters.upright);
+        let is_standing = observation.is_standing(&parameters.upright);
         match self.state {
             Some(State::Upright) => (observation.tilt >= parameters.falling.minimum_torso_tilt)
                 .then_some((State::Falling, parameters.falling.confirmation_duration)),
@@ -296,7 +340,7 @@ impl Detector {
             Some(State::StandingUp { since }) => {
                 if is_standing {
                     Some((State::Upright, parameters.upright.confirmation_duration))
-                } else if observation.time.duration_since(since) >= parameters.stand_up.timeout {
+                } else if observation.time.duration_since(since) >= parameters.standing_up.timeout {
                     // Damp until the robot is confirmed standing or lying still.
                     Some((State::Falling, Duration::ZERO))
                 } else {
@@ -306,7 +350,7 @@ impl Detector {
             None | Some(State::Falling) => {
                 if is_standing {
                     Some((State::Upright, parameters.upright.confirmation_duration))
-                } else if posture::is_lying_still(observation, &parameters.fallen) {
+                } else if observation.is_lying_still(&parameters.fallen) {
                     Some((
                         State::Fallen {
                             ready_for_standup: false,
@@ -401,212 +445,4 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 }
 
 #[cfg(test)]
-mod tests {
-    use kinematics::joints::leg::LegJoints;
-
-    use super::*;
-
-    fn legs(hip_pitch: f32, knee: f32, ankle_up: f32) -> Joints<f32> {
-        let leg = LegJoints {
-            hip_pitch,
-            hip_roll: 0.0,
-            hip_yaw: 0.0,
-            knee,
-            ankle_up,
-            ankle_down: 0.0,
-        };
-        Joints {
-            left_leg: leg,
-            right_leg: leg,
-            ..Joints::fill(0.0)
-        }
-    }
-
-    fn start_pose() -> Joints<f32> {
-        legs(-0.2, 0.4, -0.25)
-    }
-
-    fn twisted_pose() -> Joints<f32> {
-        start_pose() + Joints::fill(1.0)
-    }
-
-    /// Torso vertical, but hips and knees folded.
-    fn seated_pose() -> Joints<f32> {
-        legs(-1.6, 1.6, 0.0)
-    }
-
-    fn parameters() -> Parameters {
-        Parameters {
-            maximum_input_age: Duration::from_millis(50),
-            upright: UprightParameters {
-                maximum_torso_tilt: 0.35,
-                maximum_torso_angular_speed: 1.0,
-                maximum_leg_joint_speed: 2.0,
-                minimum_torso_height_above_soles: 0.43,
-                confirmation_duration: Duration::from_millis(100),
-            },
-            falling: FallingParameters {
-                minimum_torso_tilt: 0.8,
-                confirmation_duration: Duration::from_millis(20),
-            },
-            fallen: FallenParameters {
-                minimum_torso_tilt: 1.0,
-                maximum_torso_angular_speed: 2.5,
-                maximum_joint_speed: 1.0,
-                confirmation_duration: Duration::from_millis(150),
-            },
-            stand_up: StandUpParameters {
-                start_pose: start_pose(),
-                maximum_start_pose_deviation: 0.3,
-                maximum_start_joint_speed: 1.0,
-                confirmation_duration: Duration::from_millis(150),
-                timeout: Duration::from_secs(8),
-            },
-        }
-    }
-
-    /// Feeds still samples every 10 ms in `[from, to]` and returns the last posture.
-    fn run(
-        detector: &mut Detector,
-        from: i64,
-        to: i64,
-        tilt: f32,
-        positions: Joints<f32>,
-        stand_up_requested: bool,
-    ) -> Option<Posture> {
-        (from..=to)
-            .step_by(10)
-            .filter_map(|milliseconds| {
-                let observation = Observation {
-                    time: Time::from_nanos(milliseconds * 1_000_000),
-                    tilt,
-                    angular_speed: 0.0,
-                    positions,
-                    velocities: Joints::fill(0.0),
-                };
-                detector.update(observation, stand_up_requested, &parameters())
-            })
-            .last()
-            .map(|fall_detection| fall_detection.posture)
-    }
-
-    fn fallen(ready_for_standup: bool) -> Option<Posture> {
-        Some(Posture::Fallen { ready_for_standup })
-    }
-
-    #[test]
-    fn parameters_are_valid() {
-        assert_eq!(parameters().validate(), Ok(()));
-    }
-
-    #[test]
-    fn base_parameters_are_valid() {
-        let parameters: Parameters = json5::from_str(include_str!(
-            "../../../../etc/parameters/base/fall_detection.json5"
-        ))
-        .unwrap();
-        assert_eq!(parameters.validate(), Ok(()));
-    }
-
-    #[test]
-    fn fall_prepare_and_stand_up() {
-        let mut detector = Detector::default();
-        assert_eq!(run(&mut detector, 0, 50, 0.0, start_pose(), false), None);
-        assert_eq!(
-            run(&mut detector, 60, 200, 0.0, start_pose(), false),
-            Some(Posture::Upright)
-        );
-        assert_eq!(
-            run(&mut detector, 210, 240, 0.9, start_pose(), false),
-            Some(Posture::Falling)
-        );
-        assert_eq!(
-            run(&mut detector, 250, 600, 1.5, twisted_pose(), false),
-            fallen(false)
-        );
-        // Prepare reached the pose and settled.
-        assert_eq!(
-            run(&mut detector, 610, 800, 1.5, start_pose(), false),
-            fallen(true)
-        );
-        // The stand up policy moving the joints must not leave StandingUp.
-        assert_eq!(
-            run(&mut detector, 810, 2000, 0.9, twisted_pose(), true),
-            Some(Posture::StandingUp)
-        );
-        assert_eq!(
-            run(&mut detector, 2010, 2200, 0.1, start_pose(), true),
-            Some(Posture::Upright)
-        );
-    }
-
-    #[test]
-    fn stand_up_requires_ready() {
-        let mut detector = Detector::default();
-        run(&mut detector, 0, 300, 1.5, twisted_pose(), false);
-        assert_eq!(
-            run(&mut detector, 310, 500, 1.5, twisted_pose(), true),
-            fallen(false)
-        );
-    }
-
-    #[test]
-    fn seated_robot_is_not_upright() {
-        let mut detector = Detector::default();
-        assert_eq!(run(&mut detector, 0, 500, 0.0, seated_pose(), false), None);
-        run(&mut detector, 510, 700, 0.0, start_pose(), false);
-        run(&mut detector, 710, 800, 0.9, start_pose(), false);
-        assert_eq!(
-            run(&mut detector, 810, 1500, 0.0, seated_pose(), false),
-            Some(Posture::Falling)
-        );
-    }
-
-    #[test]
-    fn stand_up_timeout_while_lying_still_ends_fallen() {
-        let mut detector = Detector::default();
-        run(&mut detector, 0, 400, 1.5, start_pose(), false);
-        assert_eq!(
-            run(&mut detector, 410, 420, 1.5, twisted_pose(), true),
-            Some(Posture::StandingUp)
-        );
-        assert_eq!(
-            run(&mut detector, 430, 8420, 1.5, twisted_pose(), true),
-            Some(Posture::Falling)
-        );
-        // Still requested, but lying twisted: no retry without Prepare.
-        assert_eq!(
-            run(&mut detector, 8430, 8600, 1.5, twisted_pose(), true),
-            fallen(false)
-        );
-    }
-
-    #[test]
-    fn stand_up_timeout_while_seated_damps() {
-        let mut detector = Detector::default();
-        run(&mut detector, 0, 400, 1.5, start_pose(), false);
-        run(&mut detector, 410, 420, 1.5, twisted_pose(), true);
-        assert_eq!(
-            run(&mut detector, 430, 10000, 0.0, seated_pose(), true),
-            Some(Posture::Falling)
-        );
-    }
-
-    #[test]
-    fn short_sensor_gap_keeps_posture() {
-        let mut detector = Detector::default();
-        run(&mut detector, 0, 200, 0.0, start_pose(), false);
-        // Not a standing pose, so Upright could not be confirmed again.
-        assert_eq!(
-            run(&mut detector, 280, 280, 0.0, twisted_pose(), false),
-            Some(Posture::Upright)
-        );
-    }
-
-    #[test]
-    fn long_sensor_gap_resets_posture() {
-        let mut detector = Detector::default();
-        run(&mut detector, 0, 200, 0.0, start_pose(), false);
-        assert_eq!(run(&mut detector, 400, 400, 0.0, start_pose(), false), None);
-    }
-}
+mod tests;
