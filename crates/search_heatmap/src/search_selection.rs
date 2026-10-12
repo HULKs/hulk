@@ -194,10 +194,7 @@ fn turn_score(
     robot_position: Vector2<Field>,
     robot_heading: Vector2<Field>,
 ) -> f32 {
-    let tile_center: Vector2<Field> = vector![
-        x as f32 + 0.5 - field_dimensions.length / 2.0,
-        y as f32 + 0.5 - field_dimensions.width / 2.0
-    ];
+    let tile_center = heatmap_tile_center(field_dimensions, (x, y)).coords();
     let robot_to_tile = tile_center - robot_position;
     let robot_to_tile_norm = robot_to_tile.norm();
     let robot_heading_norm = robot_heading.norm();
