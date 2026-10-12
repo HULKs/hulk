@@ -243,6 +243,7 @@ fn upright_only_ends_on_sustained_tilt() {
     let mut robot = Robot::default();
     robot.hold(Sample::standing(), 200);
     assert_eq!(robot.hold(Sample::kicking(), 1000), [Upright]);
+    // Shorter than falling.confirmation_duration.
     assert_eq!(robot.hold(Sample::tilted(), 10), [Upright]);
     robot.hold(Sample::standing(), 10);
     assert_eq!(robot.hold(Sample::tilted(), 30), [Upright, Falling]);
@@ -293,6 +294,7 @@ fn stand_up_timeout_while_seated_damps() {
 fn short_sensor_gap_keeps_posture() {
     let mut robot = Robot::default();
     robot.hold(Sample::standing(), 200);
+    // An 80 ms gap: longer than maximum_input_age, shorter than MAXIMUM_FALL_DETECTION_AGE.
     robot.pause(70);
     // Upright could not be confirmed again while kicking.
     assert_eq!(robot.hold(Sample::kicking(), 10), [Upright]);
@@ -302,6 +304,7 @@ fn short_sensor_gap_keeps_posture() {
 fn long_sensor_gap_resets_posture() {
     let mut robot = Robot::default();
     robot.hold(Sample::standing(), 200);
+    // A 200 ms gap.
     robot.pause(190);
     assert!(robot.hold(Sample::standing(), 10).is_empty());
 }

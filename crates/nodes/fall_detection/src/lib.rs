@@ -67,9 +67,9 @@ pub struct FallenParameters {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
 pub struct StandingUpParameters {
-    /// Pose Prepare drives the joints into while fallen. The head is ignored.
+    /// Must match the pose Prepare drives the joints into. The head is ignored.
     pub start_pose: Joints<f32>,
-    /// Per joint, from `start_pose`.
+    /// Allowed deviation of each joint from `start_pose`.
     pub maximum_start_pose_deviation: f32,
     pub maximum_start_joint_speed: f32,
     /// How long the start pose must hold before `Fallen` reports `ready_for_standup`.
@@ -187,6 +187,7 @@ impl Observation {
         );
         Ok(Self {
             time,
+            // Angle between the torso's z axis and the vertical.
             tilt: (roll_pitch_yaw.x().cos() * roll_pitch_yaw.y().cos())
                 .clamp(-1.0, 1.0)
                 .acos(),
@@ -213,7 +214,6 @@ impl Observation {
             && right_height > parameters.minimum_torso_height_above_soles
     }
 
-    /// The head does not affect lying still.
     fn is_lying_still(&self, parameters: &FallenParameters) -> bool {
         self.tilt >= parameters.minimum_torso_tilt
             && self.angular_speed < parameters.maximum_torso_angular_speed
@@ -224,8 +224,7 @@ impl Observation {
                 .all(|velocity| velocity.abs() < parameters.maximum_joint_speed)
     }
 
-    /// Compares with the configured Prepare reference, ignoring the head. This is a pose
-    /// envelope, not proof of collision clearance or membership in the policy's training set.
+    /// The head does not affect the stand up.
     fn is_in_start_pose(&self, parameters: &StandingUpParameters) -> bool {
         (self.positions - parameters.start_pose)
             .body()
@@ -256,7 +255,6 @@ pub struct Detector {
 }
 
 impl Detector {
-    /// `stand_up_requested` is whether behavior currently commands a stand up.
     pub fn update(
         &mut self,
         observation: Observation,
@@ -310,7 +308,7 @@ impl Detector {
             observation.time.duration_since(since) >= parameters.standing_up.confirmation_duration
         });
         if let Some(State::Fallen { ready_for_standup }) = &mut self.state {
-            // Preserve the accepted start pose while the requested policy moves away from it.
+            // The policy may leave the start pose before the request arrives here.
             *ready_for_standup = stable || (*ready_for_standup && stand_up_requested);
         }
     }
