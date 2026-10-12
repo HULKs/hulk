@@ -7,7 +7,7 @@ use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{Isometry2, Orientation2, Point2};
 use motion::walking::WalkingParameters;
 use serde::Serializer;
-use types::fall_detection::FallDetection;
+use types::fall_detection::Posture;
 use types::{parameters::BehaviorParameters, primary_state::PrimaryState};
 
 use crate::behavior_tree_simulator::{SimulatorRobotBehavior, default_walking_parameters};
@@ -108,8 +108,8 @@ pub struct SimulatorRobotParameters {
 }
 
 #[derive(Component, Clone, Copy, Debug, Default)]
-pub struct SimulatorFallDetection {
-    pub fall_detection: Option<FallDetection>,
+pub struct SimulatorPosture {
+    pub posture: Option<Posture>,
 }
 
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -130,7 +130,7 @@ pub struct SimulatorRobotBundle {
     pub primary_state: SimulatorPrimaryState,
     pub behavior: SimulatorRobotBehavior,
     pub parameters: SimulatorRobotParameters,
-    pub fall_detection: SimulatorFallDetection,
+    pub posture: SimulatorPosture,
     pub suggested_search_position: SimulatorSuggestedSearchPosition,
     pub last_kick_time: SimulatorLastKickTime,
 }
@@ -157,7 +157,7 @@ impl SimulatorRobotBundle {
                 behavior: parameters,
                 walking: default_walking_parameters()?,
             },
-            fall_detection: SimulatorFallDetection::default(),
+            posture: SimulatorPosture::default(),
             suggested_search_position: SimulatorSuggestedSearchPosition::default(),
             last_kick_time: SimulatorLastKickTime {
                 last_kick_time: SystemTime::UNIX_EPOCH,
