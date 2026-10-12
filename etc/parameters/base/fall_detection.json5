@@ -28,9 +28,12 @@
       left_leg: { hip_pitch: -0.2, hip_roll: 0.0, hip_yaw: 0.0, knee: 0.4, ankle_up: -0.25, ankle_down: 0.0 },
       right_leg: { hip_pitch: -0.2, hip_roll: 0.0, hip_yaw: 0.0, knee: 0.4, ankle_up: -0.25, ankle_down: 0.0 },
     },
+    // Require the torso within 30 degrees of flat on the front or back, with little rotation.
+    maximum_start_pose_torso_deviation: 0.523599,
+    maximum_start_pose_torso_angular_velocity: 0.35,
     maximum_start_pose_joint_position_deviation: 0.5,
     maximum_start_pose_joint_velocity: 1.0,
-    confirmation_duration: { secs: 0, nanos: 150000000 },
+    confirmation_duration: { secs: 0, nanos: 300000000 },
     timeout: { secs: 8, nanos: 0 },
   },
 }

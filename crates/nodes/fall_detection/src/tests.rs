@@ -29,6 +29,8 @@ fn parameters() -> Parameters {
         },
         standing_up: StandingUpParameters {
             start_pose: start_pose(),
+            maximum_start_pose_torso_deviation: 0.52,
+            maximum_start_pose_torso_angular_velocity: 0.35,
             maximum_start_pose_joint_position_deviation: 0.3,
             maximum_start_pose_joint_velocity: 1.0,
             confirmation_duration: Duration::from_millis(150),
@@ -159,6 +161,7 @@ impl Robot {
             let observation = Observation {
                 time: Time::from_nanos(self.milliseconds * 1_000_000),
                 tilt: sample.tilt,
+                pitch: sample.tilt,
                 angular_velocity: sample.angular_velocity,
                 positions: sample.positions,
                 velocities: BodyJoints::fill(0.0),

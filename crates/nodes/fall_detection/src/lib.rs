@@ -27,6 +27,7 @@ use crate::parameters::{FallenParameters, StandingUpParameters, UprightParameter
 pub struct Observation {
     pub time: Time,
     pub tilt: f32,
+    pub pitch: f32,
     pub angular_velocity: f32,
     pub positions: BodyJoints<f32>,
     pub velocities: BodyJoints<f32>,
@@ -59,6 +60,7 @@ impl Observation {
         Ok(Self {
             time,
             tilt,
+            pitch: roll_pitch_yaw.y(),
             angular_velocity,
             positions,
             velocities,
@@ -90,11 +92,15 @@ impl Observation {
     }
 
     fn is_in_start_pose(&self, parameters: &StandingUpParameters) -> bool {
-        (self.positions - parameters.start_pose)
-            .into_iter()
-            .all(|deviation| {
-                deviation.abs() < parameters.maximum_start_pose_joint_position_deviation
-            })
+        // abs(sin(pitch)) is the vertical projection of the torso's forward axis.
+        // Near one means lying on the front or back, regardless of yaw.
+        self.pitch.sin().abs() > parameters.maximum_start_pose_torso_deviation.cos()
+            && self.angular_velocity < parameters.maximum_start_pose_torso_angular_velocity
+            && (self.positions - parameters.start_pose)
+                .into_iter()
+                .all(|deviation| {
+                    deviation.abs() < parameters.maximum_start_pose_joint_position_deviation
+                })
             && self
                 .velocities
                 .into_iter()
@@ -152,7 +158,9 @@ impl Detector {
         stand_up_requested: bool,
         parameters: &Parameters,
     ) {
-        if observation.is_in_start_pose(&parameters.standing_up) {
+        if matches!(self.posture, Some((Posture::Fallen { .. }, _)))
+            && observation.is_in_start_pose(&parameters.standing_up)
+        {
             self.start_pose_since.get_or_insert(observation.time);
         } else {
             self.start_pose_since = None;

@@ -23,11 +23,18 @@ After a gap longer than `detection_lifetime`, the detector starts over.
 
 ## Get-up readiness
 
-`ready_for_standup` requires every non-head joint to stay within `standing_up.maximum_start_pose_joint_position_deviation` of `standing_up.start_pose` and slower than `standing_up.maximum_start_pose_joint_velocity` for `standing_up.confirmation_duration`.
+`ready_for_standup` requires all of these conditions to hold together while `Fallen`, for `standing_up.confirmation_duration`:
+
+- The torso is within `standing_up.maximum_start_pose_torso_deviation` of lying flat on its front or back. Side-lying and upright poses do not qualify.
+- Torso angular speed is below `standing_up.maximum_start_pose_torso_angular_velocity`.
+- Every non-head joint is within `standing_up.maximum_start_pose_joint_position_deviation` of `standing_up.start_pose` and slower than `standing_up.maximum_start_pose_joint_velocity`.
+
+The default torso limits are 30 degrees and 0.35 rad/s, held with the joint conditions for 300 ms.
+Leaving this envelope before a standup request clears readiness and restarts confirmation.
 It stays latched while Behavior requests `StandUp`, because the policy can move away from the accepted starting pose before the request reaches the detector.
 
 This is a configured pose envelope.
-It does not prove collision clearance or detect every crossed limb.
+It does not prove ground contact or collision clearance, or detect every crossed limb.
 
 ## Behavior
 

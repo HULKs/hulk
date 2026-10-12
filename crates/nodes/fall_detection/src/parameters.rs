@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{f32::consts::FRAC_PI_2, time::Duration};
 
 use kinematics::joints::body::BodyJoints;
 use ros_z::Message;
@@ -55,17 +55,19 @@ pub struct FallenParameters {
 pub struct StandingUpParameters {
     /// Must match the pose Prepare drives the joints into.
     pub start_pose: BodyJoints<f32>,
+    /// Maximum angle from lying flat on the front or back, in radians.
+    pub maximum_start_pose_torso_deviation: f32,
+    pub maximum_start_pose_torso_angular_velocity: f32,
     pub maximum_start_pose_joint_position_deviation: f32,
     pub maximum_start_pose_joint_velocity: f32,
-    /// How long the start pose must hold before `Fallen` reports `ready_for_standup`.
+    /// How long torso and joint conditions must hold in `Fallen` before reporting readiness.
     pub confirmation_duration: Duration,
     /// Without confirmed standing, `StandingUp` ends as `Falling` after this.
     pub timeout: Duration,
 }
 
 impl Parameters {
-    /// Rejects inconsistent combinations. A nonsensical single value only keeps the detector
-    /// from confirming a posture, which fails safe into Damping or Prepare.
+    /// Rejects inconsistent combinations and invalid torso readiness limits.
     pub fn validate(&self) -> std::result::Result<(), String> {
         // Also rejects NaN, which would keep a robot Upright forever.
         if !(self.upright.maximum_torso_tilt < self.falling.minimum_torso_tilt
@@ -75,6 +77,13 @@ impl Parameters {
         }
         if self.detection_lifetime <= self.maximum_observation_age {
             return Err("detection_lifetime must exceed maximum_observation_age".into());
+        }
+        if !(0.0..FRAC_PI_2).contains(&self.standing_up.maximum_start_pose_torso_deviation) {
+            return Err("start pose torso deviation must be in [0, pi/2)".into());
+        }
+        let angular_velocity = self.standing_up.maximum_start_pose_torso_angular_velocity;
+        if !angular_velocity.is_finite() || angular_velocity <= 0.0 {
+            return Err("start pose torso angular velocity must be finite and positive".into());
         }
         Ok(())
     }
