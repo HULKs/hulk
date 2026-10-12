@@ -7,11 +7,11 @@ use geometry::{
     line_segment::LineSegment,
 };
 use hsl_network_messages::StateMessage;
-use linear_algebra::{Isometry2, Pose2, Vector2, point, vector};
+use linear_algebra::{Isometry2, Orientation2, Pose2, Vector2, vector};
 use nalgebra::clamp;
 use types::{field_dimensions::FieldDimensions, parameters::SearchSuggestorParameters};
 
-use crate::Heatmap;
+use crate::{Heatmap, heatmap_tile_center};
 
 pub type SearchOccluder = Circle<Field>;
 
@@ -34,10 +34,7 @@ impl Heatmap {
     ) {
         let sampled_tick_count = decay.sampled_tick_count.max(1).min(i32::MAX as usize) as i32;
         self.map.indexed_iter_mut().for_each(|((x, y), value)| {
-            let tile_center_in_field: Vector2<Field> = vector![
-                (x as f32 + 0.5 - field_dimensions.length / 2.0),
-                (y as f32 + 0.5 - field_dimensions.width / 2.0)
-            ];
+            let tile_center_in_field = heatmap_tile_center(field_dimensions, (x, y)).coords();
             let robot_to_tile = tile_center_in_field - robot_position;
             let is_inside_sight = get_direction(left_edge, robot_to_tile)
                 == Direction::Counterclockwise
@@ -156,26 +153,19 @@ fn interpolate_teammate_pose_and_heading(
     alpha: f32,
 ) -> (Pose2<Field>, Vector2<Field>) {
     let alpha = alpha.clamp(0.0, 1.0);
-    let previous_position = previous.pose.position();
-    let current_position = current.pose.position();
-    let interpolated_position = point![
-        previous_position.x() + (current_position.x() - previous_position.x()) * alpha,
-        previous_position.y() + (current_position.y() - previous_position.y()) * alpha
-    ];
-    let previous_heading = previous.pose.orientation().angle() + previous.head_yaw;
-    let current_heading = current.pose.orientation().angle() + current.head_yaw;
-    let interpolated_heading =
-        previous_heading + normalize_angle(current_heading - previous_heading) * alpha;
-    let heading_direction = vector![interpolated_heading.cos(), interpolated_heading.sin()];
+    let interpolated_position = previous
+        .pose
+        .position()
+        .lerp(current.pose.position(), alpha);
+    let previous_heading =
+        Orientation2::new(previous.pose.orientation().angle() + previous.head_yaw);
+    let current_heading = Orientation2::new(current.pose.orientation().angle() + current.head_yaw);
+    let interpolated_heading = previous_heading.slerp(current_heading, alpha);
 
     (
-        Pose2::new(interpolated_position, interpolated_heading),
-        heading_direction,
+        Pose2::from_parts(interpolated_position, interpolated_heading),
+        interpolated_heading.as_unit_vector(),
     )
-}
-
-fn normalize_angle(angle: f32) -> f32 {
-    angle.sin().atan2(angle.cos())
 }
 
 fn is_occluded(
