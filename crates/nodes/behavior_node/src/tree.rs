@@ -13,7 +13,8 @@ use crate::{
         has_ball_position, hulks_is_kicking_team, is_ball_free, is_ball_interception_candidate,
         is_close_to_ball, is_closest_to_ball, is_controller_connected, is_fallen, is_goalkeeper,
         is_kickoff, is_last_hulk_standing, is_primary_state, is_ready_for_stand_up,
-        is_remote_control_enabled, is_remote_kick_mode, is_simple, requires_damping,
+        is_remote_control_enabled, is_remote_kick_mode, is_simple, is_stand_up_allowed,
+        is_standing_up, requires_damping,
     },
     goalkeeper::goalkeeper_subtree,
     head::{look_around, look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
@@ -47,17 +48,13 @@ pub fn create_tree() -> Node<Blackboard> {
                 sequence!(action!(look_straight_ahead), action!(stand))
             )
         ),
-        sequence!(condition!(requires_damping), action!(damping)),
+        subtree!(fall_subtree),
         sequence!(
             condition!(is_primary_state, PrimaryState::Stop),
             action!(stand)
         ),
         subtree!(remote_control_subtree),
         action!(injected_motion_command),
-        sequence!(
-            condition!(is_primary_state, PrimaryState::Finished),
-            action!(stand)
-        ),
         sequence!(
             selection!(
                 condition!(is_primary_state, PrimaryState::Finished),
@@ -70,8 +67,6 @@ pub fn create_tree() -> Node<Blackboard> {
             action!(look_around),
             action!(stand)
         ),
-        sequence!(condition!(is_ready_for_stand_up), action!(stand_up)),
-        sequence!(condition!(is_fallen), action!(prepare)),
         sequence!(
             condition!(is_primary_state, PrimaryState::Set),
             sequence!(subtree!(look_at_ball_subtree), action!(stand))
@@ -85,6 +80,28 @@ pub fn create_tree() -> Node<Blackboard> {
             subtree!(playing_subtree)
         ),
         Node::Failure
+    )
+}
+
+fn fall_subtree() -> Node<Blackboard> {
+    selection!(
+        sequence!(condition!(requires_damping), action!(damping)),
+        // An active stand up may be continued, but a new one is only started where allowed.
+        sequence!(condition!(is_standing_up), action!(stand_up)),
+        sequence!(
+            condition!(is_fallen),
+            selection!(
+                sequence!(
+                    condition!(is_stand_up_allowed),
+                    selection!(
+                        sequence!(condition!(is_ready_for_stand_up), action!(stand_up)),
+                        // Prepare stiffens the joints into a known pose, after which standup can start.
+                        action!(prepare)
+                    )
+                ),
+                action!(damping)
+            )
+        )
     )
 }
 
@@ -182,8 +199,6 @@ fn remote_control_subtree() -> Node<Blackboard> {
     sequence!(
         condition!(is_remote_control_enabled),
         selection!(
-            sequence!(condition!(is_ready_for_stand_up), action!(stand_up)),
-            sequence!(condition!(is_fallen), action!(prepare)),
             sequence!(
                 condition!(is_controller_connected),
                 selection!(
