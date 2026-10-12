@@ -141,7 +141,6 @@ pub enum BodyMotion {
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, Message)]
 pub enum HeadMotion {
-    ZeroAngles,
     /// Frame the ground point half a field width straight ahead in Ground coordinates.
     Center {
         image_region_target: ImageRegion,
@@ -153,11 +152,6 @@ pub enum HeadMotion {
         /// Height of the point of interest along Ground's +Z axis, in meters.
         height_above_ground: f32,
         image_region_target: ImageRegion,
-    },
-    GlanceLeftAndRightOf {
-        target: Point2<Ground>,
-        /// Height in meters along Ground's +Z, retained while offsetting either side.
-        height_above_ground: f32,
     },
     Damping,
     MoveWithVelocity {

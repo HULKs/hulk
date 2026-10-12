@@ -24,7 +24,6 @@ pub struct SimulationConfig {
     pub head_yaw_maximum: f32,
     pub head_yaw_velocity: f32,
     pub head_scan_period: Duration,
-    pub head_glance_angle: f32,
     pub robot_radius: f32,
     pub kick_radius: f32,
     /// Maximum angle between the robot-to-ball vector and kick direction, in radians.
@@ -48,7 +47,6 @@ impl Default for SimulationConfig {
             head_yaw_maximum: 0.785,
             head_yaw_velocity: 0.4,
             head_scan_period: Duration::from_secs(4),
-            head_glance_angle: 0.25,
             robot_radius: 0.16,
             kick_radius: 0.35,
             kick_alignment_tolerance: 0.2,

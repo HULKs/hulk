@@ -6,23 +6,19 @@ use color_eyre::{
     Result,
     eyre::{ensure, eyre},
 };
-use coordinate_systems::Ground;
 use kinematics::joints::head::HeadJoints;
-use linear_algebra::{Rotation2, point};
+use linear_algebra::point;
 use ros_z::time::Time;
 use types::{
-    field_dimensions::GlobalFieldSide,
-    joint_limits::JointLimits,
-    motion_command::{HeadMotion, ImageRegion},
-    motor_command::MotorCommand,
-    support_foot::Side,
+    field_dimensions::GlobalFieldSide, joint_limits::JointLimits, motion_command::HeadMotion,
+    motor_command::MotorCommand, support_foot::Side,
 };
 
 use crate::{
     joint_control::{HeadObservation, JointTarget},
     look_at::{LookAtError, LookAtGeometry, LookAtTarget, look_at},
     parameters::Parameters,
-    patterns::{GlanceState, ScanKind, ScanState},
+    patterns::{ScanKind, ScanState},
 };
 
 pub(crate) struct HeadInputs {
@@ -49,8 +45,8 @@ pub(crate) struct HeadOutput {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Mode {
     Direct,
+    Velocity,
     Scan(ScanKind),
-    Glance,
     Damping,
     Injected,
 }
@@ -68,7 +64,6 @@ pub(crate) struct HeadController {
     last_commanded_position: Option<HeadJoints<f32>>,
     hold_position: Option<HeadJoints<f32>>,
     scan: ScanState,
-    glance: GlanceState,
 }
 
 impl HeadController {
@@ -166,7 +161,6 @@ impl HeadController {
         }
         if self.mode != Some(mode) {
             self.scan = ScanState::default();
-            self.glance = GlanceState::default();
             self.hold_position = None;
         }
         self.mode = Some(mode);
@@ -183,13 +177,7 @@ impl HeadController {
         if let Some(position) = parameters.injected_head_joints {
             return HeadTarget::new(move_to(position, parameters.direct_travel_speed));
         }
-        let (look_at_target, travel_speed) = match *request {
-            HeadMotion::ZeroAngles => {
-                return HeadTarget::new(move_to(
-                    HeadJoints::fill(0.0),
-                    parameters.direct_travel_speed,
-                ));
-            }
+        let look_at_target = match *request {
             HeadMotion::Damping => return HeadTarget::new(JointTarget::Damping),
             HeadMotion::LookAround | HeadMotion::SearchForLostBall => {
                 let kind = if matches!(request, HeadMotion::LookAround) {
@@ -231,44 +219,21 @@ impl HeadController {
                         parameters.direct_travel_speed,
                     );
                 }
-                (
-                    LookAtTarget {
-                        position: point![width / 2.0, 0.0, 0.0],
-                        image_region: image_region_target,
-                    },
-                    parameters.direct_travel_speed,
-                )
+                LookAtTarget {
+                    position: point![width / 2.0, 0.0, 0.0],
+                    image_region: image_region_target,
+                }
             }
             HeadMotion::LookAt {
                 target,
                 height_above_ground,
                 image_region_target,
-            } => (
-                LookAtTarget {
-                    position: point![target.x(), target.y(), height_above_ground],
-                    image_region: image_region_target,
-                },
-                parameters.direct_travel_speed,
-            ),
-            HeadMotion::GlanceLeftAndRightOf {
-                target,
-                height_above_ground,
-            } => {
-                let angle = self.glance.angle(
-                    parameters.glance.angle,
-                    parameters.glance.phase_duration,
-                    now,
-                );
-                let target = Rotation2::<Ground, Ground>::new(angle) * target;
-                (
-                    LookAtTarget {
-                        position: point![target.x(), target.y(), height_above_ground],
-                        image_region: ImageRegion::Center,
-                    },
-                    parameters.glance.travel_speed,
-                )
-            }
+            } => LookAtTarget {
+                position: point![target.x(), target.y(), height_above_ground],
+                image_region: image_region_target,
+            },
         };
+        let travel_speed = parameters.direct_travel_speed;
         let Some(geometry) = inputs.geometry.as_ref() else {
             return self.hold(HoldReason::MissingGeometry, start_position, travel_speed);
         };
@@ -307,7 +272,6 @@ impl HeadController {
         self.last_evaluation = None;
         self.clear_command_history();
         self.scan = ScanState::default();
-        self.glance = GlanceState::default();
     }
 }
 
@@ -339,11 +303,233 @@ fn mode_for(request: &HeadMotion, injected: bool) -> Mode {
     match request {
         HeadMotion::LookAround => Mode::Scan(ScanKind::LookAround),
         HeadMotion::SearchForLostBall => Mode::Scan(ScanKind::SearchForLostBall),
-        HeadMotion::GlanceLeftAndRightOf { .. } => Mode::Glance,
         HeadMotion::Damping => Mode::Damping,
-        HeadMotion::ZeroAngles | HeadMotion::Center { .. } | HeadMotion::LookAt { .. } => {
-            Mode::Direct
+        HeadMotion::Center { .. } | HeadMotion::LookAt { .. } => Mode::Direct,
+        HeadMotion::MoveWithVelocity { .. } => Mode::Velocity,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Scenarios against the shipped parameters at the 500 Hz request rate of the motion node.
+    //! The simulated head tracks every stiff command perfectly.
+
+    use std::fs;
+
+    use coordinate_systems::Ground;
+    use kinematics::{
+        forward::{head_to_camera, head_to_robot},
+        joints::head::HeadJoint,
+    };
+    use linear_algebra::{Isometry3, Orientation3, Point3, Rotation3, vector};
+    use projection::camera_matrix::CameraMatrix;
+    use serde::{Deserialize, de::DeserializeOwned};
+    use types::motion_command::ImageRegion;
+
+    use super::*;
+
+    const CYCLE: Duration = Duration::from_millis(2);
+
+    fn load<T: DeserializeOwned>(file: &str) -> T {
+        let path = format!(
+            "{}/../../../etc/parameters/base/{file}",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        json5::from_str(&fs::read_to_string(path).unwrap()).unwrap()
+    }
+
+    fn inputs() -> HeadInputs {
+        #[derive(Deserialize)]
+        struct Global {
+            joint_limits: JointLimits,
         }
-        HeadMotion::MoveWithVelocity { .. } => Mode::Injected,
+
+        let parameters: Parameters = load("head_motion.json5");
+        parameters.validate().unwrap();
+        let ground_to_robot = Isometry3::from_parts(
+            vector![0.0, 0.0, -0.55],
+            Orientation3::from_euler_angles(0.02, 0.05, 0.0),
+        );
+        let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
+            nalgebra::vector![0.55, 0.73],
+            nalgebra::point![0.5, 0.5],
+            vector![640.0, 480.0],
+            ground_to_robot,
+            head_to_robot(&HeadJoints::default()).inverse(),
+            head_to_camera(0.0),
+        )
+        .to_corrected(
+            Rotation3::from_euler_angles(0.01, -0.03, 0.02),
+            Rotation3::from_euler_angles(-0.02, 0.01, 0.03),
+        );
+        HeadInputs {
+            parameters: Arc::new(parameters),
+            joint_limits: Arc::new(load::<Global>("global.json5").joint_limits),
+            geometry: Some(LookAtGeometry {
+                camera_matrix,
+                ground_to_robot,
+            }),
+            field_width: Some(5.95),
+            global_field_side: None,
+        }
+    }
+
+    struct SimulatedHead {
+        controller: HeadController,
+        inputs: HeadInputs,
+        now: Time,
+        measured: HeadJoints<f32>,
+    }
+
+    impl SimulatedHead {
+        fn new() -> Self {
+            Self {
+                controller: HeadController::default(),
+                inputs: inputs(),
+                now: Time::from_nanos(1_000_000_000),
+                measured: HeadJoints::default(),
+            }
+        }
+
+        fn run(&mut self, request: HeadMotion, duration: Duration) -> Vec<HeadOutput> {
+            (0..duration.as_millis() / CYCLE.as_millis())
+                .map(|_| {
+                    self.now = self.now + CYCLE;
+                    self.controller
+                        .observe(
+                            HeadObservation {
+                                positions: self.measured,
+                            },
+                            self.now,
+                        )
+                        .unwrap();
+                    let output = self
+                        .controller
+                        .evaluate(&request, &self.inputs, self.now)
+                        .unwrap();
+                    if output.commands.yaw.kp > 0.0 {
+                        self.measured = positions(&output);
+                    }
+                    output
+                })
+                .collect()
+        }
+
+        fn pixel_error(
+            &self,
+            joints: HeadJoints<f32>,
+            target: Point3<Ground>,
+            region: ImageRegion,
+        ) -> f32 {
+            let geometry = self.inputs.geometry.as_ref().unwrap();
+            let camera = &geometry.camera_matrix;
+            let regions = &self.inputs.parameters.image_region_parameters;
+            let normalized = match region {
+                ImageRegion::Bottom => regions.bottom,
+                ImageRegion::Center => regions.center,
+                ImageRegion::Top => regions.top,
+            };
+            let requested = point![
+                normalized.x() * camera.image_size.x(),
+                normalized.y() * camera.image_size.y()
+            ];
+            let in_camera = camera.ground_to_camera_at(&joints, geometry.ground_to_robot) * target;
+            assert!(in_camera.z() > 0.0, "target is behind the camera");
+            (camera.intrinsics.project(in_camera.coords()) - requested).norm()
+        }
+    }
+
+    fn positions(output: &HeadOutput) -> HeadJoints<f32> {
+        HeadJoints {
+            yaw: output.commands.yaw.position,
+            pitch: output.commands.pitch.position,
+        }
+    }
+
+    #[test]
+    fn look_at_frames_targets_in_the_requested_image_region() {
+        for (target, height_above_ground, image_region_target) in [
+            (point![1.0, 0.3], 0.105, ImageRegion::Center),
+            (point![2.5, -0.8], 0.0, ImageRegion::Center),
+            (point![0.6, 0.0], 0.0, ImageRegion::Bottom),
+            (point![4.0, 1.0], 0.0, ImageRegion::Top),
+        ] {
+            let mut head = SimulatedHead::new();
+            let outputs = head.run(
+                HeadMotion::LookAt {
+                    target,
+                    height_above_ground,
+                    image_region_target,
+                },
+                Duration::from_secs(2),
+            );
+
+            assert!(outputs.iter().all(|output| output.hold_reason.is_none()));
+            let target = point![target.x(), target.y(), height_above_ground];
+            let error = head.pixel_error(
+                positions(outputs.last().unwrap()),
+                target,
+                image_region_target,
+            );
+            assert!(
+                error < 1.0,
+                "{target:?} misses {image_region_target:?} by {error} px"
+            );
+        }
+    }
+
+    #[test]
+    fn commands_respect_joint_and_speed_limits_across_requests() {
+        let mut head = SimulatedHead::new();
+        let limits = head.inputs.joint_limits.position.head;
+        let maximum_step =
+            head.inputs.parameters.joint_control.maximum_velocity * CYCLE.as_secs_f32();
+        let outputs: Vec<_> = [
+            (HeadMotion::LookAround, 5),
+            (
+                HeadMotion::LookAt {
+                    target: point![0.5, 3.0],
+                    height_above_ground: 0.0,
+                    image_region_target: ImageRegion::Center,
+                },
+                1,
+            ),
+            (HeadMotion::Damping, 1),
+            (
+                HeadMotion::MoveWithVelocity {
+                    yaw: -10.0,
+                    pitch: 10.0,
+                },
+                1,
+            ),
+            (HeadMotion::SearchForLostBall, 5),
+            (
+                HeadMotion::Center {
+                    image_region_target: ImageRegion::Center,
+                },
+                1,
+            ),
+        ]
+        .into_iter()
+        .flat_map(|(request, seconds)| head.run(request, Duration::from_secs(seconds)))
+        .collect();
+
+        for (previous, output) in outputs.iter().zip(&outputs[1..]) {
+            assert!(output.hold_reason.is_none());
+            if output.commands.yaw.kp == 0.0 {
+                assert!(output.commands.yaw.kd > 0.0 && output.commands.pitch.kp == 0.0);
+                continue;
+            }
+            for joint in [HeadJoint::Yaw, HeadJoint::Pitch] {
+                let [minimum, maximum] = limits[joint];
+                let position = output.commands[joint].position;
+                let step = position - previous.commands[joint].position;
+                assert!((minimum..=maximum).contains(&position));
+                assert!(
+                    step.abs() <= maximum_step[joint] + 1e-5,
+                    "{joint:?} step {step}"
+                );
+            }
+        }
     }
 }

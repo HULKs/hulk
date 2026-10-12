@@ -7,7 +7,6 @@
     maximum_velocity: { yaw: 3.141592654, pitch: 3.141592654 },
     damping_kd: { yaw: 1.2, pitch: 1.2 },
     reseed_after: { secs: 0, nanos: 100000000 },
-    warning_interval: { secs: 1, nanos: 0 },
   },
 
   // Limits apply to position changes; acceleration and jerk are not limited.
@@ -16,6 +15,7 @@
   maximum_observation_age: { secs: 0, nanos: 50000000 },
   // Allow processing delay in the IMU/kinematics ground-pose pipeline.
   maximum_ground_pose_age: { secs: 0, nanos: 100000000 },
+  warning_interval: { secs: 1, nanos: 0 },
 
   injected_head_joints: null,
 
@@ -23,12 +23,6 @@
     bottom: [0.5, 0.85],
     center: [0.5, 0.5],
     top: [0.5, 0.15],
-  },
-  glance: {
-    angle: 0.25,
-    travel_speed: { yaw: 3.14, pitch: 1.67 },
-    // Switch sides on a timer, independently of measured arrival.
-    phase_duration: { secs: 2, nanos: 0 },
   },
 
   look_around: {

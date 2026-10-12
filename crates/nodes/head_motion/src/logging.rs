@@ -21,7 +21,10 @@ pub(crate) enum FailureKind {
 pub(crate) struct NodeLogger {
     hold_reason: Option<HoldReason>,
     hold: WarningThrottle,
-    failures: [WarningThrottle; 4],
+    observation: WarningThrottle,
+    request: WarningThrottle,
+    response: WarningThrottle,
+    joint_limits: WarningThrottle,
 }
 
 impl NodeLogger {
@@ -32,13 +35,15 @@ impl NodeLogger {
         warning_interval: Duration,
         now: Time,
     ) {
-        if output.hold_reason != self.hold_reason {
+        let Some(reason) = output.hold_reason else {
+            return;
+        };
+        // Holds may alternate with solved requests every cycle, so only a new reason resets.
+        if self.hold_reason != Some(reason) {
             self.hold = WarningThrottle::default();
-            self.hold_reason = output.hold_reason;
+            self.hold_reason = Some(reason);
         }
-        if let Some(reason) = output.hold_reason
-            && self.hold.ready(warning_interval, now)
-        {
+        if self.hold.ready(warning_interval, now) {
             warn!(
                 ?request,
                 ?reason,
@@ -55,7 +60,13 @@ impl NodeLogger {
         warning_interval: Duration,
         now: Time,
     ) {
-        if self.failures[kind as usize].ready(warning_interval, now) {
+        let throttle = match kind {
+            FailureKind::Observation => &mut self.observation,
+            FailureKind::Request => &mut self.request,
+            FailureKind::Response => &mut self.response,
+            FailureKind::JointLimits => &mut self.joint_limits,
+        };
+        if throttle.ready(warning_interval, now) {
             warn!(?kind, ?request, error = %format_args!("{error:#}"),
                 "head motion service failure");
         }

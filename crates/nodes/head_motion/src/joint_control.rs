@@ -65,7 +65,7 @@ impl JointTarget {
                     let step =
                         travel_speed[joint].min(parameters.maximum_velocity[joint]) * elapsed;
                     (
-                        (start + (goal - start).clamp(-step, step)).clamp(minimum, maximum),
+                        start + (goal - start).clamp(-step, step),
                         parameters.kp[joint],
                         parameters.kd[joint],
                     )
