@@ -2,6 +2,7 @@ use kinematics::joints::leg::LegJoints;
 use types::fall_detection::Posture::{Falling, StandingUp, Upright};
 
 use super::*;
+use crate::parameters::FallingParameters;
 
 const SAMPLE_INTERVAL_MILLISECONDS: i64 = 10;
 
