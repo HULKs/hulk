@@ -2,7 +2,7 @@ use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use booster::{JointsMotorState, LowState};
 use color_eyre::{Result, eyre::ensure};
-use kinematics::joints::Joints;
+use kinematics::joints::{Joints, leg::LegJoints};
 use ros_z::{
     prelude::*,
     qos::{QosHistory, QosReliability},
@@ -13,6 +13,8 @@ use types::{
     fall_detection::{FallDetection, Posture},
     motion_command::MotionCommand,
 };
+
+mod posture;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
@@ -25,6 +27,11 @@ pub struct Parameters {
     pub falling_duration: Duration,
     pub fallen_duration: Duration,
     pub maximum_fallen_angular_speed: f32,
+    pub maximum_fallen_joint_speed: f32,
+    pub maximum_upright_angular_speed: f32,
+    pub maximum_upright_joint_speed: f32,
+    pub maximum_upright_leg_deviation: LegJoints<f32>,
+    pub minimum_upright_foot_depth: f32,
     pub stand_up_timeout: Duration,
     pub stand_up_pose: Joints<f32>,
     pub maximum_stand_up_pose_deviation: f32,
@@ -40,14 +47,29 @@ impl Parameters {
             && self.fallen_tilt < std::f32::consts::PI;
         let thresholds_positive = [
             self.maximum_fallen_angular_speed,
+            self.maximum_fallen_joint_speed,
+            self.maximum_upright_angular_speed,
+            self.maximum_upright_joint_speed,
+            self.minimum_upright_foot_depth,
             self.maximum_stand_up_pose_deviation,
             self.maximum_stand_up_joint_speed,
         ]
         .into_iter()
+        .chain(self.maximum_upright_leg_deviation)
         .all(|value| value.is_finite() && value > 0.0);
         if !tilts_ordered
             || !thresholds_positive
             || !self.stand_up_pose.into_iter().all(f32::is_finite)
+            || [
+                self.maximum_input_age,
+                self.upright_duration,
+                self.falling_duration,
+                self.fallen_duration,
+                self.stand_up_stable_duration,
+            ]
+            .into_iter()
+            .any(|duration| duration.is_zero())
+            || self.stand_up_timeout <= self.upright_duration.max(self.fallen_duration)
         {
             return Err("invalid fall detection thresholds".into());
         }
@@ -98,6 +120,7 @@ enum State {
     Falling,
     Fallen,
     StandingUp { since: Time },
+    RecoveryFailed,
 }
 
 #[derive(Default)]
@@ -105,6 +128,7 @@ pub struct Detector {
     state: Option<State>,
     candidate: Option<(State, Time)>,
     stand_up_pose_since: Option<Time>,
+    lying_still_since: Option<Time>,
     ready_for_standup: bool,
     last_time: Option<Time>,
 }
@@ -117,6 +141,15 @@ impl Detector {
         stand_up_requested: bool,
         parameters: &Parameters,
     ) -> Option<FallDetection> {
+        if ![observation.tilt, observation.angular_speed]
+            .into_iter()
+            .chain(observation.positions)
+            .chain(observation.velocities)
+            .all(f32::is_finite)
+        {
+            *self = Self::default();
+            return None;
+        }
         if let Some(last_time) = self.last_time {
             if observation.time <= last_time {
                 return None;
@@ -127,56 +160,12 @@ impl Detector {
         }
         self.last_time = Some(observation.time);
 
-        if is_in_stand_up_pose(&observation, parameters) {
-            self.stand_up_pose_since.get_or_insert(observation.time);
-        } else {
-            self.stand_up_pose_since = None;
-        }
-        let is_pose_stable = self.stand_up_pose_since.is_some_and(|since| {
-            observation.time.duration_since(since) >= parameters.stand_up_stable_duration
-        });
-        // Latched while requested: the stand up policy moves the joints out of the pose before
-        // the request may be observed here.
-        self.ready_for_standup = self.state == Some(State::Fallen)
-            && (is_pose_stable || (self.ready_for_standup && stand_up_requested));
-
-        let is_upright = observation.tilt < parameters.upright_tilt;
-        let is_lying_still = observation.tilt >= parameters.fallen_tilt
-            && observation.angular_speed < parameters.maximum_fallen_angular_speed;
-        let transition = match self.state {
-            Some(State::Upright) => (observation.tilt >= parameters.falling_tilt)
-                .then_some((State::Falling, parameters.falling_duration)),
-            None | Some(State::Falling) => {
-                if is_upright {
-                    Some((State::Upright, parameters.upright_duration))
-                } else if is_lying_still {
-                    Some((State::Fallen, parameters.fallen_duration))
-                } else {
-                    None
-                }
-            }
-            Some(State::Fallen) if stand_up_requested && self.ready_for_standup => Some((
-                State::StandingUp {
-                    since: observation.time,
-                },
-                Duration::ZERO,
-            )),
-            Some(State::Fallen) => {
-                is_upright.then_some((State::Upright, parameters.upright_duration))
-            }
-            Some(State::StandingUp { since }) => {
-                if observation.time.duration_since(since) >= parameters.stand_up_timeout {
-                    Some((State::Fallen, Duration::ZERO))
-                } else {
-                    is_upright.then_some((State::Upright, parameters.upright_duration))
-                }
-            }
-        };
+        self.update_readiness(&observation, stand_up_requested, parameters);
+        let transition = self.transition(&observation, stand_up_requested, parameters);
         self.debounce(transition, observation.time);
         if self.state != Some(State::Fallen) {
             self.ready_for_standup = false;
         }
-
         let posture = match self.state? {
             State::Upright => Posture::Upright,
             State::Falling => Posture::Falling,
@@ -184,11 +173,94 @@ impl Detector {
                 ready_for_standup: self.ready_for_standup,
             },
             State::StandingUp { .. } => Posture::StandingUp,
+            State::RecoveryFailed => Posture::RecoveryFailed,
         };
         Some(FallDetection {
             time: observation.time,
             posture,
         })
+    }
+
+    fn update_readiness(&mut self, observation: &Observation, requested: bool, p: &Parameters) {
+        if is_in_stand_up_pose(observation, p) {
+            self.stand_up_pose_since.get_or_insert(observation.time);
+        } else {
+            self.stand_up_pose_since = None;
+        }
+        let stable = self.stand_up_pose_since.is_some_and(|since| {
+            observation.time.duration_since(since) >= p.stand_up_stable_duration
+        });
+        // Preserve the accepted start pose while the requested policy moves away from it.
+        self.ready_for_standup =
+            self.state == Some(State::Fallen) && (stable || (self.ready_for_standup && requested));
+        if posture::is_lying_still(observation, p) {
+            self.lying_still_since.get_or_insert(observation.time);
+        } else {
+            self.lying_still_since = None;
+        }
+    }
+
+    fn transition(
+        &self,
+        observation: &Observation,
+        requested: bool,
+        p: &Parameters,
+    ) -> Option<(State, Duration)> {
+        match self.state {
+            Some(State::Upright) => {
+                (observation.tilt >= p.falling_tilt).then_some((State::Falling, p.falling_duration))
+            }
+            Some(State::Fallen) if requested && self.ready_for_standup => Some((
+                State::StandingUp {
+                    since: observation.time,
+                },
+                Duration::ZERO,
+            )),
+            Some(State::StandingUp { since }) => self.stand_up_transition(observation, since, p),
+            Some(State::Fallen) => {
+                posture::is_upright(observation, p).then_some((State::Upright, p.upright_duration))
+            }
+            None | Some(State::Falling | State::RecoveryFailed) => {
+                if posture::is_upright(observation, p) {
+                    Some((State::Upright, p.upright_duration))
+                } else if posture::is_lying_still(observation, p) {
+                    Some((State::Fallen, p.fallen_duration))
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    fn stand_up_transition(
+        &self,
+        observation: &Observation,
+        since: Time,
+        p: &Parameters,
+    ) -> Option<(State, Duration)> {
+        let upright = posture::is_upright(observation, p);
+        let upright_confirmed = upright
+            && self.candidate.is_some_and(|(state, start)| {
+                state == State::Upright
+                    && observation.time.duration_since(start) >= p.upright_duration
+            });
+        if upright_confirmed {
+            return Some((State::Upright, Duration::ZERO));
+        }
+        if observation.time.duration_since(since) >= p.stand_up_timeout {
+            let lying_still = self
+                .lying_still_since
+                .is_some_and(|start| observation.time.duration_since(start) >= p.fallen_duration);
+            return Some((
+                if lying_still {
+                    State::Fallen
+                } else {
+                    State::RecoveryFailed
+                },
+                Duration::ZERO,
+            ));
+        }
+        upright.then_some((State::Upright, p.upright_duration))
     }
 
     fn debounce(&mut self, transition: Option<(State, Duration)>, time: Time) {
@@ -209,8 +281,8 @@ impl Detector {
     }
 }
 
-/// Behavior commands Prepare while fallen, driving the joints into this pose. Only then is the
-/// starting pose known to be untwisted and within what the stand up policy expects.
+/// Compare with the configured Prepare reference. This is a pose envelope,
+/// not proof of collision clearance or membership in the policy's training set.
 fn is_in_stand_up_pose(observation: &Observation, parameters: &Parameters) -> bool {
     let deviation = observation.positions - parameters.stand_up_pose;
     // The head does not affect the stand up.
@@ -261,12 +333,19 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         let low_state = low_state_subscriber.recv_with_metadata().await?;
         let Ok(observation) = Observation::from_low_state(&low_state, low_state.source_time) else {
+            detector = Detector::default();
             continue;
         };
         tilt_publisher.publish(&observation.tilt).await?;
         let parameters = parameters.snapshot();
         let parameters = parameters.typed();
         let now = node.clock().now();
+        if observation.time > now
+            || now.duration_since(observation.time) > parameters.maximum_input_age
+        {
+            detector = Detector::default();
+            continue;
+        }
         let stand_up_requested =
             motion_command_cache
                 .get_latest_with_stamp()
@@ -295,6 +374,11 @@ mod tests {
             falling_duration: Duration::from_millis(20),
             fallen_duration: Duration::from_millis(150),
             maximum_fallen_angular_speed: 2.5,
+            maximum_fallen_joint_speed: 1.0,
+            maximum_upright_angular_speed: 1.0,
+            maximum_upright_joint_speed: 2.0,
+            maximum_upright_leg_deviation: LegJoints::fill(0.5),
+            minimum_upright_foot_depth: 0.4,
             stand_up_timeout: Duration::from_secs(8),
             stand_up_pose: Joints::fill(0.0),
             maximum_stand_up_pose_deviation: 0.3,
@@ -367,7 +451,7 @@ mod tests {
             Some(Posture::StandingUp)
         );
         assert_eq!(
-            run(&mut detector, 2010, 2200, 0.1, 1.0, true),
+            run(&mut detector, 2010, 2200, 0.1, 0.0, true),
             Some(Posture::Upright)
         );
     }
