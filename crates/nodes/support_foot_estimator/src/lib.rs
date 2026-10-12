@@ -11,7 +11,7 @@ use kinematics::{
 };
 use linear_algebra::Point3;
 use serde::{Deserialize, Serialize};
-use types::fall_detection::FallDetection;
+use types::fall_detection::{FallDetection, Posture};
 
 use ros_z::{prelude::*, qos::QosDurability};
 use types::{support_foot::SupportFootState, time_wrapper::TimeWrapper};
@@ -89,7 +89,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             last_support_foot,
         );
 
-        let support_foot = if fall_detection.is_upright(node.clock().now()) {
+        let support_foot = if fall_detection.is_valid(node.clock().now())
+            && fall_detection.posture == Posture::Upright
+        {
             match current_support_foot {
                 Some(SupportFootState::Left) => last_support_foot = SoleSide::Left,
                 Some(SupportFootState::Right) => last_support_foot = SoleSide::Right,

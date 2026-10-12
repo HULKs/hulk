@@ -8,6 +8,7 @@ const SAMPLE_INTERVAL_MILLISECONDS: i64 = 10;
 fn parameters() -> Parameters {
     Parameters {
         maximum_observation_age: Duration::from_millis(50),
+        detection_lifetime: Duration::from_millis(100),
         upright: UprightParameters {
             maximum_torso_tilt: 0.35,
             maximum_torso_angular_velocity: 1.0,
@@ -294,7 +295,7 @@ fn stand_up_timeout_while_seated_damps() {
 fn short_sensor_gap_keeps_posture() {
     let mut robot = Robot::default();
     robot.hold(Sample::standing(), 200);
-    // An 80 ms gap: longer than maximum_observation_age, shorter than MAXIMUM_FALL_DETECTION_AGE.
+    // An 80 ms gap: longer than maximum_observation_age, shorter than detection_lifetime.
     robot.pause(70);
     // Upright could not be confirmed again while kicking.
     assert_eq!(robot.hold(Sample::kicking(), 10), [Upright]);

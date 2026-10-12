@@ -14,7 +14,7 @@ use ros_z::{
 };
 use serde::{Deserialize, Serialize};
 use types::{
-    fall_detection::{FallDetection, MAXIMUM_FALL_DETECTION_AGE, Posture},
+    fall_detection::{FallDetection, Posture},
     motion_command::MotionCommand,
 };
 
@@ -24,6 +24,9 @@ pub struct Parameters {
     /// Older sensor samples and motion commands are ignored.
     /// A longer gap between sensor samples restarts all confirmations.
     pub maximum_observation_age: Duration,
+    /// How long consumers may use a published posture.
+    /// A longer gap between sensor samples resets the detector.
+    pub detection_lifetime: Duration,
     pub upright: UprightParameters,
     pub falling: FallingParameters,
     pub fallen: FallenParameters,
@@ -78,6 +81,7 @@ impl Parameters {
     pub fn validate(&self) -> std::result::Result<(), String> {
         let Self {
             maximum_observation_age,
+            detection_lifetime,
             upright,
             falling,
             fallen,
@@ -138,6 +142,7 @@ impl Parameters {
 
         let durations = [
             ("maximum_observation_age", *maximum_observation_age),
+            ("detection_lifetime", *detection_lifetime),
             (
                 "upright.confirmation_duration",
                 upright.confirmation_duration,
@@ -158,6 +163,9 @@ impl Parameters {
 
         if standing_up.timeout <= upright.confirmation_duration {
             return Err("standing_up.timeout must exceed upright.confirmation_duration".into());
+        }
+        if detection_lifetime <= maximum_observation_age {
+            return Err("detection_lifetime must exceed maximum_observation_age".into());
         }
         Ok(())
     }
@@ -270,7 +278,7 @@ impl Detector {
                 return None;
             }
             let time_since_last_observation = observation.time.duration_since(last_time);
-            if time_since_last_observation > MAXIMUM_FALL_DETECTION_AGE {
+            if time_since_last_observation > parameters.detection_lifetime {
                 // Consumers have already discarded the last posture.
                 *self = Self::default();
             } else if time_since_last_observation > parameters.maximum_observation_age {
@@ -293,6 +301,7 @@ impl Detector {
         };
         Some(FallDetection {
             time: observation.time,
+            valid_until: observation.time + parameters.detection_lifetime,
             posture,
         })
     }
@@ -417,7 +426,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut detector = Detector::default();
     loop {
         let low_state = low_state_subscriber.recv_with_metadata().await?;
-        // Skipped samples show up as a gap in the detector.
         let Ok(observation) = Observation::from_low_state(&low_state, low_state.source_time) else {
             continue;
         };

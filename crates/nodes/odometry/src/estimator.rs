@@ -239,6 +239,7 @@ mod tests {
     fn ready() -> FallDetection {
         FallDetection {
             time: Time::default(),
+            valid_until: Time::default(),
             posture: Posture::Upright,
         }
     }
@@ -246,6 +247,7 @@ mod tests {
     fn fallen() -> FallDetection {
         FallDetection {
             time: Time::default(),
+            valid_until: Time::default(),
             posture: Posture::Fallen {
                 ready_for_standup: false,
             },
