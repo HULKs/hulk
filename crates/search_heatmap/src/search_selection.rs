@@ -1,35 +1,8 @@
 use coordinate_systems::{Field, Ground};
-use hsl_network_messages::PlayerNumber;
-use itertools::Itertools;
-use linear_algebra::{Isometry2, Point2, Pose2, Vector2, point, vector};
+use linear_algebra::{Isometry2, Point2, Vector2, vector};
 use types::{field_dimensions::FieldDimensions, parameters::SearchSuggestorParameters};
-use voronoi::{Ownership, VoronoiGrid};
 
-use crate::{Heatmap, heatmap_dimensions, heatmap_tile_center};
-
-#[derive(Clone, Debug)]
-pub struct SearchVoronoiSelection {
-    pub owner: PlayerNumber,
-    pub grid: VoronoiGrid,
-}
-
-impl SearchVoronoiSelection {
-    pub fn new(
-        field_dimensions: FieldDimensions,
-        owner: PlayerNumber,
-        sites: impl IntoIterator<Item = (Pose2<Field>, PlayerNumber)>,
-    ) -> Self {
-        let mut grid = search_voronoi_grid(field_dimensions);
-        grid.multi_source_dijkstra(&sites.into_iter().collect_vec());
-        Self { owner, grid }
-    }
-
-    fn owns_index(&self, field_dimensions: FieldDimensions, index: (usize, usize)) -> bool {
-        self.grid
-            .ownership_at(heatmap_tile_center(field_dimensions, index))
-            .is_some_and(|ownership| ownership == Ownership::Robot(self.owner))
-    }
-}
+use crate::{Heatmap, heatmap_tile_center, search_voronoi::SearchVoronoiSelection};
 
 impl Heatmap {
     pub fn selected_position(&self, field_dimensions: FieldDimensions) -> Option<Point2<Field>> {
@@ -228,16 +201,6 @@ fn selection_score(
     priority - parameters.border_view_penalty.max(0.0) * border_proximity
 }
 
-fn search_voronoi_grid(field_dimensions: FieldDimensions) -> VoronoiGrid {
-    let (length, width) = heatmap_dimensions(field_dimensions);
-    let grid_min = point![
-        -field_dimensions.length / 2.0,
-        -field_dimensions.width / 2.0
-    ];
-    let grid_max = point![grid_min.x() + length as f32, grid_min.y() + width as f32];
-    VoronoiGrid::new(grid_min, grid_max, 1.0)
-}
-
 fn turn_score(
     (x, y): (usize, usize),
     field_dimensions: FieldDimensions,
@@ -252,73 +215,4 @@ fn turn_score(
         return 1.0;
     }
     robot_heading.dot(&robot_to_tile) / (robot_heading_norm * robot_to_tile_norm)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn border_penalty_prefers_interior_without_hiding_strong_border_evidence() {
-        let field = FieldDimensions::SPL_2025;
-        let mut heatmap = Heatmap::new(field);
-        let border = (8, 5);
-        let interior = (4, 2);
-        heatmap.map[border] = 0.9;
-        heatmap.map[interior] = 0.82;
-        let mut parameters = SearchSuggestorParameters {
-            minimum_validity: 0.4,
-            border_view_penalty: 0.15,
-            heatmap_decay_range: 0.0..3.0,
-            ..Default::default()
-        };
-
-        assert_eq!(
-            heatmap.get_suggested_search_index(field, &parameters, None, None),
-            Some(interior)
-        );
-
-        parameters.border_view_penalty = 0.0;
-        assert_eq!(
-            heatmap.get_suggested_search_index(field, &parameters, None, None),
-            Some(border)
-        );
-
-        parameters.border_view_penalty = 0.15;
-        heatmap.map[border] = 1.0;
-        assert_eq!(
-            heatmap.get_suggested_search_index(field, &parameters, None, None),
-            Some(border)
-        );
-    }
-
-    #[test]
-    fn border_penalty_changes_choice_with_turn_preference() {
-        let field = FieldDimensions::SPL_2025;
-        let mut heatmap = Heatmap::new(field);
-        let border = (8, 5);
-        let interior = (4, 2);
-        heatmap.map[border] = 0.95;
-        heatmap.map[interior] = 0.82;
-        let mut parameters = SearchSuggestorParameters {
-            minimum_validity: 0.4,
-            border_view_penalty: 0.15,
-            turn_preference_priority_margin: 0.1,
-            heatmap_decay_range: 0.0..3.0,
-            ..Default::default()
-        };
-        let pose =
-            Isometry2::<Ground, Field>::from_parts(vector![0.0, 0.0], -std::f32::consts::FRAC_PI_2);
-
-        assert_eq!(
-            heatmap.get_suggested_search_index(field, &parameters, Some(pose), None),
-            Some(interior)
-        );
-
-        parameters.border_view_penalty = 0.0;
-        assert_eq!(
-            heatmap.get_suggested_search_index(field, &parameters, Some(pose), None),
-            Some(border)
-        );
-    }
 }

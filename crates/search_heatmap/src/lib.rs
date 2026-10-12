@@ -9,9 +9,10 @@ mod ball_observations;
 mod field_of_view;
 mod rule_hypotheses;
 mod search_selection;
+mod search_voronoi;
 
 pub use field_of_view::SearchOccluder;
-pub use search_selection::SearchVoronoiSelection;
+pub use search_voronoi::SearchVoronoiSelection;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Heatmap {
