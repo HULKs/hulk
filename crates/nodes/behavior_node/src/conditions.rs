@@ -148,10 +148,7 @@ fn posture(blackboard: &Blackboard) -> Option<Posture> {
 }
 
 pub fn requires_damping(blackboard: &mut Blackboard) -> bool {
-    matches!(
-        posture(blackboard),
-        None | Some(Posture::Falling | Posture::RecoveryFailed)
-    )
+    matches!(posture(blackboard), None | Some(Posture::Falling))
 }
 
 pub fn is_fallen(blackboard: &mut Blackboard) -> bool {

@@ -9,12 +9,8 @@ pub const MAXIMUM_FALL_DETECTION_AGE: Duration = Duration::from_millis(100);
 pub enum Posture {
     Upright,
     Falling,
-    Fallen {
-        ready_for_standup: bool,
-    },
+    Fallen { ready_for_standup: bool },
     StandingUp,
-    /// Recovery timed out without a confirmed standing or settled lying pose.
-    RecoveryFailed,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Message)]
