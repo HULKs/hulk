@@ -21,7 +21,7 @@
     maximum_joint_speed: 1.0,
     confirmation_duration: { secs: 0, nanos: 150000000 },
   },
-  stand_up: {
+  standing_up: {
     // Pose Prepare drives the joints into while fallen. The head is ignored.
     start_pose: {
       head: { yaw: 0.0, pitch: 0.0 },
