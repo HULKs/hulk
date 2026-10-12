@@ -144,7 +144,7 @@ impl Observation {
 enum State {
     Upright,
     Falling,
-    Fallen,
+    Fallen { ready_for_standup: bool },
     StandingUp { since: Time },
 }
 
@@ -153,7 +153,6 @@ pub struct Detector {
     state: Option<State>,
     candidate: Option<(State, Time)>,
     stand_up_pose_since: Option<Time>,
-    ready_for_standup: bool,
     last_time: Option<Time>,
 }
 
@@ -185,15 +184,10 @@ impl Detector {
         self.update_readiness(&observation, stand_up_requested, parameters);
         let transition = self.transition(&observation, stand_up_requested, parameters);
         self.debounce(transition, observation.time);
-        if self.state != Some(State::Fallen) {
-            self.ready_for_standup = false;
-        }
         let posture = match self.state? {
             State::Upright => Posture::Upright,
             State::Falling => Posture::Falling,
-            State::Fallen => Posture::Fallen {
-                ready_for_standup: self.ready_for_standup,
-            },
+            State::Fallen { ready_for_standup } => Posture::Fallen { ready_for_standup },
             State::StandingUp { .. } => Posture::StandingUp,
         };
         Some(FallDetection {
@@ -216,9 +210,10 @@ impl Detector {
         let stable = self.stand_up_pose_since.is_some_and(|since| {
             observation.time.duration_since(since) >= parameters.stand_up_stable_duration
         });
-        // Preserve the accepted start pose while the requested policy moves away from it.
-        self.ready_for_standup = self.state == Some(State::Fallen)
-            && (stable || (self.ready_for_standup && stand_up_requested));
+        if let Some(State::Fallen { ready_for_standup }) = &mut self.state {
+            // Preserve the accepted start pose while the requested policy moves away from it.
+            *ready_for_standup = stable || (*ready_for_standup && stand_up_requested);
+        }
     }
 
     fn transition(
@@ -231,13 +226,15 @@ impl Detector {
         match self.state {
             Some(State::Upright) => (observation.tilt >= parameters.falling_tilt)
                 .then_some((State::Falling, parameters.falling_duration)),
-            Some(State::Fallen) if stand_up_requested && self.ready_for_standup => Some((
+            Some(State::Fallen {
+                ready_for_standup: true,
+            }) if stand_up_requested => Some((
                 State::StandingUp {
                     since: observation.time,
                 },
                 Duration::ZERO,
             )),
-            Some(State::Fallen) => {
+            Some(State::Fallen { .. }) => {
                 is_standing.then_some((State::Upright, parameters.upright_duration))
             }
             // Lying or rolling is part of a recovery, so only standing or the timeout end it.
@@ -255,7 +252,12 @@ impl Detector {
                 if is_standing {
                     Some((State::Upright, parameters.upright_duration))
                 } else if posture::is_lying_still(observation, parameters) {
-                    Some((State::Fallen, parameters.fallen_duration))
+                    Some((
+                        State::Fallen {
+                            ready_for_standup: false,
+                        },
+                        parameters.fallen_duration,
+                    ))
                 } else {
                     None
                 }
