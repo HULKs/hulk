@@ -60,7 +60,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     .map(|wrapper| &wrapper.inner),
                 fall_detection: maybe_fall_detection
                     .as_deref()
-                    .filter(|fall_detection| fall_detection.is_fresh(node.clock().now())),
+                    .filter(|fall_detection| fall_detection.is_valid(node.clock().now())),
             },
             &parameters,
         ) {

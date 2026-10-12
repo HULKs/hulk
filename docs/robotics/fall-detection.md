@@ -1,8 +1,8 @@
 # Fall detection
 
 The `fall_detection` node derives posture from measured IMU roll/pitch, angular velocity, and serial joint positions/velocities.
-It publishes `fall_detection/status` with the sensor source time.
-Consumers reject future messages and messages older than `MAXIMUM_FALL_DETECTION_AGE`.
+It publishes `fall_detection/status` with the sensor source time and a `valid_until` time `detection_lifetime` later.
+Consumers reject future and expired messages, so a stopped detector cannot leave a stale posture behind.
 
 ## Postures
 
@@ -19,7 +19,7 @@ Lying or rolling during `StandingUp` is part of the recovery and does not end it
 
 Confirmation durations must be observed without interruption.
 A short gap in sensor input restarts them but keeps the confirmed posture.
-After a gap longer than `MAXIMUM_FALL_DETECTION_AGE`, the detector starts over.
+After a gap longer than `detection_lifetime`, the detector starts over.
 
 ## Get-up readiness
 

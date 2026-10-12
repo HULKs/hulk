@@ -118,8 +118,10 @@ pub fn build_world_states(
                     )
                 }),
                 rule_obstacles,
+                // Rebuilt every tick, so it only needs to be valid now.
                 fall_detection: Some(FallDetection {
-                    time: ros_z::time::Time::from_wallclock(clock.now),
+                    time: clock.now.into(),
+                    valid_until: clock.now.into(),
                     posture: posture.posture.unwrap_or(Posture::Upright),
                 }),
                 suggested_search_position: suggested_search_position.position,

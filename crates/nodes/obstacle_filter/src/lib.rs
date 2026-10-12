@@ -16,7 +16,7 @@ use projection::{Projection, camera_matrix::CameraMatrix};
 use ros_z::{prelude::*, qos::QosDurability, time::Time};
 use ros_z_streams::CreateFutureMapBuilder;
 use tokio::task::block_in_place;
-use types::fall_detection::FallDetection;
+use types::fall_detection::{FallDetection, Posture};
 use types::{
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
@@ -338,7 +338,9 @@ impl ObstacleFilter {
         let became_unpenalized = self.last_primary_state == PrimaryState::Penalized
             && primary_state != PrimaryState::Penalized;
 
-        let is_upright = fall_detection.is_some_and(|state| state.is_upright(now));
+        let is_upright = fall_detection.is_some_and(|fall_detection| {
+            fall_detection.is_valid(now) && fall_detection.posture == Posture::Upright
+        });
 
         self.last_primary_state = primary_state;
 

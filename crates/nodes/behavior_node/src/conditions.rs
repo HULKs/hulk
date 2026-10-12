@@ -142,7 +142,7 @@ fn posture(blackboard: &Blackboard) -> Option<Posture> {
     blackboard
         .world_state
         .fall_detection
-        .filter(|fall_detection| fall_detection.is_fresh(blackboard.world_state.now))
+        .filter(|fall_detection| fall_detection.is_valid(blackboard.world_state.now))
         .map(|fall_detection| fall_detection.posture)
 }
 
