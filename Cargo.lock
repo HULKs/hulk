@@ -5384,6 +5384,7 @@ dependencies = [
  "json5",
  "kinematics",
  "linear_algebra",
+ "nalgebra 0.34.2",
  "projection",
  "ros-z",
  "ros-z-schema",

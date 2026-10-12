@@ -1,6 +1,4 @@
-//! Timed head targets. Phases advance independently of measured arrival.
-
-use std::time::Duration;
+//! Timed scan waypoints. Phases advance independently of measured arrival.
 
 use kinematics::joints::head::HeadJoints;
 use ros_z::time::Time;
@@ -27,7 +25,7 @@ enum Waypoint {
 }
 
 impl ScanState {
-    /// The coordinator resets this state when the mode changes or requests stop.
+    /// `HeadController` resets this state when the mode changes or requests stop.
     pub(crate) fn update(
         &mut self,
         kind: ScanKind,
@@ -59,23 +57,5 @@ impl ScanState {
             Waypoint::Side(Side::Left) => parameters.left,
             Waypoint::Side(Side::Right) => parameters.right,
         }
-    }
-}
-
-#[derive(Default)]
-pub(crate) struct GlanceState {
-    right: bool,
-    started: Option<Time>,
-}
-
-impl GlanceState {
-    /// Target updates preserve the current side. The coordinator handles resets.
-    pub(crate) fn angle(&mut self, angle: f32, duration: Duration, now: Time) -> f32 {
-        let started = self.started.get_or_insert(now);
-        if now.duration_since(*started) >= duration {
-            self.right = !self.right;
-            *started = now;
-        }
-        if self.right { -angle } else { angle }
     }
 }

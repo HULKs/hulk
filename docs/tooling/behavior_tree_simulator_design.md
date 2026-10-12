@@ -666,7 +666,6 @@ Use a `SimulationConfig` for constants:
 - `head_yaw_maximum`
 - `head_yaw_velocity`
 - `head_scan_period`
-- `head_glance_angle`
 - `robot_radius`
 - `kick_alignment_tolerance`
 
@@ -691,7 +690,6 @@ pub struct SimulationConfig {
     pub head_yaw_maximum: f32,
     pub head_yaw_velocity: f32,
     pub head_scan_period: Duration,
-    pub head_glance_angle: f32,
     pub robot_radius: f32,
     pub kick_radius: f32,
     pub kick_alignment_tolerance: f32,
@@ -713,7 +711,6 @@ impl Default for SimulationConfig {
             head_yaw_maximum: 0.785,
             head_yaw_velocity: 0.4,
             head_scan_period: Duration::from_secs(4),
-            head_glance_angle: 0.25,
             robot_radius: 0.25,
             kick_radius: 0.25,
             kick_alignment_tolerance: 0.2,
@@ -752,9 +749,8 @@ Head motion:
 
 - Store head yaw in `SimulatorHeadYaw` as `Orientation2<Ground>` relative to the robot ground frame.
 - Derive target yaw from `MotionCommand::head_motion()`.
-- `ZeroAngles` and `Center` target yaw `0.0`.
+- `Center` and `Damping` target yaw `0.0`.
 - `LookAt` targets the commanded ground point direction.
-- `LookLeftAndRightOf` adds a deterministic glance offset around the commanded ground point direction.
 - `LookAround` and `SearchForLostBall` use a deterministic scan pattern within configured yaw limits.
 - Clamp yaw by `head_yaw_minimum` and `head_yaw_maximum`.
 - Rate-limit yaw by `head_yaw_velocity * dt`.

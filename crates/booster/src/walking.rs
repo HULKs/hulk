@@ -109,7 +109,9 @@ mod tests {
     #[test]
     fn walk_with_velocity_maps_directly_to_step() {
         let command = MotionCommand::WalkWithVelocity {
-            head: HeadMotion::ZeroAngles,
+            head: HeadMotion::Center {
+                image_region_target: Default::default(),
+            },
             velocity: vector![0.3, -0.2],
             angular_velocity: 0.4,
         };
@@ -124,7 +126,9 @@ mod tests {
     #[test]
     fn stand_maps_to_zero_step() {
         let command = MotionCommand::Stand {
-            head: HeadMotion::ZeroAngles,
+            head: HeadMotion::Center {
+                image_region_target: Default::default(),
+            },
         };
 
         let step = step_from_motion_command(&command, &walking_parameters());
@@ -153,7 +157,9 @@ mod tests {
     #[test]
     fn walk_path_decelerates_near_target() {
         let command = MotionCommand::Walk {
-            head: HeadMotion::ZeroAngles,
+            head: HeadMotion::Center {
+                image_region_target: Default::default(),
+            },
             path: direct_path(point![0.0, 0.0], point![0.25, 0.0]),
             orientation_mode: OrientationMode::AlignWithPath,
             target_orientation: Orientation2::new(0.0),

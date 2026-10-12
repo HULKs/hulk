@@ -21,7 +21,7 @@ use types::{
 };
 
 use crate::{
-    head::{HeadController, HeadInputs},
+    head::{HeadController, HeadInputs, HeadOutput},
     logging::{FailureKind, NodeLogger},
     look_at::LookAtGeometry,
     parameters::Parameters,
@@ -81,7 +81,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 if let Err(error) = result {
                     logger.log_error(
                         FailureKind::JointLimits, None, &error,
-                        parameters.snapshot().typed().joint_control.warning_interval,
+                        parameters.snapshot().typed().warning_interval,
                         node.clock().now(),
                     );
                 }
@@ -94,29 +94,30 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 if let Err(error) = result {
                     logger.log_error(
                         FailureKind::Observation, None, &error,
-                        parameters.snapshot().typed().joint_control.warning_interval,
+                        parameters.snapshot().typed().warning_interval,
                         node.clock().now(),
                     );
                 }
             }
             received = head_motion_service.take_request_async() => {
                 let snapshot = parameters.snapshot();
-                let warning_interval = snapshot.typed().joint_control.warning_interval;
+                let warning_interval = snapshot.typed().warning_interval;
                 let (request, reply) = match received {
                     Ok(received) => received.into_parts(),
                     Err(error) => {
-                        controller.clear_command_history();
                         logger.log_error(FailureKind::Request, None, &error.into(),
                             warning_interval, node.clock().now());
                         continue;
                     }
                 };
                 let now = node.clock().now();
-                let result = (|| {
-                    request.validate().map_err(Report::msg)?;
-                    let inputs = inputs.snapshot(Arc::clone(&snapshot.typed), now)?;
-                    controller.evaluate(&request, &inputs, now)
-                })();
+                let result = evaluate(
+                    &mut controller,
+                    &inputs,
+                    &request,
+                    Arc::clone(&snapshot.typed),
+                    now,
+                );
                 let response = match result {
                     Ok(output) => {
                         logger.log_output(&request, &output, warning_interval, now);
@@ -137,6 +138,18 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             }
         }
     }
+}
+
+fn evaluate(
+    controller: &mut HeadController,
+    inputs: &InputCaches,
+    request: &HeadMotion,
+    parameters: Arc<Parameters>,
+    now: Time,
+) -> Result<HeadOutput> {
+    request.validate().map_err(Report::msg)?;
+    let inputs = inputs.snapshot(parameters, now)?;
+    controller.evaluate(request, &inputs, now)
 }
 
 struct InputCaches {
@@ -186,8 +199,8 @@ impl InputCaches {
         })
     }
 
+    /// Invalid updates keep the last valid limits.
     fn update_joint_limits(&mut self, joint_limits: JointLimits) -> Result<()> {
-        self.joint_limits = None;
         joint_limits.validate().map_err(Report::msg)?;
         self.joint_limits = Some(Arc::new(joint_limits));
         Ok(())
