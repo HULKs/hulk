@@ -4143,6 +4143,7 @@ version = "0.1.0"
 dependencies = [
  "booster",
  "color-eyre",
+ "json5",
  "kinematics",
  "linear_algebra",
  "ros-z",
