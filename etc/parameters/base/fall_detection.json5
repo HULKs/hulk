@@ -1,13 +1,13 @@
 {
-  // Angles in radians, speeds in radians per second, lengths in metres.
-  maximum_input_age: { secs: 0, nanos: 50000000 },
+  // Angles in radians, velocities in radians per second, lengths in metres.
+  maximum_observation_age: { secs: 0, nanos: 50000000 },
   // Entering Upright only. Once upright, only falling.minimum_torso_tilt applies,
   // so walking and kicking do not have to hold a standing pose.
   upright: {
     maximum_torso_tilt: 0.349066,
     // Allow the measured terminal get-up oscillation without accepting fast swings.
-    maximum_torso_angular_speed: 2.5,
-    maximum_leg_joint_speed: 6.0,
+    maximum_torso_angular_velocity: 2.5,
+    maximum_leg_joint_velocity: 6.0,
     minimum_torso_height_above_soles: 0.43,
     confirmation_duration: { secs: 0, nanos: 100000000 },
   },
@@ -17,21 +17,20 @@
   },
   fallen: {
     minimum_torso_tilt: 1.047198,
-    maximum_torso_angular_speed: 2.5,
-    maximum_joint_speed: 1.0,
+    maximum_torso_angular_velocity: 2.5,
+    maximum_joint_velocity: 1.0,
     confirmation_duration: { secs: 0, nanos: 150000000 },
   },
   standing_up: {
-    // Must match the pose Prepare drives the joints into. The head is ignored.
+    // Must match the pose Prepare drives the joints into.
     start_pose: {
-      head: { yaw: 0.0, pitch: 0.0 },
       left_arm: { shoulder_pitch: 0.0, shoulder_roll: 0.0, shoulder_yaw: 0.0, elbow: 0.0 },
       right_arm: { shoulder_pitch: 0.0, shoulder_roll: 0.0, shoulder_yaw: 0.0, elbow: 0.0 },
       left_leg: { hip_pitch: -0.2, hip_roll: 0.0, hip_yaw: 0.0, knee: 0.4, ankle_up: -0.25, ankle_down: 0.0 },
       right_leg: { hip_pitch: -0.2, hip_roll: 0.0, hip_yaw: 0.0, knee: 0.4, ankle_up: -0.25, ankle_down: 0.0 },
     },
-    maximum_start_pose_deviation: 0.5,
-    maximum_start_joint_speed: 1.0,
+    maximum_start_pose_joint_position_deviation: 0.5,
+    maximum_start_pose_joint_velocity: 1.0,
     confirmation_duration: { secs: 0, nanos: 150000000 },
     timeout: { secs: 8, nanos: 0 },
   },

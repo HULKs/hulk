@@ -7,11 +7,11 @@ const SAMPLE_INTERVAL_MILLISECONDS: i64 = 10;
 
 fn parameters() -> Parameters {
     Parameters {
-        maximum_input_age: Duration::from_millis(50),
+        maximum_observation_age: Duration::from_millis(50),
         upright: UprightParameters {
             maximum_torso_tilt: 0.35,
-            maximum_torso_angular_speed: 1.0,
-            maximum_leg_joint_speed: 2.0,
+            maximum_torso_angular_velocity: 1.0,
+            maximum_leg_joint_velocity: 2.0,
             minimum_torso_height_above_soles: 0.43,
             confirmation_duration: Duration::from_millis(100),
         },
@@ -21,21 +21,21 @@ fn parameters() -> Parameters {
         },
         fallen: FallenParameters {
             minimum_torso_tilt: 1.0,
-            maximum_torso_angular_speed: 2.5,
-            maximum_joint_speed: 1.0,
+            maximum_torso_angular_velocity: 2.5,
+            maximum_joint_velocity: 1.0,
             confirmation_duration: Duration::from_millis(150),
         },
         standing_up: StandingUpParameters {
             start_pose: start_pose(),
-            maximum_start_pose_deviation: 0.3,
-            maximum_start_joint_speed: 1.0,
+            maximum_start_pose_joint_position_deviation: 0.3,
+            maximum_start_pose_joint_velocity: 1.0,
             confirmation_duration: Duration::from_millis(150),
             timeout: Duration::from_secs(8),
         },
     }
 }
 
-fn legs(hip_pitch: f32, knee: f32, ankle_up: f32) -> Joints<f32> {
+fn legs(hip_pitch: f32, knee: f32, ankle_up: f32) -> BodyJoints<f32> {
     let leg = LegJoints {
         hip_pitch,
         hip_roll: 0.0,
@@ -44,25 +44,25 @@ fn legs(hip_pitch: f32, knee: f32, ankle_up: f32) -> Joints<f32> {
         ankle_up,
         ankle_down: 0.0,
     };
-    Joints {
+    BodyJoints {
         left_leg: leg,
         right_leg: leg,
-        ..Joints::fill(0.0)
+        ..BodyJoints::fill(0.0)
     }
 }
 
 /// Slightly crouched, with the torso about 0.54 m above the soles.
-fn start_pose() -> Joints<f32> {
+fn start_pose() -> BodyJoints<f32> {
     legs(-0.2, 0.4, -0.25)
 }
 
 /// Far from the start pose, with folded legs.
-fn twisted_pose() -> Joints<f32> {
-    start_pose() + Joints::fill(1.0)
+fn twisted_pose() -> BodyJoints<f32> {
+    start_pose() + BodyJoints::fill(1.0)
 }
 
 /// Hips and knees folded, with the torso about 0.36 m above the soles.
-fn seated_pose() -> Joints<f32> {
+fn seated_pose() -> BodyJoints<f32> {
     legs(-1.6, 1.6, 0.0)
 }
 
@@ -73,15 +73,15 @@ fn fallen(ready_for_standup: bool) -> Posture {
 #[derive(Clone, Copy)]
 struct Sample {
     tilt: f32,
-    angular_speed: f32,
-    positions: Joints<f32>,
+    angular_velocity: f32,
+    positions: BodyJoints<f32>,
 }
 
 impl Sample {
     fn standing() -> Self {
         Self {
             tilt: 0.0,
-            angular_speed: 0.0,
+            angular_velocity: 0.0,
             positions: start_pose(),
         }
     }
@@ -127,7 +127,7 @@ impl Sample {
 
     fn rolling() -> Self {
         Self {
-            angular_speed: 3.0,
+            angular_velocity: 3.0,
             ..Self::lying_twisted()
         }
     }
@@ -157,9 +157,9 @@ impl Robot {
             let observation = Observation {
                 time: Time::from_nanos(self.milliseconds * 1_000_000),
                 tilt: sample.tilt,
-                angular_speed: sample.angular_speed,
+                angular_velocity: sample.angular_velocity,
                 positions: sample.positions,
-                velocities: Joints::fill(0.0),
+                velocities: BodyJoints::fill(0.0),
             };
             let Some(fall_detection) =
                 self.detector
@@ -201,10 +201,10 @@ fn base_parameters_are_valid() {
 fn validation_names_the_invalid_parameter() {
     let mut parameters = parameters();
     assert_eq!(parameters.validate(), Ok(()));
-    parameters.fallen.maximum_joint_speed = 0.0;
+    parameters.fallen.maximum_joint_velocity = 0.0;
     assert_eq!(
         parameters.validate(),
-        Err("fallen.maximum_joint_speed must be finite and positive".into())
+        Err("fallen.maximum_joint_velocity must be finite and positive".into())
     );
 }
 
@@ -294,7 +294,7 @@ fn stand_up_timeout_while_seated_damps() {
 fn short_sensor_gap_keeps_posture() {
     let mut robot = Robot::default();
     robot.hold(Sample::standing(), 200);
-    // An 80 ms gap: longer than maximum_input_age, shorter than MAXIMUM_FALL_DETECTION_AGE.
+    // An 80 ms gap: longer than maximum_observation_age, shorter than MAXIMUM_FALL_DETECTION_AGE.
     robot.pause(70);
     // Upright could not be confirmed again while kicking.
     assert_eq!(robot.hold(Sample::kicking(), 10), [Upright]);

@@ -23,7 +23,7 @@ After a gap longer than `MAXIMUM_FALL_DETECTION_AGE`, the detector starts over.
 
 ## Get-up readiness
 
-`ready_for_standup` requires every non-head joint to stay within `standing_up.maximum_start_pose_deviation` of `standing_up.start_pose` and slower than `standing_up.maximum_start_joint_speed` for `standing_up.confirmation_duration`.
+`ready_for_standup` requires every non-head joint to stay within `standing_up.maximum_start_pose_joint_position_deviation` of `standing_up.start_pose` and slower than `standing_up.maximum_start_pose_joint_velocity` for `standing_up.confirmation_duration`.
 It stays latched while Behavior requests `StandUp`, because the policy can move away from the accepted starting pose before the request reaches the detector.
 
 This is a configured pose envelope.

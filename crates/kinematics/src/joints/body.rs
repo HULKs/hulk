@@ -179,6 +179,16 @@ impl<T> From<BodyJoints<T>> for LowerBodyJoints<T> {
     }
 }
 
+impl<T> IntoIterator for LowerBodyJoints<T> {
+    type Item = T;
+
+    type IntoIter = Chain<IntoIter<T, 6>, IntoIter<T, 6>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.left_leg.into_iter().chain(self.right_leg)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 pub struct UpperBodyJoints<T> {
     pub left_arm: ArmJoints<T>,
