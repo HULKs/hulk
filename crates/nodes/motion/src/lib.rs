@@ -33,7 +33,6 @@ use ros_z::{
     time::Clock,
 };
 use types::{
-    fall_detection::FallDetection,
     joint_limits::JointLimits,
     motion_command::{HeadMotion, MotionCommand},
     motor_command::MotorCommand,
@@ -43,7 +42,6 @@ use types::{
 
 use crate::walking::{WalkingParameters, step_from_walk_command};
 
-mod fall_safety;
 pub mod walking;
 
 const ROBOT_COMMAND_TOPIC: &str = "commands/robot_command";
@@ -92,12 +90,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await
         .wrap_err("failed to build motion_command subscriber")?;
-
-    let fall_detection_cache = node
-        .subscriber::<FallDetection>("fall_detection/status")
-        .cache(1)
-        .build()
-        .await?;
 
     let motion_emergency_stop_pub = node
         .publisher::<()>("motion/emergency_stop")
@@ -171,6 +163,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     loop {
         timer.tick().await;
+        // Read before sampling the clock, so a fresh command never appears to be from the future.
         let request = motion_command_cache.get_latest_with_stamp();
         let now = clock.now();
 
@@ -182,7 +175,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 if timestamp > now || age > parameters.maximum_command_age {
                     error!(
-                        "motion command is too old, falling back to damping. command age: {} ms, maximum: {} ms",
+                        "motion command is too old or from the future, falling back to damping. command age: {} ms, maximum: {} ms",
                         age.as_millis(),
                         parameters.maximum_command_age.as_millis()
                     );
@@ -201,31 +194,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             }
         };
 
-        let fall = fall_detection_cache.get_latest();
-        let motion_plan =
-            if fall_safety::command_allowed(&motion_command, fall.as_deref(), clock.now()) {
-                MotionPlan::from_motion_command(&motion_command, &parameters.walking)
-            } else {
-                MotionPlan::Damping
-            };
+        let motion_plan = MotionPlan::from_motion_command(&motion_command, &parameters.walking);
 
         let robot_command = motion_state
             .infer(motion_plan, clock, parameters, &joint_limits)
             .await?;
 
-        // Inference may outlive the fall estimate or a recovery-state transition.
-        let latest_request = motion_command_cache.get_latest_with_stamp();
-        let fall = fall_detection_cache.get_latest();
-        let robot_command = fall_safety::validate_dispatch(
-            robot_command,
-            &motion_command,
-            latest_request
-                .as_ref()
-                .map(|(time, command)| (*time, command.as_ref())),
-            fall.as_deref(),
-            clock.now(),
-            parameters.maximum_command_age,
-        );
         robot_command_pub.publish(&robot_command).await?;
     }
 }
