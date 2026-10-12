@@ -11,9 +11,9 @@ use crate::{
     condition,
     conditions::{
         has_ball_position, hulks_is_kicking_team, is_ball_free, is_ball_interception_candidate,
-        is_close_to_ball, is_closest_to_ball, is_controller_connected, is_fallen, is_falling,
-        is_goalkeeper, is_kickoff, is_last_hulk_standing, is_primary_state, is_ready_for_stand_up,
-        is_remote_control_enabled, is_remote_kick_mode, is_simple,
+        is_close_to_ball, is_closest_to_ball, is_controller_connected, is_fallen, is_goalkeeper,
+        is_kickoff, is_last_hulk_standing, is_primary_state, is_ready_for_stand_up,
+        is_remote_control_enabled, is_remote_kick_mode, is_simple, requires_damping,
     },
     goalkeeper::goalkeeper_subtree,
     head::{look_around, look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
@@ -47,7 +47,7 @@ pub fn create_tree() -> Node<Blackboard> {
                 sequence!(action!(look_straight_ahead), action!(stand))
             )
         ),
-        sequence!(condition!(is_falling), action!(damping)),
+        sequence!(condition!(requires_damping), action!(damping)),
         sequence!(
             condition!(is_primary_state, PrimaryState::Stop),
             action!(stand)

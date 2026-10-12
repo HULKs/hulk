@@ -147,8 +147,11 @@ fn posture(blackboard: &Blackboard) -> Option<Posture> {
         .map(|fall_detection| fall_detection.posture)
 }
 
-pub fn is_falling(blackboard: &mut Blackboard) -> bool {
-    posture(blackboard) == Some(Posture::Falling)
+pub fn requires_damping(blackboard: &mut Blackboard) -> bool {
+    matches!(
+        posture(blackboard),
+        None | Some(Posture::Falling | Posture::RecoveryFailed)
+    )
 }
 
 pub fn is_fallen(blackboard: &mut Blackboard) -> bool {

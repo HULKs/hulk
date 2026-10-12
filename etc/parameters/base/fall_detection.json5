@@ -8,6 +8,18 @@
   falling_duration: { secs: 0, nanos: 20000000 },
   fallen_duration: { secs: 0, nanos: 150000000 },
   maximum_fallen_angular_speed: 2.5,
+  maximum_fallen_joint_speed: 1.0,
+  // Entry to Upright only. Ordinary walking does not need to hold a static pose.
+  // Allow the measured terminal get-up oscillation without accepting fast swings.
+  maximum_upright_angular_speed: 2.5,
+  maximum_upright_joint_speed: 6.0,
+  // Per-joint radians from stand_up_pose, for both legs. Arms/head are ignored.
+  maximum_upright_leg_deviation: {
+    hip_pitch: 0.85, hip_roll: 0.5, hip_yaw: 0.4,
+    knee: 0.9, ankle_up: 0.6, ankle_down: 0.3,
+  },
+  // Both sole centers must be at least this far below the torso origin, in metres.
+  minimum_upright_foot_depth: 0.43,
   stand_up_timeout: { secs: 8, nanos: 0 },
   // Pose Prepare drives the joints into while fallen. Radians; the head is ignored.
   stand_up_pose: {
