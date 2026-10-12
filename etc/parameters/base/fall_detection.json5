@@ -22,7 +22,7 @@
     confirmation_duration: { secs: 0, nanos: 150000000 },
   },
   standing_up: {
-    // Pose Prepare drives the joints into while fallen. The head is ignored.
+    // Must match the pose Prepare drives the joints into. The head is ignored.
     start_pose: {
       head: { yaw: 0.0, pitch: 0.0 },
       left_arm: { shoulder_pitch: 0.0, shoulder_roll: 0.0, shoulder_yaw: 0.0, elbow: 0.0 },
