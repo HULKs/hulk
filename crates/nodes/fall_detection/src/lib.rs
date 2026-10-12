@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, future::Future, pin::Pin, sync::Arc, time::Duration};
+use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use booster::{JointsMotorState, LowState};
 use color_eyre::{Result, eyre::ensure};
@@ -78,93 +78,16 @@ pub struct StandingUpParameters {
 }
 
 impl Parameters {
+    /// Rejects inconsistent combinations. A nonsensical single value only keeps the detector
+    /// from confirming a posture, which fails safe into Damping or Prepare.
     pub fn validate(&self) -> std::result::Result<(), String> {
-        let Self {
-            maximum_observation_age,
-            detection_lifetime,
-            upright,
-            falling,
-            fallen,
-            standing_up,
-        } = self;
-        if !(0.0 < upright.maximum_torso_tilt
-            && upright.maximum_torso_tilt < falling.minimum_torso_tilt
-            && falling.minimum_torso_tilt < fallen.minimum_torso_tilt
-            && fallen.minimum_torso_tilt < PI)
+        // Also rejects NaN, which would keep a robot Upright forever.
+        if !(self.upright.maximum_torso_tilt < self.falling.minimum_torso_tilt
+            && self.falling.minimum_torso_tilt < self.fallen.minimum_torso_tilt)
         {
-            return Err(
-                "torso tilts must satisfy 0 < upright.maximum < falling.minimum \
-                < fallen.minimum < pi"
-                    .into(),
-            );
+            return Err("torso tilts must increase from upright to falling to fallen".into());
         }
-
-        let thresholds = [
-            (
-                "upright.maximum_torso_angular_velocity",
-                upright.maximum_torso_angular_velocity,
-            ),
-            (
-                "upright.maximum_leg_joint_velocity",
-                upright.maximum_leg_joint_velocity,
-            ),
-            (
-                "upright.minimum_torso_height_above_soles",
-                upright.minimum_torso_height_above_soles,
-            ),
-            (
-                "fallen.maximum_torso_angular_velocity",
-                fallen.maximum_torso_angular_velocity,
-            ),
-            (
-                "fallen.maximum_joint_velocity",
-                fallen.maximum_joint_velocity,
-            ),
-            (
-                "standing_up.maximum_start_pose_joint_position_deviation",
-                standing_up.maximum_start_pose_joint_position_deviation,
-            ),
-            (
-                "standing_up.maximum_start_pose_joint_velocity",
-                standing_up.maximum_start_pose_joint_velocity,
-            ),
-        ];
-        if let Some((name, _)) = thresholds
-            .iter()
-            .find(|(_, value)| !(value.is_finite() && *value > 0.0))
-        {
-            return Err(format!("{name} must be finite and positive"));
-        }
-
-        if !standing_up.start_pose.into_iter().all(f32::is_finite) {
-            return Err("standing_up.start_pose must be finite".into());
-        }
-
-        let durations = [
-            ("maximum_observation_age", *maximum_observation_age),
-            ("detection_lifetime", *detection_lifetime),
-            (
-                "upright.confirmation_duration",
-                upright.confirmation_duration,
-            ),
-            (
-                "falling.confirmation_duration",
-                falling.confirmation_duration,
-            ),
-            ("fallen.confirmation_duration", fallen.confirmation_duration),
-            (
-                "standing_up.confirmation_duration",
-                standing_up.confirmation_duration,
-            ),
-        ];
-        if let Some((name, _)) = durations.iter().find(|(_, duration)| duration.is_zero()) {
-            return Err(format!("{name} must be positive"));
-        }
-
-        if standing_up.timeout <= upright.confirmation_duration {
-            return Err("standing_up.timeout must exceed upright.confirmation_duration".into());
-        }
-        if detection_lifetime <= maximum_observation_age {
+        if self.detection_lifetime <= self.maximum_observation_age {
             return Err("detection_lifetime must exceed maximum_observation_age".into());
         }
         Ok(())
