@@ -46,23 +46,38 @@ If no branch succeeds, behavior falls back to a safe standing command.
 
 ## Playing
 
-The playing subtree assigns one of four high-level tasks:
+Penalty shootouts use a dedicated subtree.
+Otherwise, the playing subtree assigns one of four high-level tasks:
 
 - **Goalkeeper:** the configured goalkeeper runs the goalkeeper subtree.
 - **Searcher:** a robot without a known ball position runs the search subtree.
-- **Striker:** the last active robot always becomes striker.
-  Otherwise, the team's Voronoi map determines which field player is closest to the ball and should become striker.
+- **Striker:** the team's Voronoi map determines which field player is closest to the known ball and should become striker.
   Timing hysteresis prevents rapid switching between striker and supporter.
 - **Supporter:** every remaining field player runs the supporter subtree.
 
-Simple mode bypasses this team-based task assignment: the robot searches when the ball is unknown and otherwise acts as striker.
+Simple mode and the last active robot bypass this team-based task assignment: the robot searches when the ball is unknown and otherwise acts as striker.
+
+The ball state records whether the position comes from local perception or a teammate, with local perception taking precedence.
+When the current ball state disappears, behavior briefly retains the last position.
+The retention time is controlled by `ball.last_ball_timeout` for local balls and `ball.team_ball_timeout` for team balls.
 
 ### Search
 
-When the ball position is unknown, the `search_suggestor` combines local, team, hypothetical, and rule-based ball information in a heatmap.
-Areas the robot has already observed become less likely, and the strongest remaining region is published as `suggested_search_position`.
-The searcher walks there while looking toward plausible ball positions, then scans the area for the ball.
-If no suggested position is available, the robot turns in place and looks around for the ball, continuing the previous search direction or turning toward the side where the ball was last seen.
+The `search_suggestor` combines local, team, hypothetical, and rule-based ball information in a priority heatmap with one-meter cells and values between zero and one.
+After losing a locally observed ball, priorities grow over time, fastest around its last position.
+Areas within the estimated field of view lose priority; obstacles reduce this decay for areas they obscure.
+Corner kicks, goal kicks, and throw-ins restrict rule-based search priorities to the corresponding restart locations.
+
+The robot's own pose and fresh teammate poses define its search Voronoi region.
+Within that region, the suggestor selects a cell above the minimum priority, preferring smaller turns among similarly ranked cells.
+Hysteresis stabilizes the selection.
+The cell center is published as `suggested_search_position`, or `None` when no valid target is available.
+
+The searcher uses the existing walking behavior to approach that position with `walking.speed.search`, while the head looks toward plausible ball positions or scans for the ball.
+Within `search.position_reached_distance`, the robot turns in place and continues searching.
+It also turns in place when there is no target or no localization, continuing the previous search direction or turning toward the side where the ball was last seen.
+A changed target is used on the next behavior cycle; the heatmap remains responsible for choosing the next search area.
+A known ball returns the robot to its normal playing behavior.
 
 ### Striker
 
@@ -89,7 +104,7 @@ If no support position can be produced, it stands.
 ## Team Communication
 
 While playing, behavior periodically creates a State message.
-It contains the player number, the robot pose, and the observed ball position and age when a ball is available.
+It contains the player number, the robot pose, the commanded head yaw, and the ball position and age when a ball is available.
 A message is sent only when the robot has a field pose, the send interval has elapsed, and the remaining game message budget is high enough.
 
 Each unpenalized player, including the sender, gets an equal share of the remaining message budget after subtracting `remaining_amount_of_messages_to_stop_sending` as a reserve:
@@ -99,7 +114,8 @@ time_left = remaining_time_in_half + (half_duration if first_half else 0)
 interval_seconds = time_left_seconds * unpenalized_players / usable_messages
 ```
 
-Received teammate states provide the poses used for closest-to-ball selection and supporter positioning.
+Received teammate states provide the poses used for closest-to-ball selection, supporter positioning, and search regions.
+The search suggestor interpolates poses and head directions between sufficiently recent messages to estimate which areas teammates have observed and lower their search priority.
 Team communication can be absent or delayed, so the tree retains branches for simple operation, the last active robot, and missing ball information.
 
 ## Motion Output
@@ -114,20 +130,27 @@ The command is published on `behavior/motion_command` for the Booster interface.
 Behavior parameters are loaded from `etc/parameters/base/behavior_node.json5`, with location- and robot-specific overrides applied by the ROS-Z runtime.
 Parameters control details such as motion switching, kickoff poses, walking, kicking, goalkeeper positioning, search, Voronoi positioning, and message timing.
 
+Heatmap priorities, decay, and target selection are configured separately in `etc/parameters/base/search_suggestor.json5`.
+
 The node publishes additional topics for inspection in Twix and recordings:
 
 - `behavior/tree_layout`: the static tree structure
 - `behavior/trace`: the result of each tree tick
 - `behavior/blackboard`: the inputs and intermediate state used by the tree
 
+The search suggestor also exposes `ball_search_heatmap` and `suggested_search_position` for inspecting priorities and the current target.
+
 Most of the implementation lives in `crates/nodes/behavior_node`:
 
 - `src/tree.rs` defines the root, playing, search, striker, and supporter trees.
 - `src/goalkeeper.rs` defines goalkeeper behavior.
+- `src/search.rs` approaches search targets and turns in place to scan.
 - `src/behavior_tree.rs` defines tree evaluation.
 - `src/node.rs` connects ROS-Z inputs and outputs and ticks the tree.
 - `src/send_message.rs` creates outgoing team messages.
-- `crates/nodes/search_suggestor` builds the ball-search heatmap and publishes the suggested search position.
 
 Conditions and actions are split into the remaining modules by behavior area.
+`crates/nodes/search_suggestor` connects observations to the search algorithm and publishes its results.
+`crates/search_heatmap` implements priority updates, field-of-view decay, rule hypotheses, and target selection.
+
 For exact thresholds and currently active lower-level decisions, the source and runtime parameters are more authoritative than this overview.
