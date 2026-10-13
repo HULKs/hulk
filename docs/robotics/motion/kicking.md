@@ -36,9 +36,9 @@ its strong flag while refreshing position, velocity, and aim. Goalkeeper and
 penalty actions can override the strong flag explicitly. The walk fallback
 preserves the same settings while a transition is blocked.
 
-`StandUp { fast }` selects the fast or slow get-up policy. The behavior action
-reads `behavior_node.stand_up.fast` (default `false`) on entry and retains that
-choice until a different command is produced.
+`StandUp` selects `GetUp`.
+It uses position targets and motor-side PD gains configured under
+`motion_inference.policies.GetUp`.
 
 ## Behavior selection parameters
 
@@ -74,11 +74,12 @@ distance is 2.25 m, so observations beyond the cap lose distance information.
 The observation cap does not establish the policy's physical reach.
 
 The behavior simulator approximates the speed rules with configurable limits.
-It does not model the learned quick-kick movement or fast/slow recovery timing;
+It does not model the learned quick-kick movement or recovery timing;
 get-up clears the simulated fallen state immediately.
 
 ## Serialized commands
 
 Injected kick commands use the `Kick` variant with all fields supplied explicitly.
-Stand-up commands use `{"StandUp":{"fast":true}}` for fast recovery or
-`{"StandUp":{"fast":false}}` for slow recovery.
+Stand-up commands use `"StandUp"` without selector fields. Get-up inference
+requests carry an empty `command: {}` inside the existing reset/deadline envelope.
+Clients and parameter overrides must use the updated schema.

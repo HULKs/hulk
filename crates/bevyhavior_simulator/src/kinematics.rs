@@ -151,7 +151,7 @@ pub fn move_robots(
                     kick_ball_speed(&config, *strong, *soft, *target_speed),
                 )
             }
-            MotionCommand::StandUp { .. } => posture.posture = None,
+            MotionCommand::StandUp => posture.posture = None,
             MotionCommand::Damping | MotionCommand::Prepare | MotionCommand::Stand { .. } => {}
         }
 

@@ -95,7 +95,7 @@ impl SimulatorRobotBehavior {
             MotionCommand::Kick { .. } => Some(types::motion_type::MotionType::Kick),
             MotionCommand::Walk { .. } => Some(types::motion_type::MotionType::Walk),
             MotionCommand::Stand { .. } => Some(types::motion_type::MotionType::Stand),
-            MotionCommand::StandUp { .. } => Some(types::motion_type::MotionType::StandUp),
+            MotionCommand::StandUp => Some(types::motion_type::MotionType::StandUp),
             MotionCommand::Prepare => Some(types::motion_type::MotionType::Prepare),
             MotionCommand::Damping => Some(types::motion_type::MotionType::Damping),
             _ => None,
@@ -165,6 +165,7 @@ fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackbo
     BehaviorBlackboard {
         field_dimensions: FieldDimensions::default(),
         parameters,
+        walking_velocity_limits: Default::default(),
         world_state: WorldState::default(),
         controller_input: None,
         remote_control_enabled: false,
