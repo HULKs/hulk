@@ -18,16 +18,6 @@ pub struct SensorFrame {
 }
 
 impl SensorFrame {
-    pub fn validate_at(&self, now: Time, parameters: &Parameters) -> Result<()> {
-        self.validate(parameters)?;
-        ensure!(self.timestamp <= now, "sensor timestamp is in the future");
-        ensure!(
-            now.duration_since(self.timestamp) <= parameters.timing.maximum_sensor_age,
-            "sensor frame expired"
-        );
-        Ok(())
-    }
-
     pub fn validate(&self, parameters: &Parameters) -> Result<()> {
         ensure!(
             self.position
@@ -65,30 +55,27 @@ pub struct VelocityEstimator {
 }
 
 impl VelocityEstimator {
-    pub fn update(&mut self, sensor: &SensorFrame, parameters: &Parameters) -> Result<()> {
-        if let Some((time, _)) = self.previous {
-            ensure!(sensor.timestamp >= time, "sensor time moved backwards");
-            if sensor.timestamp == time {
-                return Ok(());
-            }
+    pub fn update(&mut self, sensor: &SensorFrame, parameters: &Parameters) -> bool {
+        if self
+            .previous
+            .is_some_and(|(time, _)| sensor.timestamp <= time)
+        {
+            return false;
         }
         let recent_sample = self.previous.and_then(|(time, position)| {
-            let elapsed_frames = (sensor.timestamp.duration_since(time).as_secs_f32()
-                / parameters.timing.sensor_period.as_secs_f32())
-            .floor()
-            .max(1.0);
+            let elapsed = sensor.timestamp.duration_since(time).as_secs_f32();
+            let elapsed_frames = elapsed / parameters.timing.sensor_period.as_secs_f32();
             (elapsed_frames <= parameters.observation.maximum_velocity_sample_gap_frames)
-                .then_some((position, elapsed_frames))
+                .then_some((position, elapsed))
         });
         let maximum_change = parameters
             .observation
             .maximum_walking_velocity_change_degrees
             .to_radians();
-        let sample_frequency = (1.0 / parameters.timing.sensor_period.as_secs_f64()) as f32;
         for (joint, position) in sensor.position.enumerate() {
             let velocity = match recent_sample {
-                Some((previous_position, elapsed_frames)) => {
-                    (position - previous_position[joint]) * sample_frequency / elapsed_frames
+                Some((previous_position, elapsed)) => {
+                    (position - previous_position[joint]) / elapsed
                 }
                 None => sensor.velocity[joint],
             };
@@ -100,6 +87,6 @@ impl VelocityEstimator {
             );
         }
         self.previous = Some((sensor.timestamp, sensor.position));
-        Ok(())
+        true
     }
 }

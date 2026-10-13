@@ -5,7 +5,7 @@ use kinematics::{
     forward,
     joints::{Joints, leg::LegJoints},
 };
-use linear_algebra::{Point2, Point3, Vector2, point};
+use linear_algebra::{Orientation2, Point2, Point3, Vector2, point};
 use types::joint_limits::JointLimits;
 use types::motor_command::MotorCommand;
 
@@ -22,7 +22,7 @@ pub mod walk;
 pub struct KickRequest {
     pub ball_position: Point2<Ground>,
     pub ball_velocity: Vector2<Ground>,
-    pub direction: f32,
+    pub direction: Orientation2<Ground>,
     pub target_speed: f32,
     pub strong: bool,
     pub quick: bool,
@@ -35,7 +35,8 @@ impl KickRequest {
             .iter()
             .chain(self.ball_velocity.inner.iter())
             .copied()
-            .chain([self.direction, self.target_speed])
+            .chain(self.direction.as_unit_vector().inner.iter().copied())
+            .chain([self.target_speed])
             .all(f32::is_finite)
             && self.target_speed >= 0.0
     }
@@ -54,19 +55,10 @@ impl Locomotion {
     pub fn new(
         sensor: &SensorFrame,
         parameters: std::sync::Arc<Parameters>,
-        joints: &JointLimits,
+        _joints: &JointLimits,
     ) -> Self {
         Self {
-            history: VecDeque::from(vec![
-                walk::history_frame(
-                    sensor,
-                    &sensor.last_commanded_position,
-                    true,
-                    &parameters,
-                    joints
-                );
-                HISTORY_LENGTH
-            ]),
+            history: VecDeque::from(vec![[0.0; HISTORY_FRAME_SIZE]; HISTORY_LENGTH]),
             previous_target: sensor.last_commanded_position,
             phase: 0.0,
             frequency_offset: parameters.locomotion.initial_frequency_offset.clamp(
@@ -149,7 +141,7 @@ impl Locomotion {
     pub fn decode(
         &mut self,
         policy: Policy,
-        actions: &[f32],
+        actions: &[f32; LEGS.len() + 1],
         sensor: &SensorFrame,
     ) -> Joints<MotorCommand> {
         let offset = policy.offset(&self.parameters);
