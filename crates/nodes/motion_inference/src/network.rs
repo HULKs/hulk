@@ -2,7 +2,7 @@ use crate::config::{Parameters, Policy};
 use color_eyre::eyre::{Result, WrapErr, ensure, eyre};
 use ort::{
     session::Session,
-    value::{Tensor, TensorElementType, ValueType},
+    value::{TensorElementType, TensorRef, ValueType},
 };
 use std::path::Path;
 
@@ -21,6 +21,10 @@ impl Network {
             parameters.inference_threads > 0,
             "inference_threads must be positive"
         );
+        let library = std::env::var("ORT_DYLIB_PATH").ok();
+        ort::init_from(ort_library_path(library.as_deref()))
+            .wrap_err("loading ONNX Runtime dynamic library")?
+            .commit();
         let path = root.join(&configured.model_file);
         let session = Session::builder()?
             .with_intra_threads(parameters.inference_threads)
@@ -54,6 +58,14 @@ impl Network {
     }
 
     pub fn run(&mut self, observation: &[f32]) -> Result<Vec<f32>> {
+        self.run_with_output_observer(observation, |_, _| {})
+    }
+
+    pub(crate) fn run_with_output_observer(
+        &mut self,
+        observation: &[f32],
+        on_output: impl FnOnce(&[i64], &[f32]),
+    ) -> Result<Vec<f32>> {
         let (input_size, output_size) = self.policy.dimensions();
         ensure!(
             observation.len() == input_size,
@@ -65,9 +77,10 @@ impl Network {
             observation.iter().all(|x| x.is_finite()),
             "non-finite observation"
         );
-        let input = Tensor::from_array(([1usize, input_size], observation.to_vec()))?;
+        let input = TensorRef::from_array_view(([1usize, input_size], observation))?;
         let outputs = self.session.run(ort::inputs![input])?;
         let (shape, values) = outputs[0].try_extract_tensor::<f32>()?;
+        on_output(shape.as_ref(), values);
         ensure!(
             shape.as_ref() == [1, output_size as i64] && values.len() == output_size,
             "unexpected output shape"
@@ -77,5 +90,18 @@ impl Network {
             "non-finite network output"
         );
         Ok(values.to_vec())
+    }
+}
+
+// Matches ort 2.0.0-rc.13's setup_api; init_from handles relative-path lookup.
+fn ort_library_path(configured: Option<&str>) -> &str {
+    match configured {
+        Some(path) if !path.is_empty() => path,
+        #[cfg(target_os = "windows")]
+        _ => "onnxruntime.dll",
+        #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
+        _ => "libonnxruntime.so",
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        _ => "libonnxruntime.dylib",
     }
 }

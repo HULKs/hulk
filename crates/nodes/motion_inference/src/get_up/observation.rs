@@ -28,7 +28,7 @@ impl Observation {
         now: Time,
         joints: &JointLimits,
     ) -> Self {
-        let offset = Policy::SlowGetUp.offset(&state.parameters);
+        let offset = Policy::GetUp.offset(&state.parameters);
         Self {
             joint_velocity_scale: state.parameters.observation.joint_velocity_scale,
             gravity: Vector3::wrap(sensor.gravity().into()),

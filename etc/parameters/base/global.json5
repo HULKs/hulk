@@ -18,6 +18,12 @@
     goal_post_diameter: 0.1
   },
   player_number: "Three",
+  // Linear velocities: m/s; angular velocity: rad/s.
+  walking_velocity_limits: {
+    forward_velocity_limits: [-0.8, 1.8],
+    lateral_velocity_limit: 1.0,
+    angular_velocity_limit: 2.0,
+  },
   joint_limits: {
     position: {
       head: {

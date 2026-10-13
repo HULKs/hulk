@@ -1,16 +1,14 @@
 use kinematics::joints::Joints;
 use ros_z::time::Time;
-use types::joint_limits::JointLimits;
 use types::motor_command::MotorCommand;
 
 use crate::{
-    config::{JOINT_COUNT, Parameters, Policy, clip_measurement},
+    config::{JOINT_COUNT, Parameters, Policy},
     inference::position_targets,
     observation::SensorFrame,
 };
 
-pub mod fast;
-pub mod slow;
+pub mod observation;
 
 pub struct GetUp {
     parameters: std::sync::Arc<Parameters>,
@@ -44,20 +42,11 @@ impl GetUp {
         self.parameters = parameters;
     }
 
-    pub fn decode(
-        &mut self,
-        policy: Policy,
-        actions: &[f32],
-        sensor: &SensorFrame,
-        joints: &JointLimits,
-    ) -> Joints<MotorCommand> {
-        let reference_position = if policy == Policy::FastGetUp {
-            clip_measurement(sensor.position, joints.position)
-        } else {
-            policy.offset(&self.parameters)
-        };
+    pub fn decode(&mut self, actions: &[f32; JOINT_COUNT]) -> Joints<MotorCommand> {
+        let policy = Policy::GetUp;
+        let reference_position = policy.offset(&self.parameters);
         let action_limit = policy.action_limit(&self.parameters);
-        self.previous_action = actions[..JOINT_COUNT]
+        self.previous_action = actions
             .iter()
             .map(|action| action.clamp(-action_limit, action_limit))
             .collect();

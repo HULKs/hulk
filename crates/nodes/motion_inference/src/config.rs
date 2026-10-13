@@ -12,18 +12,11 @@ pub enum Policy {
     Walk,
     Kick,
     SoftKick,
-    SlowGetUp,
-    FastGetUp,
+    GetUp,
 }
 
 impl Policy {
-    pub const ALL: [Self; 5] = [
-        Self::Walk,
-        Self::Kick,
-        Self::SoftKick,
-        Self::SlowGetUp,
-        Self::FastGetUp,
-    ];
+    pub const ALL: [Self; 4] = [Self::Walk, Self::Kick, Self::SoftKick, Self::GetUp];
 
     pub fn file(self, parameters: &Parameters) -> &str {
         &parameters.policies[&self].model_file
@@ -33,8 +26,7 @@ impl Policy {
         match self {
             Self::Walk => (344, 13),
             Self::Kick | Self::SoftKick => (59, 13),
-            Self::SlowGetUp => (73, 22),
-            Self::FastGetUp => (72, 22),
+            Self::GetUp => (73, 22),
         }
     }
 
@@ -84,7 +76,8 @@ pub struct PolicyParameters {
 pub struct TimingParameters {
     pub policy_period: Duration,
     pub sensor_period: Duration,
-    pub maximum_sensor_age: Duration,
+    pub sensor_timeout: Duration,
+    pub policy_state_max_age: Duration,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ros_z::Message)]
@@ -99,9 +92,6 @@ pub struct ObservationParameters {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ros_z::Message)]
 #[serde(deny_unknown_fields)]
 pub struct LocomotionParameters {
-    pub forward_velocity_limits: [f32; 2],
-    pub lateral_velocity_limit: f32,
-    pub angular_velocity_limit: f32,
     pub base_frequency: f32,
     pub initial_frequency_offset: f32,
     pub frequency_offset_limit: f32,
@@ -166,14 +156,16 @@ impl Parameters {
         }
         let timing = &self.timing;
         ensure!(
-            [
-                timing.policy_period,
-                timing.sensor_period,
-                timing.maximum_sensor_age
-            ]
-            .into_iter()
-            .all(|value| !value.is_zero() && value.as_secs_f32().is_finite()),
+            [timing.policy_period, timing.sensor_period]
+                .into_iter()
+                .all(|value| !value.is_zero() && value.as_secs_f32().is_finite()),
             "invalid inference timing"
+        );
+        ensure!(
+            [timing.sensor_timeout, timing.policy_state_max_age]
+                .into_iter()
+                .all(|value| !value.is_zero() && i64::try_from(value.as_nanos()).is_ok()),
+            "inference timeouts must be positive and fit node-time nanoseconds"
         );
         let observation = &self.observation;
         ensure!(
@@ -209,14 +201,6 @@ impl Parameters {
             (
                 "observation.joint_velocity_scale",
                 observation.joint_velocity_scale,
-            ),
-            (
-                "locomotion.lateral_velocity_limit",
-                locomotion.lateral_velocity_limit,
-            ),
-            (
-                "locomotion.angular_velocity_limit",
-                locomotion.angular_velocity_limit,
             ),
             ("locomotion.base_frequency", locomotion.base_frequency),
             (
@@ -259,10 +243,6 @@ impl Parameters {
             "kick speed limits must be nonnegative"
         );
         for (name, [minimum, maximum]) in [
-            (
-                "locomotion.forward_velocity_limits",
-                locomotion.forward_velocity_limits,
-            ),
             ("kick.speed_limits", kick.speed_limits),
             ("kick.soft_speed_limits", kick.soft_speed_limits),
         ] {
