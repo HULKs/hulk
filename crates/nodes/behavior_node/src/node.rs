@@ -31,6 +31,7 @@ use types::{
     primary_state::PrimaryState,
     rule_obstacles::RuleObstacle,
     time_wrapper::TimeWrapper,
+    walking_velocity_limits::{WALKING_VELOCITY_LIMITS_TOPIC, WalkingVelocityLimits},
     world_state::{BallState, PlayerState, RobotState, WorldState},
 };
 use voronoi::VoronoiGrid;
@@ -50,6 +51,7 @@ pub struct Blackboard {
     pub field_dimensions: FieldDimensions,
     pub player_number: PlayerNumber,
     pub parameters: BehaviorParameters,
+    pub walking_velocity_limits: WalkingVelocityLimits,
     pub world_state: WorldState,
     pub controller_input: Option<ControllerInput>,
     pub remote_control_enabled: bool,
@@ -146,6 +148,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     parameters.add_validation_hook(validate_behavior_parameters)?;
     let field_dimensions_cache = node
         .subscriber::<FieldDimensions>("field_dimensions")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
+    let walking_velocity_limits_cache = node
+        .subscriber::<WalkingVelocityLimits>(WALKING_VELOCITY_LIMITS_TOPIC)
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -288,6 +299,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         field_dimensions,
         player_number,
         parameters: parameters.snapshot().typed().clone(),
+        walking_velocity_limits: walking_velocity_limits_cache
+            .get_latest()
+            .and_then(|limits| limits.validate().is_ok().then_some(*limits))
+            .unwrap_or_default(),
         world_state: WorldState::default(),
         controller_input: None,
         remote_control_enabled: false,
@@ -342,6 +357,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             blackboard.player_number = *player_number;
         }
         blackboard.parameters = parameters.snapshot().typed().clone();
+        if let Some(limits) = walking_velocity_limits_cache.get_latest()
+            && limits.validate().is_ok()
+        {
+            blackboard.walking_velocity_limits = *limits;
+        }
 
         let was_start_pressed = blackboard
             .controller_input
@@ -448,7 +468,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 Some(MotionType::Walk)
             }
             MotionCommand::Stand { .. } => Some(MotionType::Stand),
-            MotionCommand::StandUp { .. } => Some(MotionType::StandUp),
+            MotionCommand::StandUp => Some(MotionType::StandUp),
             MotionCommand::Prepare => Some(MotionType::Prepare),
         };
 

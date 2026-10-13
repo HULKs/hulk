@@ -27,9 +27,7 @@ pub enum MotionCommand {
     Stand {
         head: HeadMotion,
     },
-    StandUp {
-        fast: bool,
-    },
+    StandUp,
     Kick {
         head: HeadMotion,
         /// Desired outgoing ball speed in m/s; inference applies policy limits.
@@ -68,7 +66,7 @@ impl MotionCommand {
             MotionCommand::Prepare => Some(HeadMotion::Center {
                 image_region_target: ImageRegion::Top,
             }),
-            MotionCommand::Damping | MotionCommand::StandUp { .. } => None,
+            MotionCommand::Damping | MotionCommand::StandUp => None,
         }
     }
 
@@ -77,7 +75,7 @@ impl MotionCommand {
             BodyMotion::Damping => MotionCommand::Damping,
             BodyMotion::Prepare => MotionCommand::Prepare,
             BodyMotion::Stand => MotionCommand::Stand { head },
-            BodyMotion::StandUp { fast } => MotionCommand::StandUp { fast },
+            BodyMotion::StandUp => MotionCommand::StandUp,
             BodyMotion::Kick {
                 ball_position,
                 ball_velocity,
@@ -127,9 +125,7 @@ pub enum BodyMotion {
     Damping,
     Prepare,
     Stand,
-    StandUp {
-        fast: bool,
-    },
+    StandUp,
     Kick {
         ball_position: Point2<Ground>,
         /// Current ball velocity in Ground coordinates, in m/s.

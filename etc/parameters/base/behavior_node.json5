@@ -58,9 +58,6 @@
       walk_to_kickoff: 0.5,
     },
   },
-  stand_up: {
-    fast: false,
-  },
   kicking: {
     soft: false,
     quick: false,

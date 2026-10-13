@@ -5,6 +5,7 @@ use color_eyre::{
     Result,
     eyre::{WrapErr, ensure, eyre},
 };
+use coordinate_systems::Ground;
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
@@ -14,12 +15,12 @@ use kinematics::joints::{
     body::{BodyJoints, LowerBodyJoints, UpperBodyJoints},
     head::HeadJoints,
 };
-use linear_algebra::vector;
+use linear_algebra::{Vector2, vector};
 use motion_inference::{
     inference::{GetUpCommand, KickCommand, WalkCommand, joints_are_finite},
     locomotion::{KickRequest, leg},
     node::{
-        GETUP_INFERENCE_SERVICE, GetUpInferenceService, KICK_INFERENCE_SERVICE,
+        GETUP_INFERENCE_SERVICE, GetUpInferenceService, InferenceRequest, KICK_INFERENCE_SERVICE,
         KickInferenceService, WALK_INFERENCE_SERVICE, WalkInferenceService,
     },
 };
@@ -29,7 +30,7 @@ use ros_z::{
     node::Node,
     parameter::NodeParametersExt,
     pubsub::Publisher,
-    qos::{QosDurability, QosProfile},
+    qos::{QosDurability, QosProfile, QosReliability},
     service::ServiceClient,
     time::{Clock, Time},
 };
@@ -38,6 +39,7 @@ use types::{
     motion_command::{HeadMotion, MotionCommand},
     motor_command::MotorCommand,
     robot_command::RobotCommand,
+    walking_velocity_limits::{WALKING_VELOCITY_LIMITS_TOPIC, WalkingVelocityLimits},
 };
 
 use crate::walking::{WalkingParameters, step_from_walk_command};
@@ -90,6 +92,16 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await
         .wrap_err("failed to build motion_command subscriber")?;
+    let walking_velocity_limits_cache = node
+        .subscriber::<WalkingVelocityLimits>(WALKING_VELOCITY_LIMITS_TOPIC)
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await
+        .wrap_err("failed to build walking_velocity_limits subscriber")?;
 
     let serial_motor_states_sub = node
         .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")
@@ -109,20 +121,27 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .wrap_err("failed to build robot_command publisher")?;
 
+    let inference_qos = QosProfile {
+        reliability: QosReliability::BestEffort,
+        ..Default::default()
+    };
     let walk_inference_client = node
         .service_client::<WalkInferenceService>(WALK_INFERENCE_SERVICE)
+        .qos(inference_qos)
         .build()
         .await
         .wrap_err("failed to build walk inference service client")?;
 
     let kick_inference_client = node
         .service_client::<KickInferenceService>(KICK_INFERENCE_SERVICE)
+        .qos(inference_qos)
         .build()
         .await
         .wrap_err("failed to build kick inference service client")?;
 
     let get_up_inference_client = node
         .service_client::<GetUpInferenceService>(GETUP_INFERENCE_SERVICE)
+        .qos(inference_qos)
         .build()
         .await
         .wrap_err("failed to build get up inference service client")?;
@@ -157,6 +176,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         kick_inference_client,
         get_up_inference_client,
         motion_emergency_stop_pub,
+        reset_inference: true,
+        get_up_failed: false,
 
         // TODO probably bad defaults
         last_joints_command: Joints::fill(MotorCommand::damping()),
@@ -165,12 +186,18 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let mut timer = node.create_timer(Duration::from_millis(2));
     let mut cycles_since_last_inference = 0u8;
+    let mut walking_velocity_limits = WalkingVelocityLimits::default();
 
     loop {
         timer.tick().await;
         let now = clock.now();
 
         let parameters = &parameters.snapshot().typed;
+        if let Some(limits) = walking_velocity_limits_cache.get_latest()
+            && limits.validate().is_ok()
+        {
+            walking_velocity_limits = *limits;
+        }
 
         let motion_command = match motion_command_cache.get_latest_with_stamp() {
             Some((timestamp, motion_command)) => {
@@ -197,13 +224,16 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             }
         };
 
-        let motion_plan = MotionPlan::from_motion_command(&motion_command, &parameters.walking);
+        let motion_plan = MotionPlan::from_motion_command(
+            &motion_command,
+            &parameters.walking,
+            walking_velocity_limits,
+        );
 
-        cycles_since_last_inference += 1;
-        let do_inference = cycles_since_last_inference >= 10;
-        if do_inference {
-            cycles_since_last_inference = 0;
-        }
+        let do_inference = motion_plan.should_run_inference(
+            &mut cycles_since_last_inference,
+            motion_state.reset_inference,
+        );
 
         let joint_state = serial_motor_states_sub
             .get_latest()
@@ -218,7 +248,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 UpperBodyJoints::default()
             });
 
-        let robot_command = motion_state
+        let mut robot_command = motion_state
             .infer(
                 motion_plan,
                 clock,
@@ -229,7 +259,25 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             )
             .await?;
 
+        robot_command = prioritize_damping(
+            motion_command_cache.get_latest().as_deref(),
+            robot_command,
+            &mut motion_state.reset_inference,
+        );
         robot_command_pub.publish(&robot_command).await?;
+    }
+}
+
+fn prioritize_damping(
+    latest_motion_command: Option<&MotionCommand>,
+    robot_command: RobotCommand,
+    reset_inference: &mut bool,
+) -> RobotCommand {
+    if matches!(latest_motion_command, Some(MotionCommand::Damping)) {
+        *reset_inference = true;
+        RobotCommand::Damping
+    } else {
+        robot_command
     }
 }
 
@@ -239,6 +287,8 @@ struct MotionState {
     kick_inference_client: ServiceClient<KickInferenceService>,
     get_up_inference_client: ServiceClient<GetUpInferenceService>,
     motion_emergency_stop_pub: Publisher<()>,
+    reset_inference: bool,
+    get_up_failed: bool,
     last_joints_command: Joints<MotorCommand>,
     last_timestamp: Time,
 }
@@ -260,7 +310,30 @@ enum MotionPlan {
 }
 
 impl MotionPlan {
-    fn from_motion_command(motion_command: &MotionCommand, parameters: &WalkingParameters) -> Self {
+    fn blocks_failed_get_up(&self, get_up_failed: &mut bool) -> bool {
+        *get_up_failed &= matches!(self, Self::GetUp { .. });
+        *get_up_failed
+    }
+
+    fn should_run_inference(
+        &self,
+        cycles_since_last_inference: &mut u8,
+        reset_inference: bool,
+    ) -> bool {
+        *cycles_since_last_inference += 1;
+        let do_inference = *cycles_since_last_inference >= 10
+            || (reset_inference && matches!(self, Self::GetUp { .. }));
+        if do_inference {
+            *cycles_since_last_inference = 0;
+        }
+        do_inference
+    }
+
+    fn from_motion_command(
+        motion_command: &MotionCommand,
+        parameters: &WalkingParameters,
+        walking_velocity_limits: WalkingVelocityLimits,
+    ) -> Self {
         match motion_command {
             MotionCommand::Damping => Self::Damping,
             MotionCommand::Prepare => Self::Prepare,
@@ -268,8 +341,8 @@ impl MotionPlan {
                 head_motion: *head,
                 command: WalkCommand::stand(),
             },
-            MotionCommand::StandUp { fast } => Self::GetUp {
-                command: GetUpCommand { fast: *fast },
+            MotionCommand::StandUp => Self::GetUp {
+                command: GetUpCommand {},
             },
             MotionCommand::Kick {
                 head,
@@ -289,7 +362,7 @@ impl MotionPlan {
                         ball_velocity: *ball_velocity,
                         // TODO: use timestamped odometry to compensate stale ball coordinates
                         // and kick direction for robot motion before inference.
-                        direction: kick_direction.angle(),
+                        direction: *kick_direction,
                         target_speed: *target_speed,
                         strong: *strong,
                         quick: *quick,
@@ -315,10 +388,11 @@ impl MotionPlan {
 
                 Self::Walk {
                     head_motion: *head,
-                    command: WalkCommand {
-                        velocity: vector![step.forward, step.left],
-                        angular_velocity: step.turn,
-                    },
+                    command: limited_walk_command(
+                        vector![step.forward, step.left],
+                        step.turn,
+                        walking_velocity_limits,
+                    ),
                 }
             }
             MotionCommand::WalkWithVelocity {
@@ -327,12 +401,25 @@ impl MotionPlan {
                 angular_velocity,
             } => Self::Walk {
                 head_motion: *head,
-                command: WalkCommand {
-                    velocity: *velocity,
-                    angular_velocity: *angular_velocity,
-                },
+                command: limited_walk_command(
+                    *velocity,
+                    *angular_velocity,
+                    walking_velocity_limits,
+                ),
             },
         }
+    }
+}
+
+fn limited_walk_command(
+    velocity: Vector2<Ground>,
+    angular_velocity: f32,
+    limits: WalkingVelocityLimits,
+) -> WalkCommand {
+    let (velocity, angular_velocity) = limits.clamp_command(velocity, angular_velocity);
+    WalkCommand {
+        velocity,
+        angular_velocity,
     }
 }
 
@@ -347,12 +434,16 @@ impl MotionState {
         do_inference: bool,
     ) -> Result<RobotCommand> {
         let now = clock.now();
+        let is_get_up = matches!(motion_plan, MotionPlan::GetUp { .. });
+        let block_get_up = motion_plan.blocks_failed_get_up(&mut self.get_up_failed);
 
         let robot_command = match motion_plan {
             MotionPlan::Damping => RobotCommand::Damping,
             MotionPlan::Prepare => RobotCommand::Prepare,
+            MotionPlan::GetUp { .. } if block_get_up => RobotCommand::Damping,
             MotionPlan::GetUp { command } => {
-                self.infer_get_up(command, parameters, do_inference).await?
+                self.infer_get_up(command, clock, parameters, do_inference)
+                    .await?
             }
             MotionPlan::Walk {
                 head_motion,
@@ -360,7 +451,12 @@ impl MotionState {
             } => {
                 self.infer_generic::<WalkInferenceService, _>(
                     head_motion,
-                    command,
+                    InferenceRequest::new(
+                        command,
+                        self.reset_inference,
+                        clock.now(),
+                        parameters.inference_timeout,
+                    ),
                     clock,
                     parameters,
                     joint_limits,
@@ -375,7 +471,12 @@ impl MotionState {
             } => {
                 self.infer_generic::<KickInferenceService, _>(
                     head_motion,
-                    command,
+                    InferenceRequest::new(
+                        command,
+                        self.reset_inference,
+                        clock.now(),
+                        parameters.inference_timeout,
+                    ),
                     clock,
                     parameters,
                     joint_limits,
@@ -397,6 +498,15 @@ impl MotionState {
             }
         };
 
+        if is_get_up && matches!(robot_command, RobotCommand::Damping) {
+            self.get_up_failed = true;
+        }
+        if !matches!(robot_command, RobotCommand::Custom { .. }) {
+            self.reset_inference = true;
+        } else if do_inference {
+            // Cached 500 Hz commands must not consume a reset intended for the next inference.
+            self.reset_inference = false;
+        }
         if let RobotCommand::Custom { joints_command } = &robot_command {
             self.last_joints_command = joints_command.clone();
             self.last_timestamp = now;
@@ -502,6 +612,7 @@ impl MotionState {
     async fn infer_get_up(
         &mut self,
         command: GetUpCommand,
+        clock: &Clock,
         parameters: &Parameters,
         do_inference: bool,
     ) -> Result<RobotCommand> {
@@ -511,6 +622,12 @@ impl MotionState {
             });
         }
 
+        let command = InferenceRequest::new(
+            command,
+            self.reset_inference,
+            clock.now(),
+            parameters.inference_timeout,
+        );
         let inference_result = self
             .get_up_inference_client
             .call_with_timeout_async(&command, parameters.inference_timeout)
@@ -528,6 +645,8 @@ impl MotionState {
                 error!(
                     "Failed to call GetUp inference service, sending RobotCommand::Damping! {ros_z_error}"
                 );
+
+                self.send_emergency_stop_signal().await?;
 
                 RobotCommand::Damping
             }
