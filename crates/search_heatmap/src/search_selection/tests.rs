@@ -1,11 +1,17 @@
 use super::*;
+use linear_algebra::point;
+
+#[test]
+fn heatmap_uses_half_meter_cells() {
+    assert_eq!(Heatmap::new(FieldDimensions::SPL_2025).map.dim(), (18, 12));
+}
 
 #[test]
 fn border_penalty_prefers_interior_without_hiding_strong_border_evidence() {
     let field = FieldDimensions::SPL_2025;
     let mut heatmap = Heatmap::new(field);
-    let border = (8, 5);
-    let interior = (4, 2);
+    let border = (17, 11);
+    let interior = (9, 5);
     heatmap.map[border] = 0.9;
     heatmap.map[interior] = 0.82;
     let mut parameters = SearchSuggestorParameters {
@@ -38,8 +44,8 @@ fn border_penalty_prefers_interior_without_hiding_strong_border_evidence() {
 fn border_penalty_changes_choice_with_turn_preference() {
     let field = FieldDimensions::SPL_2025;
     let mut heatmap = Heatmap::new(field);
-    let border = (8, 5);
-    let interior = (4, 2);
+    let border = (17, 11);
+    let interior = (9, 5);
     heatmap.map[border] = 0.95;
     heatmap.map[interior] = 0.82;
     let mut parameters = SearchSuggestorParameters {
@@ -50,7 +56,7 @@ fn border_penalty_changes_choice_with_turn_preference() {
         ..Default::default()
     };
     let pose =
-        Isometry2::<Ground, Field>::from_parts(vector![0.0, 0.0], -std::f32::consts::FRAC_PI_2);
+        Isometry2::<Ground, Field>::from_parts(vector![0.0, 0.0], -std::f32::consts::FRAC_PI_4);
 
     assert_eq!(
         heatmap.get_suggested_search_index(field, &parameters, Some(pose), None),
@@ -61,5 +67,30 @@ fn border_penalty_changes_choice_with_turn_preference() {
     assert_eq!(
         heatmap.get_suggested_search_index(field, &parameters, Some(pose), None),
         Some(border)
+    );
+}
+
+#[test]
+fn selected_position_stays_with_robot_inside_selected_cell() {
+    let field = FieldDimensions::SPL_2025;
+    let mut heatmap = Heatmap::new(field);
+    heatmap.last_maximum_heatmap_position = Some((10, 5));
+    let robot_position: Point2<Field> = point![0.75, -0.2];
+
+    assert_eq!(
+        heatmap.selected_position(field, robot_position),
+        Some(robot_position)
+    );
+}
+
+#[test]
+fn selected_position_is_center_of_distant_cell() {
+    let field = FieldDimensions::SPL_2025;
+    let mut heatmap = Heatmap::new(field);
+    heatmap.last_maximum_heatmap_position = Some((10, 5));
+
+    assert_eq!(
+        heatmap.selected_position(field, Point2::origin()),
+        Some(point![0.75, -0.25])
     );
 }

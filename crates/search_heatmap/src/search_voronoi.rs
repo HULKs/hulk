@@ -5,7 +5,7 @@ use linear_algebra::{Pose2, point};
 use types::field_dimensions::FieldDimensions;
 use voronoi::{Ownership, VoronoiGrid};
 
-use crate::{heatmap_dimensions, heatmap_tile_center};
+use crate::{CELL_SIZE, heatmap_dimensions, heatmap_tile_center};
 
 #[derive(Clone, Debug)]
 pub struct SearchVoronoiSelection {
@@ -41,6 +41,9 @@ fn search_voronoi_grid(field_dimensions: FieldDimensions) -> VoronoiGrid {
         -field_dimensions.length / 2.0,
         -field_dimensions.width / 2.0
     ];
-    let grid_max = point![grid_min.x() + length as f32, grid_min.y() + width as f32];
-    VoronoiGrid::new(grid_min, grid_max, 1.0)
+    let grid_max = point![
+        grid_min.x() + length as f32 * CELL_SIZE,
+        grid_min.y() + width as f32 * CELL_SIZE
+    ];
+    VoronoiGrid::new(grid_min, grid_max, CELL_SIZE)
 }

@@ -63,7 +63,7 @@ The retention time is controlled by `ball.last_ball_timeout` for local balls and
 
 ### Search
 
-The `search_suggestor` combines local, team, hypothetical, and rule-based ball information in a priority heatmap with one-meter cells and values between zero and one.
+The `search_suggestor` combines local, team, hypothetical, and rule-based ball information in a priority heatmap with half-meter cells and values between zero and one.
 After losing a locally observed ball, priorities grow over time, fastest around its last position.
 Areas within the estimated field of view lose priority; obstacles reduce this decay for areas they obscure.
 Corner kicks, goal kicks, and throw-ins restrict rule-based search priorities to the corresponding restart locations.
@@ -71,7 +71,7 @@ Corner kicks, goal kicks, and throw-ins restrict rule-based search priorities to
 The robot's own pose and fresh teammate poses define its search Voronoi region.
 Within that region, the suggestor selects a cell above the minimum priority. It slightly lowers the selection score of cells near the field boundary, where more of the search view would fall outside the field, and prefers smaller turns among similarly ranked cells.
 Hysteresis stabilizes the selection.
-The cell center is published as `suggested_search_position`, or `None` when no valid target is available.
+The selected cell's center is published as `suggested_search_position`, or `None` when no valid target is available. A robot that is already inside the cell instead keeps its current position and scans without walking to the center.
 
 The searcher uses the existing walking behavior to approach that position with `walking.speed.search`, while the head looks toward plausible ball positions or scans for the ball.
 Within `search.position_reached_distance`, the robot turns in place and continues searching.
