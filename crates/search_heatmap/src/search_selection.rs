@@ -2,12 +2,23 @@ use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2, Vector2, vector};
 use types::{field_dimensions::FieldDimensions, parameters::SearchSuggestorParameters};
 
-use crate::{Heatmap, heatmap_tile_center, search_voronoi::SearchVoronoiSelection};
+use crate::{
+    Heatmap, heatmap_tile_center, heatmap_tile_contains, search_voronoi::SearchVoronoiSelection,
+};
 
 impl Heatmap {
-    pub fn selected_position(&self, field_dimensions: FieldDimensions) -> Option<Point2<Field>> {
-        self.last_maximum_heatmap_position
-            .map(|index| heatmap_tile_center(field_dimensions, index))
+    pub fn selected_position(
+        &self,
+        field_dimensions: FieldDimensions,
+        robot_position: Point2<Field>,
+    ) -> Option<Point2<Field>> {
+        self.last_maximum_heatmap_position.map(|index| {
+            if heatmap_tile_contains(field_dimensions, index, robot_position) {
+                robot_position
+            } else {
+                heatmap_tile_center(field_dimensions, index)
+            }
+        })
     }
 
     fn get_maximum_position_matching(
@@ -216,3 +227,6 @@ fn turn_score(
     }
     robot_heading.dot(&robot_to_tile) / (robot_heading_norm * robot_to_tile_norm)
 }
+
+#[cfg(test)]
+mod tests;

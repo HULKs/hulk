@@ -255,8 +255,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             heatmap.clear_suggested_search_position();
         }
 
+        let suggested_search_position = ground_to_field.and_then(|ground_to_field| {
+            heatmap.selected_position(field_dimensions, ground_to_field.translation())
+        });
         suggested_search_position_pub
-            .publish(&heatmap.selected_position(field_dimensions))
+            .publish(&suggested_search_position)
             .await?;
 
         additional_heatmap_pub

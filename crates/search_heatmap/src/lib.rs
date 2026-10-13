@@ -14,6 +14,8 @@ mod search_voronoi;
 pub use field_of_view::SearchOccluder;
 pub use search_voronoi::SearchVoronoiSelection;
 
+const CELL_SIZE: f32 = 0.5;
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Heatmap {
     map: Array2<f32>,
@@ -56,8 +58,8 @@ impl Heatmap {
         field_point: Point2<Field>,
     ) -> (usize, usize) {
         let heatmap_point = (
-            (field_point.x() + field_dimensions.length / 2.0).floor(),
-            (field_point.y() + field_dimensions.width / 2.0).floor(),
+            ((field_point.x() + field_dimensions.length / 2.0) / CELL_SIZE).floor(),
+            ((field_point.y() + field_dimensions.width / 2.0) / CELL_SIZE).floor(),
         );
         (
             clamp(heatmap_point.0, 0.0, (self.map.dim().0 - 1) as f32) as usize,
@@ -68,14 +70,26 @@ impl Heatmap {
 
 fn heatmap_dimensions(field_dimensions: FieldDimensions) -> (usize, usize) {
     (
-        field_dimensions.length.ceil().max(1.0) as usize,
-        field_dimensions.width.ceil().max(1.0) as usize,
+        (field_dimensions.length / CELL_SIZE).ceil().max(1.0) as usize,
+        (field_dimensions.width / CELL_SIZE).ceil().max(1.0) as usize,
     )
 }
 
 fn heatmap_tile_center(field_dimensions: FieldDimensions, (x, y): (usize, usize)) -> Point2<Field> {
     point![
-        x as f32 + 0.5 - field_dimensions.length / 2.0,
-        y as f32 + 0.5 - field_dimensions.width / 2.0
+        (x as f32 + 0.5) * CELL_SIZE - field_dimensions.length / 2.0,
+        (y as f32 + 0.5) * CELL_SIZE - field_dimensions.width / 2.0
     ]
+}
+
+fn heatmap_tile_contains(
+    field_dimensions: FieldDimensions,
+    (x, y): (usize, usize),
+    point: Point2<Field>,
+) -> bool {
+    let minimum_x = x as f32 * CELL_SIZE - field_dimensions.length / 2.0;
+    let minimum_y = y as f32 * CELL_SIZE - field_dimensions.width / 2.0;
+    let maximum_x = (minimum_x + CELL_SIZE).min(field_dimensions.length / 2.0);
+    let maximum_y = (minimum_y + CELL_SIZE).min(field_dimensions.width / 2.0);
+    (minimum_x..=maximum_x).contains(&point.x()) && (minimum_y..=maximum_y).contains(&point.y())
 }
