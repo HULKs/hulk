@@ -11735,7 +11735,6 @@ dependencies = [
  "linear_algebra",
  "log",
  "nalgebra 0.34.2",
- "ndarray 0.16.1",
  "projection",
  "repository",
  "ros-z",
