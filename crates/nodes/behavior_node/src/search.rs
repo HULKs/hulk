@@ -1,4 +1,4 @@
-use linear_algebra::{Pose2, vector};
+use linear_algebra::{Orientation2, Pose2, vector};
 use types::{
     behavior_tree::Status,
     motion_command::{BodyMotion, MotionCommand, OrientationMode},
@@ -6,8 +6,33 @@ use types::{
 
 use crate::{node::Blackboard, walk::walk_to};
 
-pub fn has_suggested_search_position(blackboard: &mut Blackboard) -> bool {
-    blackboard.world_state.suggested_search_position.is_some()
+pub fn walk_towards_search_position(blackboard: &mut Blackboard) -> Status {
+    let (Some(search_position), Some(ground_to_field)) = (
+        blackboard.world_state.suggested_search_position,
+        blackboard.world_state.robot.ground_to_field,
+    ) else {
+        return Status::Failure;
+    };
+
+    let target_in_ground = ground_to_field.inverse() * search_position;
+    let position_reached_distance = blackboard.parameters.search.position_reached_distance;
+    if target_in_ground.coords().norm() <= position_reached_distance.max(f32::EPSILON) {
+        return Status::Failure;
+    }
+
+    let search_speed = blackboard.parameters.walking.speed.search;
+    let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
+    walk_to(
+        blackboard,
+        Pose2::from_parts(
+            target_in_ground,
+            Orientation2::from_vector(target_in_ground.coords()),
+        ),
+        search_speed,
+        OrientationMode::AlignWithPath,
+        walk_and_stand.normal_distance_to_be_aligned,
+        walk_and_stand.hysteresis,
+    )
 }
 
 pub fn leuchtturm(blackboard: &mut Blackboard) -> Status {
@@ -41,26 +66,4 @@ fn get_leuchtturm_direction(blackboard: &Blackboard) -> f32 {
     }
 
     1.0
-}
-
-pub fn walk_to_search_position(blackboard: &mut Blackboard) -> Status {
-    if let (Some(search_position), Some(ground_to_field)) = (
-        blackboard.world_state.suggested_search_position,
-        blackboard.world_state.robot.ground_to_field,
-    ) {
-        let search_position_in_ground = ground_to_field.inverse() * search_position;
-        let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
-        let search_speed = blackboard.parameters.walking.speed.search;
-
-        return walk_to(
-            blackboard,
-            Pose2::from(search_position_in_ground),
-            search_speed,
-            OrientationMode::AlignWithPath,
-            walk_and_stand.normal_distance_to_be_aligned,
-            walk_and_stand.hysteresis,
-        );
-    }
-
-    Status::Failure
 }
