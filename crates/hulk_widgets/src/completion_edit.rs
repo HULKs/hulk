@@ -127,13 +127,19 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
         state.selection.clamp(matching_items.len());
         let popup_id = self.id.with("popup");
         let text_edit_id = self.id.with("text-edit");
-        if ui.memory(|memory| memory.has_focus(text_edit_id))
-            && ui.input(|input| input.key_pressed(Key::ArrowDown))
-        {
-            // Focus navigation is computed before widgets consume key events.
-            ui.memory_mut(|memory| memory.move_focus(egui::FocusDirection::None));
-            state.typed_since_focused = true;
-            Popup::open_id(ui.ctx(), popup_id);
+        // Open the dropdown before reading its state, so this frame already
+        // handles its keyboard input.
+        if ui.memory(|memory| memory.has_focus(text_edit_id)) {
+            let arrow_down = ui.input(|input| input.key_pressed(Key::ArrowDown));
+            let ctrl_space = ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::Space));
+            if arrow_down {
+                // Cancel pending focus navigation; ListInput consumes the key below.
+                ui.memory_mut(|memory| memory.move_focus(egui::FocusDirection::None));
+            }
+            if arrow_down || ctrl_space {
+                state.typed_since_focused = true;
+                Popup::open_id(ui.ctx(), popup_id);
+            }
         }
         let is_popup_open = Popup::is_id_open(ui.ctx(), popup_id);
         let list_input = ListInput::consume(ui, is_popup_open, false);
@@ -200,12 +206,6 @@ impl<'a, T: ToString + Hash> CompletionEdit<'a, T> {
                 0,
                 self.selected.chars().count(),
             );
-        }
-        if response.has_focus()
-            && ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::Space))
-        {
-            state.typed_since_focused = true;
-            Popup::open_id(ui.ctx(), popup_id);
         }
         // Report changes only when the user commits the edited value.
         response.flags.set(Flags::CHANGED, false);
