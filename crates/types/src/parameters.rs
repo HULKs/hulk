@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
 use linear_algebra::{Framed, Point2, Vector2, Vector3};
 
-use crate::{field_color::FieldColorParameters, motion_command::MotionCommand, players::Players};
+use crate::{field_color::FieldColorParameters, motion_command::MotionCommand};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct WhistleDetectionParameters {
@@ -102,8 +102,12 @@ pub struct KickOffPose {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct KickoffParameters {
-    pub striker_position: Point2<Field>,
-    pub standard_positions: Players<KickOffPose>,
+    pub goalkeeper_pose: KickOffPose,
+    pub striker_pose: KickOffPose,
+    /// Own-kickoff support slots, filled in order by descending active player number.
+    pub aggressive_positions: [KickOffPose; 3],
+    /// Opponent-kickoff slots, filled in order by descending active player number.
+    pub defensive_positions: [KickOffPose; 4],
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
