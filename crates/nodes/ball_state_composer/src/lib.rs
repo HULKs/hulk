@@ -201,7 +201,7 @@ fn compose_rule_ball_state(
                 penalty_spot_location,
                 Vector2::zeros(),
                 cycle_start_time,
-                BallSource::Own,
+                BallSource::Rule,
                 last_ball_field_side,
             ))
         }
@@ -210,7 +210,7 @@ fn compose_rule_ball_state(
             Point2::origin(),
             Vector2::zeros(),
             cycle_start_time,
-            BallSource::Own,
+            BallSource::Rule,
             last_ball_field_side,
         )),
         _ => None,
@@ -242,5 +242,26 @@ fn create_ball_state(
         last_seen_ball,
         field_side,
         source,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ready_center_ball_has_rule_source() {
+        let mut last_ball_field_side = Side::Left;
+        let ball = compose_rule_ball_state(
+            PrimaryState::Ready,
+            Isometry2::<Ground, Field>::identity(),
+            None,
+            FieldDimensions::SPL_2025,
+            SystemTime::UNIX_EPOCH,
+            &mut last_ball_field_side,
+        )
+        .unwrap();
+
+        assert_eq!(ball.source, BallSource::Rule);
     }
 }

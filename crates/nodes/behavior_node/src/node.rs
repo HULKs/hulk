@@ -95,6 +95,7 @@ pub fn ball_timeout(parameters: &BehaviorParameters, source: BallSource) -> Dura
     match source {
         BallSource::Own => parameters.ball.last_ball_timeout,
         BallSource::Team => parameters.ball.team_ball_timeout,
+        BallSource::Rule => Duration::ZERO, // A rule hypothesis is not a remembered observation.
     }
 }
 
