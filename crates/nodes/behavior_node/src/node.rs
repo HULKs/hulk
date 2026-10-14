@@ -303,6 +303,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
+    let goalkeeper_player_number_pub = node
+        .publisher::<PlayerNumber>("behavior/goalkeeper_player_number")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            history: QosHistory::KeepLast(NonZeroUsize::MIN),
+            ..Default::default()
+        })
+        .build()
+        .await?;
     let motion_command_pub = node
         .publisher::<MotionCommand>("behavior/motion_command")
         .build()
@@ -372,6 +381,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     hsl_state_message_send_interval_pub
         .publish(&published_state_message_send_interval)
         .await?;
+    let mut published_goalkeeper_player_number = blackboard.parameters.goalkeeper.player_number;
+    goalkeeper_player_number_pub
+        .publish(&published_goalkeeper_player_number)
+        .await?;
 
     loop {
         timer.tick().await;
@@ -415,6 +428,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 .await?;
             published_state_message_send_interval = state_message_send_interval;
 
+        }
+        let goalkeeper_player_number = blackboard.parameters.goalkeeper.player_number;
+        if goalkeeper_player_number != published_goalkeeper_player_number {
+            goalkeeper_player_number_pub
+                .publish(&goalkeeper_player_number)
+                .await?;
+            published_goalkeeper_player_number = goalkeeper_player_number;
         }
 
         let was_start_pressed = blackboard
