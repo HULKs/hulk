@@ -68,10 +68,14 @@ async fn control(
     let default = on_lower_root(robot, "systemctl --root=\"$root\" get-default").await?;
     let enabled = default.trim() == "hulks-overlay-boot.target";
     let message = match action {
-        Action::Status => format!(
-            "Overlay autostart: {}",
-            if enabled { "enabled" } else { "disabled" }
-        ),
+        Action::Status => {
+            let active = status(robot).await?.starts_with("overlay ");
+            format!(
+                "{}, {}",
+                if active { "active" } else { "inactive" },
+                if enabled { "enabled" } else { "disabled" }
+            )
+        }
         Action::Disable => {
             let mut commands = String::from("stage=${root%/}/var/lib/hulks-overlay\n");
             if enabled {
