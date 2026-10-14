@@ -80,14 +80,20 @@ fn apply_message(
         return;
     };
 
+    let player_state = PlayerState {
+        pose: state_message.pose,
+        head_yaw: state_message.head_yaw,
+        ball_position: state_message
+            .ball_position
+            .map(|ball| BallPosition::from_network_ball(ball, time)),
+    };
+    if !player_state.is_finite() {
+        return;
+    }
+
     player_states[state_message.player_number] = Some(TimeWrapper {
         time,
-        inner: PlayerState {
-            pose: state_message.pose,
-            ball_position: state_message
-                .ball_position
-                .map(|ball| BallPosition::from_network_ball(ball, time)),
-        },
+        inner: player_state,
     });
 }
 
@@ -133,7 +139,7 @@ mod tests {
     use std::time::Duration;
 
     use hsl_network_messages::{Penalty, PlayerNumber, StateMessage};
-    use linear_algebra::Pose2;
+    use linear_algebra::{Pose2, point};
     use ros_z::time::Time;
     use types::messages::IncomingMessage;
 
@@ -159,6 +165,53 @@ mod tests {
         let player = states[PlayerNumber::Two].as_ref().unwrap();
         assert_eq!(player.time, time);
         assert_eq!(player.inner.pose, pose);
+        assert_eq!(player.inner.head_yaw, 0.0);
+    }
+
+    #[test]
+    fn invalid_state_message_does_not_replace_last_valid_player_state() {
+        let mut states = Players::new(None);
+        let valid = |head_yaw| TimeWrapper {
+            time: Time::from_nanos(42),
+            inner: IncomingMessage::Hsl(HulkMessage::State(StateMessage {
+                player_number: PlayerNumber::Two,
+                pose: Pose2::default(),
+                head_yaw,
+                ball_position: None,
+            })),
+        };
+
+        apply_message(&mut states, valid(0.25));
+        apply_message(&mut states, valid(f32::NAN));
+        for state in [
+            StateMessage {
+                player_number: PlayerNumber::Two,
+                pose: Pose2::new(point![f32::NAN, 0.0], 0.0),
+                head_yaw: 0.0,
+                ball_position: None,
+            },
+            StateMessage {
+                player_number: PlayerNumber::Two,
+                pose: Pose2::default(),
+                head_yaw: 0.0,
+                ball_position: Some(hsl_network_messages::BallPosition {
+                    position: point![f32::NAN, 0.0],
+                    age: Duration::ZERO,
+                }),
+            },
+        ] {
+            apply_message(
+                &mut states,
+                TimeWrapper {
+                    time: Time::from_nanos(43),
+                    inner: IncomingMessage::Hsl(HulkMessage::State(state)),
+                },
+            );
+        }
+
+        let player = states[PlayerNumber::Two].as_ref().unwrap();
+        assert_eq!(player.time, Time::from_nanos(42));
+        assert_eq!(player.inner.head_yaw, 0.25);
     }
 
     #[test]

@@ -112,6 +112,7 @@ pub fn apply_incoming_hsl_messages(
         let HulkMessage::State(state_message) = message;
         let player_state = PlayerState {
             pose: state_message.pose,
+            head_yaw: state_message.head_yaw,
             ball_position: state_message.ball_position.map(|ball| {
                 BallPosition::from_network_ball(
                     ball,
