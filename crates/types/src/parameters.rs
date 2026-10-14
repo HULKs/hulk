@@ -217,6 +217,8 @@ pub struct CameraMatrixParameters {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct SearchSuggestorParameters {
+    #[serde(default)]
+    pub disable_heatmap_search: bool,
     pub minimum_validity: f32,
     pub own_ball_weight: f32,
     pub team_ball_weight: f32,

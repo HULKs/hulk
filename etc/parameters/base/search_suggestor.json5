@@ -1,4 +1,5 @@
 {
+  disable_heatmap_search: false,
   minimum_validity: 0.4,
   own_ball_weight: 1.0,
   team_ball_weight: 1.0,
