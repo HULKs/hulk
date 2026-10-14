@@ -1,15 +1,10 @@
-use std::{f32::consts::LN_2, time::Duration, time::SystemTime};
+use std::{f32::consts::LN_2, time::Duration};
 
 use coordinate_systems::{Field, Ground};
-use hsl_network_messages::{HulkMessage, StateMessage};
-use linear_algebra::{Isometry2, Point2, Vector2};
-use ros_z::time::Time;
+use linear_algebra::{Isometry2, Point2};
 use types::{
-    ball_position::{BallPosition, HypotheticalBallPosition},
-    field_dimensions::FieldDimensions,
-    messages::IncomingMessage,
+    ball_position::HypotheticalBallPosition, field_dimensions::FieldDimensions,
     parameters::SearchSuggestorParameters,
-    time_wrapper::TimeWrapper,
 };
 
 use crate::{Heatmap, heatmap_tile_center};
@@ -57,6 +52,9 @@ impl Heatmap {
         parameters: &SearchSuggestorParameters,
     ) {
         for ball_hypothesis in hypothetical_ball_positions {
+            if !ball_hypothesis.validity.is_finite() {
+                continue;
+            }
             let ball_hypothesis_position = ground_to_field * ball_hypothesis.position;
             if !ball_position_near_field(field_dimensions, ball_hypothesis_position) {
                 continue;
@@ -71,43 +69,14 @@ impl Heatmap {
     pub fn update_with_team_ball(
         &mut self,
         field_dimensions: FieldDimensions,
-        network_message: &TimeWrapper<IncomingMessage>,
+        ball_position: Point2<Field>,
         parameters: &SearchSuggestorParameters,
     ) {
-        let IncomingMessage::Hsl(message) = &network_message.inner else {
+        if !ball_position_near_field(field_dimensions, ball_position) {
             return;
-        };
-        self.add_team_ball(
-            field_dimensions,
-            network_message.time.to_wallclock(),
-            message,
-            parameters.team_ball_weight,
-        );
-    }
-
-    fn add_team_ball(
-        &mut self,
-        field_dimensions: FieldDimensions,
-        time: SystemTime,
-        message: &HulkMessage,
-        team_ball_weight: f32,
-    ) {
-        let ball = match message {
-            HulkMessage::State(StateMessage { ball_position, .. }) => {
-                ball_position.map(|ball| BallPosition {
-                    position: ball.position,
-                    velocity: Vector2::zeros(),
-                    last_seen: Time::from_wallclock(time) - ball.age,
-                })
-            }
-        };
-        if let Some(ball_position) = ball {
-            if !ball_position_near_field(field_dimensions, ball_position.position) {
-                return;
-            }
-            let heatmap_point = self.field_to_heatmap(field_dimensions, ball_position.position);
-            self.map[heatmap_point] = team_ball_weight;
         }
+        let heatmap_point = self.field_to_heatmap(field_dimensions, ball_position);
+        self.map[heatmap_point] = parameters.team_ball_weight;
     }
 
     pub fn increase_around_last_ball(

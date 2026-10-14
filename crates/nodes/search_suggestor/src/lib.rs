@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
-use hsl_network_messages::{HulkMessage, PlayerNumber, StateMessage};
+use hsl_network_messages::PlayerNumber;
 use kinematics::joints::head::HeadJoints;
 use linear_algebra::{Isometry2, Point2};
 use ros_z::{
@@ -14,12 +14,12 @@ use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
-    messages::IncomingMessage,
     obstacles::{Obstacle, ObstacleKind},
     parameters::SearchSuggestorParameters,
     players::Players,
     primary_state::PrimaryState,
     time_wrapper::TimeWrapper,
+    world_state::PlayerState,
 };
 
 const MAXIMUM_MEAN_PRIORITY_AT_PLAYING_START: f32 = 0.5;
@@ -97,8 +97,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-    let network_message_sub = node
-        .subscriber::<TimeWrapper<IncomingMessage>>("filtered_message")
+    let player_states_sub = node
+        .subscriber::<Players<Option<TimeWrapper<PlayerState>>>>("player_states")
         .build()
         .await?;
     let additional_heatmap_pub = node
@@ -115,7 +115,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut last_ball_position = None;
     let mut current_ball_position = None;
     let mut latest_filtered_game_controller_state = None;
-    let mut last_teammate_messages = Players::new(None);
+    let mut last_teammate_states = Players::new(None);
     let mut no_regular_target_since = None;
     let mut was_playing = false;
     let mut last_priority_update = node.clock().now();
@@ -135,7 +135,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let ground_to_field = ground_to_field_cache
             .get_latest()
-            .map(|ground_to_field| *ground_to_field);
+            .map(|ground_to_field| *ground_to_field)
+            .filter(|ground_to_field| ground_to_field_is_finite(*ground_to_field));
         let primary_state = primary_state_cache.get_latest();
         let primary_state = primary_state.as_deref();
         let is_playing = primary_state == Some(&PrimaryState::Playing);
@@ -150,6 +151,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         while ball_position_sub.is_ready() {
             match (ball_position_sub.recv().await?, ground_to_field) {
                 (Some(ball_position), Some(ground_to_field)) => {
+                    if !ball_position.position.x().is_finite()
+                        || !ball_position.position.y().is_finite()
+                    {
+                        continue;
+                    }
                     let ball_position = ground_to_field * ball_position.position;
                     if ball_position_near_field(field_dimensions, ball_position) {
                         ball_was_seen = true;
@@ -177,14 +183,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 hypothetical_ball_positions_sub.recv().await?;
             }
         }
-        while network_message_sub.is_ready() {
-            let network_message = network_message_sub.recv().await?;
-            heatmap.update_with_team_ball(field_dimensions, &network_message, parameters);
-            decay_with_teammate_message(
+        while player_states_sub.is_ready() {
+            let player_states = player_states_sub.recv().await?;
+            update_from_player_states(
                 &mut heatmap,
                 field_dimensions,
-                network_message,
-                &mut last_teammate_messages,
+                &player_states,
+                &mut last_teammate_states,
                 parameters,
                 teammate_freshness_window,
                 elapsed_since_last_priority_update,
@@ -245,15 +250,18 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     search_occluders_from_obstacles(obstacles.as_ref(), ground_to_field)
                 })
                 .unwrap_or_default();
-            heatmap.decay_tiles_in_robot_fov_with_occluders(
-                field_dimensions,
-                ground_to_field,
-                head_joints_command_cache
-                    .get_latest()
-                    .map_or(0.0, |head_joints| head_joints.yaw),
-                parameters,
-                &occluders,
-            );
+            let head_yaw = head_joints_command_cache
+                .get_latest()
+                .map_or(0.0, |head_joints| head_joints.yaw);
+            if head_yaw.is_finite() {
+                heatmap.decay_tiles_in_robot_fov_with_occluders(
+                    field_dimensions,
+                    ground_to_field,
+                    head_yaw,
+                    parameters,
+                    &occluders,
+                );
+            }
         }
 
         if let Some(current_ball_position) = current_ball_position {
@@ -273,7 +281,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         } else if let Some(voronoi_selection) = search_voronoi_selection_from_teammates(
             field_dimensions,
             own_voronoi_site,
-            &last_teammate_messages,
+            &last_teammate_states,
             now,
             teammate_freshness_window,
         ) {
@@ -309,6 +317,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .publish_if_subscribed(|| async { heatmap.to_message() })
             .await?;
     }
+}
+
+fn ground_to_field_is_finite(ground_to_field: Isometry2<Ground, Field>) -> bool {
+    ground_to_field.translation().x().is_finite()
+        && ground_to_field.translation().y().is_finite()
+        && ground_to_field.orientation().angle().is_finite()
 }
 
 fn search_minimum_validity(
@@ -349,36 +363,35 @@ fn search_occluders_from_obstacles(
                 .radius_at_foot_height
                 .max(obstacle.radius_at_hip_height),
         })
+        .filter(|occluder| {
+            occluder.center.x().is_finite()
+                && occluder.center.y().is_finite()
+                && occluder.radius.is_finite()
+                && occluder.radius > 0.0
+        })
         .collect()
-}
-
-#[derive(Clone, Copy, Debug)]
-struct TeammateStateMessage {
-    received_at: ros_z::time::Time,
-    state: StateMessage,
 }
 
 fn search_voronoi_selection_from_teammates(
     field_dimensions: FieldDimensions,
     own_voronoi_site: Option<(Isometry2<Ground, Field>, PlayerNumber)>,
-    last_teammate_messages: &Players<Option<TeammateStateMessage>>,
+    last_teammate_states: &Players<Option<TimeWrapper<PlayerState>>>,
     now: ros_z::time::Time,
     freshness_window: Option<Duration>,
 ) -> Option<SearchVoronoiSelection> {
     let (ground_to_field, own_player_number) = own_voronoi_site?;
     let mut sites = vec![(ground_to_field.as_pose(), own_player_number)];
 
-    for (player_number, teammate_message) in last_teammate_messages.iter() {
-        let Some(teammate_message) = teammate_message else {
+    for (player_number, teammate_state) in last_teammate_states.iter() {
+        let Some(teammate_state) = teammate_state else {
             continue;
         };
-        if player_number == own_player_number || now < teammate_message.received_at {
+        if player_number == own_player_number || now < teammate_state.time {
             continue;
         }
-        if freshness_window
-            .is_some_and(|window| now.duration_since(teammate_message.received_at) <= window)
+        if freshness_window.is_some_and(|window| now.duration_since(teammate_state.time) <= window)
         {
-            sites.push((teammate_message.state.pose, player_number));
+            sites.push((teammate_state.inner.pose, player_number));
         }
     }
 
@@ -389,43 +402,44 @@ fn search_voronoi_selection_from_teammates(
     ))
 }
 
-fn decay_with_teammate_message(
+fn update_from_player_states(
     heatmap: &mut Heatmap,
     field_dimensions: FieldDimensions,
-    message: TimeWrapper<IncomingMessage>,
-    last_teammate_messages: &mut Players<Option<TeammateStateMessage>>,
+    player_states: &Players<Option<TimeWrapper<PlayerState>>>,
+    last_teammate_states: &mut Players<Option<TimeWrapper<PlayerState>>>,
     parameters: &SearchSuggestorParameters,
     freshness_window: Option<Duration>,
     local_tick_duration: Duration,
 ) {
-    let TimeWrapper {
-        time,
-        inner: IncomingMessage::Hsl(HulkMessage::State(state)),
-    } = message
-    else {
-        return;
-    };
+    for (player_number, current) in player_states.iter() {
+        let Some(current) = current.as_ref().filter(|state| state.inner.is_finite()) else {
+            last_teammate_states[player_number] = None;
+            continue;
+        };
+        let previous = last_teammate_states[player_number].as_ref();
+        if previous.is_some_and(|previous| current.time <= previous.time) {
+            continue;
+        }
 
-    if let Some(freshness_window) = freshness_window
-        && let Some(previous) = last_teammate_messages[state.player_number]
-        && time >= previous.received_at
-        && let elapsed_since_previous_message = time.duration_since(previous.received_at)
-        && elapsed_since_previous_message <= freshness_window
-    {
-        let tick_count = replay_tick_count(elapsed_since_previous_message, local_tick_duration);
-        heatmap.decay_tiles_from_teammate_motion(
-            field_dimensions,
-            &previous.state,
-            &state,
-            tick_count,
-            parameters,
-        );
+        if let Some(ball) = current.inner.ball_position {
+            heatmap.update_with_team_ball(field_dimensions, ball.position, parameters);
+        }
+        if let Some(freshness_window) = freshness_window
+            && let Some(previous) = previous
+            && let elapsed_since_previous_message = current.time.duration_since(previous.time)
+            && elapsed_since_previous_message <= freshness_window
+        {
+            let tick_count = replay_tick_count(elapsed_since_previous_message, local_tick_duration);
+            heatmap.decay_tiles_from_teammate_motion(
+                field_dimensions,
+                &previous.inner,
+                &current.inner,
+                tick_count,
+                parameters,
+            );
+        }
+        last_teammate_states[player_number] = Some(current.clone());
     }
-
-    last_teammate_messages[state.player_number] = Some(TeammateStateMessage {
-        received_at: time,
-        state,
-    });
 }
 
 fn replay_tick_count(message_elapsed: Duration, local_tick_duration: Duration) -> usize {
