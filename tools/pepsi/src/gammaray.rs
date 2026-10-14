@@ -33,7 +33,7 @@ pub struct Arguments {
     robots: Vec<RobotAddress>,
 
     /// Discard the saved overlay and provision from a clean lower root
-    #[arg(long)]
+    #[arg(long, visible_alias = "sauber")]
     clean: bool,
 
     /// The password for the `booster` user

@@ -31,8 +31,11 @@ pub(crate) struct Arguments {
 
 #[derive(Clone, Copy, ValueEnum)]
 enum Action {
+    #[value(alias = "aktiviere")]
     Enable,
+    #[value(alias = "deaktivere")]
     Disable,
+    #[value(alias = "zustand")]
     Status,
 }
 

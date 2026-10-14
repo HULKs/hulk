@@ -48,11 +48,11 @@ pub async fn completions(arguments: Arguments, mut command: Command) -> Result<(
     );
 
     let static_completions = String::from_utf8(static_completion)?;
-    dynamic_completions(arguments.shell, static_completions);
+    dynamic_completions(arguments.shell, static_completions, &command);
     Ok(())
 }
 
-fn dynamic_completions(shell: Shell, static_completions: String) {
+fn dynamic_completions(shell: Shell, static_completions: String, command: &Command) {
     let robot_completion_command = format!("pepsi completions --complete-robots {shell}");
     let assignment_completion_command = format!("pepsi completions --complete-assignments {shell}");
 
@@ -72,6 +72,29 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
         }
         Shell::Fish => {
             print!("{static_completions}");
+
+            if let Some(overlay) = command.find_subcommand("overlay")
+                && let Some(action) = overlay.get_arguments().find(|arg| arg.get_id() == "action")
+            {
+                let values = action.get_possible_values();
+                let actions = values
+                    .iter()
+                    .flat_map(|value| value.get_name_and_aliases())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                for name in std::iter::once(overlay.get_name()).chain(overlay.get_all_aliases()) {
+                    println!(
+                        "complete -c pepsi -n \"__fish_pepsi_using_subcommand {name}; \
+                             and not __fish_seen_subcommand_from {actions}\" \
+                             -f -a \"{actions}\""
+                    );
+                    println!(
+                        "complete -c pepsi -n \"__fish_pepsi_using_subcommand {name}; \
+                             and __fish_seen_subcommand_from {actions}\" \
+                             -f -a \"({robot_completion_command})\""
+                    );
+                }
+            }
 
             const ROBOT_COMPLETION_SUBCOMMANDS: [(&str, &str); 18] = [
                 ("aliveness", ""),

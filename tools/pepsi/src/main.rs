@@ -100,6 +100,7 @@ enum Command {
     Gammaray(gammaray::Arguments),
 
     /// Enable, disable, or inspect overlay autostart on a robot
+    #[command(visible_alias = "überlegen")]
     Overlay(gammaray::overlay::Arguments),
     /// Run Hydra neural-network latency benchmarks on a robot
     HydraBench(hydra_bench::Arguments),
