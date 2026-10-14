@@ -32,6 +32,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("search_suggestor").build().await?;
 
     let parameters = node.bind_parameter_as::<SearchSuggestorParameters>("search_suggestor")?;
+    parameters.add_validation_hook(validate_search_suggestor_parameters)?;
     let field_dimensions_sub = node
         .subscriber::<FieldDimensions>("field_dimensions")
         .qos(QosProfile {
@@ -319,6 +320,29 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     }
 }
 
+fn validate_search_suggestor_parameters(
+    parameters: &SearchSuggestorParameters,
+) -> std::result::Result<(), String> {
+    if !parameters.minimum_validity.is_finite()
+        || !(0.0..=1.0).contains(&parameters.minimum_validity)
+    {
+        return Err(format!(
+            "minimum_validity must be finite and between 0 and 1 (got {})",
+            parameters.minimum_validity
+        ));
+    }
+    if !parameters.exhausted_search_minimum_validity.is_finite()
+        || !(0.0..=parameters.minimum_validity)
+            .contains(&parameters.exhausted_search_minimum_validity)
+    {
+        return Err(format!(
+            "exhausted_search_minimum_validity must be finite and between 0 and minimum_validity (got {})",
+            parameters.exhausted_search_minimum_validity
+        ));
+    }
+    Ok(())
+}
+
 fn ground_to_field_is_finite(ground_to_field: Isometry2<Ground, Field>) -> bool {
     ground_to_field.translation().x().is_finite()
         && ground_to_field.translation().y().is_finite()
@@ -342,9 +366,7 @@ fn search_minimum_validity(
         *since = now;
     }
     if now.duration_since(*since) >= parameters.exhausted_search_delay {
-        parameters
-            .exhausted_search_minimum_validity
-            .clamp(0.0, parameters.minimum_validity)
+        parameters.exhausted_search_minimum_validity
     } else {
         parameters.minimum_validity
     }

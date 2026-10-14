@@ -68,6 +68,24 @@ fn fallback_waits_five_seconds_and_requires_an_earlier_own_ball() {
 }
 
 #[test]
+fn rejects_invalid_fallback_thresholds() {
+    let mut parameters = SearchSuggestorParameters {
+        minimum_validity: 0.4,
+        exhausted_search_minimum_validity: 0.05,
+        ..Default::default()
+    };
+    assert!(validate_search_suggestor_parameters(&parameters).is_ok());
+
+    parameters.minimum_validity = -0.1;
+    assert!(validate_search_suggestor_parameters(&parameters).is_err());
+    parameters.minimum_validity = 0.4;
+    parameters.exhausted_search_minimum_validity = 0.5;
+    assert!(validate_search_suggestor_parameters(&parameters).is_err());
+    parameters.exhausted_search_minimum_validity = f32::NAN;
+    assert!(validate_search_suggestor_parameters(&parameters).is_err());
+}
+
+#[test]
 fn rejects_non_finite_local_pose() {
     use linear_algebra::vector;
 
