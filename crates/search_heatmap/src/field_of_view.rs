@@ -6,10 +6,12 @@ use geometry::{
     direction::{Direction, Rotate90Degrees},
     line_segment::LineSegment,
 };
-use hsl_network_messages::StateMessage;
 use linear_algebra::{Isometry2, Orientation2, Pose2, Vector2, vector};
 use nalgebra::clamp;
-use types::{field_dimensions::FieldDimensions, parameters::SearchSuggestorParameters};
+use types::{
+    field_dimensions::FieldDimensions, parameters::SearchSuggestorParameters,
+    world_state::PlayerState,
+};
 
 use crate::{Heatmap, heatmap_tile_center};
 
@@ -37,8 +39,8 @@ impl Heatmap {
             let tile_center_in_field = heatmap_tile_center(field_dimensions, (x, y)).coords();
             let robot_to_tile = tile_center_in_field - robot_position;
             let is_inside_sight = get_direction(left_edge, robot_to_tile)
-                == Direction::Counterclockwise
-                && get_direction(right_edge, robot_to_tile) == Direction::Clockwise;
+                == Some(Direction::Counterclockwise)
+                && get_direction(right_edge, robot_to_tile) == Some(Direction::Clockwise);
             let distance_to_tile = robot_to_tile.norm();
             let relative_distance_to_tile = clamp(distance_to_tile / decay.range.end, 0.0, 1.0);
             if is_inside_sight && decay.range.contains(&distance_to_tile) {
@@ -63,7 +65,12 @@ impl Heatmap {
         heading_direction: Vector2<Field>,
         decay: FieldOfViewDecay<'_>,
     ) {
-        if heading_direction.norm() <= f32::EPSILON {
+        if !pose.position().x().is_finite()
+            || !pose.position().y().is_finite()
+            || !heading_direction.x().is_finite()
+            || !heading_direction.y().is_finite()
+            || heading_direction.norm() <= f32::EPSILON
+        {
             return;
         }
 
@@ -87,8 +94,8 @@ impl Heatmap {
     pub fn decay_tiles_from_teammate_motion(
         &mut self,
         field_dimensions: FieldDimensions,
-        previous: &StateMessage,
-        current: &StateMessage,
+        previous: &PlayerState,
+        current: &PlayerState,
         tick_count: usize,
         parameters: &SearchSuggestorParameters,
     ) {
@@ -122,6 +129,13 @@ impl Heatmap {
         parameters: &SearchSuggestorParameters,
         occluders: &[SearchOccluder],
     ) {
+        if !ground_to_field.translation().x().is_finite()
+            || !ground_to_field.translation().y().is_finite()
+            || !ground_to_field.orientation().angle().is_finite()
+            || !head_yaw.is_finite()
+        {
+            return;
+        }
         let view_orientation = ground_to_field.orientation().angle() + head_yaw;
         let heading_direction: Vector2<Field> =
             vector![view_orientation.cos(), view_orientation.sin()];
@@ -149,8 +163,8 @@ fn teammate_decay_factor(parameters: &SearchSuggestorParameters) -> f32 {
 }
 
 fn interpolate_teammate_pose_and_heading(
-    previous: &StateMessage,
-    current: &StateMessage,
+    previous: &PlayerState,
+    current: &PlayerState,
     alpha: f32,
 ) -> (Pose2<Field>, Vector2<Field>) {
     let alpha = alpha.clamp(0.0, 1.0);
@@ -191,15 +205,15 @@ fn is_occluded(
     })
 }
 
-fn get_direction(base_vector: Vector2<Field>, vector_to_test: Vector2<Field>) -> Direction {
+fn get_direction(base_vector: Vector2<Field>, vector_to_test: Vector2<Field>) -> Option<Direction> {
     let clockwise_normal_vector = base_vector.rotate_90_degrees(Direction::Clockwise);
     let directed_cathetus = clockwise_normal_vector.dot(&vector_to_test);
 
     match directed_cathetus {
-        0.0 => Direction::Collinear,
-        f if f > 0.0 => Direction::Clockwise,
-        f if f < 0.0 => Direction::Counterclockwise,
-        f => panic!("directed cathetus was not a real number: {f}"),
+        0.0 => Some(Direction::Collinear),
+        f if f > 0.0 => Some(Direction::Clockwise),
+        f if f < 0.0 => Some(Direction::Counterclockwise),
+        _ => None,
     }
 }
 
@@ -230,5 +244,27 @@ mod tests {
 
         assert!(heatmap.map[(9, 8)] < 1.0);
         assert_eq!(heatmap.map[(12, 6)], 1.0);
+    }
+
+    #[test]
+    fn invalid_head_yaw_does_not_change_heatmap() {
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let mut heatmap = Heatmap::new(field_dimensions);
+        heatmap.map.fill(1.0);
+        let parameters = SearchSuggestorParameters {
+            decay_distance_factor: 0.5,
+            heatmap_decay_range: 0.0..3.0,
+            ..Default::default()
+        };
+
+        heatmap.decay_tiles_in_robot_fov_with_occluders(
+            field_dimensions,
+            Isometry2::<Ground, Field>::identity(),
+            f32::NAN,
+            &parameters,
+            &[],
+        );
+
+        assert!(heatmap.map.iter().all(|value| *value == 1.0));
     }
 }
