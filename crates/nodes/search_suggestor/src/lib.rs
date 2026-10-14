@@ -1,6 +1,7 @@
 use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
 use hsl_network_messages::{HulkMessage, PlayerNumber, StateMessage};
+use kinematics::joints::head::HeadJoints;
 use linear_algebra::{Isometry2, Point2};
 use ros_z::{
     prelude::*,
@@ -85,6 +86,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let obstacles_cache = node
         .subscriber::<Vec<Obstacle>>("obstacles")
+        .cache(1)
+        .build()
+        .await?;
+    let head_joints_command_cache = node
+        .subscriber::<HeadJoints<f32>>("head_joints_command")
         .cache(1)
         .build()
         .await?;
@@ -222,6 +228,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             heatmap.decay_tiles_in_robot_fov_with_occluders(
                 field_dimensions,
                 ground_to_field,
+                head_joints_command_cache
+                    .get_latest()
+                    .map_or(0.0, |head_joints| head_joints.yaw),
                 parameters,
                 &occluders,
             );
