@@ -34,6 +34,7 @@
     maximum_start_pose_joint_position_deviation: 0.5,
     maximum_start_pose_joint_velocity: 1.0,
     confirmation_duration: { secs: 0, nanos: 300000000 },
+    movement_confirmation_duration: { secs: 0, nanos: 50000000 },
     // Normal GetUp's longer duration: 6.0 s from the back / progress_rate 1.5.
     timeout: { secs: 4, nanos: 0 },
   },

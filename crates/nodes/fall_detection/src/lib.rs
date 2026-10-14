@@ -114,6 +114,9 @@ pub struct Detector {
     posture: Option<(Posture, Time)>,
     candidate: Option<(Posture, Time)>,
     start_pose_since: Option<Time>,
+    stand_up_movement_since: Option<Time>,
+    /// Enables a return to `Fallen` for the rest of this standup attempt.
+    stand_up_movement_confirmed: bool,
     last_time: Option<Time>,
 }
 
@@ -137,11 +140,13 @@ impl Detector {
                 // but the confirmed posture survives a short gap.
                 self.candidate = None;
                 self.start_pose_since = None;
+                self.stand_up_movement_since = None;
             }
         }
         self.last_time = Some(observation.time);
 
         self.update_readiness(&observation, stand_up_requested, parameters);
+        self.update_stand_up_movement(&observation, parameters);
         let transition = self.transition(&observation, stand_up_requested, parameters);
         self.debounce(transition, observation.time);
         let (posture, _) = self.posture?;
@@ -174,6 +179,19 @@ impl Detector {
         }
     }
 
+    fn update_stand_up_movement(&mut self, observation: &Observation, parameters: &Parameters) {
+        if matches!(self.posture, Some((Posture::StandingUp, _)))
+            && !self.stand_up_movement_confirmed
+            && !observation.is_lying_still(&parameters.fallen)
+        {
+            let since = *self.stand_up_movement_since.get_or_insert(observation.time);
+            self.stand_up_movement_confirmed = observation.time.duration_since(since)
+                >= parameters.standing_up.movement_confirmation_duration;
+        } else {
+            self.stand_up_movement_since = None;
+        }
+    }
+
     fn transition(
         &self,
         observation: &Observation,
@@ -182,6 +200,12 @@ impl Detector {
     ) -> Option<(Posture, Duration)> {
         let is_standing = observation.is_standing(&parameters.upright);
         let is_tilted = observation.tilt >= parameters.falling.minimum_torso_tilt;
+        let fallen_transition = observation.is_lying_still(&parameters.fallen).then_some((
+            Posture::Fallen {
+                ready_for_standup: false,
+            },
+            parameters.fallen.confirmation_duration,
+        ));
         match self.posture {
             Some((Posture::Upright, _)) => {
                 is_tilted.then_some((Posture::Falling, parameters.falling.confirmation_duration))
@@ -195,12 +219,13 @@ impl Detector {
             Some((Posture::Fallen { .. }, _)) => {
                 is_standing.then_some((Posture::Upright, parameters.upright.confirmation_duration))
             }
-            // Lying or rolling is part of a recovery, so only standing or the timeout end it.
             Some((Posture::StandingUp, since)) => {
                 if is_standing {
                     Some((Posture::Upright, parameters.upright.confirmation_duration))
                 } else if observation.time.duration_since(since) >= parameters.standing_up.timeout {
                     Some((Posture::Falling, Duration::ZERO))
+                } else if self.stand_up_movement_confirmed {
+                    fallen_transition
                 } else {
                     None
                 }
@@ -208,15 +233,8 @@ impl Detector {
             None | Some((Posture::Falling, _)) => {
                 if is_standing {
                     Some((Posture::Upright, parameters.upright.confirmation_duration))
-                } else if observation.is_lying_still(&parameters.fallen) {
-                    Some((
-                        Posture::Fallen {
-                            ready_for_standup: false,
-                        },
-                        parameters.fallen.confirmation_duration,
-                    ))
                 } else {
-                    None
+                    fallen_transition
                 }
             }
         }
@@ -234,6 +252,8 @@ impl Detector {
         if time.duration_since(since) >= duration {
             self.posture = Some((next, time));
             self.candidate = None;
+            self.stand_up_movement_since = None;
+            self.stand_up_movement_confirmed = false;
         } else {
             self.candidate = Some((next, since));
         }

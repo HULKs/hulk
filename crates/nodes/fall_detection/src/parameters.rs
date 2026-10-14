@@ -62,6 +62,8 @@ pub struct StandingUpParameters {
     pub maximum_start_pose_joint_velocity: f32,
     /// How long torso and joint conditions must hold in `Fallen` before reporting readiness.
     pub confirmation_duration: Duration,
+    /// How long the fallen conditions must be false during `StandingUp` to enable a return to `Fallen`.
+    pub movement_confirmation_duration: Duration,
     /// Without confirmed standing, `StandingUp` ends as `Falling` after this.
     pub timeout: Duration,
 }

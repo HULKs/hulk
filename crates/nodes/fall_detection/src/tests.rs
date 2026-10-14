@@ -34,6 +34,7 @@ fn parameters() -> Parameters {
             maximum_start_pose_joint_position_deviation: 0.3,
             maximum_start_pose_joint_velocity: 1.0,
             confirmation_duration: Duration::from_millis(150),
+            movement_confirmation_duration: Duration::from_millis(50),
             timeout: Duration::from_secs(4),
         },
     }
@@ -79,6 +80,7 @@ struct Sample {
     tilt: f32,
     angular_velocity: f32,
     positions: BodyJoints<f32>,
+    velocities: BodyJoints<f32>,
 }
 
 impl Sample {
@@ -87,6 +89,7 @@ impl Sample {
             tilt: 0.0,
             angular_velocity: 0.0,
             positions: start_pose(),
+            velocities: BodyJoints::fill(0.0),
         }
     }
 
@@ -164,7 +167,7 @@ impl Robot {
                 pitch: sample.tilt,
                 angular_velocity: sample.angular_velocity,
                 positions: sample.positions,
-                velocities: BodyJoints::fill(0.0),
+                velocities: sample.velocities,
             };
             let Some(fall_detection) =
                 self.detector
@@ -229,7 +232,7 @@ fn fall_prepare_and_stand_up() {
     robot.stand_up_requested = true;
     // Readiness survives the policy moving the joints before the request arrives.
     assert_eq!(robot.hold(Sample::getting_up(), 1000), [StandingUp]);
-    // Lying or rolling is part of the recovery.
+    // Rolling during recovery must not count as lying still.
     assert_eq!(robot.hold(Sample::rolling(), 1000), [StandingUp]);
     assert_eq!(robot.hold(Sample::standing(), 200), [StandingUp, Upright]);
 }
@@ -291,6 +294,130 @@ fn stand_up_timeout_while_seated_damps() {
     let mut robot = Robot::standing_up();
     assert_eq!(robot.hold(Sample::seated(), 3990), [StandingUp]);
     assert_eq!(robot.hold(Sample::seated(), 10), [Falling]);
+}
+
+#[test]
+fn stand_up_waits_in_start_pose_until_timeout_without_confirmed_movement() {
+    let mut robot = Robot::standing_up();
+    assert_eq!(
+        robot.hold(Sample::lying_in_start_pose(), 3990),
+        [StandingUp]
+    );
+    assert_eq!(robot.hold(Sample::lying_in_start_pose(), 10), [Falling]);
+}
+
+#[test]
+fn stand_up_returns_fallen_after_each_kind_of_confirmed_movement() {
+    let mut leg_motion = Sample::lying_twisted();
+    leg_motion.velocities.left_leg.knee = -parameters().fallen.maximum_joint_velocity;
+    let mut arm_motion = Sample::lying_twisted();
+    arm_motion.velocities.right_arm.elbow = parameters().fallen.maximum_joint_velocity;
+    let torso_motion = Sample {
+        angular_velocity: parameters().fallen.maximum_torso_angular_velocity,
+        ..Sample::lying_twisted()
+    };
+
+    for movement in [Sample::getting_up(), torso_motion, leg_motion, arm_motion] {
+        let mut robot = Robot::standing_up();
+        // Six samples span the 50 ms needed to confirm movement.
+        assert_eq!(robot.hold(movement, 60), [StandingUp]);
+        assert_eq!(robot.hold(Sample::lying_twisted(), 150), [StandingUp]);
+        assert_eq!(robot.hold(Sample::lying_twisted(), 10), [fallen(false)]);
+        // A continued request cannot bypass preparation and fresh readiness.
+        assert_eq!(robot.hold(Sample::lying_twisted(), 200), [fallen(false)]);
+    }
+}
+
+#[test]
+fn brief_stand_up_movement_does_not_enable_a_return_to_fallen() {
+    let mut robot = Robot::standing_up();
+    for duration in [10, 50, 50] {
+        assert_eq!(robot.hold(Sample::rolling(), duration), [StandingUp]);
+        assert_eq!(robot.hold(Sample::lying_twisted(), 200), [StandingUp]);
+    }
+    assert_eq!(robot.hold(Sample::rolling(), 60), [StandingUp]);
+    assert_eq!(
+        robot.hold(Sample::lying_twisted(), 160),
+        [StandingUp, fallen(false)]
+    );
+}
+
+#[test]
+fn stand_up_requires_continuous_settling_after_movement() {
+    let mut robot = Robot::standing_up();
+    assert_eq!(robot.hold(Sample::getting_up(), 60), [StandingUp]);
+    assert_eq!(robot.hold(Sample::lying_twisted(), 150), [StandingUp]);
+    assert_eq!(robot.hold(Sample::rolling(), 10), [StandingUp]);
+    // Movement stays confirmed, but settling starts over.
+    assert_eq!(robot.hold(Sample::lying_twisted(), 150), [StandingUp]);
+    assert_eq!(robot.hold(Sample::lying_twisted(), 10), [fallen(false)]);
+}
+
+#[test]
+fn short_sensor_gaps_restart_stand_up_confirmations() {
+    let mut robot = Robot::standing_up();
+    robot.hold(Sample::rolling(), 50);
+    robot.pause(70);
+    assert_eq!(robot.hold(Sample::rolling(), 50), [StandingUp]);
+    assert_eq!(robot.hold(Sample::lying_twisted(), 200), [StandingUp]);
+
+    robot.hold(Sample::rolling(), 60);
+    robot.hold(Sample::lying_twisted(), 150);
+    robot.pause(70);
+    // Confirmed movement survives the gap; unfinished settling does not.
+    assert_eq!(robot.hold(Sample::lying_twisted(), 150), [StandingUp]);
+    assert_eq!(robot.hold(Sample::lying_twisted(), 10), [fallen(false)]);
+}
+
+#[test]
+fn stand_up_retry_requires_new_movement() {
+    let mut robot = Robot::standing_up();
+    robot.hold(Sample::getting_up(), 60);
+    assert_eq!(
+        robot.hold(Sample::lying_twisted(), 160),
+        [StandingUp, fallen(false)]
+    );
+
+    robot.stand_up_requested = false;
+    assert_eq!(
+        robot.hold(Sample::lying_in_start_pose(), 160),
+        [fallen(false), fallen(true)]
+    );
+    robot.stand_up_requested = true;
+    assert_eq!(
+        robot.hold(Sample::lying_in_start_pose(), 1000),
+        [StandingUp]
+    );
+    robot.hold(Sample::rolling(), 60);
+    assert_eq!(
+        robot.hold(Sample::lying_twisted(), 160),
+        [StandingUp, fallen(false)]
+    );
+}
+
+#[test]
+fn long_sensor_gap_discards_confirmed_stand_up_movement() {
+    let mut robot = Robot::standing_up();
+    robot.hold(Sample::getting_up(), 60);
+    robot.pause(190);
+    robot.stand_up_requested = false;
+    assert_eq!(
+        robot.hold(Sample::lying_in_start_pose(), 400),
+        [fallen(false), fallen(true)]
+    );
+    robot.stand_up_requested = true;
+    assert_eq!(
+        robot.hold(Sample::lying_in_start_pose(), 1000),
+        [StandingUp]
+    );
+}
+
+#[test]
+fn stand_up_timeout_does_not_wait_for_fallen_confirmation() {
+    let mut robot = Robot::standing_up();
+    assert_eq!(robot.hold(Sample::getting_up(), 3900), [StandingUp]);
+    assert_eq!(robot.hold(Sample::lying_twisted(), 90), [StandingUp]);
+    assert_eq!(robot.hold(Sample::lying_twisted(), 10), [Falling]);
 }
 
 #[test]
