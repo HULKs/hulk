@@ -3,7 +3,7 @@
   own_ball_weight: 1.0,
   team_ball_weight: 1.0,
   rule_ball_weight_increment: 0.00125,
-  last_ball_priority_minimum: 0.5,
+  last_ball_priority_minimum: 0.2,
   last_ball_priority_maximum: 1.0,
   last_ball_priority_half_distance: 2.0,
   last_ball_priority_rise_time: {
@@ -12,6 +12,7 @@
   },
   turn_preference_priority_margin: 0.1,
   border_view_penalty: 0.15,
+  border_view_penalty_range: 3.0,
   decay_distance_factor: 0.06,
   occluded_decay_factor: 0.05,
   teammate_decay_factor: 0.015,
@@ -20,5 +21,7 @@
     start: 0.0,
     end: 3.0,
   },
-  tile_switch_hysteresis: 0.4,
+  tile_switch_hysteresis: 0.7,
+  exhausted_search_delay: { secs: 5, nanos: 0 },
+  exhausted_search_minimum_validity: 0.05,
 }
