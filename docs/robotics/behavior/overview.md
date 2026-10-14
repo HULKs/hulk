@@ -57,9 +57,10 @@ Otherwise, the playing subtree assigns one of four high-level tasks:
 
 Simple mode and the last active robot bypass this team-based task assignment: the robot searches when the ball is unknown and otherwise acts as striker.
 
-The ball state records whether the position comes from local perception or a teammate, with local perception taking precedence.
+The ball state records whether the position comes from local perception, a teammate, or a rule-generated position, with local perception taking precedence over a teammate.
 When the current ball state disappears, behavior briefly retains the last position.
 The retention time is controlled by `ball.last_ball_timeout` for local balls and `ball.team_ball_timeout` for team balls.
+Rule-generated positions are provided separately and are not retained as last seen balls.
 
 ### Search
 
@@ -68,13 +69,16 @@ An observed ball raises nearby cells without clearing the rest of the heatmap; b
 After losing a locally observed ball during `Playing`, priorities grow over time, fastest around its last position.
 On entering `Playing`, a map with a high average priority is scaled down while preserving differences between cells.
 Areas within the estimated field of view lose priority; obstacles reduce this decay for areas they obscure.
-Corner kicks, goal kicks, and throw-ins restrict rule-based search priorities to the corresponding restart locations.
+Corner kicks, goal kicks, and throw-ins clear the heatmap outside their restart locations, including priorities from earlier observations.
 
 The robot's own pose and fresh teammate poses define its search Voronoi region.
-Within that region, the suggestor selects a cell above the minimum priority. It slightly lowers the selection score of cells within `border_view_penalty_range` of the field boundary, where more of the search view would fall outside the field, and prefers smaller turns among similarly ranked cells.
+Within that region, the suggestor selects a cell above the minimum priority.
+It slightly lowers the selection score of cells within `border_view_penalty_range` of the field boundary, where more of the search view would fall outside the field, and prefers smaller turns among similarly ranked cells.
 Hysteresis stabilizes the selection.
-If no cell meets the normal minimum for five seconds after a local ball sighting, the suggestor selects the best remaining cell above a lower fallback minimum until a regular target becomes available again.
-The selected cell's center is published as `suggested_search_position`, or `None` when no valid target is available. A robot that is already inside the cell instead keeps its current position and scans without walking to the center.
+After a prior local ball sighting, while playing without a current ball, the fallback timer starts when no cell in the robot's Voronoi region meets `minimum_validity`.
+After `exhausted_search_delay` without a regular target, the suggestor selects the best remaining cell above `exhausted_search_minimum_validity` until a regular target becomes available again.
+The selected cell's center is published as `suggested_search_position`, or `None` when no valid target is available.
+A robot that is already inside the cell instead keeps its current position and scans without walking to the center.
 
 The searcher uses the existing walking behavior to approach that position with `walking.speed.search`, while the head looks toward plausible ball positions or scans for the ball.
 Within `search.position_reached_distance`, the robot turns in place and continues searching.
@@ -118,7 +122,9 @@ interval_seconds = time_left_seconds * unpenalized_players / usable_messages
 ```
 
 Received teammate states provide the poses used for closest-to-ball selection, supporter positioning, and search regions.
-The search suggestor interpolates poses and head directions between sufficiently recent messages to estimate which areas teammates have observed and lower their search priority.
+The search suggestor consumes the shared `player_states` stream, so expired and penalized players are removed from its search region as well.
+It interpolates poses and head directions between sufficiently recent states to estimate which areas teammates have observed and lower their search priority.
+States with non-finite pose, head yaw, or ball position are discarded before they reach these consumers.
 Team communication can be absent or delayed, so the tree retains branches for simple operation, the last active robot, and missing ball information.
 
 ## Motion Output
@@ -134,6 +140,7 @@ Behavior parameters are loaded from `etc/parameters/base/behavior_node.json5`, w
 Parameters control details such as motion switching, kickoff poses, walking, kicking, goalkeeper positioning, search, Voronoi positioning, and message timing.
 
 Heatmap priorities, decay, and target selection are configured separately in `etc/parameters/base/search_suggestor.json5`.
+`minimum_validity` must be finite and between zero and one; `exhausted_search_minimum_validity` must be finite and between zero and `minimum_validity`.
 
 The node publishes additional topics for inspection in Twix and recordings:
 
