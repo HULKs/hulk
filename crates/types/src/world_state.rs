@@ -87,5 +87,18 @@ impl Default for RobotState {
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Message)]
 pub struct PlayerState {
     pub pose: Pose2<Field>,
+    pub head_yaw: f32,
     pub ball_position: Option<BallPosition<Field>>,
+}
+
+impl PlayerState {
+    pub fn is_finite(&self) -> bool {
+        self.pose.position().x().is_finite()
+            && self.pose.position().y().is_finite()
+            && self.pose.angle().is_finite()
+            && self.head_yaw.is_finite()
+            && self
+                .ball_position
+                .is_none_or(|ball| ball.position.x().is_finite() && ball.position.y().is_finite())
+    }
 }
