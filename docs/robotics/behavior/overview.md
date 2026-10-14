@@ -73,9 +73,11 @@ Corner kicks, goal kicks, and throw-ins clear the heatmap outside their restart 
 
 The robot's own pose and fresh teammate poses define its search Voronoi region.
 Within that region, the suggestor selects a cell above the minimum priority.
+For the configured goalkeeper, search targets are additionally restricted to the own half of the field, including fallback targets.
+The suggestor receives the goalkeeper player number from the behavior node; until that assignment is available, it does not publish a search target.
 It slightly lowers the selection score of cells within `border_view_penalty_range` of the field boundary, where more of the search view would fall outside the field, and prefers smaller turns among similarly ranked cells.
 Hysteresis stabilizes the selection.
-After a prior local ball sighting, while playing without a current ball, the fallback timer starts when no cell in the robot's Voronoi region meets `minimum_validity`.
+After a prior local ball sighting, while playing without a current ball, the fallback timer starts when no eligible cell meets `minimum_validity`.
 After `exhausted_search_delay` without a regular target, the suggestor selects the best remaining cell above `exhausted_search_minimum_validity` until a regular target becomes available again.
 The selected cell's center is published as `suggested_search_position`, or `None` when no valid target is available.
 A robot that is already inside the cell instead keeps its current position and scans without walking to the center.

@@ -6,19 +6,41 @@ use crate::{
     Heatmap, heatmap_tile_center, heatmap_tile_contains, search_voronoi::SearchVoronoiSelection,
 };
 
+/// Limits search targets in field coordinates, where the own goal has negative x.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SearchArea {
+    WholeField,
+    OwnHalf,
+}
+
+impl SearchArea {
+    fn allows_index(self, field_dimensions: FieldDimensions, index: (usize, usize)) -> bool {
+        self == Self::WholeField || heatmap_tile_center(field_dimensions, index).x() <= 0.0
+    }
+
+    fn allows_position(self, position: Point2<Field>) -> bool {
+        self == Self::WholeField || position.x() <= 0.0
+    }
+}
+
 impl Heatmap {
     pub fn selected_position(
         &self,
         field_dimensions: FieldDimensions,
         robot_position: Point2<Field>,
+        search_area: SearchArea,
     ) -> Option<Point2<Field>> {
-        self.last_maximum_heatmap_position.map(|index| {
-            if heatmap_tile_contains(field_dimensions, index, robot_position) {
-                robot_position
-            } else {
-                heatmap_tile_center(field_dimensions, index)
-            }
-        })
+        self.last_maximum_heatmap_position
+            .filter(|index| search_area.allows_index(field_dimensions, *index))
+            .map(|index| {
+                if search_area.allows_position(robot_position)
+                    && heatmap_tile_contains(field_dimensions, index, robot_position)
+                {
+                    robot_position
+                } else {
+                    heatmap_tile_center(field_dimensions, index)
+                }
+            })
     }
 
     fn get_maximum_position_matching(
@@ -92,11 +114,13 @@ impl Heatmap {
         ground_to_field: Option<Isometry2<Ground, Field>>,
         voronoi_selection: Option<&SearchVoronoiSelection>,
         minimum_validity: f32,
+        search_area: SearchArea,
     ) -> Option<(usize, usize)> {
         let matches_selection = |index| {
-            voronoi_selection
-                .map(|selection| selection.owns_index(field_dimensions, index))
-                .unwrap_or(true)
+            search_area.allows_index(field_dimensions, index)
+                && voronoi_selection
+                    .map(|selection| selection.owns_index(field_dimensions, index))
+                    .unwrap_or(true)
         };
         ground_to_field.map_or_else(
             || {
@@ -131,6 +155,7 @@ impl Heatmap {
         ground_to_field: Option<Isometry2<Ground, Field>>,
         voronoi_selection: &SearchVoronoiSelection,
         minimum_validity: f32,
+        search_area: SearchArea,
     ) {
         self.update_suggested_search_position_with_optional_voronoi(
             field_dimensions,
@@ -138,6 +163,7 @@ impl Heatmap {
             ground_to_field,
             Some(voronoi_selection),
             minimum_validity,
+            search_area,
         );
     }
 
@@ -146,9 +172,11 @@ impl Heatmap {
         field_dimensions: FieldDimensions,
         parameters: &SearchSuggestorParameters,
         voronoi_selection: &SearchVoronoiSelection,
+        search_area: SearchArea,
     ) -> bool {
         self.map.indexed_iter().any(|(index, value)| {
             *value > parameters.minimum_validity
+                && search_area.allows_index(field_dimensions, index)
                 && voronoi_selection.owns_index(field_dimensions, index)
         })
     }
@@ -165,6 +193,7 @@ impl Heatmap {
         ground_to_field: Option<Isometry2<Ground, Field>>,
         voronoi_selection: Option<&SearchVoronoiSelection>,
         minimum_validity: f32,
+        search_area: SearchArea,
     ) {
         if !self.has_decided_for_heatmap_tile {
             let suggested_search_index = self.get_suggested_search_index(
@@ -173,6 +202,7 @@ impl Heatmap {
                 ground_to_field,
                 voronoi_selection,
                 minimum_validity,
+                search_area,
             );
             if suggested_search_index.is_some() {
                 self.has_decided_for_heatmap_tile = true;
@@ -181,16 +211,18 @@ impl Heatmap {
         } else if let Some(last_maximum_heatmap_index) = self.last_maximum_heatmap_position {
             let current_tile_is_selectable = voronoi_selection
                 .map(|selection| selection.owns_index(field_dimensions, last_maximum_heatmap_index))
-                .unwrap_or(true);
+                .unwrap_or(true)
+                && search_area.allows_index(field_dimensions, last_maximum_heatmap_index);
             let global_max_value = self
                 .get_maximum_position_matching(
                     field_dimensions,
                     parameters,
                     minimum_validity,
                     |index| {
-                        voronoi_selection
-                            .map(|selection| selection.owns_index(field_dimensions, index))
-                            .unwrap_or(true)
+                        search_area.allows_index(field_dimensions, index)
+                            && voronoi_selection
+                                .map(|selection| selection.owns_index(field_dimensions, index))
+                                .unwrap_or(true)
                     },
                 )
                 .map_or(0.0, |idx| {
@@ -215,6 +247,7 @@ impl Heatmap {
                     ground_to_field,
                     voronoi_selection,
                     minimum_validity,
+                    search_area,
                 );
                 self.has_decided_for_heatmap_tile = suggested_search_index.is_some();
                 self.last_maximum_heatmap_position = suggested_search_index;

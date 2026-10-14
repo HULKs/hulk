@@ -13,6 +13,7 @@ mod search_voronoi;
 
 pub use ball_observations::ball_position_near_field;
 pub use field_of_view::SearchOccluder;
+pub use search_selection::SearchArea;
 pub use search_voronoi::SearchVoronoiSelection;
 
 const CELL_SIZE: f32 = 0.5;

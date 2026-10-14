@@ -8,7 +8,9 @@ use ros_z::{
     qos::{QosDurability, QosHistory},
     time::Time,
 };
-use search_heatmap::{Heatmap, SearchOccluder, SearchVoronoiSelection, ball_position_near_field};
+use search_heatmap::{
+    Heatmap, SearchArea, SearchOccluder, SearchVoronoiSelection, ball_position_near_field,
+};
 use std::{boxed::Box, future::Future, num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -49,6 +51,16 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<PlayerNumber>("player_number")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
+    let goalkeeper_player_number_cache = node
+        .subscriber::<PlayerNumber>("behavior/goalkeeper_player_number")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            history: QosHistory::KeepLast(NonZeroUsize::MIN),
             ..Default::default()
         })
         .cache(1)
@@ -276,18 +288,32 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 .get_latest()
                 .map(|player_number| *player_number),
         );
+        let search_area = own_voronoi_site.as_ref().and_then(|(_, player_number)| {
+            goalkeeper_player_number_cache
+                .get_latest()
+                .map(|goalkeeper_player_number| {
+                    search_area_for_player(*player_number, *goalkeeper_player_number)
+                })
+        });
         if last_ball_position.is_none() {
             no_regular_target_since = None;
             heatmap.clear_suggested_search_position();
-        } else if let Some(voronoi_selection) = search_voronoi_selection_from_teammates(
-            field_dimensions,
-            own_voronoi_site,
-            &last_teammate_states,
-            now,
-            teammate_freshness_window,
-        ) {
-            let has_regular_target =
-                heatmap.has_regular_search_target(field_dimensions, parameters, &voronoi_selection);
+        } else if let Some((voronoi_selection, search_area)) =
+            search_voronoi_selection_from_teammates(
+                field_dimensions,
+                own_voronoi_site,
+                &last_teammate_states,
+                now,
+                teammate_freshness_window,
+            )
+            .zip(search_area)
+        {
+            let has_regular_target = heatmap.has_regular_search_target(
+                field_dimensions,
+                parameters,
+                &voronoi_selection,
+                search_area,
+            );
             let minimum_validity = search_minimum_validity(
                 &mut no_regular_target_since,
                 now,
@@ -301,15 +327,23 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 ground_to_field,
                 &voronoi_selection,
                 minimum_validity,
+                search_area,
             );
         } else {
             no_regular_target_since = None;
             heatmap.clear_suggested_search_position();
         }
 
-        let suggested_search_position = ground_to_field.and_then(|ground_to_field| {
-            heatmap.selected_position(field_dimensions, ground_to_field.translation())
-        });
+        let suggested_search_position =
+            ground_to_field
+                .zip(search_area)
+                .and_then(|(ground_to_field, search_area)| {
+                    heatmap.selected_position(
+                        field_dimensions,
+                        ground_to_field.translation(),
+                        search_area,
+                    )
+                });
         suggested_search_position_pub
             .publish(&suggested_search_position)
             .await?;
@@ -317,6 +351,17 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         additional_heatmap_pub
             .publish_if_subscribed(|| async { heatmap.to_message() })
             .await?;
+    }
+}
+
+fn search_area_for_player(
+    player_number: PlayerNumber,
+    goalkeeper_player_number: PlayerNumber,
+) -> SearchArea {
+    if player_number == goalkeeper_player_number {
+        SearchArea::OwnHalf
+    } else {
+        SearchArea::WholeField
     }
 }
 

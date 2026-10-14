@@ -1,6 +1,18 @@
 use super::*;
 
 #[test]
+fn goalkeeper_uses_own_half_search_area() {
+    assert_eq!(
+        search_area_for_player(PlayerNumber::One, PlayerNumber::One),
+        SearchArea::OwnHalf
+    );
+    assert_eq!(
+        search_area_for_player(PlayerNumber::Two, PlayerNumber::One),
+        SearchArea::WholeField
+    );
+}
+
+#[test]
 fn fallback_waits_configured_delay_and_requires_an_earlier_own_ball() {
     for delay in [Duration::from_secs(2), Duration::from_secs(5)] {
         let parameters = SearchSuggestorParameters {
