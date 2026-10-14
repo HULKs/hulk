@@ -1,5 +1,7 @@
 //! Shared topic and field selection controls for dynamic panels.
 
+use std::borrow::Cow;
+
 use eframe::egui::{
     Ui,
     text::{CCursor, CCursorRange},
@@ -131,22 +133,26 @@ fn split_source<'a>(input: &'a str, topics: &[String], current_topic: &str) -> (
     input.split_at(topic_end)
 }
 
-fn source_completions(
-    topics: &[String],
+fn source_completions<'a>(
+    topics: &'a [String],
     current_topic: &str,
     sample: Option<&DynamicPayload>,
     input: &str,
-) -> Vec<String> {
+) -> Vec<Cow<'a, str>> {
     let (topic, field_path) = split_source(input, topics, current_topic);
-    let mut completions = topics.to_vec();
+    let mut completions: Vec<_> = topics
+        .iter()
+        .map(String::as_str)
+        .map(Cow::Borrowed)
+        .collect();
     if topic == current_topic
         && !topic.is_empty()
         && let Some(sample) = sample
     {
         for path in field_completions(sample, field_path) {
             let source = format!("{topic}{path}");
-            if !completions.contains(&source) {
-                completions.push(source);
+            if !completions.iter().any(|completion| *completion == source) {
+                completions.push(Cow::Owned(source));
             }
         }
     }
