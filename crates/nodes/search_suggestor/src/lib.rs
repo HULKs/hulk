@@ -67,7 +67,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let hsl_state_message_send_interval_cache = node
-        .subscriber::<Duration>("hsl_state_message_send_interval")
+        .subscriber::<Option<Duration>>("hsl_state_message_send_interval")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             history: QosHistory::KeepLast(NonZeroUsize::MIN),
@@ -144,6 +144,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let parameters = parameters_snapshot.typed();
         let teammate_freshness_window = hsl_state_message_send_interval_cache
             .get_latest()
+            .and_then(|interval| *interval)
             .map(|interval| interval.mul_f32(1.2));
 
         let ground_to_field = ground_to_field_cache

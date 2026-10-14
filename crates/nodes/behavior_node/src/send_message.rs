@@ -107,7 +107,7 @@ impl Blackboard {
     }
 }
 
-fn state_message_send_interval(
+pub(crate) fn state_message_send_interval(
     game_controller_state: &FilteredGameControllerState,
     parameters: &HslNetworkParameters,
 ) -> Option<Duration> {

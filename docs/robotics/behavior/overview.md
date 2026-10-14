@@ -132,6 +132,9 @@ time_left = remaining_time_in_half + (half_duration if first_half else 0)
 interval_seconds = time_left_seconds * unpenalized_players / usable_messages
 ```
 
+Behavior publishes the currently calculated interval on `hsl_state_message_send_interval` for the search suggestor to assess teammate freshness and replay observations.
+When the game-controller state is unavailable or sending is suspended, the published interval is `None` and teammates are not considered for search regions or replay.
+
 Received teammate states provide the poses used for closest-to-ball selection, supporter positioning, and search regions.
 The search suggestor consumes the shared `player_states` stream, so expired and penalized players are removed from its search region as well.
 It interpolates poses and head directions between sufficiently recent states to estimate which areas teammates have observed and lower their search priority.
