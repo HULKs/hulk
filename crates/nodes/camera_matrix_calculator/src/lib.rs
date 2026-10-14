@@ -1,11 +1,11 @@
+use std::sync::Arc;
 use std::{boxed::Box, future::Future, pin::Pin};
-use std::{f32::consts::FRAC_PI_2, sync::Arc};
 
 use color_eyre::Result;
 
-use coordinate_systems::{Camera, Ground, Head, Robot};
-use kinematics::{robot_dimensions::RobotDimensions, robot_kinematics::RobotKinematics};
-use linear_algebra::{IntoTransform, Isometry3, Rotation3, Vector3, vector};
+use coordinate_systems::{Ground, Robot};
+use kinematics::{forward::head_to_camera, robot_kinematics::RobotKinematics};
+use linear_algebra::{Isometry3, Rotation3, vector};
 use projection::camera_matrix::CameraMatrix;
 use ros_z::prelude::*;
 use ros_z::qos::QosDurability;
@@ -139,10 +139,7 @@ fn calibrated_transforms(
     parameters: &CameraMatrixParameters,
     robot_kinematics: &RobotKinematics,
 ) -> (Isometry3<Robot, Head>, Isometry3<Head, Camera>) {
-    let head_to_camera = head_to_camera(
-        parameters.camera_to_head_pitch.to_radians(),
-        RobotDimensions::HEAD_TO_CAMERA,
-    );
+    let head_to_camera = head_to_camera(parameters.camera_to_head_pitch.to_radians());
 
     let correction_in_robot = Rotation3::from_euler_angles(
         parameters.correction_in_robot.x(),
@@ -159,14 +156,6 @@ fn calibrated_transforms(
         robot_kinematics.head.head_to_robot.inverse() * correction_in_robot,
         correction_in_camera * head_to_camera,
     )
-}
-
-fn head_to_camera(camera_pitch: f32, head_to_camera: Vector3<Head>) -> Isometry3<Head, Camera> {
-    (nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * -camera_pitch)
-        * nalgebra::Isometry3::rotation(nalgebra::Vector3::y() * -FRAC_PI_2)
-        * nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * FRAC_PI_2)
-        * nalgebra::Isometry3::from(-head_to_camera.inner))
-    .framed_transform()
 }
 
 #[cfg(test)]

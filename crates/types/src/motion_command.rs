@@ -1,7 +1,7 @@
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::Ground;
 use linear_algebra::{Orientation2, Point2, Vector2};
 
 use crate::path::Path;
@@ -29,13 +29,18 @@ pub enum MotionCommand {
         head: HeadMotion,
     },
     StandUp,
-    VisualKick {
+    Kick {
         head: HeadMotion,
+        /// Desired outgoing ball speed in m/s; inference applies policy limits.
+        target_speed: f32,
+        /// Select the soft-kick policy, which ignores strong and quick flags.
+        soft: bool,
+        quick: bool,
+        strong: bool,
         ball_position: Point2<Ground>,
+        /// Current ball velocity in Ground coordinates, in m/s.
+        ball_velocity: Vector2<Ground>,
         kick_direction: Orientation2<Ground>,
-        target_position: Point2<Ground>,
-        robot_theta_to_field: Orientation2<Field>,
-        kick_power: KickPower,
     },
     Walk {
         head: HeadMotion,
@@ -58,7 +63,7 @@ impl MotionCommand {
             MotionCommand::Stand { head, .. }
             | MotionCommand::Walk { head, .. }
             | MotionCommand::WalkWithVelocity { head, .. }
-            | MotionCommand::VisualKick { head, .. } => Some(*head),
+            | MotionCommand::Kick { head, .. } => Some(*head),
             MotionCommand::Prepare => Some(HeadMotion::Center {
                 image_region_target: ImageRegion::Top,
             }),
@@ -72,19 +77,23 @@ impl MotionCommand {
             BodyMotion::Prepare => MotionCommand::Prepare,
             BodyMotion::Stand => MotionCommand::Stand { head },
             BodyMotion::StandUp => MotionCommand::StandUp,
-            BodyMotion::VisualKick {
+            BodyMotion::Kick {
                 ball_position,
+                ball_velocity,
+                target_speed,
+                soft,
+                quick,
                 kick_direction,
-                target_position,
-                robot_theta_to_field,
-                kick_power,
-            } => MotionCommand::VisualKick {
+                strong,
+            } => MotionCommand::Kick {
                 head,
                 ball_position,
+                ball_velocity,
+                target_speed,
+                soft,
+                quick,
                 kick_direction,
-                target_position,
-                robot_theta_to_field,
-                kick_power,
+                strong,
             },
             BodyMotion::Walk {
                 path,
@@ -119,12 +128,17 @@ pub enum BodyMotion {
     Prepare,
     Stand,
     StandUp,
-    VisualKick {
+    Kick {
         ball_position: Point2<Ground>,
+        /// Current ball velocity in Ground coordinates, in m/s.
+        ball_velocity: Vector2<Ground>,
+        /// Desired outgoing ball speed in m/s; inference applies policy limits.
+        target_speed: f32,
+        /// Select the soft-kick policy, which ignores strong and quick flags.
+        soft: bool,
+        quick: bool,
+        strong: bool,
         kick_direction: Orientation2<Ground>,
-        target_position: Point2<Ground>,
-        robot_theta_to_field: Orientation2<Field>,
-        kick_power: KickPower,
     },
     Walk {
         path: Path,
@@ -142,6 +156,7 @@ pub enum BodyMotion {
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, Message)]
 pub enum HeadMotion {
     ZeroAngles,
+    /// Frame the ground point half a field width straight ahead in Ground coordinates.
     Center {
         image_region_target: ImageRegion,
     },
@@ -149,16 +164,33 @@ pub enum HeadMotion {
     SearchForLostBall,
     LookAt {
         target: Point2<Ground>,
+        /// Height of the point of interest along Ground's +Z axis, in meters.
+        height_above_ground: f32,
         image_region_target: ImageRegion,
     },
-    LookLeftAndRightOf {
+    GlanceLeftAndRightOf {
         target: Point2<Ground>,
+        /// Height in meters along Ground's +Z, retained while offsetting either side.
+        height_above_ground: f32,
     },
-    Unstiff,
+    Damping,
     MoveWithVelocity {
+        /// Desired yaw angular velocity in rad/s.
         yaw: f32,
+        /// Desired pitch angular velocity in rad/s.
         pitch: f32,
     },
+}
+
+impl HeadMotion {
+    pub fn validate(&self) -> Result<(), String> {
+        match self {
+            Self::MoveWithVelocity { yaw, pitch } if !yaw.is_finite() || !pitch.is_finite() => {
+                Err("head motion request contains non-finite velocities".into())
+            }
+            _ => Ok(()),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, Message)]
@@ -167,20 +199,6 @@ pub enum ImageRegion {
     #[default]
     Center,
     Top,
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-pub enum GlanceDirection {
-    #[default]
-    LeftOfTarget,
-    RightOfTarget,
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, Message)]
-pub enum KickPower {
-    #[default]
-    Rumpelstilzchen,
-    Schlong,
 }
 
 #[cfg(test)]
@@ -194,13 +212,13 @@ mod tests {
 
     #[test]
     fn body_damping_assembles_to_motion_damping() {
-        let motion = MotionCommand::from_partial_motions(
+        let command = MotionCommand::from_partial_motions(
             BodyMotion::Damping,
             HeadMotion::Center {
                 image_region_target: ImageRegion::Center,
             },
         );
 
-        assert_eq!(motion, MotionCommand::Damping);
+        assert_eq!(command, MotionCommand::Damping);
     }
 }

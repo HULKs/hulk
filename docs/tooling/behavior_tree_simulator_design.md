@@ -734,12 +734,12 @@ impl Default for SimulationConfig {
 - Integrate commanded local velocity and angular velocity for `dt`.
 - Clamp by simulator speed limits.
 
-`MotionCommand::VisualKick`:
+`MotionCommand::Kick`:
 
 - Approach the kick pose behind the expected ball position while facing the ball. Circle around the ball at a rate limited by body rotation speed to keep it in view and avoid pushing it while repositioning.
 - Kick only when the shared ball is within the configured kick radius of both the robot and the expected ball position, and the robot-to-ball direction aligns with the kick direction within `kick_alignment_tolerance`. This prevents kicking the ball through the robot and rebounding toward its own goal.
 - Set ball velocity along the commanded kick direction.
-- Map `KickPower` to velocity through `SimulationConfig`.
+- Clamp `target_speed` to the normal or soft speed limits in `SimulationConfig`; strong normal kicks use the maximum speed. Soft kicks ignore the strong flag.
 - Enforce `kick_cooldown` per robot to avoid applying a kick every tick while the command remains active. Keep turning toward the ball during cooldown without translating.
 
 `MotionCommand::Stand`, `Prepare`, and `StandUp`:
@@ -753,7 +753,7 @@ Head motion:
 - Derive target yaw from `MotionCommand::head_motion()`.
 - `ZeroAngles` and `Center` target yaw `0.0`.
 - `LookAt` targets the commanded ground point direction.
-- `LookLeftAndRightOf` adds a deterministic glance offset around the commanded ground point direction.
+- `GlanceLeftAndRightOf` adds a deterministic glance offset around the commanded ground point direction.
 - `LookAround` and `SearchForLostBall` use a deterministic scan pattern within configured yaw limits.
 - Clamp yaw by `head_yaw_minimum` and `head_yaw_maximum`.
 - Rate-limit yaw by `head_yaw_velocity * dt`.
