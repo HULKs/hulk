@@ -1,25 +1,12 @@
 # Pepsi
 
-Pepsi is a multi-tool we use for anything related to the code or the NAO robots.
+Pepsi is a multi-tool we use for anything related to the code or the robots.
 It can be used to build the code, set up configuration parameters for a game, deploy to a robot or simply open a remote shell.
 
 This page is only meant as a general overview of pepsi's subcommands.
 For detailed usage instructions, run `pepsi --help` or `pepsi <subcommand> --help`.
 
-## Typical Webots Workflow
-
-This is pretty simple.
-Open Webots, load the `webots/worlds/penalized_extern.wbt` world file and execute
-
-```bash
-./pepsi run webots
-```
-
-in your terminal.
-This will build (if necessary) and then run the webots binary.
-The simulation is paused automatically until the binary starts.
-
-## Typical NAO Workflow
+## Typical Robot Workflow
 
 ```bash
 ./pepsi upload <number or IP>
@@ -28,13 +15,13 @@ The simulation is paused automatically until the binary starts.
 This command does the following:
 
 - checks if a toolchain is installed, downloads, and installs one if necessary
-- builds the code for the NAO target
-- uploads binary, configuration parameters, motion files, neural networks, etc. to the NAO(s)
-- restarts HULK service on the NAO(s)
+- builds the code for the Booster target
+- uploads binary, configuration parameters, motion files, neural networks, etc. to the robot(s)
+- restarts HULK service on the robot(s)
 
-## Interaction with the NAO
+## Interaction with the Robot
 
-NAOs are identified either by IP or by number.
+Robots are identified either by IP or by number.
 Numbers are converted to IPs as follows:
 
 - `{number}` -> `10.1.24.{number}`
@@ -42,7 +29,7 @@ Numbers are converted to IPs as follows:
 
 Many subcommands can act on multiple robots concurrently.
 
-`upload` builds a binary for the NAO target, and then uploads it and parameter files to one or more robot.
+`upload` builds a binary for the Booster target, and then uploads it and parameter files to one or more robot.
 
 `wifi`, `reboot`, `poweroff`, and `hulk` directly interact with the robot(s), whereas `communication`, and `playernumber` only change the local configuration parameters.
 
@@ -53,37 +40,57 @@ Many subcommands can act on multiple robots concurrently.
 On K1 robots, `gammaray` configures HULK and disables manufacturer controller programs; `boosterize` restores manufacturer control.
 See [Remote Control](remote_control.md) for setup, gamepad bindings, and restoration instructions.
 
-### K1 root overlay
+### Filesystem overlay
 
-Gammaray validates the robot ID and enables passwordless sudo before activating a managed writable OverlayFS root for the remaining provisioning steps.
-When run from the lower root, the sudoers change persists across reboot.
-The baseline is NVIDIA L4T with Booster software; an existing HULK, Podman, or Nix installation is not required for overlay activation.
-Activation currently supports systemd 249 and an ext4 root, and requires passwordless sudo, static `/bin/busybox`, and kernel OverlayFS support.
-On a normal root, gammaray creates `/var/lib/hulks-overlay` with a handoff script and `upper`/`work` directories.
-Gammaray enables overlay autostart and reboots if the overlay is not already active.
-An early systemd target waits for root remounting and udev device initialization, then switches into the saved overlay before normal boot continues.
-SSH briefly disconnects, and provisioning waits for the managed overlay to become available.
-The lower root is exposed read-only, while upper/work share its underlying filesystem and grow into available disk space.
-The backing directory is hidden inside the merged root.
-No services are masked; some early system and device-triggered services run before switching.
-Already-active managed overlays are reused, while unrelated overlays are rejected based on their mounts and boot ID.
-While autostart is enabled, subsequent boots reuse the saved upper/work contents.
-Every gammaray invocation runs provisioning against the reused overlay, including applying supplied image or firmware options.
-An interrupted deployment can be retried in the same overlay.
-Use `pepsi gammaray 42 --clean` to discard the saved overlay and provision afresh, including when changing the supplied image or firmware.
-The `--clean` flag requests a reset during the next boot, before upper/work are mounted, and gammaray waits for that reboot before provisioning.
-Use `pepsi overlay enable 42`, `pepsi overlay disable 42`, or `pepsi overlay status 42` to control autostart from either root.
-Multiple robots are supported, for example `pepsi overlay status 42 99`.
-Enabling selects the early overlay target on the lower root; disabling restores its original default target without deleting saved overlay contents.
-These commands affect the next boot and do not switch the current root.
-Boosterize disables autostart before restoring Booster services, so the next reboot returns to the lower root.
+Gammaray runs inside a persistent writable OverlayFS root.
+All changes to the filesystem while the overlay is active are written to the overlay instead of the lower root filesystem.
+Changes in the overlay survive reboot while the underlying NVIDIA L4T and Booster installation stays unchanged.
+Overlay data is stored in `/var/lib/hulks-overlay` on the existing ext4 filesystem and shares available disk space.
+
+#### Gammaraying a robot
+
+```sh
+./pepsi gammaray 42
+```
+
+Gammaray first enables overlay autostart and reboots if the overlay is not already active.
+If there is an overlay already, it is used instead, though `--clean` can be used to clear the overlay and start fresh.
+
+Afterwards, gammaray writes our HULKs OS configuration into the overlay.
+It is not currently possible to gammaray into the lower root filesystem without an overlay.
+
+#### Boot selection
+
+```sh
+./pepsi overlay enable 42
+./pepsi overlay disable 42
+./pepsi overlay status 42 99
+```
+
+`enable` and `disable` select whether the overlay or the underlying installation should be used on boot.
+They work from either root, but do not apply immediately.
+A reboot is required to change into/out of the overlay.
+`status` reports both whether the overlay is currently active and whether it will be used on boot.
+All three actions support multiple robots.
+
+`pepsi boosterize 42` disables overlay autostart and restores Booster services in the currently running system.
+The next reboot uses the underlying installation.
+
+#### Requirements and system changes
+
+Our overlay activation process supports NVIDIA L4T with systemd 249, an ext4 root, a static `/bin/busybox`, and kernel OverlayFS support.
+It works both on gammarayed and stock robots.
+
+Gammaray enables passwordless sudo before activation; when performed on the underlying installation, this change persists there.
+Overlay boot scripts, data, and boot-target configuration also reside on the underlying installation.
+An early systemd target activates the overlay after device initialization.
 Bootloader and initramfs configuration are unchanged.
 
 ## Build Options
 
 For subcommands that build a binary, you can specify a target and a build profile.
 These include `build`, `run`, `check`, and `clippy`.
-However `upload` and `pregame` only supports a profiles, since it doesn't make sense to upload a webots binary to the nao.
+However `upload` and `pregame` only supports a profiles, since it doesn't make sense to upload a webots binary to the booster.
 
 ### Build directories
 
@@ -105,11 +112,11 @@ For remote native builds that retrieve binaries, use a relative `--target-dir`; 
 
 ## Aliveness
 
-Using the `aliveness` subcommand, pepsi can query information from NAOs connected via ethernet.
+Using the `aliveness` subcommand, pepsi can query information from robots connected via ethernet.
 By default, only irregular information like non-active services, outdated HULKs-OS versions and battery charge levels below 95% are displayed.
 Using `-v`/`--verbose` or `-j`/`--json`, you can retrieve all information available via aliveness in either a human- or machine-readable format.
 
-You can also set a timeout via `-t`/`--timeout` (defaulting to 200ms) and specify NAO addresses (e.g. `22` or `10.1.24.22`) for querying the aliveness information only from specific NAOs.
+You can also set a timeout via `-t`/`--timeout` (defaulting to 200ms) and specify robot addresses (e.g. `22` or `10.1.24.22`) for querying the aliveness information only from specific robots.
 
 Further information on the information available via aliveness as well as the details to the protocol can be found [here](./aliveness.md).
 
@@ -125,7 +132,7 @@ Example:
 
 Refer to your shell's completion documentation for details.
 
-The shells completions for fish, zsh and bash include dynamic suggestions for all pepsi subcommands taking a NAO address as an argument (e.g. `pepsi upload`).
+The shells completions for fish, zsh and bash include dynamic suggestions for all pepsi subcommands taking a robot address as an argument (e.g. `pepsi upload`).
 Those suggestions are retrieved using the aliveness service and require a version of pepsi to be installed in the `PATH`, e.g. by using
 
 ```
