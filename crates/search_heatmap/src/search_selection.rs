@@ -42,12 +42,15 @@ impl Heatmap {
     fn get_maximum_position_with_turn_preference_matching(
         &self,
         minimum_validity: f32,
+        turn_preference_priority_margin: f32,
         field_dimensions: FieldDimensions,
         parameters: &SearchSuggestorParameters,
-        robot_position: Vector2<Field>,
-        robot_heading: Vector2<Field>,
+        ground_to_field: Isometry2<Ground, Field>,
         matches_selection: impl Fn((usize, usize)) -> bool,
     ) -> Option<(usize, usize)> {
+        let robot_position = ground_to_field.as_pose().position().coords();
+        let robot_heading_angle = ground_to_field.orientation().angle();
+        let robot_heading = vector![robot_heading_angle.cos(), robot_heading_angle.sin()];
         let maximum_position = self.get_maximum_position_matching(
             field_dimensions,
             parameters,
@@ -66,7 +69,7 @@ impl Heatmap {
                 matches_selection(*index)
                     && **value > minimum_validity
                     && selection_score(field_dimensions, parameters, *index, **value)
-                        >= maximum_score - parameters.turn_preference_priority_margin.max(0.0)
+                        >= maximum_score - turn_preference_priority_margin.max(0.0)
             })
             .max_by(|(a_index, a_value), (b_index, b_value)| {
                 let a_turn_score =
@@ -88,6 +91,7 @@ impl Heatmap {
         parameters: &SearchSuggestorParameters,
         ground_to_field: Option<Isometry2<Ground, Field>>,
         voronoi_selection: Option<&SearchVoronoiSelection>,
+        minimum_validity: f32,
     ) -> Option<(usize, usize)> {
         let matches_selection = |index| {
             voronoi_selection
@@ -99,20 +103,21 @@ impl Heatmap {
                 self.get_maximum_position_matching(
                     field_dimensions,
                     parameters,
-                    parameters.minimum_validity,
+                    minimum_validity,
                     matches_selection,
                 )
             },
             |ground_to_field| {
-                let robot_position = ground_to_field.as_pose().position().coords();
-                let robot_heading_angle = ground_to_field.orientation().angle();
-                let robot_heading = vector![robot_heading_angle.cos(), robot_heading_angle.sin()];
                 self.get_maximum_position_with_turn_preference_matching(
-                    parameters.minimum_validity,
+                    minimum_validity,
+                    if minimum_validity < parameters.minimum_validity {
+                        0.0
+                    } else {
+                        parameters.turn_preference_priority_margin
+                    },
                     field_dimensions,
                     parameters,
-                    robot_position,
-                    robot_heading,
+                    ground_to_field,
                     matches_selection,
                 )
             },
@@ -125,13 +130,27 @@ impl Heatmap {
         parameters: &SearchSuggestorParameters,
         ground_to_field: Option<Isometry2<Ground, Field>>,
         voronoi_selection: &SearchVoronoiSelection,
+        minimum_validity: f32,
     ) {
         self.update_suggested_search_position_with_optional_voronoi(
             field_dimensions,
             parameters,
             ground_to_field,
             Some(voronoi_selection),
+            minimum_validity,
         );
+    }
+
+    pub fn has_regular_search_target(
+        &self,
+        field_dimensions: FieldDimensions,
+        parameters: &SearchSuggestorParameters,
+        voronoi_selection: &SearchVoronoiSelection,
+    ) -> bool {
+        self.map.indexed_iter().any(|(index, value)| {
+            *value > parameters.minimum_validity
+                && voronoi_selection.owns_index(field_dimensions, index)
+        })
     }
 
     pub fn clear_suggested_search_position(&mut self) {
@@ -145,6 +164,7 @@ impl Heatmap {
         parameters: &SearchSuggestorParameters,
         ground_to_field: Option<Isometry2<Ground, Field>>,
         voronoi_selection: Option<&SearchVoronoiSelection>,
+        minimum_validity: f32,
     ) {
         if !self.has_decided_for_heatmap_tile {
             let suggested_search_index = self.get_suggested_search_index(
@@ -152,6 +172,7 @@ impl Heatmap {
                 parameters,
                 ground_to_field,
                 voronoi_selection,
+                minimum_validity,
             );
             if suggested_search_index.is_some() {
                 self.has_decided_for_heatmap_tile = true;
@@ -162,11 +183,16 @@ impl Heatmap {
                 .map(|selection| selection.owns_index(field_dimensions, last_maximum_heatmap_index))
                 .unwrap_or(true);
             let global_max_value = self
-                .get_maximum_position_matching(field_dimensions, parameters, 0.0, |index| {
-                    voronoi_selection
-                        .map(|selection| selection.owns_index(field_dimensions, index))
-                        .unwrap_or(true)
-                })
+                .get_maximum_position_matching(
+                    field_dimensions,
+                    parameters,
+                    minimum_validity,
+                    |index| {
+                        voronoi_selection
+                            .map(|selection| selection.owns_index(field_dimensions, index))
+                            .unwrap_or(true)
+                    },
+                )
                 .map_or(0.0, |idx| {
                     selection_score(field_dimensions, parameters, idx, self.map[idx])
                 });
@@ -176,16 +202,19 @@ impl Heatmap {
                 last_maximum_heatmap_index,
                 self.map[last_maximum_heatmap_index],
             );
+            let hysteresis_margin =
+                (1.0 - parameters.tile_switch_hysteresis).max(0.0) * global_max_value.abs();
 
             if !current_tile_is_selectable
-                || self.map[last_maximum_heatmap_index] <= parameters.minimum_validity
-                || current_tile_value < global_max_value * parameters.tile_switch_hysteresis
+                || self.map[last_maximum_heatmap_index] <= minimum_validity
+                || current_tile_value < global_max_value - hysteresis_margin
             {
                 let suggested_search_index = self.get_suggested_search_index(
                     field_dimensions,
                     parameters,
                     ground_to_field,
                     voronoi_selection,
+                    minimum_validity,
                 );
                 self.has_decided_for_heatmap_tile = suggested_search_index.is_some();
                 self.last_maximum_heatmap_position = suggested_search_index;
@@ -204,11 +233,11 @@ fn selection_score(
     let distance_to_border = (field_dimensions.length / 2.0 - center.x().abs())
         .min(field_dimensions.width / 2.0 - center.y().abs())
         .max(0.0);
-    let view_range = parameters.heatmap_decay_range.end;
-    if view_range <= 0.0 {
+    let penalty_range = parameters.border_view_penalty_range;
+    if penalty_range <= 0.0 {
         return priority;
     }
-    let border_proximity = (1.0 - distance_to_border / view_range).clamp(0.0, 1.0);
+    let border_proximity = (1.0 - distance_to_border / penalty_range).clamp(0.0, 1.0);
     priority - parameters.border_view_penalty.max(0.0) * border_proximity
 }
 

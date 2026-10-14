@@ -73,13 +73,16 @@ The retention time is controlled by `ball.last_ball_timeout` for local balls and
 ### Search
 
 The `search_suggestor` combines local, team, hypothetical, and rule-based ball information in a priority heatmap with half-meter cells and values between zero and one.
-After losing a locally observed ball, priorities grow over time, fastest around its last position.
+An observed ball raises nearby cells without clearing the rest of the heatmap; ball positions well outside the field are ignored.
+After losing a locally observed ball during `Playing`, priorities grow over time, fastest around its last position.
+On entering `Playing`, a map with a high average priority is scaled down while preserving differences between cells.
 Areas within the estimated field of view lose priority; obstacles reduce this decay for areas they obscure.
 Corner kicks, goal kicks, and throw-ins restrict rule-based search priorities to the corresponding restart locations.
 
 The robot's own pose and fresh teammate poses define its search Voronoi region.
-Within that region, the suggestor selects a cell above the minimum priority. It slightly lowers the selection score of cells near the field boundary, where more of the search view would fall outside the field, and prefers smaller turns among similarly ranked cells.
+Within that region, the suggestor selects a cell above the minimum priority. It slightly lowers the selection score of cells within `border_view_penalty_range` of the field boundary, where more of the search view would fall outside the field, and prefers smaller turns among similarly ranked cells.
 Hysteresis stabilizes the selection.
+If no cell meets the normal minimum for five seconds after a local ball sighting, the suggestor selects the best remaining cell above a lower fallback minimum until a regular target becomes available again.
 The selected cell's center is published as `suggested_search_position`, or `None` when no valid target is available. A robot that is already inside the cell instead keeps its current position and scans without walking to the center.
 
 The searcher uses the existing walking behavior to approach that position with `walking.speed.search`, while the head looks toward plausible ball positions or scans for the ball.

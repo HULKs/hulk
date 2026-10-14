@@ -1,4 +1,5 @@
 use super::*;
+use hsl_network_messages::PlayerNumber;
 use linear_algebra::point;
 
 #[test]
@@ -17,25 +18,44 @@ fn border_penalty_prefers_interior_without_hiding_strong_border_evidence() {
     let mut parameters = SearchSuggestorParameters {
         minimum_validity: 0.4,
         border_view_penalty: 0.15,
-        heatmap_decay_range: 0.0..3.0,
+        border_view_penalty_range: 3.0,
+        heatmap_decay_range: 0.0..0.0,
         ..Default::default()
     };
 
     assert_eq!(
-        heatmap.get_suggested_search_index(field, &parameters, None, None),
+        heatmap.get_suggested_search_index(
+            field,
+            &parameters,
+            None,
+            None,
+            parameters.minimum_validity
+        ),
         Some(interior)
     );
 
     parameters.border_view_penalty = 0.0;
     assert_eq!(
-        heatmap.get_suggested_search_index(field, &parameters, None, None),
+        heatmap.get_suggested_search_index(
+            field,
+            &parameters,
+            None,
+            None,
+            parameters.minimum_validity
+        ),
         Some(border)
     );
 
     parameters.border_view_penalty = 0.15;
     heatmap.map[border] = 1.0;
     assert_eq!(
-        heatmap.get_suggested_search_index(field, &parameters, None, None),
+        heatmap.get_suggested_search_index(
+            field,
+            &parameters,
+            None,
+            None,
+            parameters.minimum_validity
+        ),
         Some(border)
     );
 }
@@ -51,21 +71,34 @@ fn border_penalty_changes_choice_with_turn_preference() {
     let mut parameters = SearchSuggestorParameters {
         minimum_validity: 0.4,
         border_view_penalty: 0.15,
+        border_view_penalty_range: 3.0,
         turn_preference_priority_margin: 0.1,
-        heatmap_decay_range: 0.0..3.0,
+        heatmap_decay_range: 0.0..0.0,
         ..Default::default()
     };
     let pose =
         Isometry2::<Ground, Field>::from_parts(vector![0.0, 0.0], -std::f32::consts::FRAC_PI_4);
 
     assert_eq!(
-        heatmap.get_suggested_search_index(field, &parameters, Some(pose), None),
+        heatmap.get_suggested_search_index(
+            field,
+            &parameters,
+            Some(pose),
+            None,
+            parameters.minimum_validity
+        ),
         Some(interior)
     );
 
     parameters.border_view_penalty = 0.0;
     assert_eq!(
-        heatmap.get_suggested_search_index(field, &parameters, Some(pose), None),
+        heatmap.get_suggested_search_index(
+            field,
+            &parameters,
+            Some(pose),
+            None,
+            parameters.minimum_validity
+        ),
         Some(border)
     );
 }
@@ -93,4 +126,92 @@ fn selected_position_is_center_of_distant_cell() {
         heatmap.selected_position(field, Point2::origin()),
         Some(point![0.75, -0.25])
     );
+}
+
+#[test]
+fn exhausted_search_selects_best_remaining_cell_and_yields_to_regular_target() {
+    let field = FieldDimensions::SPL_2025;
+    let mut heatmap = Heatmap::new(field);
+    let parameters = SearchSuggestorParameters {
+        minimum_validity: 0.4,
+        ..Default::default()
+    };
+    let pose = Isometry2::<Ground, Field>::from_parts(vector![0.0, 0.0], 0.0);
+    let selection = SearchVoronoiSelection::new(
+        field,
+        PlayerNumber::One,
+        [(pose.as_pose(), PlayerNumber::One)],
+    );
+    heatmap.map[(12, 6)] = 0.2;
+    heatmap.map[(5, 6)] = 0.15;
+
+    assert!(!heatmap.has_regular_search_target(field, &parameters, &selection));
+    heatmap.update_suggested_search_position_with_voronoi(
+        field,
+        &parameters,
+        Some(pose),
+        &selection,
+        parameters.minimum_validity,
+    );
+    assert_eq!(heatmap.last_maximum_heatmap_position, None);
+
+    heatmap.update_suggested_search_position_with_voronoi(
+        field,
+        &parameters,
+        Some(pose),
+        &selection,
+        0.05,
+    );
+    assert_eq!(heatmap.last_maximum_heatmap_position, Some((12, 6)));
+
+    heatmap.map[(5, 6)] = 0.6;
+    assert!(heatmap.has_regular_search_target(field, &parameters, &selection));
+    heatmap.update_suggested_search_position_with_voronoi(
+        field,
+        &parameters,
+        Some(pose),
+        &selection,
+        parameters.minimum_validity,
+    );
+    assert_eq!(heatmap.last_maximum_heatmap_position, Some((5, 6)));
+}
+
+#[test]
+fn exhausted_search_keeps_edge_target_when_scores_are_negative() {
+    let field = FieldDimensions::SPL_2025;
+    let mut heatmap = Heatmap::new(field);
+    let parameters = SearchSuggestorParameters {
+        minimum_validity: 0.4,
+        border_view_penalty: 0.15,
+        border_view_penalty_range: 3.0,
+        tile_switch_hysteresis: 0.7,
+        ..Default::default()
+    };
+    let pose = Isometry2::<Ground, Field>::from_parts(vector![0.0, 0.0], 0.0);
+    let selection = SearchVoronoiSelection::new(
+        field,
+        PlayerNumber::One,
+        [(pose.as_pose(), PlayerNumber::One)],
+    );
+    heatmap.map[(17, 11)] = 0.1;
+    heatmap.map[(16, 11)] = 0.09;
+
+    heatmap.update_suggested_search_position_with_voronoi(
+        field,
+        &parameters,
+        Some(pose),
+        &selection,
+        0.05,
+    );
+    assert_eq!(heatmap.last_maximum_heatmap_position, Some((17, 11)));
+
+    heatmap.map[(16, 11)] = 0.105;
+    heatmap.update_suggested_search_position_with_voronoi(
+        field,
+        &parameters,
+        Some(pose),
+        &selection,
+        0.05,
+    );
+    assert_eq!(heatmap.last_maximum_heatmap_position, Some((17, 11)));
 }
