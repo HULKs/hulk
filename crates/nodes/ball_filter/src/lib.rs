@@ -367,7 +367,7 @@ fn predict_hypotheses_from_odometry(
     if resting_speed.is_finite() && resting_speed > 0.0 {
         for hypothesis in &mut ball_filter.hypotheses {
             if let hypothesis::BallMode::Moving(state) = hypothesis.mode
-                && state.mean.z.hypot(state.mean.w) <= resting_speed
+                && state.mean.z.hypot(state.mean.w) < resting_speed
             {
                 hypothesis.mode = hypothesis::BallMode::Resting(MultivariateNormalDistribution {
                     mean: state.mean.xy(),
@@ -404,8 +404,6 @@ fn advance_all_hypotheses(
         mahalanobis_matrix_of_hypotheses_and_percepts(&ball_filter.hypotheses, ball_percepts);
     // Uncertainty grows during occlusion. It must not authorize an arbitrarily
     // distant false percept to update a retained track when this gate is enabled.
-    if filter_parameters.maximum_matching_distance.is_finite()
-        && filter_parameters.maximum_matching_distance > 0.0
     {
         let maximum_squared = filter_parameters.maximum_matching_distance.powi(2);
         for ((hypothesis, percept), cost) in match_matrix.indexed_iter_mut() {
@@ -415,7 +413,9 @@ fn advance_all_hypotheses(
                     .position
                     .inner
                     .coords;
-            if residual.norm_squared() > maximum_squared {
+            if !(filter_parameters.maximum_matching_distance >= 0.0
+                && residual.norm_squared() <= maximum_squared)
+            {
                 *cost = f32::NEG_INFINITY;
             }
         }
@@ -424,14 +424,15 @@ fn advance_all_hypotheses(
     // detection into high-confidence history after an observation gap. Gating
     // leaves that history intact and lets the percept spawn its own hypothesis.
     let reacquisition_distance = filter_parameters.reacquisition_matching_distance;
-    if reacquisition_distance.is_finite() && reacquisition_distance > 0.0 {
+    {
         for ((row, column), score) in match_matrix.indexed_iter_mut() {
             let hypothesis = &ball_filter.hypotheses[row];
             if reacquisition::protect_prior(hypothesis, time, obstacles, filter_parameters)
-                && (ball_percepts[column].percept_in_ground.mean
-                    - hypothesis.position().position.inner.coords)
-                    .norm_squared()
-                    > reacquisition_distance.powi(2)
+                && !(reacquisition_distance >= 0.0
+                    && (ball_percepts[column].percept_in_ground.mean
+                        - hypothesis.position().position.inner.coords)
+                        .norm_squared()
+                        <= reacquisition_distance.powi(2))
             {
                 *score = f32::NEG_INFINITY;
             }
@@ -444,10 +445,47 @@ fn advance_all_hypotheses(
             gated_assignment_scores(&match_matrix, filter_parameters.maximum_matching_cost);
         let uncertainty_weight = filter_parameters.association_uncertainty_weight;
         if uncertainty_weight.is_finite() && uncertainty_weight > 0.0 {
-            for (row, hypothesis) in ball_filter.hypotheses.iter().enumerate() {
-                let variance = hypothesis.position_covariance().trace().max(0.0);
-                let penalty = uncertainty_weight.min(1.0) * variance / (1.0 + variance);
-                for column in 0..ball_percepts.len() {
+            for (column, percept) in ball_percepts.iter().enumerate() {
+                // Eligibility and the reference uncertainty depend on the percept,
+                // not on which candidate row is being scored.
+                let confirmed_resting_competition =
+                    radius_consistency(percept, camera_matrix, field_dimensions.ball_radius)
+                        == Some(true)
+                        && ball_filter
+                            .hypotheses
+                            .iter()
+                            .enumerate()
+                            .all(|(other, hypothesis)| {
+                                !match_matrix[(other, column)].is_finite()
+                                    || match_matrix[(other, column)]
+                                        < -filter_parameters.maximum_matching_cost
+                                    || (matches!(hypothesis.mode, BallMode::Resting(_))
+                                        && hypothesis.validity
+                                            >= 3.0_f32
+                                                .max(filter_parameters.validity_output_threshold))
+                            });
+                let minimum = if confirmed_resting_competition {
+                    ball_filter
+                        .hypotheses
+                        .iter()
+                        .enumerate()
+                        .filter(|(other, _)| {
+                            match_matrix[(*other, column)].is_finite()
+                                && match_matrix[(*other, column)]
+                                    >= -filter_parameters.maximum_matching_cost
+                        })
+                        .map(|(_, other)| other.position_covariance().trace().max(0.0).ln_1p())
+                        .fold(f32::INFINITY, f32::min)
+                } else {
+                    f32::INFINITY
+                };
+                for (row, hypothesis) in ball_filter.hypotheses.iter().enumerate() {
+                    let variance = hypothesis.position_covariance().trace().max(0.0);
+                    let penalty = if minimum.is_finite() {
+                        uncertainty_weight.min(1.0) * (variance.ln_1p() - minimum).max(0.0)
+                    } else {
+                        uncertainty_weight.min(1.0) * variance / (1.0 + variance)
+                    };
                     assignment_scores[(row, column)] -= penalty;
                 }
             }
@@ -567,7 +605,7 @@ fn advance_all_hypotheses(
                     .observe_clear_miss(time, filter_parameters.visible_missed_detection_timeout);
                 let near = negative_evidence::near_enabled(filter_parameters)
                     && position.position.coords().norm()
-                        <= filter_parameters.near_visible_missed_detection_distance;
+                        < filter_parameters.near_visible_missed_detection_distance;
                 if near {
                     let (near_expired, interval) = evidence.observe_near_miss(
                         time,
@@ -596,6 +634,12 @@ fn remove_invalid_and_merge_hypotheses(
     filter_parameters: &BallFilterParameters,
     field_dimensions: &FieldDimensions,
 ) {
+    if let Some(maximum) = filter_parameters.maximum_confidence {
+        let maximum = maximum.max(0.0);
+        for hypothesis in &mut ball_filter.hypotheses {
+            hypothesis.validity = hypothesis.validity.min(maximum);
+        }
+    }
     let is_hypothesis_valid = |hypothesis: &BallHypothesis| {
         let ball = hypothesis.position();
         let Some(duration_since_last_observation) = ball.age_at(time) else {
@@ -609,14 +653,43 @@ fn remove_invalid_and_merge_hypotheses(
     };
 
     let should_merge_hypotheses = |left: &BallHypothesis, right: &BallHypothesis| {
+        let fresh_and_stale = |fresh: &BallHypothesis, stale: &BallHypothesis| {
+            matches!(fresh.mode, BallMode::Resting(_))
+                && matches!(stale.mode, BallMode::Resting(_))
+                && fresh.validity >= 3.0_f32.max(filter_parameters.validity_output_threshold)
+                && fresh.last_observation_size_plausible == Some(true)
+                && fresh
+                    .position()
+                    .age_at(time)
+                    .is_some_and(|age| age <= Duration::from_millis(120))
+                && stale
+                    .position()
+                    .age_at(time)
+                    .is_some_and(|age| age >= Duration::from_secs(1))
+        };
+        let physical_limit = if fresh_and_stale(left, right) || fresh_and_stale(right, left) {
+            2.0 * field_dimensions.ball_radius
+        } else if matches!(left.mode, BallMode::Resting(_))
+            && matches!(right.mode, BallMode::Resting(_))
+        {
+            field_dimensions.ball_radius
+        } else {
+            filter_parameters.hypothesis_merge_distance
+        };
         left.can_merge(
             right,
-            filter_parameters.hypothesis_merge_distance,
+            filter_parameters
+                .hypothesis_merge_distance
+                .min(physical_limit),
             filter_parameters.validity_output_threshold,
         )
     };
 
-    ball_filter.remove_hypotheses(is_hypothesis_valid, should_merge_hypotheses);
+    ball_filter.remove_hypotheses(
+        is_hypothesis_valid,
+        should_merge_hypotheses,
+        field_dimensions.ball_radius,
+    );
     ball_filter
         .hypotheses
         .sort_unstable_by(|a, b| b.validity.total_cmp(&a.validity));
@@ -759,9 +832,11 @@ fn project_detected_balls(
                     return None;
                 }
                 let maximum_distance = parameters.maximum_detection_distance;
-                if maximum_distance.is_finite()
-                    && maximum_distance > 0.0
-                    && position.coords().norm() > maximum_distance
+                if position
+                    .coords()
+                    .norm()
+                    .partial_cmp(&maximum_distance)
+                    .is_none_or(|ordering| ordering.is_gt())
                 {
                     return None;
                 }
@@ -773,10 +848,8 @@ fn project_detected_balls(
                 }
                 let maximum_ratio = parameters.maximum_detection_radius_ratio;
                 let radius_distance = parameters.radius_consistency_maximum_distance;
-                let check_size = !radius_distance.is_finite()
-                    || radius_distance <= 0.0
-                    || position.coords().norm() <= radius_distance;
-                if maximum_ratio.is_finite() && maximum_ratio > 1.0 && check_size {
+                let check_size = position.coords().norm() <= radius_distance;
+                if check_size {
                     let in_camera = camera_matrix.ground_to_camera
                         * linear_algebra::point![position.x(), position.y(), ball_radius];
                     let depth = in_camera.z();
@@ -792,8 +865,8 @@ fn project_detected_balls(
                         / depth;
                     if !expected.is_finite()
                         || expected <= 0.0
-                        || detected_ball_radius > maximum_ratio * expected
-                        || expected > maximum_ratio * detected_ball_radius
+                        || !(detected_ball_radius <= maximum_ratio * expected
+                            && expected <= maximum_ratio * detected_ball_radius)
                     {
                         return None;
                     }
@@ -999,6 +1072,41 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn stored_confidence_cap_preserves_state_and_zero_removes_support() {
+        let mut parameters = crate::test_parameters();
+        parameters.maximum_confidence = Some(5.0);
+        let mut hypothesis = BallHypothesis::new(
+            MultivariateNormalDistribution {
+                mean: nalgebra::vector![1.0, 0.0, 2.0, 0.0],
+                covariance: Matrix4::identity(),
+            },
+            Time::zero(),
+        );
+        hypothesis.validity = 100.0;
+        let mut filter = BallFilter {
+            hypotheses: vec![hypothesis],
+        };
+        remove_invalid_and_merge_hypotheses(
+            &mut filter,
+            Time::zero(),
+            &parameters,
+            &FieldDimensions::SPL_2025,
+        );
+        assert_eq!(filter.hypotheses.len(), 1);
+        assert_eq!(filter.hypotheses[0].validity, 5.0);
+        assert_eq!(filter.hypotheses[0].position().velocity.x(), 2.0);
+        assert_eq!(filter.hypotheses[0].position().position.x(), 1.0);
+        parameters.maximum_confidence = Some(0.0);
+        remove_invalid_and_merge_hypotheses(
+            &mut filter,
+            Time::zero(),
+            &parameters,
+            &FieldDimensions::SPL_2025,
+        );
+        assert!(filter.hypotheses.is_empty());
+    }
+
     fn horizontal_test_camera() -> CameraMatrix {
         // Camera one metre above Ground, looking along +x; pixel y increases down.
         let rotation = nalgebra::Rotation3::from_matrix_unchecked(nalgebra::Matrix3::new(
@@ -1089,8 +1197,8 @@ mod tests {
         assert_eq!(tracker.filter.hypotheses.len(), 1);
         assert!((tracker.filter.hypotheses[0].position().position.x() - 10.0).abs() < 1e-3);
 
-        // Legacy baselines with the range gate disabled retain finite far percepts.
-        parameters.maximum_detection_distance = 0.0;
+        // A large literal distance retains finite far percepts.
+        parameters.maximum_detection_distance = 1000.0;
         let percepts = project_detected_balls(
             Some(&[test_ball_detection(too_far)]),
             Some(&camera),
@@ -1179,6 +1287,39 @@ mod tests {
                     .unwrap();
             assert_eq!(output.len(), usize::from(distance > 1.5));
         }
+    }
+
+    #[test]
+    fn zero_detection_limits_are_literal_not_unbounded() {
+        let camera = horizontal_test_camera();
+        let radius = FieldDimensions::SPL_2025.ball_radius;
+        let center = camera
+            .ground_with_z_to_pixel(point![2.0, 0.0], radius)
+            .unwrap();
+        let detection = test_ball_detection(center);
+        let mut parameters = crate::test_parameters();
+        let count = |p: &BallFilterParameters| {
+            project_detected_balls(
+                Some(std::slice::from_ref(&detection)),
+                Some(&camera),
+                p,
+                radius,
+            )
+            .unwrap()
+            .len()
+        };
+        parameters.maximum_detection_distance = 0.0;
+        assert_eq!(count(&parameters), 0);
+        parameters.maximum_detection_distance = 1000.0;
+        parameters.maximum_detection_radius_ratio = 0.0;
+        parameters.radius_consistency_maximum_distance = 1000.0;
+        assert_eq!(count(&parameters), 0);
+        parameters.radius_consistency_maximum_distance = 0.0;
+        assert_eq!(
+            count(&parameters),
+            1,
+            "a zero check radius does not cover a ball two metres away"
+        );
     }
 
     #[test]
@@ -1360,7 +1501,13 @@ mod tests {
 
     #[test]
     fn distant_percept_cannot_capture_an_uncertain_track_with_distance_gate() {
-        for (distance_gate, expected_tracks) in [(0.0, 1), (0.3, 2), (2.0, 1)] {
+        for (distance_gate, percept_x, expected_tracks) in [
+            (0.0, 0.0, 1),
+            (0.0, 1.0, 2),
+            (0.3, 1.0, 2),
+            (2.0, 1.0, 1),
+            (1000.0, 1.0, 1),
+        ] {
             let parameters = BallFilterParameters {
                 hidden_validity_exponential_decay_factor: 1.0,
                 maximum_matching_cost: 1.0,
@@ -1380,7 +1527,7 @@ mod tests {
             };
             let percept = BallPercept {
                 percept_in_ground: MultivariateNormalDistribution {
-                    mean: vector![1.0, 0.0],
+                    mean: vector![percept_x, 0.0],
                     covariance: Matrix2::identity() * 0.001,
                 },
                 image_location: Circle::new(point![0.0, 0.0], 1.0),
@@ -1401,7 +1548,10 @@ mod tests {
             if expected_tracks == 2 {
                 assert_eq!(filter.hypotheses[0].position().position, point![0.0, 0.0]);
                 assert_eq!(filter.hypotheses[0].last_seen, Time::from_nanos(40_000_000));
-                assert_eq!(filter.hypotheses[1].position().position, point![1.0, 0.0]);
+                assert_eq!(
+                    filter.hypotheses[1].position().position,
+                    point![percept_x, 0.0]
+                );
             }
         }
     }
@@ -1512,8 +1662,12 @@ mod tests {
 
     #[test]
     fn reacquisition_gate_preserves_prior_and_requires_an_observation_gap() {
-        for (gate, millis, should_branch) in [(0.0, 200, false), (0.1, 40, false), (0.1, 200, true)]
-        {
+        for (gate, millis, should_branch) in [
+            (0.0, 200, true),
+            (1000.0, 200, false),
+            (0.1, 40, false),
+            (0.1, 200, true),
+        ] {
             let mut parameters = crate::test_parameters();
             parameters.reacquisition_matching_distance = gate;
             parameters.maximum_matching_cost = 1.0;
@@ -1573,7 +1727,6 @@ mod tests {
         let mut parameters = crate::test_parameters();
         parameters.hidden_validity_exponential_decay_factor = 1.0;
         parameters.maximum_matching_cost = 0.25;
-        parameters.maximum_matching_cost_validity_penalty_factor = 0.14;
         parameters.validity_discard_threshold = 0.2;
         parameters.validity_output_threshold = 0.5;
         parameters.maximum_number_of_hypotheses = 15;
@@ -1653,6 +1806,58 @@ mod tests {
         assert_eq!(best.position().position, point![3.0, 0.0]);
         assert_eq!(best.last_seen, Time::from_nanos(580_000_000));
         assert_eq!(filter.hypotheses.len(), 2);
+    }
+
+    #[test]
+    fn diameter_merge_requires_confirmed_recent_resting_and_stale_history() {
+        let dimensions = FieldDimensions {
+            ball_radius: 0.105,
+            ..FieldDimensions::SPL_2025
+        };
+        let time = Time::from_nanos(2_000_000_000);
+        for (same_exposure, weak, moving, distance, expected) in [
+            (false, false, false, 0.21, 1),
+            (true, false, false, 0.21, 2),
+            (false, true, false, 0.21, 2),
+            (false, false, true, 0.21, 2),
+            (false, false, false, 0.0, 2),
+        ] {
+            let make = |x, stamp| {
+                let mut h = BallHypothesis::new(
+                    MultivariateNormalDistribution {
+                        mean: vector![x, 0.0, 0.0, 0.0],
+                        covariance: Matrix4::identity() * 0.01,
+                    },
+                    stamp,
+                );
+                h.mode = BallMode::Resting(MultivariateNormalDistribution {
+                    mean: vector![x, 0.0],
+                    covariance: Matrix2::identity() * 0.01,
+                });
+                h.validity = 4.0;
+                h.last_observation_size_plausible = Some(true);
+                h
+            };
+            let mut fresh = make(1.0, time);
+            if weak {
+                fresh.validity = 1.0;
+            }
+            if moving {
+                fresh.mode = BallMode::Moving(MultivariateNormalDistribution {
+                    mean: vector![1.0, 0.0, 1.0, 0.0],
+                    covariance: Matrix4::identity(),
+                });
+            }
+            let stale = make(1.15, if same_exposure { time } else { Time::zero() });
+            let mut filter = BallFilter {
+                hypotheses: vec![fresh, stale],
+            };
+            let mut parameters = crate::test_parameters();
+            parameters.hypothesis_merge_distance = distance;
+            parameters.hypothesis_timeout = Duration::from_secs(20);
+            remove_invalid_and_merge_hypotheses(&mut filter, time, &parameters, &dimensions);
+            assert_eq!(filter.hypotheses.len(), expected);
+        }
     }
 
     #[test]
@@ -1874,8 +2079,11 @@ mod odometry_pose_tests {
 
 #[cfg(test)]
 fn test_parameters() -> BallFilterParameters {
-    json5::from_str(include_str!(
+    let mut parameters: BallFilterParameters = json5::from_str(include_str!(
         "../../../../etc/parameters/base/ball_filter.json5"
     ))
-    .expect("base ball_filter parameters must deserialize")
+    .expect("base ball_filter parameters must deserialize");
+    // Isolate confidence accounting from the deployed cap; cap tests opt in explicitly.
+    parameters.maximum_confidence = None;
+    parameters
 }

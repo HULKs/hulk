@@ -51,21 +51,13 @@ fn publication_parameters(parameters: &BallFilterParameters) -> Option<BallFilte
         .field_boundary_margin
         .max(parameters.publication_field_boundary_margin);
     let noise = parameters.publication_detection_noise;
-    alternate
-        .noise
-        .detection_noise
-        .inner
-        .fill(if noise.is_finite() && noise > 0.0 {
-            noise
-        } else {
-            0.05
-        });
+    alternate.noise.detection_noise.inner.fill(noise);
     alternate.maximum_detection_radius_ratio = 1.5;
-    alternate.radius_consistency_maximum_distance = 0.0;
+    alternate.radius_consistency_maximum_distance = 1000.0;
     alternate.maximum_matching_cost = 9.0;
     alternate.maximum_matching_distance = 0.5;
-    alternate.visible_missed_detection_timeout = Duration::ZERO;
-    alternate.near_visible_missed_detection_timeout = Duration::ZERO;
+    alternate.visible_missed_detection_timeout = Duration::from_secs(1_000_000);
+    alternate.near_visible_missed_detection_timeout = Duration::from_secs(1_000_000);
     alternate.hidden_validity_decay_rate = Some(0.0);
     alternate.visible_missed_validity_decay_rate = Some(0.0);
     alternate.near_visible_missed_validity_decay_rate = Some(0.0);
@@ -254,22 +246,16 @@ impl Tracker {
             // Retained history can survive long after its motion prediction
             // becomes less certain than a newly observed primary track.
             let maximum_ratio = parameters.publication_maximum_covariance_ratio;
-            let covariance_supported = if maximum_ratio.is_finite() && maximum_ratio > 0.0 {
-                let primary_trace = hypothesis.position_covariance().trace();
-                primary_trace.is_finite()
-                    && primary_trace >= 0.0
-                    && covariance_trace.is_finite()
-                    && *covariance_trace >= 0.0
-                    && f64::from(*covariance_trace)
-                        <= f64::from(maximum_ratio) * f64::from(primary_trace)
-            } else {
-                true
-            };
-            (parameters.publication_maximum_age.is_zero()
-                || time.as_nanos().saturating_sub(ball.last_seen.as_nanos()) as u128
-                    <= parameters.publication_maximum_age.as_nanos())
-                && (parameters.publication_maximum_distance <= 0.0
-                    || ball.position.coords().norm() <= parameters.publication_maximum_distance)
+            let primary_trace = hypothesis.position_covariance().trace();
+            let covariance_supported = primary_trace.is_finite()
+                && primary_trace >= 0.0
+                && covariance_trace.is_finite()
+                && *covariance_trace >= 0.0
+                && f64::from(*covariance_trace)
+                    <= f64::from(maximum_ratio) * f64::from(primary_trace);
+            time.as_nanos().saturating_sub(ball.last_seen.as_nanos()) as u128
+                <= parameters.publication_maximum_age.as_nanos()
+                && ball.position.coords().norm() <= parameters.publication_maximum_distance
                 && covariance_supported
         });
         Some(match alternate {
@@ -324,8 +310,9 @@ mod tests {
         let mut parameters = crate::test_parameters();
         parameters.maximum_camera_matrix_age = Duration::from_millis(20);
         parameters.visible_missed_detection_timeout = Duration::from_millis(160);
+        parameters.visibility_uncertainty_scale = 0.0; // Individual cases opt into covariance margins.
         // Each scenario enables the additional policies it exercises.
-        parameters.near_visible_missed_detection_timeout = Duration::ZERO;
+        parameters.near_visible_missed_detection_timeout = Duration::from_secs(1_000_000);
         parameters.near_visible_missed_detection_distance = 0.0;
         parameters.hidden_validity_decay_rate = None;
         parameters.visible_missed_validity_decay_rate = None;
@@ -345,6 +332,15 @@ mod tests {
         parameters.hypothesis_timeout = Duration::from_secs(30);
         parameters.noise.detection_noise.inner.fill(0.01);
         (tracker, camera, parameters, dimensions)
+    }
+
+    #[test]
+    fn zero_publication_noise_does_not_substitute_a_default() {
+        let mut parameters = crate::test_parameters();
+        parameters.publication_detection_noise = 0.0;
+        let alternate = publication_parameters(&parameters).unwrap();
+        assert_eq!(alternate.noise.detection_noise.x(), 0.0);
+        assert_eq!(alternate.noise.detection_noise.y(), 0.0);
     }
 
     #[test]
@@ -372,7 +368,7 @@ mod tests {
             ..Default::default()
         }));
         parameters.publication_filter_blend = 0.7;
-        parameters.publication_maximum_covariance_ratio = 0.0;
+        parameters.publication_maximum_covariance_ratio = 1_000_000.0;
         let unguarded = tracker.finish(time, &parameters, &dimensions).unwrap();
         assert!((unguarded.position - baseline.position).norm() > 0.5);
 
@@ -384,11 +380,24 @@ mod tests {
 
         // The same independent history remains available when the guard is
         // disabled; rejecting a correction must not delete its track.
-        parameters.publication_maximum_covariance_ratio = 0.0;
+        parameters.publication_maximum_covariance_ratio = 1_000_000.0;
         let disabled = tracker.finish(time, &parameters, &dimensions).unwrap();
         assert_eq!(disabled.position, unguarded.position);
         assert_eq!(disabled.velocity, unguarded.velocity);
         assert_eq!(disabled.last_seen, unguarded.last_seen);
+
+        for limit in ["age", "distance", "covariance"] {
+            let mut zero = parameters.clone();
+            match limit {
+                "age" => zero.publication_maximum_age = Duration::ZERO,
+                "distance" => zero.publication_maximum_distance = 0.0,
+                "covariance" => zero.publication_maximum_covariance_ratio = 0.0,
+                _ => unreachable!(),
+            }
+            let output = tracker.finish(time, &zero, &dimensions).unwrap();
+            assert_eq!(output.position, baseline.position, "{limit}");
+            assert_eq!(output.velocity, baseline.velocity, "{limit}");
+        }
 
         // A confidently supported auxiliary estimate may still correct the
         // geometrically suspect primary observation.
@@ -434,11 +443,7 @@ mod tests {
         detection.bounding_box.area.max = center + linear_algebra::vector![radius, radius];
         for step in 1..25 {
             let time = Time::from_nanos(step * 40_000_000);
-            let detections = if step < 6 {
-                vec![detection.clone()]
-            } else {
-                vec![]
-            };
+            let detections = if step < 6 { vec![detection] } else { vec![] };
             let camera = TimeWrapper {
                 time,
                 inner: camera.clone(),
@@ -578,7 +583,7 @@ mod tests {
             parameters.near_visible_missed_detection_timeout = if near {
                 Duration::from_millis(120)
             } else {
-                Duration::ZERO
+                Duration::from_secs(1_000_000)
             };
             parameters.near_visible_missed_detection_distance = tracker.filter.hypotheses[0]
                 .position()
@@ -850,7 +855,7 @@ mod tests {
         let mut filter = BallFilter {
             hypotheses: vec![old, singular],
         };
-        filter.remove_hypotheses(|_| true, |_, _| true);
+        filter.remove_hypotheses(|_| true, |_, _| true, 0.0);
         assert_eq!(filter.hypotheses.len(), 2);
         assert_eq!(filter.hypotheses[0].position().position.x(), 1.0);
         assert_eq!(filter.hypotheses[0].validity, 10.0);
@@ -887,7 +892,7 @@ mod tests {
     fn learned_decay_parameters() -> (Tracker, CameraMatrix, BallFilterParameters, FieldDimensions)
     {
         let (tracker, camera, mut parameters, dimensions) = negative_evidence_fixture();
-        parameters.visible_missed_detection_timeout = Duration::ZERO;
+        parameters.visible_missed_detection_timeout = Duration::from_secs(1_000_000);
         parameters.visible_validity_exponential_decay_factor = 0.5;
         parameters.hidden_validity_exponential_decay_factor = 0.3;
         parameters.visible_missed_validity_decay_rate = Some(1.0);
@@ -1056,8 +1061,8 @@ mod tests {
         parameters.visible_missed_validity_decay_rate = None;
         parameters.competing_hypothesis_validity_decay_rate = None;
         parameters.near_visible_missed_validity_decay_rate = None;
-        parameters.visible_missed_detection_timeout = Duration::ZERO;
-        parameters.near_visible_missed_detection_timeout = Duration::ZERO;
+        parameters.visible_missed_detection_timeout = Duration::from_secs(1_000_000);
+        parameters.near_visible_missed_detection_timeout = Duration::from_secs(1_000_000);
         let ball = image_object(RobocupObjectLabel::Ball, 1.0);
         detector_frame(&mut tracker, &camera, 40, &[ball], &parameters, &dimensions);
         let before = tracker.filter.hypotheses[0].clone();
@@ -1377,7 +1382,7 @@ mod tests {
     fn near_clear_clock_resets_on_occlusion_unknown_geometry_gaps_and_real_match() {
         for interruption in ["robot", "missing obstacles", "stale camera", "gap", "match"] {
             let (mut tracker, camera, mut parameters, dimensions) = negative_evidence_fixture();
-            parameters.visible_missed_detection_timeout = Duration::ZERO;
+            parameters.visible_missed_detection_timeout = Duration::from_secs(1_000_000);
             parameters.near_visible_missed_detection_timeout = Duration::from_millis(120);
             parameters.near_visible_missed_detection_distance = 1.0;
             parameters.near_visible_missed_validity_decay_rate = Some(20.0);
@@ -1499,10 +1504,10 @@ mod tests {
     }
 
     #[test]
-    fn disabled_near_policy_retains_legacy_behavior_even_with_rate_configured() {
-        for (timeout, distance) in [(Duration::ZERO, 1.0), (Duration::from_millis(120), 0.0)] {
+    fn zero_near_distance_excludes_the_near_policy_even_with_rate_configured() {
+        for (timeout, distance) in [(Duration::ZERO, 0.0), (Duration::from_millis(120), 0.0)] {
             let (mut tracker, camera, mut parameters, dimensions) = negative_evidence_fixture();
-            parameters.visible_missed_detection_timeout = Duration::ZERO;
+            parameters.visible_missed_detection_timeout = Duration::from_secs(1_000_000);
             parameters.near_visible_missed_detection_timeout = timeout;
             parameters.near_visible_missed_detection_distance = distance;
             parameters.near_visible_missed_validity_decay_rate = Some(40.0);
@@ -1527,7 +1532,7 @@ mod tests {
     }
 
     #[test]
-    fn matched_ball_resets_misses_and_legacy_disabled_timeout_preserves_old_behavior() {
+    fn matched_ball_resets_misses_and_long_timeout_allows_retention() {
         let (mut tracker, camera, parameters, dimensions) = negative_evidence_fixture();
         for millis in [40, 80, 120] {
             detector_frame(&mut tracker, &camera, millis, &[], &parameters, &dimensions);
@@ -1555,7 +1560,7 @@ mod tests {
         assert!(tracker.filter.hypotheses.is_empty());
 
         let (mut tracker, camera, mut parameters, dimensions) = negative_evidence_fixture();
-        parameters.visible_missed_detection_timeout = Duration::ZERO;
+        parameters.visible_missed_detection_timeout = Duration::from_secs(1_000_000);
         parameters.visible_validity_exponential_decay_factor = 0.9;
         let robot = image_object(RobocupObjectLabel::Robot, 1.0);
         detector_frame(
@@ -1885,6 +1890,8 @@ mod tests {
         parameters.hidden_validity_exponential_decay_factor = 1.0;
         parameters.visible_validity_exponential_decay_factor = 1.0;
         parameters.velocity_decay_factor = 1.0; // Constant-speed reference, without friction.
+        parameters.resting_velocity_threshold = 0.0;
+        parameters.selection_confidence_cap = 1_000_000.0;
         parameters.log_likelihood_of_zero_velocity_threshold = 0.5;
         parameters.maximum_matching_cost = 10.0;
         parameters.validity_output_threshold = 0.5;

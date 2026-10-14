@@ -24,6 +24,10 @@ pub struct MotionEvidence {
 }
 
 impl MotionEvidence {
+    pub(crate) fn has_three_observations(&self) -> bool {
+        self.observations.len() >= 3
+    }
+
     pub(super) fn transform(&mut self, old_to_current: Isometry2<Ground, Ground>) {
         let rotation = old_to_current.inner.rotation.to_rotation_matrix();
         let rotation = rotation.matrix();

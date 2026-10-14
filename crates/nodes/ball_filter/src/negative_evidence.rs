@@ -35,7 +35,10 @@ pub struct NearEvidence {
 }
 
 pub fn near_enabled(parameters: &BallFilterParameters) -> bool {
-    !parameters.near_visible_missed_detection_timeout.is_zero()
+    (parameters.near_visible_missed_detection_timeout < parameters.hypothesis_timeout
+        || parameters
+            .near_visible_missed_validity_decay_rate
+            .is_some_and(|rate| rate > 0.0))
         && parameters
             .near_visible_missed_detection_distance
             .is_finite()
@@ -43,7 +46,10 @@ pub fn near_enabled(parameters: &BallFilterParameters) -> bool {
 }
 
 pub fn enabled(parameters: &BallFilterParameters) -> bool {
-    !parameters.visible_missed_detection_timeout.is_zero() || near_enabled(parameters)
+    // A miss timeout beyond ordinary hypothesis expiry cannot remove a track
+    // sooner. Avoid collecting redundant evidence unless near decay needs it.
+    parameters.visible_missed_detection_timeout < parameters.hypothesis_timeout
+        || near_enabled(parameters)
 }
 
 impl NegativeEvidence {
@@ -73,7 +79,7 @@ impl NegativeEvidence {
             duration: Duration::ZERO,
             last_clear_frame: time,
         });
-        (!timeout.is_zero() && near.duration >= timeout, elapsed)
+        (near.duration >= timeout, elapsed)
     }
 
     pub fn observe_clear_miss(&mut self, time: Time, timeout: Duration) -> bool {
@@ -88,7 +94,7 @@ impl NegativeEvidence {
             }
         }
         self.last_clear_frame = Some(time);
-        !timeout.is_zero() && self.visible_missed_duration >= timeout
+        self.visible_missed_duration >= timeout
     }
 }
 
@@ -273,6 +279,20 @@ mod tests {
 
     fn time(milliseconds: i64) -> Time {
         Time::from_nanos(milliseconds * 1_000_000)
+    }
+
+    #[test]
+    fn zero_timeout_expires_on_the_first_confirmed_miss() {
+        let mut evidence = NegativeEvidence::default();
+        assert!(evidence.observe_clear_miss(Time::zero(), Duration::ZERO));
+        assert!(evidence.observe_near_miss(Time::zero(), Duration::ZERO).0);
+        let mut retained = NegativeEvidence::default();
+        assert!(!retained.observe_clear_miss(Time::zero(), Duration::from_secs(1_000_000)));
+        assert!(
+            !retained
+                .observe_near_miss(Time::zero(), Duration::from_secs(1_000_000))
+                .0
+        );
     }
 
     #[test]
