@@ -1,6 +1,5 @@
 use std::{
     fmt::{self, Display, Formatter},
-    sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
 
@@ -49,30 +48,14 @@ impl Display for Action {
 
 pub(crate) async fn overlay(arguments: Arguments) -> Result<()> {
     let action = arguments.action;
-    let failed = AtomicBool::new(false);
     ProgressIndicator::new()
-        .map_tasks(
-            arguments.robots,
-            format!("overlay autostart: {action}"),
-            |address, progress| {
-                let failed = &failed;
-                async move {
-                    let result = async {
-                        let robot = Robot::try_new_with_ping(address.ip).await?;
-                        control(&robot, action, false, &progress).await
-                    }
-                    .await;
-                    if result.is_err() {
-                        failed.store(true, Ordering::Relaxed);
-                    }
-                    result.map(InlineMessage)
-                }
-            },
-        )
+        .map_tasks(arguments.robots, "", |address, progress| async move {
+            let robot = Robot::try_new_with_ping(address.ip).await?;
+            control(&robot, action, false, &progress)
+                .await
+                .map(InlineMessage)
+        })
         .await;
-    if failed.load(Ordering::Relaxed) {
-        bail!("overlay {action} failed on one or more robots");
-    }
     Ok(())
 }
 
