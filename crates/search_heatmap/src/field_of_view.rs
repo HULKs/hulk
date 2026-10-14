@@ -118,12 +118,13 @@ impl Heatmap {
         &mut self,
         field_dimensions: FieldDimensions,
         ground_to_field: Isometry2<Ground, Field>,
+        head_yaw: f32,
         parameters: &SearchSuggestorParameters,
         occluders: &[SearchOccluder],
     ) {
-        let body_orientation = ground_to_field.orientation().angle();
+        let view_orientation = ground_to_field.orientation().angle() + head_yaw;
         let heading_direction: Vector2<Field> =
-            vector![body_orientation.cos(), body_orientation.sin()];
+            vector![view_orientation.cos(), view_orientation.sin()];
         self.decay_tiles_from_field_pose_and_heading_for_sampled_ticks(
             field_dimensions,
             ground_to_field.as_pose(),
@@ -199,5 +200,35 @@ fn get_direction(base_vector: Vector2<Field>, vector_to_test: Vector2<Field>) ->
         f if f > 0.0 => Direction::Clockwise,
         f if f < 0.0 => Direction::Counterclockwise,
         f => panic!("directed cathetus was not a real number: {f}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn local_decay_uses_head_yaw() {
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let mut heatmap = Heatmap::new(field_dimensions);
+        heatmap.map.fill(1.0);
+        let parameters = SearchSuggestorParameters {
+            decay_distance_factor: 0.5,
+            occluded_decay_factor: 1.0,
+            heatmap_decay_range: 0.0..3.0,
+            ..Default::default()
+        };
+        let ground_to_field = Isometry2::<Ground, Field>::from_parts(vector![0.0, 0.0], 0.0);
+
+        heatmap.decay_tiles_in_robot_fov_with_occluders(
+            field_dimensions,
+            ground_to_field,
+            std::f32::consts::FRAC_PI_2,
+            &parameters,
+            &[],
+        );
+
+        assert!(heatmap.map[(9, 8)] < 1.0);
+        assert_eq!(heatmap.map[(12, 6)], 1.0);
     }
 }
