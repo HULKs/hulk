@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+trap 'printf "Lower-root command failed (exit %s, line %s): %s\n" "$?" "$LINENO" "$BASH_COMMAND" >&2' ERR
 umask 022
 root=/
 # Run in a private mount namespace so the temporary lower mount stays private.

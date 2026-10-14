@@ -139,7 +139,9 @@ async fn on_lower_root(robot: &Robot, commands: &str) -> Result<String> {
         .await?;
     if !output.status.success() {
         bail!(
-            "lower-root command failed: {}",
+            "lower-root command failed ({}):\nstdout:\n{}\nstderr:\n{}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         );
     }
