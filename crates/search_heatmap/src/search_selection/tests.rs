@@ -134,6 +134,7 @@ fn exhausted_search_selects_best_remaining_cell_and_yields_to_regular_target() {
     let mut heatmap = Heatmap::new(field);
     let parameters = SearchSuggestorParameters {
         minimum_validity: 0.4,
+        exhausted_search_minimum_validity: 0.05,
         ..Default::default()
     };
     let pose = Isometry2::<Ground, Field>::from_parts(vector![0.0, 0.0], 0.0);
@@ -160,7 +161,7 @@ fn exhausted_search_selects_best_remaining_cell_and_yields_to_regular_target() {
         &parameters,
         Some(pose),
         &selection,
-        0.05,
+        parameters.exhausted_search_minimum_validity,
     );
     assert_eq!(heatmap.last_maximum_heatmap_position, Some((12, 6)));
 
@@ -182,6 +183,7 @@ fn exhausted_search_keeps_edge_target_when_scores_are_negative() {
     let mut heatmap = Heatmap::new(field);
     let parameters = SearchSuggestorParameters {
         minimum_validity: 0.4,
+        exhausted_search_minimum_validity: 0.05,
         border_view_penalty: 0.15,
         border_view_penalty_range: 3.0,
         tile_switch_hysteresis: 0.7,
@@ -201,7 +203,7 @@ fn exhausted_search_keeps_edge_target_when_scores_are_negative() {
         &parameters,
         Some(pose),
         &selection,
-        0.05,
+        parameters.exhausted_search_minimum_validity,
     );
     assert_eq!(heatmap.last_maximum_heatmap_position, Some((17, 11)));
 
@@ -211,7 +213,7 @@ fn exhausted_search_keeps_edge_target_when_scores_are_negative() {
         &parameters,
         Some(pose),
         &selection,
-        0.05,
+        parameters.exhausted_search_minimum_validity,
     );
     assert_eq!(heatmap.last_maximum_heatmap_position, Some((17, 11)));
 }
