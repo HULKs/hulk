@@ -226,12 +226,11 @@ pub(super) async fn ensure(robot: &Robot, clean: bool, progress: &ProgressBar) -
     let deadline = Instant::now() + Duration::from_secs(180);
     while Instant::now() < deadline {
         sleep(Duration::from_secs(2)).await;
-        if let Ok(current) = status(robot).await {
-            if let Some(current_boot) = current.strip_prefix("overlay ")
-                && current_boot != boot_id
-            {
-                return Ok(());
-            }
+        if let Ok(current) = status(robot).await
+            && let Some(current_boot) = current.strip_prefix("overlay ")
+            && current_boot != boot_id
+        {
+            return Ok(());
         }
     }
     bail!("robot did not enter managed overlay within 180 seconds; provisioning was not started")
