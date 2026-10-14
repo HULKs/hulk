@@ -131,6 +131,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut last_teammate_states = Players::new(None);
     let mut no_regular_target_since = None;
     let mut was_playing = false;
+    let mut was_heatmap_search_enabled = true;
     let mut last_priority_update = node.clock().now();
     let mut tick = node.create_timer(Duration::from_millis(20));
 
@@ -142,6 +143,36 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
+        if parameters.disable_heatmap_search {
+            if was_heatmap_search_enabled {
+                last_ball_position = None;
+                current_ball_position = None;
+                latest_filtered_game_controller_state = None;
+                last_teammate_states = Players::new(None);
+                no_regular_target_since = None;
+                was_playing = false;
+            }
+            was_heatmap_search_enabled = false;
+            suggested_search_position_pub.publish(&None).await?;
+
+            while ball_position_sub.is_ready() {
+                ball_position_sub.recv().await?;
+            }
+            while hypothetical_ball_positions_sub.is_ready() {
+                hypothetical_ball_positions_sub.recv().await?;
+            }
+            while player_states_sub.is_ready() {
+                player_states_sub.recv().await?;
+            }
+            while filtered_game_controller_state_sub.is_ready() {
+                filtered_game_controller_state_sub.recv().await?;
+            }
+            continue;
+        }
+        if !was_heatmap_search_enabled {
+            heatmap = Heatmap::new(field_dimensions);
+        }
+        was_heatmap_search_enabled = true;
         let teammate_freshness_window = hsl_state_message_send_interval_cache
             .get_latest()
             .and_then(|interval| *interval)

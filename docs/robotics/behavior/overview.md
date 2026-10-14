@@ -81,6 +81,8 @@ After a prior local ball sighting, while playing without a current ball, the fal
 After `exhausted_search_delay` without a regular target, the suggestor selects the best remaining cell above `exhausted_search_minimum_validity` until a regular target becomes available again.
 The selected cell's center is published as `suggested_search_position`, or `None` when no valid target is available.
 A robot that is already inside the cell instead keeps its current position and scans without walking to the center.
+Setting `search_suggestor.disable_heatmap_search` to `true` stops heatmap updates and publishes no search target, so the existing search behavior turns in place (`leuchtturm`).
+Re-enabling heatmap search starts with a fresh map instead of replaying observations collected while it was disabled.
 
 The searcher uses the existing walking behavior to approach that position with `walking.speed.search`, while the head looks toward plausible ball positions or scans for the ball.
 Within `search.position_reached_distance`, the robot turns in place and continues searching.

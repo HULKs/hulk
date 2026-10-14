@@ -1,6 +1,11 @@
 use super::*;
 
 #[test]
+fn heatmap_search_is_enabled_by_default() {
+    assert!(!SearchSuggestorParameters::default().disable_heatmap_search);
+}
+
+#[test]
 fn goalkeeper_uses_own_half_search_area() {
     assert_eq!(
         search_area_for_player(PlayerNumber::One, PlayerNumber::One),
