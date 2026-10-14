@@ -6,6 +6,13 @@ use crate::parameters::FallingParameters;
 
 const SAMPLE_INTERVAL_MILLISECONDS: i64 = 10;
 
+fn base_parameters() -> Parameters {
+    json5::from_str(include_str!(
+        "../../../../etc/parameters/base/fall_detection.json5"
+    ))
+    .unwrap()
+}
+
 fn parameters() -> Parameters {
     Parameters {
         maximum_observation_age: Duration::from_millis(50),
@@ -25,6 +32,7 @@ fn parameters() -> Parameters {
             minimum_torso_tilt: 1.0,
             maximum_torso_angular_velocity: 2.5,
             maximum_joint_velocity: 1.0,
+            maximum_joint_velocity_sum: 3.0,
             confirmation_duration: Duration::from_millis(150),
         },
         standing_up: StandingUpParameters {
@@ -33,6 +41,7 @@ fn parameters() -> Parameters {
             maximum_start_pose_torso_angular_velocity: 0.35,
             maximum_start_pose_joint_position_deviation: 0.3,
             maximum_start_pose_joint_velocity: 1.0,
+            maximum_start_pose_joint_velocity_sum: 2.5,
             confirmation_duration: Duration::from_millis(150),
             movement_confirmation_duration: Duration::from_millis(50),
             timeout: Duration::from_secs(4),
@@ -158,6 +167,15 @@ struct Robot {
 impl Robot {
     /// Feeds `sample` for `milliseconds` and returns the published postures without repeats.
     fn hold(&mut self, sample: Sample, milliseconds: i64) -> Vec<Posture> {
+        self.hold_with_parameters(sample, milliseconds, &parameters())
+    }
+
+    fn hold_with_parameters(
+        &mut self,
+        sample: Sample,
+        milliseconds: i64,
+        parameters: &Parameters,
+    ) -> Vec<Posture> {
         let mut postures = Vec::new();
         for _ in 0..milliseconds / SAMPLE_INTERVAL_MILLISECONDS {
             self.milliseconds += SAMPLE_INTERVAL_MILLISECONDS;
@@ -171,7 +189,7 @@ impl Robot {
             };
             let Some(fall_detection) =
                 self.detector
-                    .update(observation, self.stand_up_requested, &parameters())
+                    .update(observation, self.stand_up_requested, parameters)
             else {
                 continue;
             };
@@ -198,11 +216,170 @@ impl Robot {
 
 #[test]
 fn base_parameters_are_valid() {
-    let parameters: Parameters = json5::from_str(include_str!(
-        "../../../../etc/parameters/base/fall_detection.json5"
-    ))
-    .unwrap();
-    assert_eq!(parameters.validate(), Ok(()));
+    assert_eq!(base_parameters().validate(), Ok(()));
+}
+
+#[test]
+fn validation_rejects_invalid_velocity_sums_and_loose_readiness() {
+    for invalid in [0.0, -1.0, f32::NAN, f32::INFINITY] {
+        let mut parameters = base_parameters();
+        parameters.fallen.maximum_joint_velocity_sum = invalid;
+        assert!(parameters.validate().is_err());
+        let mut parameters = base_parameters();
+        parameters.standing_up.maximum_start_pose_joint_velocity_sum = invalid;
+        assert!(parameters.validate().is_err());
+    }
+    let mut parameters = base_parameters();
+    parameters.standing_up.maximum_start_pose_joint_velocity_sum = 4.0;
+    assert!(parameters.validate().is_err());
+}
+
+/// Equal motion in opposite directions must add up, not cancel out.
+fn distributed_motion(speed: f32) -> BodyJoints<f32> {
+    let mut velocities = BodyJoints::fill(speed);
+    let opposite = BodyJoints::fill(-speed);
+    velocities.left_arm = opposite.left_arm;
+    velocities.left_leg = opposite.left_leg;
+    velocities
+}
+
+#[test]
+fn fallen_requires_both_individual_and_total_motion_to_settle() {
+    let parameters = base_parameters();
+    let mut robot = Robot::default();
+    robot.hold_with_parameters(Sample::standing(), 200, &parameters);
+    robot.hold_with_parameters(Sample::tilted(), 50, &parameters);
+    let mut moving = Sample::lying_twisted();
+    // Each joint is below the individual limit, but the sum is 4 rad/s.
+    moving.velocities = distributed_motion(0.2);
+    assert_eq!(
+        robot.hold_with_parameters(moving, 500, &parameters),
+        [Falling]
+    );
+    // A single fast joint is unsafe even when the total is below 3 rad/s.
+    moving.velocities = BodyJoints::fill(0.0);
+    moving.velocities.left_leg.knee = -1.1;
+    assert_eq!(
+        robot.hold_with_parameters(moving, 500, &parameters),
+        [Falling]
+    );
+    moving.velocities = distributed_motion(0.1);
+    assert_eq!(
+        robot.hold_with_parameters(moving, 500, &parameters),
+        [Falling]
+    );
+    assert_eq!(
+        robot.hold_with_parameters(moving, 10, &parameters),
+        [fallen(false)]
+    );
+}
+
+#[test]
+fn base_readiness_requires_a_settled_front_or_back_pose() {
+    let parameters = base_parameters();
+    let mut distributed = Sample::lying_in_start_pose();
+    distributed.velocities = distributed_motion(0.14); // 2.8 rad/s: fallen, but not ready.
+    for unready in [
+        distributed,
+        Sample {
+            angular_velocity: 0.3,
+            ..Sample::lying_in_start_pose()
+        },
+        Sample {
+            tilt: 65.0_f32.to_radians(),
+            ..Sample::lying_in_start_pose()
+        },
+        Sample::lying_twisted(),
+    ] {
+        let mut robot = Robot::default();
+        robot.hold_with_parameters(Sample::lying_twisted(), 600, &parameters);
+        assert_eq!(
+            robot.hold_with_parameters(unready, 500, &parameters),
+            [fallen(false)]
+        );
+        assert_eq!(
+            robot.hold_with_parameters(Sample::lying_in_start_pose(), 200, &parameters),
+            [fallen(false)]
+        );
+        assert_eq!(
+            robot.hold_with_parameters(Sample::lying_in_start_pose(), 10, &parameters),
+            [fallen(true)]
+        );
+    }
+}
+
+#[test]
+fn base_falling_is_prompt_but_rejects_brief_tilt_and_keeps_hysteresis() {
+    let parameters = base_parameters();
+    let mut robot = Robot::default();
+    robot.hold_with_parameters(Sample::standing(), 200, &parameters);
+    // Folded joints during a kick cannot end Upright without sustained torso tilt.
+    assert_eq!(
+        robot.hold_with_parameters(Sample::kicking(), 1000, &parameters),
+        [Upright]
+    );
+    let tilted = Sample {
+        tilt: 41.0_f32.to_radians(),
+        ..Sample::standing()
+    };
+    let recovering = Sample {
+        tilt: 30.0_f32.to_radians(),
+        ..Sample::standing()
+    };
+    assert_eq!(
+        robot.hold_with_parameters(recovering, 100, &parameters),
+        [Upright]
+    );
+    assert_eq!(
+        robot.hold_with_parameters(tilted, 20, &parameters),
+        [Upright]
+    );
+    robot.hold_with_parameters(recovering, 10, &parameters);
+    assert_eq!(
+        robot.hold_with_parameters(tilted, 30, &parameters),
+        [Upright, Falling]
+    );
+    assert_eq!(
+        robot.hold_with_parameters(recovering, 200, &parameters),
+        [Falling]
+    );
+    assert_eq!(
+        robot.hold_with_parameters(Sample::standing(), 100, &parameters),
+        [Falling]
+    );
+    assert_eq!(
+        robot.hold_with_parameters(Sample::standing(), 10, &parameters),
+        [Upright]
+    );
+}
+
+#[test]
+fn stand_up_distributed_motion_and_brief_pauses_do_not_restart_policy() {
+    let parameters = base_parameters();
+    let mut robot = Robot::default();
+    robot.hold_with_parameters(Sample::lying_in_start_pose(), 800, &parameters);
+    robot.stand_up_requested = true;
+    assert_eq!(
+        robot.hold_with_parameters(Sample::lying_in_start_pose(), 10, &parameters),
+        [StandingUp]
+    );
+    let mut moving = Sample::lying_twisted();
+    moving.velocities = distributed_motion(0.2);
+    for _ in 0..3 {
+        assert_eq!(
+            robot.hold_with_parameters(moving, 200, &parameters),
+            [StandingUp]
+        );
+        assert_eq!(
+            robot.hold_with_parameters(Sample::lying_twisted(), 400, &parameters),
+            [StandingUp]
+        );
+    }
+    // Continued settling ends the attempt even if the torso has never risen.
+    assert_eq!(
+        robot.hold_with_parameters(Sample::lying_twisted(), 110, &parameters),
+        [StandingUp, fallen(false)]
+    );
 }
 
 #[test]
@@ -246,17 +423,6 @@ fn stand_up_requires_ready() {
 }
 
 #[test]
-fn upright_only_ends_on_sustained_tilt() {
-    let mut robot = Robot::default();
-    robot.hold(Sample::standing(), 200);
-    assert_eq!(robot.hold(Sample::kicking(), 1000), [Upright]);
-    // Shorter than falling.confirmation_duration.
-    assert_eq!(robot.hold(Sample::tilted(), 10), [Upright]);
-    robot.hold(Sample::standing(), 10);
-    assert_eq!(robot.hold(Sample::tilted(), 30), [Upright, Falling]);
-}
-
-#[test]
 fn seated_robot_is_not_upright() {
     let mut robot = Robot::default();
     assert!(robot.hold(Sample::seated(), 500).is_empty());
@@ -278,32 +444,27 @@ fn rolling_robot_is_not_fallen() {
 }
 
 #[test]
-fn stand_up_timeout_while_lying_still_ends_fallen() {
-    let mut robot = Robot::standing_up();
-    assert_eq!(robot.hold(Sample::lying_twisted(), 3990), [StandingUp]);
-    assert_eq!(robot.hold(Sample::lying_twisted(), 10), [Falling]);
-    // Still requested, but not in the start pose: no retry without Prepare.
-    assert_eq!(
-        robot.hold(Sample::lying_twisted(), 200),
-        [Falling, fallen(false)]
-    );
-}
-
-#[test]
-fn stand_up_timeout_while_seated_damps() {
-    let mut robot = Robot::standing_up();
-    assert_eq!(robot.hold(Sample::seated(), 3990), [StandingUp]);
-    assert_eq!(robot.hold(Sample::seated(), 10), [Falling]);
-}
-
-#[test]
-fn stand_up_waits_in_start_pose_until_timeout_without_confirmed_movement() {
-    let mut robot = Robot::standing_up();
-    assert_eq!(
-        robot.hold(Sample::lying_in_start_pose(), 3990),
-        [StandingUp]
-    );
-    assert_eq!(robot.hold(Sample::lying_in_start_pose(), 10), [Falling]);
+fn stand_up_timeout_ends_unfinished_recovery() {
+    let cases: [(&str, Sample, &[Posture]); 3] = [
+        (
+            "lying outside the start pose",
+            Sample::lying_twisted(),
+            &[Falling, fallen(false)],
+        ),
+        ("seated", Sample::seated(), &[Falling]),
+        (
+            "still in the start pose",
+            Sample::lying_in_start_pose(),
+            &[Falling, fallen(false)],
+        ),
+    ];
+    for (case, sample, after_timeout) in cases {
+        let mut robot = Robot::standing_up();
+        assert_eq!(robot.hold(sample, 3990), [StandingUp], "{case}");
+        assert_eq!(robot.hold(sample, 10), [Falling], "{case}");
+        // A continued request cannot bypass fresh readiness after timing out.
+        assert_eq!(robot.hold(sample, 200), after_timeout, "{case}");
+    }
 }
 
 #[test]
@@ -413,11 +574,20 @@ fn long_sensor_gap_discards_confirmed_stand_up_movement() {
 }
 
 #[test]
-fn stand_up_timeout_does_not_wait_for_fallen_confirmation() {
-    let mut robot = Robot::standing_up();
-    assert_eq!(robot.hold(Sample::getting_up(), 3900), [StandingUp]);
-    assert_eq!(robot.hold(Sample::lying_twisted(), 90), [StandingUp]);
-    assert_eq!(robot.hold(Sample::lying_twisted(), 10), [Falling]);
+fn stand_up_timeout_does_not_wait_for_pending_confirmation() {
+    for (case, sample) in [
+        ("upright", Sample::standing()),
+        ("fallen", Sample::lying_twisted()),
+    ] {
+        let mut robot = Robot::standing_up();
+        assert_eq!(
+            robot.hold(Sample::getting_up(), 3900),
+            [StandingUp],
+            "{case}"
+        );
+        assert_eq!(robot.hold(sample, 90), [StandingUp], "{case}");
+        assert_eq!(robot.hold(sample, 10), [Falling], "{case}");
+    }
 }
 
 #[test]

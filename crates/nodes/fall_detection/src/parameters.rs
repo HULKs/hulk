@@ -44,8 +44,10 @@ pub struct FallingParameters {
 pub struct FallenParameters {
     pub minimum_torso_tilt: f32,
     pub maximum_torso_angular_velocity: f32,
-    /// Applies to all joints except the head.
+    /// Limits each non-head joint, even when the total motion is small.
     pub maximum_joint_velocity: f32,
+    /// Maximum sum of absolute joint velocities, excluding the head, in rad/s.
+    pub maximum_joint_velocity_sum: f32,
     pub confirmation_duration: Duration,
 }
 
@@ -60,16 +62,18 @@ pub struct StandingUpParameters {
     pub maximum_start_pose_torso_angular_velocity: f32,
     pub maximum_start_pose_joint_position_deviation: f32,
     pub maximum_start_pose_joint_velocity: f32,
+    /// Maximum sum of absolute joint velocities, excluding the head, in rad/s.
+    pub maximum_start_pose_joint_velocity_sum: f32,
     /// How long torso and joint conditions must hold in `Fallen` before reporting readiness.
     pub confirmation_duration: Duration,
-    /// How long the fallen conditions must be false during `StandingUp` to enable a return to `Fallen`.
+    /// How long the fallen conditions must be interrupted to enable a return to `Fallen`.
     pub movement_confirmation_duration: Duration,
     /// Without confirmed standing, `StandingUp` ends as `Falling` after this.
     pub timeout: Duration,
 }
 
 impl Parameters {
-    /// Rejects inconsistent combinations and invalid torso readiness limits.
+    /// Rejects inconsistent combinations and invalid motion limits.
     pub fn validate(&self) -> std::result::Result<(), String> {
         // Also rejects NaN, which would keep a robot Upright forever.
         if !(self.upright.maximum_torso_tilt < self.falling.minimum_torso_tilt
@@ -83,9 +87,52 @@ impl Parameters {
         if !(0.0..FRAC_PI_2).contains(&self.standing_up.maximum_start_pose_torso_deviation) {
             return Err("start pose torso deviation must be in [0, pi/2)".into());
         }
-        let angular_velocity = self.standing_up.maximum_start_pose_torso_angular_velocity;
-        if !angular_velocity.is_finite() || angular_velocity <= 0.0 {
-            return Err("start pose torso angular velocity must be finite and positive".into());
+        for (name, limit) in [
+            (
+                "upright.maximum_torso_angular_velocity",
+                self.upright.maximum_torso_angular_velocity,
+            ),
+            (
+                "upright.maximum_leg_joint_velocity",
+                self.upright.maximum_leg_joint_velocity,
+            ),
+            (
+                "fallen.maximum_torso_angular_velocity",
+                self.fallen.maximum_torso_angular_velocity,
+            ),
+            (
+                "fallen.maximum_joint_velocity",
+                self.fallen.maximum_joint_velocity,
+            ),
+            (
+                "fallen.maximum_joint_velocity_sum",
+                self.fallen.maximum_joint_velocity_sum,
+            ),
+            (
+                "standing_up.maximum_start_pose_torso_angular_velocity",
+                self.standing_up.maximum_start_pose_torso_angular_velocity,
+            ),
+            (
+                "standing_up.maximum_start_pose_joint_velocity",
+                self.standing_up.maximum_start_pose_joint_velocity,
+            ),
+            (
+                "standing_up.maximum_start_pose_joint_velocity_sum",
+                self.standing_up.maximum_start_pose_joint_velocity_sum,
+            ),
+        ] {
+            if !limit.is_finite() || limit <= 0.0 {
+                return Err(format!("{name} must be finite and positive"));
+            }
+        }
+        if self.standing_up.maximum_start_pose_torso_angular_velocity
+            > self.fallen.maximum_torso_angular_velocity
+            || self.standing_up.maximum_start_pose_joint_velocity
+                > self.fallen.maximum_joint_velocity
+            || self.standing_up.maximum_start_pose_joint_velocity_sum
+                > self.fallen.maximum_joint_velocity_sum
+        {
+            return Err("standup readiness motion limits must not exceed fallen limits".into());
         }
         Ok(())
     }

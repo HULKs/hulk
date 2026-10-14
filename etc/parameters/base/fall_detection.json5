@@ -11,14 +11,17 @@
     confirmation_duration: { secs: 0, nanos: 100000000 },
   },
   falling: {
-    minimum_torso_tilt: 0.785398,
+    // 40 degrees, with 20 degrees of hysteresis from Upright.
+    minimum_torso_tilt: 0.698132,
     confirmation_duration: { secs: 0, nanos: 20000000 },
   },
   fallen: {
     minimum_torso_tilt: 1.047198,
-    maximum_torso_angular_velocity: 2.5,
+    // Wait for body rotation and distributed limb motion to settle before Prepare.
+    maximum_torso_angular_velocity: 0.5,
     maximum_joint_velocity: 1.0,
-    confirmation_duration: { secs: 0, nanos: 150000000 },
+    maximum_joint_velocity_sum: 3.0,
+    confirmation_duration: { secs: 0, nanos: 500000000 },
   },
   standing_up: {
     // Must match the pose Prepare drives the joints into.
@@ -28,12 +31,13 @@
       left_leg: { hip_pitch: -0.2, hip_roll: 0.0, hip_yaw: 0.0, knee: 0.4, ankle_up: -0.25, ankle_down: 0.0 },
       right_leg: { hip_pitch: -0.2, hip_roll: 0.0, hip_yaw: 0.0, knee: 0.4, ankle_up: -0.25, ankle_down: 0.0 },
     },
-    // Require the torso within 30 degrees of flat on the front or back, with little rotation.
-    maximum_start_pose_torso_deviation: 0.523599,
-    maximum_start_pose_torso_angular_velocity: 0.35,
+    // Require the torso within 20 degrees of flat on the front or back, with little rotation.
+    maximum_start_pose_torso_deviation: 0.349066,
+    maximum_start_pose_torso_angular_velocity: 0.25,
     maximum_start_pose_joint_position_deviation: 0.5,
     maximum_start_pose_joint_velocity: 1.0,
-    confirmation_duration: { secs: 0, nanos: 300000000 },
+    maximum_start_pose_joint_velocity_sum: 2.5,
+    confirmation_duration: { secs: 0, nanos: 200000000 },
     movement_confirmation_duration: { secs: 0, nanos: 50000000 },
     // Normal GetUp's longer duration: 6.0 s from the back / progress_rate 1.5.
     timeout: { secs: 4, nanos: 0 },

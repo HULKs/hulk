@@ -89,6 +89,8 @@ impl Observation {
                 .velocities
                 .into_iter()
                 .all(|velocity| velocity.abs() < parameters.maximum_joint_velocity)
+            && self.velocities.into_iter().map(f32::abs).sum::<f32>()
+                < parameters.maximum_joint_velocity_sum
     }
 
     fn is_in_start_pose(&self, parameters: &StandingUpParameters) -> bool {
@@ -105,6 +107,8 @@ impl Observation {
                 .velocities
                 .into_iter()
                 .all(|velocity| velocity.abs() < parameters.maximum_start_pose_joint_velocity)
+            && self.velocities.into_iter().map(f32::abs).sum::<f32>()
+                < parameters.maximum_start_pose_joint_velocity_sum
     }
 }
 
@@ -220,10 +224,10 @@ impl Detector {
                 is_standing.then_some((Posture::Upright, parameters.upright.confirmation_duration))
             }
             Some((Posture::StandingUp, since)) => {
-                if is_standing {
-                    Some((Posture::Upright, parameters.upright.confirmation_duration))
-                } else if observation.time.duration_since(since) >= parameters.standing_up.timeout {
+                if observation.time.duration_since(since) >= parameters.standing_up.timeout {
                     Some((Posture::Falling, Duration::ZERO))
+                } else if is_standing {
+                    Some((Posture::Upright, parameters.upright.confirmation_duration))
                 } else if self.stand_up_movement_confirmed {
                     fallen_transition
                 } else {
