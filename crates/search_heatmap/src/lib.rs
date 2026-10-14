@@ -11,6 +11,7 @@ mod rule_hypotheses;
 mod search_selection;
 mod search_voronoi;
 
+pub use ball_observations::ball_position_near_field;
 pub use field_of_view::SearchOccluder;
 pub use search_voronoi::SearchVoronoiSelection;
 
@@ -52,6 +53,14 @@ impl Heatmap {
         });
     }
 
+    /// Scale an overfilled map down uniformly so existing priority ratios remain intact.
+    pub fn limit_mean_priority(&mut self, maximum_mean: f32) {
+        let mean = self.map.sum() / self.map.len() as f32;
+        if mean > maximum_mean {
+            self.map *= maximum_mean / mean;
+        }
+    }
+
     fn field_to_heatmap(
         &self,
         field_dimensions: FieldDimensions,
@@ -67,6 +76,9 @@ impl Heatmap {
         )
     }
 }
+
+#[cfg(test)]
+mod tests;
 
 fn heatmap_dimensions(field_dimensions: FieldDimensions) -> (usize, usize) {
     (

@@ -14,15 +14,27 @@ use types::{
 
 use crate::{Heatmap, heatmap_tile_center};
 
+// Allow half a search cell for projection and localization error at the field edge.
+pub fn ball_position_near_field(
+    field_dimensions: FieldDimensions,
+    ball_position: Point2<Field>,
+) -> bool {
+    let margin = crate::CELL_SIZE / 2.0;
+    ball_position.x().abs() <= field_dimensions.length / 2.0 + margin
+        && ball_position.y().abs() <= field_dimensions.width / 2.0 + margin
+}
+
 impl Heatmap {
     pub fn set_known_ball_position(
         &mut self,
         field_dimensions: FieldDimensions,
         ball_position: Point2<Field>,
     ) {
+        if !ball_position_near_field(field_dimensions, ball_position) {
+            return;
+        }
         let heatmap_point = self.field_to_heatmap(field_dimensions, ball_position);
         let (length, width) = self.map.dim();
-        self.map.fill(0.0);
         for x in
             heatmap_point.0.saturating_sub(1)..=heatmap_point.0.saturating_add(1).min(length - 1)
         {
@@ -30,13 +42,11 @@ impl Heatmap {
                 heatmap_point.1.saturating_sub(1)..=heatmap_point.1.saturating_add(1).min(width - 1)
             {
                 if (x, y) != heatmap_point {
-                    self.map[(x, y)] = 0.5;
+                    self.map[(x, y)] = self.map[(x, y)].max(0.5);
                 }
             }
         }
         self.map[heatmap_point] = 1.0;
-        self.last_maximum_heatmap_position = Some(heatmap_point);
-        self.has_decided_for_heatmap_tile = true;
     }
 
     pub fn update_with_hypothetical_ball_positions<'a>(
@@ -48,6 +58,9 @@ impl Heatmap {
     ) {
         for ball_hypothesis in hypothetical_ball_positions {
             let ball_hypothesis_position = ground_to_field * ball_hypothesis.position;
+            if !ball_position_near_field(field_dimensions, ball_hypothesis_position) {
+                continue;
+            }
             let heatmap_point = self.field_to_heatmap(field_dimensions, ball_hypothesis_position);
             self.map[heatmap_point] = (self.map[heatmap_point]
                 + ball_hypothesis.validity * parameters.own_ball_weight)
@@ -89,6 +102,9 @@ impl Heatmap {
             }
         };
         if let Some(ball_position) = ball {
+            if !ball_position_near_field(field_dimensions, ball_position.position) {
+                return;
+            }
             let heatmap_point = self.field_to_heatmap(field_dimensions, ball_position.position);
             self.map[heatmap_point] = team_ball_weight;
         }
@@ -123,5 +139,40 @@ impl Heatmap {
                     * gaussian;
             *value += multiplier * rise_fraction;
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use linear_algebra::point;
+
+    #[test]
+    fn own_ball_keeps_search_history_and_current_target() {
+        let field = FieldDimensions::SPL_2025;
+        let mut heatmap = Heatmap::new(field);
+        heatmap.map[(2, 2)] = 0.8;
+        heatmap.map[(8, 6)] = 0.7;
+        heatmap.last_maximum_heatmap_position = Some((2, 2));
+        heatmap.has_decided_for_heatmap_tile = true;
+
+        heatmap.set_known_ball_position(field, point![0.0, 0.0]);
+
+        assert_eq!(heatmap.map[(2, 2)], 0.8);
+        assert_eq!(heatmap.map[(8, 6)], 0.7);
+        assert_eq!(heatmap.map[(9, 6)], 1.0);
+        assert_eq!(heatmap.last_maximum_heatmap_position, Some((2, 2)));
+    }
+
+    #[test]
+    fn ball_well_outside_field_does_not_create_edge_priority() {
+        let field = FieldDimensions::SPL_2025;
+        let mut heatmap = Heatmap::new(field);
+
+        assert!(!ball_position_near_field(field, point![1.7, 5.3]));
+        heatmap.set_known_ball_position(field, point![1.7, 5.3]);
+
+        assert!(heatmap.map.iter().all(|value| *value == 0.0));
+        assert!(ball_position_near_field(field, point![4.6, 0.0]));
     }
 }

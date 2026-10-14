@@ -6,8 +6,9 @@ use linear_algebra::{Isometry2, Point2};
 use ros_z::{
     prelude::*,
     qos::{QosDurability, QosHistory},
+    time::Time,
 };
-use search_heatmap::{Heatmap, SearchOccluder, SearchVoronoiSelection};
+use search_heatmap::{Heatmap, SearchOccluder, SearchVoronoiSelection, ball_position_near_field};
 use std::{boxed::Box, future::Future, num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -20,6 +21,8 @@ use types::{
     primary_state::PrimaryState,
     time_wrapper::TimeWrapper,
 };
+
+const MAXIMUM_MEAN_PRIORITY_AT_PLAYING_START: f32 = 0.5;
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -113,6 +116,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut current_ball_position = None;
     let mut latest_filtered_game_controller_state = None;
     let mut last_teammate_messages = Players::new(None);
+    let mut no_regular_target_since = None;
+    let mut was_playing = false;
     let mut last_priority_update = node.clock().now();
     let mut tick = node.create_timer(Duration::from_millis(20));
 
@@ -133,16 +138,26 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .map(|ground_to_field| *ground_to_field);
         let primary_state = primary_state_cache.get_latest();
         let primary_state = primary_state.as_deref();
+        let is_playing = primary_state == Some(&PrimaryState::Playing);
+        let entered_playing = is_playing && !was_playing;
+        if entered_playing {
+            heatmap.limit_mean_priority(MAXIMUM_MEAN_PRIORITY_AT_PLAYING_START);
+        }
+        was_playing = is_playing;
         let mut ball_was_seen = false;
         let mut received_filtered_game_controller_state = false;
 
         while ball_position_sub.is_ready() {
             match (ball_position_sub.recv().await?, ground_to_field) {
                 (Some(ball_position), Some(ground_to_field)) => {
-                    ball_was_seen = true;
                     let ball_position = ground_to_field * ball_position.position;
-                    last_ball_position = Some(ball_position);
-                    current_ball_position = Some(ball_position);
+                    if ball_position_near_field(field_dimensions, ball_position) {
+                        ball_was_seen = true;
+                        last_ball_position = Some(ball_position);
+                        current_ball_position = Some(ball_position);
+                    } else {
+                        current_ball_position = None;
+                    }
                 }
                 (None, _) | (Some(_), None) => {
                     current_ball_position = None;
@@ -204,13 +219,18 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         }
 
         if !restart_regenerated
+            && is_playing
             && current_ball_position.is_none()
             && let Some(last_ball_position) = last_ball_position
         {
             heatmap.increase_around_last_ball(
                 field_dimensions,
                 last_ball_position,
-                elapsed_since_last_priority_update,
+                if entered_playing {
+                    Duration::ZERO
+                } else {
+                    elapsed_since_last_priority_update
+                },
                 parameters,
             );
         }
@@ -247,20 +267,34 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 .get_latest()
                 .map(|player_number| *player_number),
         );
-        if let Some(voronoi_selection) = search_voronoi_selection_from_teammates(
+        if last_ball_position.is_none() {
+            no_regular_target_since = None;
+            heatmap.clear_suggested_search_position();
+        } else if let Some(voronoi_selection) = search_voronoi_selection_from_teammates(
             field_dimensions,
             own_voronoi_site,
             &last_teammate_messages,
             now,
             teammate_freshness_window,
         ) {
+            let has_regular_target =
+                heatmap.has_regular_search_target(field_dimensions, parameters, &voronoi_selection);
+            let minimum_validity = search_minimum_validity(
+                &mut no_regular_target_since,
+                now,
+                current_ball_position.is_none() && is_playing,
+                has_regular_target,
+                parameters,
+            );
             heatmap.update_suggested_search_position_with_voronoi(
                 field_dimensions,
                 parameters,
                 ground_to_field,
                 &voronoi_selection,
+                minimum_validity,
             );
         } else {
+            no_regular_target_since = None;
             heatmap.clear_suggested_search_position();
         }
 
@@ -274,6 +308,31 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         additional_heatmap_pub
             .publish_if_subscribed(|| async { heatmap.to_message() })
             .await?;
+    }
+}
+
+fn search_minimum_validity(
+    no_regular_target_since: &mut Option<Time>,
+    now: Time,
+    can_use_fallback: bool,
+    has_regular_target: bool,
+    parameters: &SearchSuggestorParameters,
+) -> f32 {
+    if !can_use_fallback || has_regular_target {
+        *no_regular_target_since = None;
+        return parameters.minimum_validity;
+    }
+
+    let since = no_regular_target_since.get_or_insert(now);
+    if now < *since {
+        *since = now;
+    }
+    if now.duration_since(*since) >= parameters.exhausted_search_delay {
+        parameters
+            .exhausted_search_minimum_validity
+            .clamp(0.0, parameters.minimum_validity)
+    } else {
+        parameters.minimum_validity
     }
 }
 
@@ -375,3 +434,6 @@ fn replay_tick_count(message_elapsed: Duration, local_tick_duration: Duration) -
         .ceil()
         .max(1.0) as usize
 }
+
+#[cfg(test)]
+mod tests;
