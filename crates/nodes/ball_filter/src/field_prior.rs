@@ -113,9 +113,7 @@ pub(crate) fn confidence_weight(
         return 1.0;
     }
     let decay_distance = parameters.field_boundary_confidence_decay_distance;
-    let Some(ground_to_field) =
-        ground_to_field.filter(|_| decay_distance.is_finite() && decay_distance > 0.0)
-    else {
+    let Some(ground_to_field) = ground_to_field.filter(|_| decay_distance >= 0.0) else {
         return 1.0;
     };
     let position = ground_to_field * hypothesis.position().position;
@@ -137,7 +135,12 @@ pub(crate) fn confidence_weight(
         0.0
     };
     let penalized_distance = (whole_ball_distance - margin).max(0.0);
-    (-penalized_distance / decay_distance).exp()
+    if penalized_distance == 0.0 {
+        1.0
+    } else {
+        // A zero decay distance is a hard boundary, the exponential's limit.
+        (-penalized_distance / decay_distance).exp()
+    }
 }
 
 #[cfg(test)]
@@ -152,6 +155,7 @@ mod tests {
 
     fn parameters() -> BallFilterParameters {
         let mut parameters = crate::test_parameters();
+        parameters.selection_confidence_cap = 1_000_000.0; // Test the field prior with uncapped ranking.
         parameters.field_boundary_confidence_decay_distance = 0.3;
         parameters.field_boundary_margin = 0.0;
         parameters.field_boundary_validity_decay_rate = 0.0;
@@ -194,6 +198,25 @@ mod tests {
             );
         }
         tracker.filter.hypotheses[0].validity
+    }
+
+    #[test]
+    fn zero_decay_distance_is_a_hard_field_boundary() {
+        let mut parameters = crate::test_parameters();
+        let dimensions = FieldDimensions::SPL_2025;
+        parameters.field_boundary_confidence_decay_distance = 0.0;
+        let pose = Some(Isometry2::identity());
+        assert_eq!(
+            confidence_weight(&hypothesis(0.0, 0.0, 10.0), pose, &dimensions, &parameters),
+            1.0
+        );
+        let outside = hypothesis(dimensions.length, 0.0, 10.0);
+        assert_eq!(
+            confidence_weight(&outside, pose, &dimensions, &parameters),
+            0.0
+        );
+        parameters.field_boundary_confidence_decay_distance = 1_000_000.0;
+        assert!(confidence_weight(&outside, pose, &dimensions, &parameters) > 0.99999);
     }
 
     #[test]

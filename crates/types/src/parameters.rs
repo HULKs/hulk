@@ -190,26 +190,30 @@ pub struct BallFilterParameters {
     /// field boundary, before either confidence weighting or stored decay starts.
     /// Invalid/negative values act as zero.
     pub field_boundary_margin: f32,
-    /// Distance beyond the boundary margin for an e-fold reduction; <= 0 disables.
+    /// Distance beyond the boundary margin for an e-fold reduction. Zero gives a
+    /// hard boundary; a large distance makes the confidence reduction gradual.
     pub field_boundary_confidence_decay_distance: f32,
     /// Maximum additional confidence decay per second outside the field.
     /// Zero preserves historical recordings without time-based field decay.
     pub field_boundary_validity_decay_rate: f32,
-    /// Maximum projected detection distance in Ground metres; zero disables.
+    /// Maximum projected detection distance in Ground metres, including zero.
     pub maximum_detection_distance: f32,
     pub hypothesis_timeout: Duration,
-    /// Confirmed clear-view miss time before deleting a hypothesis; zero disables.
+    /// Confirmed clear-view miss time before deleting a hypothesis. Zero deletes
+    /// on the first confirmed clear miss; a large timeout delays this expiry.
     pub visible_missed_detection_timeout: Duration,
-    /// Continuous clear-view miss time for a nearby ball; zero keeps legacy behavior.
+    /// Continuous clear-view miss time for a nearby ball. Zero expires immediately.
     pub near_visible_missed_detection_timeout: Duration,
-    /// Ground distance in metres for the fast near-ball miss rule; zero disables it.
+    /// Apply the fast near-ball miss rule strictly below this Ground distance.
+    /// Zero describes an empty region, since distances cannot be negative.
     pub near_visible_missed_detection_distance: f32,
     /// Maximum age of the obstacle model used to establish a clear camera view.
     pub maximum_obstacle_time_difference: Duration,
     pub maximum_number_of_hypotheses: usize,
     pub ball_confidence_threshold: f32,
     pub log_likelihood_of_zero_velocity_threshold: f32,
-    /// Optional speed-based moving-to-rest transition, in m/s; zero disables.
+    /// Switch a moving hypothesis to rest strictly below this speed in m/s.
+    /// Zero never triggers this rule; likelihood-based resting remains separate.
     pub resting_velocity_threshold: f32,
     pub hypothesis_merge_distance: f32,
     pub visible_validity_exponential_decay_factor: f32,
@@ -227,37 +231,46 @@ pub struct BallFilterParameters {
     /// Fraction of bounded confidence inherited when spawning near a recent track.
     /// None preserves legacy spawn confidence; zero disables the bonus.
     pub nearby_spawn_validity_factor: Option<f32>,
+    /// Maximum accumulated hypothesis support, applied before retention/merging.
+    /// None preserves unbounded historical support; zero caps support at zero.
+    /// Negative/NaN values act as zero. This is separate from the ranking cap.
+    #[serde(default)]
+    pub maximum_confidence: Option<f32>,
     pub validity_output_threshold: f32,
     pub validity_discard_threshold: f32,
     pub velocity_decay_factor: f32,
     pub noise: BallFilterNoise,
     pub maximum_matching_cost: f32,
-    /// Optional physical association gate in metres. Zero preserves legacy
-    /// covariance-only association; positive values reject distant percepts.
+    /// Maximum physical association distance in metres. Zero requires coincident
+    /// positions; a large value leaves the covariance gate as the limiting test.
     pub maximum_matching_distance: f32,
-    /// Physical gate after a gap for quiet balls outside kicking reach; zero disables.
+    /// Maximum physical association distance after a gap for quiet balls outside
+    /// kicking reach. Zero requires coincident positions.
     pub reacquisition_matching_distance: f32,
     /// Maximum ratio between observed and projected ball radii, in either
-    /// direction. Values <= 1 disable this optional ground-ball geometry gate.
+    /// direction. One requires equal radii; below one rejects positive radii.
+    /// A large ratio makes this geometry check permissive.
     pub maximum_detection_radius_ratio: f32,
-    /// Apply size consistency only within this Ground distance; zero means everywhere.
+    /// Apply size consistency within this Ground distance. Zero covers only the
+    /// origin; use a large distance to cover the entire playing field.
     pub radius_consistency_maximum_distance: f32,
     /// Ranking penalty per square metre of position covariance trace. Does not
     /// change output eligibility, stored confidence, or hypothesis retention.
     pub hypothesis_uncertainty_weight: f32,
-    /// Bound accumulated support for selection only; zero leaves it unbounded.
+    /// Cap accumulated support for selection only. Zero caps ranking support at
+    /// zero; a large cap preserves ordinary confidence ranking.
     pub selection_confidence_cap: f32,
     /// Blend a separate geometry-filtered position estimate; baseline gates availability.
     pub publication_filter_blend: f32,
     /// Relative pixel noise for the optional position estimator.
     pub publication_detection_noise: f32,
-    /// Maximum age of the alternate observation used for correction; zero disables this gate.
+    /// Maximum age of the alternate observation used for correction. Zero requires
+    /// a current observation; a large duration permits retained observations.
     pub publication_maximum_age: Duration,
-    /// Maximum alternate ball distance for correction; zero disables this gate.
+    /// Maximum alternate ball distance for correction. Zero admits only the origin.
     pub publication_maximum_distance: f32,
     /// Maximum auxiliary/main position-covariance trace ratio for correction.
-    /// A finite positive value enables the gate; zero leaves it disabled.
-    #[serde(default)]
+    /// Zero permits only zero auxiliary covariance; a large ratio is permissive.
     pub publication_maximum_covariance_ratio: f32,
     /// Additional field-boundary uncertainty buffer for the auxiliary history.
     /// The main filter's existing margin remains a lower bound.
@@ -268,8 +281,6 @@ pub struct BallFilterParameters {
     /// Position-standard-deviation margin for clear missed-detection evidence.
     /// Zero preserves center-only visibility. Uncertain visibility pauses misses.
     pub visibility_uncertainty_scale: f32,
-    /// Legacy compatibility field; rejected associations no longer penalize track validity.
-    pub maximum_matching_cost_validity_penalty_factor: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
