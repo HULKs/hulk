@@ -34,7 +34,7 @@ fn parameters() -> Parameters {
             maximum_start_pose_joint_position_deviation: 0.3,
             maximum_start_pose_joint_velocity: 1.0,
             confirmation_duration: Duration::from_millis(150),
-            timeout: Duration::from_secs(8),
+            timeout: Duration::from_secs(4),
         },
     }
 }
@@ -277,10 +277,8 @@ fn rolling_robot_is_not_fallen() {
 #[test]
 fn stand_up_timeout_while_lying_still_ends_fallen() {
     let mut robot = Robot::standing_up();
-    assert_eq!(
-        robot.hold(Sample::lying_twisted(), 8100),
-        [StandingUp, Falling]
-    );
+    assert_eq!(robot.hold(Sample::lying_twisted(), 3990), [StandingUp]);
+    assert_eq!(robot.hold(Sample::lying_twisted(), 10), [Falling]);
     // Still requested, but not in the start pose: no retry without Prepare.
     assert_eq!(
         robot.hold(Sample::lying_twisted(), 200),
@@ -291,7 +289,8 @@ fn stand_up_timeout_while_lying_still_ends_fallen() {
 #[test]
 fn stand_up_timeout_while_seated_damps() {
     let mut robot = Robot::standing_up();
-    assert_eq!(robot.hold(Sample::seated(), 10_000), [StandingUp, Falling]);
+    assert_eq!(robot.hold(Sample::seated(), 3990), [StandingUp]);
+    assert_eq!(robot.hold(Sample::seated(), 10), [Falling]);
 }
 
 #[test]
