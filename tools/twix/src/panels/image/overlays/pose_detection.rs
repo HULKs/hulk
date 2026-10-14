@@ -1,8 +1,8 @@
 use color_eyre::Report;
 use coordinate_systems::Pixel;
-use eframe::egui::{Align2, Color32, Stroke};
-use linear_algebra::point;
+use eframe::egui::{Align2, Color32, DragValue, FontId, Stroke, Ui};
 use ros_z::time::Time;
+use twix_visualization::twix_painter::TwixPainter;
 use types::{
     object_detection::YOLOObjectLabel,
     pose_detection::{Keypoint, Pose},
@@ -10,9 +10,9 @@ use types::{
 };
 
 use crate::repaint::ObservationContext;
-use twix_visualization::twix_painter::TwixPainter;
 
 use super::super::image_overlay::{ImageOverlay, OverlayObservation};
+use super::prediction_colors;
 
 const POSE_SKELETON_KEYPOINT_LINE_MAPPING: [(usize, usize); 16] = [
     (0, 1),
@@ -32,9 +32,9 @@ const POSE_SKELETON_KEYPOINT_LINE_MAPPING: [(usize, usize); 16] = [
     (13, 15),
     (14, 16),
 ];
-const KEYPOINT_CONFIDENCE_THRESHOLD: f32 = 0.8;
-
 pub(in crate::panels::image) struct PoseDetectionOverlay {
+    bounding_box_confidence_threshold: f32,
+    keypoint_confidence_threshold: f32,
     poses: OverlayObservation<TimeWrapper<Vec<Pose<YOLOObjectLabel>>>>,
 }
 
@@ -47,15 +47,43 @@ impl ImageOverlay for PoseDetectionOverlay {
         C: ObservationContext,
     {
         Ok(Self {
+            bounding_box_confidence_threshold: 0.5,
+            keypoint_confidence_threshold: 0.8,
             poses: OverlayObservation::new(context, "detected_poses")?,
         })
+    }
+
+    fn ui(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            ui.label("Bounding box confidence");
+            ui.add(
+                DragValue::new(&mut self.bounding_box_confidence_threshold)
+                    .range(0.0..=1.0)
+                    .speed(0.01)
+                    .fixed_decimals(2),
+            );
+        });
+        ui.horizontal(|ui| {
+            ui.label("Keypoint confidence");
+            ui.add(
+                DragValue::new(&mut self.keypoint_confidence_threshold)
+                    .range(0.0..=1.0)
+                    .speed(0.01)
+                    .fixed_decimals(2),
+            );
+        });
     }
 
     fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
         let Some(poses) = self.poses.at_time(image_time) else {
             return;
         };
-        paint_poses(painter, &poses.value.inner);
+        paint_poses(
+            painter,
+            &poses.value.inner,
+            self.bounding_box_confidence_threshold,
+            self.keypoint_confidence_threshold,
+        );
     }
 
     fn latest_time(&self) -> Option<Time> {
@@ -63,58 +91,47 @@ impl ImageOverlay for PoseDetectionOverlay {
     }
 }
 
-fn paint_poses(painter: &TwixPainter<Pixel>, poses: &[Pose<YOLOObjectLabel>]) {
+fn paint_poses(
+    painter: &TwixPainter<Pixel>,
+    poses: &[Pose<YOLOObjectLabel>],
+    bounding_box_confidence_threshold: f32,
+    keypoint_confidence_threshold: f32,
+) {
     for pose in poses {
         let keypoints: [Keypoint; 17] = pose.keypoints.into();
-
-        for (idx1, idx2) in POSE_SKELETON_KEYPOINT_LINE_MAPPING {
-            if keypoints[idx1].confidence < KEYPOINT_CONFIDENCE_THRESHOLD
-                || keypoints[idx2].confidence < KEYPOINT_CONFIDENCE_THRESHOLD
+        if pose.object.bounding_box.confidence < bounding_box_confidence_threshold {
+            continue;
+        }
+        let color = prediction_colors::PERSON_POSE;
+        for (start, end) in POSE_SKELETON_KEYPOINT_LINE_MAPPING {
+            if keypoints[start].confidence < keypoint_confidence_threshold
+                || keypoints[end].confidence < keypoint_confidence_threshold
             {
                 continue;
             }
-
             painter.line_segment(
-                keypoints[idx1].point,
-                keypoints[idx2].point,
-                Stroke::new(2.0, Color32::LIGHT_BLUE.gamma_multiply(0.4)),
+                keypoints[start].point,
+                keypoints[end].point,
+                Stroke::new(1.0, color),
             );
         }
-
         for keypoint in keypoints {
-            if keypoint.confidence < KEYPOINT_CONFIDENCE_THRESHOLD {
+            if keypoint.confidence < keypoint_confidence_threshold {
                 continue;
             }
-
-            painter.circle_filled(keypoint.point, 1.0, Color32::BLUE);
+            painter.circle_filled(keypoint.point, 1.0, color);
             painter.floating_text(
                 keypoint.point,
                 Align2::RIGHT_BOTTOM,
                 format!("{:.2}", keypoint.confidence),
-                eframe::egui::FontId::default(),
+                FontId::default(),
                 Color32::WHITE,
             );
         }
-
-        let bounding_box = pose.object.bounding_box;
-        painter.rect_stroke(
-            bounding_box.area.min,
-            bounding_box.area.max,
-            Stroke::new(2.0, Color32::DARK_BLUE.gamma_multiply(0.8)),
-        );
-        painter.floating_text(
-            point![bounding_box.area.max.x(), bounding_box.area.min.y()],
-            Align2::RIGHT_TOP,
-            format!("{:.2}", bounding_box.confidence),
-            eframe::egui::FontId::default(),
-            Color32::WHITE,
-        );
-        painter.floating_text(
-            point![bounding_box.area.min.x(), bounding_box.area.max.y()],
-            Align2::LEFT_BOTTOM,
+        painter.detection_box(
+            pose.object.bounding_box,
             format!("{:.2?}", pose.object.label),
-            eframe::egui::FontId::default(),
-            Color32::WHITE,
+            color,
         );
     }
 }

@@ -2,14 +2,17 @@ use std::{sync::Arc, time::Duration};
 
 use color_eyre::{Report, eyre::Context as _};
 use coordinate_systems::Pixel;
-use eframe::egui::{Popup, PopupCloseBehavior, Ui};
+use eframe::egui::{
+    PopupCloseBehavior, Ui,
+    containers::menu::{MenuButton, MenuConfig},
+};
 use ros_z::{Message, time::Time};
 use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
 use serde_json::{Value, json};
+use twix_visualization::twix_painter::TwixPainter;
 use types::time_wrapper::TimeWrapper;
 
 use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
-use twix_visualization::twix_painter::TwixPainter;
 
 use super::overlays::{
     BallDetectionOverlay, FieldBorderOverlay, HorizonOverlay, LineDetectionOverlay,
@@ -46,9 +49,9 @@ impl ImageOverlays {
     where
         C: ObservationContext,
     {
-        Popup::menu(&ui.button("Overlays"))
-            .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
-            .show(|ui| {
+        MenuButton::new("Overlays")
+            .config(MenuConfig::new().close_behavior(PopupCloseBehavior::CloseOnClickOutside))
+            .ui(ui, |ui| {
                 self.line_detection.checkbox(ui, context);
                 self.ball_detection.checkbox(ui, context);
                 self.horizon.checkbox(ui, context);
@@ -117,8 +120,8 @@ where
         C: ObservationContext,
     {
         let mut slot = Self::inactive();
-        slot.active = value
-            .and_then(|value| value.get(T::STORAGE_KEY))
+        let overlay_value = value.and_then(|value| value.get(T::STORAGE_KEY));
+        slot.active = overlay_value
             .and_then(|value| value.get("active"))
             .and_then(Value::as_bool)
             .unwrap_or(false);
@@ -148,6 +151,9 @@ where
                 self.overlay = None;
                 self.error = None;
             }
+        }
+        if let Some(overlay) = &mut self.overlay {
+            ui.indent(T::STORAGE_KEY, |ui| overlay.ui(ui));
         }
         if let Some(error) = &self.error {
             ui.colored_label(ui.visuals().error_fg_color, error);
@@ -192,6 +198,9 @@ pub(super) trait ImageOverlay: Sized {
     fn new<C>(context: &C) -> Result<Self, Report>
     where
         C: ObservationContext;
+
+    /// Render controls beneath this overlay's selection entry.
+    fn ui(&mut self, _ui: &mut Ui) {}
 
     fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time);
 
