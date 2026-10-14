@@ -3,7 +3,7 @@
 Robot behavior runs in the ROS-Z `behavior_node`.
 The node receives the latest game, robot, localization, ball, obstacle, and team state, ticks the behavior tree every 20 ms, and publishes the resulting motion command and network messages.
 
-The behavior tree chooses *what* the robot should do.
+The behavior tree chooses _what_ the robot should do.
 Motion execution is handled by the Booster interface, which consumes `behavior/motion_command` as described in [motion](../motion/overview.md#ros-z-booster-path).
 
 ## Behavior Tree
@@ -91,6 +91,13 @@ If no support position can be produced, it stands.
 While playing, behavior periodically creates a State message.
 It contains the player number, the robot pose, and the observed ball position and age when a ball is available.
 A message is sent only when the robot has a field pose, the send interval has elapsed, and the remaining game message budget is high enough.
+
+Each unpenalized player, including the sender, gets an equal share of the remaining message budget after subtracting `remaining_amount_of_messages_to_stop_sending` as a reserve:
+
+```text
+time_left = remaining_time_in_half + (half_duration if first_half else 0)
+interval_seconds = time_left_seconds * unpenalized_players / usable_messages
+```
 
 Received teammate states provide the poses used for closest-to-ball selection and supporter positioning.
 Team communication can be absent or delayed, so the tree retains branches for simple operation, the last active robot, and missing ball information.

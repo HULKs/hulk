@@ -1,10 +1,13 @@
 use std::{net::SocketAddr, time::Duration};
 
 use booster::FallDownStateType;
-use hsl_network_messages::{GameControllerReturnMessage, HulkMessage, StateMessage};
+use hsl_network_messages::{
+    GameControllerReturnMessage, GamePhase, Half, HulkMessage, StateMessage,
+};
 use ros_z::time::Time;
 use types::{
-    messages::OutgoingMessage, parameters::HslNetworkParameters, primary_state::PrimaryState,
+    filtered_game_controller_state::FilteredGameControllerState, messages::OutgoingMessage,
+    parameters::HslNetworkParameters, primary_state::PrimaryState,
 };
 
 use crate::node::Blackboard;
@@ -67,20 +70,10 @@ impl Blackboard {
             return None;
         }
         let now = self.world_state.now;
-        let remaining_amount_of_messages = self
-            .world_state
-            .filtered_game_controller_state
-            .as_ref()
-            .map(|state| state.remaining_number_of_messages);
-        let network_parameters = &self.parameters.network;
-
-        if !self.is_state_message_cooldown_elapsed(now, network_parameters) {
-            return None;
-        }
-        if remaining_amount_of_messages.is_none_or(|remaining_amount_of_messages| {
-            remaining_amount_of_messages
-                < network_parameters.remaining_amount_of_messages_to_stop_sending
-        }) {
+        let game_controller_state = self.world_state.filtered_game_controller_state.as_ref()?;
+        let send_interval =
+            state_message_send_interval(game_controller_state, &self.parameters.network)?;
+        if !is_cooldown_elapsed(now, self.last_sent_hsl_message_time, send_interval) {
             return None;
         }
         if let Some(ground_to_field) = self.world_state.robot.ground_to_field {
@@ -110,18 +103,34 @@ impl Blackboard {
             None
         }
     }
+}
 
-    fn is_state_message_cooldown_elapsed(
-        &self,
-        now: Time,
-        hsl_network_parameters: &HslNetworkParameters,
-    ) -> bool {
-        is_cooldown_elapsed(
-            now,
-            self.last_sent_hsl_message_time,
-            hsl_network_parameters.hsl_state_message_send_interval,
-        )
+fn state_message_send_interval(
+    game_controller_state: &FilteredGameControllerState,
+    parameters: &HslNetworkParameters,
+) -> Option<Duration> {
+    let second_half_duration = match (game_controller_state.game_phase, game_controller_state.half)
+    {
+        (GamePhase::Normal, Half::First) => parameters.half_duration,
+        (GamePhase::Extratime, Half::First) => parameters.extra_half_duration,
+        _ => Duration::ZERO,
+    };
+    let remaining_time_in_game =
+        game_controller_state.remaining_time_in_half + second_half_duration;
+    let available_messages = game_controller_state
+        .remaining_number_of_messages
+        .saturating_sub(parameters.remaining_amount_of_messages_to_stop_sending);
+    let active_player_count = game_controller_state
+        .penalties
+        .iter()
+        .filter(|(_, penalty)| penalty.is_none())
+        .count() as u32;
+
+    if available_messages == 0 || active_player_count == 0 || remaining_time_in_game.is_zero() {
+        return None;
     }
+
+    Some(remaining_time_in_game * active_player_count / u32::from(available_messages))
 }
 
 fn is_cooldown_elapsed(now: Time, last: Option<Time>, cooldown: Duration) -> bool {
