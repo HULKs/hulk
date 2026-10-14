@@ -26,7 +26,7 @@ pub struct TopicSourceEditor {
 impl TopicSourceEditor {
     pub fn new(topic: String, field_path: String) -> Self {
         Self {
-            editor: source_path(&topic, &field_path),
+            editor: format!("{topic}{field_path}"),
             topic,
             field_path,
             focus_requested: false,
@@ -103,25 +103,10 @@ impl TopicSourceEditor {
     }
 }
 
-fn source_path(topic: &str, field_path: &str) -> String {
-    if field_path.is_empty() {
-        topic.to_owned()
-    } else if field_path.starts_with('[') || field_path.starts_with("::") {
-        format!("{topic}{field_path}")
-    } else {
-        format!("{topic}.{field_path}")
-    }
-}
-
 fn strip_topic<'a>(input: &'a str, topic: &str) -> Option<&'a str> {
-    let suffix = input.strip_prefix(topic)?;
-    if let Some(field_path) = suffix.strip_prefix('.') {
-        Some(field_path)
-    } else if suffix.is_empty() || suffix.starts_with('[') || suffix.starts_with("::") {
-        Some(suffix)
-    } else {
-        None
-    }
+    let field_path = input.strip_prefix(topic)?;
+    (field_path.is_empty() || field_path.starts_with(['.', '[']) || field_path.starts_with("::"))
+        .then_some(field_path)
 }
 
 fn split_source<'a>(input: &'a str, topics: &[String], current_topic: &str) -> (&'a str, &'a str) {
@@ -138,15 +123,12 @@ fn split_source<'a>(input: &'a str, topics: &[String], current_topic: &str) -> (
         return source;
     }
     // Permit entering a complete source before discovering its publisher.
-    for (index, character) in input.char_indices() {
-        match character {
-            '.' => return (&input[..index], &input[index + 1..]),
-            '[' => return (&input[..index], &input[index..]),
-            ':' if input[index..].starts_with("::") => return (&input[..index], &input[index..]),
-            _ => {}
-        }
-    }
-    (input, "")
+    let topic_end = [input.find(['.', '[']), input.find("::")]
+        .into_iter()
+        .flatten()
+        .min()
+        .unwrap_or(input.len());
+    input.split_at(topic_end)
 }
 
 fn source_completions(
@@ -162,7 +144,7 @@ fn source_completions(
         && let Some(sample) = sample
     {
         for path in field_completions(sample, field_path) {
-            let source = source_path(topic, &path);
+            let source = format!("{topic}{path}");
             if !completions.contains(&source) {
                 completions.push(source);
             }
@@ -306,5 +288,30 @@ fn sequence_len(mut selected: Option<SelectedValue<'_>>) -> Option<usize> {
         SelectedValue::Value(DynamicValue::Sequence(values)) => Some(values.len()),
         SelectedValue::Value(DynamicValue::Bytes(values)) => Some(values.len()),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_source;
+
+    #[test]
+    fn sources_split_into_topic_and_field_path() {
+        let topics = ["detected_objects", "status", "status.v2"].map(String::from);
+        for (input, topic, field_path) in [
+            ("detected_objects", "detected_objects", ""),
+            (
+                "detected_objects.inner[2].x",
+                "detected_objects",
+                ".inner[2].x",
+            ),
+            ("detected_objects[2]", "detected_objects", "[2]"),
+            ("status.v2::Walking", "status.v2", "::Walking"),
+            ("undiscovered.pose", "undiscovered", ".pose"),
+            ("undiscovered::Walking", "undiscovered", "::Walking"),
+        ] {
+            assert_eq!(split_source(input, &topics, ""), (topic, field_path));
+            assert_eq!(format!("{topic}{field_path}"), input);
+        }
     }
 }

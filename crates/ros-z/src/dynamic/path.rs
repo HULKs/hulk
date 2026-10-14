@@ -7,9 +7,11 @@ use super::{
     SchemaBundle, SequenceLengthDef, TypeDef, TypeDefinition, dynamic_value_to_json,
 };
 
-/// A parsed selection. Empty selects the root. Fields use `pose.x`, indices use
-/// `joints[3]`, and enum payloads use `state::Walking.speed`.
-/// Names containing punctuation may be JSON-quoted, e.g. `"field.with.dots"`.
+/// A parsed selection. Empty selects the root. Every step starts with its
+/// separator: fields use `.pose.x`, indices use `.joints[3]`, and enum payloads
+/// use `.state::Walking.speed`. Appending a path to a topic name therefore
+/// needs no extra separator.
+/// Names containing punctuation may be JSON-quoted, e.g. `."field.with.dots"`.
 /// Optionals are unwrapped only when continuing through them. Newtype enum
 /// payloads are unwrapped when selecting the variant.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
@@ -255,35 +257,28 @@ impl FromStr for ValuePath {
         let mut steps = Vec::new();
         while !rest.is_empty() {
             let offset = input.len() - rest.len();
-            if let Some(after) = rest.strip_prefix('[') {
-                let end = after.find(']').ok_or(SelectionError::Syntax(offset))?;
-                let digits = &after[..end];
-                if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
-                    return Err(SelectionError::Syntax(offset));
-                }
-                steps.push(ValuePathStep::Index(
-                    digits.parse().map_err(|_| SelectionError::Syntax(offset))?,
-                ));
-                rest = &after[end + 1..];
-            } else {
-                let variant = rest.starts_with("::");
-                if variant {
-                    rest = &rest[2..];
-                } else if !steps.is_empty() {
-                    rest = rest
-                        .strip_prefix('.')
-                        .ok_or(SelectionError::Syntax(offset))?;
-                }
-                let (name, after) = parse_name(rest).ok_or(SelectionError::Syntax(offset))?;
-                steps.push(if variant {
-                    ValuePathStep::Variant(name)
-                } else {
-                    ValuePathStep::Field(name)
-                });
-                rest = after;
-            }
+            let (step, after) = parse_step(rest).ok_or(SelectionError::Syntax(offset))?;
+            steps.push(step);
+            rest = after;
         }
         Ok(Self(steps))
+    }
+}
+
+fn parse_step(input: &str) -> Option<(ValuePathStep, &str)> {
+    if let Some(after) = input.strip_prefix('.') {
+        let (name, after) = parse_name(after)?;
+        Some((ValuePathStep::Field(name), after))
+    } else if let Some(after) = input.strip_prefix("::") {
+        let (name, after) = parse_name(after)?;
+        Some((ValuePathStep::Variant(name), after))
+    } else {
+        let (digits, after) = input.strip_prefix('[')?.split_once(']')?;
+        // `usize::from_str` would also accept a leading `+`.
+        if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        Some((ValuePathStep::Index(digits.parse().ok()?), after))
     }
 }
 
@@ -323,7 +318,10 @@ fn write_name(f: &mut fmt::Formatter<'_>, name: &str) -> fmt::Result {
 impl fmt::Display for ValuePathStep {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Field(name) => write_name(f, name),
+            Self::Field(name) => {
+                f.write_str(".")?;
+                write_name(f, name)
+            }
             Self::Index(index) => write!(f, "[{index}]"),
             Self::Variant(name) => {
                 f.write_str("::")?;
@@ -335,13 +333,7 @@ impl fmt::Display for ValuePathStep {
 
 impl fmt::Display for ValuePath {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (index, step) in self.0.iter().enumerate() {
-            if index != 0 && matches!(step, ValuePathStep::Field(_)) {
-                f.write_str(".")?;
-            }
-            write!(f, "{step}")?;
-        }
-        Ok(())
+        self.0.iter().try_for_each(|step| write!(f, "{step}"))
     }
 }
 
@@ -365,7 +357,7 @@ mod tests {
     fn parses_fields_indices_and_variants() {
         assert_eq!(parse(""), Ok(ValuePath(Vec::new())));
         assert_eq!(
-            parse("inner[2].bounding_box.confidence"),
+            parse(".inner[2].bounding_box.confidence"),
             Ok(ValuePath(vec![
                 field("inner"),
                 ValuePathStep::Index(2),
@@ -374,7 +366,7 @@ mod tests {
             ]))
         );
         assert_eq!(
-            parse("state::Walking.speed"),
+            parse(".state::Walking.speed"),
             Ok(ValuePath(vec![
                 field("state"),
                 variant("Walking"),
@@ -394,15 +386,15 @@ mod tests {
     #[test]
     fn parses_quoted_names() {
         assert_eq!(
-            parse(r#""field.with.dots".x"#),
+            parse(r#"."field.with.dots".x"#),
             Ok(ValuePath(vec![field("field.with.dots"), field("x")]))
         );
         assert_eq!(
-            parse(r#"state::"Has space""#),
+            parse(r#".state::"Has space""#),
             Ok(ValuePath(vec![field("state"), variant("Has space")]))
         );
         assert_eq!(
-            parse(r#""quote\"inside""#),
+            parse(r#"."quote\"inside""#),
             Ok(ValuePath(vec![field("quote\"inside")]))
         );
     }
@@ -411,14 +403,14 @@ mod tests {
     fn display_reads_back_as_the_same_path() {
         for input in [
             "",
-            "inner[2].bounding_box.confidence",
-            "state::Walking.speed",
+            ".inner[2].bounding_box.confidence",
+            ".state::Walking.speed",
             "[0][1].x",
             "::Walking",
-            r#""field.with.dots".x"#,
-            r#"state::"Has space"[3]"#,
-            r#""1st""#,
-            r#""quote\"inside""#,
+            r#"."field.with.dots".x"#,
+            r#".state::"Has space"[3]"#,
+            r#"."1st""#,
+            r#"."quote\"inside""#,
         ] {
             let path = parse(input).unwrap();
             assert_eq!(path.to_string(), input);
@@ -428,27 +420,28 @@ mod tests {
 
     #[test]
     fn quotes_are_only_kept_where_needed() {
-        assert_eq!(parse(r#""speed""#).unwrap().to_string(), "speed");
+        assert_eq!(parse(r#"."speed""#).unwrap().to_string(), ".speed");
     }
 
     #[test]
     fn invalid_paths_report_the_offset_of_the_step() {
         for (input, offset) in [
-            (".a", 0),
-            ("a.", 1),
-            ("a..b", 1),
-            ("a b", 1),
-            ("a::", 1),
-            ("a[1]b", 4),
-            ("1a", 0),
+            ("a", 0),
+            (".", 0),
+            (".a.", 2),
+            (".a..b", 2),
+            (".a b", 2),
+            (".a::", 2),
+            (".a[1]b", 5),
+            (".1a", 0),
             ("[x]", 0),
             ("[]", 0),
             ("[1", 0),
             ("[-1]", 0),
             ("[18446744073709551616]", 0),
-            (r#""""#, 0),
-            (r#""unterminated"#, 0),
-            (r#"a."b"#, 1),
+            (r#"."""#, 0),
+            (r#"."unterminated"#, 0),
+            (r#".a."b"#, 2),
         ] {
             assert_eq!(parse(input), Err(SelectionError::Syntax(offset)), "{input}");
         }

@@ -102,7 +102,8 @@ Field completions use the schema from the latest received sample of the selected
 Select a topic first to browse its fields, or enter a full path directly.
 Sequence index suggestions use the current length and show at most 64 indices; larger indices can be entered manually.
 Changing the field does not reconnect the topic subscription.
-Existing saved topic/field selections restore into the combined input.
+Layouts save the topic and field path separately and restore them into the combined input.
+The saved field path keeps its leading separator, for example `.inner[2]` or `[0].x`.
 For topic names containing dots, the longest matching discovered topic takes precedence when separating topic and field path.
 
 ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`.

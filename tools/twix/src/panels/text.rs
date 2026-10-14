@@ -310,7 +310,7 @@ mod tests {
         let panel = TextPanel {
             source: crate::topic_source::TopicSourceEditor::new(
                 "/output/text".to_owned(),
-                "pose.x".to_owned(),
+                ".pose.x".to_owned(),
             ),
             pretty: false,
             observation: ObservationState::Idle,
@@ -320,13 +320,13 @@ mod tests {
             panel.save(),
             json!({
                 "topic": "/output/text",
-                "field_path": "pose.x",
+                "field_path": ".pose.x",
                 "pretty": false,
             })
         );
         assert_eq!(
             serde_json::to_value(crate::SelectablePanel::TextPanel(Box::new(panel))).unwrap(),
-            json!({"kind": "text", "state": {"topic": "/output/text", "field_path": "pose.x", "pretty": false}})
+            json!({"kind": "text", "state": {"topic": "/output/text", "field_path": ".pose.x", "pretty": false}})
         );
     }
 
@@ -345,7 +345,7 @@ mod tests {
                 ))
                 .expect("backend should build"),
         );
-        for field_path in [None, Some("pose.x")] {
+        for field_path in [None, Some(".pose.x")] {
             let mut saved = json!({
                 "topic": "/output/text",
                 "pretty": true,
