@@ -586,6 +586,14 @@ where
         !self.queue.is_empty()
     }
 
+    /// Return the number of messages currently waiting in the local receive queue.
+    ///
+    /// Use this to drain a bounded snapshot without chasing messages that arrive
+    /// concurrently with processing.
+    pub fn queued_len(&self) -> usize {
+        self.queue.len()
+    }
+
     /// Wait until at least `count` publishers are matched on this subscriber's topic,
     /// or until `timeout` elapses.
     ///

@@ -1,0 +1,16 @@
+[package]
+name = "localization-fagra"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+coordinate_systems.workspace = true
+fagra = { workspace = true }
+linear_algebra.workspace = true
+nalgebra.workspace = true
+
+[dev-dependencies]
+fagra = { workspace = true, features = ["test-support"] }

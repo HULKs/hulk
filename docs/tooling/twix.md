@@ -64,11 +64,22 @@ These cover bundled presets, file operations, picker dialogs, and layout renderi
 
 ## Panels and keybindings
 
-ROS-Z Twix currently contains Text, Image, Map, Parameter, and Audio panels.
-The Text panel observes one ROS-Z topic through `ros-z-debug` and renders the latest dynamic payload as JSON.
-The Image panel observes `TimeWrapper<ros2::sensor_msgs::image::Image>` topics, defaults to `inputs/left_image`, and renders the latest raw camera frame.
+Twix includes Audio, Behavior Tree, Text, Image, Map (2D), 3D Map, and Parameter panels.
+Panels follow the selected namespace. Topic views use the shared `ros-z-debug` topic observer.
+The Text panel renders the latest dynamic payload as JSON.
+The Image panel defaults to `inputs/left_image` and renders the latest raw camera frame.
 The Parameter panel discovers ROS-Z nodes with remote parameter services, shows full snapshots or selected paths as JSON, and writes selected paths to active layers with revision checks.
 The Audio panel defaults to `audio_spectrums` and displays microphone spectra and a waterfall for the selected channel.
+
+## 3D Map
+
+Select **3D Map** in the panel selector. Its **Layers** menu independently toggles the field, articulated K1 robot, camera frustum/image plane, and field-mark associations. Drag with the left mouse button to orbit, drag with the right button to pan, and scroll to zoom. Layer settings and the selected pose source are saved with the layout.
+
+Robot and camera placement can use localization or visual odometry. Visual odometry has its own coordinate frame, so it is not aligned with the displayed field; field-mark associations are only drawn with localization selected. Localization uses the latest pose. Camera matrices and kinematics are matched to the displayed frame within 100 ms using payload timestamps. Associations require the current localization epoch and, when images are available, an exact image timestamp. Frame timestamps never move backward within a namespace and epoch. Without camera or association frames, the robot uses the latest kinematics.
+
+K1 meshes are compiled into Twix; no mesh files or source checkout are needed at runtime. The panel requires a WGPU-capable graphics adapter.
+
+## Keybindings
 
 ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`.
 Legacy Twix keeps using `hulks/twix.toml`, so the two tools do not share incompatible keybinding schemas.

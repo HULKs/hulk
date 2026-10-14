@@ -19,6 +19,12 @@ impl Default for Intrinsic {
 }
 
 impl Intrinsic {
+    /// Whether finite pinhole projection parameters have positive focal lengths.
+    pub fn is_valid(&self) -> bool {
+        self.focals.iter().all(|f| f.is_finite() && *f > 0.0)
+            && self.optical_center.inner.iter().all(|v| v.is_finite())
+    }
+
     pub fn new(focal_length: nalgebra::Vector2<f32>, optical_center: Point2<Pixel>) -> Self {
         Self {
             focals: focal_length,
@@ -81,6 +87,19 @@ impl From<&CameraInfo> for Intrinsic {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn intrinsic_validity_checks_focals_and_center() {
+        assert!(Intrinsic::default().is_valid());
+        for value in [0.0, -1.0, f32::NAN, f32::INFINITY] {
+            assert!(!Intrinsic::new(nalgebra::vector![value, 1.0], point![0.0, 0.0]).is_valid());
+            assert!(!Intrinsic::new(nalgebra::vector![1.0, value], point![0.0, 0.0]).is_valid());
+        }
+        for value in [f32::NAN, f32::INFINITY] {
+            assert!(!Intrinsic::new(nalgebra::vector![1.0, 1.0], point![value, 0.0]).is_valid());
+            assert!(!Intrinsic::new(nalgebra::vector![1.0, 1.0], point![0.0, value]).is_valid());
+        }
+    }
 
     #[test]
     fn intrinsic_projection() {

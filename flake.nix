@@ -23,10 +23,11 @@
           (craneLibrary.fileset.commonCargoSources ./.)
           ./crates/hsl_network_messages/headers/RoboCupGameControlData.hpp
           ./tools/pepsi/src/install-podman.sh
+          ./tools/mujoco-simulator/mujoco-simulator/K1/meshes
         ];
       };
 
-      guiLibraries = with pkgs; [ libGL libxkbcommon wayland libx11 ];
+      guiLibraries = with pkgs; [ libGL libxkbcommon wayland libx11 vulkan-loader ];
       workspaceVersion = workspace.workspace.package.version;
 
       mkCrate = {
@@ -79,8 +80,8 @@
 
       devShells.${system}.default = craneLibrary.devShell {
         inputsFrom = [ pepsi twix rosz ];
-        packages = with pkgs; [ rust-analyzer rsync openssh systemd.dev ];
-        env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (guiLibraries ++ [ pkgs.systemd ]);
+        packages = with pkgs; [ rust-analyzer rsync openssh systemd.dev pkg-config openssl mesa ];
+        env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath guiLibraries;
       };
     };
 }

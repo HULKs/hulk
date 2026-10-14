@@ -1,6 +1,98 @@
 {
+  // Timing, model, input capacities, calibration and all noise/prior settings require restart.
+  // Solver, visual gates, recovery/heading/tilt gates and tracking timeouts are live.
+  // Rejected updates retain the previous parameter revision and running estimator.
+  timing: {
+    // All durations use {secs, nanos}. Bias spacing must be a multiple of trajectory
+    // spacing, trajectory spacing a multiple of preintegration_interval; window >= 2 knots.
+    trajectory_spacing: { secs: 0, nanos: 200000000 },
+    bias_spacing: { secs: 5, nanos: 0 },
+    preintegration_interval: { secs: 0, nanos: 100000000 },
+    optimization_window: { secs: 2, nanos: 0 },
+    max_imu_gap: { secs: 0, nanos: 20000000 },
+    max_camera_gap: { secs: 0, nanos: 20000000 },
+    startup_kinematics_freshness: { secs: 0, nanos: 100000000 },
+  },
+  model: {
+    huber_threshold: 2.0, // whitened residual units
+    min_landmark_range: 0.01, // m
+    intrinsic_prior_sigma: 0.001, // px
+    anchor_xy_sigma: 0.001, // m
+    anchor_yaw_sigma: 0.001, // rad
+    foot_sigma: 0.01, // m
+    visual_odometry_sigma: 0.1, // m/rad
+    relative_yaw_variance: 0.00002, // rad² per observation
+    rotation_process_variance: 0.01, // rad²/s
+    gap_uncertainty_multiplier: 10.0, // variance multiplier
+    prediction_gap_segments: 5,
+    gravity: 9.81, // m/s²
+    gap_tilt_sigma: 0.1, // rad
+    containment_tau: 0.5, // segment sampling fraction, [0, 1]
+  },
+  solver: {
+    max_trials: 8,
+    max_iterations: 10,
+    gradient_tolerance: 0.001,
+    step_tolerance: 0.00001,
+    cost_tolerance: 0.00000001,
+  },
+  visual: {
+    min_associations: 3, // >= 3; max must be >= min
+    max_associations: 32,
+    min_reprojection_depth: 0.01, // m
+    min_detection_separation_px: 1.0,
+    min_landmark_separation_m: 0.0001,
+    max_rms_px: 10.0,
+    min_downward_ray: 0.000001, // rotated pinhole-bearing downward component
+  },
+  inputs: {
+    // Capacities in messages, all positive.
+    imu_queue: 500,
+    kinematics_queue: 500,
+    visual_queue: 60,
+    visual_odometry_queue: 60,
+    kinematic_odometry_queue: 60,
+    camera_cache: 1500,
+    kinematics_cache: 1000,
+    field_cache: 1,
+  },
+  // Leg odometry assumes a stationary support foot. Enable only with justified stance evidence.
+  kinematic_odometry_noise: null,
+  imu_preintegration: {
+    gyroscope_noise_density: 0.00447213595499958,
+    integration_noise_density: 0.0001,
+    tilt_sigma: 0.02,
+    // Tilt information scales with covered duration / reference_duration, not interval count.
+    reference_duration: { secs: 0, nanos: 100000000 },
+    terminal_gyroscope_sigma: 0.1,
+    gyroscope_reintegration_threshold: 0.01,
+    accelerometer_reintegration_threshold: 0.1,
+  },
+  // Residual Robot-frame offsets are optimized at timing.bias_spacing knots,
+  // linearly interpolated. Drift densities are per sqrt(second).
+  imu_bias: {
+    accelerometer_initial_sigma: 1.0,
+    gyroscope_initial_sigma: 0.02,
+    accelerometer_random_walk: 0.002,
+    gyroscope_random_walk: 0.0002,
+  },
+  accelerometer: {
+    bias: [0.0, 0.0, 0.0],
+    scale: [1.0, 1.0, 1.0],
+    // K1 simulation model value; verify the physical mounting offset/calibration on hardware.
+    position: [0.0, 0.0, 0.0],
+    noise_density: 0.3,
+  },
+  initial_height_sigma: 1.0,
+  initial_velocity_sigma: 5.0,
+  recovery_height_gate: 9.0,
+  max_tilt_error: 0.3490658503988659,
+  accelerometer_process_noise_variance: 10.0,
   visual_feature_noise_variance: 10000.0,
-  pose_hint_visual_feature_noise_variance: 100000.0,
-  pose_hint_visual_huber_threshold: 2.0,
   field_containment_sigma: 1.0,
+  // Radians: reject abrupt visual heading corrections; allow slow IMU drift during tracking.
+  max_heading_error: 0.3490658503988659, // 20 degrees
+  max_heading_reference_drift_per_second: 0.008726646259971648, // 0.5 degrees/s
+  tracking_timeout: { secs: 2, nanos: 0 },
+  visual_tracking_timeout: { secs: 2, nanos: 0 },
 }

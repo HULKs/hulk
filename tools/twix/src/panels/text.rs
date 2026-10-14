@@ -337,6 +337,7 @@ mod tests {
             backend,
             value: Some(&saved),
             egui_context: Context::default(),
+            render_state: None,
         });
 
         assert_eq!(panel.topic, "/output/text");

@@ -7,6 +7,7 @@ use kinematics::robot_kinematics::RobotKinematics;
 use linear_algebra::Pose2;
 use ros_z::prelude::*;
 use ros_z_streams::CreateAnnouncingPublisher;
+use types::odometry::{KINEMATIC_ODOMETRY_TOPIC, KinematicOdometryDelta};
 use types::time_wrapper::TimeWrapper;
 
 mod estimator;
@@ -41,12 +42,26 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let mut estimator = OdometryEstimator::default();
+    let deltas = node
+        .publisher::<KinematicOdometryDelta>(KINEMATIC_ODOMETRY_TOPIC)
+        .build()
+        .await?;
+    let mut last_kinematics_time = None;
 
     loop {
         let parameters = parameters.snapshot().typed().clone();
         let imu_state = imu_state_sub.recv_with_metadata().await?;
         let imu_time = imu_state.source_time;
-        let maybe_robot_kinematics_wrapper = robot_kinematics_cache.get_nearest(imu_time);
+        let maybe_robot_kinematics_wrapper = robot_kinematics_cache
+            .get_nearest(imu_time)
+            .filter(|sample| sample.time.abs_diff(imu_time) <= estimator::MAX_SAMPLE_GAP);
+        // Reusing an encoder sample would manufacture a zero-motion observation.
+        if let Some(sample) = &maybe_robot_kinematics_wrapper {
+            if last_kinematics_time.is_some_and(|last| sample.time <= last) {
+                continue;
+            }
+            last_kinematics_time = Some(sample.time);
+        }
         let maybe_fall_down_state = fall_down_state_cache.get_nearest(imu_time);
         let imu_state = imu_state.into_message();
 
@@ -66,6 +81,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 .await?
                 .publish(&pose)
                 .await?;
+        }
+        if let Some(delta) = estimator.take_delta() {
+            deltas.publish(&delta).await?;
         }
     }
 }
