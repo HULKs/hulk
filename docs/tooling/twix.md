@@ -87,7 +87,7 @@ Selecting a template highlights `...` so you can replace it with an index, move 
 Templates also work when the current array is empty.
 For a topic whose root is an array, use `topic[2]`.
 
-Press **Ctrl+F** to focus and select the topic input in the active Text or Image panel.
+Press **Ctrl+F** to focus and select the topic input in the active Text, Image, or Audio panel.
 Press **Ctrl+Space** or **Arrow Down** in a completion input to open its dropdown, including when the input is empty.
 Arrow Down also highlights the first suggestion.
 Use the arrow keys to choose a completion and Enter to apply it.

@@ -30,6 +30,7 @@ type Spectra = Vec<Spectrum>;
 
 pub struct AudioPanel {
     topic_editor: String,
+    focus_topic_requested: bool,
     topic: String,
     observation: ObservationState,
     last_processed_sample: Option<PublicationId>,
@@ -83,6 +84,7 @@ impl Panel for AudioPanel {
 
         let mut panel = Self {
             topic_editor: topic.clone(),
+            focus_topic_requested: false,
             topic,
             observation: ObservationState::Idle,
             last_processed_sample: None,
@@ -101,6 +103,10 @@ impl Panel for AudioPanel {
         panel
     }
 
+    fn focus_topic(&mut self) {
+        self.focus_topic_requested = true;
+    }
+
     fn header_ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
         ui.label("Topic");
 
@@ -112,11 +118,14 @@ impl Panel for AudioPanel {
                 .complete(graph.publishers())
         };
 
-        let response = ui.add(CompletionEdit::new(
-            ui.id().with("audio_spectrum_topic"),
-            &completions,
-            &mut self.topic_editor,
-        ));
+        let response = ui.add(
+            CompletionEdit::new(
+                ui.id().with("audio_spectrum_topic"),
+                &completions,
+                &mut self.topic_editor,
+            )
+            .request_focus(std::mem::take(&mut self.focus_topic_requested)),
+        );
 
         if response.changed() {
             self.commit_topic(&context);
