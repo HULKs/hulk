@@ -42,6 +42,18 @@ pub struct ObservationRepaint {
 }
 
 impl ObservationRepaint {
+    fn watch<T: Send + Sync + 'static>(
+        context: &impl ObservationContext,
+        mut updates: tokio::sync::watch::Receiver<T>,
+    ) -> Self {
+        let egui = context.egui_context();
+        let task = context.backend().runtime_handle().spawn(async move {
+            while updates.changed().await.is_ok() {
+                egui.request_repaint();
+            }
+        });
+        Self { task }
+    }
     fn spawn(
         egui_context: Context,
         runtime_handle: &Handle,
@@ -80,6 +92,12 @@ pub trait RepaintOnUpdates {
         C: ObservationContext;
 }
 
+impl RepaintOnUpdates for ros_z_debug::query::PlanObservation {
+    fn repaint_on_updates<C: ObservationContext>(&self, context: &C) -> ObservationRepaint {
+        ObservationRepaint::watch(context, self.subscribe_updates())
+    }
+}
+
 impl RepaintOnUpdates for DynamicTopicObservation {
     fn repaint_on_updates<C>(&self, context: &C) -> ObservationRepaint
     where
@@ -94,10 +112,7 @@ impl RepaintOnUpdates for DynamicTopicObservation {
 }
 
 impl<T> RepaintOnUpdates for TopicObservation<T> {
-    fn repaint_on_updates<C>(&self, context: &C) -> ObservationRepaint
-    where
-        C: ObservationContext,
-    {
+    fn repaint_on_updates<C: ObservationContext>(&self, context: &C) -> ObservationRepaint {
         ObservationRepaint::spawn(
             context.egui_context(),
             context.backend().runtime_handle(),

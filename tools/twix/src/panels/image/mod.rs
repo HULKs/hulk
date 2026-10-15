@@ -1,109 +1,190 @@
-use std::{sync::Arc, time::Duration};
-
-use color_eyre::{Report, eyre::Context as _};
+use crate::{
+    graph::TopicCompletionQuery,
+    panel::{Panel, PanelCreationContext, PanelUiContext},
+    repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
+};
+use color_eyre::{Report, eyre::eyre};
 use coordinate_systems::Pixel;
 use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui};
 use hulk_widgets::CompletionEdit;
 use image::RgbImage;
+use image_overlay::ImageOverlays;
 use linear_algebra::{point, vector};
-use ros_z::{Message, time::Time};
-use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
+use ros_z::{Message, message::WireDecoder};
+use ros_z_debug::{
+    TargetIdentity, TopicReference,
+    query::{
+        Cursor, TimeEncoding, TimeProjection, TypedPlanObservation,
+        plan::{self, Frame, Sample, Source, State, TopicSource},
+    },
+};
 use ros2::sensor_msgs::image::Image as RosImage;
 use serde_json::{Value, json};
-use thiserror::Error;
 use twix_visualization::{
     twix_painter::{Orientation, TwixPainter},
     zoom_and_pan::ZoomAndPanTransform,
 };
 use uuid::Uuid;
 
-use crate::{
-    graph::TopicCompletionQuery,
-    panel::{Panel, PanelCreationContext, PanelUiContext},
-    repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
-};
-
-use self::image_overlay::ImageOverlays;
-
 mod image_overlay;
+mod inputs;
 mod overlays;
+use inputs::SampleIdentity;
 
 pub const DEFAULT_IMAGE_TOPIC: &str = "inputs/left_image";
-const IMAGE_RETENTION_WINDOW: Duration = Duration::from_secs(2);
-
-#[derive(Debug, Error)]
-enum ImageDecodeError {
-    #[error("image has no pixels. Dimensions: {width}x{height}")]
-    Empty { width: u32, height: u32 },
-    #[error("failed to decode image: {0}")]
-    Decode(#[from] image::ImageError),
-}
-
-fn decode_color_image(image: &RosImage) -> Result<ColorImage, ImageDecodeError> {
-    if image.width == 0 || image.height == 0 {
-        return Err(ImageDecodeError::Empty {
-            width: image.width,
-            height: image.height,
-        });
-    }
-
-    let rgb_image: RgbImage = image.clone().try_into()?;
-    Ok(ColorImage::from_rgb(
-        [rgb_image.width() as usize, rgb_image.height() as usize],
-        rgb_image.as_raw(),
-    ))
-}
 
 pub struct ImagePanel {
     topic_editor: String,
     focus_topic_requested: bool,
     topic: String,
-    observation: ObservationState,
-    overlays: Box<ImageOverlays>,
+    observation: Result<Option<ObservedImage>, String>,
+    overlays: ImageOverlays,
     zoom_and_pan: ZoomAndPanTransform,
 }
 
-enum ObservationState {
-    Idle,
-    Observing(Box<ObservedImage>),
-    Error(String),
+#[derive(PartialEq, Eq)]
+struct Binding {
+    namespace: String,
+    topic: String,
+    generation: u64,
+    follow: bool,
+    overlays: u64,
 }
 
 struct ObservedImage {
-    observation: TopicObservation<RosImage>,
+    observation: TypedPlanObservation<Option<Frame>>,
+    binding: Binding,
     _repaint: ObservationRepaint,
     render_cache: RenderedImageCache,
+}
+
+impl ImagePanel {
+    fn binding(&self, context: &impl ObservationContext) -> Binding {
+        Binding {
+            namespace: context.backend().namespace(),
+            topic: self.topic.clone(),
+            generation: context.backend().presentation_identity().0,
+            follow: context
+                .backend()
+                .query_connection()
+                .cursor
+                .position()
+                .cursor
+                == Cursor::Live,
+            overlays: self.overlays.revision,
+        }
+    }
+    fn recreate(&mut self, context: &impl ObservationContext) {
+        let result = (|| -> Result<Option<ObservedImage>, Report> {
+            if self.topic.is_empty() {
+                self.overlays.clear();
+                return Ok(None);
+            }
+            let binding = self.binding(context);
+            let identity = TargetIdentity::new(&binding.namespace)?;
+            let topic = TopicReference::new(&self.topic)?.resolve(&identity)?;
+            let supported =
+                topic == TopicReference::new(DEFAULT_IMAGE_TOPIC)?.resolve(&identity)?;
+            let images = Source::from(TopicSource::new(
+                topic,
+                TimeProjection::field(".header.stamp", TimeEncoding::RosTime)?,
+            ));
+            let (inputs, preferences) =
+                self.overlays.declarations(&binding.namespace, supported)?;
+            let primary = if binding.follow && !preferences.is_empty() {
+                let time = plan::available(
+                    preferences
+                        .iter()
+                        .map(|source| source.latest(plan::cursor()).effective_time()),
+                )
+                .min();
+                images.exact(time).or_else(images.latest(plan::cursor()))
+            } else {
+                images.latest(plan::cursor())
+            };
+            let connection = context.backend().query_connection();
+            let _runtime = context.backend().runtime_handle().enter();
+            let observation = primary
+                .attach(inputs)
+                .observe(connection.backend, connection.cursor)?;
+            let repaint = observation.raw().repaint_on_updates(context);
+            let cache = match &mut self.observation {
+                Ok(Some(old))
+                    if old.binding.namespace == binding.namespace
+                        && old.binding.topic == binding.topic
+                        && old.binding.generation == binding.generation =>
+                {
+                    std::mem::replace(&mut old.render_cache, RenderedImageCache::new())
+                }
+                _ => RenderedImageCache::new(),
+            };
+            Ok(Some(ObservedImage {
+                observation,
+                binding,
+                _repaint: repaint,
+                render_cache: cache,
+            }))
+        })();
+        self.observation = result.map_err(|error| format!("{error:#}"));
+    }
+    fn refresh(&mut self, context: &impl ObservationContext) {
+        let binding = self.binding(context);
+        if self
+            .observation
+            .as_ref()
+            .ok()
+            .and_then(Option::as_ref)
+            .is_none_or(|observed| observed.binding != binding)
+        {
+            self.recreate(context);
+        }
+        let Ok(Some(observed)) = &mut self.observation else {
+            return;
+        };
+        let snapshot = observed.observation.snapshot();
+        match snapshot.state {
+            State::Ready(Some(frame)) => {
+                if observed
+                    .render_cache
+                    .refresh(&context.egui_context(), &frame.primary)
+                {
+                    self.overlays.prepare(&frame);
+                }
+            }
+            State::Ready(None) => {
+                observed.render_cache.clear();
+                self.overlays.clear();
+            }
+            State::Failed(error) => observed.render_cache.error = Some(error),
+            State::Pending => {}
+        }
+    }
 }
 
 impl Panel for ImagePanel {
     const STORAGE_ID: &'static str = "image";
     const DISPLAY_NAME: &'static str = "Image";
-    const ICON: &'static str = egui_material_icons::icons::ICON_PHOTO_CAMERA.codepoint;
-
+    const ICON: &'static str = egui_material_icons::icons::ICON_IMAGE.codepoint;
     fn new(context: PanelCreationContext<'_>) -> Self {
         let topic = context
             .value
-            .and_then(|value| value.get("topic"))
+            .and_then(|v| v.get("topic"))
             .and_then(Value::as_str)
             .unwrap_or(DEFAULT_IMAGE_TOPIC)
-            .to_string();
-
+            .to_owned();
         let mut panel = Self {
             topic_editor: topic.clone(),
             focus_topic_requested: false,
             topic,
-            observation: ObservationState::Idle,
-            overlays: Box::new(ImageOverlays::new(
-                context.value.and_then(|value| value.get("overlays")),
-                &context,
-            )),
+            observation: Ok(None),
+            overlays: ImageOverlays::new(context.value.and_then(|v| v.get("overlays"))),
             zoom_and_pan: context
                 .value
-                .and_then(|value| value.get("zoom_and_pan"))
-                .and_then(|value| serde_json::from_value::<ZoomAndPanTransform>(value.clone()).ok())
+                .and_then(|v| v.get("zoom_and_pan"))
+                .and_then(|v| serde_json::from_value(v.clone()).ok())
                 .unwrap_or_default(),
         };
-        panel.recreate_observation(&context);
+        panel.recreate(&context);
         panel
     }
 
@@ -112,7 +193,7 @@ impl Panel for ImagePanel {
     }
 
     fn header_ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
-        self.overlays.ui(ui, &context);
+        self.overlays.ui(ui);
         ui.label("Topic");
         let namespace = context.backend.namespace();
         let completions = {
@@ -130,319 +211,341 @@ impl Panel for ImagePanel {
             .request_focus(std::mem::take(&mut self.focus_topic_requested)),
         );
         if response.changed() {
-            self.commit_topic(&context);
+            self.topic = self.topic_editor.trim().to_owned();
         }
     }
-
     fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
+        self.refresh(&context);
         if self.topic.is_empty() {
             ui.label("Enter an image topic.");
             return;
         }
-
-        match &mut self.observation {
-            ObservationState::Idle => {
+        let observed = match &self.observation {
+            Ok(Some(observed)) => observed,
+            Ok(None) => {
                 ui.label("No observation.");
+                return;
             }
-            ObservationState::Error(error) => {
+            Err(error) => {
                 ui.colored_label(ui.visuals().error_fg_color, error);
-            }
-            ObservationState::Observing(observed) => {
-                let preferred_image_time = self.overlays.preferred_image_time();
-                if let Some(time) = preferred_image_time {
-                    ui.label(time.as_nanos().to_string());
-                }
-                observed.render_cache.refresh(
-                    context.egui_context,
-                    &observed.observation,
-                    preferred_image_time,
-                );
-
-                if let Some(error) = observed.render_cache.error() {
-                    ui.colored_label(ui.visuals().error_fg_color, error);
-                    return;
-                }
-
-                let Some(texture) = observed.render_cache.texture() else {
-                    ui.label("no data yet");
-                    return;
-                };
-
-                let [width, height] = observed.render_cache.dimensions().unwrap_or(texture.size());
-                let (response, mut painter) = TwixPainter::<Pixel>::allocate(
-                    ui,
-                    vector![width as f32, height as f32],
-                    point![0.0, 0.0],
-                    Orientation::LeftHanded,
-                );
-                self.zoom_and_pan.apply(ui, &mut painter, &response);
-                painter.image(
-                    texture.id(),
-                    geometry::rectangle::Rectangle {
-                        min: point![0.0, 0.0],
-                        max: point![width as f32, height as f32],
-                    },
-                );
-                self.overlays.paint(
-                    &painter,
-                    observed
-                        .render_cache
-                        .image_time()
-                        .unwrap_or_else(Time::zero),
-                );
-                if let Some(position) = response.hover_pos() {
-                    let pixel = painter.transform_pixel_to_world(position);
-                    response.on_hover_text_at_pointer(format!(
-                        "x: {:.1}, y: {:.1}",
-                        pixel.x(),
-                        pixel.y()
-                    ));
-                }
+                return;
             }
         };
+        if let Some(error) = &observed.render_cache.error {
+            ui.colored_label(ui.visuals().error_fg_color, error);
+        }
+        let Some(texture) = &observed.render_cache.texture else {
+            ui.label("no data yet");
+            return;
+        };
+        let [width, height] = texture.size();
+        let (response, mut painter) = TwixPainter::<Pixel>::allocate(
+            ui,
+            vector![width as f32, height as f32],
+            point![0.0, 0.0],
+            Orientation::LeftHanded,
+        );
+        self.zoom_and_pan.apply(ui, &mut painter, &response);
+        painter.image(
+            texture.id(),
+            geometry::rectangle::Rectangle {
+                min: point![0.0, 0.0],
+                max: point![width as f32, height as f32],
+            },
+        );
+        if let Some(sample) = &observed.render_cache.sample {
+            self.overlays.paint(&painter, sample.time);
+        }
+        if let Some(position) = response.hover_pos() {
+            let pixel = painter.transform_pixel_to_world(position);
+            response.on_hover_text_at_pointer(format!("x: {:.1}, y: {:.1}", pixel.x(), pixel.y()));
+        }
     }
-
     fn save(&self) -> Value {
-        json!({
-            "topic": self.topic,
-            "overlays": self.overlays.save(),
-            "zoom_and_pan": serde_json::to_value(&self.zoom_and_pan)
-                .expect("failed to serialize image zoom and pan"),
-        })
+        json!({"topic":self.topic,"overlays":self.overlays.save(),"zoom_and_pan":self.zoom_and_pan})
     }
 }
 
-impl ImagePanel {
-    fn recreate_observation<C>(&mut self, context: &C)
-    where
-        C: ObservationContext,
-    {
-        self.observation = ObservationState::Idle;
-
-        if self.topic.is_empty() {
-            return;
-        }
-
-        match create_observation(context, &self.topic) {
-            Ok((observation, repaint)) => {
-                self.observation = ObservationState::Observing(Box::new(ObservedImage {
-                    observation,
-                    _repaint: repaint,
-                    render_cache: RenderedImageCache::for_panel(),
-                }));
-            }
-            Err(error) => {
-                self.observation = ObservationState::Error(format!("{error:#}"));
-            }
-        }
+fn decode_color_image(sample: &Sample) -> Result<ColorImage, Report> {
+    let image = if sample.topic.type_info == RosImage::type_info() {
+        <RosImage as Message>::Codec::deserialize(&sample.record.data)?
+    } else {
+        return Err(eyre!(
+            "unsupported image source type {}",
+            sample.topic.type_info.name
+        ));
+    };
+    if image.width == 0 || image.height == 0 {
+        return Err(eyre!("image has no pixels"));
     }
-
-    fn commit_topic<C>(&mut self, context: &C)
-    where
-        C: ObservationContext,
-    {
-        let next_topic = self.topic_editor.trim().to_string();
-        if next_topic == self.topic {
-            return;
-        }
-        self.topic = next_topic;
-        self.recreate_observation(context);
-    }
+    let rgb: RgbImage = image.try_into()?;
+    Ok(ColorImage::from_rgb(
+        [rgb.width() as usize, rgb.height() as usize],
+        rgb.as_raw(),
+    ))
 }
 
 struct RenderedImageCache {
-    sample: Option<Arc<SampleRecord<RosImage>>>,
+    sample: Option<SampleIdentity<'static>>,
+    failed: Option<SampleIdentity<'static>>,
     texture: Option<TextureHandle>,
-    dimensions: Option<[usize; 2]>,
     error: Option<String>,
     texture_name: String,
 }
-
 impl RenderedImageCache {
-    fn for_panel() -> Self {
-        Self::new(format!("twix-image-{}", Uuid::new_v4().simple()))
+    fn clear(&mut self) {
+        self.sample = None;
+        self.failed = None;
+        self.texture = None;
+        self.error = None;
     }
-
-    fn new(texture_name: impl Into<String>) -> Self {
+    fn new() -> Self {
         Self {
             sample: None,
+            failed: None,
             texture: None,
-            dimensions: None,
             error: None,
-            texture_name: texture_name.into(),
+            texture_name: format!("twix-image-{}", Uuid::new_v4().simple()),
         }
     }
-
-    fn refresh(
-        &mut self,
-        egui_context: &Context,
-        observation: &TopicObservation<RosImage>,
-        preferred_image_time: Option<Time>,
-    ) {
-        let sample = preferred_image_time
-            .and_then(|time| image_sample_at_time(observation, time))
-            .or_else(|| observation.latest());
-        self.refresh_sample(egui_context, sample);
-    }
-
-    fn refresh_sample(
-        &mut self,
-        egui_context: &Context,
-        sample: Option<Arc<SampleRecord<RosImage>>>,
-    ) {
-        if same_sample(self.sample.as_ref(), sample.as_ref()) {
-            return;
+    fn refresh(&mut self, context: &Context, sample: &Sample) -> bool {
+        let identity = SampleIdentity::from(sample);
+        if self.sample.as_ref().is_some_and(|old| *old == identity) {
+            self.error = None;
+            return true;
         }
-
-        self.sample = sample;
-        self.texture = None;
-        self.dimensions = None;
-        self.error = None;
-
-        let Some(record) = self.sample.as_ref() else {
-            return;
-        };
-
-        match decode_color_image(&record.value) {
+        if self.failed.as_ref().is_some_and(|old| *old == identity) {
+            return false;
+        }
+        match decode_color_image(sample) {
             Ok(image) => {
-                self.dimensions = Some(image.size);
-                self.texture = Some(egui_context.load_texture(
-                    &self.texture_name,
-                    image,
-                    TextureOptions::NEAREST,
-                ));
+                self.sample = Some(identity.into_owned());
+                self.failed = None;
+                self.error = None;
+                self.texture =
+                    Some(context.load_texture(&self.texture_name, image, TextureOptions::NEAREST));
+                true
             }
             Err(error) => {
+                self.failed = Some(identity.into_owned());
                 self.error = Some(error.to_string());
+                false
             }
         }
     }
-
-    fn texture(&self) -> Option<&TextureHandle> {
-        self.texture.as_ref()
-    }
-
-    fn dimensions(&self) -> Option<[usize; 2]> {
-        self.dimensions
-    }
-
-    fn image_time(&self) -> Option<Time> {
-        self.sample.as_ref().map(|record| image_time(&record.value))
-    }
-
-    fn error(&self) -> Option<&str> {
-        self.error.as_deref()
-    }
-}
-
-fn same_sample(
-    current: Option<&Arc<SampleRecord<RosImage>>>,
-    next: Option<&Arc<SampleRecord<RosImage>>>,
-) -> bool {
-    match (current, next) {
-        (Some(current), Some(next)) => Arc::ptr_eq(current, next),
-        (None, None) => true,
-        _ => false,
-    }
-}
-
-fn image_time(image: &RosImage) -> Time {
-    image.header.stamp.into()
-}
-
-fn image_sample_at_time(
-    observation: &TopicObservation<RosImage>,
-    time: Time,
-) -> Option<Arc<SampleRecord<RosImage>>> {
-    observation
-        .get_all()
-        .iter()
-        .rev()
-        .find(|record| image_time(&record.value) == time)
-        .cloned()
-}
-
-fn create_observation(
-    context: &impl ObservationContext,
-    topic: &str,
-) -> Result<(TopicObservation<RosImage>, ObservationRepaint), Report> {
-    let runtime_handle = context.backend().runtime_handle().clone();
-    // ros_z_debug spawns observation tasks internally and needs a current runtime.
-    let _runtime_context = runtime_handle.enter();
-    let observation = context
-        .backend()
-        .observer()
-        .observe_typed::<RosImage>(topic)
-        .wrap_err("failed to create image topic observation")?
-        .retention(RetentionPolicy::time_window(IMAGE_RETENTION_WINDOW)?)
-        .spawn();
-    let repaint = observation.repaint_on_updates(context);
-    Ok((observation, repaint))
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, time::Duration};
+    use super::*;
+    use ros_z::message::WireEncoder;
+    use std::{
+        sync::{
+            Arc,
+            atomic::{AtomicBool, AtomicU64, Ordering},
+        },
+        time::Duration,
+    };
+    use types::{
+        object_detection::{Object, RobocupObjectLabel},
+        time_wrapper::TimeWrapper,
+    };
 
-    use eframe::egui::Context as EguiContext;
-    use ros_z::context::ContextBuilder;
-    use ros_z_debug::{TopicObserver, TopicObserverOptions};
-    use ros2::{sensor_msgs::image::Image as RosImage, std_msgs::header::Header};
-
-    use super::RenderedImageCache;
-
-    fn rgb8_image(width: u32, height: u32, data: Vec<u8>) -> RosImage {
-        RosImage {
-            header: Header::default(),
-            height,
-            width,
-            encoding: "rgb8".to_string(),
-            is_bigendian: 0,
-            step: width * 3,
-            data: data.into(),
+    pub(super) fn raw_sample<T: Message>(
+        topic: &str,
+        id: u64,
+        time: i64,
+        source_time: i64,
+        value: &T,
+    ) -> Sample {
+        Sample {
+            topic: ros_z_debug::query::TopicInfo {
+                name: topic.into(),
+                type_info: T::type_info(),
+                schema: None,
+                error: None,
+            },
+            record: Arc::new(ros_z_debug::query::RawRecord {
+                publication: None,
+                id,
+                time: ros_z::time::Time::from_nanos(time),
+                source_time: ros_z::time::Time::from_nanos(source_time),
+                log_time: None,
+                data: T::Codec::serialize(value).unwrap().into(),
+            }),
         }
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    async fn render_cache_decodes_new_rgb8_sample() {
-        let context = EguiContext::default();
-        let ros_context = ContextBuilder::default().build().await.unwrap();
-        let node = Arc::new(
-            ros_context
-                .create_node("render_cache_decodes_new_rgb8_sample")
-                .build()
-                .await
-                .unwrap(),
+    #[test]
+    fn image_cache_preserves_good_texture_and_reuses_selected_publication() {
+        let sample = |id, width| {
+            let mut value = image(id, [255, 0, 0]);
+            value.width = width;
+            raw_sample("/image", id, id as i64, id as i64, &value)
+        };
+        let context = Context::default();
+        let mut cache = RenderedImageCache::new();
+        let good = sample(1, 1);
+        let payload = Arc::downgrade(&good.record.data);
+        assert!(cache.refresh(&context, &good));
+        drop(good);
+        assert!(
+            payload.upgrade().is_none(),
+            "texture cache must retain identity, not the wire payload"
         );
-        let observer = TopicObserver::new(
-            Arc::clone(&node),
-            TopicObserverOptions::with_namespace("/").unwrap(),
+        let texture = cache.texture.as_ref().unwrap().id();
+        assert!(cache.refresh(&context, &sample(1, 1)));
+        assert_eq!(cache.texture.as_ref().unwrap().id(), texture);
+        let bad = sample(2, 0);
+        let payload = Arc::downgrade(&bad.record.data);
+        assert!(!cache.refresh(&context, &bad));
+        drop(bad);
+        assert!(
+            payload.upgrade().is_none(),
+            "failed images must not retain payload buffers either"
         );
-        let publisher = node
-            .publisher::<RosImage>("/inputs/left_image")
+        assert_eq!(cache.texture.as_ref().unwrap().id(), texture);
+        assert!(cache.error.is_some());
+        assert!(cache.refresh(&context, &sample(1, 1)));
+        assert!(cache.error.is_none());
+    }
+
+    fn image(time: u64, pixel: [u8; 3]) -> RosImage {
+        let mut image = RosImage {
+            width: 1,
+            height: 1,
+            step: 3,
+            encoding: "rgb8".into(),
+            data: pixel.to_vec().into(),
+            ..Default::default()
+        };
+        image.header.stamp = ros_z::time::Time::from_nanos(time as i64)
+            .to_wallclock()
+            .into();
+        image
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn sustained_live_plan_presents_matching_overlays_without_cursor_chasing() {
+        let namespace = format!("/plan_image_{}", Uuid::new_v4().simple());
+        let backend = Arc::new(
+            crate::backend::RobotBackend::new(
+                tokio::runtime::Handle::current(),
+                None,
+                namespace.clone(),
+            )
+            .await
+            .unwrap(),
+        );
+        let node = backend.node();
+        let images = node
+            .publisher::<RosImage>(&format!("{namespace}/{DEFAULT_IMAGE_TOPIC}"))
             .build()
             .await
             .unwrap();
-        let observation = observer
-            .observe_typed::<RosImage>("inputs/left_image")
-            .unwrap()
-            .spawn();
-        let mut cache = RenderedImageCache::new("test-image-cache");
-        let image = rgb8_image(2, 1, vec![255, 0, 0, 0, 255, 0]);
-
-        tokio::time::timeout(Duration::from_secs(3), async {
-            while observation.latest().is_none() {
-                publisher.publish(&image).await.unwrap();
-                tokio::time::sleep(Duration::from_millis(10)).await;
+        let objects = node
+            .publisher::<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>(&format!(
+                "{namespace}/detected_objects"
+            ))
+            .build()
+            .await
+            .unwrap();
+        let saved =
+            json!({"overlays":{"object_detection":{"active":true},"horizon":{"active":true}}});
+        let context = PanelCreationContext {
+            backend: backend.clone(),
+            value: Some(&saved),
+            egui_context: Context::default(),
+        };
+        let mut panel = ImagePanel::new(PanelCreationContext {
+            backend: backend.clone(),
+            value: Some(&saved),
+            egui_context: context.egui_context.clone(),
+        });
+        let paused = Arc::new(AtomicBool::new(false));
+        let published = Arc::new(AtomicU64::new(0));
+        let pause = paused.clone();
+        let latest = published.clone();
+        let publisher = tokio::spawn(async move {
+            let mut time = 1u64;
+            loop {
+                if !pause.load(Ordering::Relaxed) {
+                    images.publish(&image(time, [255, 0, 0])).await.unwrap();
+                    if time > 3 {
+                        objects
+                            .publish(&TimeWrapper {
+                                time: ros_z::time::Time::from_nanos((time - 3) as i64),
+                                inner: vec![Object::<RobocupObjectLabel>::from([
+                                    0., 0., 1., 1., 0.9, 0.,
+                                ])],
+                            })
+                            .await
+                            .unwrap();
+                    }
+                    latest.store(time, Ordering::Relaxed);
+                    time += 1;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        });
+        tokio::time::timeout(Duration::from_secs(8), async {
+            let mut matched = 0;
+            let mut previous = None;
+            while matched < 20 {
+                panel.refresh(&context);
+                let observed = panel.observation.as_ref().unwrap().as_ref().unwrap();
+                if let State::Ready(Some(frame)) = observed.observation.snapshot().state {
+                    // The horizon has no camera input: it cannot gate this frame.
+                    if let State::Ready(records) = &frame.inputs[1]
+                        && let Some(detection) = records.first()
+                    {
+                        assert_eq!(detection.record.time, frame.primary.record.time);
+                        assert_eq!(frame.primary.topic.type_info, RosImage::type_info());
+                        assert_eq!(
+                            decode_color_image(&frame.primary).unwrap().pixels,
+                            [eframe::egui::Color32::RED]
+                        );
+                        if previous != Some(frame.primary.record.time) {
+                            matched += 1;
+                            previous = Some(frame.primary.record.time);
+                        }
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(17)).await;
             }
         })
         .await
-        .expect("observation should receive published image");
-
-        cache.refresh(&context, &observation, None);
-
-        assert_eq!(cache.dimensions(), Some([2, 1]));
-        assert!(cache.texture().is_some());
-        assert!(cache.error().is_none());
+        .unwrap();
+        paused.store(true, Ordering::Relaxed);
+        tokio::time::sleep(Duration::from_millis(30)).await;
+        let time = ros_z::time::Time::from_nanos(published.load(Ordering::Relaxed) as i64);
+        backend.query_connection().cursor.set(Cursor::At(time));
+        panel.refresh(&context);
+        let observed = panel.observation.as_ref().unwrap().as_ref().unwrap();
+        let State::Ready(Some(frame)) = observed.observation.snapshot().state else {
+            panic!("fixed frame missing")
+        };
+        assert_eq!(frame.primary.record.time, time);
+        assert!(matches!(&frame.inputs[1],State::Ready(records) if records.is_empty()));
+        let texture = observed.render_cache.texture.as_ref().unwrap().id();
+        panel.refresh(&context);
+        assert_eq!(
+            panel
+                .observation
+                .as_ref()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .render_cache
+                .texture
+                .as_ref()
+                .unwrap()
+                .id(),
+            texture
+        );
+        panel.topic.clear();
+        panel.refresh(&context);
+        assert!(matches!(panel.observation, Ok(None)));
+        publisher.abort();
     }
 }
