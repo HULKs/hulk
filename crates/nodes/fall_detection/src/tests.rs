@@ -277,17 +277,21 @@ fn fallen_requires_both_individual_and_total_motion_to_settle() {
 #[test]
 fn base_readiness_requires_a_settled_front_or_back_pose() {
     let parameters = base_parameters();
-    let mut distributed = Sample::lying_in_start_pose();
+    let ready = Sample {
+        positions: parameters.standing_up.start_pose,
+        ..Sample::lying_in_start_pose()
+    };
+    let mut distributed = ready;
     distributed.velocities = distributed_motion(0.14); // 2.8 rad/s: fallen, but not ready.
     for unready in [
         distributed,
         Sample {
             angular_velocity: 0.3,
-            ..Sample::lying_in_start_pose()
+            ..ready
         },
         Sample {
             tilt: 65.0_f32.to_radians(),
-            ..Sample::lying_in_start_pose()
+            ..ready
         },
         Sample::lying_twisted(),
     ] {
@@ -298,11 +302,11 @@ fn base_readiness_requires_a_settled_front_or_back_pose() {
             [fallen(false)]
         );
         assert_eq!(
-            robot.hold_with_parameters(Sample::lying_in_start_pose(), 200, &parameters),
+            robot.hold_with_parameters(ready, 200, &parameters),
             [fallen(false)]
         );
         assert_eq!(
-            robot.hold_with_parameters(Sample::lying_in_start_pose(), 10, &parameters),
+            robot.hold_with_parameters(ready, 10, &parameters),
             [fallen(true)]
         );
     }
@@ -356,11 +360,15 @@ fn base_falling_is_prompt_but_rejects_brief_tilt_and_keeps_hysteresis() {
 #[test]
 fn stand_up_distributed_motion_and_brief_pauses_do_not_restart_policy() {
     let parameters = base_parameters();
+    let ready = Sample {
+        positions: parameters.standing_up.start_pose,
+        ..Sample::lying_in_start_pose()
+    };
     let mut robot = Robot::default();
-    robot.hold_with_parameters(Sample::lying_in_start_pose(), 800, &parameters);
+    robot.hold_with_parameters(ready, 800, &parameters);
     robot.stand_up_requested = true;
     assert_eq!(
-        robot.hold_with_parameters(Sample::lying_in_start_pose(), 10, &parameters),
+        robot.hold_with_parameters(ready, 10, &parameters),
         [StandingUp]
     );
     let mut moving = Sample::lying_twisted();

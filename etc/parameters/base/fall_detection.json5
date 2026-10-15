@@ -24,12 +24,12 @@
     confirmation_duration: { secs: 0, nanos: 500000000 },
   },
   standing_up: {
-    // Must match the pose Prepare drives the joints into.
+    // Nominal Prepare pose, rounded from robot 43's serial joint feedback.
     start_pose: {
-      left_arm: { shoulder_pitch: 0.0, shoulder_roll: 0.0, shoulder_yaw: 0.0, elbow: 0.0 },
-      right_arm: { shoulder_pitch: 0.0, shoulder_roll: 0.0, shoulder_yaw: 0.0, elbow: 0.0 },
-      left_leg: { hip_pitch: -0.2, hip_roll: 0.0, hip_yaw: 0.0, knee: 0.4, ankle_up: -0.25, ankle_down: 0.0 },
-      right_leg: { hip_pitch: -0.2, hip_roll: 0.0, hip_yaw: 0.0, knee: 0.4, ankle_up: -0.25, ankle_down: 0.0 },
+      left_arm: { shoulder_pitch: 0.2, shoulder_roll: -1.45, shoulder_yaw: 0.0, elbow: -0.5 },
+      right_arm: { shoulder_pitch: 0.2, shoulder_roll: 1.45, shoulder_yaw: 0.0, elbow: 0.5 },
+      left_leg: { hip_pitch: 0.0, hip_roll: 0.0, hip_yaw: 0.0, knee: 0.1, ankle_up: -0.1, ankle_down: 0.0 },
+      right_leg: { hip_pitch: 0.0, hip_roll: 0.0, hip_yaw: 0.0, knee: 0.1, ankle_up: -0.1, ankle_down: 0.0 },
     },
     // Require the torso within 20 degrees of flat on the front or back, with little rotation.
     maximum_start_pose_torso_deviation: 0.349066,
