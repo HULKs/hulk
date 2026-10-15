@@ -46,10 +46,10 @@ If no branch succeeds, behavior falls back to a safe standing command.
 
 ## Ready Formations
 
-Ready uses static poses from `behavior_node.kickoff`, expressed in field coordinates and rotations in radians.
+Ready uses static posistions from `behavior_node.kickoff`, expressed in normalized field coordinates and they orientate towards the center of the field.
 
-- The player selected by `goalkeeper.player_number` uses `goalkeeper_pose`.
-- On our kickoff, the highest-numbered active field player uses `striker_pose`.
+- The player selected by `goalkeeper.player_number` uses `goalkeeper_position`.
+- On our kickoff, the highest-numbered active field player uses `striker_position`.
   The remaining field players fill `aggressive_positions` in array order, from highest to lowest player number.
 - On opponent or unknown kickoff, all field players fill `defensive_positions` in the same order.
 

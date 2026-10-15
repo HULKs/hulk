@@ -72,7 +72,7 @@ fn startup(
     game.set_kicking_team(Some(Team::Opponent));
     game.set_game_state(GameState::Ready, clock.now);
     let parameters = default_behavior_parameters().expect("failed to load behavior parameters");
-    let ready_position = parameters.kickoff.standard_positions[PLAYER].position;
+    let ready_position = point![-1.0, 0.0];
     commands.insert_resource(KickoffScenario {
         phase: Phase::Ready,
         since: clock.now,
