@@ -6480,25 +6480,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "line_detection"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "coordinate_systems",
- "geometry",
- "linear_algebra",
- "nalgebra 0.34.2",
- "ordered-float 4.6.0",
- "projection",
- "rand 0.9.4",
- "rand_chacha 0.9.0",
- "ransac",
- "ros-z",
- "serde",
- "types",
-]
-
-[[package]]
 name = "linear_algebra"
 version = "0.1.0"
 dependencies = [
