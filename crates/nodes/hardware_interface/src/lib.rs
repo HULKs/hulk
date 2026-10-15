@@ -33,9 +33,9 @@ use crate::joint_control::JointControlPublisher;
 
 const ROBOT_COMMAND_TOPIC: &str = "commands/robot_command";
 
-#[derive(Debug, Serialize, Deserialize, Message)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Message)]
 pub enum LedCommand {
-    SetParam { r: u8, g: u8, b: u8 },
+    Set(LedColor),
     Stop,
 }
 
@@ -116,12 +116,6 @@ impl RpcAttempt {
             "booster rpc completed"
         );
     }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum DesiredLed {
-    Set(LedColor),
-    Stop,
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -245,16 +239,7 @@ async fn led_command_worker(
         let led_command = led_command_sub.recv().await?;
         let timeout = parameters.snapshot().typed().sdk_request_timeout;
 
-        let desired_led = desired_led_for(led_command);
-
-        send_retry_command(&led_command_sender, desired_led, timeout, "led_control");
-    }
-}
-
-fn desired_led_for(led_command: LedCommand) -> DesiredLed {
-    match led_command {
-        LedCommand::SetParam { r, g, b } => DesiredLed::Set(LedColor { r, g, b }),
-        LedCommand::Stop => DesiredLed::Stop,
+        send_retry_command(&led_command_sender, led_command, timeout, "led_control");
     }
 }
 
@@ -291,8 +276,8 @@ fn spawn_mode_worker(
 fn spawn_led_worker(
     light_control_client: Arc<light_client::LightClient>,
     rpc_diagnostics: Arc<RpcDiagnostics>,
-) -> watch::Sender<Option<RetryCommand<DesiredLed>>> {
-    let (sender, receiver) = watch::channel(None::<RetryCommand<DesiredLed>>);
+) -> watch::Sender<Option<RetryCommand<LedCommand>>> {
+    let (sender, receiver) = watch::channel(None::<RetryCommand<LedCommand>>);
     tokio::spawn(run_retrying_rpc_worker(receiver, move |command| {
         let light_control_client = light_control_client.clone();
         let rpc_diagnostics = rpc_diagnostics.clone();
@@ -308,18 +293,18 @@ fn spawn_led_worker(
                 "booster rpc scheduled"
             );
             let operation = match desired_led {
-                DesiredLed::Set(_) => "set led color",
-                DesiredLed::Stop => "stop led control",
+                LedCommand::Set(_) => "set led color",
+                LedCommand::Stop => "stop led control",
             };
             retryable_rpc_call(
                 async move {
                     match desired_led {
-                        DesiredLed::Set(color) => {
+                        LedCommand::Set(color) => {
                             light_control_client
                                 .set_led_light_color(color, command.timeout)
                                 .await
                         }
-                        DesiredLed::Stop => {
+                        LedCommand::Stop => {
                             light_control_client
                                 .stop_led_light_control(command.timeout)
                                 .await
