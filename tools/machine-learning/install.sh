@@ -24,26 +24,5 @@ set -x
 # setup vcpkg
 ./setup-vcpkg.sh
 
-cd ball_detection
-
-# install C++ tools
-rm -Rf build
-mkdir -p build
-cd build
-cmake \
-  -G Ninja \
-  -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
-  ${CMAKE_INSTALL_PREFIX} \
-  -DCMAKE_TOOLCHAIN_FILE="../../vcpkg/scripts/buildsystems/vcpkg.cmake" \
-  ..
-cmake --build . --target install
-cd ..
-
-# install Python tools
-pip install ./
-
-
-cd ..
-
 # build predicter
 ./build-predicter.sh
