@@ -17,6 +17,7 @@ pub use plan_observation::{
     PlanObservation, PlanSnapshot, PlanStatus, PlanValue, TypedPlanObservation, TypedPlanSnapshot,
 };
 pub use projection::{ProjectionError, TimeEncoding, TimeProjection};
+pub use remote::RemoteMcap;
 pub use typed::{Connection, decode_record};
 
 pub const MAX_ROWS: usize = 4096;

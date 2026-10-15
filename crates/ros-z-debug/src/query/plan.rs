@@ -142,6 +142,7 @@ impl<T> Expr<T> {
             marker: PhantomData,
         }
     }
+
     pub fn plan(self) -> QueryPlan {
         QueryPlan { root: self.node }
     }
@@ -155,6 +156,7 @@ impl Source {
     pub fn first_present(sources: impl IntoIterator<Item = TopicSource>) -> Self {
         Self(sources.into_iter().collect())
     }
+
     pub fn select(&self, selection: Selection, at: Expr<Option<Time>>) -> SelectionExpr {
         SelectionExpr {
             source: self.clone(),
@@ -163,9 +165,11 @@ impl Source {
             required: vec![],
         }
     }
+
     pub fn latest(&self, at: Expr<Option<Time>>) -> Expr<Option<Sample>> {
         Expr::new(self.select(Selection::latest(), at).into_expr().node)
     }
+
     pub fn exact(&self, at: Expr<Option<Time>>) -> Expr<Option<Sample>> {
         Expr::new(self.select(Selection::Exact, at).into_expr().node)
     }
@@ -178,9 +182,11 @@ impl Expr<Option<Sample>> {
     pub fn effective_time(self) -> Expr<Option<Time>> {
         Expr::new(Node::Time(Box::new(self.node)))
     }
+
     pub fn or_else(self, fallback: Self) -> Self {
         Self::new(Node::OrElse(Box::new(self.node), Box::new(fallback.node)))
     }
+
     pub fn attach(self, inputs: impl IntoIterator<Item = InputSpec>) -> Expr<Option<Frame>> {
         Expr::new(Node::Attach {
             primary: Box::new(self.node),
@@ -221,6 +227,7 @@ impl SelectionExpr {
         self.required.extend(inputs);
         self
     }
+
     pub fn attach(self, inputs: impl IntoIterator<Item = InputSpec>) -> Expr<Vec<Frame>> {
         Expr::new(Node::Attach {
             primary: Box::new(self.into_expr().node),
@@ -289,6 +296,7 @@ impl Evaluation {
             dependencies: vec![],
         }
     }
+
     pub fn settled(&self) -> bool {
         self.dependencies
             .iter()
@@ -365,6 +373,7 @@ impl QueryPlan {
         });
         Ok(active)
     }
+
     /// Validate remote shape, source identity and independently attached selections.
     /// Index completeness cannot be proven by a client without the recording.
     pub fn validate_result(&self, result: &mut Evaluation, catalog: &[TopicInfo]) -> Result<()> {
@@ -476,6 +485,7 @@ impl QueryPlan {
         }
         Ok(())
     }
+
     pub fn validate(&self) -> Result<()> {
         let mut remaining = MAX_NODES;
         validate_node(&self.root, &mut remaining)?;

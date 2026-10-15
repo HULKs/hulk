@@ -60,6 +60,7 @@ impl PlanObservation {
     pub fn snapshot(&self) -> Arc<PlanSnapshot> {
         (self.read.read)()
     }
+
     pub fn status(&self) -> PlanStatus {
         let snapshot = self.snapshot();
         PlanStatus {
@@ -67,22 +68,66 @@ impl PlanObservation {
             snapshot,
         }
     }
+
     pub fn is_current(&self, snapshot: &PlanSnapshot) -> bool {
         snapshot.revision == self.cursor.position().revision
     }
+
     /// Notifications invalidate the last read. Live evaluates on demand while
     /// ingestion and index maintenance continue independently in the background.
     pub fn subscribe_updates(&self) -> watch::Receiver<u64> {
         self.updates.clone()
+    }
+
+    pub(crate) fn channel(cursor: CursorHandle) -> (Self, PlanSender) {
+        let (sender, receiver) = watch::channel(Arc::new(PlanSnapshot {
+            revision: cursor.position().revision,
+            evaluation: Arc::new(Evaluation::unresolved(Time::zero(), State::Pending)),
+        }));
+        let (updates_sender, updates) = watch::channel(0);
+        (
+            Self::new(cursor, move || receiver.borrow().clone(), updates),
+            PlanSender {
+                sender,
+                updates: updates_sender,
+            },
+        )
+    }
+}
+
+pub(crate) struct PlanSender {
+    sender: watch::Sender<Arc<PlanSnapshot>>,
+    updates: watch::Sender<u64>,
+}
+
+impl PlanSender {
+    pub fn notify(&self) {
+        self.updates
+            .send_modify(|revision| *revision = revision.wrapping_add(1));
+    }
+
+    pub fn send_replace(&self, value: Arc<PlanSnapshot>) {
+        self.sender.send_replace(value);
+        self.notify();
+    }
+
+    pub fn borrow(&self) -> watch::Ref<'_, Arc<PlanSnapshot>> {
+        self.sender.borrow()
+    }
+
+    pub async fn closed(&self) {
+        self.sender.closed().await;
     }
 }
 
 mod sealed {
     pub trait Sealed {}
 }
+
 pub trait PlanValue: sealed::Sealed + Clone {
     fn from_value(value: &Value) -> Result<Self>;
 }
+
 macro_rules! value {
     ($ty:ty,$pat:pat => $body:expr) => {
         impl sealed::Sealed for $ty {}
@@ -107,10 +152,12 @@ pub struct TypedPlanObservation<T> {
     raw: PlanObservation,
     marker: std::marker::PhantomData<fn() -> T>,
 }
+
 pub struct TypedPlanSnapshot<T> {
     pub state: State<T>,
     pub raw: Arc<PlanSnapshot>,
 }
+
 impl<T: PlanValue> TypedPlanObservation<T> {
     pub fn snapshot(&self) -> TypedPlanSnapshot<T> {
         let raw = self.raw.snapshot();
@@ -119,9 +166,11 @@ impl<T: PlanValue> TypedPlanObservation<T> {
             raw,
         }
     }
+
     pub fn raw(&self) -> &PlanObservation {
         &self.raw
     }
+
     fn value(&self, snapshot: &PlanSnapshot) -> State<T> {
         if !self.raw.is_current(snapshot) {
             return State::Pending;
@@ -136,6 +185,7 @@ impl<T: PlanValue> TypedPlanObservation<T> {
         }
     }
 }
+
 impl<T: PlanValue> Expr<T> {
     pub fn observe(
         self,
