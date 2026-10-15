@@ -1,12 +1,15 @@
 use std::sync::{
-    Arc, Mutex,
+    Arc, Mutex, MutexGuard,
     atomic::{AtomicU64, Ordering},
 };
 
+use crate::replay::ReplaySession;
 use color_eyre::{Result, eyre::Context as _};
 use ros_z::{context::ContextBuilder, graph::Graph, node::Node, prelude::*};
-use ros_z_debug::query::{Connection, Cursor, CursorHandle, Live, LiveRetention, TopicList};
-use ros_z_debug::{TopicObserver, TopicObserverOptions};
+use ros_z_debug::{
+    TopicObserver, TopicObserverOptions,
+    query::{Connection, Cursor, CursorHandle, Live, LiveRetention, RemoteMcap, TopicList},
+};
 use tokio::runtime::Handle;
 use uuid::Uuid;
 
@@ -17,6 +20,7 @@ pub struct RobotBackend {
     observer: TopicObserver,
     namespace: Mutex<String>,
     connection_generation: AtomicU64,
+    replay: Mutex<ReplaySession>,
     connection: Mutex<Connection>,
     live: Arc<Live>,
 }
@@ -66,6 +70,7 @@ impl RobotBackend {
             observer,
             namespace: Mutex::new(namespace),
             connection_generation: AtomicU64::new(0),
+            replay: Mutex::new(Default::default()),
             connection: Mutex::new(connection),
             live,
         })
@@ -97,6 +102,13 @@ impl RobotBackend {
             .expect("connection mutex")
             .backend
             .topics()
+    }
+
+    pub fn use_recording(&self, remote: Arc<RemoteMcap>, cursor: CursorHandle) {
+        self.set_connection(Connection {
+            backend: remote,
+            cursor,
+        });
     }
 
     pub fn use_live(&self) {
@@ -138,6 +150,12 @@ impl RobotBackend {
             self.connection_generation.load(Ordering::Relaxed),
             connection.cursor.position().revision,
         )
+    }
+
+    pub fn replay(&self) -> MutexGuard<'_, ReplaySession> {
+        self.replay
+            .lock()
+            .expect("replay mutex should not be poisoned")
     }
 }
 

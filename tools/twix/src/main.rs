@@ -35,6 +35,7 @@ mod panel;
 mod panels;
 mod presets;
 mod repaint;
+mod replay;
 mod selectable_panel_macro;
 mod topic_source;
 mod visuals;
@@ -155,6 +156,8 @@ impl App for TwixApp {
             })
         });
 
+        self.backend.replay().update(&context, &self.backend);
+
         CentralPanel::default().show(ui, |ui| {
             let layout = &mut self.layout;
             if shortcuts_enabled {
@@ -193,6 +196,7 @@ impl App for TwixApp {
             layout.ui(ui, &self.backend);
         });
         self.layout.dialogs(&context);
+        self.backend.replay().dispatch(&context, &self.backend);
     }
 
     fn save(&mut self, storage: &mut dyn Storage) {
