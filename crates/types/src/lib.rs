@@ -20,7 +20,6 @@ pub mod grayscale_image;
 pub mod heatmap;
 pub mod initial_look_around;
 pub mod jpeg;
-pub mod last_filtered_game_controller_state_change;
 pub mod line_data;
 pub mod localization;
 pub mod message_event;
