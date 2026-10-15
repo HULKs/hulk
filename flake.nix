@@ -26,7 +26,7 @@
         ];
       };
 
-      guiLibraries = with pkgs; [ libGL libxkbcommon wayland libx11 ];
+      guiLibraries = with pkgs; [ libGL libxkbcommon wayland libx11 vulkan-loader ];
       workspaceVersion = workspace.workspace.package.version;
 
       mkCrate = {
@@ -79,7 +79,7 @@
 
       devShells.${system}.default = craneLibrary.devShell {
         inputsFrom = [ pepsi twix rosz ];
-        packages = with pkgs; [ rust-analyzer rsync openssh systemd.dev ];
+        packages = with pkgs; [ rust-analyzer rsync openssh systemd.dev pkg-config openssl mesa ];
         env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (guiLibraries ++ [ pkgs.systemd ]);
       };
     };
