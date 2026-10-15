@@ -657,6 +657,7 @@ mod tests {
             na::Isometry2::translation(1.0, 2.0).framed_transform();
         let player_state = PlayerState {
             pose: linear_algebra::point![3.0, 5.0].into(),
+            head_yaw: 0.0,
             ball_position: None,
         };
 
@@ -671,10 +672,12 @@ mod tests {
 
         let own_player_state = PlayerState {
             pose: linear_algebra::point![1.0, 2.0].into(),
+            head_yaw: 0.0,
             ball_position: None,
         };
         let teammate_state = PlayerState {
             pose: linear_algebra::point![3.0, 4.0].into(),
+            head_yaw: 0.0,
             ball_position: None,
         };
         let players = Players {
@@ -717,6 +720,7 @@ mod tests {
 
         let newer_teammate_state = PlayerState {
             pose: linear_algebra::point![5.0, 6.0].into(),
+            head_yaw: 0.0,
             ball_position: None,
         };
         let updated_players = Players {

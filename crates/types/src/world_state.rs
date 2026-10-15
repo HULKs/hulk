@@ -54,6 +54,14 @@ impl Default for WorldState {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, ros_z::Message)]
+pub enum BallSource {
+    #[default]
+    Own,
+    Team,
+    Rule,
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, ros_z::Message)]
 pub struct BallState {
     pub ball_in_ground: Point2<Ground>,
@@ -61,6 +69,7 @@ pub struct BallState {
     pub ball_in_ground_velocity: Vector2<Ground>,
     pub last_seen_ball: SystemTime,
     pub field_side: Side,
+    pub source: BallSource,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, ros_z::Message)]
@@ -77,6 +86,7 @@ impl Default for BallState {
             ball_in_ground_velocity: Vector2::zeros(),
             last_seen_ball: UNIX_EPOCH,
             field_side: Side::Left,
+            source: BallSource::Own,
         }
     }
 }
@@ -89,6 +99,7 @@ impl BallState {
             ball_in_ground_velocity: Vector2::zeros(),
             last_seen_ball: UNIX_EPOCH,
             field_side: Side::Left,
+            source: BallSource::Rule,
         }
     }
 }
@@ -103,5 +114,29 @@ pub struct RobotState {
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize, Message)]
 pub struct PlayerState {
     pub pose: Pose2<Field>,
+    pub head_yaw: f32,
     pub ball_position: Option<BallPosition<Field>>,
+}
+
+impl PlayerState {
+    pub fn is_finite(&self) -> bool {
+        self.pose.position().x().is_finite()
+            && self.pose.position().y().is_finite()
+            && self.pose.angle().is_finite()
+            && self.head_yaw.is_finite()
+            && self
+                .ball_position
+                .is_none_or(|ball| ball.position.x().is_finite() && ball.position.y().is_finite())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn center_ball_is_rule_generated() {
+        let ball = BallState::new_at_center(Isometry2::<Ground, Field>::identity());
+        assert_eq!(ball.source, BallSource::Rule);
+    }
 }

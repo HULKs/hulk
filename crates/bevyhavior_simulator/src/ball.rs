@@ -7,7 +7,7 @@ use linear_algebra::{Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::{
     field_dimensions::{GlobalFieldSide, Side},
-    world_state::BallState,
+    world_state::{BallSource, BallState},
 };
 
 use crate::{
@@ -42,6 +42,7 @@ impl SimulatedBall {
             ball_in_ground_velocity: ground_to_world.inverse() * self.velocity,
             last_seen_ball: now,
             field_side: self.field_side,
+            source: BallSource::Own,
         }
     }
 }

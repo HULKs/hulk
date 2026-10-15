@@ -40,7 +40,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
+    let last_received_player_states_pub = node
+        .publisher::<Players<Option<TimeWrapper<PlayerState>>>>("last_received_player_states")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await?;
 
+    let mut last_received_player_states = Players::new(None);
     let mut player_states = Players::new(None);
     let mut expiry_tick = node.create_timer(Duration::from_millis(100));
     loop {
@@ -53,19 +62,39 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             }
             received_game_controller_state = filtered_game_controller_state_sub.recv() => {
                 let game_controller_state = received_game_controller_state?;
-                clear_penalized_players(&mut player_states, &game_controller_state);
+                clear_penalized_players(&mut last_received_player_states, &game_controller_state);
                 let maximum_age = parameters.snapshot().typed().maximum_age;
-                clear_old_player_states(&mut player_states, node.clock().now(), maximum_age);
+                player_states = age_limited_player_states(
+                    &last_received_player_states,
+                    node.clock().now(),
+                    maximum_age,
+                );
                 player_states_pub.publish(&player_states).await?;
+                last_received_player_states_pub.publish(&last_received_player_states).await?;
             }
             received_message = filtered_message_sub.recv() => {
-                apply_message(&mut player_states, received_message?);
+                apply_message(&mut last_received_player_states, received_message?);
                 let maximum_age = parameters.snapshot().typed().maximum_age;
-                clear_old_player_states(&mut player_states, node.clock().now(), maximum_age);
+                player_states = age_limited_player_states(
+                    &last_received_player_states,
+                    node.clock().now(),
+                    maximum_age,
+                );
                 player_states_pub.publish(&player_states).await?;
+                last_received_player_states_pub.publish(&last_received_player_states).await?;
             }
         }
     }
+}
+
+fn age_limited_player_states(
+    last_received_player_states: &Players<Option<TimeWrapper<PlayerState>>>,
+    now: Time,
+    maximum_age: Duration,
+) -> Players<Option<TimeWrapper<PlayerState>>> {
+    let mut player_states = last_received_player_states.clone();
+    clear_old_player_states(&mut player_states, now, maximum_age);
+    player_states
 }
 
 fn apply_message(
@@ -80,14 +109,20 @@ fn apply_message(
         return;
     };
 
+    let player_state = PlayerState {
+        pose: state_message.pose,
+        head_yaw: state_message.head_yaw,
+        ball_position: state_message
+            .ball_position
+            .map(|ball| BallPosition::from_network_ball(ball, time)),
+    };
+    if !player_state.is_finite() {
+        return;
+    }
+
     player_states[state_message.player_number] = Some(TimeWrapper {
         time,
-        inner: PlayerState {
-            pose: state_message.pose,
-            ball_position: state_message
-                .ball_position
-                .map(|ball| BallPosition::from_network_ball(ball, time)),
-        },
+        inner: player_state,
     });
 }
 
@@ -133,7 +168,7 @@ mod tests {
     use std::time::Duration;
 
     use hsl_network_messages::{Penalty, PlayerNumber, StateMessage};
-    use linear_algebra::Pose2;
+    use linear_algebra::{Pose2, point};
     use ros_z::time::Time;
     use types::messages::IncomingMessage;
 
@@ -150,6 +185,7 @@ mod tests {
                 inner: IncomingMessage::Hsl(HulkMessage::State(StateMessage {
                     player_number: PlayerNumber::Two,
                     pose,
+                    head_yaw: 0.0,
                     ball_position: None,
                 })),
             },
@@ -158,6 +194,53 @@ mod tests {
         let player = states[PlayerNumber::Two].as_ref().unwrap();
         assert_eq!(player.time, time);
         assert_eq!(player.inner.pose, pose);
+        assert_eq!(player.inner.head_yaw, 0.0);
+    }
+
+    #[test]
+    fn invalid_state_message_does_not_replace_last_valid_player_state() {
+        let mut states = Players::new(None);
+        let valid = |head_yaw| TimeWrapper {
+            time: Time::from_nanos(42),
+            inner: IncomingMessage::Hsl(HulkMessage::State(StateMessage {
+                player_number: PlayerNumber::Two,
+                pose: Pose2::default(),
+                head_yaw,
+                ball_position: None,
+            })),
+        };
+
+        apply_message(&mut states, valid(0.25));
+        apply_message(&mut states, valid(f32::NAN));
+        for state in [
+            StateMessage {
+                player_number: PlayerNumber::Two,
+                pose: Pose2::new(point![f32::NAN, 0.0], 0.0),
+                head_yaw: 0.0,
+                ball_position: None,
+            },
+            StateMessage {
+                player_number: PlayerNumber::Two,
+                pose: Pose2::default(),
+                head_yaw: 0.0,
+                ball_position: Some(hsl_network_messages::BallPosition {
+                    position: point![f32::NAN, 0.0],
+                    age: Duration::ZERO,
+                }),
+            },
+        ] {
+            apply_message(
+                &mut states,
+                TimeWrapper {
+                    time: Time::from_nanos(43),
+                    inner: IncomingMessage::Hsl(HulkMessage::State(state)),
+                },
+            );
+        }
+
+        let player = states[PlayerNumber::Two].as_ref().unwrap();
+        assert_eq!(player.time, Time::from_nanos(42));
+        assert_eq!(player.inner.head_yaw, 0.25);
     }
 
     #[test]
@@ -227,5 +310,23 @@ mod tests {
 
         assert!(!removed_any);
         assert!(states[PlayerNumber::Two].is_some());
+    }
+
+    #[test]
+    fn age_limited_states_do_not_erase_last_received_state() {
+        let mut last_received = Players::new(None);
+        last_received[PlayerNumber::Two] = Some(TimeWrapper {
+            time: Time::from_nanos(1_000_000_000),
+            inner: PlayerState::default(),
+        });
+
+        let active = age_limited_player_states(
+            &last_received,
+            Time::from_nanos(2_000_000_000),
+            Duration::from_secs(1),
+        );
+
+        assert!(active[PlayerNumber::Two].is_none());
+        assert!(last_received[PlayerNumber::Two].is_some());
     }
 }

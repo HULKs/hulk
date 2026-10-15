@@ -1,17 +1,16 @@
-use color_eyre::Result;
+use color_eyre::{Result, eyre::ensure};
 use coordinate_systems::Field;
 use eframe::epaint::Color32;
 use linear_algebra::point;
-use ndarray::{Array2, Axis};
 use ros_z_debug::{SampleRecord, TopicObservation};
 use std::sync::Arc;
-use types::field_dimensions::FieldDimensions;
+use types::{field_dimensions::FieldDimensions, heatmap::Heatmap};
 
 use crate::{backend::RobotBackend, panels::map::layer::Layer};
 use twix_visualization::twix_painter::TwixPainter;
 
 pub struct BallSearchHeatmap {
-    ball_search_heatmap: TopicObservation<Array2<f32>>,
+    ball_search_heatmap: TopicObservation<Heatmap>,
 }
 
 impl Layer<Field> for BallSearchHeatmap {
@@ -41,11 +40,18 @@ impl Layer<Field> for BallSearchHeatmap {
         let Some(SampleRecord { value: heatmap, .. }) = latest_sample.as_deref() else {
             return Ok(());
         };
-        let heatmap_dimensions = (heatmap.ncols(), heatmap.nrows());
+        let length = heatmap.length as usize;
+        let width = heatmap.width as usize;
+        ensure!(length > 0 && width > 0, "heatmap dimensions are empty");
+        ensure!(
+            length.checked_mul(width) == Some(heatmap.values.len()),
+            "heatmap dimensions do not match its number of values"
+        );
+
         let offset = (field_dimensions.length / 2.0, field_dimensions.width / 2.0);
-        let cell_width = field_dimensions.width / heatmap_dimensions.0 as f32;
-        let cell_length = field_dimensions.length / heatmap_dimensions.1 as f32;
-        for (x, row) in heatmap.axis_iter(Axis(0)).enumerate() {
+        let cell_length = field_dimensions.length / length as f32;
+        let cell_width = field_dimensions.width / width as f32;
+        for (x, row) in heatmap.values.chunks_exact(width).enumerate() {
             for (y, value) in row.iter().enumerate() {
                 let first_point = point![
                     x as f32 * cell_length - offset.0,
