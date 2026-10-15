@@ -19,7 +19,6 @@ pub mod grayscale_image;
 pub mod heatmap;
 pub mod initial_look_around;
 pub mod jpeg;
-pub mod line_data;
 pub mod localization;
 pub mod messages;
 pub mod motion_command;
