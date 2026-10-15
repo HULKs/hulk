@@ -27,6 +27,9 @@ use std::os::unix::fs::FileExt;
 #[cfg(windows)]
 use std::os::windows::fs::FileExt;
 
+mod query;
+pub use query::{DEFAULT_INDEX_BYTES, QueryRecording};
+
 const MAX_CHUNK: usize = 64 * 1024 * 1024;
 const CACHE_BYTES: usize = 32 * 1024 * 1024;
 
