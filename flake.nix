@@ -26,7 +26,7 @@
         ];
       };
 
-      guiLibraries = with pkgs; [ libGL libxkbcommon wayland libx11 ];
+      guiLibraries = with pkgs; [ libGL libxkbcommon wayland libx11 vulkan-loader ];
       workspaceVersion = workspace.workspace.package.version;
 
       mkCrate = {
