@@ -9,7 +9,6 @@
     "inputs/low_state",
     "inputs/fall_down_state",
     "fall_detection/status",
-    "joint_limits",
     "robot_kinematics",
     "inputs/odometry",
     "inputs/booster_odometry",
