@@ -8,7 +8,6 @@ pub mod buttons;
 pub mod camera_geometry;
 pub mod color;
 pub mod controller_input;
-pub mod cycle_time;
 pub mod detected_feet;
 pub mod fall_down_state;
 pub mod fall_state;
