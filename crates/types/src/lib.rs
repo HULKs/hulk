@@ -22,7 +22,6 @@ pub mod initial_look_around;
 pub mod jpeg;
 pub mod line_data;
 pub mod localization;
-pub mod message_event;
 pub mod messages;
 pub mod motion_command;
 pub mod motion_runtime;
