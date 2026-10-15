@@ -18,7 +18,7 @@ use super::Recording;
 pub const DEFAULT_INDEX_BYTES: usize = 256 * 1024 * 1024;
 const MAX_INDEXES: usize = 256;
 const ENTRY_BYTES: usize = std::mem::size_of::<IndexEntry>();
-const INDEX_WORKERS: usize = 1;
+const INDEX_WORKERS: usize = 4;
 const INDEX_BATCH_RECORDS: usize = 1024;
 
 /// File location also breaks timestamp ties, without a separate ordering field.
