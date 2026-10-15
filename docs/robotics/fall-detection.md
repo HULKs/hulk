@@ -70,6 +70,29 @@ The 500 ms fallen and 200 ms readiness windows require about 700 ms of settled i
 Standing confirmation retains its measured recovery envelope because terminal recovery oscillations exceed the settled-body limits.
 Sensor and command freshness remain 50 ms; a published posture expires after 100 ms.
 
+The `upright`, `falling`, and `fallen` confirmation durations confirm entry into their named posture.
+For example, `falling.confirmation_duration` delays `Upright` → `Falling`, not leaving `Falling`.
+`standing_up.confirmation_duration` instead confirms readiness while still `Fallen`;
+entering `StandingUp` on a request is immediate once readiness is true.
+`standing_up.movement_confirmation_duration` arms the later return to `Fallen`.
+
+## Joint velocity debug output
+
+Plot these scalar topics alongside `fall_detection/status`:
+
+- `debug/fall_detection/maximum_joint_speed`: the largest absolute body joint velocity.
+  Compare against `fallen.maximum_joint_velocity` and `standing_up.maximum_start_pose_joint_velocity`.
+- `debug/fall_detection/joint_speed_sum`: the sum of absolute body joint velocities.
+  Compare against `fallen.maximum_joint_velocity_sum` and `standing_up.maximum_start_pose_joint_velocity_sum`.
+
+Both measurements exclude the head and use rad/s, matching the detector's guards.
+They and `debug/fall_detection/tilt` use the sensor source timestamp and publish only for finite, fresh observations.
+Both velocity measurements must remain strictly below their respective limits for the applicable confirmation duration;
+torso and pose conditions must also hold.
+To retain these plots in MCAP recordings, add the debug topics to `mcap_recorder.topics`.
+
+## Threshold validation
+
 The simulator failure recording contained ready-pose joint speed sums up to 1.8 rad/s.
 Its interrupted standup segments stayed below the new fallen motion limits for at most 128 ms at a time.
 An uninterrupted simulator recovery remained within the fallen limits for about 300 ms during normal motion.

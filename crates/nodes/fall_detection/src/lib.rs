@@ -294,6 +294,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .publisher::<f32>("debug/fall_detection/tilt")
         .build()
         .await?;
+    let maximum_joint_speed_publisher = node
+        .publisher::<f32>("debug/fall_detection/maximum_joint_speed")
+        .build()
+        .await?;
+    let joint_speed_sum_publisher = node
+        .publisher::<f32>("debug/fall_detection/joint_speed_sum")
+        .build()
+        .await?;
 
     let mut detector = Detector::default();
     loop {
@@ -301,8 +309,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let Ok(observation) = Observation::from_low_state(&low_state, low_state.source_time) else {
             continue;
         };
-        tilt_publisher.publish(&observation.tilt).await?;
-
         let parameters = parameters.snapshot();
         let parameters = parameters.typed();
 
@@ -324,6 +330,24 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         if let Some(fall_detection) = detector.update(observation, stand_up_requested, parameters) {
             fall_detection_publisher.publish(&fall_detection).await?;
         }
+
+        // Match the magnitude comparisons in the fallen and readiness guards.
+        // Observation already excludes the head.
+        let maximum_joint_speed = observation
+            .velocities
+            .into_iter()
+            .map(f32::abs)
+            .fold(0.0, f32::max);
+        let joint_speed_sum = observation.velocities.into_iter().map(f32::abs).sum();
+        tilt_publisher
+            .publish_with_source_time(&observation.tilt, observation.time)
+            .await?;
+        maximum_joint_speed_publisher
+            .publish_with_source_time(&maximum_joint_speed, observation.time)
+            .await?;
+        joint_speed_sum_publisher
+            .publish_with_source_time(&joint_speed_sum, observation.time)
+            .await?;
     }
 }
 

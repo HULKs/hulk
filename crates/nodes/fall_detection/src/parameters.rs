@@ -27,14 +27,16 @@ pub struct UprightParameters {
     pub maximum_torso_angular_velocity: f32,
     pub maximum_leg_joint_velocity: f32,
     pub minimum_torso_height_above_soles: f32,
+    /// How long the upright conditions must hold before entering `Upright`.
     pub confirmation_duration: Duration,
 }
 
-/// Leaving `Upright`.
+/// Entering `Falling` from `Upright`; standup timeout bypasses these guards.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
 pub struct FallingParameters {
     pub minimum_torso_tilt: f32,
+    /// How long the tilt must exceed the threshold before entering `Falling`.
     pub confirmation_duration: Duration,
 }
 
@@ -48,10 +50,12 @@ pub struct FallenParameters {
     pub maximum_joint_velocity: f32,
     /// Maximum sum of absolute joint velocities, excluding the head, in rad/s.
     pub maximum_joint_velocity_sum: f32,
+    /// How long the fallen conditions must hold before entering `Fallen`.
+    /// Also applies when a standup attempt settles after confirmed movement.
     pub confirmation_duration: Duration,
 }
 
-/// Entering `StandingUp` from `Fallen` and leaving it again.
+/// Readiness while `Fallen`, then fallen-guard rearming and timeout during `StandingUp`.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
 pub struct StandingUpParameters {

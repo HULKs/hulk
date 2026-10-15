@@ -8,11 +8,13 @@
     maximum_torso_angular_velocity: 2.5,
     maximum_leg_joint_velocity: 6.0,
     minimum_torso_height_above_soles: 0.43,
+    // Confirms entry into Upright.
     confirmation_duration: { secs: 0, nanos: 100000000 },
   },
   falling: {
     // 40 degrees, with 20 degrees of hysteresis from Upright.
     minimum_torso_tilt: 0.698132,
+    // Confirms Upright -> Falling; standup timeout bypasses this delay.
     confirmation_duration: { secs: 0, nanos: 20000000 },
   },
   fallen: {
@@ -21,6 +23,7 @@
     maximum_torso_angular_velocity: 0.5,
     maximum_joint_velocity: 1.0,
     maximum_joint_velocity_sum: 3.0,
+    // Confirms entry into Fallen, including a settled failed standup.
     confirmation_duration: { secs: 0, nanos: 500000000 },
   },
   standing_up: {
@@ -37,7 +40,9 @@
     maximum_start_pose_joint_position_deviation: 0.5,
     maximum_start_pose_joint_velocity: 1.0,
     maximum_start_pose_joint_velocity_sum: 2.5,
+    // Confirms ready_for_standup while the posture is still Fallen.
     confirmation_duration: { secs: 0, nanos: 200000000 },
+    // Rearms the fallen guard after its conditions stop holding for this duration.
     movement_confirmation_duration: { secs: 0, nanos: 50000000 },
     // Normal GetUp's longer duration: 6.0 s from the back / progress_rate 1.5.
     timeout: { secs: 4, nanos: 0 },
