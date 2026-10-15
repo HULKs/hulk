@@ -32,7 +32,6 @@ pub mod path_obstacles;
 pub mod players;
 pub mod point_of_interest;
 pub mod pose_detection;
-pub mod pose_kinds;
 pub mod primary_state;
 pub mod rule_obstacles;
 pub mod samples;
