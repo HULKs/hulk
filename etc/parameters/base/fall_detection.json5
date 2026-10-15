@@ -24,7 +24,7 @@
     maximum_joint_velocity: 1.0,
     maximum_joint_velocity_sum: 3.0,
     // Confirms entry into Fallen, including a settled failed standup.
-    confirmation_duration: { secs: 0, nanos: 500000000 },
+    confirmation_duration: { secs: 0, nanos: 700000000 },
   },
   standing_up: {
     // Nominal Prepare pose, rounded from robot 43's serial joint feedback.
@@ -45,6 +45,6 @@
     // Rearms the fallen guard after its conditions stop holding for this duration.
     movement_confirmation_duration: { secs: 0, nanos: 50000000 },
     // Normal GetUp's longer duration: 6.0 s from the back / progress_rate 1.5.
-    timeout: { secs: 4, nanos: 0 },
+    timeout: { secs: 8, nanos: 0 },
   },
 }
