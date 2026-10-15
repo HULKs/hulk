@@ -3,19 +3,9 @@ use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground, Robot};
-use linear_algebra::{Isometry2, Isometry3, Point2, Pose2};
+use linear_algebra::{Isometry2, Isometry3, Pose2};
 
 use crate::multivariate_normal_distribution::MultivariateNormalDistribution;
-
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, ros_z::Message)]
-pub struct Update {
-    pub ground_to_field: Isometry2<Ground, Field>,
-    pub line_center_point: Point2<Field>,
-    pub fit_error: f32,
-    pub number_of_measurements_weight: f32,
-    pub line_distance_to_robot: f32,
-    pub line_length_weight: f32,
-}
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Message)]
 pub struct ScoredPose {
