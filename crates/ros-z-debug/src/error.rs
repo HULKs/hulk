@@ -1,11 +1,15 @@
 use ros_z::topic_name::TopicNameError;
 use thiserror::Error;
 
+use crate::query::ProjectionError;
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
+    #[error(transparent)]
+    Projection(#[from] ProjectionError),
     #[error("invalid topic reference '{topic}': {source}")]
     InvalidTopicReference {
         topic: String,

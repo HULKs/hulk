@@ -9560,6 +9560,7 @@ dependencies = [
  "parking_lot",
  "ros-z",
  "ros-z-schema",
+ "ros2",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
