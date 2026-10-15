@@ -9,6 +9,7 @@ homepage.workspace = true
 [dependencies]
 color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
+futures-util = { workspace = true }
 kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
