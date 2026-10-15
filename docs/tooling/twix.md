@@ -73,7 +73,7 @@ Choose a panel from the **+** picker.
 | Map | Display field or ground views with selectable layers for robot pose, balls, obstacles, and paths. |
 | Parameter | Discover nodes with remote parameter services, display snapshots or selected paths as JSON, and write selected paths to active layers with revision checks. |
 | Audio | Display microphone spectra and a waterfall for the selected channel, defaulting to `audio_spectrums`. |
-| [Plot](#plot-panel) | Compare numeric topics or fields over time, with enum and boolean states in the background. |
+| [Plot](#plot-panel) | Compare numeric topics or fields over time, with enum and boolean states in the background and parameters as threshold lines. |
 
 ## Topic and field selection
 
@@ -119,7 +119,7 @@ For topic names containing dots, the longest matching discovered topic takes pre
 Enter a numeric topic or field in the **Topic** input, for example `detected_objects.inner[2].bounding_box.confidence`.
 Use **Add item** to compare several sources on the same axes, and hover over a line to see its values.
 Each item's style button switches between a line and individual samples, and its info button shows the item's status and any selection problem.
-An icon at the start of each row shows the item type: a line chart for numeric topic lines and a timeline for topic states.
+An icon at the start of each row shows the item type: a line chart for numeric topic lines, a timeline for topic states, and a threshold icon for parameter thresholds.
 Gaps in a line mean the value was unavailable, for example an absent optional or a missing array element.
 
 Select an enum or boolean field, for example `primary_state`, to show its states as labeled, colored intervals behind the numeric lines.
@@ -133,8 +133,19 @@ A state lasts until a sample with another variant arrives, and the current state
 Unavailable values, such as absent optionals or inactive parent variants, end the current state and count as gaps.
 States follow the same time axis, history window, and pause/zoom behavior as the lines, and do not affect the Y axis range.
 
+Use **Add threshold** to draw a parameter as a dashed horizontal line, for example while tuning a threshold that guards an output.
+Enter the parameter **Node**, relative to the robot namespace or absolute, and a dot-separated **Path**, for example node `obstacle_filter` and path `robot_confidence_threshold`.
+Like topics, both inputs apply when you press Enter or choose a completion.
+Nodes complete from discovered parameter services, and paths complete from the node's parameter snapshot.
+A number draws one line, and an array of numbers, such as `[0.05, 0.1]`, draws one line per element.
+Thresholds follow the node's parameter events, so a line moves when the parameter changes, including writes from the Parameter panel.
+Thresholds have the same color, visibility, info, and remove controls as topic items.
+They are drawn without topic data and are included in the Y axis range.
+If the node is unavailable, the info button shows the error, the last known value stays visible, and Twix keeps retrying.
+
 The X axis shows the seconds before the newest sample, and **History** sets the time window.
 **Pause**, or **Space** after clicking the plot, freezes it so you can zoom and pan with the mouse or touchpad.
+Pausing also freezes threshold values until the plot resumes.
 **Reset view** or a double-click restores the full time window.
 
 ## Keybindings
