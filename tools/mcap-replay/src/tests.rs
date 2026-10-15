@@ -198,3 +198,52 @@ fn index_budget_evicts_lru_and_pins_active_plan_sources() {
     assert!(!recording.has_index(&detections));
     assert_eq!(recording.index_stats(), (1, 48));
 }
+
+#[test]
+fn parallel_indexes_match_serial_across_chunks_duplicates_and_rejected_times() {
+    let data: Vec<_> = (0..256u64)
+        .map(|i| {
+            (
+                (i % 2) as usize,
+                if i % 19 == 0 { u64::MAX } else { i * 17 % 31 },
+                1000 + i,
+                3000 - i,
+            )
+        })
+        .collect();
+    for message_indexes in [false, true] {
+        let file = fixture_records(message_indexes, true, &data);
+        let mut serial = open(file.path()).with_index_workers(1);
+        let mut parallel = open(file.path()).with_index_workers(4);
+        let plan = image_plan(Selection::latest(), Selection::Exact);
+        for time in (0..35).chain((0..35).rev()) {
+            let expected = finish(&mut serial, &plan, Time::from_nanos(time));
+            let actual = finish(&mut parallel, &plan, Time::from_nanos(time));
+            let summarize = |result: &Evaluation| {
+                frames(result)
+                    .iter()
+                    .map(|frame| {
+                        let inputs: Vec<_> = frame
+                            .inputs
+                            .iter()
+                            .map(|state| {
+                                let State::Ready(records) = state else {
+                                    panic!("matched input")
+                                };
+                                records
+                                    .iter()
+                                    .map(|sample| (sample.record.id, sample.record.time))
+                                    .collect::<Vec<_>>()
+                            })
+                            .collect();
+                        (frame.primary.record.id, frame.primary.record.time, inputs)
+                    })
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(summarize(&actual), summarize(&expected));
+            assert_eq!(actual.missing, expected.missing);
+        }
+        assert_eq!(serial.index_stats(), parallel.index_stats());
+        assert_eq!(serial.projected_messages, parallel.projected_messages);
+    }
+}

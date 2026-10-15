@@ -1,5 +1,7 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    mem::size_of,
+    slice::from_ref,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -7,18 +9,23 @@ use std::{
     thread,
 };
 
-use color_eyre::eyre::{Context, Result, bail, ensure};
+use color_eyre::eyre::{Context, Result, bail, ensure, eyre};
 use ros_z::{dynamic::Schema, time::Time};
+#[cfg(test)]
+use ros_z_debug::query::plan::TopicSource;
 use ros_z_debug::query::{
-    Coverage, RawRecord, SourceCoverage, TimeProjection, TopicInfo, remote::RecordingInfo,
+    Coverage, MAX_PAYLOAD_BYTES, RawRecord, SourceCoverage, TimeProjection, TopicInfo,
+    plan::{Evaluation, QueryPlan, TimeIndex},
+    remote::RecordingInfo,
 };
+use uuid::Uuid;
 
-use super::Recording;
+use super::{Recording, SnapshotChunk};
 
 pub const DEFAULT_INDEX_BYTES: usize = 256 * 1024 * 1024;
 const MAX_INDEXES: usize = 256;
-const ENTRY_BYTES: usize = std::mem::size_of::<IndexEntry>();
-const INDEX_WORKERS: usize = 1;
+const ENTRY_BYTES: usize = size_of::<IndexEntry>();
+const INDEX_WORKERS: usize = 4;
 const INDEX_BATCH_RECORDS: usize = 1024;
 
 /// File location also breaks timestamp ties, without a separate ordering field.
@@ -50,10 +57,11 @@ impl Index {
     }
 }
 
-impl ros_z_debug::query::plan::TimeIndex for Index {
+impl TimeIndex for Index {
     fn len(&self) -> usize {
         self.entries.len()
     }
+
     fn time(&self, index: usize) -> Time {
         self.entries[index].time()
     }
@@ -295,7 +303,7 @@ fn scan_index_chunks(
                     if batch.len() == INDEX_BATCH_RECORDS {
                         build
                             .lock()
-                            .map_err(|_| color_eyre::eyre::eyre!("index build lock poisoned"))?
+                            .map_err(|_| eyre!("index build lock poisoned"))?
                             .merge(&mut batch)?;
                     }
                 }
@@ -304,7 +312,7 @@ fn scan_index_chunks(
         )?;
         let mut build = build
             .lock()
-            .map_err(|_| color_eyre::eyre::eyre!("index build lock poisoned"))?;
+            .map_err(|_| eyre!("index build lock poisoned"))?;
         build.merge(&mut batch)?;
         #[cfg(test)]
         {
@@ -334,10 +342,12 @@ impl QueryRecording {
     pub fn decoded_chunks(&self) -> usize {
         self.recording.decoded_chunks
     }
+
     #[cfg(test)]
     pub fn index_stats(&self) -> (usize, usize) {
         (self.cache.entries.len(), self.cache.bytes)
     }
+
     #[cfg(test)]
     pub fn with_index_workers(mut self, workers: usize) -> Self {
         assert!((1..=INDEX_WORKERS).contains(&workers));
@@ -346,7 +356,7 @@ impl QueryRecording {
     }
 
     #[cfg(test)]
-    pub fn has_index(&self, source: &ros_z_debug::query::plan::TopicSource) -> bool {
+    pub fn has_index(&self, source: &TopicSource) -> bool {
         self.channel(&source.topic).is_ok_and(|channel| {
             self.cache
                 .entries
@@ -355,7 +365,7 @@ impl QueryRecording {
     }
 
     pub fn new(recording: Recording, name: String, cancel: Arc<AtomicBool>) -> Result<Self> {
-        let instance = uuid::Uuid::new_v4();
+        let instance = Uuid::new_v4();
         let info = RecordingInfo {
             instance: instance.to_string(),
             name,
@@ -408,7 +418,7 @@ impl QueryRecording {
             .iter()
             .find(|(_, channel)| channel.topic == topic)
             .map(|(id, _)| *id)
-            .ok_or_else(|| color_eyre::eyre::eyre!("recording has no topic {topic}"))
+            .ok_or_else(|| eyre!("recording has no topic {topic}"))
     }
 
     fn indexes(&mut self, keys: &[IndexKey]) -> Result<Vec<Arc<Index>>> {
@@ -548,7 +558,7 @@ impl QueryRecording {
             for worker in workers {
                 let result = worker.join().unwrap_or_else(|_| {
                     failed.store(true, Ordering::Relaxed);
-                    Err(color_eyre::eyre::eyre!("index worker panicked"))
+                    Err(eyre!("index worker panicked"))
                 });
                 if let Err(error) = result {
                     failure.get_or_insert(error);
@@ -560,7 +570,7 @@ impl QueryRecording {
         {
             let build = build
                 .lock()
-                .map_err(|_| color_eyre::eyre::eyre!("index build lock poisoned"))?;
+                .map_err(|_| eyre!("index build lock poisoned"))?;
             self.recording.decoded_chunks += build.decoded_chunks;
             self.projected_messages += build.projected_messages;
         }
@@ -571,7 +581,7 @@ impl QueryRecording {
         &self,
         channel: u16,
         entry: IndexEntry,
-        chunk: &super::SnapshotChunk,
+        chunk: &SnapshotChunk,
     ) -> Result<Arc<RawRecord>> {
         let (header, data) = chunk.message(entry.record_offset)?;
         ensure!(
@@ -595,9 +605,9 @@ impl QueryRecording {
     /// every acquired index for this evaluation and optional failures stay local.
     pub fn query_plan(
         &mut self,
-        plan: &ros_z_debug::query::plan::QueryPlan,
+        plan: &QueryPlan,
         cursor: Time,
-        mut emit: impl FnMut(ros_z_debug::query::plan::Evaluation) -> bool,
+        mut emit: impl FnMut(Evaluation) -> bool,
     ) -> Result<()> {
         use ros_z_debug::query::plan::{SourceState, SourceView, State};
         let sources = plan.sources()?;
@@ -664,7 +674,7 @@ impl QueryRecording {
                 let mut chunk = None;
                 let mut bytes = 0;
                 for (chunk_id, source, slot, output) in ordered {
-                    if bytes >= ros_z_debug::query::MAX_PAYLOAD_BYTES as usize {
+                    if bytes >= MAX_PAYLOAD_BYTES as usize {
                         results[output] = Some(Err("plan payload exceeds 32 MiB".into()));
                         continue;
                     }
@@ -687,12 +697,11 @@ impl QueryRecording {
                     if let Ok(record) = &loaded {
                         bytes += record.data.len();
                     }
-                    results[output] =
-                        Some(if bytes > ros_z_debug::query::MAX_PAYLOAD_BYTES as usize {
-                            Err("plan payload exceeds 32 MiB".into())
-                        } else {
-                            loaded
-                        });
+                    results[output] = Some(if bytes > MAX_PAYLOAD_BYTES as usize {
+                        Err("plan payload exceeds 32 MiB".into())
+                    } else {
+                        loaded
+                    });
                 }
                 results
                     .into_iter()
@@ -714,9 +723,7 @@ impl QueryRecording {
             let Some(index) = pending else {
                 return Ok(());
             };
-            match self.indexes(std::slice::from_ref(
-                keys[index].as_ref().expect("pending source key"),
-            )) {
+            match self.indexes(from_ref(keys[index].as_ref().expect("pending source key"))) {
                 Ok(mut indexes) => pinned[index] = indexes.pop(),
                 Err(error) => failures[index] = Some(format!("{error:#}")),
             }
