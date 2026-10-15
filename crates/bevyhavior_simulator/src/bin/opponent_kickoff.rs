@@ -72,7 +72,23 @@ fn startup(
     game.set_kicking_team(Some(Team::Opponent));
     game.set_game_state(GameState::Ready, clock.now);
     let parameters = default_behavior_parameters().expect("failed to load behavior parameters");
-    let ready_position = point![-1.0, 0.0];
+
+    let field_player_rank = game
+        .game_controller_state
+        .penalties
+        .iter()
+        .filter(|(number, penalty)| {
+            *number > PLAYER && *number != parameters.goalkeeper.player_number && penalty.is_none()
+        })
+        .count();
+
+    let relative_ready_position =
+        parameters.kickoff.relative_defensive_positions[field_player_rank];
+    let ready_position = point![
+        relative_ready_position.x() * field_dimensions.0.length / 2.0,
+        relative_ready_position.y() * field_dimensions.0.width / 2.0
+    ];
+
     commands.insert_resource(KickoffScenario {
         phase: Phase::Ready,
         since: clock.now,
