@@ -43,6 +43,15 @@ impl RetentionPolicy {
         Self::time_window_inner(duration, Some(default_time_window_max_samples()))
     }
 
+    /// Retain the full source-time window without a sample-count limit.
+    ///
+    /// Memory usage depends on the sample rate and payload size. Stalled or
+    /// repeated source timestamps can grow memory without bound because
+    /// eviction only advances with the newest source timestamp.
+    pub fn time_window_without_sample_limit(duration: Duration) -> Result<Self> {
+        Self::time_window_inner(duration, None)
+    }
+
     /// Retain samples inside `duration`, capped to `max_samples` newest entries.
     pub fn time_window_with_max_samples(
         duration: Duration,

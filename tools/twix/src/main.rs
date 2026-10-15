@@ -18,7 +18,9 @@ use eframe::{
 };
 use layout::{FocusDirection, TwixLayout};
 use log::{error, warn};
-use panels::{AudioPanel, BehaviorTreePanel, ImagePanel, MapPanel, ParameterPanel, TextPanel};
+use panels::{
+    AudioPanel, BehaviorTreePanel, ImagePanel, MapPanel, ParameterPanel, PlotPanel, TextPanel,
+};
 use repository::{Repository, inspect_version::check_for_update};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use visuals::Visuals;
@@ -43,7 +45,8 @@ impl_selectable_panel!(
     MapPanel,
     ParameterPanel,
     AudioPanel,
-    BehaviorTreePanel
+    BehaviorTreePanel,
+    PlotPanel
 );
 
 #[derive(Debug, Clone, clap::Parser)]

@@ -62,16 +62,23 @@ Validation checks the tree structure before constructing any panels.
 Run `cargo test -p twix --bin twix` for preset validation, session, and headless layout tests.
 These cover bundled presets, file operations, picker dialogs, and layout rendering and round trips.
 
-## Panels and keybindings
+## Panels
 
-ROS-Z Twix currently contains Text, Image, Map, Parameter, and Audio panels.
-The Text panel observes one ROS-Z topic through `ros-z-debug` and renders the latest dynamic payload as JSON.
-The Image panel observes `TimeWrapper<ros2::sensor_msgs::image::Image>` topics, defaults to `inputs/left_image`, and renders the latest raw camera frame.
-The Parameter panel discovers ROS-Z nodes with remote parameter services, shows full snapshots or selected paths as JSON, and writes selected paths to active layers with revision checks.
-The Audio panel defaults to `audio_spectrums` and displays microphone spectra and a waterfall for the selected channel.
+Choose a panel from the **+** picker.
 
-The Text panel's **Topic** input accepts both a topic and a nested field path.
-Enter just the topic to display its whole message, or append a field path with a dot and press Enter:
+| Panel | Purpose |
+| --- | --- |
+| Text | Display a topic's latest payload or a selected field as JSON. |
+| Image | Display the latest raw camera frame from a `TimeWrapper<ros2::sensor_msgs::image::Image>` topic, defaulting to `inputs/left_image`. |
+| Map | Display field or ground views with selectable layers for robot pose, balls, obstacles, and paths. |
+| Parameter | Discover nodes with remote parameter services, display snapshots or selected paths as JSON, and write selected paths to active layers with revision checks. |
+| Audio | Display microphone spectra and a waterfall for the selected channel, defaulting to `audio_spectrums`. |
+| [Plot](#plot-panel) | Compare numeric topics or fields over time. |
+
+## Topic and field selection
+
+The Text and Plot panels' **Topic** inputs accept both a topic and a nested field path.
+In Text, enter just the topic to display its whole message, or append a field path with a dot and press Enter:
 
 - `detected_objects.inner` selects the wrapped detections.
 - `detected_objects.inner[2].bounding_box.confidence` selects the third detected object's confidence.
@@ -87,7 +94,8 @@ Selecting a template highlights `...` so you can replace it with an index, move 
 Templates also work when the current array is empty.
 For a topic whose root is an array, use `topic[2]`.
 
-Press **Ctrl+F** to focus and select the topic input in the active Text, Image, or Audio panel.
+Press **Ctrl+F** to focus and select the topic input in the active Text, Image, Audio, or live Plot panel.
+In Plot, this focuses the first line; adding a line focuses its own input.
 Press **Ctrl+Space** or **Arrow Down** in a completion input to open its dropdown, including when the input is empty.
 Arrow Down also highlights the first suggestion.
 Use the arrow keys to choose a completion and Enter to apply it.
@@ -95,8 +103,8 @@ The input keeps focus with the cursor after the completion, so you can continue 
 
 Present optionals are unwrapped when continuing through a path.
 Absent optionals and missing sequence elements appear as unavailable values; invalid paths show an error.
-Selecting an optional or enum itself displays its full value.
-Map entries are not traversable in this first version, but the whole map can be displayed.
+In Text, selecting an optional or enum itself displays its full value.
+Map entries are not traversable in this first version, but Text can display the whole map.
 
 Field completions use the schema from the latest received sample of the selected topic, including fields in absent optionals and inactive enum variants.
 Select a topic first to browse its fields, or enter a full path directly.
@@ -105,6 +113,19 @@ Changing the field does not reconnect the topic subscription.
 Layouts save the topic and field path separately and restore them into the combined input.
 The saved field path keeps its leading separator, for example `.inner[2]` or `[0].x`.
 For topic names containing dots, the longest matching discovered topic takes precedence when separating topic and field path.
+
+## Plot panel
+
+Enter a numeric topic or field in the **Topic** input, for example `detected_objects.inner[2].bounding_box.confidence`.
+Use **Add item** to compare several sources on the same axes, and hover over a line to see its values.
+Each item's style button switches between a line and individual samples, and its info button shows the item's status and any selection problem.
+Gaps in a line mean the value was unavailable, for example an absent optional or a missing array element.
+
+The X axis shows the seconds before the newest sample, and **History** sets the time window.
+**Pause**, or **Space** after clicking the plot, freezes it so you can zoom and pan with the mouse or touchpad.
+**Reset view** or a double-click restores the full time window.
+
+## Keybindings
 
 ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`.
 Legacy Twix keeps using `hulks/twix.toml`, so the two tools do not share incompatible keybinding schemas.
