@@ -20,6 +20,7 @@ use layout::{FocusDirection, TwixLayout};
 use log::{error, warn};
 use panels::{
     AudioPanel, BehaviorTreePanel, ImagePanel, MapPanel, ParameterPanel, PlotPanel, TextPanel,
+    TimelinePanel,
 };
 use repository::{Repository, inspect_version::check_for_update};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
@@ -41,13 +42,14 @@ mod topic_source;
 mod visuals;
 
 impl_selectable_panel!(
+    AudioPanel,
     TextPanel,
     ImagePanel,
     MapPanel,
     ParameterPanel,
-    AudioPanel,
     BehaviorTreePanel,
-    PlotPanel
+    PlotPanel,
+    TimelinePanel
 );
 
 #[derive(Debug, Clone, clap::Parser)]
