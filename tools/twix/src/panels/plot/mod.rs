@@ -402,25 +402,20 @@ impl Panel for PlotPanel {
             for line in self.lines.iter().filter(|line| line.visible) {
                 let label = line.source.source();
                 for segment in &line.data.segments {
-                    let points: Vec<_> = segment
+                    let points: PlotPoints = segment
                         .iter()
                         .filter(|(time, _)| *time >= start && *time <= end)
                         .map(|(time, value)| [seconds_from(*time, end), *value])
                         .collect();
-                    match (line.style, points.len()) {
+                    match (line.style, points.points().len()) {
                         (_, 0) => {}
-                        (DrawStyle::Scatter, _) => plot_ui.points(
-                            Points::new(&label, PlotPoints::new(points))
-                                .color(line.color)
-                                .radius(2.0),
-                        ),
-                        (DrawStyle::Line, 1) => plot_ui.points(
-                            Points::new(&label, PlotPoints::new(points))
-                                .color(line.color)
-                                .radius(3.0),
-                        ),
-                        (DrawStyle::Line, _) => plot_ui
-                            .line(Line::new(&label, PlotPoints::new(points)).color(line.color)),
+                        (DrawStyle::Scatter, _) => plot_ui
+                            .points(Points::new(&label, points).color(line.color).radius(2.0)),
+                        (DrawStyle::Line, 1) => plot_ui
+                            .points(Points::new(&label, points).color(line.color).radius(3.0)),
+                        (DrawStyle::Line, _) => {
+                            plot_ui.line(Line::new(&label, points).color(line.color))
+                        }
                     }
                 }
             }
