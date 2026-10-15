@@ -8,6 +8,7 @@ homepage.workspace = true
 
 [dependencies]
 arc-swap = { workspace = true }
+bincode = { workspace = true }
 futures-util = { workspace = true }
 parking_lot = { workspace = true }
 ros-z = { workspace = true }
