@@ -33,7 +33,6 @@ pub mod odometry;
 pub mod parameters;
 pub mod path;
 pub mod path_obstacles;
-pub mod penalty_shot_direction;
 pub mod players;
 pub mod point_of_interest;
 pub mod pose_detection;
