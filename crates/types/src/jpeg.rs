@@ -7,7 +7,7 @@ use ros2::sensor_msgs::image::Image;
 use serde::{Deserialize, Serialize};
 use std::{io, path::Path};
 
-use crate::{grayscale_image::GrayscaleImage, ycbcr422_image::YCbCr422Image};
+use crate::grayscale_image::GrayscaleImage;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JpegImage {
@@ -26,19 +26,6 @@ impl TryFrom<&GrayscaleImage> for JpegImage {
         let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buffer, quality);
         encoder.encode_image(&gray_image)?;
 
-        Ok(Self { data: jpeg_buffer })
-    }
-}
-
-impl TryFrom<&YCbCr422Image> for JpegImage {
-    type Error = ImageError;
-
-    fn try_from(image: &YCbCr422Image) -> Result<Self, Self::Error> {
-        let rgb_image = RgbImage::from(image);
-        let mut jpeg_buffer = vec![];
-        let quality = 15;
-        let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buffer, quality);
-        encoder.encode_image(&rgb_image)?;
         Ok(Self { data: jpeg_buffer })
     }
 }

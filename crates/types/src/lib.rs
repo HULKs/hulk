@@ -48,4 +48,3 @@ pub mod visual_localization;
 pub mod visual_odometry;
 pub mod whistle;
 pub mod world_state;
-pub mod ycbcr422_image;
