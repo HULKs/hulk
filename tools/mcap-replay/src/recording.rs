@@ -20,8 +20,8 @@ use mcap::{
         summary_reader::{SummaryReadEvent, SummaryReader},
     },
 };
-use ros_z::{TypeInfo, dynamic::Schema};
-use ros_z_schema::{SchemaBundle, TypeDef};
+use ros_z::{TypeInfo, dynamic::Schema, topic_name::qualify_topic_name};
+use ros_z_schema::{SchemaBundle, TypeDef, compute_hash};
 
 #[cfg(unix)]
 use std::os::unix::fs::FileExt;
@@ -63,6 +63,111 @@ pub struct Channel {
     pub schema: Schema,
 }
 
+impl Channel {
+    fn from_mcap(channel: &mcap::Channel<'_>, namespace: &str) -> Result<Self> {
+        ensure!(
+            channel.message_encoding == "ros-z-cdr",
+            "{}: unsupported message encoding {}",
+            channel.topic,
+            channel.message_encoding
+        );
+        let schema = channel
+            .schema
+            .as_ref()
+            .ok_or_eyre("channel has no schema")?;
+        ensure!(
+            schema.encoding == "ros-z-schema-json",
+            "{}: unsupported schema encoding",
+            channel.topic
+        );
+        let bundle: SchemaBundle = serde_json::from_slice(&schema.data)?;
+        bundle.validate()?;
+        let hash = compute_hash(&bundle)?;
+        ensure!(
+            channel.metadata.get("ros_z.schema_hash") == Some(&hash.to_hash_string()),
+            "{}: schema hash mismatch",
+            channel.topic
+        );
+        let name = channel
+            .metadata
+            .get("ros_z.type_name")
+            .ok_or_eyre("missing ros_z.type_name")?;
+        ensure!(
+            name == &schema.name,
+            "{}: inconsistent schema name",
+            channel.topic
+        );
+        if let TypeDef::Named(root) = &bundle.root {
+            ensure!(
+                root.as_str() == name,
+                "{}: schema root mismatch",
+                channel.topic
+            );
+        }
+        let topic = qualify_topic_name(
+            channel.topic.trim_start_matches('/'),
+            namespace,
+            "mcap_replay",
+        )?;
+        Ok(Self {
+            topic,
+            type_info: TypeInfo::new(name, hash),
+            schema: Arc::new(bundle),
+        })
+    }
+}
+
+fn read_summary(file: &mut File) -> Result<Summary> {
+    let mut reader = SummaryReader::new();
+    while let Some(event) = reader.next_event() {
+        match event? {
+            SummaryReadEvent::ReadRequest(need) => {
+                let read = file.read(reader.insert(need))?;
+                reader.notify_read(read);
+            }
+            SummaryReadEvent::SeekRequest(to) => reader.notify_seeked(file.seek(to)?),
+        }
+    }
+    let mut summary = reader
+        .finish()
+        .ok_or_eyre("MCAP needs a summary and chunk indexes; recover/reindex it first")?;
+    ensure!(
+        !summary.chunk_indexes.is_empty(),
+        "MCAP has no chunk indexes"
+    );
+    ensure!(
+        u32::try_from(summary.chunk_indexes.len()).is_ok(),
+        "too many MCAP chunks"
+    );
+    // Numeric chunk IDs encode file order for deterministic timestamp ties.
+    summary
+        .chunk_indexes
+        .sort_unstable_by_key(|chunk| chunk.chunk_start_offset);
+    ensure!(
+        summary
+            .chunk_indexes
+            .windows(2)
+            .all(|pair| pair[0].chunk_start_offset < pair[1].chunk_start_offset),
+        "duplicate chunk offsets"
+    );
+    Ok(summary)
+}
+
+fn read_channels(summary: &Summary, namespace: &str) -> Result<BTreeMap<u16, Channel>> {
+    let mut channels = BTreeMap::new();
+    let mut topics = BTreeSet::new();
+    for (&id, channel) in &summary.channels {
+        let channel = Channel::from_mcap(channel, namespace)?;
+        ensure!(
+            topics.insert(channel.topic.clone()),
+            "duplicate recorded topic {}",
+            channel.topic
+        );
+        channels.insert(id, channel);
+    }
+    Ok(channels)
+}
+
 /// Uncompressed records in their original file order. Index offsets point directly
 /// into this buffer; only selected message payloads need separate ownership.
 struct SnapshotChunk {
@@ -99,45 +204,13 @@ pub struct Recording {
     pub end: u64,
     chunks: VecDeque<(u32, Arc<SnapshotChunk>)>,
     cached_bytes: usize,
-    #[cfg(test)]
-    pub decoded_chunks: usize,
+    decoded_chunks: usize,
 }
 
 impl Recording {
     pub fn open(path: &Path, namespace: &str) -> Result<Self> {
         let mut file = File::open(path).wrap_err_with(|| format!("opening {}", path.display()))?;
-        let mut reader = SummaryReader::new();
-        while let Some(event) = reader.next_event() {
-            match event? {
-                SummaryReadEvent::ReadRequest(need) => {
-                    let read = file.read(reader.insert(need))?;
-                    reader.notify_read(read);
-                }
-                SummaryReadEvent::SeekRequest(to) => reader.notify_seeked(file.seek(to)?),
-            }
-        }
-        let mut summary = reader
-            .finish()
-            .ok_or_eyre("MCAP needs a summary and chunk indexes; recover/reindex it first")?;
-        ensure!(
-            !summary.chunk_indexes.is_empty(),
-            "MCAP has no chunk indexes"
-        );
-        ensure!(
-            u32::try_from(summary.chunk_indexes.len()).is_ok(),
-            "too many MCAP chunks"
-        );
-        // Numeric chunk IDs must encode file order for deterministic timestamp ties.
-        summary
-            .chunk_indexes
-            .sort_unstable_by_key(|chunk| chunk.chunk_start_offset);
-        ensure!(
-            summary
-                .chunk_indexes
-                .windows(2)
-                .all(|pair| pair[0].chunk_start_offset < pair[1].chunk_start_offset),
-            "duplicate chunk offsets"
-        );
+        let summary = read_summary(&mut file)?;
         let stats = summary
             .stats
             .as_ref()
@@ -148,66 +221,7 @@ impl Recording {
             start <= end && end < i64::MAX as u64,
             "unsupported recording timestamps"
         );
-        let mut channels = BTreeMap::new();
-        let mut topics = BTreeSet::new();
-        for (&id, channel) in &summary.channels {
-            ensure!(
-                channel.message_encoding == "ros-z-cdr",
-                "{}: unsupported message encoding {}",
-                channel.topic,
-                channel.message_encoding
-            );
-            let schema = channel
-                .schema
-                .as_ref()
-                .ok_or_eyre("channel has no schema")?;
-            ensure!(
-                schema.encoding == "ros-z-schema-json",
-                "{}: unsupported schema encoding",
-                channel.topic
-            );
-            let bundle: SchemaBundle = serde_json::from_slice(&schema.data)?;
-            bundle.validate()?;
-            let hash = ros_z_schema::compute_hash(&bundle)?;
-            ensure!(
-                channel.metadata.get("ros_z.schema_hash") == Some(&hash.to_hash_string()),
-                "{}: schema hash mismatch",
-                channel.topic
-            );
-            let name = channel
-                .metadata
-                .get("ros_z.type_name")
-                .ok_or_eyre("missing ros_z.type_name")?;
-            ensure!(
-                name == &schema.name,
-                "{}: inconsistent schema name",
-                channel.topic
-            );
-            if let TypeDef::Named(root) = &bundle.root {
-                ensure!(
-                    root.as_str() == name,
-                    "{}: schema root mismatch",
-                    channel.topic
-                );
-            }
-            let topic = ros_z::topic_name::qualify_topic_name(
-                channel.topic.trim_start_matches('/'),
-                namespace,
-                "mcap_replay",
-            )?;
-            ensure!(
-                topics.insert(topic.clone()),
-                "duplicate recorded topic {topic}"
-            );
-            channels.insert(
-                id,
-                Channel {
-                    topic,
-                    type_info: TypeInfo::new(name, hash),
-                    schema: Arc::new(bundle),
-                },
-            );
-        }
+        let channels = read_channels(&summary, namespace)?;
         IndexedReader::new_with_options(
             &summary,
             IndexedReaderOptions::default().with_record_length_limit(MAX_CHUNK),
@@ -220,7 +234,6 @@ impl Recording {
             end,
             chunks: VecDeque::new(),
             cached_bytes: 0,
-            #[cfg(test)]
             decoded_chunks: 0,
         })
     }
@@ -236,10 +249,7 @@ impl Recording {
     ) -> Result<()> {
         let chunk = &self.summary.chunk_indexes[index as usize];
         Self::scan_chunk_at(&self.file, chunk, || cancel.load(Ordering::Relaxed), visit)?;
-        #[cfg(test)]
-        {
-            self.decoded_chunks += 1;
-        }
+        self.decoded_chunks += 1;
         Ok(())
     }
 
@@ -335,7 +345,7 @@ mod tests {
     #[test]
     fn positional_scan_honors_cancellation_without_moving_the_file_cursor() {
         let file =
-            crate::tests::fixture_records(true, false, &[(0, 10, 100, 100), (0, 20, 200, 200)]);
+            query::tests::fixture_records(true, false, &[(0, 10, 100, 100), (0, 20, 200, 200)]);
         let recording = Recording::open(file.path(), "/replay").unwrap();
         #[cfg(unix)]
         let before = (&recording.file).stream_position().unwrap();

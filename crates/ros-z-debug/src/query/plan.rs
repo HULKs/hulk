@@ -20,13 +20,23 @@
 //! }
 //! # Ok(()) }
 //! ```
-use std::{cell::Cell, marker::PhantomData, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{
+    cell::Cell,
+    collections::{BTreeSet, HashMap},
+    marker::PhantomData,
+    num::NonZeroUsize,
+    sync::Arc,
+    time::Duration,
+};
 
 use ros_z::{TypeInfo, time::Time};
 use serde::{Deserialize, Serialize};
 
-use super::*;
-use crate::ObservationPolicy;
+use super::{
+    Coverage, CursorRange, MAX_PAYLOAD_BYTES, MAX_ROWS, MissingMatches, RawRecord, TimeProjection,
+    TopicInfo, TopicSnapshot, query_error,
+};
+use crate::{ObservationPolicy, Result, TargetIdentity, TopicReference};
 
 const MAX_NODES: usize = 128;
 const MAX_CANDIDATES: usize = 65_536;
@@ -154,6 +164,7 @@ impl<T> Expr<T> {
             marker: PhantomData,
         }
     }
+
     pub fn plan(self) -> QueryPlan {
         QueryPlan {
             root: self.node,
@@ -170,6 +181,7 @@ impl Source {
     pub fn first_present(sources: impl IntoIterator<Item = TopicSource>) -> Self {
         Self(sources.into_iter().collect())
     }
+
     pub fn select(&self, selection: Selection, at: Expr<Option<Time>>) -> SelectionExpr {
         SelectionExpr {
             source: self.clone(),
@@ -178,9 +190,11 @@ impl Source {
             required: vec![],
         }
     }
+
     pub fn latest(&self, at: Expr<Option<Time>>) -> Expr<Option<Sample>> {
         Expr::new(self.select(Selection::latest(), at).into_expr().node)
     }
+
     pub fn exact(&self, at: Expr<Option<Time>>) -> Expr<Option<Sample>> {
         Expr::new(self.select(Selection::Exact, at).into_expr().node)
     }
@@ -193,9 +207,11 @@ impl Expr<Option<Sample>> {
     pub fn effective_time(self) -> Expr<Option<Time>> {
         Expr::new(Node::Time(Box::new(self.node)))
     }
+
     pub fn or_else(self, fallback: Self) -> Self {
         Self::new(Node::OrElse(Box::new(self.node), Box::new(fallback.node)))
     }
+
     pub fn attach(self, inputs: impl IntoIterator<Item = InputSpec>) -> Expr<Option<Frame>> {
         Expr::new(Node::Attach {
             primary: Box::new(self.node),
@@ -236,6 +252,7 @@ impl SelectionExpr {
         self.required.extend(inputs);
         self
     }
+
     pub fn attach(self, inputs: impl IntoIterator<Item = InputSpec>) -> Expr<Vec<Frame>> {
         Expr::new(Node::Attach {
             primary: Box::new(self.into_expr().node),
@@ -280,18 +297,44 @@ pub struct Dependency {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Evaluation {
+pub struct Evaluation<R = Sample> {
     pub cursor: Time,
     pub valid_for: CursorRange,
     pub bounds: Option<(Time, Time)>,
     /// First rejected candidate of a required-input selection, in evaluation order.
     pub missing: Option<MissingMatches>,
-    pub state: State<Value>,
+    pub state: State<Value<R>>,
     pub dependencies: Vec<Dependency>,
 }
 
-impl Evaluation {
-    pub(super) fn unresolved(cursor: Time, state: State<Value>) -> Self {
+impl<R> Evaluation<R> {
+    pub(super) fn try_map_samples<T>(
+        self,
+        mut map: impl FnMut(R) -> Result<T>,
+    ) -> Result<Evaluation<T>> {
+        // Malformed wire samples must reject the whole reply, including optional inputs.
+        let mut error = None;
+        let state = map_state(self.state, &mut |record| {
+            map(record).map_err(|cause| {
+                let message = cause.to_string();
+                error = Some(cause);
+                query_error(message)
+            })
+        });
+        if let Some(error) = error {
+            return Err(error);
+        }
+        Ok(Evaluation {
+            cursor: self.cursor,
+            valid_for: self.valid_for,
+            bounds: self.bounds,
+            missing: self.missing,
+            state,
+            dependencies: self.dependencies,
+        })
+    }
+
+    pub(super) fn unresolved(cursor: Time, state: State<Value<R>>) -> Self {
         Self {
             cursor,
             valid_for: CursorRange {
@@ -304,6 +347,7 @@ impl Evaluation {
             dependencies: vec![],
         }
     }
+
     pub fn settled(&self) -> bool {
         self.dependencies
             .iter()
@@ -315,6 +359,7 @@ impl Evaluation {
 pub trait TimeIndex {
     fn len(&self) -> usize;
     fn time(&self, index: usize) -> Time;
+
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -386,6 +431,7 @@ impl QueryPlan {
         });
         Ok(active)
     }
+
     /// Validate remote shape, source identity and independently attached selections.
     /// Index completeness cannot be proven by a client without the recording.
     pub fn validate_result(&self, result: &mut Evaluation, catalog: &[TopicInfo]) -> Result<()> {
@@ -496,6 +542,7 @@ impl QueryPlan {
         }
         Ok(())
     }
+
     pub fn validate(&self) -> Result<()> {
         if self.max_rows.get() > MAX_ROWS {
             return Err(query_error("plan row limit exceeds response limit"));
@@ -521,9 +568,9 @@ impl QueryPlan {
 
     pub fn resolve_topics(&mut self, namespace: &str) -> Result<()> {
         self.validate()?;
-        let identity = crate::TargetIdentity::new(namespace)?;
+        let identity = TargetIdentity::new(namespace)?;
         map_sources(&mut self.root, &mut |source| {
-            source.topic = crate::TopicReference::new(&source.topic)?.resolve(&identity)?;
+            source.topic = TopicReference::new(&source.topic)?.resolve(&identity)?;
             Ok(())
         })
     }
@@ -567,7 +614,7 @@ impl QueryPlan {
             missing: None,
         };
         let state = evaluator.eval(&self.root);
-        let mut locations = std::collections::BTreeSet::new();
+        let mut locations = BTreeSet::new();
         let mut remember = |reference: &Reference| {
             locations.insert((reference.source, reference.slot));
         };
@@ -590,9 +637,9 @@ impl QueryPlan {
         if records.len() != locations.len() {
             return Err(query_error("payload loader returned invalid record count"));
         }
-        let records: std::collections::HashMap<_, _> = locations.into_iter().zip(records).collect();
+        let records: HashMap<_, _> = locations.into_iter().zip(records).collect();
         let mut bytes = 0usize;
-        let mut loaded = std::collections::HashMap::new();
+        let mut loaded = HashMap::new();
         let state = map_state(state, &mut |reference: Reference| {
             if let Some(sample) = loaded.get(&(reference.source, reference.slot)) {
                 return Ok(Clone::clone(sample));
@@ -1062,16 +1109,16 @@ fn select_indices(
     Ok((selected, truncated))
 }
 
-fn map_state(
-    state: State<Value<Reference>>,
-    load: &mut impl FnMut(Reference) -> Result<Sample>,
-) -> State<Value> {
+fn map_state<R, T>(
+    state: State<Value<R>>,
+    load: &mut impl FnMut(R) -> Result<T>,
+) -> State<Value<T>> {
     let value = match state {
         State::Ready(value) => value,
         State::Pending => return State::Pending,
         State::Failed(e) => return State::Failed(e),
     };
-    let result: Result<Value> = (|| {
+    let result: Result<Value<T>> = (|| {
         Ok(match value {
             Value::Time(time) => Value::Time(time),
             Value::Times(times) => Value::Times(times),
@@ -1142,7 +1189,7 @@ fn validate_node(node: &Node, remaining: &mut usize) -> Result<Kind> {
             return Err(query_error("invalid source alternatives"));
         }
         for source in &source.0 {
-            crate::TopicReference::new(&source.topic)?;
+            TopicReference::new(&source.topic)?;
         }
         Ok(())
     };
