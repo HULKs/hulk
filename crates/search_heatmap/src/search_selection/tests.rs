@@ -2,6 +2,15 @@ use super::*;
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::point;
 
+fn all_tiles_owned_by_one(field: FieldDimensions) -> SearchVoronoiSelection {
+    let pose = Isometry2::<Ground, Field>::identity();
+    SearchVoronoiSelection::new(
+        field,
+        PlayerNumber::One,
+        [(pose.as_pose(), PlayerNumber::One)],
+    )
+}
+
 #[test]
 fn heatmap_uses_half_meter_cells() {
     assert_eq!(Heatmap::new(FieldDimensions::SPL_2025).map.dim(), (18, 12));
@@ -11,6 +20,7 @@ fn heatmap_uses_half_meter_cells() {
 fn border_penalty_prefers_interior_without_hiding_strong_border_evidence() {
     let field = FieldDimensions::SPL_2025;
     let mut heatmap = Heatmap::new(field);
+    let selection = all_tiles_owned_by_one(field);
     let border = (17, 11);
     let interior = (9, 5);
     heatmap.map[border] = 0.9;
@@ -28,7 +38,7 @@ fn border_penalty_prefers_interior_without_hiding_strong_border_evidence() {
             field,
             &parameters,
             None,
-            None,
+            &selection,
             parameters.minimum_validity,
             SearchArea::WholeField,
         ),
@@ -41,7 +51,7 @@ fn border_penalty_prefers_interior_without_hiding_strong_border_evidence() {
             field,
             &parameters,
             None,
-            None,
+            &selection,
             parameters.minimum_validity,
             SearchArea::WholeField,
         ),
@@ -55,7 +65,7 @@ fn border_penalty_prefers_interior_without_hiding_strong_border_evidence() {
             field,
             &parameters,
             None,
-            None,
+            &selection,
             parameters.minimum_validity,
             SearchArea::WholeField,
         ),
@@ -67,6 +77,7 @@ fn border_penalty_prefers_interior_without_hiding_strong_border_evidence() {
 fn border_penalty_changes_choice_with_turn_preference() {
     let field = FieldDimensions::SPL_2025;
     let mut heatmap = Heatmap::new(field);
+    let selection = all_tiles_owned_by_one(field);
     let border = (17, 11);
     let interior = (9, 5);
     heatmap.map[border] = 0.95;
@@ -87,7 +98,7 @@ fn border_penalty_changes_choice_with_turn_preference() {
             field,
             &parameters,
             Some(pose),
-            None,
+            &selection,
             parameters.minimum_validity,
             SearchArea::WholeField,
         ),
@@ -100,7 +111,7 @@ fn border_penalty_changes_choice_with_turn_preference() {
             field,
             &parameters,
             Some(pose),
-            None,
+            &selection,
             parameters.minimum_validity,
             SearchArea::WholeField,
         ),
