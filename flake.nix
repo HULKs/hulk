@@ -78,16 +78,24 @@
         name = "hulk_ros_z";
         cargoToml = ./crates/hulk_ros_z/Cargo.toml;
         nativeBuildInputs = with pkgs; [ pkg-config rustPlatform.bindgenHook ];
-        libraries = with pkgs; [ alsa-lib openssl ];
+        libraries = with pkgs; [ alsa-lib openssl systemd ];
       };
     in
     {
       packages.${system} = { inherit pepsi twix rosz hulk_ros_z; };
 
-      devShells.${system}.default = craneLibrary.devShell {
-        inputsFrom = [ pepsi twix rosz hulk_ros_z ];
-        packages = with pkgs; [ rust-analyzer rsync openssh systemd.dev ];
-        env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (guiLibraries ++ [ pkgs.systemd ]);
+      devShells.${system} = {
+        default = craneLibrary.devShell {
+          inputsFrom = [ pepsi twix rosz hulk_ros_z ];
+          packages = with pkgs; [ rust-analyzer rsync openssh systemd.dev ];
+          env.LD_LIBRARY_PATH =
+            pkgs.lib.makeLibraryPath (guiLibraries ++ [ pkgs.systemd ]);
+        };
+
+        hulk_ros_z = craneLibrary.devShell {
+          inputsFrom = [ hulk_ros_z ];
+          packages = with pkgs; [ rust-analyzer ];
+        };
       };
     };
 }
