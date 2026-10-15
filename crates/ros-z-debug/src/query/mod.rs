@@ -3,6 +3,7 @@ mod live;
 pub mod plan;
 mod plan_observation;
 mod projection;
+pub mod remote;
 pub(crate) mod typed;
 
 use crate::{Error, Result};

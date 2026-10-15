@@ -9572,6 +9572,7 @@ name = "ros-z-debug"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
+ "bincode 1.3.3",
  "futures-util",
  "parking_lot",
  "ros-z",
