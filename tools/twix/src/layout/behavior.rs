@@ -52,19 +52,25 @@ impl Behavior<SelectablePanel> for LayoutBehavior<'_> {
                     && !self.preset_ui.dialog_open()
                     && !Popup::is_any_open(ui.ctx())
                     && ui.input_mut(|input| {
-                        let pressed = input.events.iter().any(|event| {
-                            matches!(event, Event::Key {
+                        let mut space_pressed = false;
+
+                        input.events.retain(|event| {
+                            if let Event::Key {
                                 key: Key::Space,
                                 pressed: true,
                                 repeat: false,
-                                modifiers,
+                                modifiers: Modifiers::NONE,
                                 ..
-                            } if modifiers.is_none())
+                            } = event
+                            {
+                                space_pressed = true;
+                                return false;
+                            }
+
+                            true
                         });
-                        if pressed {
-                            input.consume_key(Modifiers::NONE, Key::Space);
-                        }
-                        pressed
+
+                        space_pressed
                     })
                 {
                     pane.toggle_pause();
