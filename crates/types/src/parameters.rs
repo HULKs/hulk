@@ -392,12 +392,3 @@ pub struct SubstatesParameters {
     pub corner_kick_blocking_angle: f32,
     pub penalty_kick_target_y_scale: f32,
 }
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
-pub struct FieldBorderDetectionParameters {
-    pub enable: bool,
-    pub angle_threshold: f32,
-    pub first_line_association_distance: f32,
-    pub min_points_per_line: usize,
-    pub second_line_association_distance: f32,
-}

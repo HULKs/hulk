@@ -14,7 +14,6 @@ pub mod cycle_time;
 pub mod detected_feet;
 pub mod fall_down_state;
 pub mod fall_state;
-pub mod field_border;
 pub mod field_dimensions;
 pub mod field_lines;
 pub mod field_marks;
