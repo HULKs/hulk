@@ -42,7 +42,6 @@ members = [
   "crates/nodes/image_segmenter",
   "crates/nodes/kinematics_provider",
   "crates/nodes/led_handler",
-  "crates/nodes/line_detection",
   "crates/nodes/localization-2d",
   "crates/nodes/localization-3d",
   "crates/nodes/look_around",
@@ -196,7 +195,6 @@ kornia-algebra = { git = "https://github.com/oleflb/kornia-rs", rev = "7659356f1
 lazy_static = "1.5.0"
 led_handler = { path = "crates/nodes/led_handler" }
 levenberg-marquardt = "0.15.0"
-line_detection = { path = "crates/nodes/line_detection" }
 linear_algebra = { path = "crates/linear_algebra" }
 linear_sum_assignment = { path = "crates/linear_sum_assignment" }
 localization-2d = { path = "crates/nodes/localization-2d" }

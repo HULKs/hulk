@@ -12,14 +12,12 @@ use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
 use twix_visualization::twix_painter::TwixPainter;
 
 use super::overlays::{
-    FieldBorderOverlay, HorizonOverlay, LineDetectionOverlay, ObjectDetectionOverlay,
-    PoseDetectionOverlay,
+    FieldBorderOverlay, HorizonOverlay, ObjectDetectionOverlay, PoseDetectionOverlay,
 };
 
 const OVERLAY_RETENTION_WINDOW: Duration = Duration::from_secs(2);
 
 pub(super) struct ImageOverlays {
-    line_detection: OverlaySlot<LineDetectionOverlay>,
     horizon: OverlaySlot<HorizonOverlay>,
     field_border: OverlaySlot<FieldBorderOverlay>,
     object_detection: OverlaySlot<ObjectDetectionOverlay>,
@@ -32,7 +30,6 @@ impl ImageOverlays {
         C: ObservationContext,
     {
         Self {
-            line_detection: OverlaySlot::new(value, context),
             horizon: OverlaySlot::new(value, context),
             field_border: OverlaySlot::new(value, context),
             object_detection: OverlaySlot::new(value, context),
@@ -47,7 +44,6 @@ impl ImageOverlays {
         Popup::menu(&ui.button("Overlays"))
             .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
             .show(|ui| {
-                self.line_detection.checkbox(ui, context);
                 self.horizon.checkbox(ui, context);
                 self.field_border.checkbox(ui, context);
                 self.object_detection.checkbox(ui, context);
@@ -56,7 +52,6 @@ impl ImageOverlays {
     }
 
     pub(super) fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
-        self.line_detection.paint(painter, image_time);
         self.horizon.paint(painter, image_time);
         self.field_border.paint(painter, image_time);
         self.object_detection.paint(painter, image_time);
@@ -75,7 +70,6 @@ impl ImageOverlays {
 
     pub(super) fn save(&self) -> Value {
         json!({
-            LineDetectionOverlay::STORAGE_KEY: self.line_detection.save(),
             HorizonOverlay::STORAGE_KEY: self.horizon.save(),
             FieldBorderOverlay::STORAGE_KEY: self.field_border.save(),
             ObjectDetectionOverlay::STORAGE_KEY: self.object_detection.save(),
@@ -87,7 +81,6 @@ impl ImageOverlays {
 impl Default for ImageOverlays {
     fn default() -> Self {
         Self {
-            line_detection: OverlaySlot::inactive(),
             horizon: OverlaySlot::inactive(),
             field_border: OverlaySlot::inactive(),
             object_detection: OverlaySlot::inactive(),
