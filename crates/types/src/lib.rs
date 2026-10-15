@@ -12,7 +12,6 @@ pub mod detected_feet;
 pub mod fall_down_state;
 pub mod fall_state;
 pub mod field_dimensions;
-pub mod field_lines;
 pub mod field_marks;
 pub mod filtered_game_controller_state;
 pub mod filtered_game_state;
