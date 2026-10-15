@@ -265,6 +265,7 @@ async fn receive_typed_loop<T>(
                 state.store_latest(Arc::new(SampleRecord {
                     value: received.message,
                     source_time: received.source_time,
+                    effective_time: received.source_time,
                     transport_time: received.transport_time,
                     publication_id,
                     metadata: Arc::clone(&metadata),
@@ -301,6 +302,7 @@ async fn receive_dynamic_loop(
                 state.store_latest(Arc::new(SampleRecord {
                     value: received.message,
                     source_time: received.source_time,
+                    effective_time: received.source_time,
                     transport_time: received.transport_time,
                     publication_id,
                     metadata: Arc::clone(&metadata),

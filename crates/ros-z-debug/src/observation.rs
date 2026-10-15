@@ -233,7 +233,14 @@ pub struct TopicObserver {
 struct TopicObserverInner {
     node: Arc<Node>,
     options: Mutex<TopicObserverOptions>,
-    target_sender: watch::Sender<TargetIdentity>,
+    target_sender: watch::Sender<InheritedTarget>,
+}
+
+#[derive(Clone)]
+struct InheritedTarget {
+    target_identity: TargetIdentity,
+    connection: Option<crate::query::Connection>,
+    backend_generation: u64,
 }
 
 struct ObservationTaskContext {
@@ -241,14 +248,25 @@ struct ObservationTaskContext {
     node: Arc<Node>,
     schema_discovery_timeout: Duration,
     retry_delay: Duration,
-    target_receiver: watch::Receiver<TargetIdentity>,
+    target_receiver: watch::Receiver<InheritedTarget>,
     graph_revisions: ros_z::graph::GraphRevisionWatch,
 }
 
 impl TopicObserver {
+    /// Route observations through a query backend; changing the connection retargets existing handles.
+    pub fn set_backend(&self, connection: crate::query::Connection) {
+        self.inner.target_sender.send_modify(|inherited| {
+            inherited.connection = Some(connection);
+            inherited.backend_generation += 1;
+        });
+    }
     /// Create an observer using `node` for underlying debug subscriptions.
     pub fn new(node: Arc<Node>, options: TopicObserverOptions) -> Self {
-        let (target_sender, _) = watch::channel(options.target_identity().clone());
+        let (target_sender, _) = watch::channel(InheritedTarget {
+            target_identity: options.target_identity().clone(),
+            connection: None,
+            backend_generation: 0,
+        });
         Self {
             inner: Arc::new(TopicObserverInner {
                 node,
@@ -264,7 +282,7 @@ impl TopicObserver {
         options.set_namespace(namespace)?;
         self.inner
             .target_sender
-            .send_replace(options.target_identity().clone());
+            .send_modify(|inherited| inherited.target_identity = options.target_identity().clone());
         Ok(())
     }
 
@@ -274,7 +292,7 @@ impl TopicObserver {
         options.set_node_name(node_name)?;
         self.inner
             .target_sender
-            .send_replace(options.target_identity().clone());
+            .send_modify(|inherited| inherited.target_identity = options.target_identity().clone());
         Ok(())
     }
 
@@ -284,7 +302,7 @@ impl TopicObserver {
         options.clear_node_name();
         self.inner
             .target_sender
-            .send_replace(options.target_identity().clone());
+            .send_modify(|inherited| inherited.target_identity = options.target_identity().clone());
     }
 
     /// Start building a typed topic observation.
@@ -321,6 +339,7 @@ impl TopicObserver {
 
 /// Builder for a typed topic observation.
 pub struct TopicObservationBuilder<T> {
+    projection: crate::query::TimeProjection,
     observer: TopicObserver,
     topic: TopicReference,
     namespace: Option<String>,
@@ -332,6 +351,7 @@ pub struct TopicObservationBuilder<T> {
 impl<T> TopicObservationBuilder<T> {
     fn new(observer: TopicObserver, topic: TopicReference) -> Self {
         Self {
+            projection: Default::default(),
             observer,
             topic,
             namespace: None,
@@ -383,6 +403,12 @@ impl<T> TopicObservationBuilder<T> {
         self
     }
 
+    /// Select the timestamp used by a query backend's index.
+    pub fn projection(mut self, projection: crate::query::TimeProjection) -> Self {
+        self.projection = projection;
+        self
+    }
+
     /// Configure this observation with a full observation policy.
     pub fn policy(mut self, policy: ObservationPolicy) -> Self {
         self.policy = policy;
@@ -413,6 +439,7 @@ where
     /// Spawn the background task and return the live observation handle.
     pub fn spawn(self) -> TopicObservation<T> {
         let (desired_sender, desired_receiver) = watch::channel(DesiredObservation {
+            projection: self.projection,
             topic: self.topic,
             namespace: self.namespace,
             node_name: self.node_name,
@@ -423,24 +450,27 @@ where
         let state = Arc::new(Mutex::new(TopicObservationState {
             status: TopicObservationStatus::Building,
             display_cache: None,
+            backend_generation: 0,
             updates: Some(updates),
         }));
         let task = self.observer.task_context();
+        let controls = TopicObservationControls {
+            desired_sender,
+            target_receiver: task.target_receiver.clone(),
+        };
         tokio::spawn(run_typed_observation::<T>(
             task,
             desired_receiver,
             Arc::downgrade(&state),
         ));
-        TopicObservation {
-            state,
-            controls: TopicObservationControls { desired_sender },
-        }
+        TopicObservation { state, controls }
     }
 }
 
 impl TopicObservationBuilder<DynamicPayload> {
     fn spawn_dynamic(self) -> TopicObservation<DynamicPayload> {
         let (desired_sender, desired_receiver) = watch::channel(DesiredObservation {
+            projection: self.projection,
             topic: self.topic,
             namespace: self.namespace,
             node_name: self.node_name,
@@ -451,18 +481,20 @@ impl TopicObservationBuilder<DynamicPayload> {
         let state = Arc::new(Mutex::new(TopicObservationState {
             status: TopicObservationStatus::Building,
             display_cache: None,
+            backend_generation: 0,
             updates: Some(updates),
         }));
         let task = self.observer.task_context();
+        let controls = TopicObservationControls {
+            desired_sender,
+            target_receiver: task.target_receiver.clone(),
+        };
         tokio::spawn(run_dynamic_observation(
             task,
             desired_receiver,
             Arc::downgrade(&state),
         ));
-        TopicObservation {
-            state,
-            controls: TopicObservationControls { desired_sender },
-        }
+        TopicObservation { state, controls }
     }
 }
 
@@ -473,6 +505,10 @@ pub struct DynamicTopicObservationBuilder {
 }
 
 impl DynamicTopicObservationBuilder {
+    pub fn projection(mut self, projection: crate::query::TimeProjection) -> Self {
+        self.inner = self.inner.projection(projection);
+        self
+    }
     fn new(observer: TopicObserver, topic: TopicReference) -> Self {
         Self {
             inner: TopicObservationBuilder::new(observer, topic),
@@ -553,6 +589,11 @@ impl DynamicTopicObservationBuilder {
 }
 
 /// Handle for reading and retargeting an observed topic.
+///
+/// Query-backed reads retain the last resolved result while a replacement is
+/// pending, including after a seek. A resolved empty result clears retained data.
+/// Use [`Self::query_status`] to inspect the underlying query's state; retained
+/// data does not imply that the current cursor has resolved.
 pub struct TopicObservation<T> {
     state: Arc<Mutex<TopicObservationState<T>>>,
     controls: TopicObservationControls,
@@ -574,9 +615,18 @@ impl<T> TopicObservation<T> {
             state: Arc::new(Mutex::new(TopicObservationState {
                 status: TopicObservationStatus::Building,
                 display_cache: None,
+                backend_generation: 0,
                 updates: Some(updates),
             })),
-            controls: TopicObservationControls { desired_sender },
+            controls: TopicObservationControls {
+                desired_sender,
+                target_receiver: watch::channel(InheritedTarget {
+                    target_identity: TargetIdentity::new("/").unwrap(),
+                    connection: None,
+                    backend_generation: 0,
+                })
+                .1,
+            },
         }
     }
 
@@ -650,17 +700,30 @@ impl<T> TopicObservation<T> {
         self.state.lock().status.clone()
     }
 
+    /// Query-backed resolution, diagnostics, coverage and cursor freshness.
+    pub fn query_status(&self) -> Option<crate::query::PlanStatus> {
+        self.readable_cache()?.query_status()
+    }
+
+    fn readable_cache(&self) -> Option<CachedSubscription<T>> {
+        let inherited = self.controls.target_receiver.borrow();
+        let state = self.state.lock();
+        (state.backend_generation == inherited.backend_generation)
+            .then(|| state.display_cache.clone())
+            .flatten()
+    }
+
     /// Return the latest retained sample, if one has arrived.
     pub fn latest(&self) -> Option<Arc<crate::SampleRecord<T>>> {
-        let cache = self.state.lock().display_cache.clone();
+        let cache = self.readable_cache();
         cache?.latest()
     }
 
-    /// Return retained samples whose source time falls inside `[start, end]`.
+    /// Return retained samples whose effective time falls inside `[start, end]`.
     ///
     /// Observations with [`RetentionPolicy::LatestOnly`] return an empty window.
     pub fn window(&self, start: Time, end: Time) -> Vec<Arc<crate::SampleRecord<T>>> {
-        let cache = self.state.lock().display_cache.clone();
+        let cache = self.readable_cache();
         cache.map_or_else(Vec::new, |cache| cache.window(start, end))
     }
 
@@ -668,7 +731,7 @@ impl<T> TopicObservation<T> {
     ///
     /// Observations with [`RetentionPolicy::LatestOnly`] return an empty window.
     pub fn get_all(&self) -> Vec<Arc<crate::SampleRecord<T>>> {
-        let cache = self.state.lock().display_cache.clone();
+        let cache = self.readable_cache();
         cache.map_or_else(Vec::new, |cache| cache.get_all())
     }
 
@@ -676,7 +739,7 @@ impl<T> TopicObservation<T> {
     ///
     /// Observations with [`RetentionPolicy::LatestOnly`] return an empty window.
     pub fn get_nearest(&self, time: Time) -> Option<Arc<crate::SampleRecord<T>>> {
-        let cache = self.state.lock().display_cache.clone();
+        let cache = self.readable_cache();
         cache.and_then(|cache| cache.get_nearest(time))
     }
 
@@ -709,6 +772,9 @@ pub struct DynamicTopicObservation {
 }
 
 impl DynamicTopicObservation {
+    pub fn query_status(&self) -> Option<crate::query::PlanStatus> {
+        self.inner.query_status()
+    }
     /// Render the latest retained dynamic payload as JSON.
     pub fn latest_json(&self) -> Option<serde_json::Value> {
         self.inner
@@ -755,7 +821,7 @@ impl DynamicTopicObservation {
         self.inner.latest()
     }
 
-    /// Return retained dynamic samples whose source time falls inside `[start, end]`.
+    /// Return retained dynamic samples whose effective time falls inside `[start, end]`.
     pub fn window(&self, start: Time, end: Time) -> Vec<Arc<crate::SampleRecord<DynamicPayload>>> {
         self.inner.window(start, end)
     }
@@ -827,6 +893,7 @@ fn format_error_chain(error: &dyn std::error::Error) -> String {
 }
 
 struct TopicObservationState<T> {
+    backend_generation: u64,
     status: TopicObservationStatus,
     display_cache: Option<CachedSubscription<T>>,
     updates: Option<broadcast::Sender<TopicObservationUpdate>>,
@@ -834,10 +901,12 @@ struct TopicObservationState<T> {
 
 struct TopicObservationControls {
     desired_sender: watch::Sender<DesiredObservation>,
+    target_receiver: watch::Receiver<InheritedTarget>,
 }
 
 #[derive(Clone)]
 struct DesiredObservation {
+    projection: crate::query::TimeProjection,
     topic: TopicReference,
     namespace: Option<String>,
     node_name: DesiredNodeName,
@@ -856,6 +925,7 @@ impl DesiredObservation {
     #[cfg(test)]
     fn new(topic: TopicReference, retention: RetentionPolicy) -> Self {
         Self {
+            projection: Default::default(),
             topic,
             namespace: None,
             node_name: DesiredNodeName::Inherit,
@@ -888,6 +958,7 @@ struct DynamicGraphFingerprint {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ObservationBuildKey {
+    backend_generation: u64,
     resolved_topic: String,
     policy: ObservationPolicy,
     reconnect_revision: u64,
@@ -1083,11 +1154,20 @@ async fn build_typed_cache<T>(
     schema_discovery_timeout: Duration,
     identity: TargetIdentity,
     desired: DesiredObservation,
+    connection: Option<crate::query::Connection>,
 ) -> Result<CachedSubscription<T>>
 where
     T: Message + Send + Sync + 'static,
     T::Codec: Send + Sync,
 {
+    if let Some(connection) = &connection {
+        return crate::query::typed::typed_cache(
+            connection,
+            &desired.topic.resolve(&identity)?,
+            desired.policy,
+            desired.projection,
+        );
+    }
     CachedSubscriptionBuilder::new(node, desired.topic.as_str())?
         .target_identity(identity)
         .schema_discovery_timeout(schema_discovery_timeout)
@@ -1101,7 +1181,16 @@ async fn build_dynamic_cache(
     schema_discovery_timeout: Duration,
     identity: TargetIdentity,
     desired: DesiredObservation,
+    connection: Option<crate::query::Connection>,
 ) -> Result<CachedSubscription<DynamicPayload>> {
+    if let Some(connection) = &connection {
+        return crate::query::typed::dynamic_cache(
+            connection,
+            &desired.topic.resolve(&identity)?,
+            desired.policy,
+            desired.projection,
+        );
+    }
     CachedSubscriptionBuilder::new(node, desired.topic.as_str())?
         .target_identity(identity)
         .schema_discovery_timeout(schema_discovery_timeout)
@@ -1120,7 +1209,7 @@ async fn wait_for_build<T, F>(
     build: F,
     current_key: &ObservationBuildKey,
     desired_receiver: &mut watch::Receiver<DesiredObservation>,
-    target_receiver: &mut watch::Receiver<TargetIdentity>,
+    target_receiver: &mut watch::Receiver<InheritedTarget>,
     graph_revisions: &mut ros_z::graph::GraphRevisionWatch,
     graph_filter: Option<GraphChangeFilter<'_>>,
 ) -> BuildWait<T>
@@ -1154,7 +1243,7 @@ where
                     Err(_) => return BuildWait::Closed,
                 }
             }
-            revision = graph_revisions.changed() => {
+            revision = graph_revisions.changed(), if target_receiver.borrow().connection.is_none() => {
                 if revision.is_none() {
                     return BuildWait::Closed;
                 }
@@ -1170,7 +1259,7 @@ where
 
 fn build_inputs_changed(
     desired_receiver: &mut watch::Receiver<DesiredObservation>,
-    target_receiver: &mut watch::Receiver<TargetIdentity>,
+    target_receiver: &mut watch::Receiver<InheritedTarget>,
     current_key: &ObservationBuildKey,
 ) -> std::result::Result<bool, watch::error::RecvError> {
     let desired_changed = desired_receiver.has_changed()?;
@@ -1190,7 +1279,7 @@ fn build_inputs_changed(
 
 fn current_build_key_changed(
     desired_receiver: &watch::Receiver<DesiredObservation>,
-    target_receiver: &watch::Receiver<TargetIdentity>,
+    target_receiver: &watch::Receiver<InheritedTarget>,
     current_key: &ObservationBuildKey,
 ) -> bool {
     observation_build_key(&target_receiver.borrow(), &desired_receiver.borrow())
@@ -1199,7 +1288,7 @@ fn current_build_key_changed(
 
 fn current_build_key_changed_after_pending_update(
     desired_receiver: &mut watch::Receiver<DesiredObservation>,
-    target_receiver: &mut watch::Receiver<TargetIdentity>,
+    target_receiver: &mut watch::Receiver<InheritedTarget>,
     desired_changed: bool,
     target_changed: bool,
     current_key: &ObservationBuildKey,
@@ -1209,23 +1298,23 @@ fn current_build_key_changed_after_pending_update(
     } else {
         desired_receiver.borrow().clone()
     };
-    let observer_identity = if target_changed {
+    let inherited = if target_changed {
         target_receiver.borrow_and_update().clone()
     } else {
         target_receiver.borrow().clone()
     };
 
-    observation_build_key(&observer_identity, &desired)
-        .is_none_or(|next_key| next_key != *current_key)
+    observation_build_key(&inherited, &desired).is_none_or(|next_key| next_key != *current_key)
 }
 
 fn observation_build_key(
-    observer_identity: &TargetIdentity,
+    inherited: &InheritedTarget,
     desired: &DesiredObservation,
 ) -> Option<ObservationBuildKey> {
-    let identity = effective_identity(observer_identity, desired).ok()?;
+    let identity = effective_identity(&inherited.target_identity, desired).ok()?;
     let resolved_topic = desired.topic.resolve(&identity).ok()?;
     Some(ObservationBuildKey {
+        backend_generation: inherited.backend_generation,
         resolved_topic,
         policy: desired.policy,
         reconnect_revision: desired.reconnect_revision,
@@ -1243,13 +1332,13 @@ async fn run_typed_observation<T>(
     loop {
         task.graph_revisions.mark_seen();
         let desired = desired_receiver.borrow_and_update().clone();
-        let observer_identity = task.target_receiver.borrow_and_update().clone();
+        let inherited = task.target_receiver.borrow_and_update().clone();
 
         if !set_rebuild_status(&state) {
             return;
         }
 
-        let target = match resolve_build_target(&task.node, &observer_identity, &desired) {
+        let target = match resolve_build_target(&task.node, &inherited, &desired) {
             Ok(target) => target,
             Err(Error::MissingTargetNodeName { .. }) => {
                 if !set_blocked_status(
@@ -1293,6 +1382,7 @@ async fn run_typed_observation<T>(
             task.schema_discovery_timeout,
             target.identity,
             desired,
+            inherited.connection,
         );
         match wait_for_build(
             build,
@@ -1324,15 +1414,20 @@ async fn run_typed_observation<T>(
                 let Some(mut cache_updates) = subscribe_built_cache_updates(&built_cache) else {
                     continue;
                 };
-                let Some(graph_fingerprint) = preinstall_observing_graph_fingerprint(
-                    &mut task.graph_revisions,
-                    task.node.as_ref(),
-                    target.resolved_topic.as_str(),
-                    &target.graph_fingerprint,
-                ) else {
+                let fingerprint = if task.target_receiver.borrow().connection.is_some() {
+                    Some(target.graph_fingerprint.clone())
+                } else {
+                    preinstall_observing_graph_fingerprint(
+                        &mut task.graph_revisions,
+                        task.node.as_ref(),
+                        target.resolved_topic.as_str(),
+                        &target.graph_fingerprint,
+                    )
+                };
+                let Some(graph_fingerprint) = fingerprint else {
                     continue;
                 };
-                if !install_cache(&state, built_cache) {
+                if !install_cache(&state, built_cache, target.build_key.backend_generation) {
                     return;
                 }
                 if !refresh_observing_status(&state) {
@@ -1405,13 +1500,13 @@ async fn run_dynamic_observation(
     loop {
         task.graph_revisions.mark_seen();
         let desired = desired_receiver.borrow_and_update().clone();
-        let observer_identity = task.target_receiver.borrow_and_update().clone();
+        let inherited = task.target_receiver.borrow_and_update().clone();
 
         if !set_rebuild_status(&state) {
             return;
         }
 
-        let target = match resolve_build_target(&task.node, &observer_identity, &desired) {
+        let target = match resolve_build_target(&task.node, &inherited, &desired) {
             Ok(target) => target,
             Err(Error::MissingTargetNodeName { .. }) => {
                 if !set_blocked_status(
@@ -1458,6 +1553,7 @@ async fn run_dynamic_observation(
             task.schema_discovery_timeout,
             target.identity,
             desired,
+            inherited.connection,
         );
         match wait_for_build(
             build,
@@ -1489,15 +1585,20 @@ async fn run_dynamic_observation(
                 let Some(mut cache_updates) = subscribe_built_cache_updates(&built_cache) else {
                     continue;
                 };
-                let Some(graph_fingerprint) = preinstall_dynamic_observing_graph_fingerprint(
-                    &mut task.graph_revisions,
-                    task.node.as_ref(),
-                    target.resolved_topic.as_str(),
-                    &dynamic_graph_fingerprint,
-                ) else {
+                let fingerprint = if task.target_receiver.borrow().connection.is_some() {
+                    Some(target.graph_fingerprint.clone())
+                } else {
+                    preinstall_dynamic_observing_graph_fingerprint(
+                        &mut task.graph_revisions,
+                        task.node.as_ref(),
+                        target.resolved_topic.as_str(),
+                        &dynamic_graph_fingerprint,
+                    )
+                };
+                let Some(graph_fingerprint) = fingerprint else {
                     continue;
                 };
-                if !install_cache(&state, built_cache) {
+                if !install_cache(&state, built_cache, target.build_key.backend_generation) {
                     return;
                 }
                 if !refresh_observing_status(&state) {
@@ -1564,12 +1665,13 @@ async fn run_dynamic_observation(
 
 fn resolve_build_target(
     node: &Node,
-    observer_identity: &TargetIdentity,
+    inherited: &InheritedTarget,
     desired: &DesiredObservation,
 ) -> Result<ResolvedObservationTarget> {
-    let identity = effective_identity(observer_identity, desired)?;
+    let identity = effective_identity(&inherited.target_identity, desired)?;
     let resolved_topic = desired.topic.resolve(&identity)?;
     let build_key = ObservationBuildKey {
+        backend_generation: inherited.backend_generation,
         resolved_topic: resolved_topic.clone(),
         policy: desired.policy,
         reconnect_revision: desired.reconnect_revision,
@@ -1585,7 +1687,7 @@ fn resolve_build_target(
 
 async fn wait_for_blocked_signal(
     desired_receiver: &mut watch::Receiver<DesiredObservation>,
-    target_receiver: &mut watch::Receiver<TargetIdentity>,
+    target_receiver: &mut watch::Receiver<InheritedTarget>,
 ) -> bool {
     tokio::select! {
         result = desired_receiver.changed() => result.is_ok(),
@@ -1596,7 +1698,7 @@ async fn wait_for_blocked_signal(
 async fn wait_for_retry_signal(
     retry_delay: Duration,
     desired_receiver: &mut watch::Receiver<DesiredObservation>,
-    target_receiver: &mut watch::Receiver<TargetIdentity>,
+    target_receiver: &mut watch::Receiver<InheritedTarget>,
     graph_revisions: &mut ros_z::graph::GraphRevisionWatch,
     current_key: Option<&ObservationBuildKey>,
     graph_filter: Option<GraphChangeFilter<'_>>,
@@ -1629,7 +1731,7 @@ async fn wait_for_retry_signal(
                     Err(_) => return false,
                 }
             }
-            revision = graph_revisions.changed() => {
+            revision = graph_revisions.changed(), if target_receiver.borrow().connection.is_none() => {
                 if revision.is_none() {
                     return false;
                 }
@@ -1645,7 +1747,7 @@ async fn wait_for_retry_signal(
 
 fn retry_build_key_changed(
     desired_receiver: &watch::Receiver<DesiredObservation>,
-    target_receiver: &watch::Receiver<TargetIdentity>,
+    target_receiver: &watch::Receiver<InheritedTarget>,
     current_key: Option<&ObservationBuildKey>,
 ) -> bool {
     current_key.is_none_or(|current_key| {
@@ -1672,7 +1774,7 @@ async fn wait_for_observing_rebuild<T>(
     state: &Weak<Mutex<TopicObservationState<T>>>,
     graph_filter: (&Node, &str, ObservationBuildKey, TopicGraphFingerprint),
     desired_receiver: &mut watch::Receiver<DesiredObservation>,
-    target_receiver: &mut watch::Receiver<TargetIdentity>,
+    target_receiver: &mut watch::Receiver<InheritedTarget>,
     graph_revisions: &mut ros_z::graph::GraphRevisionWatch,
     cache_updates: &mut CachedSubscriptionUpdateReceiver,
 ) -> bool {
@@ -1699,7 +1801,7 @@ async fn wait_for_observing_rebuild<T>(
                     Err(_) => return false,
                 }
             }
-            revision = graph_revisions.changed() => {
+            revision = graph_revisions.changed(), if target_receiver.borrow().connection.is_none() => {
                 if revision.is_none() {
                     return false;
                 }
@@ -1812,6 +1914,7 @@ fn set_blocked_status<T>(
 fn install_cache<T>(
     state: &Weak<Mutex<TopicObservationState<T>>>,
     cache: CachedSubscription<T>,
+    backend_generation: u64,
 ) -> bool {
     let has_retained_sample = cache.latest().is_some();
     let status = TopicObservationStatus::Observing {
@@ -1827,6 +1930,7 @@ fn install_cache<T>(
         }
         let status_changed = state.status != status;
         state.display_cache = Some(cache);
+        state.backend_generation = backend_generation;
         state.status = status.clone();
         let updates = (status_changed || has_retained_sample)
             .then(|| state.updates.clone())
@@ -1941,6 +2045,14 @@ mod tests {
         ros_z::TypeInfo::new("test_msgs::DebugValue", ros_z::SchemaHash::zero())
     }
 
+    fn inherited_target() -> super::InheritedTarget {
+        super::InheritedTarget {
+            target_identity: TargetIdentity::new("/").unwrap(),
+            connection: None,
+            backend_generation: 0,
+        }
+    }
+
     fn publisher_endpoint(
         node_name: &str,
         hash: ros_z::SchemaHash,
@@ -1975,6 +2087,7 @@ mod tests {
         Arc::new(SampleRecord {
             value: value.to_string(),
             source_time: Time::zero(),
+            effective_time: Time::zero(),
             transport_time: None,
             publication_id: test_publication_id(),
             metadata: Arc::new(SampleMetadata {
@@ -2011,6 +2124,7 @@ mod tests {
             .with_node_name("behavior")
             .unwrap();
         let desired = DesiredObservation {
+            projection: Default::default(),
             topic: TopicReference::new("~trace").unwrap(),
             namespace: None,
             node_name: DesiredNodeName::Inherit,
@@ -2031,6 +2145,7 @@ mod tests {
             .with_node_name("behavior")
             .unwrap();
         let desired = DesiredObservation {
+            projection: Default::default(),
             topic: TopicReference::new("~trace").unwrap(),
             namespace: Some("/99".to_string()),
             node_name: DesiredNodeName::Name("vision".to_string()),
@@ -2163,8 +2278,7 @@ mod tests {
             RetentionPolicy::LatestOnly,
         );
         let (desired_sender, mut desired_receiver) = watch::channel(desired);
-        let (_target_sender, mut target_receiver) =
-            watch::channel(TargetIdentity::new("/").unwrap());
+        let (_target_sender, mut target_receiver) = watch::channel(inherited_target());
         let current_key =
             super::observation_build_key(&target_receiver.borrow(), &desired_receiver.borrow())
                 .unwrap();
@@ -2191,8 +2305,7 @@ mod tests {
             RetentionPolicy::LatestOnly,
         );
         let (desired_sender, mut desired_receiver) = watch::channel(desired);
-        let (_target_sender, mut target_receiver) =
-            watch::channel(TargetIdentity::new("/").unwrap());
+        let (_target_sender, mut target_receiver) = watch::channel(inherited_target());
         let current_key =
             super::observation_build_key(&target_receiver.borrow(), &desired_receiver.borrow())
                 .unwrap();
@@ -2300,6 +2413,7 @@ mod tests {
         let (observation_update_sender, observation_update_receiver) =
             broadcast::channel(super::UPDATE_BUFFER_CAPACITY);
         let observation_state = Arc::new(Mutex::new(super::TopicObservationState {
+            backend_generation: 0,
             status: TopicObservationStatus::Observing {
                 cache: stale_cache.clone(),
             },
@@ -2315,8 +2429,7 @@ mod tests {
             RetentionPolicy::LatestOnly,
         );
         let (_desired_sender, mut desired_receiver) = watch::channel(desired);
-        let (_target_sender, mut target_receiver) =
-            watch::channel(TargetIdentity::new("/").unwrap());
+        let (_target_sender, mut target_receiver) = watch::channel(inherited_target());
         let mut graph_revisions = node.graph().watch_revisions();
         let graph_fingerprint = super::topic_graph_fingerprint(&node, topic);
         let build_key =
@@ -2368,6 +2481,7 @@ mod tests {
         let (observation_update_sender, observation_update_receiver) =
             broadcast::channel(super::UPDATE_BUFFER_CAPACITY);
         let observation_state = Arc::new(Mutex::new(super::TopicObservationState {
+            backend_generation: 0,
             status: TopicObservationStatus::Observing { cache: stale_cache },
             display_cache: Some(cache.clone()),
             updates: Some(observation_update_sender),
@@ -2417,6 +2531,7 @@ mod tests {
         let (observation_update_sender, observation_update_receiver) =
             broadcast::channel(super::UPDATE_BUFFER_CAPACITY);
         let observation_state = Arc::new(Mutex::new(super::TopicObservationState {
+            backend_generation: 0,
             status: TopicObservationStatus::Building,
             display_cache: None,
             updates: Some(observation_update_sender),
@@ -2428,7 +2543,7 @@ mod tests {
         let mut cache_updates = super::subscribe_built_cache_updates(&cache).unwrap();
         assert!(matches!(cache_updates.try_recv(), Ok(None)));
 
-        assert!(super::install_cache(&state, built_cache));
+        assert!(super::install_cache(&state, built_cache, 0));
 
         assert!(matches!(
             observation_updates.try_recv(),
@@ -2441,6 +2556,114 @@ mod tests {
             Ok(Some(TopicObservationUpdate::DataChanged))
         ));
         assert!(matches!(observation_updates.try_recv(), Ok(None)));
+    }
+
+    #[test]
+    fn backend_generation_hides_old_samples_until_matching_cache_is_installed() {
+        let retention = RetentionPolicy::time_window(Duration::from_secs(1)).unwrap();
+        let mut observation = TopicObservation::new(DesiredObservation::new(
+            TopicReference::new("/replay/a").unwrap(),
+            retention,
+        ));
+        let (target_sender, target_receiver) = watch::channel(inherited_target());
+        observation.controls.target_receiver = target_receiver;
+        let cache_state = Arc::new(CachedSubscriptionState::<String>::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
+            retention,
+            NonZeroUsize::new(256).unwrap(),
+        ));
+        cache_state.store_latest(string_sample_record("retained"));
+        let state = Arc::downgrade(&observation.state);
+        assert!(super::install_cache(&state, cache_state.handle(), 0));
+        assert_eq!(observation.latest().unwrap().value, "retained");
+        assert_eq!(observation.get_all().len(), 1);
+        assert_eq!(observation.window(Time::zero(), Time::zero()).len(), 1);
+        assert!(observation.get_nearest(Time::zero()).is_some());
+
+        target_sender.send_modify(|inherited| inherited.backend_generation += 1);
+        assert!(observation.latest().is_none());
+        assert!(observation.get_all().is_empty());
+        assert!(observation.window(Time::zero(), Time::zero()).is_empty());
+        assert!(observation.get_nearest(Time::zero()).is_none());
+
+        // An old in-flight build cannot make its retained sample visible again.
+        assert!(super::install_cache(&state, cache_state.handle(), 0));
+        assert!(observation.latest().is_none());
+        assert!(super::install_cache(&state, cache_state.handle(), 1));
+        assert_eq!(observation.latest().unwrap().value, "retained");
+        assert_eq!(observation.get_all().len(), 1);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn inherited_setters_preserve_backend_and_switches_wake_existing_workers() {
+        let context = ContextBuilder::default().build().await.unwrap();
+        let node = Arc::new(
+            context
+                .create_node("inherited_backend")
+                .build()
+                .await
+                .unwrap(),
+        );
+        let observer = super::TopicObserver::new(node.clone(), Default::default());
+        let connection = crate::query::Connection {
+            backend: Arc::new(crate::query::Live::new(node.clone(), Default::default())),
+            cursor: crate::query::CursorHandle::new(crate::query::Cursor::Live),
+        };
+        observer.set_backend(connection.clone());
+        observer.set_namespace("/42").unwrap();
+        observer.set_node_name("behavior").unwrap();
+        assert_eq!(
+            observer
+                .inner
+                .target_sender
+                .borrow()
+                .target_identity
+                .node_name(),
+            Some("behavior"),
+        );
+        observer.clear_node_name();
+        {
+            let inherited = observer.inner.target_sender.borrow();
+            assert_eq!(inherited.target_identity.namespace(), "/42");
+            assert_eq!(inherited.target_identity.node_name(), None);
+            assert_eq!(inherited.backend_generation, 1);
+            assert!(Arc::ptr_eq(
+                &inherited.connection.as_ref().unwrap().backend,
+                &connection.backend,
+            ));
+        }
+        let typed = observer.observe_typed::<String>("status").unwrap().spawn();
+        let dynamic = observer.observe_dynamic("status").unwrap().spawn();
+        for generation in [1, 2] {
+            tokio::time::timeout(Duration::from_secs(2), async {
+                loop {
+                    if typed.state.lock().backend_generation == generation
+                        && dynamic.inner.state.lock().backend_generation == generation
+                    {
+                        break;
+                    }
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .expect("existing workers should install the inherited backend generation");
+            assert_eq!(typed.controls.desired_sender.borrow().reconnect_revision, 0);
+            assert_eq!(
+                dynamic
+                    .inner
+                    .controls
+                    .desired_sender
+                    .borrow()
+                    .reconnect_revision,
+                0,
+            );
+            if generation == 1 {
+                observer.set_backend(crate::query::Connection {
+                    backend: Arc::new(crate::query::Live::new(node.clone(), Default::default())),
+                    cursor: connection.cursor.clone(),
+                });
+            }
+        }
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -2464,6 +2687,7 @@ mod tests {
         let (observation_update_sender, observation_update_receiver) =
             broadcast::channel(super::UPDATE_BUFFER_CAPACITY);
         let observation_state = Arc::new(Mutex::new(super::TopicObservationState {
+            backend_generation: 0,
             status: TopicObservationStatus::Building,
             display_cache: None,
             updates: Some(observation_update_sender),
@@ -2473,7 +2697,7 @@ mod tests {
             TopicObservationUpdateReceiver::new(observation_update_receiver);
 
         let mut cache_updates = super::subscribe_built_cache_updates(&built_cache).unwrap();
-        assert!(super::install_cache(&state, built_cache));
+        assert!(super::install_cache(&state, built_cache, 0));
         assert!(super::refresh_observing_status(&state));
         cache_state.store_latest(string_sample_record("ready"));
 
@@ -2482,8 +2706,7 @@ mod tests {
             RetentionPolicy::LatestOnly,
         );
         let (desired_sender, mut desired_receiver) = watch::channel(desired);
-        let (_target_sender, mut target_receiver) =
-            watch::channel(TargetIdentity::new("/").unwrap());
+        let (_target_sender, mut target_receiver) = watch::channel(inherited_target());
         let mut graph_revisions = node.graph().watch_revisions();
         let graph_fingerprint = super::topic_graph_fingerprint(&node, topic);
         let build_key =
@@ -2551,6 +2774,7 @@ mod tests {
         let (observation_update_sender, _observation_update_receiver) =
             broadcast::channel(super::UPDATE_BUFFER_CAPACITY);
         let observation_state = Arc::new(Mutex::new(super::TopicObservationState {
+            backend_generation: 0,
             status: TopicObservationStatus::Building,
             display_cache: None,
             updates: Some(observation_update_sender),
@@ -2574,7 +2798,7 @@ mod tests {
         )
         .is_some();
         if should_install {
-            assert!(super::install_cache(&state, built_cache));
+            assert!(super::install_cache(&state, built_cache, 0));
         }
 
         assert!(

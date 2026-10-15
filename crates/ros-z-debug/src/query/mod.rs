@@ -3,6 +3,7 @@ mod live;
 pub mod plan;
 mod plan_observation;
 mod projection;
+pub(crate) mod typed;
 
 use crate::{Error, Result};
 use ros_z::{dynamic::Schema, time::Time};
@@ -15,6 +16,7 @@ pub use plan_observation::{
     PlanObservation, PlanSnapshot, PlanStatus, PlanValue, TypedPlanObservation, TypedPlanSnapshot,
 };
 pub use projection::{ProjectionError, TimeEncoding, TimeProjection};
+pub use typed::{Connection, decode_record};
 
 pub const MAX_ROWS: usize = 4096;
 pub const MAX_PAYLOAD_BYTES: u64 = 32 * 1024 * 1024;

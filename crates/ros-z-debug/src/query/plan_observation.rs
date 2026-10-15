@@ -78,12 +78,10 @@ impl PlanSender {
         self.updates
             .send_modify(|revision| *revision = revision.wrapping_add(1));
     }
+    #[cfg(test)]
     pub fn send_replace(&self, value: Arc<PlanSnapshot>) {
         self.sender.send_replace(value);
         self.notify();
-    }
-    pub fn borrow(&self) -> watch::Ref<'_, Arc<PlanSnapshot>> {
-        self.sender.borrow()
     }
     pub async fn closed(&self) {
         self.sender.closed().await;

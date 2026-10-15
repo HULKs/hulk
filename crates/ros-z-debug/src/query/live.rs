@@ -718,7 +718,7 @@ mod tests {
             let (release, blocked) = std::sync::mpsc::channel();
             let blocker = tokio::task::spawn_blocking(move || {
                 started.send(()).unwrap();
-                blocked.recv().unwrap();
+                blocked.recv_timeout(Duration::from_secs(5)).unwrap();
             });
             waiting.await.unwrap();
             let schema = Arc::new(Time::schema());

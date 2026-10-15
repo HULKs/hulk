@@ -11,7 +11,7 @@ pub const DEFAULT_TIME_WINDOW_MAX_SAMPLES: usize = 4096;
 pub enum RetentionPolicy {
     /// Keep only the latest sample.
     LatestOnly,
-    /// Keep samples inside a source-time window.
+    /// Keep samples inside an effective-time window (source time by default).
     TimeWindow(RetentionWindow),
 }
 
@@ -35,7 +35,8 @@ impl RetentionWindow {
 }
 
 impl RetentionPolicy {
-    /// Retain samples whose source time is inside `duration` from the newest sample.
+    /// Retain samples whose effective time is inside `duration` from the newest sample.
+    /// Query backends anchor the window to the selected cursor instead.
     ///
     /// This also caps retained samples to [`DEFAULT_TIME_WINDOW_MAX_SAMPLES`] so
     /// stalled or repeated source timestamps cannot grow memory without bound.

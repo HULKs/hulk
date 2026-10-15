@@ -22,9 +22,11 @@ pub struct SampleRecord<V> {
     pub value: V,
     /// Source timestamp reported by the publisher.
     pub source_time: Time,
+    /// Time used by selection/history, after the observation's timestamp projection.
+    pub effective_time: Time,
     /// Zenoh transport timestamp, when present on the received sample.
     pub transport_time: Option<Time>,
-    /// Stable publication identity derived from source id and sequence number.
+    /// Original live publication identity, or a stable synthetic file-record identity for MCAP.
     pub publication_id: ros_z::pubsub::PublicationId,
     /// Metadata shared by all samples received through the same subscription.
     pub metadata: Arc<SampleMetadata>,
@@ -44,6 +46,7 @@ pub(crate) fn dynamic_record_to_json_sample(
     SampleRecord {
         value: dynamic_record_json_value(record.as_ref(), policy),
         source_time: record.source_time,
+        effective_time: record.effective_time,
         transport_time: record.transport_time,
         publication_id: record.publication_id,
         metadata: Arc::clone(&record.metadata),
