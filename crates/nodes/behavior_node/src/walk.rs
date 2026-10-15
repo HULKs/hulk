@@ -175,8 +175,14 @@ pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
                         .map_or(f32::INFINITY, |path| path.length())
                 },
             );
-            predicted.unwrap_or(current_ball.ball_in_field)
+            if let Some(predicted) = predicted {
+                smooth_ball_target(blackboard, predicted)
+            } else {
+                blackboard.last_walk_to_ball_target = None;
+                current_ball.ball_in_field
+            }
         } else {
+            blackboard.last_walk_to_ball_target = None;
             last_ball_position
         };
         let target_pose =
@@ -193,6 +199,7 @@ pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
             walk_and_stand.hysteresis,
         )
     } else {
+        blackboard.last_walk_to_ball_target = None;
         Status::Failure
     }
 }
@@ -284,6 +291,29 @@ fn predict_ball_position(
             .y()
             .clamp(-field_dimensions.width / 2.0, field_dimensions.width / 2.0)
     ]
+}
+
+fn smooth_ball_target(blackboard: &mut Blackboard, target: Point2<Field>) -> Point2<Field> {
+    let now = blackboard.world_state.now;
+    let smoothing_time = blackboard.parameters.walking.ball_prediction.smoothing_time;
+    let previous = blackboard.last_walk_to_ball_target;
+    let last_time = blackboard.last_walk_to_ball_target_time;
+    let smoothed = if let Some(previous) = previous
+        && !smoothing_time.is_zero()
+        && blackboard.last_motion_type == Some(MotionType::Walk)
+        && now >= last_time
+        && now.duration_since(last_time) <= smoothing_time * 2
+        && (target - previous).norm() <= 0.5
+    {
+        let elapsed = now.duration_since(last_time).as_secs_f32();
+        let alpha = 1.0 - (-elapsed / smoothing_time.as_secs_f32()).exp();
+        previous + (target - previous) * alpha
+    } else {
+        target
+    };
+    blackboard.last_walk_to_ball_target = Some(smoothed);
+    blackboard.last_walk_to_ball_target_time = now;
+    smoothed
 }
 
 pub fn walk_to_ball_subtree() -> Node<Blackboard> {
@@ -516,6 +546,7 @@ mod tests {
             turning_speed: 2.0,
             arrival_time_margin: Duration::from_millis(200),
             velocity_decay_rate: 1.0,
+            smoothing_time: Duration::from_millis(150),
         }
     }
 

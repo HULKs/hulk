@@ -39,6 +39,7 @@
       turning_speed: 2.0,
       arrival_time_margin: { nanos: 200000000, secs: 0 },
       velocity_decay_rate: 1.0,
+      smoothing_time: { nanos: 150000000, secs: 0 },
     },
     path_planning: {
       arc_walking_speed: 0.2,
