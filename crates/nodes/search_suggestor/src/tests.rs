@@ -117,7 +117,75 @@ fn rejects_non_finite_local_pose() {
 }
 
 #[test]
-fn player_state_snapshots_are_processed_once_and_removed_on_expiry() {
+fn player_state_snapshots_are_processed_once_and_removed_when_cleared() {
+    use linear_algebra::{Pose2, point};
+
+    let field_dimensions = FieldDimensions::SPL_2025;
+    let parameters = SearchSuggestorParameters {
+        team_ball_weight: 0.6,
+        ..Default::default()
+    };
+    let mut heatmap = Heatmap::new(field_dimensions);
+    let mut last_states = Players::new(None);
+    let teammate_freshness = TeammateFreshness {
+        now: Time::from_nanos(1_500_000_042),
+        window: Some(Duration::from_secs(2)),
+    };
+    let states = Players {
+        two: Some(TimeWrapper {
+            time: Time::from_nanos(42),
+            inner: PlayerState {
+                pose: Pose2::default(),
+                head_yaw: 0.0,
+                ball_position: Some(BallPosition {
+                    position: point![0.0, 0.0],
+                    velocity: Default::default(),
+                    last_seen: Time::from_nanos(42),
+                }),
+            },
+        }),
+        ..Players::new(None)
+    };
+
+    update_from_player_states(
+        &mut heatmap,
+        field_dimensions,
+        &states,
+        &mut last_states,
+        &parameters,
+        teammate_freshness,
+        Duration::from_millis(20),
+    );
+    // The state remains useful after the one-second expiry of the shared behavior stream.
+    assert!(heatmap.to_message().values.contains(&0.6));
+
+    heatmap.set_known_ball_position(field_dimensions, point![0.0, 0.0]);
+    update_from_player_states(
+        &mut heatmap,
+        field_dimensions,
+        &states,
+        &mut last_states,
+        &parameters,
+        teammate_freshness,
+        Duration::from_millis(20),
+    );
+    assert!(heatmap.to_message().values.contains(&1.0));
+    assert!(last_states[PlayerNumber::Two].is_some());
+
+    update_from_player_states(
+        &mut heatmap,
+        field_dimensions,
+        &Players::new(None),
+        &mut last_states,
+        &parameters,
+        teammate_freshness,
+        Duration::from_millis(20),
+    );
+    assert!(last_states[PlayerNumber::Two].is_none());
+}
+
+#[test]
+fn stale_last_received_state_does_not_add_team_ball_priority() {
     use linear_algebra::{Pose2, point};
 
     let field_dimensions = FieldDimensions::SPL_2025;
@@ -149,32 +217,19 @@ fn player_state_snapshots_are_processed_once_and_removed_on_expiry() {
         &states,
         &mut last_states,
         &parameters,
-        None,
+        TeammateFreshness {
+            now: Time::from_nanos(2_000_000_042),
+            window: Some(Duration::from_secs(1)),
+        },
         Duration::from_millis(20),
     );
-    assert!(heatmap.to_message().values.contains(&0.6));
 
-    heatmap.set_known_ball_position(field_dimensions, point![0.0, 0.0]);
-    update_from_player_states(
-        &mut heatmap,
-        field_dimensions,
-        &states,
-        &mut last_states,
-        &parameters,
-        None,
-        Duration::from_millis(20),
+    assert!(
+        heatmap
+            .to_message()
+            .values
+            .iter()
+            .all(|value| *value == 0.0)
     );
-    assert!(heatmap.to_message().values.contains(&1.0));
     assert!(last_states[PlayerNumber::Two].is_some());
-
-    update_from_player_states(
-        &mut heatmap,
-        field_dimensions,
-        &Players::new(None),
-        &mut last_states,
-        &parameters,
-        None,
-        Duration::from_millis(20),
-    );
-    assert!(last_states[PlayerNumber::Two].is_none());
 }
