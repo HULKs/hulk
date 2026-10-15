@@ -3,7 +3,7 @@ use crate::{
     panel::{Panel, PanelCreationContext, PanelUiContext},
     repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates},
 };
-use color_eyre::{Report, eyre::eyre};
+use color_eyre::{Report, eyre::bail};
 use coordinate_systems::Pixel;
 use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui};
 use hulk_widgets::CompletionEdit;
@@ -24,6 +24,7 @@ use twix_visualization::{
     twix_painter::{Orientation, TwixPainter},
     zoom_and_pan::ZoomAndPanTransform,
 };
+use types::stereo_image_pair::StereoImagePair;
 use uuid::Uuid;
 
 mod image_overlay;
@@ -32,6 +33,7 @@ mod overlays;
 use inputs::SampleIdentity;
 
 pub const DEFAULT_IMAGE_TOPIC: &str = "inputs/left_image";
+const STEREO_IMAGE_TOPIC: &str = "inputs/stereo_image_pair";
 
 pub struct ImagePanel {
     topic_editor: String,
@@ -74,6 +76,7 @@ impl ImagePanel {
             overlays: self.overlays.revision,
         }
     }
+
     fn recreate(&mut self, context: &impl ObservationContext) {
         let result = (|| -> Result<Option<ObservedImage>, Report> {
             if self.topic.is_empty() {
@@ -85,10 +88,17 @@ impl ImagePanel {
             let topic = TopicReference::new(&self.topic)?.resolve(&identity)?;
             let supported =
                 topic == TopicReference::new(DEFAULT_IMAGE_TOPIC)?.resolve(&identity)?;
-            let images = Source::from(TopicSource::new(
+            let mut sources = vec![TopicSource::new(
                 topic,
                 TimeProjection::field(".header.stamp", TimeEncoding::RosTime)?,
-            ));
+            )];
+            if supported {
+                sources.push(TopicSource::new(
+                    TopicReference::new(STEREO_IMAGE_TOPIC)?.resolve(&identity)?,
+                    TimeProjection::field(".left.header.stamp", TimeEncoding::RosTime)?,
+                ));
+            }
+            let images = Source::first_present(sources);
             let (inputs, preferences) =
                 self.overlays.declarations(&binding.namespace, supported)?;
             let primary = if binding.follow && !preferences.is_empty() {
@@ -127,6 +137,7 @@ impl ImagePanel {
         })();
         self.observation = result.map_err(|error| format!("{error:#}"));
     }
+
     fn refresh(&mut self, context: &impl ObservationContext) {
         let binding = self.binding(context);
         if self
@@ -164,24 +175,25 @@ impl ImagePanel {
 impl Panel for ImagePanel {
     const STORAGE_ID: &'static str = "image";
     const DISPLAY_NAME: &'static str = "Image";
-    const ICON: &'static str = egui_material_icons::icons::ICON_IMAGE.codepoint;
+    const ICON: &'static str = egui_material_icons::icons::ICON_PHOTO_CAMERA.codepoint;
+
     fn new(context: PanelCreationContext<'_>) -> Self {
         let topic = context
             .value
-            .and_then(|v| v.get("topic"))
+            .and_then(|value| value.get("topic"))
             .and_then(Value::as_str)
             .unwrap_or(DEFAULT_IMAGE_TOPIC)
-            .to_owned();
+            .to_string();
         let mut panel = Self {
             topic_editor: topic.clone(),
             focus_topic_requested: false,
             topic,
             observation: Ok(None),
-            overlays: ImageOverlays::new(context.value.and_then(|v| v.get("overlays"))),
+            overlays: ImageOverlays::new(context.value.and_then(|value| value.get("overlays"))),
             zoom_and_pan: context
                 .value
-                .and_then(|v| v.get("zoom_and_pan"))
-                .and_then(|v| serde_json::from_value(v.clone()).ok())
+                .and_then(|value| value.get("zoom_and_pan"))
+                .and_then(|value| serde_json::from_value::<ZoomAndPanTransform>(value.clone()).ok())
                 .unwrap_or_default(),
         };
         panel.recreate(&context);
@@ -211,9 +223,10 @@ impl Panel for ImagePanel {
             .request_focus(std::mem::take(&mut self.focus_topic_requested)),
         );
         if response.changed() {
-            self.topic = self.topic_editor.trim().to_owned();
+            self.topic = self.topic_editor.trim().to_string();
         }
     }
+
     fn ui(&mut self, ui: &mut Ui, context: PanelUiContext<'_>) {
         self.refresh(&context);
         if self.topic.is_empty() {
@@ -261,22 +274,30 @@ impl Panel for ImagePanel {
             response.on_hover_text_at_pointer(format!("x: {:.1}, y: {:.1}", pixel.x(), pixel.y()));
         }
     }
+
     fn save(&self) -> Value {
-        json!({"topic":self.topic,"overlays":self.overlays.save(),"zoom_and_pan":self.zoom_and_pan})
+        json!({
+            "topic": self.topic,
+            "overlays": self.overlays.save(),
+            "zoom_and_pan": serde_json::to_value(&self.zoom_and_pan)
+                .expect("failed to serialize image zoom and pan"),
+        })
     }
 }
 
 fn decode_color_image(sample: &Sample) -> Result<ColorImage, Report> {
     let image = if sample.topic.type_info == RosImage::type_info() {
         <RosImage as Message>::Codec::deserialize(&sample.record.data)?
+    } else if sample.topic.type_info == StereoImagePair::type_info() {
+        <StereoImagePair as Message>::Codec::deserialize(&sample.record.data)?.left
     } else {
-        return Err(eyre!(
+        bail!(
             "unsupported image source type {}",
             sample.topic.type_info.name
-        ));
+        );
     };
     if image.width == 0 || image.height == 0 {
-        return Err(eyre!("image has no pixels"));
+        bail!("image has no pixels");
     }
     let rgb: RgbImage = image.try_into()?;
     Ok(ColorImage::from_rgb(
@@ -292,6 +313,7 @@ struct RenderedImageCache {
     error: Option<String>,
     texture_name: String,
 }
+
 impl RenderedImageCache {
     fn clear(&mut self) {
         self.sample = None;
@@ -299,6 +321,7 @@ impl RenderedImageCache {
         self.texture = None;
         self.error = None;
     }
+
     fn new() -> Self {
         Self {
             sample: None,
@@ -308,6 +331,7 @@ impl RenderedImageCache {
             texture_name: format!("twix-image-{}", Uuid::new_v4().simple()),
         }
     }
+
     fn refresh(&mut self, context: &Context, sample: &Sample) -> bool {
         let identity = SampleIdentity::from(sample);
         if self.sample.as_ref().is_some_and(|old| *old == identity) {
@@ -338,7 +362,10 @@ impl RenderedImageCache {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ros_z::message::WireEncoder;
+    use crate::backend::RobotBackend;
+    use eframe::egui::Color32;
+    use ros_z::{message::WireEncoder, time::Time};
+    use ros_z_debug::query::{RawRecord, TopicInfo};
     use std::{
         sync::{
             Arc,
@@ -346,6 +373,7 @@ mod tests {
         },
         time::Duration,
     };
+    use tokio::runtime::Handle;
     use types::{
         object_detection::{Object, RobocupObjectLabel},
         time_wrapper::TimeWrapper,
@@ -359,17 +387,17 @@ mod tests {
         value: &T,
     ) -> Sample {
         Sample {
-            topic: ros_z_debug::query::TopicInfo {
+            topic: TopicInfo {
                 name: topic.into(),
                 type_info: T::type_info(),
                 schema: None,
                 error: None,
             },
-            record: Arc::new(ros_z_debug::query::RawRecord {
+            record: Arc::new(RawRecord {
                 publication: None,
                 id,
-                time: ros_z::time::Time::from_nanos(time),
-                source_time: ros_z::time::Time::from_nanos(source_time),
+                time: Time::from_nanos(time),
+                source_time: Time::from_nanos(source_time),
                 log_time: None,
                 data: T::Codec::serialize(value).unwrap().into(),
             }),
@@ -419,9 +447,7 @@ mod tests {
             data: pixel.to_vec().into(),
             ..Default::default()
         };
-        image.header.stamp = ros_z::time::Time::from_nanos(time as i64)
-            .to_wallclock()
-            .into();
+        image.header.stamp = Time::from_nanos(time as i64).to_wallclock().into();
         image
     }
 
@@ -496,17 +522,13 @@ mod tests {
     async fn sustained_live_plan_presents_matching_overlays_without_cursor_chasing() {
         let namespace = format!("/plan_image_{}", Uuid::new_v4().simple());
         let backend = Arc::new(
-            crate::backend::RobotBackend::new(
-                tokio::runtime::Handle::current(),
-                None,
-                namespace.clone(),
-            )
-            .await
-            .unwrap(),
+            RobotBackend::new(Handle::current(), None, namespace.clone())
+                .await
+                .unwrap(),
         );
         let node = backend.node();
         let images = node
-            .publisher::<RosImage>(&format!("{namespace}/{DEFAULT_IMAGE_TOPIC}"))
+            .publisher::<StereoImagePair>(&format!("{namespace}/{STEREO_IMAGE_TOPIC}"))
             .build()
             .await
             .unwrap();
@@ -537,11 +559,18 @@ mod tests {
             let mut time = 1u64;
             loop {
                 if !pause.load(Ordering::Relaxed) {
-                    images.publish(&image(time, [255, 0, 0])).await.unwrap();
+                    images
+                        .publish(&StereoImagePair {
+                            frame_identifier: time as u32,
+                            left: image(time, [255, 0, 0]),
+                            right: image(time + 1, [0, 255, 0]),
+                        })
+                        .await
+                        .unwrap();
                     if time > 3 {
                         objects
                             .publish(&TimeWrapper {
-                                time: ros_z::time::Time::from_nanos((time - 3) as i64),
+                                time: Time::from_nanos((time - 3) as i64),
                                 inner: vec![Object::<RobocupObjectLabel>::from([
                                     0., 0., 1., 1., 0.9, 0.,
                                 ])],
@@ -567,10 +596,10 @@ mod tests {
                         && let Some(detection) = records.first()
                     {
                         assert_eq!(detection.record.time, frame.primary.record.time);
-                        assert_eq!(frame.primary.topic.type_info, RosImage::type_info());
+                        assert_eq!(frame.primary.topic.type_info, StereoImagePair::type_info());
                         assert_eq!(
                             decode_color_image(&frame.primary).unwrap().pixels,
-                            [eframe::egui::Color32::RED]
+                            [Color32::RED]
                         );
                         if previous != Some(frame.primary.record.time) {
                             matched += 1;
@@ -585,7 +614,7 @@ mod tests {
         .unwrap();
         paused.store(true, Ordering::Relaxed);
         tokio::time::sleep(Duration::from_millis(30)).await;
-        let time = ros_z::time::Time::from_nanos(published.load(Ordering::Relaxed) as i64);
+        let time = Time::from_nanos(published.load(Ordering::Relaxed) as i64);
         backend.query_connection().cursor.set(Cursor::At(time));
         panel.refresh(&context);
         let observed = panel.observation.as_ref().unwrap().as_ref().unwrap();
