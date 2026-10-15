@@ -1,24 +1,84 @@
 {
-  maximum_camera_matrix_age: { secs: 0, nanos: 20000000 },
-  hidden_validity_exponential_decay_factor: 0.9997000098228456,
-  hypothesis_merge_distance: 0.10000000149011612,
-  hypothesis_timeout: {
-    nanos: 0,
-    secs: 20,
+  "association_uncertainty_weight": 1.0,
+  "ball_confidence_threshold": 0.6000000238418579,
+  "competing_hypothesis_validity_decay_rate": 0.13457733392715454,
+  "field_boundary_confidence_decay_distance": 0.30000001192092896,
+  "field_boundary_margin": 0.5,
+  "field_boundary_validity_decay_rate": 2.0,
+  "good_localization": true,
+  "hidden_validity_decay_rate": 0.03453615680336952,
+  "hidden_validity_exponential_decay_factor": 0.9997000098228455,
+  "hypothesis_merge_distance": 0.21,
+  "hypothesis_timeout": {
+    "nanos": 0,
+    "secs": 20
   },
-  ball_confidence_threshold: 0.6,
-  log_likelihood_of_zero_velocity_threshold: 0.5,
-  maximum_matching_cost: 0.25,
-  maximum_matching_cost_validity_penalty_factor: 0.14,
-  maximum_number_of_hypotheses: 15,
-  noise: {
-    detection_noise: [5.0, 5.0],
-    initial_covariance: [0.5, 0.5, 40.0, 40.0],
-    process_noise_moving: [0.005, 0.005, 0.02, 0.02],
-    process_noise_resting: [0.001, 0.001],
+  "hypothesis_uncertainty_weight": 0.0,
+  "log_likelihood_of_zero_velocity_threshold": 19.06328582763672,
+  "maximum_camera_matrix_age": {
+    "nanos": 20000000,
+    "secs": 0
   },
-  validity_discard_threshold: 0.2,
-  validity_output_threshold: 0.5,
-  velocity_decay_factor: 0.998,
-  visible_validity_exponential_decay_factor: 0.96,
+  "maximum_confidence": null,
+  "maximum_detection_distance": 15.0,
+  "maximum_detection_radius_ratio": 1000000.0,
+  "maximum_matching_cost": 7.652429580688477,
+  "maximum_matching_distance": 1.6011608839035034,
+  "maximum_number_of_hypotheses": 15,
+  "maximum_obstacle_time_difference": {
+    "nanos": 100000000,
+    "secs": 0
+  },
+  "near_visible_missed_detection_distance": 1.0,
+  "near_visible_missed_detection_timeout": {
+    "nanos": 120000000,
+    "secs": 0
+  },
+  "near_visible_missed_validity_decay_rate": 20.82781410217285,
+  "nearby_spawn_validity_factor": 0.7493224143981934,
+  "noise": {
+    "detection_noise": [
+      0.12650728225708008,
+      0.12650728225708008
+    ],
+    "initial_covariance": [
+      0.5,
+      0.5,
+      40.0,
+      40.0
+    ],
+    "process_noise_moving": [
+      0.0065751285292208195,
+      0.0065751285292208195,
+      0.10000000149011612,
+      0.10000000149011612
+    ],
+    "process_noise_resting": [
+      0.01491544395685196,
+      0.01491544395685196
+    ]
+  },
+  "publication_detection_noise": 0.20000000298023224,
+  "publication_field_boundary_margin": 1.5,
+  "publication_filter_blend": 0.944531261920929,
+  "publication_maximum_age": {
+    "nanos": 0,
+    "secs": 1000000
+  },
+  "publication_maximum_covariance_ratio": 7.0,
+  "publication_maximum_distance": 1000.0,
+  "radius_consistency_maximum_distance": 1000.0,
+  "reacquisition_matching_distance": 0.13652116060256958,
+  "resting_velocity_threshold": 0.11987119168043137,
+  "selection_confidence_cap": 0.0,
+  "validity_discard_threshold": 0.20000000298023224,
+  "validity_output_threshold": 0.5,
+  "velocity_decay_factor": 0.9994442462921143,
+  "visibility_uncertainty_scale": 3.0,
+  "visible_missed_detection_timeout": {
+    "nanos": 0,
+    "secs": 1
+  },
+  "visible_missed_validity_decay_rate": 2.5996804237365723,
+  "visible_validity_exponential_decay_factor": 0.9599999785423279
 }
