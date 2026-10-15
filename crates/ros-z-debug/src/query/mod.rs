@@ -1,4 +1,5 @@
 //! Backend-independent plans over timestamped records.
+mod live;
 pub mod plan;
 mod plan_observation;
 mod projection;
@@ -9,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::watch;
 
+pub use live::{Live, LiveRetention};
 pub use plan_observation::{
     PlanObservation, PlanSnapshot, PlanStatus, PlanValue, TypedPlanObservation, TypedPlanSnapshot,
 };

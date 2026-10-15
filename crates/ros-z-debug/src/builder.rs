@@ -218,7 +218,7 @@ impl CachedSubscriptionBuilder {
     }
 }
 
-fn subscriber_qos(node: &Node, topic: &str, policy: ObservationPolicy) -> QosProfile {
+pub(crate) fn subscriber_qos(node: &Node, topic: &str, policy: ObservationPolicy) -> QosProfile {
     policy.subscriber_qos().unwrap_or_else(|| QosProfile {
         durability: inferred_durability(node.graph().lock().publishers_on(topic)),
         ..Default::default()
