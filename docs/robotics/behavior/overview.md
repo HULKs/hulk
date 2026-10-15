@@ -138,7 +138,8 @@ Behavior publishes the currently calculated interval on `hsl_state_message_send_
 When the game-controller state is unavailable or sending is suspended, the published interval is `None` and teammates are not considered for search regions or replay.
 
 Received teammate states provide the poses used for closest-to-ball selection, supporter positioning, and search regions.
-The search suggestor consumes the shared `player_states` stream, so expired and penalized players are removed from its search region as well.
+The `player_states` stream keeps the short configured expiry for behavior and other consumers.
+The search suggestor instead consumes `last_received_player_states`, which retains timestamped states until they are replaced or the player is penalized. It applies the current HSL send interval as its own freshness limit before using teammates for search regions, ball evidence, or replay.
 It interpolates poses and head directions between sufficiently recent states to estimate which areas teammates have observed and lower their search priority.
 States with non-finite pose, head yaw, or ball position are discarded before they reach these consumers.
 Team communication can be absent or delayed, so the tree retains branches for simple operation, the last active robot, and missing ball information.

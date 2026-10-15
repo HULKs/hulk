@@ -26,6 +26,21 @@ use types::{
 
 const MAXIMUM_MEAN_PRIORITY_AT_PLAYING_START: f32 = 0.5;
 
+#[derive(Clone, Copy)]
+struct TeammateFreshness {
+    now: Time,
+    window: Option<Duration>,
+}
+
+impl TeammateFreshness {
+    fn contains(self, state_time: Time) -> bool {
+        self.now >= state_time
+            && self
+                .window
+                .is_some_and(|window| self.now.duration_since(state_time) <= window)
+    }
+}
+
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
 }
@@ -110,8 +125,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-    let player_states_sub = node
-        .subscriber::<Players<Option<TimeWrapper<PlayerState>>>>("player_states")
+    let last_received_player_states_sub = node
+        .subscriber::<Players<Option<TimeWrapper<PlayerState>>>>("last_received_player_states")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            history: QosHistory::KeepLast(NonZeroUsize::MIN),
+            ..Default::default()
+        })
         .build()
         .await?;
     let additional_heatmap_pub = node
@@ -161,8 +181,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             while hypothetical_ball_positions_sub.is_ready() {
                 hypothetical_ball_positions_sub.recv().await?;
             }
-            while player_states_sub.is_ready() {
-                player_states_sub.recv().await?;
+            while last_received_player_states_sub.is_ready() {
+                last_received_player_states_sub.recv().await?;
             }
             while filtered_game_controller_state_sub.is_ready() {
                 filtered_game_controller_state_sub.recv().await?;
@@ -173,10 +193,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             heatmap = Heatmap::new(field_dimensions);
         }
         was_heatmap_search_enabled = true;
-        let teammate_freshness_window = hsl_state_message_send_interval_cache
-            .get_latest()
-            .and_then(|interval| *interval)
-            .map(|interval| interval.mul_f32(1.2));
+        let teammate_freshness = TeammateFreshness {
+            now,
+            window: hsl_state_message_send_interval_cache
+                .get_latest()
+                .and_then(|interval| *interval)
+                .map(|interval| interval.mul_f32(1.2)),
+        };
 
         let ground_to_field = ground_to_field_cache
             .get_latest()
@@ -228,15 +251,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 hypothetical_ball_positions_sub.recv().await?;
             }
         }
-        while player_states_sub.is_ready() {
-            let player_states = player_states_sub.recv().await?;
+        while last_received_player_states_sub.is_ready() {
+            let player_states = last_received_player_states_sub.recv().await?;
             update_from_player_states(
                 &mut heatmap,
                 field_dimensions,
                 &player_states,
                 &mut last_teammate_states,
                 parameters,
-                teammate_freshness_window,
+                teammate_freshness,
                 elapsed_since_last_priority_update,
             );
         }
@@ -335,8 +358,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 field_dimensions,
                 own_voronoi_site,
                 &last_teammate_states,
-                now,
-                teammate_freshness_window,
+                teammate_freshness,
             )
             .zip(search_area)
         {
@@ -475,8 +497,7 @@ fn search_voronoi_selection_from_teammates(
     field_dimensions: FieldDimensions,
     own_voronoi_site: Option<(Isometry2<Ground, Field>, PlayerNumber)>,
     last_teammate_states: &Players<Option<TimeWrapper<PlayerState>>>,
-    now: ros_z::time::Time,
-    freshness_window: Option<Duration>,
+    teammate_freshness: TeammateFreshness,
 ) -> Option<SearchVoronoiSelection> {
     let (ground_to_field, own_player_number) = own_voronoi_site?;
     let mut sites = vec![(ground_to_field.as_pose(), own_player_number)];
@@ -485,11 +506,10 @@ fn search_voronoi_selection_from_teammates(
         let Some(teammate_state) = teammate_state else {
             continue;
         };
-        if player_number == own_player_number || now < teammate_state.time {
+        if player_number == own_player_number {
             continue;
         }
-        if freshness_window.is_some_and(|window| now.duration_since(teammate_state.time) <= window)
-        {
+        if teammate_freshness.contains(teammate_state.time) {
             sites.push((teammate_state.inner.pose, player_number));
         }
     }
@@ -507,7 +527,7 @@ fn update_from_player_states(
     player_states: &Players<Option<TimeWrapper<PlayerState>>>,
     last_teammate_states: &mut Players<Option<TimeWrapper<PlayerState>>>,
     parameters: &SearchSuggestorParameters,
-    freshness_window: Option<Duration>,
+    teammate_freshness: TeammateFreshness,
     local_tick_duration: Duration,
 ) {
     for (player_number, current) in player_states.iter() {
@@ -520,10 +540,12 @@ fn update_from_player_states(
             continue;
         }
 
-        if let Some(ball) = current.inner.ball_position {
+        let is_fresh = teammate_freshness.contains(current.time);
+        if is_fresh && let Some(ball) = current.inner.ball_position {
             heatmap.update_with_team_ball(field_dimensions, ball.position, parameters);
         }
-        if let Some(freshness_window) = freshness_window
+        if is_fresh
+            && let Some(freshness_window) = teammate_freshness.window
             && let Some(previous) = previous
             && let elapsed_since_previous_message = current.time.duration_since(previous.time)
             && elapsed_since_previous_message <= freshness_window

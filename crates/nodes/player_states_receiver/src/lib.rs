@@ -40,7 +40,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
+    let last_received_player_states_pub = node
+        .publisher::<Players<Option<TimeWrapper<PlayerState>>>>("last_received_player_states")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await?;
 
+    let mut last_received_player_states = Players::new(None);
     let mut player_states = Players::new(None);
     let mut last_game_controller_state = None;
 
@@ -55,24 +64,44 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             }
             received_game_controller_state = filtered_game_controller_state_sub.recv() => {
                 last_game_controller_state = received_game_controller_state.ok();
-                if let Some(game_controller_state) = &last_game_controller_state{
-                    clear_penalized_players(&mut player_states, game_controller_state);
+                if let Some(game_controller_state) = &last_game_controller_state {
+                    clear_penalized_players(&mut last_received_player_states, game_controller_state);
                 }
                 let maximum_age = parameters.snapshot().typed().maximum_age;
-                clear_old_player_states(&mut player_states, node.clock().now(), maximum_age);
+                player_states = age_limited_player_states(
+                    &last_received_player_states,
+                    node.clock().now(),
+                    maximum_age,
+                );
                 player_states_pub.publish(&player_states).await?;
+                last_received_player_states_pub.publish(&last_received_player_states).await?;
             }
             received_message = filtered_message_sub.recv() => {
-                apply_message(&mut player_states, received_message?);
-                if let Some(game_controller_state) = &last_game_controller_state{
-                    clear_penalized_players(&mut player_states, game_controller_state);
+                apply_message(&mut last_received_player_states, received_message?);
+                if let Some(game_controller_state) = &last_game_controller_state {
+                    clear_penalized_players(&mut last_received_player_states, game_controller_state);
                 }
                 let maximum_age = parameters.snapshot().typed().maximum_age;
-                clear_old_player_states(&mut player_states, node.clock().now(), maximum_age);
+                player_states = age_limited_player_states(
+                    &last_received_player_states,
+                    node.clock().now(),
+                    maximum_age,
+                );
                 player_states_pub.publish(&player_states).await?;
+                last_received_player_states_pub.publish(&last_received_player_states).await?;
             }
         }
     }
+}
+
+fn age_limited_player_states(
+    last_received_player_states: &Players<Option<TimeWrapper<PlayerState>>>,
+    now: Time,
+    maximum_age: Duration,
+) -> Players<Option<TimeWrapper<PlayerState>>> {
+    let mut player_states = last_received_player_states.clone();
+    clear_old_player_states(&mut player_states, now, maximum_age);
+    player_states
 }
 
 fn apply_message(
@@ -314,5 +343,23 @@ mod tests {
 
         assert!(!removed_any);
         assert!(states[PlayerNumber::Two].is_some());
+    }
+
+    #[test]
+    fn age_limited_states_do_not_erase_last_received_state() {
+        let mut last_received = Players::new(None);
+        last_received[PlayerNumber::Two] = Some(TimeWrapper {
+            time: Time::from_nanos(1_000_000_000),
+            inner: PlayerState::default(),
+        });
+
+        let active = age_limited_player_states(
+            &last_received,
+            Time::from_nanos(2_000_000_000),
+            Duration::from_secs(1),
+        );
+
+        assert!(active[PlayerNumber::Two].is_none());
+        assert!(last_received[PlayerNumber::Two].is_some());
     }
 }
