@@ -6772,6 +6772,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "mcap-replay"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "color-eyre",
+ "mcap",
+ "ros-z",
+ "ros-z-debug",
+ "ros-z-schema",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "uuid",
+ "zenoh",
+]
+
+[[package]]
 name = "mcap_recorder"
 version = "0.1.0"
 dependencies = [
