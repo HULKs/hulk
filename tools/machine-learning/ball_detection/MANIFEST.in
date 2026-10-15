@@ -1,4 +1,0 @@
-recursive-include adder/static *
-recursive-include corrector/static *
-recursive-include remover/static *
-recursive-include viewer/static *

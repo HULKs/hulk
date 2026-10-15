@@ -14,7 +14,7 @@ use ros_z::{context::Context, prelude::*, time::Time};
 use ros_z_streams::CreateFutureMapBuilder;
 use tokio::task::block_in_place;
 use types::{
-    ball_detection::BallPercept,
+    ball_percept::BallPercept,
     ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,

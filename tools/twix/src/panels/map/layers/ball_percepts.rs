@@ -6,7 +6,7 @@ use eframe::epaint::{Color32, Stroke};
 use coordinate_systems::Ground;
 use linear_algebra::Point2;
 use ros_z_debug::{SampleRecord, TopicObservation};
-use types::{ball_detection::BallPercept, field_dimensions::FieldDimensions};
+use types::{ball_percept::BallPercept, field_dimensions::FieldDimensions};
 
 use crate::{backend::RobotBackend, panels::map::layer::Layer};
 use twix_visualization::twix_painter::TwixPainter;

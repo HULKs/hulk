@@ -5,7 +5,7 @@ use coordinate_systems::Ground;
 use linear_algebra::{IntoFramed, Point2, Vector2};
 use ros_z::{context::Context, prelude::*, time::Time};
 use serde::{Deserialize, Serialize};
-use types::{ball_detection::BallPercept, ball_position::BallPosition};
+use types::{ball_percept::BallPercept, ball_position::BallPosition};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
