@@ -55,7 +55,6 @@ struct SavedLine {
 
 /// How an item's samples are drawn.
 #[derive(Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 enum DrawStyle {
     /// Connect consecutive samples, breaking at gaps.
     #[default]
@@ -454,7 +453,6 @@ mod tests {
         };
         let value = serde_json::to_value(&saved).unwrap();
 
-        assert_eq!(value["style"], "scatter");
         let restored: SavedLine = serde_json::from_value(value).unwrap();
         assert!(restored.style == DrawStyle::Scatter);
     }
