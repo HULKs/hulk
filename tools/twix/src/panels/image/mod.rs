@@ -6,7 +6,7 @@ use eframe::egui::{ColorImage, Context, TextureHandle, TextureOptions, Ui};
 use hulk_widgets::CompletionEdit;
 use image::RgbImage;
 use linear_algebra::{point, vector};
-use ros_z::{Message, entity::EndpointKind, time::Time};
+use ros_z::{Message, time::Time};
 use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
 use ros2::sensor_msgs::image::Image as RosImage;
 use serde_json::{Value, json};
@@ -116,11 +116,10 @@ impl Panel for ImagePanel {
         ui.label("Topic");
         let namespace = context.backend.namespace();
         let completions = {
-            let graph = context.backend.graph().lock();
+            let topics = context.backend.topics().snapshot();
             TopicCompletionQuery::new(&namespace, &self.topic_editor)
-                .endpoint_kind(EndpointKind::Publisher)
                 .type_name(RosImage::type_name())
-                .complete(graph.publishers())
+                .complete_topics(&topics.topics)
         };
         let response = ui.add(
             CompletionEdit::new(

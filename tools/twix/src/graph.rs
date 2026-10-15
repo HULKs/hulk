@@ -1,11 +1,10 @@
 use std::collections::BTreeSet;
 
-use ros_z::entity::{EndpointEntity, EndpointKind};
+use ros_z_debug::query::TopicInfo;
 
 pub struct TopicCompletionQuery<'a> {
     active_namespace: &'a str,
     input: &'a str,
-    endpoint_kind: Option<EndpointKind>,
     type_name: Option<String>,
 }
 
@@ -14,14 +13,8 @@ impl<'a> TopicCompletionQuery<'a> {
         Self {
             active_namespace,
             input,
-            endpoint_kind: None,
             type_name: None,
         }
-    }
-
-    pub fn endpoint_kind(mut self, kind: EndpointKind) -> Self {
-        self.endpoint_kind = Some(kind);
-        self
     }
 
     pub fn type_name(mut self, type_name: impl Into<String>) -> Self {
@@ -29,24 +22,24 @@ impl<'a> TopicCompletionQuery<'a> {
         self
     }
 
-    pub fn complete<'b>(self, endpoints: impl Iterator<Item = &'b EndpointEntity>) -> Vec<String> {
+    pub fn complete_topics(self, topics: &[TopicInfo]) -> Vec<String> {
         let namespace_prefix = completion_namespace_prefix(self.active_namespace);
         let absolute = self.input.starts_with('/');
 
-        endpoints
-            .filter(|endpoint| self.endpoint_kind.is_none_or(|kind| endpoint.kind == kind))
-            .filter(|endpoint| {
+        topics
+            .iter()
+            .filter(|topic| {
                 self.type_name
                     .as_ref()
-                    .is_none_or(|type_name| endpoint.type_info.name == *type_name)
+                    .is_none_or(|type_name| topic.type_info.name == *type_name)
             })
-            .filter_map(|endpoint| {
+            .filter_map(|topic| {
                 if absolute {
-                    return Some(endpoint.topic.clone());
+                    return Some(topic.name.clone());
                 }
 
-                endpoint
-                    .topic
+                topic
+                    .name
                     .strip_prefix(&namespace_prefix)
                     .map(ToString::to_string)
             })
@@ -67,93 +60,34 @@ fn completion_namespace_prefix(namespace: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use ros_z::entity::{EndpointEntity, EndpointKind, NodeEntity, SchemaHash, TypeInfo};
-
-    use super::TopicCompletionQuery;
-
-    fn endpoint(kind: EndpointKind, topic: &str) -> EndpointEntity {
-        EndpointEntity {
-            id: 1,
-            node: NodeEntity::new(Default::default(), 1, "node".to_string(), "/42".to_string()),
-            kind,
-            topic: topic.to_string(),
-            type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
-            qos: Default::default(),
-        }
-    }
+    use super::*;
+    use ros_z::{SchemaHash, TypeInfo};
 
     #[test]
-    fn relative_input_suggests_publishers_under_active_namespace() {
-        let endpoints = [
-            endpoint(EndpointKind::Publisher, "/42/status"),
-            endpoint(EndpointKind::Publisher, "/42/camera/image"),
-            endpoint(EndpointKind::Publisher, "/43/status"),
+    fn discovery_completion_respects_namespace_type_and_duplicates() {
+        let topic = |name: &str, kind| TopicInfo {
+            name: name.into(),
+            type_info: TypeInfo::new(kind, SchemaHash::zero()),
+            schema: None,
+            error: None,
+        };
+        let topics = [
+            topic("/42/image", "image"),
+            topic("/42/image", "image"),
+            topic("/43/image", "image"),
+            topic("/42/status", "status"),
         ];
-
-        let suggestions = TopicCompletionQuery::new("/42", "sta")
-            .endpoint_kind(EndpointKind::Publisher)
-            .complete(endpoints.iter());
-
         assert_eq!(
-            suggestions,
-            vec!["camera/image".to_string(), "status".to_string()]
+            TopicCompletionQuery::new("/42/", "")
+                .type_name("image")
+                .complete_topics(&topics),
+            ["image"]
         );
-    }
-
-    #[test]
-    fn absolute_input_suggests_all_publishers_as_absolute_topics() {
-        let endpoints = [
-            endpoint(EndpointKind::Publisher, "/42/status"),
-            endpoint(EndpointKind::Publisher, "/43/status"),
-        ];
-
-        let suggestions = TopicCompletionQuery::new("/42", "/")
-            .endpoint_kind(EndpointKind::Publisher)
-            .complete(endpoints.iter());
-
         assert_eq!(
-            suggestions,
-            vec!["/42/status".to_string(), "/43/status".to_string()]
+            TopicCompletionQuery::new("/42", "/")
+                .type_name("image")
+                .complete_topics(&topics),
+            ["/42/image", "/43/image"]
         );
-    }
-
-    #[test]
-    fn completion_ignores_subscriber_only_topics_and_deduplicates_publishers() {
-        let endpoints = [
-            endpoint(EndpointKind::Publisher, "/42/status"),
-            endpoint(EndpointKind::Publisher, "/42/status"),
-            endpoint(EndpointKind::Subscription, "/42/command"),
-        ];
-
-        let suggestions = TopicCompletionQuery::new("/42", "")
-            .endpoint_kind(EndpointKind::Publisher)
-            .complete(endpoints.iter());
-
-        assert_eq!(suggestions, vec!["status".to_string()]);
-    }
-
-    #[test]
-    fn query_can_filter_by_endpoint_kind_and_type_name() {
-        let endpoints = [
-            EndpointEntity {
-                type_info: TypeInfo::new("types::Image", SchemaHash::zero()),
-                ..endpoint(EndpointKind::Publisher, "/42/camera/image")
-            },
-            EndpointEntity {
-                type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
-                ..endpoint(EndpointKind::Publisher, "/42/status")
-            },
-            EndpointEntity {
-                type_info: TypeInfo::new("types::Image", SchemaHash::zero()),
-                ..endpoint(EndpointKind::Subscription, "/42/camera/command")
-            },
-        ];
-
-        let suggestions = TopicCompletionQuery::new("/42", "")
-            .endpoint_kind(EndpointKind::Publisher)
-            .type_name("types::Image")
-            .complete(endpoints.iter());
-
-        assert_eq!(suggestions, vec!["camera/image".to_string()]);
     }
 }

@@ -10,7 +10,7 @@ use geometry::rectangle::Rectangle;
 use hulk_widgets::CompletionEdit;
 use linear_algebra::{point, vector};
 use nalgebra::Similarity2;
-use ros_z::{entity::EndpointKind, pubsub::PublicationId};
+use ros_z::pubsub::PublicationId;
 use ros_z_debug::DynamicTopicObservation;
 use serde_json::{Value, json};
 use twix_visualization::twix_painter::{Orientation, TwixPainter};
@@ -112,10 +112,9 @@ impl Panel for AudioPanel {
 
         let namespace = context.backend.namespace();
         let completions = {
-            let graph = context.backend.graph().lock();
+            let topics = context.backend.topics().snapshot();
             TopicCompletionQuery::new(&namespace, &self.topic_editor)
-                .endpoint_kind(EndpointKind::Publisher)
-                .complete(graph.publishers())
+                .complete_topics(&topics.topics)
         };
 
         let response = ui.add(

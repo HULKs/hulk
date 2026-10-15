@@ -349,6 +349,7 @@ mod tests {
             let mut saved = json!({
                 "topic": "/output/text",
                 "pretty": true,
+                "time_projection": {"Field": {"path": ".legacy_stamp", "encoding": "RosZTime"}},
             });
             if let Some(path) = field_path {
                 saved["field_path"] = path.into();
@@ -360,6 +361,12 @@ mod tests {
             });
             assert_eq!(panel.source.topic(), "/output/text");
             assert_eq!(panel.source.field_path(), field_path.unwrap_or_default());
+            assert_eq!(
+                panel.save(),
+                json!({
+                    "topic": "/output/text", "field_path": field_path.unwrap_or_default(), "pretty": true,
+                })
+            );
         }
     }
 }

@@ -8,12 +8,9 @@ use eframe::egui::{
     text_edit::TextEditState,
 };
 use hulk_widgets::CompletionEdit;
-use ros_z::{
-    dynamic::{
-        DynamicPayload, DynamicValue, EnumPayloadDef, SelectedType, SelectedValue,
-        SequenceLengthDef, TypeDef, TypeDefinition, ValuePath, ValuePathStep,
-    },
-    entity::EndpointKind,
+use ros_z::dynamic::{
+    DynamicPayload, DynamicValue, EnumPayloadDef, SelectedType, SelectedValue, SequenceLengthDef,
+    TypeDef, TypeDefinition, ValuePath, ValuePathStep,
 };
 
 use crate::{backend::RobotBackend, graph::TopicCompletionQuery};
@@ -63,10 +60,8 @@ impl TopicSourceEditor {
         ui.label("Topic");
         let namespace = backend.namespace();
         let topics = {
-            let graph = backend.graph().lock();
-            TopicCompletionQuery::new(&namespace, &self.editor)
-                .endpoint_kind(EndpointKind::Publisher)
-                .complete(graph.publishers())
+            let topics = backend.topics().snapshot();
+            TopicCompletionQuery::new(&namespace, &self.editor).complete_topics(&topics.topics)
         };
         let completions = source_completions(&topics, &self.topic, sample, &self.editor);
         let response = ui
