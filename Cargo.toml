@@ -90,6 +90,7 @@ members = [
   "tools/annotato",
   "tools/depp",
   "tools/hydra-bench",
+  "tools/mcap-replay",
   "tools/mujoco-simulator/mujoco-rust-server",
   "tools/pepsi",
   "tools/robot_viewer",
