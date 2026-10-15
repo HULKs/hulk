@@ -3,17 +3,20 @@
 //! This module uses the low-level primitives from `ros-z-cdr` for CDR
 //! serialization and deserialization of dynamic messages.
 
-use ros_z_cdr::{CdrReader, CdrWriter, LittleEndian};
+use ros_z_cdr::{CdrDeserializer, CdrReader, CdrWriter, Error as CdrError, LittleEndian};
+use serde::de::DeserializeOwned;
 use zenoh_buffers::ZBuf;
 
 use crate::dynamic::error::DynamicError;
 use crate::dynamic::message::DynamicStruct;
 use crate::dynamic::schema::Schema;
 use crate::dynamic::value::{DynamicNamedValue, DynamicValue, EnumPayloadValue, EnumValue};
+use crate::dynamic::{CdrSelectionError, SelectedType, SelectionError, ValuePath, ValuePathStep};
 
 use super::CDR_HEADER_LE;
 use ros_z_schema::{
-    EnumPayloadDef, FieldDef, PrimitiveTypeDef, SequenceLengthDef, TypeDef, TypeDefinition,
+    EnumDef, EnumPayloadDef, EnumVariantDef, FieldDef, PrimitiveTypeDef, SchemaError,
+    SequenceLengthDef, TypeDef, TypeDefinition, TypeName,
 };
 
 /// Serialize a dynamic message to CDR bytes.
@@ -233,6 +236,256 @@ fn deserialize_root_value(
     deserialize_shape_value(&schema.root, schema, reader)
 }
 
+/// Seek through the containing message, then decode the leaf at the same alignment origin.
+pub(crate) fn deserialize_cdr_selection<T: DeserializeOwned>(
+    data: &[u8],
+    schema: &Schema,
+    path: &ValuePath,
+    expected: &TypeDef,
+) -> Result<T, CdrSelectionError> {
+    let header = data.get(..4).ok_or(CdrError::UnexpectedEof)?;
+    let representation = [header[0], header[1]];
+    if representation != [0, 1] {
+        return Err(CdrSelectionError::Representation(representation));
+    }
+    let mut reader = CdrReader::<LittleEndian>::new(&data[4..]);
+    let selected = seek_selection(schema, path.steps(), &mut reader)?;
+    if !matches!(expected, TypeDef::Optional(_)) {
+        unwrap_cdr_optional(selected, &mut reader)?;
+    }
+    Ok(T::deserialize(&mut CdrDeserializer::from_reader(reader))?)
+}
+
+fn unwrap_cdr_optional<'a>(
+    mut selected: SelectedType<'a>,
+    reader: &mut CdrReader<LittleEndian>,
+) -> Result<SelectedType<'a>, CdrSelectionError> {
+    while let SelectedType::Value(TypeDef::Optional(inner)) = selected {
+        match reader.read_u32()? {
+            1 => selected = SelectedType::Value(inner),
+            0 => return Err(SelectionError::AbsentOptional.into()),
+            tag => return Err(CdrError::InvalidOptionTag(tag).into()),
+        }
+    }
+    Ok(selected)
+}
+
+fn seek_selection<'a>(
+    schema: &'a Schema,
+    steps: &[ValuePathStep],
+    reader: &mut CdrReader<LittleEndian>,
+) -> Result<SelectedType<'a>, CdrSelectionError> {
+    let mut selected = SelectedType::Value(&schema.root);
+    for step in steps {
+        selected = unwrap_cdr_optional(selected, reader)?;
+        selected = match step {
+            ValuePathStep::Field(name) => {
+                SelectedType::Value(seek_field(selected, name, schema, reader)?)
+            }
+            ValuePathStep::Index(index) => {
+                SelectedType::Value(seek_index(selected, *index, schema, reader)?)
+            }
+            ValuePathStep::Variant(name) => seek_variant(selected, name, schema, reader)?,
+        };
+    }
+    Ok(selected)
+}
+
+fn seek_field<'a>(
+    selected: SelectedType<'a>,
+    name: &str,
+    schema: &'a Schema,
+    reader: &mut CdrReader<LittleEndian>,
+) -> Result<&'a TypeDef, CdrSelectionError> {
+    let fields = match selected {
+        SelectedType::Value(TypeDef::Named(type_name)) => match definition(schema, type_name)? {
+            TypeDefinition::Struct(definition) => &definition.fields,
+            _ => return Err(SelectionError::CannotTraverse(name.to_owned()).into()),
+        },
+        SelectedType::EnumPayload(EnumPayloadDef::Struct(fields)) => fields,
+        _ => return Err(SelectionError::CannotTraverse(name.to_owned()).into()),
+    };
+    for field in fields {
+        if field.name == name {
+            return Ok(&field.shape);
+        }
+        skip_value(&field.shape, schema, reader)?;
+    }
+    Err(SelectionError::Field(name.to_owned()).into())
+}
+
+fn seek_index<'a>(
+    selected: SelectedType<'a>,
+    index: usize,
+    schema: &Schema,
+    reader: &mut CdrReader<LittleEndian>,
+) -> Result<&'a TypeDef, CdrSelectionError> {
+    match selected {
+        SelectedType::Value(TypeDef::Sequence { element, length }) => {
+            let len = sequence_length(length, reader)?;
+            if index >= len {
+                return Err(SelectionError::AbsentIndex { index, len }.into());
+            }
+            for _ in 0..index {
+                skip_value(element, schema, reader)?;
+            }
+            Ok(element)
+        }
+        SelectedType::EnumPayload(EnumPayloadDef::Tuple(fields)) => {
+            let shape = fields.get(index).ok_or(SelectionError::InvalidIndex {
+                index,
+                len: fields.len(),
+            })?;
+            for field in &fields[..index] {
+                skip_value(field, schema, reader)?;
+            }
+            Ok(shape)
+        }
+        _ => Err(SelectionError::CannotTraverse(format!("[{index}]")).into()),
+    }
+}
+
+fn seek_variant<'a>(
+    selected: SelectedType<'a>,
+    expected: &str,
+    schema: &'a Schema,
+    reader: &mut CdrReader<LittleEndian>,
+) -> Result<SelectedType<'a>, CdrSelectionError> {
+    let SelectedType::Value(TypeDef::Named(name)) = selected else {
+        return Err(SelectionError::Variant(expected.to_owned()).into());
+    };
+    let TypeDefinition::Enum(definition) = definition(schema, name)? else {
+        return Err(SelectionError::Variant(expected.to_owned()).into());
+    };
+    let variant = read_variant(definition, reader)?;
+    if variant.name != expected {
+        return Err(SelectionError::InactiveVariant {
+            expected: expected.to_owned(),
+            actual: variant.name.clone(),
+        }
+        .into());
+    }
+    Ok(match &variant.payload {
+        EnumPayloadDef::Newtype(shape) => SelectedType::Value(shape),
+        payload => SelectedType::EnumPayload(payload),
+    })
+}
+
+fn definition<'a>(
+    schema: &'a Schema,
+    name: &TypeName,
+) -> Result<&'a TypeDefinition, CdrSelectionError> {
+    schema
+        .definitions
+        .get(name)
+        .ok_or_else(|| SchemaError::MissingDefinition(name.clone()).into())
+}
+
+fn read_variant<'a>(
+    definition: &'a EnumDef,
+    reader: &mut CdrReader<LittleEndian>,
+) -> Result<&'a EnumVariantDef, CdrSelectionError> {
+    let index = reader.read_u32()?;
+    definition
+        .variants
+        .get(index as usize)
+        .ok_or(CdrSelectionError::InvalidEnumTag {
+            index,
+            len: definition.variants.len(),
+        })
+}
+
+fn sequence_length(
+    length: &SequenceLengthDef,
+    reader: &mut CdrReader<LittleEndian>,
+) -> Result<usize, CdrSelectionError> {
+    Ok(match length {
+        SequenceLengthDef::Dynamic => reader.read_sequence_length()?,
+        SequenceLengthDef::Fixed(len) => *len,
+    })
+}
+
+fn skip_value(
+    shape: &TypeDef,
+    schema: &Schema,
+    reader: &mut CdrReader<LittleEndian>,
+) -> Result<(), CdrSelectionError> {
+    match shape {
+        TypeDef::Primitive(primitive) => {
+            let width = match primitive {
+                PrimitiveTypeDef::Bool => {
+                    reader.read_bool()?;
+                    return Ok(());
+                }
+                PrimitiveTypeDef::I8 | PrimitiveTypeDef::U8 => 1,
+                PrimitiveTypeDef::I16 | PrimitiveTypeDef::U16 => 2,
+                PrimitiveTypeDef::I32 | PrimitiveTypeDef::U32 | PrimitiveTypeDef::F32 => 4,
+                PrimitiveTypeDef::I64 | PrimitiveTypeDef::U64 | PrimitiveTypeDef::F64 => 8,
+            };
+            reader.align(width)?;
+            reader.read_bytes(width)?;
+        }
+        TypeDef::String => {
+            reader.read_str()?;
+        }
+        TypeDef::Optional(inner) => match reader.read_u32()? {
+            0 => {}
+            1 => skip_value(inner, schema, reader)?,
+            tag => return Err(CdrError::InvalidOptionTag(tag).into()),
+        },
+        TypeDef::Sequence {
+            element,
+            length: SequenceLengthDef::Dynamic,
+        } if **element == TypeDef::Primitive(PrimitiveTypeDef::U8) => {
+            reader.read_byte_sequence()?;
+        }
+        TypeDef::Sequence { element, length } => {
+            for _ in 0..sequence_length(length, reader)? {
+                skip_value(element, schema, reader)?;
+            }
+        }
+        TypeDef::Named(name) => match definition(schema, name)? {
+            TypeDefinition::Struct(definition) => {
+                for field in &definition.fields {
+                    skip_value(&field.shape, schema, reader)?;
+                }
+            }
+            TypeDefinition::Enum(definition) => {
+                skip_payload(&read_variant(definition, reader)?.payload, schema, reader)?;
+            }
+        },
+        TypeDef::Map { key, value } => {
+            for _ in 0..reader.read_sequence_length()? {
+                skip_value(key, schema, reader)?;
+                skip_value(value, schema, reader)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn skip_payload(
+    payload: &EnumPayloadDef,
+    schema: &Schema,
+    reader: &mut CdrReader<LittleEndian>,
+) -> Result<(), CdrSelectionError> {
+    match payload {
+        EnumPayloadDef::Unit => {}
+        EnumPayloadDef::Newtype(shape) => skip_value(shape, schema, reader)?,
+        EnumPayloadDef::Tuple(shapes) => {
+            for shape in shapes {
+                skip_value(shape, schema, reader)?;
+            }
+        }
+        EnumPayloadDef::Struct(fields) => {
+            for field in fields {
+                skip_value(&field.shape, schema, reader)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 fn deserialize_shape_value(
     shape: &TypeDef,
     schema: &Schema,
@@ -283,8 +536,8 @@ fn deserialize_shape_value(
                 1 => Ok(DynamicValue::Optional(Some(Box::new(
                     deserialize_shape_value(element, schema, reader)?,
                 )))),
-                other => Err(DynamicError::DeserializationError(format!(
-                    "invalid option discriminant: {other}"
+                other => Err(DynamicError::deserialization(CdrError::InvalidOptionTag(
+                    other,
                 ))),
             }
         }
@@ -422,5 +675,110 @@ fn deserialize_runtime_enum_payload(
             })
             .collect::<Result<Vec<_>, DynamicError>>()
             .map(EnumPayloadValue::Struct),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::BTreeMap, sync::Arc};
+
+    use serde::{Deserialize, Serialize};
+
+    use super::*;
+    use crate::{Message, message::WireEncoder};
+
+    #[derive(Serialize, Deserialize, Message)]
+    enum Skipped {
+        Empty,
+        Bytes(Vec<u8>),
+        Tuple(i16, String),
+        Named { data: Vec<f32> },
+    }
+
+    #[derive(Serialize, Deserialize, Message)]
+    struct Prefix {
+        words: Vec<i32>,
+        flag: bool,
+        signed: i8,
+        shorts: [u16; 2],
+        floats: [f64; 2],
+        values: Vec<Option<Skipped>>,
+        map: BTreeMap<String, Option<[i64; 2]>>,
+    }
+
+    #[derive(Serialize, Deserialize, Message)]
+    struct Packet {
+        leading: u8,
+        prefix: Prefix,
+        value: u64,
+        trailing: Vec<u8>,
+    }
+
+    #[test]
+    fn skipping_compound_prefixes_preserves_decoder_alignment() {
+        let schema = Arc::new(Packet::schema());
+        let path: ValuePath = ".value".parse().unwrap();
+        for words in [vec![], vec![1, 2, 3]] {
+            let packet = Packet {
+                leading: 7,
+                prefix: Prefix {
+                    words,
+                    flag: true,
+                    signed: -1,
+                    shorts: [3, 4],
+                    floats: [1.0, f64::NAN],
+                    values: vec![
+                        None,
+                        Some(Skipped::Empty),
+                        Some(Skipped::Bytes(vec![0; 65536])),
+                        Some(Skipped::Tuple(-1, "prefix".into())),
+                        Some(Skipped::Named {
+                            data: vec![1.0, 2.0],
+                        }),
+                    ],
+                    map: BTreeMap::from([("a".into(), None), ("b".into(), Some([-1, 2]))]),
+                },
+                value: 0x1234_5678_1234_5678,
+                trailing: vec![],
+            };
+            let bytes = <Packet as Message>::Codec::serialize(&packet).unwrap();
+            assert_eq!(
+                path.select_cdr_as::<u64>(&bytes, &schema).unwrap(),
+                packet.value
+            );
+            let mut skipped = CdrReader::<LittleEndian>::new(&bytes[4..]);
+            skip_value(&schema.root, &schema, &mut skipped).unwrap();
+            let mut decoded = CdrReader::<LittleEndian>::new(&bytes[4..]);
+            deserialize_root_value(&schema, &mut decoded).unwrap();
+            assert_eq!(skipped.position(), decoded.position());
+            assert_eq!(skipped.remaining(), 0);
+        }
+    }
+
+    #[test]
+    fn skipping_keeps_wire_validation_and_typed_errors() {
+        let schema = Arc::new(bool::schema());
+        let mut reader = CdrReader::<LittleEndian>::new(&[2]);
+        assert!(matches!(
+            skip_value(&schema.root, &schema, &mut reader),
+            Err(CdrSelectionError::Cdr(CdrError::InvalidBool(2)))
+        ));
+        let schema = Arc::new(Option::<u8>::schema());
+        let mut reader = CdrReader::<LittleEndian>::new(&[2, 0, 0, 0]);
+        assert!(matches!(
+            skip_value(&schema.root, &schema, &mut reader),
+            Err(CdrSelectionError::Cdr(CdrError::InvalidOptionTag(2)))
+        ));
+        let schema = Arc::new(String::schema());
+        let mut reader = CdrReader::<LittleEndian>::new(&[2, 0, 0, 0, 255, 0]);
+        assert!(matches!(
+            skip_value(&schema.root, &schema, &mut reader),
+            Err(CdrSelectionError::Cdr(CdrError::Utf8(_)))
+        ));
+        let mut reader = CdrReader::<LittleEndian>::new(&[2, 0, 0, 0, b'a', 1]);
+        assert!(matches!(
+            skip_value(&schema.root, &schema, &mut reader),
+            Err(CdrSelectionError::Cdr(CdrError::InvalidStringTerminator))
+        ));
     }
 }

@@ -271,7 +271,7 @@ impl TupleVariantSchemaBuilder<'_> {
 
 pub fn schema_for<T>() -> Result<SchemaBundle, SchemaError>
 where
-    T: Message + MessageSchema + ?Sized,
+    T: MessageSchema + ?Sized,
 {
     let mut builder = SchemaBuilder::new();
     let root = <T as MessageSchema>::build_schema(&mut builder)?;

@@ -31,6 +31,11 @@ where
         }
     }
 
+    /// Continue from an existing reader without resetting its alignment origin.
+    pub fn from_reader(reader: CdrReader<'de, BO>) -> Self {
+        Self { reader }
+    }
+
     /// How many bytes of input stream have been consumed.
     #[inline]
     pub fn bytes_consumed(&self) -> usize {

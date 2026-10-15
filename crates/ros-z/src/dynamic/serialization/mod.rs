@@ -4,6 +4,7 @@
 //! messages using CDR.
 
 mod cdr;
+pub(crate) use cdr::deserialize_cdr_selection;
 
 pub use cdr::{
     deserialize_cdr, deserialize_cdr_value, serialize_cdr, serialize_cdr_to_zbuf,

@@ -1,10 +1,17 @@
 //! Read-only selection of dynamic values, independent of subscriptions and JSON.
 
-use std::{fmt, str::FromStr};
+use std::{any::type_name, fmt, str::FromStr};
+
+use ros_z_cdr::Error as CdrError;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use thiserror::Error;
+
+use crate::{MessageSchema, schema::schema_for};
 
 use super::{
     DynamicJsonRenderPolicy, DynamicPayload, DynamicValue, EnumPayloadDef, EnumPayloadValue,
-    SchemaBundle, SequenceLengthDef, TypeDef, TypeDefinition, dynamic_value_to_json,
+    FieldDef, Schema, SchemaBundle, SchemaError, SequenceLengthDef, TypeDef, TypeDefinition,
+    dynamic_value_to_json, serialization::deserialize_cdr_selection,
 };
 
 /// A parsed selection. Empty selects the root. Every step starts with its
@@ -14,7 +21,8 @@ use super::{
 /// Names containing punctuation may be JSON-quoted, e.g. `."field.with.dots"`.
 /// Optionals are unwrapped only when continuing through them. Newtype enum
 /// payloads are unwrapped when selecting the variant.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
 pub struct ValuePath(Vec<ValuePathStep>);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -26,7 +34,7 @@ pub enum ValuePathStep {
 
 /// Invalid selections and temporarily unavailable values are distinct so that
 /// consumers can show errors or gaps without substituting a value.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum SelectionError {
     #[error("invalid field path at byte {0}")]
     Syntax(usize),
@@ -57,6 +65,26 @@ impl SelectionError {
     }
 }
 
+/// Failures in schema-checked, typed CDR selection.
+#[derive(Debug, Error)]
+pub enum CdrSelectionError {
+    #[error(transparent)]
+    Selection(#[from] SelectionError),
+    #[error(transparent)]
+    Schema(#[from] SchemaError),
+    #[error("selection {path} does not match {expected}")]
+    TypeMismatch {
+        path: ValuePath,
+        expected: &'static str,
+    },
+    #[error("unsupported CDR representation {0:?}; expected little-endian CDR")]
+    Representation([u8; 2]),
+    #[error(transparent)]
+    Cdr(#[from] CdrError),
+    #[error("enum tag {index} is outside the {len} declared variants")]
+    InvalidEnumTag { index: u32, len: usize },
+}
+
 /// A borrowed subtree, enum payload, or scalar from an optimized byte array.
 #[derive(Debug, Clone, Copy)]
 pub enum SelectedValue<'a> {
@@ -83,6 +111,51 @@ pub enum SelectedType<'a> {
 }
 
 impl ValuePath {
+    /// Validate the selected type and all its named definitions against `T`.
+    /// A selected optional may be unwrapped when `T` itself is not optional.
+    pub fn validate_cdr_as<T: MessageSchema>(
+        &self,
+        schema: &Schema,
+    ) -> Result<(), CdrSelectionError> {
+        self.cdr_schema::<T>(schema).map(|_| ())
+    }
+
+    /// Decode only the selected value using Serde CDR at its original alignment.
+    /// Fields, indices and enum variants retain the semantics of [`Self::select`].
+    /// Missing optionals are errors unless the requested type is itself optional.
+    pub fn select_cdr_as<T: MessageSchema + DeserializeOwned>(
+        &self,
+        bytes: &[u8],
+        schema: &Schema,
+    ) -> Result<T, CdrSelectionError> {
+        let expected = self.cdr_schema::<T>(schema)?;
+        deserialize_cdr_selection(bytes, schema, self, &expected.root)
+    }
+
+    fn cdr_schema<T: MessageSchema>(
+        &self,
+        schema: &Schema,
+    ) -> Result<SchemaBundle, CdrSelectionError> {
+        let expected = schema_for::<T>()?;
+        let mut selected = self.resolve_type(schema)?;
+        if !matches!(expected.root, TypeDef::Optional(_)) {
+            while let SelectedType::Value(TypeDef::Optional(inner)) = selected {
+                selected = SelectedType::Value(inner);
+            }
+        }
+        if selected != SelectedType::Value(&expected.root)
+            || expected
+                .definitions
+                .iter()
+                .any(|(name, definition)| schema.definitions.get(name) != Some(definition))
+        {
+            return Err(CdrSelectionError::TypeMismatch {
+                path: self.clone(),
+                expected: type_name::<T>(),
+            });
+        }
+        Ok(expected)
+    }
     pub fn steps(&self) -> &[ValuePathStep] {
         &self.0
     }
@@ -120,10 +193,7 @@ impl ValuePath {
     }
 }
 
-fn field_type<'a>(
-    fields: &'a [super::FieldDef],
-    name: &str,
-) -> Result<SelectedType<'a>, SelectionError> {
+fn field_type<'a>(fields: &'a [FieldDef], name: &str) -> Result<SelectedType<'a>, SelectionError> {
     fields
         .iter()
         .find(|field| field.name == name)
@@ -265,6 +335,20 @@ impl FromStr for ValuePath {
     }
 }
 
+impl TryFrom<String> for ValuePath {
+    type Error = SelectionError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<ValuePath> for String {
+    fn from(value: ValuePath) -> Self {
+        value.to_string()
+    }
+}
+
 fn parse_step(input: &str) -> Option<(ValuePathStep, &str)> {
     if let Some(after) = input.strip_prefix('.') {
         let (name, after) = parse_name(after)?;
@@ -339,7 +423,55 @@ impl fmt::Display for ValuePath {
 
 #[cfg(test)]
 mod tests {
-    use super::{SelectionError, ValuePath, ValuePathStep};
+    use std::sync::Arc;
+
+    use ros_z_cdr::Error as CdrError;
+    use serde::{Deserialize, Serialize};
+
+    use super::{CdrSelectionError, SelectionError, ValuePath, ValuePathStep};
+    use crate::{
+        Message,
+        dynamic::{DynamicCdrCodec, PrimitiveTypeDef, Schema, TypeDef, TypeDefinition},
+        message::WireEncoder,
+    };
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize, Message)]
+    struct Nested {
+        small: u8,
+        value: u64,
+    }
+
+    #[derive(Serialize, Deserialize, Message)]
+    struct Container {
+        prefix: u32,
+        nested: Nested,
+        trailing: Vec<u8>,
+    }
+
+    #[derive(Serialize, Deserialize, Message)]
+    struct BytePrefix {
+        data: Vec<u8>,
+        value: u64,
+    }
+
+    #[derive(Serialize, Deserialize, Message)]
+    enum Choice {
+        Newtype(Nested),
+        Tuple(u8, Nested),
+        Named { first: u32, value: Nested },
+        Other,
+    }
+
+    fn encode<T: Message>(value: &T) -> (Schema, Vec<u8>) {
+        (Arc::new(T::schema()), T::Codec::serialize(value).unwrap())
+    }
+
+    fn nested() -> Nested {
+        Nested {
+            small: 7,
+            value: 0x1234_5678_1234_5678,
+        }
+    }
 
     fn field(name: &str) -> ValuePathStep {
         ValuePathStep::Field(name.to_owned())
@@ -445,5 +577,148 @@ mod tests {
         ] {
             assert_eq!(parse(input), Err(SelectionError::Syntax(offset)), "{input}");
         }
+    }
+
+    #[test]
+    fn typed_cdr_selection_preserves_alignment_and_ignores_trailing_data() {
+        let (schema, bytes) = encode(&Container {
+            prefix: 1,
+            nested: nested(),
+            trailing: vec![0; 1024],
+        });
+        let path: ValuePath = ".nested".parse().unwrap();
+        path.validate_cdr_as::<Nested>(&schema).unwrap();
+        assert_eq!(
+            path.select_cdr_as::<Nested>(&bytes[..20], &schema).unwrap(),
+            nested()
+        );
+        assert_eq!(
+            ".nested.value"
+                .parse::<ValuePath>()
+                .unwrap()
+                .select_cdr_as::<u64>(&bytes, &schema)
+                .unwrap(),
+            nested().value
+        );
+        assert!(DynamicCdrCodec::decode(&bytes[..20], &schema).is_err());
+        let (schema, bytes) = encode(&BytePrefix {
+            data: vec![0; 1024],
+            value: nested().value,
+        });
+        assert_eq!(
+            ".value"
+                .parse::<ValuePath>()
+                .unwrap()
+                .select_cdr_as::<u64>(&bytes, &schema)
+                .unwrap(),
+            nested().value
+        );
+    }
+
+    #[test]
+    fn typed_cdr_selection_traverses_enum_payloads_and_reports_unavailable_values() {
+        for (value, path) in [
+            (Choice::Newtype(nested()), "::Newtype"),
+            (Choice::Tuple(1, nested()), "::Tuple[1]"),
+            (
+                Choice::Named {
+                    first: 1,
+                    value: nested(),
+                },
+                "::Named.value",
+            ),
+        ] {
+            let (schema, bytes) = encode(&value);
+            assert_eq!(
+                path.parse::<ValuePath>()
+                    .unwrap()
+                    .select_cdr_as::<Nested>(&bytes, &schema)
+                    .unwrap(),
+                nested()
+            );
+        }
+        let (schema, mut bytes) = encode(&Choice::Other);
+        let path: ValuePath = "::Newtype".parse().unwrap();
+        assert!(matches!(
+            path.select_cdr_as::<Nested>(&bytes, &schema),
+            Err(CdrSelectionError::Selection(
+                SelectionError::InactiveVariant { .. }
+            ))
+        ));
+        bytes[4..8].copy_from_slice(&99u32.to_le_bytes());
+        assert!(matches!(
+            path.select_cdr_as::<Nested>(&bytes, &schema),
+            Err(CdrSelectionError::InvalidEnumTag { index: 99, .. })
+        ));
+        let (schema, bytes) = encode(&vec![1u64]);
+        assert!(matches!(
+            "[1]"
+                .parse::<ValuePath>()
+                .unwrap()
+                .select_cdr_as::<u64>(&bytes, &schema),
+            Err(CdrSelectionError::Selection(SelectionError::AbsentIndex {
+                index: 1,
+                len: 1
+            }))
+        ));
+    }
+
+    #[test]
+    fn typed_cdr_selection_preserves_optional_and_decode_errors() {
+        let (schema, mut bytes) = encode(&None::<Nested>);
+        let path = ValuePath::default();
+        assert_eq!(
+            path.select_cdr_as::<Option<Nested>>(&bytes, &schema)
+                .unwrap(),
+            None
+        );
+        assert!(matches!(
+            path.select_cdr_as::<Nested>(&bytes, &schema),
+            Err(CdrSelectionError::Selection(SelectionError::AbsentOptional))
+        ));
+        bytes[4..8].copy_from_slice(&2u32.to_le_bytes());
+        assert!(matches!(
+            path.select_cdr_as::<Nested>(&bytes, &schema),
+            Err(CdrSelectionError::Cdr(CdrError::InvalidOptionTag(2)))
+        ));
+        let (schema, bytes) = encode(&Some(nested()));
+        assert_eq!(
+            path.select_cdr_as::<Nested>(&bytes, &schema).unwrap(),
+            nested()
+        );
+        assert!(matches!(
+            path.select_cdr_as::<Nested>(&bytes[..5], &schema),
+            Err(CdrSelectionError::Cdr(CdrError::UnexpectedEof))
+        ));
+        assert!(matches!(
+            path.select_cdr_as::<Nested>(&[0, 0, 0, 0], &schema),
+            Err(CdrSelectionError::Representation([0, 0]))
+        ));
+    }
+
+    #[test]
+    fn typed_cdr_selection_validates_definitions_not_just_the_type_name() {
+        let mut schema = Nested::schema();
+        let TypeDef::Named(name) = &schema.root else {
+            panic!("named type")
+        };
+        let mut definition = schema.definitions.get(name).unwrap().clone();
+        let TypeDefinition::Struct(fields) = &mut definition else {
+            panic!("struct")
+        };
+        fields.fields[1].shape = TypeDef::Primitive(PrimitiveTypeDef::U32);
+        schema.definitions = [(name.clone(), definition)].into();
+        let schema = Arc::new(schema);
+        assert!(matches!(
+            ValuePath::default().validate_cdr_as::<Nested>(&schema),
+            Err(CdrSelectionError::TypeMismatch { .. })
+        ));
+        assert!(matches!(
+            ".typo"
+                .parse::<ValuePath>()
+                .unwrap()
+                .select_cdr_as::<u64>(&[], &schema),
+            Err(CdrSelectionError::Selection(SelectionError::Field(_)))
+        ));
     }
 }
