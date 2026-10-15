@@ -1,9 +1,10 @@
 # MCAP queries for Twix
 
-Serve indexed ROS-Z recordings to query clients:
+Serve indexed ROS-Z recordings directly to Twix:
 
 ```sh
 cargo run -p mcap-replay -- recovered.mcap
+./twix /replay --router tcp/127.0.0.1:7447
 ```
 
 The server starts an embedded Zenoh router, prints its reachable addresses, and
@@ -11,7 +12,23 @@ prints a Twix command. `--listen tcp/127.0.0.1:0` chooses an available port.
 Alternatively, `--router tcp/127.0.0.1:7447` connects to an existing router.
 These options are mutually exclusive. `--namespace` defaults to `/replay`.
 
-The `RemoteMcap` API can query this service; Twix recording playback is added separately.
+## Timeline
+
+Open **+ → Timeline**. The existing timeline presentation and interactions remain:
+
+- Click/drag the ruler or grid to scrub.
+- Wheel/pinch zooms around the pointer; middle-drag or Shift + wheel pans.
+- **Frame all** or a double middle-click fits the recording.
+- Play/pause, start/end, and step buttons are in the header.
+- **⋯** contains exact-time jumps, saved step size, and timestamp copying. It stays open during numeric editing; copied timestamps are elapsed seconds, directly pastable into **Jump to**.
+- With focus: **Space** plays/pauses, **Left/Right** step, **Shift + Left/Right**
+  take a tenth-sized step, **`,` / `.`** step backward/forward by 2 ms, **Home/End** jump to bounds, and **F** frames all. Editing a jump time pauses playback; popup editors keep their own keyboard input.
+
+Playback is client-local. Timeline panels in one Twix session share a cursor;
+different clients are independent. Playback advances the cursor in a background
+task, including when the timeline is hidden. Seeking pauses playback and
+invalidates obsolete results. Continuous playback coalesces work without starving
+queries that take longer than a display frame.
 
 Results include a half-open cursor validity range. While the cursor stays inside
 it, the remote backend reuses the last result, including for backward seeks;
@@ -22,7 +39,7 @@ A shared catalog check detects replaced recordings even while playback is paused
 
 ## Queries and timestamps
 
-Clients discover the recording through `ros_z_debug::query::RemoteMcap`. No recorded
+Twix discovers the recording through `ros_z_debug::query::RemoteMcap`. No recorded
 topics are republished. The backend lists recorded topics and schemas and returns
 raw CDR records or computed timestamps in response to one query plan:
 
