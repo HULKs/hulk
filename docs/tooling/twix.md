@@ -74,6 +74,7 @@ Choose a panel from the **+** picker.
 | Parameter | Discover nodes with remote parameter services, display snapshots or selected paths as JSON, and write selected paths to active layers with revision checks. |
 | Audio | Display microphone spectra and a waterfall for the selected channel, defaulting to `audio_spectrums`. |
 | [Plot](#plot-panel) | Compare numeric topics or fields over time. |
+| [Timeline](#mcap-timeline) | Seek and play back an MCAP recording. |
 
 ## Topic and field selection
 
@@ -125,6 +126,34 @@ The X axis shows the seconds before the newest sample, and **History** sets the 
 **Pause**, or **Space** after clicking the plot, freezes it so you can zoom and pan with the mouse or touchpad.
 **Reset view** or a double-click restores the full time window.
 
+## MCAP Timeline
+
+Start a recording with `cargo run -p mcap-replay -- recovered.mcap`. The tool starts
+an embedded Zenoh router and prints its router URI and a Twix connection command.
+Use `--router <URI>` to connect the replay tool to an existing router instead, or
+`--listen tcp/127.0.0.1:0` to allocate an available embedded-router port.
+
+In Twix, open **+ → Timeline**. Dock it alongside other views or save it in a
+layout. Its Blender-style view uses the full panel, with an adaptive time ruler,
+shaded recording range, recording strip, and a blue playhead extending through
+the grid. The panel header holds play/pause, start/end, and step buttons.
+Hover buttons for their labels; **⋯** holds exact-time jumps, step size, and
+**Copy timestamp**, which copies elapsed seconds as a decimal directly usable in **Jump to**. The popup stays open while editing; editing the jump time pauses playback. The step size is saved with the panel. Scrubbing follows input
+immediately and updates a client-local playback cursor. Seeking pauses playback and
+invalidates obsolete query results, including on backward seeks. Multiple Timeline
+panels share one cursor; hiding or closing a Timeline does not stop playback.
+Different Twix clients have independent playback. Connection failures offer a retry action.
+
+Click or drag anywhere in the grid to scrub. Wheel/pinch zooms around the pointer;
+middle-drag or Shift + wheel pans without seeking. **Frame all** or a double
+middle-click restores the full recording. By default, with the timeline focused, **Space**
+toggles playback (including after using the toolbar), **Left/Right** step (hold Shift for finer steps), **`,` / `.`** step backward/forward by exactly 2 ms, **Home/End**
+jump to the bounds, and **F** frames all. Time labels are elapsed recording time,
+not frame numbers. Each Timeline panel keeps an independent zoom/pan view.
+These shortcuts are [rebindable](#keybindings); toolbar tooltips show the configured keys.
+
+See [MCAP replay](https://github.com/HULKs/hulk/blob/main/tools/mcap-replay/README.md) for server setup and command-line options.
+
 ## Image Overlays
 
 The Image panel defaults to `inputs/left_image`.
@@ -134,15 +163,16 @@ Live discovery updates reselect the source; unrelated topics do not recreate its
 The stereo fallback projects `.left.header.stamp` instead of `.header.stamp`.
 In Live mode, enabled object and pose detections contribute their latest available acquisition timestamps. The minimum available timestamp selects an exact image from retained history; if that image is absent, the panel selects the latest image. There is no fixed delay. A stalled detector can keep an older image selected while that image remains retained.
 The panel observes one query plan: select the exact preferred image or latest image, then attach independent overlay inputs. Live evaluates these operations against the same retained source views; there are no asynchronous per-frame lookups chasing the selected image. Only the selected image is decoded, and its texture is reused across unchanged results.
+Replay selects the newest image at or before the timeline cursor, independently of overlay availability. The same plan attaches inputs against that image's acquisition time, including results published or logged later than the cursor. Partial responses can display the image while optional overlay indexes are still building.
 Each overlay prepares and draws independently. Empty detections are valid data; missing, invalid, or failed inputs suppress only the affected overlay. Late results can populate a still-displayed frame, but cannot paint on another frame.
 Image-topic, namespace, backend, or overlay-selection changes rebuild the plan observation. Compatible Live feeds remain shared, and overlay-only changes retain the image render cache.
 The Horizon overlay interpolates compatible camera matrices over brackets spanning at most 100 ms.
 
-Live ingestion is independent of the UI frame rate. Shared histories are bounded by sample count and bytes; observations report when retention limits their coverage. Image and overlay timestamp projections are developer-owned query declarations; legacy saved projection overrides are ignored. The Text panel always uses source time, as do other observations unless explicitly configured by code.
+Live ingestion is independent of the UI frame rate. Shared histories are bounded by sample count and bytes; observations report when retention limits their coverage. Replay uses server-side indexes instead of accumulating panel histories. Image and overlay timestamp projections are developer-owned query declarations; legacy saved projection overrides are ignored. The Text panel always uses source time, as do other observations unless explicitly configured by code.
 
 ### Adding an image overlay
 
-Implement `ImageOverlay` in `tools/twix/src/panels/image/overlays/` and register an instance in `ImageOverlays::new`. `inputs()` declares relative topics, projections, query selections, subscription policy, and optional frame preferences. The image panel compiles these declarations into a single query plan. `prepare(time, &mut inputs)` clears old prepared state, decodes its already-matched slots through `OverlayInputs::decode` in `image/inputs.rs`, and computes drawing data. Decoding retains diagnostics even when optional-input failures use fallback geometry; errors appear in the overlay menu. `paint()` draws that state when available. The registry owns enablement, persistence, input ranges, and preparation caching; concrete overlays do not access the backend. Shared camera/interpolation helpers live in `overlays/camera.rs`. The texture cache retains sample identity and pixels, not successful or failed wire payloads. Clearing the image topic releases the plan observation.
+Implement `ImageOverlay` in `tools/twix/src/panels/image/overlays/` and register an instance in `ImageOverlays::new`. `inputs()` declares relative topics, projections, query selections, subscription policy, and optional frame preferences. The image panel compiles these declarations into a single query plan. `prepare(time, &mut inputs)` clears old prepared state, decodes its already-matched slots through `OverlayInputs::decode` in `image/inputs.rs`, and computes drawing data. Decoding retains diagnostics even when optional-input failures use fallback geometry; errors appear in the overlay menu. `paint()` draws that state when available. The registry owns enablement, persistence, input ranges, and preparation caching; concrete overlays do not access the backend. Shared camera/interpolation helpers live in `overlays/camera.rs`. The texture cache retains sample identity and pixels, not successful or failed wire payloads. Clearing the image topic releases the plan observation. Both Live and replay use the same overlay declarations and preparation code.
 
 Use the object-detection overlay for bounding boxes, class labels, and confidence values, and pose detection for human skeletons.
 Overlays are supported for the selected namespace's `inputs/left_image`, their producer's camera.
@@ -169,6 +199,29 @@ The default ROS-Z keybindings are:
 | `C-S-Backspace` | `close_all` |
 
 Supported action names are `open_split`, `open_tab`, `focus_namespace`, `focus_panel`, `focus_topic`, `focus_left`, `focus_below`, `focus_above`, `focus_right`, `close_tab`, `duplicate_tab`, `close_all`, and `no_op`.
+
+The following timeline actions are also supported. They apply only when the timeline or its toolbar has focus, not while editing a popup or another panel.
+
+| Default key | Action |
+| --- | --- |
+| `Space` | `timeline_toggle_playback` |
+| `ArrowLeft` | `timeline_step_backward` |
+| `ArrowRight` | `timeline_step_forward` |
+| `S-ArrowLeft` | `timeline_fine_step_backward` |
+| `S-ArrowRight` | `timeline_fine_step_forward` |
+| `Comma` | `timeline_nudge_backward` (2 ms) |
+| `Period` | `timeline_nudge_forward` (2 ms) |
+| `Home` | `timeline_start` |
+| `End` | `timeline_end` |
+| `f` | `timeline_frame_all` |
+
+User bindings merge with the defaults by key. To move playback from Space to P, disable the old binding:
+
+```toml
+[keys]
+Space = "no_op"
+p = "timeline_toggle_playback"
+```
 
 Directional focus selects the nearest visible panel and outlines it.
 Press `Tab` after moving focus to enter that panel's controls; subsequent `Tab` and `Shift-Tab` presses follow the normal control order.
