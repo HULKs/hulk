@@ -24,6 +24,7 @@ use twix_visualization::{
     twix_painter::{Orientation, TwixPainter},
     zoom_and_pan::ZoomAndPanTransform,
 };
+use types::stereo_image_pair::StereoImagePair;
 use uuid::Uuid;
 
 mod image_overlay;
@@ -32,6 +33,7 @@ mod overlays;
 use inputs::SampleIdentity;
 
 pub const DEFAULT_IMAGE_TOPIC: &str = "inputs/left_image";
+const STEREO_IMAGE_TOPIC: &str = "inputs/stereo_image_pair";
 
 pub struct ImagePanel {
     topic_editor: String,
@@ -85,10 +87,17 @@ impl ImagePanel {
             let topic = TopicReference::new(&self.topic)?.resolve(&identity)?;
             let supported =
                 topic == TopicReference::new(DEFAULT_IMAGE_TOPIC)?.resolve(&identity)?;
-            let images = Source::from(TopicSource::new(
+            let mut sources = vec![TopicSource::new(
                 topic,
                 TimeProjection::field(".header.stamp", TimeEncoding::RosTime)?,
-            ));
+            )];
+            if supported {
+                sources.push(TopicSource::new(
+                    TopicReference::new(STEREO_IMAGE_TOPIC)?.resolve(&identity)?,
+                    TimeProjection::field(".left.header.stamp", TimeEncoding::RosTime)?,
+                ));
+            }
+            let images = Source::first_present(sources);
             let (inputs, preferences) =
                 self.overlays.declarations(&binding.namespace, supported)?;
             let primary = if binding.follow && !preferences.is_empty() {
@@ -269,6 +278,8 @@ impl Panel for ImagePanel {
 fn decode_color_image(sample: &Sample) -> Result<ColorImage, Report> {
     let image = if sample.topic.type_info == RosImage::type_info() {
         <RosImage as Message>::Codec::deserialize(&sample.record.data)?
+    } else if sample.topic.type_info == StereoImagePair::type_info() {
+        <StereoImagePair as Message>::Codec::deserialize(&sample.record.data)?.left
     } else {
         return Err(eyre!(
             "unsupported image source type {}",
@@ -439,7 +450,7 @@ mod tests {
         );
         let node = backend.node();
         let images = node
-            .publisher::<RosImage>(&format!("{namespace}/{DEFAULT_IMAGE_TOPIC}"))
+            .publisher::<StereoImagePair>(&format!("{namespace}/{STEREO_IMAGE_TOPIC}"))
             .build()
             .await
             .unwrap();
@@ -470,7 +481,14 @@ mod tests {
             let mut time = 1u64;
             loop {
                 if !pause.load(Ordering::Relaxed) {
-                    images.publish(&image(time, [255, 0, 0])).await.unwrap();
+                    images
+                        .publish(&StereoImagePair {
+                            frame_identifier: time as u32,
+                            left: image(time, [255, 0, 0]),
+                            right: image(time + 1, [0, 255, 0]),
+                        })
+                        .await
+                        .unwrap();
                     if time > 3 {
                         objects
                             .publish(&TimeWrapper {
@@ -500,7 +518,7 @@ mod tests {
                         && let Some(detection) = records.first()
                     {
                         assert_eq!(detection.record.time, frame.primary.record.time);
-                        assert_eq!(frame.primary.topic.type_info, RosImage::type_info());
+                        assert_eq!(frame.primary.topic.type_info, StereoImagePair::type_info());
                         assert_eq!(
                             decode_color_image(&frame.primary).unwrap().pixels,
                             [eframe::egui::Color32::RED]

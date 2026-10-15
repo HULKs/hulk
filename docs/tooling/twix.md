@@ -125,13 +125,27 @@ The X axis shows the seconds before the newest sample, and **History** sets the 
 **Pause**, or **Space** after clicking the plot, freezes it so you can zoom and pan with the mouse or touchpad.
 **Reset view** or a double-click restores the full time window.
 
-## Timestamp-aligned image overlays
+## Image Overlays
 
-The Image panel selects images and optional overlays through one Live query plan.
-Enabled object and pose detections contribute their latest acquisition timestamps; their minimum selects an exact retained image, falling back to the latest image if absent.
-Missing overlay inputs never gate the image, and only selected images are decoded.
+The Image panel defaults to `inputs/left_image`.
+If that topic is absent, it automatically observes `inputs/stereo_image_pair` and extracts its left image.
+The primary topic wins whenever it is present, regardless of whether data has arrived yet.
+Live discovery updates reselect the source; unrelated topics do not recreate its observation.
+The stereo fallback projects `.left.header.stamp` instead of `.header.stamp`.
+In Live mode, enabled object and pose detections contribute their latest available acquisition timestamps. The minimum available timestamp selects an exact image from retained history; if that image is absent, the panel selects the latest image. There is no fixed delay. A stalled detector can keep an older image selected while that image remains retained.
+The panel observes one query plan: select the exact preferred image or latest image, then attach independent overlay inputs. Live evaluates these operations against the same retained source views; there are no asynchronous per-frame lookups chasing the selected image. Only the selected image is decoded, and its texture is reused across unchanged results.
+Each overlay prepares and draws independently. Empty detections are valid data; missing, invalid, or failed inputs suppress only the affected overlay. Late results can populate a still-displayed frame, but cannot paint on another frame.
+Image-topic, namespace, backend, or overlay-selection changes rebuild the plan observation. Compatible Live feeds remain shared, and overlay-only changes retain the image render cache.
 The Horizon overlay interpolates compatible camera matrices over brackets spanning at most 100 ms.
-The Text panel always uses source time.
+
+Live ingestion is independent of the UI frame rate. Shared histories are bounded by sample count and bytes; observations report when retention limits their coverage. Image and overlay timestamp projections are developer-owned query declarations; legacy saved projection overrides are ignored. The Text panel always uses source time, as do other observations unless explicitly configured by code.
+
+### Adding an image overlay
+
+Implement `ImageOverlay` in `tools/twix/src/panels/image/overlays/` and register an instance in `ImageOverlays::new`. `inputs()` declares relative topics, projections, query selections, subscription policy, and optional frame preferences. The image panel compiles these declarations into a single query plan. `prepare(time, &mut inputs)` clears old prepared state, decodes its already-matched slots through `OverlayInputs::decode` in `image/inputs.rs`, and computes drawing data. Decoding retains diagnostics even when optional-input failures use fallback geometry; errors appear in the overlay menu. `paint()` draws that state when available. The registry owns enablement, persistence, input ranges, and preparation caching; concrete overlays do not access the backend. Shared camera/interpolation helpers live in `overlays/camera.rs`. The texture cache retains sample identity and pixels, not successful or failed wire payloads. Clearing the image topic releases the plan observation.
+
+Use the object-detection overlay for bounding boxes, class labels, and confidence values, and pose detection for human skeletons.
+Overlays are supported for the selected namespace's `inputs/left_image`, their producer's camera.
 
 ## Keybindings
 
