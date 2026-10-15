@@ -93,12 +93,6 @@ impl From<Rgb> for YCbCr444 {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ros_z::Message)]
-pub enum Intensity {
-    Low,
-    High,
-}
-
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, ros_z::Message)]
 pub struct Rgb {
     pub red: u8,

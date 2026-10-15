@@ -5482,7 +5482,6 @@ dependencies = [
  "rule_obstacle_composer",
  "safe_pose_checker",
  "search_suggestor",
- "segment_filter",
  "stereo_visual_odometry",
  "support_foot_estimator",
  "team_ball_filter",
@@ -10020,16 +10019,6 @@ checksum = "6ce2691df843ecc5d231c0b14ece2acc3efb62c0a398c7e1d875f3983ce020e3"
 dependencies = [
  "core-foundation-sys",
  "libc",
-]
-
-[[package]]
-name = "segment_filter"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "linear_algebra",
- "ros-z",
- "types",
 ]
 
 [[package]]
