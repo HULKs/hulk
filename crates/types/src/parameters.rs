@@ -6,9 +6,9 @@ use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
-use linear_algebra::{Framed, Point2, Vector2, Vector3};
+use linear_algebra::{Point2, Vector2, Vector3};
 
-use crate::{field_color::FieldColorParameters, motion_command::MotionCommand, players::Players};
+use crate::{motion_command::MotionCommand, players::Players};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct WhistleDetectionParameters {
@@ -196,21 +196,6 @@ pub struct HslNetworkParameters {
     pub remaining_amount_of_messages_to_stop_sending: u16,
     pub silence_interval_between_messages: Duration,
     pub hsl_striker_message_receive_timeout: Duration,
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub enum MedianModeParameters {
-    #[default]
-    Disabled,
-    ThreePixels,
-    FivePixels,
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub enum EdgeDetectionSourceParameters {
-    #[default]
-    Luminance,
-    GreenChromaticity,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
@@ -406,18 +391,6 @@ pub struct SubstatesParameters {
     pub blocking_distance_offset: f32,
     pub corner_kick_blocking_angle: f32,
     pub penalty_kick_target_y_scale: f32,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
-pub struct ImageSegmenterParameters {
-    pub horizontal_edge_threshold: u8,
-    pub horizontal_median_mode: MedianModeParameters,
-    pub horizontal_stride: usize,
-    pub vertical_edge_threshold: u8,
-    pub vertical_median_mode: MedianModeParameters,
-    pub vertical_stride: usize,
-    pub vertical_stride_in_ground: Framed<Ground, f32>,
-    pub field_color_detection: FieldColorParameters,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]

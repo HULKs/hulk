@@ -238,26 +238,6 @@ impl YCbCr422Image {
         }
     }
 
-    pub fn load_from_444_png(path: impl AsRef<Path>) -> eyre::Result<Self> {
-        let png = ImageReader::open(path)?.decode()?.into_rgb8();
-
-        let width = png.width();
-        let height = png.height();
-        let rgb_pixels = png.into_vec();
-
-        let pixels = rgb_pixels
-            .chunks(6)
-            .map(|x| YCbCr422 {
-                y1: x[0],
-                cb: ((x[1] as u16 + x[4] as u16) / 2) as u8,
-                y2: x[3],
-                cr: ((x[2] as u16 + x[5] as u16) / 2) as u8,
-            })
-            .collect();
-
-        Ok(Self::from_ycbcr_buffer(width / 2, height, pixels))
-    }
-
     pub fn save_to_ycbcr_444_file(&self, file: impl AsRef<Path>) -> eyre::Result<()> {
         let mut image = RgbImage::new(2 * self.width_422, self.height);
         for y in 0..self.height {

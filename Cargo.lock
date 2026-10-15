@@ -5808,20 +5808,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "image_segmenter"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "coordinate_systems",
- "itertools 0.14.0",
- "linear_algebra",
- "projection",
- "ros-z",
- "serde",
- "types",
-]
-
-[[package]]
 name = "indenter"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
