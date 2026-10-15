@@ -17,7 +17,6 @@ pub mod game_controller_state;
 pub mod grayscale_image;
 pub mod heatmap;
 pub mod initial_look_around;
-pub mod jpeg;
 pub mod localization;
 pub mod messages;
 pub mod motion_command;
