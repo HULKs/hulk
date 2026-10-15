@@ -8,7 +8,7 @@ use egui_tiles::{
     Behavior, EditAction, SimplificationOptions, TabState, TileId, Tiles, UiResponse,
 };
 
-use crate::{SelectablePanel, backend::RobotBackend};
+use crate::{PanelKind, SelectablePanel, backend::RobotBackend};
 
 use super::{
     focus::pane_focus_id,
@@ -49,6 +49,7 @@ impl Behavior<SelectablePanel> for LayoutBehavior<'_> {
                     ui.response().request_focus();
                 }
                 if ui.response().has_focus()
+                    && kind != PanelKind::TimelinePanel
                     && !self.preset_ui.dialog_open()
                     && !Popup::is_any_open(ui.ctx())
                     && ui.input_mut(|input| {
@@ -219,5 +220,72 @@ impl Behavior<SelectablePanel> for LayoutBehavior<'_> {
             *self.focus_dirty = true;
         }
         self.egui_context.request_repaint();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{super::TwixLayout, *};
+    use crate::{
+        configuration::{
+            Configuration,
+            keybind_plugin::{self, KeybindSystem},
+        },
+        panel::{Panel, PanelCreationContext},
+        panels::TimelinePanel,
+        replay::ReplayStatus,
+    };
+    use eframe::egui::RawInput;
+    use egui_tiles::Tile;
+    use tokio::runtime::Handle;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn focused_timeline_receives_space_in_the_actual_layout() {
+        let context = Context::default();
+        context.set_keybinds(Arc::new(Configuration::default().keys));
+        keybind_plugin::register(&context);
+        let backend = Arc::new(
+            RobotBackend::new(Handle::current(), None, "/".into())
+                .await
+                .unwrap(),
+        );
+        backend.replay().status = Some(ReplayStatus {
+            instance: "test".into(),
+            recording: "test.mcap".into(),
+            start: 0,
+            end: 100,
+            position: 10,
+            playing: false,
+        });
+        let mut layout = TwixLayout::new(&context, &backend);
+        let focused = layout.focused.unwrap();
+        let timeline = TimelinePanel::new(PanelCreationContext {
+            backend: backend.clone(),
+            value: None,
+            egui_context: context.clone(),
+        });
+        *layout.tree.tiles.get_mut(focused).unwrap() =
+            Tile::Pane(SelectablePanel::TimelinePanel(Box::new(timeline)));
+        let focus_id = pane_focus_id(layout.tree.id(), focused);
+        let mut frame = |events| {
+            let _ = context.run_ui(
+                RawInput {
+                    screen_rect: Some(Rect::from_min_size(Default::default(), vec2(600.0, 300.0))),
+                    events,
+                    ..Default::default()
+                },
+                |ui| layout.ui(ui, &backend),
+            );
+        };
+        frame(Vec::new());
+        context.memory_mut(|memory| memory.request_focus(focus_id));
+        frame(vec![Event::Key {
+            key: Key::Space,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::NONE,
+        }]);
+        assert!(backend.replay().status.as_ref().unwrap().playing);
     }
 }

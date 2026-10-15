@@ -5,6 +5,7 @@ mod map;
 mod parameter;
 mod plot;
 mod text;
+mod timeline;
 
 pub use audio::AudioPanel;
 pub use behavior_tree::BehaviorTreePanel;
@@ -13,3 +14,4 @@ pub use map::MapPanel;
 pub use parameter::ParameterPanel;
 pub use plot::PlotPanel;
 pub use text::TextPanel;
+pub use timeline::TimelinePanel;

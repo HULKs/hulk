@@ -29,6 +29,17 @@ C-w = "close_tab"
 C-d = "duplicate_tab"
 
 C-S-Backspace = "close_all"
+
+Space = "timeline_toggle_playback"
+ArrowLeft = "timeline_step_backward"
+ArrowRight = "timeline_step_forward"
+S-ArrowLeft = "timeline_fine_step_backward"
+S-ArrowRight = "timeline_fine_step_forward"
+Comma = "timeline_nudge_backward"
+Period = "timeline_nudge_forward"
+Home = "timeline_start"
+End = "timeline_end"
+f = "timeline_frame_all"
 "#;
 
 #[derive(Debug, thiserror::Error)]
@@ -60,7 +71,7 @@ impl Configuration {
     pub fn load_from_file(path: impl AsRef<Path>) -> Result<Self, Error> {
         match std::fs::read_to_string(&path) {
             Ok(config_file) => {
-                let mut configuration: Value = Self::default();
+                let mut configuration: Value = toml::from_str(DEFAULT_CONFIG).unwrap();
                 let user_configuration: Value = toml::from_str(&config_file)?;
 
                 configuration.update(user_configuration);
@@ -77,8 +88,10 @@ impl Configuration {
             }
         }
     }
+}
 
-    fn default<T: for<'de> Deserialize<'de>>() -> T {
+impl Default for Configuration {
+    fn default() -> Self {
         toml::from_str(DEFAULT_CONFIG).unwrap()
     }
 }
@@ -111,9 +124,10 @@ impl Update for Value {
 
 #[cfg(test)]
 mod tests {
-    use crate::configuration::Update;
-
-    use super::{Configuration, DEFAULT_CONFIG, config_path};
+    use super::{
+        Configuration, DEFAULT_CONFIG, Update, config_path,
+        keys::{KeybindAction, parse_shortcut},
+    };
 
     #[test]
     fn parse_default_config() {
@@ -221,5 +235,30 @@ mod tests {
             )
             .unwrap()
         );
+    }
+
+    #[test]
+    fn timeline_bindings_can_be_overridden_without_losing_other_defaults() {
+        let mut config: toml::Value = toml::from_str(DEFAULT_CONFIG).unwrap();
+        config.update(
+            toml::from_str(
+                r#"
+            [keys]
+            Space = "no_op"
+            p = "timeline_toggle_playback"
+        "#,
+            )
+            .unwrap(),
+        );
+        let config: Configuration = config.try_into().unwrap();
+        for (key, action) in [
+            ("Space", KeybindAction::NoOp),
+            ("p", KeybindAction::TimelineTogglePlayback),
+            ("ArrowRight", KeybindAction::TimelineStepForward),
+        ] {
+            assert!(config.keys.iter().any(|(trigger, configured)| *trigger
+                == parse_shortcut(key).unwrap()
+                && *configured == action));
+        }
     }
 }
