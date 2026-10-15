@@ -14,6 +14,15 @@ pub enum FocusDirection {
 }
 
 impl TwixLayout {
+    pub fn focus_topic(&mut self, egui_context: &Context) {
+        self.repair_focus(egui_context);
+        if let Some(focused) = self.focused
+            && let Some(Tile::Pane(panel)) = self.tree.tiles.get_mut(focused)
+        {
+            panel.focus_topic();
+        }
+    }
+
     pub fn focus(&mut self, direction: FocusDirection, egui_context: &Context) {
         let Some(current_id) = self.focused else {
             return;

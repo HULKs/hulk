@@ -178,7 +178,10 @@ fn enum_to_json(value: &EnumValue, policy: DynamicJsonRenderPolicy) -> Value {
     Value::Object(fields)
 }
 
-fn enum_payload_to_json(payload: &EnumPayloadValue, policy: DynamicJsonRenderPolicy) -> Value {
+pub(crate) fn enum_payload_to_json(
+    payload: &EnumPayloadValue,
+    policy: DynamicJsonRenderPolicy,
+) -> Value {
     match payload {
         EnumPayloadValue::Unit => Value::Null,
         EnumPayloadValue::Newtype(value) => dynamic_value_to_json(value, policy),

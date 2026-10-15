@@ -34,6 +34,7 @@ mod panels;
 mod presets;
 mod repaint;
 mod selectable_panel_macro;
+mod topic_source;
 mod visuals;
 
 impl_selectable_panel!(
@@ -166,6 +167,9 @@ impl App for TwixApp {
                     if context.keybind_pressed(action) {
                         layout.focus(direction, &context);
                     }
+                }
+                if context.keybind_pressed(KeybindAction::FocusTopic) {
+                    layout.focus_topic(&context);
                 }
                 if context.keybind_pressed(KeybindAction::OpenSplit) {
                     layout.open_split(&self.backend, &context);
