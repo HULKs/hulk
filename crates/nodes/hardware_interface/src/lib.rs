@@ -363,17 +363,13 @@ fn finish_rpc_result<T>(
             Some(result)
         }
         Err(error) => {
-            let status = if rpc_transport::is_timeout_error(&error) {
-                "timeout"
-            } else {
-                "error"
-            };
-            if status == "timeout" {
+            if rpc_transport::is_timeout_error(&error) {
                 error!(target: "hardware_interface::rpc", operation = %operation, error = %error, "booster rpc timed out");
+                attempt.finish("timeout");
             } else {
                 error!(target: "hardware_interface::rpc", operation = %operation, error = %error, "booster rpc failed");
+                attempt.finish("error");
             }
-            attempt.finish(status);
             None
         }
     }
