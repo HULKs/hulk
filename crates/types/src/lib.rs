@@ -7,7 +7,6 @@ pub mod bounding_box;
 pub mod buttons;
 pub mod camera_geometry;
 pub mod color;
-pub mod condition_input;
 pub mod controller_input;
 pub mod cycle_time;
 pub mod detected_feet;
