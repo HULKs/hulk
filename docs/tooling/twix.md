@@ -116,61 +116,14 @@ For topic names containing dots, the longest matching discovered topic takes pre
 
 ## Plot panel
 
-Select **Plot** in the panel picker.
-Enter a numeric topic, or choose a topic and continue into its fields using the same completion input as Text.
-For example, `detected_objects.inner[2].bounding_box.confidence` plots the third detection's confidence.
-Integer and floating-point scalars are supported, including present optional numbers.
-Collections, strings, booleans, and enums need a numeric field selection; conversions and state backgrounds are deferred.
+Enter a numeric topic or field in the **Topic** input, for example `detected_objects.inner[2].bounding_box.confidence`.
+Use **Add item** to compare several sources on the same axes, and hover over a line to see its values.
+Each item's style button switches between a line and individual samples, and its info button shows the item's status and any selection problem.
+Gaps in a line mean the value was unavailable, for example an absent optional or a missing array element.
 
-Use **Add item** to compare sources on the same axes.
-Each item has a color picker, visibility checkbox, and X button beside the topic field to remove it.
-The item list identifies each source by its color, and hovering near a line shows its name, value, and time in a tooltip.
-The grid and crosshair are drawn faintly so they guide reading without competing with the data.
-Items are drawn as lines by default; the style button beside the info button toggles an item between line and scatter mode, which draws each sample as an unconnected point.
-In line mode, a lone sample is drawn as a point.
-Missing array elements, absent optionals, inactive enum variants, and NaN/infinite values break lines into separate segments.
-Hover over or click the info button beside the topic field to see the observation status, sample count, gap count, and any selection problem.
-
-The live view follows a common newest publisher timestamp, displayed as zero seconds on the X axis.
-All lines use source timestamps, so comparisons across publishers assume a shared clock.
-This uses publication metadata, not a nested `TimeWrapper.time` field.
-The axis stops advancing when no new samples arrive.
-Numeric values use `f64` plot coordinates, so very large integers can lose precision.
-
-**History** defaults to 30 seconds and accepts 1–600 seconds.
-Each topic retains all samples in the selected source-time window, without a sample-count cap.
-Memory usage grows with topic rate, payload size, and history duration; stalled source timestamps prevent time-based eviction.
-Changing history starts a new buffer.
-**Pause** freezes the displayed samples and time origin while live collection continues.
-Click the plot to focus it, then press **Space** to toggle pause/resume.
-Space does not toggle the plot while editing a text field.
-Zooming and panning are available while paused: drag or scroll with two fingers to pan, pinch or hold **Ctrl** (**Cmd** on macOS) while scrolling to zoom under the pointer, or drag with the secondary mouse button to box-zoom.
-**Reset view** or a double-click/double-tap restores the exact configured history interval and fits the Y axis; **Resume** returns to the current live window.
-Source and history controls are disabled while paused, but colors, visibility, and drawing styles remain editable.
-
-Layouts save source paths, colors, visibility, drawing styles, and history duration.
-Restoring a plot starts fresh observations in live mode.
-Changing the robot namespace also clears displayed history and resumes the plot.
-
-### Dataflow
-
-```mermaid
-flowchart LR
-    Topic[ROS-Z topic] --> Cache[Time-window dynamic observation]
-    Cache --> Snapshot[Shared history snapshot]
-    Snapshot --> FieldA[Numeric field A]
-    Snapshot --> FieldB[Numeric field B]
-    FieldA --> Plot[Time-series plot]
-    FieldB --> Plot
-```
-
-`ros-z-debug` owns sample retention and observation recovery.
-Within a plot, `PlotHistory` owns one observation per distinct topic reference and shares decoded snapshots across its lines.
-Notifications request redraws and refresh the history snapshot, which can include multiple samples received between frames.
-Field changes reproject that history without reconnecting.
-`SeriesData` applies `ValuePath` directly to dynamic values, caches the numeric projection until the snapshot or path changes, and separates gaps before rendering.
-Pausing stops snapshot refresh, leaving the live observations running.
-Removing the last line using a topic releases its observation.
+The X axis shows the seconds before the newest sample, and **History** sets the time window.
+**Pause**, or **Space** after clicking the plot, freezes it so you can zoom and pan with the mouse or touchpad.
+**Reset view** or a double-click restores the full time window.
 
 ## Keybindings
 
