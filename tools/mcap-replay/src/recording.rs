@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     fs::File,
     io::{Read, Seek},
     path::Path,
@@ -13,7 +13,7 @@ use std::{
 use color_eyre::eyre::{Context, OptionExt, Result, bail, ensure};
 use mcap::{
     Summary,
-    records::{MessageHeader, Record},
+    records::{ChunkIndex, MessageHeader, Record},
     sans_io::{
         indexed_reader::{IndexedReader, IndexedReaderOptions},
         linear_reader::{LinearReadEvent, LinearReader, LinearReaderOptions},
@@ -21,11 +21,15 @@ use mcap::{
     },
 };
 use ros_z::{TypeInfo, dynamic::Schema};
+use ros_z_schema::{SchemaBundle, TypeDef};
 
 #[cfg(unix)]
 use std::os::unix::fs::FileExt;
 #[cfg(windows)]
 use std::os::windows::fs::FileExt;
+
+mod query;
+pub use query::{DEFAULT_INDEX_BYTES, QueryRecording};
 
 const MAX_CHUNK: usize = 64 * 1024 * 1024;
 const CACHE_BYTES: usize = 32 * 1024 * 1024;
@@ -145,7 +149,7 @@ impl Recording {
             "unsupported recording timestamps"
         );
         let mut channels = BTreeMap::new();
-        let mut topics = std::collections::BTreeSet::new();
+        let mut topics = BTreeSet::new();
         for (&id, channel) in &summary.channels {
             ensure!(
                 channel.message_encoding == "ros-z-cdr",
@@ -162,7 +166,7 @@ impl Recording {
                 "{}: unsupported schema encoding",
                 channel.topic
             );
-            let bundle: ros_z_schema::SchemaBundle = serde_json::from_slice(&schema.data)?;
+            let bundle: SchemaBundle = serde_json::from_slice(&schema.data)?;
             bundle.validate()?;
             let hash = ros_z_schema::compute_hash(&bundle)?;
             ensure!(
@@ -179,7 +183,7 @@ impl Recording {
                 "{}: inconsistent schema name",
                 channel.topic
             );
-            if let ros_z_schema::TypeDef::Named(root) = &bundle.root {
+            if let TypeDef::Named(root) = &bundle.root {
                 ensure!(
                     root.as_str() == name,
                     "{}: schema root mismatch",
@@ -241,7 +245,7 @@ impl Recording {
 
     fn scan_chunk_at(
         file: &File,
-        chunk: &mcap::records::ChunkIndex,
+        chunk: &ChunkIndex,
         cancelled: impl Fn() -> bool,
         mut visit: impl FnMut(u32, u8, &[u8]) -> Result<()>,
     ) -> Result<()> {
