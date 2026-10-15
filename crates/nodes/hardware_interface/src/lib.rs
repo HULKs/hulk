@@ -18,7 +18,7 @@ use tracing::{error, info};
 use booster::{LedColor, LowCommand, RobotMode};
 use retry_worker::{RetryCommand, run_retrying_rpc_worker};
 use ros_z::{parameter::NodeParameters, prelude::*};
-use types::robot_command::{DesiredMode, JointsCommand, RobotCommand};
+use types::robot_command::{JointsCommand, RobotCommand};
 
 mod joint_control;
 mod light_client;
@@ -184,23 +184,21 @@ async fn joints_command_worker(
         let timeout = parameters.snapshot().typed().sdk_request_timeout;
 
         let desired_mode = match robot_command {
-            RobotCommand::Damping => DesiredMode::Damping,
-            RobotCommand::Prepare => DesiredMode::Prepare,
+            RobotCommand::Damping => RobotMode::Damping,
+            RobotCommand::Prepare => RobotMode::Prepare,
             RobotCommand::Custom { joints_command } => {
                 let low_command = low_command_from_joints_command(joints_command);
 
                 joint_control_publisher.publish(&low_command).await?;
 
-                DesiredMode::Custom
+                RobotMode::Custom
             }
         };
 
-        let robot_mode = booster_mode_from_desired_mode(desired_mode);
+        if assumed_robot_mode != desired_mode {
+            send_retry_command(&mode_command_sender, desired_mode, timeout, "change_mode");
 
-        if assumed_robot_mode != robot_mode {
-            send_retry_command(&mode_command_sender, robot_mode, timeout, "change_mode");
-
-            assumed_robot_mode = robot_mode;
+            assumed_robot_mode = desired_mode;
         }
     }
 }
@@ -221,14 +219,6 @@ fn low_command_from_joints_command(joints_command: JointsCommand) -> LowCommand 
                 weight: 1.0,
             })
             .collect(),
-    }
-}
-
-fn booster_mode_from_desired_mode(desired_mode: DesiredMode) -> RobotMode {
-    match desired_mode {
-        DesiredMode::Damping => RobotMode::Damping,
-        DesiredMode::Prepare => RobotMode::Prepare,
-        DesiredMode::Custom => RobotMode::Custom,
     }
 }
 

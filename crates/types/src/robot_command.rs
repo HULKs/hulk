@@ -8,13 +8,6 @@ use crate::{joint_limits::JointLimits, motor_command::MotorCommand};
 
 pub type JointsCommand = Joints<MotorCommand>;
 
-#[derive(Clone, Copy, Serialize, Deserialize, Message, PartialEq)]
-pub enum DesiredMode {
-    Damping,
-    Prepare,
-    Custom,
-}
-
 #[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize, Message)]
 pub enum RobotCommand {
