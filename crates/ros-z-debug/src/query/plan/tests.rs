@@ -91,6 +91,49 @@ fn evaluate(plan: &QueryPlan, data: &[(&str, &[i64])], cursor: i64) -> Evaluatio
 }
 
 #[test]
+fn incompatible_overlay_timestamps_do_not_select_older_images() {
+    let images = source("/images");
+    let data: &[(&str, &[i64])] = &[("/images", &[10, 20]), ("/overlay", &[10])];
+    for (expected, selected) in [(u32::type_info(), 20), (u64::type_info(), 10)] {
+        let mut overlay = TopicSource::new("/overlay", TimeProjection::SourceTime);
+        overlay.expected_type = Some(expected);
+        let overlay = Source::from(overlay);
+        let preferred = available([overlay.latest(cursor()).effective_time()]).min();
+        let plan = images
+            .exact(preferred)
+            .or_else(images.latest(cursor()))
+            .attach([InputSpec {
+                source: overlay,
+                selection: Selection::Exact,
+            }])
+            .plan();
+        let mut result = evaluate(&plan, data, 20);
+        let State::Ready(Value::Frames(frames)) = &mut result.state else {
+            panic!("frames")
+        };
+        assert_eq!(frames[0].primary.record.time, Time::from_nanos(selected));
+        if selected == 20 {
+            assert!(
+                matches!(&frames[0].inputs[0], State::Failed(error) if error.contains("schema"))
+            );
+            let mut invalid = frames[0].primary.clone();
+            invalid.topic.name = "/overlay".into();
+            frames[0].inputs[0] = State::Ready(vec![invalid]);
+            let catalog = views(&plan, data)
+                .into_iter()
+                .filter_map(|view| match view {
+                    SourceState::Ready(view) => Some(view.topic),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            assert!(plan.validate_result(&mut result, &catalog).is_err());
+        } else {
+            assert!(matches!(&frames[0].inputs[0], State::Ready(records) if records.len() == 1));
+        }
+    }
+}
+
+#[test]
 fn selectors_share_boundary_duplicate_and_eligibility_rules() {
     let index = times(&[10, 10, 20, 30]);
     let at = Time::from_nanos(10);

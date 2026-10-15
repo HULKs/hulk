@@ -125,6 +125,14 @@ The X axis shows the seconds before the newest sample, and **History** sets the 
 **Pause**, or **Space** after clicking the plot, freezes it so you can zoom and pan with the mouse or touchpad.
 **Reset view** or a double-click restores the full time window.
 
+## Timestamp-aligned image overlays
+
+The Image panel selects images and optional overlays through one Live query plan.
+Enabled object and pose detections contribute their latest acquisition timestamps; their minimum selects an exact retained image, falling back to the latest image if absent.
+Missing overlay inputs never gate the image, and only selected images are decoded.
+The Horizon overlay interpolates compatible camera matrices over brackets spanning at most 100 ms.
+The Text panel always uses source time.
+
 ## Keybindings
 
 ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`.

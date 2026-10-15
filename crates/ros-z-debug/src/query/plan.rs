@@ -22,7 +22,7 @@
 //! ```
 use std::{cell::Cell, marker::PhantomData, num::NonZeroUsize, sync::Arc, time::Duration};
 
-use ros_z::time::Time;
+use ros_z::{TypeInfo, time::Time};
 use serde::{Deserialize, Serialize};
 
 use super::*;
@@ -35,6 +35,8 @@ const MAX_CANDIDATES: usize = 65_536;
 pub struct TopicSource {
     pub topic: String,
     pub projection: TimeProjection,
+    /// Reject incompatible schemas before selecting records or extracting timestamps.
+    pub expected_type: Option<TypeInfo>,
     #[serde(default)]
     pub live_policy: ObservationPolicy,
 }
@@ -44,8 +46,17 @@ impl TopicSource {
         Self {
             topic: topic.into(),
             projection,
+            expected_type: None,
             live_policy: Default::default(),
         }
+    }
+
+    fn accepts(&self, topic: &TopicInfo) -> bool {
+        self.topic == topic.name
+            && self
+                .expected_type
+                .as_ref()
+                .is_none_or(|expected| expected == &topic.type_info)
     }
 }
 
@@ -384,11 +395,10 @@ impl QueryPlan {
         }
         let sources = self.sources()?;
         if result.dependencies.len() > sources.len()
-            || result.dependencies.iter().any(|d| {
-                !sources.iter().any(|source| {
-                    source.topic == d.source.topic && source.projection == d.source.projection
-                })
-            })
+            || result
+                .dependencies
+                .iter()
+                .any(|d| !sources.contains(&d.source))
         {
             return Err(query_error("unknown plan dependency"));
         }
@@ -421,7 +431,7 @@ impl QueryPlan {
                     .0
                     .iter()
                     .find(|source| catalog.iter().any(|topic| topic.name == source.topic))
-                    .is_some_and(|source| source.topic == record.topic.name),
+                    .is_some_and(|source| source.accepts(&record.topic)),
                 Node::OrElse(a, b) => {
                     primary_matches(a, record, catalog) || primary_matches(b, record, catalog)
                 }
@@ -469,7 +479,7 @@ impl QueryPlan {
                                     .find(|source| {
                                         catalog.iter().any(|topic| topic.name == source.topic)
                                     })
-                                    .is_some_and(|source| source.topic == record.topic.name)
+                                    .is_some_and(|source| source.accepts(&record.topic))
                                 {
                                     return Err(query_error("plan input source mismatch"));
                                 }
@@ -784,7 +794,15 @@ impl<'a> Evaluator<'a> {
                 SourceState::Absent => continue,
                 SourceState::Pending => return State::Pending,
                 SourceState::Failed(error) => return State::Failed(error.clone()),
-                SourceState::Ready(view) => return State::Ready(Some((index, view))),
+                SourceState::Ready(view) => {
+                    if !candidate.accepts(&view.topic) {
+                        return State::Failed(format!(
+                            "{}: source schema does not match expected type",
+                            candidate.topic
+                        ));
+                    }
+                    return State::Ready(Some((index, view)));
+                }
             }
         }
         State::Ready(None)

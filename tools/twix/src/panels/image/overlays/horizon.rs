@@ -6,40 +6,46 @@ use eframe::egui::{Color32, Pos2, Stroke};
 use linear_algebra::point;
 use projection::camera_matrix::CameraMatrix;
 use ros_z::time::Time;
+use ros_z_debug::query::plan::Selection;
+use twix_visualization::twix_painter::TwixPainter;
 use types::time_wrapper::TimeWrapper;
 
-use crate::repaint::ObservationContext;
-use twix_visualization::twix_painter::TwixPainter;
+use super::{
+    super::{
+        image_overlay::ImageOverlay,
+        inputs::{OverlayInput, OverlayInputs},
+    },
+    camera::{CameraSample, projected_camera_at},
+};
 
-use super::super::image_overlay::{ImageOverlay, OverlayObservation};
-
-const CAMERA_MATRIX_ALIGNMENT_TOLERANCE: Duration = Duration::from_millis(100);
-
+#[derive(Default)]
 pub(in crate::panels::image) struct HorizonOverlay {
-    camera_matrix: OverlayObservation<TimeWrapper<CameraMatrix>>,
+    sample: Option<CameraSample>,
 }
 
 impl ImageOverlay for HorizonOverlay {
-    const NAME: &'static str = "Horizon";
-    const STORAGE_KEY: &'static str = "horizon";
-
-    fn new<C>(context: &C) -> Result<Self, Report>
-    where
-        C: ObservationContext,
-    {
-        Ok(Self {
-            camera_matrix: OverlayObservation::new(context, "camera_matrix")?,
-        })
+    fn inputs(&self) -> Vec<OverlayInput> {
+        vec![OverlayInput::new::<TimeWrapper<CameraMatrix>>(
+            "camera_matrix",
+            Selection::Bracket {
+                max_gap: Duration::from_millis(100),
+            },
+        )]
     }
 
-    fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
-        let Some(camera_matrix) = self
-            .camera_matrix
-            .nearest_to_time(image_time, CAMERA_MATRIX_ALIGNMENT_TOLERANCE)
-        else {
+    fn prepare(&mut self, time: Time, inputs: &mut OverlayInputs) -> Result<(), Report> {
+        self.sample = None;
+        self.sample = inputs
+            .decode(0, time)?
+            .and_then(|records| projected_camera_at(&records, time));
+        Ok(())
+    }
+
+    fn paint(&self, painter: &TwixPainter<Pixel>) {
+        let Some(camera_matrix) = &self.sample else {
             return;
         };
-        let Some(horizon) = camera_matrix.value.inner.horizon else {
+        let Some(horizon) = camera_matrix.horizon else {
             return;
         };
 
@@ -59,9 +65,5 @@ impl ImageOverlay for HorizonOverlay {
             5.0,
             Stroke::new(3.0, Color32::GREEN),
         );
-    }
-
-    fn latest_time(&self) -> Option<Time> {
-        self.camera_matrix.latest_time()
     }
 }
