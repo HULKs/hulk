@@ -123,7 +123,6 @@ mod tests {
         heatmap.map[(2, 2)] = 0.8;
         heatmap.map[(8, 6)] = 0.7;
         heatmap.last_maximum_heatmap_position = Some((2, 2));
-        heatmap.has_decided_for_heatmap_tile = true;
 
         heatmap.set_known_ball_position(field, point![0.0, 0.0]);
 

@@ -22,7 +22,6 @@ const CELL_SIZE: f32 = 0.5;
 pub struct Heatmap {
     map: Array2<f32>,
     last_maximum_heatmap_position: Option<(usize, usize)>,
-    has_decided_for_heatmap_tile: bool,
 }
 
 impl Heatmap {
@@ -31,7 +30,6 @@ impl Heatmap {
         Self {
             map: Array2::zeros((length, width)),
             last_maximum_heatmap_position: None,
-            has_decided_for_heatmap_tile: false,
         }
     }
 
