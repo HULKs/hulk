@@ -335,7 +335,7 @@ fn spawn_led_worker(
     sender
 }
 
-fn send_retry_command<T: Copy>(
+fn send_retry_command<T>(
     sender: &watch::Sender<Option<RetryCommand<T>>>,
     target: T,
     timeout: Duration,
