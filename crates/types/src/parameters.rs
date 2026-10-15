@@ -77,9 +77,12 @@ pub struct WalkingBehaviorParameters {
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct WalkToBallPredictionParameters {
-    pub time: Duration,
-    pub maximum_displacement: Vector2<Field>,
-    pub maximum_forward_velocity_for_prediction: f32,
+    pub horizon: Duration,
+    pub samples: u32,
+    pub walking_speed: f32,
+    pub turning_speed: f32,
+    pub arrival_time_margin: Duration,
+    pub velocity_decay_rate: f32,
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]

@@ -89,27 +89,30 @@ fn validate_behavior_parameters(
     let walk_speed = &parameters.walking.speed;
     let mut errors = Vec::new();
 
-    let maximum_displacement = parameters.walking.ball_prediction.maximum_displacement;
-    let maximum_forward_velocity_for_prediction = parameters
-        .walking
-        .ball_prediction
-        .maximum_forward_velocity_for_prediction;
-    if !maximum_forward_velocity_for_prediction.is_finite()
-        || maximum_forward_velocity_for_prediction <= -10.0
-    {
-        errors.push(format!(
-            "walking.ball_prediction.maximum_forward_velocity_for_prediction must be finite and greater than -10 m/s (got {maximum_forward_velocity_for_prediction})"
-        ));
+    let ball_prediction = parameters.walking.ball_prediction;
+    if ball_prediction.horizon.is_zero() {
+        errors.push("walking.ball_prediction.horizon must be positive".to_owned());
     }
-    for (axis, limit) in [
-        ("x", maximum_displacement.x()),
-        ("y", maximum_displacement.y()),
-    ] {
-        if !limit.is_finite() || limit < 0.0 {
-            errors.push(format!(
-                "walking.ball_prediction.maximum_displacement.{axis} must be finite and non-negative (got {limit})"
-            ));
-        }
+    if !(1..=100).contains(&ball_prediction.samples) {
+        errors.push("walking.ball_prediction.samples must be between 1 and 100".to_owned());
+    }
+    if !ball_prediction.walking_speed.is_finite() || ball_prediction.walking_speed <= 0.0 {
+        errors.push("walking.ball_prediction.walking_speed must be finite and positive".to_owned());
+    }
+    if !ball_prediction.turning_speed.is_finite() || ball_prediction.turning_speed <= 0.0 {
+        errors.push("walking.ball_prediction.turning_speed must be finite and positive".to_owned());
+    }
+    if ball_prediction.arrival_time_margin >= ball_prediction.horizon {
+        errors.push(
+            "walking.ball_prediction.arrival_time_margin must be shorter than horizon".to_owned(),
+        );
+    }
+    if !ball_prediction.velocity_decay_rate.is_finite() || ball_prediction.velocity_decay_rate < 0.0
+    {
+        errors.push(
+            "walking.ball_prediction.velocity_decay_rate must be finite and non-negative"
+                .to_owned(),
+        );
     }
 
     if !walk_speed.velocity_fade_distance.is_finite() || walk_speed.velocity_fade_distance <= 0.0 {

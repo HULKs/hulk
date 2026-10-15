@@ -9,7 +9,7 @@ use types::{
     motion_command::{BodyMotion, MotionCommand, OrientationMode},
     motion_type::MotionType,
     parameters::{VoronoiParameters, WalkToBallPredictionParameters},
-    path::{Path, direct_path},
+    path::{Path, direct_path, traits::Length},
 };
 use voronoi::{Ownership, VoronoiGrid};
 
@@ -30,6 +30,15 @@ pub fn plan(
     target_in_ground: Point2<Ground>,
     ground_to_field: Isometry2<Ground, Field>,
 ) -> Path {
+    try_plan(blackboard, target_in_ground, ground_to_field)
+        .unwrap_or_else(|| direct_path(Point::origin(), target_in_ground))
+}
+
+fn try_plan(
+    blackboard: &mut Blackboard,
+    target_in_ground: Point2<Ground>,
+    ground_to_field: Isometry2<Ground, Field>,
+) -> Option<Path> {
     let parameters: &types::parameters::PathPlanningParameters =
         &blackboard.parameters.walking.path_planning;
     let field_dimensions = blackboard.field_dimensions;
@@ -79,7 +88,7 @@ pub fn plan(
         .plan(Point::origin(), clamped_target_in_robot)
         .unwrap();
     blackboard.path_obstacles_output = planner.obstacles;
-    path.unwrap_or_else(|| direct_path(Point::origin(), target_in_ground))
+    path
 }
 
 pub fn walk_to(
@@ -140,42 +149,44 @@ pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
         &blackboard.last_ball,
         &blackboard.world_state.robot.ground_to_field,
     ) {
-        let field_to_ground = ground_to_field.inverse();
-        let ball_in_field = blackboard
-            .world_state
-            .ball
-            .filter(|current_ball| {
-                blackboard
-                    .world_state
-                    .now
-                    .to_wallclock()
-                    .duration_since(current_ball.last_seen_ball)
-                    .is_ok_and(|age| age < blackboard.parameters.ball.last_ball_timeout)
-            })
-            .map(|current_ball| {
-                predict_ball_position(
-                    current_ball.ball_in_field,
-                    *ground_to_field * current_ball.ball_in_ground_velocity,
-                    blackboard.parameters.walking.ball_prediction,
-                    blackboard.field_dimensions,
-                )
-            })
-            .unwrap_or(ball.position);
-        let ball_in_ground = field_to_ground * ball_in_field;
-        let goal_position_in_field = point!(blackboard.field_dimensions.length / 2.0, 0.0);
-        let direction_to_goal = field_to_ground
-            * (goal_position_in_field - ball_in_field)
-                .try_normalize(f32::EPSILON)
-                .unwrap_or_else(|| vector![1.0, 0.0]);
-        let orientation = Orientation2::from_vector(direction_to_goal);
+        let last_ball_position = ball.position;
+        let ground_to_field = *ground_to_field;
+        let prediction = blackboard.parameters.walking.ball_prediction;
+        let field_dimensions = blackboard.field_dimensions;
+        let standoff = blackboard.parameters.kicking.kick_position_ball_distance;
+        let current_ball = blackboard.world_state.ball.filter(|current_ball| {
+            blackboard
+                .world_state
+                .now
+                .to_wallclock()
+                .duration_since(current_ball.last_seen_ball)
+                .is_ok_and(|age| age < blackboard.parameters.ball.last_ball_timeout)
+        });
+        let ball_in_field = if let Some(current_ball) = current_ball {
+            let predicted = first_reachable_ball_position(
+                current_ball.ball_in_field,
+                ground_to_field * current_ball.ball_in_ground_velocity,
+                ground_to_field,
+                field_dimensions,
+                standoff,
+                prediction,
+                |target| {
+                    try_plan(blackboard, target, ground_to_field)
+                        .map_or(f32::INFINITY, |path| path.length())
+                },
+            );
+            predicted.unwrap_or(current_ball.ball_in_field)
+        } else {
+            last_ball_position
+        };
+        let target_pose =
+            kick_approach_pose(ball_in_field, ground_to_field, field_dimensions, standoff);
         let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
         let kicking_speed = blackboard.parameters.walking.speed.kicking;
 
-        let target_position = ball_in_ground
-            - direction_to_goal * blackboard.parameters.kicking.kick_position_ball_distance;
         walk_to(
             blackboard,
-            Pose2::from_parts(target_position, orientation),
+            target_pose,
             kicking_speed,
             OrientationMode::AlignWithPath,
             walk_and_stand.normal_distance_to_be_aligned,
@@ -186,26 +197,83 @@ pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
     }
 }
 
+fn kick_approach_pose(
+    ball_in_field: Point2<Field>,
+    ground_to_field: Isometry2<Ground, Field>,
+    field_dimensions: FieldDimensions,
+    standoff: f32,
+) -> Pose2<Ground> {
+    let field_to_ground = ground_to_field.inverse();
+    let goal_position = point!(field_dimensions.length / 2.0, 0.0);
+    let direction_to_goal = field_to_ground
+        * (goal_position - ball_in_field)
+            .try_normalize(f32::EPSILON)
+            .unwrap_or_else(|| vector![1.0, 0.0]);
+    let ball_in_ground = field_to_ground * ball_in_field;
+    Pose2::from_parts(
+        ball_in_ground - direction_to_goal * standoff,
+        Orientation2::from_vector(direction_to_goal),
+    )
+}
+
+fn first_reachable_ball_position(
+    position: Point2<Field>,
+    velocity: Vector2<Field>,
+    ground_to_field: Isometry2<Ground, Field>,
+    field_dimensions: FieldDimensions,
+    standoff: f32,
+    parameters: WalkToBallPredictionParameters,
+    mut path_length: impl FnMut(Point2<Ground>) -> f32,
+) -> Option<Point2<Field>> {
+    if !velocity.x().is_finite() || !velocity.y().is_finite() {
+        return None;
+    }
+
+    let horizon = parameters.horizon.as_secs_f32();
+    let margin = parameters.arrival_time_margin.as_secs_f32();
+    for sample in 1..=parameters.samples {
+        let time = horizon * sample as f32 / parameters.samples as f32;
+        if time <= margin {
+            continue;
+        }
+
+        let predicted = predict_ball_position(
+            position,
+            velocity,
+            time,
+            parameters.velocity_decay_rate,
+            field_dimensions,
+        );
+        let approach_pose =
+            kick_approach_pose(predicted, ground_to_field, field_dimensions, standoff);
+        let target = approach_pose.position();
+        let turning_time = approach_pose.orientation().angle().abs() / parameters.turning_speed;
+        let direct_time = target.coords().norm() / parameters.walking_speed;
+        if direct_time.max(turning_time) + margin > time {
+            continue;
+        }
+        let walking_time = path_length(target) / parameters.walking_speed;
+        if walking_time.max(turning_time) + margin <= time {
+            return Some(predicted);
+        }
+    }
+
+    None
+}
+
 fn predict_ball_position(
     position: Point2<Field>,
     velocity: Vector2<Field>,
-    parameters: WalkToBallPredictionParameters,
+    time: f32,
+    velocity_decay_rate: f32,
     field_dimensions: FieldDimensions,
 ) -> Point2<Field> {
-    if !velocity.x().is_finite()
-        || !velocity.y().is_finite()
-        || velocity.x() > parameters.maximum_forward_velocity_for_prediction
-    {
-        return position;
-    }
-
-    let time = parameters.time.as_secs_f32();
-    let maximum_displacement = parameters.maximum_displacement;
-    let projected = position
-        + vector![
-            (velocity.x() * time).clamp(-maximum_displacement.x(), maximum_displacement.x()),
-            (velocity.y() * time).clamp(-maximum_displacement.y(), maximum_displacement.y())
-        ];
+    let travel_time = if velocity_decay_rate > 0.0 {
+        -(-velocity_decay_rate * time).exp_m1() / velocity_decay_rate
+    } else {
+        time
+    };
+    let projected = position + velocity * travel_time;
 
     point![
         projected.x().clamp(
@@ -434,51 +502,129 @@ fn target_player_position(
 mod tests {
     use std::time::Duration;
 
-    use linear_algebra::{point, vector};
+    use coordinate_systems::{Field, Ground};
+    use linear_algebra::{Isometry2, point, vector};
     use types::{field_dimensions::FieldDimensions, parameters::WalkToBallPredictionParameters};
 
-    use super::predict_ball_position;
+    use super::{first_reachable_ball_position, predict_ball_position};
+
+    fn parameters() -> WalkToBallPredictionParameters {
+        WalkToBallPredictionParameters {
+            horizon: Duration::from_secs(4),
+            samples: 20,
+            walking_speed: 0.7,
+            turning_speed: 2.0,
+            arrival_time_margin: Duration::from_millis(200),
+            velocity_decay_rate: 1.0,
+        }
+    }
 
     #[test]
-    fn ball_prediction_limits_displacement_and_stays_inside_field() {
-        let parameters = WalkToBallPredictionParameters {
-            time: Duration::from_secs(1),
-            maximum_displacement: vector![0.5, 0.25],
-            maximum_forward_velocity_for_prediction: 0.2,
-        };
-        let field = FieldDimensions::SPL_2025;
+    fn ball_prediction_decays_and_stays_inside_field() {
+        let projected = predict_ball_position(
+            point![0.0, 0.0],
+            vector![1.0, 0.0],
+            2.0,
+            1.0,
+            FieldDimensions::SPL_2025,
+        );
+        assert!((projected.x() - (1.0 - (-2.0_f32).exp())).abs() < 1e-6);
 
-        let projected =
-            predict_ball_position(point![1.0, 1.0], vector![-2.0, -1.0], parameters, field);
-        assert!((projected - point![0.5, 0.75]).norm() < 1e-6);
-
-        let projected =
-            predict_ball_position(point![4.4, 2.9], vector![0.1, 1.0], parameters, field);
+        let projected = predict_ball_position(
+            point![4.4, 2.9],
+            vector![1.0, 1.0],
+            2.0,
+            1.0,
+            FieldDimensions::SPL_2025,
+        );
         assert!((projected - point![4.5, 3.0]).norm() < 1e-6);
     }
 
     #[test]
-    fn forward_ball_uses_current_position_on_both_axes() {
-        let parameters = WalkToBallPredictionParameters {
-            time: Duration::from_secs(1),
-            maximum_displacement: vector![0.5, 0.25],
-            maximum_forward_velocity_for_prediction: 0.2,
-        };
-
-        let projected = predict_ball_position(
-            point![1.0, 1.0],
-            vector![0.3, 1.0],
-            parameters,
+    fn chooses_reachable_future_kick_position_for_crossing_ball() {
+        let predicted = first_reachable_ball_position(
+            point![2.0, 1.0],
+            vector![0.0, -1.0],
+            Isometry2::<Ground, Field>::identity(),
             FieldDimensions::SPL_2025,
-        );
-        assert!((projected - point![1.0, 1.0]).norm() < 1e-6);
+            0.3,
+            parameters(),
+            |target| target.coords().norm(),
+        )
+        .unwrap();
 
-        let projected = predict_ball_position(
-            point![1.0, 1.0],
-            vector![0.2, 0.0],
-            parameters,
-            FieldDimensions::SPL_2025,
+        assert!(predicted.y() > 0.0 && predicted.y() < 0.1);
+    }
+
+    #[test]
+    fn rejects_unreachable_ball_and_accounts_for_path_detours() {
+        let identity = Isometry2::<Ground, Field>::identity();
+        let field = FieldDimensions::SPL_2025;
+        let mut prediction = parameters();
+        prediction.velocity_decay_rate = 0.0;
+
+        let receding = first_reachable_ball_position(
+            point![1.0, 0.0],
+            vector![2.0, 0.0],
+            identity,
+            field,
+            0.3,
+            prediction,
+            |target| target.coords().norm(),
         );
-        assert!((projected - point![1.2, 1.0]).norm() < 1e-6);
+        assert!(receding.is_none());
+
+        prediction.horizon = Duration::from_secs(2);
+        let direct = first_reachable_ball_position(
+            point![1.0, 0.0],
+            vector![0.0, 0.0],
+            identity,
+            field,
+            0.3,
+            prediction,
+            |target| target.coords().norm(),
+        );
+        let detour = first_reachable_ball_position(
+            point![1.0, 0.0],
+            vector![0.0, 0.0],
+            identity,
+            field,
+            0.3,
+            prediction,
+            |target| target.coords().norm() + 1.0,
+        );
+        assert!(direct.is_some());
+        assert!(detour.is_none());
+    }
+
+    #[test]
+    fn accounts_for_turning_before_reaching_kick_pose() {
+        let ground_to_field =
+            Isometry2::<Ground, Field>::from_parts(vector![0.0, 0.0], std::f32::consts::PI);
+        let mut prediction = parameters();
+        prediction.horizon = Duration::from_millis(1500);
+
+        let slow_turn = first_reachable_ball_position(
+            point![1.0, 0.0],
+            vector![0.0, 0.0],
+            ground_to_field,
+            FieldDimensions::SPL_2025,
+            0.3,
+            prediction,
+            |target| target.coords().norm(),
+        );
+        prediction.turning_speed = 10.0;
+        let fast_turn = first_reachable_ball_position(
+            point![1.0, 0.0],
+            vector![0.0, 0.0],
+            ground_to_field,
+            FieldDimensions::SPL_2025,
+            0.3,
+            prediction,
+            |target| target.coords().norm(),
+        );
+
+        assert!(slow_turn.is_none());
+        assert!(fast_turn.is_some());
     }
 }
