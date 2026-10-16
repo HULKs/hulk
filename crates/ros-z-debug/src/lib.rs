@@ -81,6 +81,7 @@ mod event;
 mod history;
 mod observation;
 mod policy;
+pub mod query;
 mod retention;
 mod sample;
 mod status;
