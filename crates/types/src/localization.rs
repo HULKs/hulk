@@ -1,33 +1,5 @@
-use nalgebra::{Matrix3, vector};
-use ros_z::Message;
-use serde::{Deserialize, Serialize};
-
 use coordinate_systems::{Field, Ground, Robot};
-use linear_algebra::{Isometry2, Isometry3, Pose2};
-
-use crate::multivariate_normal_distribution::MultivariateNormalDistribution;
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Message)]
-pub struct ScoredPose {
-    pub state: MultivariateNormalDistribution<3>,
-    pub score: f32,
-}
-
-impl ScoredPose {
-    pub fn from_isometry(pose: Pose2<Field>, covariance: Matrix3<f32>, score: f32) -> Self {
-        Self {
-            state: MultivariateNormalDistribution {
-                mean: vector![
-                    pose.position().x(),
-                    pose.position().y(),
-                    pose.orientation().angle(),
-                ],
-                covariance,
-            },
-            score,
-        }
-    }
-}
+use linear_algebra::{Isometry2, Isometry3};
 
 pub fn ground_to_field_from_field_to_robot(
     field_to_robot: Isometry3<Field, Robot>,
