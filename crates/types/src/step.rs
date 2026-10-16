@@ -5,8 +5,6 @@ use nalgebra::RealField;
 use num_traits::Euclid;
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::Pose2;
-
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, ros_z::Message)]
 pub struct Step<T = f32> {
     pub forward: T,
@@ -20,43 +18,6 @@ impl Step {
         left: 0.0,
         turn: 0.0,
     };
-
-    pub fn mirrored(self) -> Self {
-        Self {
-            forward: self.forward,
-            left: -self.left,
-            turn: -self.turn,
-        }
-    }
-
-    /// Element wise division, with 0.0 as the result if the divisor is 0.0
-    pub fn div_or_zero(self, rhs: &Self) -> Self {
-        Self {
-            forward: if rhs.forward == 0.0 {
-                0.0
-            } else {
-                self.forward / rhs.forward
-            },
-            left: if rhs.left == 0.0 {
-                0.0
-            } else {
-                self.left / rhs.left
-            },
-            turn: if rhs.turn == 0.0 {
-                0.0
-            } else {
-                self.turn / rhs.turn
-            },
-        }
-    }
-
-    pub fn from_pose<Frame>(pose: Pose2<Frame>) -> Self {
-        Step {
-            forward: pose.position().x(),
-            left: pose.position().y(),
-            turn: pose.orientation().angle(),
-        }
-    }
 }
 
 impl<T: Mul<Output = T> + Clone> Mul<T> for Step<T> {

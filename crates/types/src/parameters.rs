@@ -1,7 +1,7 @@
 use std::{ops::Range, path::PathBuf, time::Duration};
 
 use hsl_network_messages::PlayerNumber;
-use kinematics::joints::{Joints, head::HeadJoints};
+use kinematics::joints::head::HeadJoints;
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
@@ -40,7 +40,6 @@ pub struct BehaviorParameters {
     pub walking: WalkingBehaviorParameters,
     pub kicking: KickingParameters,
     pub goalkeeper: GoalkeeperParameters,
-    pub search: SearchParameters,
     pub substates: SubstatesParameters,
     pub kickoff: KickoffParameters,
     pub voronoi: VoronoiParameters,
@@ -103,15 +102,6 @@ pub struct KickOffPose {
 pub struct KickoffParameters {
     pub striker_position: Point2<Field>,
     pub standard_positions: Players<KickOffPose>,
-}
-
-#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub struct SearchParameters {
-    pub position_reached_distance: f32,
-    pub rotation_per_step: f32,
-    pub stand_secs: f32,
-    pub turn_secs: f32,
-    pub estimated_ball_speed: f32,
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
@@ -198,11 +188,6 @@ pub struct HslNetworkParameters {
     pub hsl_striker_message_receive_timeout: Duration,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub struct BallProjectionParameters {
-    pub detection_noise: Vector2<Pixel>,
-}
-
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
 pub struct BallFilterNoise {
     pub detection_noise: Vector2<Pixel>,
@@ -269,49 +254,6 @@ pub struct SearchSuggestorParameters {
     pub tile_switch_hysteresis: f32,
     pub decay_distance_factor: f32,
     pub heatmap_decay_range: Range<f32>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub struct PenaltyShotDirectionParameters {
-    pub moving_distance_threshold: f32,
-    pub minimum_velocity: f32,
-    pub center_jump_trigger_radius: f32,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub struct RLWalkingParameters {
-    pub gait_frequency: f32,
-    pub stabilizing_interval_compression_factor: f32,
-    pub stabilizing_interval_completion_threshold: f32,
-    pub number_of_actions: usize,
-    pub number_of_observations: usize,
-    pub torque_limits: Joints,
-    pub normalization: NormalizationParameters,
-    pub control: ControlParameters,
-    pub walk_command: [f32; 3],
-    pub joint_position_smoothing_factor: f32,
-    pub switch_policies_threshold: Duration,
-
-    pub hybrid_align_distance: f32,
-    pub max_alignment_rate: f32,
-    pub deceleration_distance: f32,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub struct NormalizationParameters {
-    pub gravity: f32,
-    pub linear_velocity: f32,
-    pub angular_velocity: f32,
-    pub joint_position: f32,
-    pub joint_velocity: f32,
-    pub clip_actions: f32,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub struct ControlParameters {
-    pub dt: f32,
-    pub action_scale: f32,
-    pub decimation: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]

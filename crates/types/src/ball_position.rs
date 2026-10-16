@@ -3,7 +3,6 @@ use std::{ops::Mul, time::Duration};
 use ros_z::time::Time;
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::World;
 use linear_algebra::{Isometry2, Point2, Vector2};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, ros_z::Message)]
@@ -44,12 +43,6 @@ impl<From, To> Mul<BallPosition<From>> for Isometry2<From, To> {
             last_seen: rhs.last_seen,
         }
     }
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
-pub struct SimulatorBallState {
-    pub position: Point2<World>,
-    pub velocity: Vector2<World>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, ros_z::Message)]
