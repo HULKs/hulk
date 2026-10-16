@@ -39,7 +39,6 @@ members = [
   "crates/nodes/ground_provider",
   "crates/nodes/head_motion",
   "crates/nodes/image_receiver",
-  "crates/nodes/image_segmenter",
   "crates/nodes/kinematics_provider",
   "crates/nodes/led_handler",
   "crates/nodes/localization-2d",
@@ -60,7 +59,6 @@ members = [
   "crates/nodes/rule_obstacle_composer",
   "crates/nodes/safe_pose_checker",
   "crates/nodes/search_suggestor",
-  "crates/nodes/segment_filter",
   "crates/nodes/stereo_visual_odometry",
   "crates/nodes/support_foot_estimator",
   "crates/nodes/team_ball_filter",
@@ -183,7 +181,6 @@ hulk_widgets = { path = "crates/hulk_widgets" }
 humantime = "2.3.0"
 image = { version = "0.25.5", default-features = false, features = ["jpeg"] }
 image_receiver = { path = "crates/nodes/image_receiver" }
-image_segmenter = { path = "crates/nodes/image_segmenter" }
 indicatif = "0.18.4"
 itertools = "0.14.0"
 json5 = "0.4.1"
@@ -272,7 +269,6 @@ rustfft = "6.4.1"
 safe_pose_checker = { path = "crates/nodes/safe_pose_checker" }
 scenario = { path = "crates/scenario" }
 search_suggestor = { path = "crates/nodes/search_suggestor" }
-segment_filter = { path = "crates/nodes/segment_filter" }
 semver = "1.0.25"
 serde = { version = "1.0.228", features = ["derive", "rc"] }
 serde_json = "1.0.138"

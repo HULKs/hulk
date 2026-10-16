@@ -5,11 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use linear_algebra::{Point, Point2, Transform, Vector, distance_squared};
 
-use crate::{
-    Distance,
-    direction::{Direction, Rotate90Degrees},
-    line_segment::LineSegment,
-};
+use crate::{Distance, line_segment::LineSegment};
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub struct Line<Frame, const DIMENSION: usize> {
@@ -27,18 +23,6 @@ impl<Frame> Line2<Frame> {
 
     pub fn y_axis_intercept(&self) -> f32 {
         self.point.y() - (self.point.x() * self.slope())
-    }
-
-    pub fn is_above(&self, point: Point2<Frame>) -> bool {
-        self.signed_distance_to_point(point) >= 0.0
-    }
-
-    pub fn signed_distance_to_point(&self, point: Point2<Frame>) -> f32 {
-        let normal_vector = self
-            .direction
-            .rotate_90_degrees(Direction::Counterclockwise)
-            .normalize();
-        normal_vector.dot(&(point - self.point))
     }
 
     pub fn intersection(&self, other: &Line2<Frame>) -> Point2<Frame> {
@@ -213,17 +197,6 @@ mod tests {
         assert_relative_eq!(LINE1.distance_to(POINT), distance1);
         assert_relative_eq!(LINE2.distance_to(POINT), distance2);
         assert_relative_eq!(LINE3.distance_to(POINT), distance3);
-
-        assert_relative_eq!(LINE1.signed_distance_to_point(POINT), -distance1);
-        assert_relative_eq!(LINE2.signed_distance_to_point(POINT), -distance2);
-        assert_relative_eq!(LINE3.signed_distance_to_point(POINT), -distance3);
-    }
-
-    #[test]
-    fn points_above_line() {
-        assert!(!LINE1.is_above(POINT));
-        assert!(!LINE2.is_above(POINT));
-        assert!(!LINE3.is_above(POINT));
     }
 
     #[test]

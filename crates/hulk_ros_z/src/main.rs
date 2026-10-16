@@ -173,7 +173,6 @@ async fn spawn_all(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<Runni
     join_set.spawn(rule_obstacle_composer::run_boxed(ctx.clone()));
     join_set.spawn(safe_pose_checker::run_boxed(ctx.clone()));
     join_set.spawn(search_suggestor::run_boxed(ctx.clone()));
-    join_set.spawn(segment_filter::run_boxed(ctx.clone()));
     join_set.spawn(stereo_visual_odometry::run_boxed(ctx.clone()));
     join_set.spawn(support_foot_estimator::run_boxed(ctx.clone()));
     join_set.spawn(team_ball_filter::run_boxed(ctx.clone()));
