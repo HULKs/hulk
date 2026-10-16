@@ -14,7 +14,6 @@ pub mod filtered_game_controller_state;
 pub mod filtered_game_state;
 pub mod filtered_whistle;
 pub mod game_controller_state;
-pub mod grayscale_image;
 pub mod heatmap;
 pub mod initial_look_around;
 pub mod localization;
