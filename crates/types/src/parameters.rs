@@ -5,10 +5,10 @@ use kinematics::joints::head::HeadJoints;
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
+use coordinate_systems::{Camera, Field, Ground, NormalizedField, NormalizedPixel, Pixel, Robot};
 use linear_algebra::{Point2, Vector2, Vector3};
 
-use crate::{motion_command::MotionCommand, players::Players};
+use crate::motion_command::MotionCommand;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct WhistleDetectionParameters {
@@ -92,16 +92,14 @@ pub struct GoalkeeperParameters {
     pub distance_to_goalpost: f32,
 }
 
-#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
-pub struct KickOffPose {
-    pub position: Point2<Field>,
-    pub rotation: f32,
-}
-
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct KickoffParameters {
-    pub striker_position: Point2<Field>,
-    pub standard_positions: Players<KickOffPose>,
+    pub relative_goalkeeper_position: Point2<NormalizedField>,
+    pub relative_striker_position: Point2<NormalizedField>,
+    /// Own-kickoff support slots, filled in order by descending active player number.
+    pub relative_aggressive_positions: [Point2<NormalizedField>; 3],
+    /// Opponent-kickoff slots, filled in order by descending active player number.
+    pub relative_defensive_positions: [Point2<NormalizedField>; 4],
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
