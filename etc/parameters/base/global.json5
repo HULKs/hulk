@@ -18,4 +18,49 @@
     goal_post_diameter: 0.1
   },
   player_number: "Three",
+  joint_limits: {
+    position: {
+      head: {
+        yaw: [-1.012, 1.012],
+        pitch: [-0.314, 0.794],
+      },
+      left_arm: {
+        shoulder_pitch: [-2.932, 1.196],
+        shoulder_roll: [-1.642, 1.629],
+        shoulder_yaw: [-1.885, 1.885],
+        elbow: [-2.242, 0.816],
+      },
+      right_arm: {
+        shoulder_pitch: [-2.932, 1.196],
+        shoulder_roll: [-1.642, 1.629],
+        shoulder_yaw: [-1.885, 1.885],
+        elbow: [-0.816, 2.242],
+      },
+      left_leg: {
+        hip_pitch: [-2.958, 2.226],
+        hip_roll: [-0.375, 1.536],
+        hip_yaw: [-1.012, 1.012],
+        knee: [0.0, 2.321],
+        ankle_up: [-0.87, 0.345],
+        ankle_down: [-0.345, 0.345],
+      },
+      right_leg: {
+        hip_pitch: [-2.958, 2.226],
+        hip_roll: [-1.536, 0.375],
+        hip_yaw: [-1.012, 1.012],
+        knee: [0.0, 2.321],
+        ankle_up: [-0.87, 0.345],
+        ankle_down: [-0.345, 0.345],
+      },
+    },
+    // Maximum joint effort (Nm), Booster K1 22-DoF serial model:
+    // https://raw.githubusercontent.com/BoosterRobotics/booster_assets/38a0ae84b17743a8aa21511f69ed38e7d22d1664/robots/K1/K1_22dof.urdf
+    maximum_torque: {
+      head: { yaw: 6.0, pitch: 6.0 },
+      left_arm: { shoulder_pitch: 14.0, shoulder_roll: 14.0, shoulder_yaw: 14.0, elbow: 14.0 },
+      right_arm: { shoulder_pitch: 14.0, shoulder_roll: 14.0, shoulder_yaw: 14.0, elbow: 14.0 },
+      left_leg: { hip_pitch: 68.0, hip_roll: 43.0, hip_yaw: 38.3, knee: 112.0, ankle_up: 38.3, ankle_down: 38.3 },
+      right_leg: { hip_pitch: 68.0, hip_roll: 43.0, hip_yaw: 38.3, knee: 112.0, ankle_up: 38.3, ankle_down: 38.3 },
+    },
+  },
 }

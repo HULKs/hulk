@@ -2,8 +2,8 @@ use std::{boxed::Box, future::Future, pin::Pin};
 use std::{sync::Arc, time::Duration};
 
 use booster::LedColor;
-use booster_sdk_interface::LedCommand;
 use color_eyre::Result;
+use hardware_interface::LedCommand;
 
 use ros_z::{prelude::*, qos::QosDurability};
 use tokio::time::{MissedTickBehavior, interval};
@@ -69,11 +69,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             LedColor::BLACK
         };
 
-        let led_command = LedCommand::SetParam {
+        let led_command = LedCommand::Set(LedColor {
             r: light_control_parameter.r,
             g: light_control_parameter.g,
             b: light_control_parameter.b,
-        };
+        });
         led_command_pub.publish(&led_command).await?;
     }
 }
