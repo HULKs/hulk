@@ -71,6 +71,18 @@ pub struct WalkingBehaviorParameters {
     pub path_planning: PathPlanningParameters,
     pub walk_and_stand: WalkAndStandParameters,
     pub speed: WalkSpeedParameters,
+    pub ball_prediction: WalkToBallPredictionParameters,
+}
+
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+pub struct WalkToBallPredictionParameters {
+    pub horizon: Duration,
+    pub samples: u32,
+    pub walking_speed: f32,
+    pub turning_speed: f32,
+    pub arrival_time_margin: Duration,
+    pub velocity_decay_rate: f32,
+    pub smoothing_time: Duration,
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
