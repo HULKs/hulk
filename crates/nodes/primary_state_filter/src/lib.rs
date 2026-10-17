@@ -179,11 +179,17 @@ impl PrimaryStateFilter {
                 game_state_to_primary_state(game_state, is_penalized)
             }
             (PrimaryState::Ready, FilteredGameState::Set) if !is_penalized => PrimaryState::Set,
+            (PrimaryState::Ready, FilteredGameState::Initial) if !is_penalized => {
+                PrimaryState::Initial
+            }
             (PrimaryState::Set, FilteredGameState::Playing { .. }) if !is_penalized => {
                 PrimaryState::Playing
             }
             (PrimaryState::Playing, FilteredGameState::Ready) if !is_penalized => {
                 PrimaryState::Ready
+            }
+            (PrimaryState::Playing, FilteredGameState::Initial) if !is_penalized => {
+                PrimaryState::Initial
             }
             (state, FilteredGameState::Finished)
                 if !matches!(state, PrimaryState::Damping | PrimaryState::Prepare) =>
