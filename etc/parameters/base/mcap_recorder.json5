@@ -7,6 +7,9 @@
   schema_discovery_timeout: { secs: 15, nanos: 0 },
   topics: [
     "inputs/low_state",
+    "inputs/fall_down_state",
+    "fall_detection/status",
+    "robot_kinematics",
     "inputs/odometry",
     "inputs/booster_odometry",
     "support_foot_state",

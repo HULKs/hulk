@@ -1,9 +1,9 @@
-use booster::FallDownStateType;
 use filtering::hysteresis::less_than_with_hysteresis;
 use hsl_network_messages::Team;
 use linear_algebra::{point, vector};
 use types::{
-    controller_input::Button, filtered_game_controller_state::FilteredGameControllerState,
+    controller_input::Button, fall_detection::Posture,
+    filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, primary_state::PrimaryState,
 };
 use voronoi::Ownership;
@@ -139,11 +139,31 @@ pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
     is_closest
 }
 
-pub fn is_fallen(blackboard: &mut Blackboard) -> bool {
+fn posture(blackboard: &Blackboard) -> Option<Posture> {
     blackboard
         .world_state
-        .fall_down_state
-        .is_some_and(|state| state.fall_down_state != FallDownStateType::IsReady)
+        .fall_detection
+        .filter(|fall_detection| fall_detection.is_valid(blackboard.world_state.now))
+        .map(|fall_detection| fall_detection.posture)
+}
+
+pub fn requires_damping(blackboard: &mut Blackboard) -> bool {
+    matches!(posture(blackboard), None | Some(Posture::Falling))
+}
+
+pub fn is_fallen(blackboard: &mut Blackboard) -> bool {
+    matches!(posture(blackboard), Some(Posture::Fallen { .. }))
+}
+
+pub fn is_ready_for_stand_up(blackboard: &mut Blackboard) -> bool {
+    matches!(
+        posture(blackboard),
+        Some(
+            Posture::Fallen {
+                is_ready_for_standup: true
+            } | Posture::StandingUp
+        )
+    )
 }
 
 pub fn is_goalkeeper(blackboard: &mut Blackboard) -> bool {

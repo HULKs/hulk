@@ -1,4 +1,4 @@
-use booster::{FallDownState, FallDownStateType, ImuState};
+use booster::ImuState;
 use coordinate_systems::{Ground, LeftSole, Odometry, RightSole, Robot};
 use kinematics::{
     robot_kinematics::RobotKinematics,
@@ -7,6 +7,7 @@ use kinematics::{
 use linear_algebra::{Isometry2, Point3, Pose2, Vector2};
 use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
+use types::fall_detection::{FallDetection, Posture};
 
 /// Parameters controlling contact-aware odometry integration.
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
@@ -35,7 +36,7 @@ pub struct EstimatorInput<'a> {
     pub time: Time,
     pub imu_state: &'a ImuState,
     pub robot_kinematics: Option<&'a RobotKinematics>,
-    pub fall_down_state: Option<&'a FallDownState>,
+    pub fall_detection: Option<&'a FallDetection>,
 }
 
 #[derive(Debug, Default)]
@@ -61,7 +62,7 @@ impl OdometryEstimator {
             .get_or_insert(input.imu_state.roll_pitch_yaw.z());
         let yaw = normalize_angle(input.imu_state.roll_pitch_yaw.z() - yaw_offset);
 
-        if !is_ready(input.fall_down_state) {
+        if !is_upright(input.fall_detection) {
             self.clear_contact_tracking();
             self.pose = pose_with_yaw(self.pose, yaw);
             self.last_time = Some(input.time);
@@ -181,11 +182,11 @@ fn normalize_angle(angle: f32) -> f32 {
     angle.sin().atan2(angle.cos())
 }
 
-fn is_ready(fall_down_state: Option<&FallDownState>) -> bool {
+fn is_upright(fall_detection: Option<&FallDetection>) -> bool {
     matches!(
-        fall_down_state,
-        Some(FallDownState {
-            fall_down_state: FallDownStateType::IsReady,
+        fall_detection,
+        Some(FallDetection {
+            posture: Posture::Upright,
             ..
         })
     )
@@ -193,13 +194,14 @@ fn is_ready(fall_down_state: Option<&FallDownState>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use booster::{FallDownState, FallDownStateType, ImuState};
+    use booster::ImuState;
     use coordinate_systems::{LeftSole, RightSole};
     use kinematics::robot_kinematics::{
         RobotKinematics, RobotLeftLegKinematics, RobotRightLegKinematics,
     };
     use linear_algebra::{IntoTransform, point, vector};
     use ros_z::time::Time;
+    use types::fall_detection::{FallDetection, Posture};
 
     use super::*;
 
@@ -234,17 +236,21 @@ mod tests {
         }
     }
 
-    fn ready() -> FallDownState {
-        FallDownState {
-            fall_down_state: FallDownStateType::IsReady,
-            is_recovery_available: false,
+    fn upright() -> FallDetection {
+        FallDetection {
+            time: Time::default(),
+            valid_until: Time::default(),
+            posture: Posture::Upright,
         }
     }
 
-    fn fallen() -> FallDownState {
-        FallDownState {
-            fall_down_state: FallDownStateType::HasFallen,
-            is_recovery_available: true,
+    fn fallen() -> FallDetection {
+        FallDetection {
+            time: Time::default(),
+            valid_until: Time::default(),
+            posture: Posture::Fallen {
+                is_ready_for_standup: false,
+            },
         }
     }
 
@@ -284,7 +290,7 @@ mod tests {
                     time: Time::from_nanos(1_000_000_000),
                     imu_state: &imu,
                     robot_kinematics: Some(&kinematics),
-                    fall_down_state: Some(&ready()),
+                    fall_detection: Some(&upright()),
                 },
                 &parameters(),
             )
@@ -306,7 +312,7 @@ mod tests {
                 time: Time::from_nanos(1_000_000_000),
                 imu_state: &imu,
                 robot_kinematics: Some(&first),
-                fall_down_state: Some(&ready()),
+                fall_detection: Some(&upright()),
             },
             &parameters,
         );
@@ -318,7 +324,7 @@ mod tests {
                     time: Time::from_nanos(1_010_000_000),
                     imu_state: &imu,
                     robot_kinematics: Some(&second),
-                    fall_down_state: Some(&ready()),
+                    fall_detection: Some(&upright()),
                 },
                 &parameters,
             )
@@ -338,7 +344,7 @@ mod tests {
                 time: Time::from_nanos(1_000_000_000),
                 imu_state: &imu,
                 robot_kinematics: Some(&first),
-                fall_down_state: Some(&ready()),
+                fall_detection: Some(&upright()),
             },
             &parameters,
         );
@@ -350,7 +356,7 @@ mod tests {
                     time: Time::from_nanos(1_010_000_000),
                     imu_state: &imu,
                     robot_kinematics: Some(&second),
-                    fall_down_state: Some(&ready()),
+                    fall_detection: Some(&upright()),
                 },
                 &parameters,
             )
@@ -372,7 +378,7 @@ mod tests {
                 time: Time::from_nanos(1_000_000_000),
                 imu_state: &imu,
                 robot_kinematics: Some(&first),
-                fall_down_state: Some(&ready()),
+                fall_detection: Some(&upright()),
             },
             &parameters,
         );
@@ -384,7 +390,7 @@ mod tests {
                     time: Time::from_nanos(1_010_000_000),
                     imu_state: &imu,
                     robot_kinematics: Some(&second),
-                    fall_down_state: Some(&ready()),
+                    fall_detection: Some(&upright()),
                 },
                 &parameters,
             )
@@ -405,7 +411,7 @@ mod tests {
                 time: Time::from_nanos(1_000_000_000),
                 imu_state: &imu,
                 robot_kinematics: Some(&first),
-                fall_down_state: Some(&ready()),
+                fall_detection: Some(&upright()),
             },
             &parameters,
         );
@@ -417,7 +423,7 @@ mod tests {
                     time: Time::from_nanos(1_010_000_000),
                     imu_state: &imu,
                     robot_kinematics: Some(&second),
-                    fall_down_state: Some(&fallen()),
+                    fall_detection: Some(&fallen()),
                 },
                 &parameters,
             )
@@ -437,7 +443,7 @@ mod tests {
                 time: Time::from_nanos(1_000_000_000),
                 imu_state: &imu,
                 robot_kinematics: Some(&first),
-                fall_down_state: Some(&ready()),
+                fall_detection: Some(&upright()),
             },
             &parameters,
         );
@@ -449,7 +455,7 @@ mod tests {
                     time: Time::from_nanos(1_010_000_000),
                     imu_state: &imu,
                     robot_kinematics: Some(&second),
-                    fall_down_state: None,
+                    fall_detection: None,
                 },
                 &parameters,
             )
@@ -468,7 +474,7 @@ mod tests {
                 time: Time::from_nanos(1_000_000_000),
                 imu_state: &imu,
                 robot_kinematics: None,
-                fall_down_state: Some(&ready()),
+                fall_detection: Some(&upright()),
             },
             &parameters(),
         );
@@ -485,7 +491,7 @@ mod tests {
                 time: Time::from_nanos(1_000_000_000),
                 imu_state: &skipped_imu,
                 robot_kinematics: None,
-                fall_down_state: Some(&ready()),
+                fall_detection: Some(&upright()),
             },
             &parameters(),
         );
@@ -500,7 +506,7 @@ mod tests {
                     time: Time::from_nanos(1_010_000_000),
                     imu_state: &valid_imu,
                     robot_kinematics: Some(&kinematics),
-                    fall_down_state: Some(&ready()),
+                    fall_detection: Some(&upright()),
                 },
                 &parameters(),
             )

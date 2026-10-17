@@ -19,8 +19,8 @@ use voronoi::VoronoiGrid;
 
 use crate::behavior_tree_simulator::{
     InvariantViolation, RobotSnapshot, SimulatedBall, SimulatorBall, SimulatorBehaviorTickOutput,
-    SimulatorClock, SimulatorCurrentInvariantViolations, SimulatorFallDownState,
-    SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorObstacle,
+    SimulatorClock, SimulatorCurrentInvariantViolations, SimulatorGameState,
+    SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorObstacle, SimulatorPosture,
     SimulatorPrimaryState, SimulatorRobot, SimulatorRobotId, SimulatorScenarioObstacles,
 };
 use crate::game_controller::filtered_game_state_from;
@@ -135,7 +135,7 @@ pub fn record_timeline_frame(
         &SimulatorGroundToWorld,
         &SimulatorHeadYaw,
         &SimulatorPrimaryState,
-        &SimulatorFallDownState,
+        &SimulatorPosture,
     )>,
 ) {
     timeline.frames.push(TimelineFrame {
@@ -159,11 +159,11 @@ pub fn robot_snapshots_from_query(
         &SimulatorGroundToWorld,
         &SimulatorHeadYaw,
         &SimulatorPrimaryState,
-        &SimulatorFallDownState,
+        &SimulatorPosture,
     )>,
 ) -> BTreeMap<SimulatorRobotId, RobotSnapshot> {
     let mut snapshots = BTreeMap::new();
-    for (robot, ground_to_world, head_yaw, primary_state, fall_down_state) in robots.iter() {
+    for (robot, ground_to_world, head_yaw, primary_state, posture) in robots.iter() {
         let robot_id = robot.id();
         snapshots.insert(
             robot_id,
@@ -173,7 +173,7 @@ pub fn robot_snapshots_from_query(
                 ground_to_world: ground_to_world.ground_to_world,
                 head_yaw: head_yaw.yaw,
                 primary_state: primary_state.primary_state,
-                fall_down_state: fall_down_state.fall_down_state,
+                posture: posture.posture,
             },
         );
     }

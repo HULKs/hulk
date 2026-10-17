@@ -42,7 +42,7 @@ pub use crate::invariant_checks::{
     SimulatorCurrentInvariantViolations, SimulatorInvariantChecks, default_invariant_checks,
 };
 pub use crate::robot::{
-    SimulatorFallDownState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorLastKickTime,
+    SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorLastKickTime, SimulatorPosture,
     SimulatorPrimaryState, SimulatorRobot, SimulatorRobotBundle, SimulatorRobotId,
     SimulatorRobotParameters, SimulatorSuggestedSearchPosition,
 };
