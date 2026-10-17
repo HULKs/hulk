@@ -13,8 +13,9 @@ use color_eyre::{
 use environment::{Environment, EnvironmentArguments};
 use lazy_static::lazy_static;
 use pathdiff::diff_paths;
-use repository::{Repository, cargo::Cargo};
-use tokio::fs::read_to_string;
+use repository::{Repository, cargo::Cargo, sdk::ContainerRuntime};
+use serde::Deserialize;
+use tokio::{fs::read_to_string, process::Command};
 use toml::Table;
 use tracing::debug;
 
@@ -64,9 +65,11 @@ pub trait CargoCommand {
 
     fn apply(&self, cmd: &mut Cargo);
     fn profile(&self) -> &str;
+    fn selected_packages(&self) -> &[String];
+    fn workspace_requested(&self) -> bool;
 }
 
-impl<CargoArguments: Args> Arguments<CargoArguments> {
+impl<CargoArguments: Args + CargoCommand> Arguments<CargoArguments> {
     async fn manifest_path(&self, repository: &Repository) -> Result<Option<PathBuf>> {
         match self.manifest.as_ref() {
             Some(manifest) => resolve_manifest_path(manifest, repository)
@@ -84,9 +87,14 @@ impl<CargoArguments: Args> Arguments<CargoArguments> {
     ) -> Result<repository::cargo::Environment> {
         match self.environment.env.clone() {
             Some(environment) => environment,
-            None => read_requested_environment(manifest_path)
-                .await
-                .wrap_err("failed to read requested environment")?,
+            None => read_requested_environment(
+                manifest_path,
+                CargoArguments::SUB_COMMAND,
+                self.cargo.selected_packages(),
+                self.cargo.workspace_requested(),
+            )
+            .await
+            .wrap_err("failed to read requested environment")?,
         }
         .resolve(repository)
         .await
@@ -196,32 +204,158 @@ pub async fn construct_cargo_command<CargoArguments: Args + CargoCommand>(
     Ok(cargo_command)
 }
 
-async fn read_requested_environment(manifest_path: Option<&Path>) -> Result<Environment> {
-    let Some(manifest_path) = manifest_path else {
-        return Ok(Environment::Native);
+async fn read_requested_environment(
+    manifest_path: Option<&Path>,
+    cargo_subcommand: &str,
+    selected_packages: &[String],
+    workspace_requested: bool,
+) -> Result<Environment> {
+    let manifest_path = match manifest_path {
+        Some(path) => path.to_path_buf(),
+        None => {
+            locate_manifest(&current_dir().wrap_err("failed to get current directory")?).await?
+        }
     };
-
-    let manifest = read_to_string(manifest_path).await.wrap_err_with(|| {
-        format!(
-            "failed to read manifest at {path}",
-            path = manifest_path.display()
-        )
-    })?;
+    let manifest = read_to_string(&manifest_path)
+        .await
+        .wrap_err_with(|| format!("failed to read manifest at {}", manifest_path.display()))?;
     let manifest: Table = toml::from_str(&manifest).wrap_err("failed to parse manifest")?;
-    let Some(package_metadata) = package_metadata(&manifest) else {
-        return Ok(Environment::Native);
-    };
 
-    let is_cross_compile_requested = package_metadata
-        .get("cross-compile")
-        .and_then(|value| value.as_bool())
-        .unwrap_or(false);
-
-    if !is_cross_compile_requested {
-        return Ok(Environment::Native);
+    if manifest_requests_cross_compile(&manifest)
+        || (workspace_requested && workspace_command_uses_sdk(cargo_subcommand))
+    {
+        return Ok(sdk_environment_for_host());
     }
 
-    Ok(Environment::Podman { image: None })
+    if !selected_packages.is_empty() {
+        return Ok(
+            if selected_packages_request_cross_compile(selected_packages, &manifest_path).await? {
+                sdk_environment_for_host()
+            } else {
+                Environment::Native
+            },
+        );
+    }
+
+    if manifest.get("package").is_none()
+        && manifest.get("workspace").is_some()
+        && workspace_command_uses_sdk(cargo_subcommand)
+    {
+        return Ok(sdk_environment_for_host());
+    }
+
+    Ok(Environment::Native)
+}
+
+async fn locate_manifest(directory: &Path) -> Result<PathBuf> {
+    let output = Command::new("cargo")
+        .args(["locate-project", "--message-format", "plain"])
+        .current_dir(directory)
+        .output()
+        .await
+        .wrap_err("failed to locate Cargo manifest")?;
+    if !output.status.success() {
+        bail!(
+            "cargo locate-project failed with {}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim(),
+        );
+    }
+    let path = String::from_utf8(output.stdout).wrap_err("invalid Cargo manifest path")?;
+    Ok(PathBuf::from(path.trim()))
+}
+
+fn manifest_requests_cross_compile(manifest: &Table) -> bool {
+    package_metadata(manifest)
+        .and_then(|metadata| metadata.get("cross-compile"))
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false)
+}
+
+fn workspace_command_uses_sdk(cargo_subcommand: &str) -> bool {
+    cfg!(target_os = "macos")
+        && matches!(
+            cargo_subcommand,
+            "build" | "check" | "clippy" | "nextest run" | "test"
+        )
+}
+
+#[derive(Deserialize)]
+struct CargoMetadata {
+    packages: Vec<CargoMetadataPackage>,
+}
+
+#[derive(Deserialize)]
+struct CargoMetadataPackage {
+    id: String,
+    metadata: serde_json::Value,
+}
+
+async fn selected_packages_request_cross_compile(
+    selected_packages: &[String],
+    manifest_path: &Path,
+) -> Result<bool> {
+    let output = Command::new("cargo")
+        .args([
+            "metadata",
+            "--format-version",
+            "1",
+            "--no-deps",
+            "--manifest-path",
+        ])
+        .arg(manifest_path)
+        .output()
+        .await
+        .wrap_err("failed to read Cargo workspace metadata")?;
+    if !output.status.success() {
+        bail!(
+            "cargo metadata failed with {status}: {stderr}",
+            status = output.status,
+            stderr = String::from_utf8_lossy(&output.stderr),
+        );
+    }
+
+    let metadata: CargoMetadata = serde_json::from_slice(&output.stdout)
+        .wrap_err("failed to parse Cargo workspace metadata")?;
+
+    for spec in selected_packages {
+        let output = Command::new("cargo")
+            .args(["pkgid", "--manifest-path"])
+            .arg(manifest_path)
+            .args(["--package", spec])
+            .output()
+            .await
+            .wrap_err_with(|| format!("failed to resolve Cargo package {spec}"))?;
+        if !output.status.success() {
+            bail!(
+                "cargo pkgid failed for {spec} with {}: {}",
+                output.status,
+                String::from_utf8_lossy(&output.stderr).trim(),
+            );
+        }
+        let id = String::from_utf8(output.stdout)
+            .wrap_err_with(|| format!("invalid package ID for {spec}"))?;
+        if metadata.packages.iter().any(|package| {
+            package.id == id.trim()
+                && package
+                    .metadata
+                    .get("pepsi")
+                    .and_then(|metadata| metadata.get("cross-compile"))
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false)
+        }) {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
+fn sdk_environment_for_host() -> Environment {
+    match ContainerRuntime::default_for_host() {
+        ContainerRuntime::Podman => Environment::Podman { image: None },
+        ContainerRuntime::Docker => Environment::Docker { image: None },
+    }
 }
 
 async fn resolve_manifest_path(
@@ -264,4 +398,83 @@ fn package_metadata(table: &Table) -> Option<&Table> {
         .get("metadata")?
         .get("pepsi")?
         .as_table()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn repository() -> Repository {
+        Repository::new(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../..")
+                .canonicalize()
+                .expect("workspace root exists"),
+        )
+    }
+
+    #[tokio::test]
+    async fn package_specs_select_cross_compile_environment() {
+        let repository = repository();
+        let workspace_manifest = repository.root.join("Cargo.toml");
+        let selected = vec!["hulk_ros_z@0.1.0".to_string()];
+        let environment =
+            read_requested_environment(Some(&workspace_manifest), "run", &selected, false)
+                .await
+                .expect("environment resolves");
+        assert!(matches!(
+            environment,
+            Environment::Docker { .. } | Environment::Podman { .. }
+        ));
+
+        let member_manifest = repository.root.join("tools/pepsi/Cargo.toml");
+        let environment =
+            read_requested_environment(Some(&member_manifest), "build", &selected, false)
+                .await
+                .expect("package selection from member manifest resolves");
+        assert!(matches!(
+            environment,
+            Environment::Docker { .. } | Environment::Podman { .. }
+        ));
+
+        let selected = vec!["pepsi".to_string()];
+        let environment =
+            read_requested_environment(Some(&workspace_manifest), "build", &selected, false)
+                .await
+                .expect("environment resolves");
+        assert!(matches!(environment, Environment::Native));
+    }
+
+    #[tokio::test]
+    async fn workspace_selection_from_member_manifest_uses_sdk_on_macos() {
+        let repository = repository();
+        let manifest = repository.root.join("tools/pepsi/Cargo.toml");
+        let environment = read_requested_environment(Some(&manifest), "build", &[], true)
+            .await
+            .expect("environment resolves");
+        assert_eq!(
+            matches!(environment, Environment::Docker { .. }),
+            cfg!(target_os = "macos"),
+        );
+    }
+
+    #[tokio::test]
+    async fn implicit_manifest_follows_cargo_project_selection() {
+        let repository = repository();
+        let member_manifest = locate_manifest(&repository.root.join("tools/pepsi"))
+            .await
+            .expect("member manifest resolves");
+        assert_eq!(
+            member_manifest,
+            repository.root.join("tools/pepsi/Cargo.toml")
+        );
+
+        let service_manifest = locate_manifest(&repository.root.join("services/aliveness"))
+            .await
+            .expect("service manifest resolves");
+        assert_eq!(
+            service_manifest,
+            repository.root.join("services/aliveness/Cargo.toml")
+        );
+    }
 }

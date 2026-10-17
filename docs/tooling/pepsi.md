@@ -150,6 +150,10 @@ For subcommands that build a binary, you can specify a target and a build profil
 These include `build`, `run`, `check`, and `clippy`.
 However `upload` and `pregame` only supports a profiles, since it doesn't make sense to upload a webots binary to the booster.
 
+Pepsi selects the SDK for packages marked `cross-compile = true`.
+On macOS, workspace `build`, `check`, `clippy`, and `test` commands use the SDK by default; `nextest run` does too.
+Use `--env native` to build a local macOS tool without the SDK, or `--env docker` to select the SDK explicitly.
+
 ### Build directories
 
 Native builds, including the `./pepsi` launcher, keep Cargo's default `target` directory.
