@@ -20,6 +20,7 @@ use layout::{FocusDirection, TwixLayout};
 use log::{error, warn};
 use panels::{
     AudioPanel, BehaviorTreePanel, ImagePanel, MapPanel, ParameterPanel, PlotPanel, TextPanel,
+    TimelinePanel,
 };
 use repository::{Repository, inspect_version::check_for_update};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
@@ -35,6 +36,7 @@ mod panel;
 mod panels;
 mod presets;
 mod repaint;
+mod replay;
 mod selectable_panel_macro;
 mod topic_source;
 mod visuals;
@@ -46,7 +48,8 @@ impl_selectable_panel!(
     ParameterPanel,
     AudioPanel,
     BehaviorTreePanel,
-    PlotPanel
+    PlotPanel,
+    TimelinePanel
 );
 
 #[derive(Debug, Clone, clap::Parser)]
@@ -155,6 +158,8 @@ impl App for TwixApp {
             })
         });
 
+        self.backend.replay().update(&context, &self.backend);
+
         CentralPanel::default().show(ui, |ui| {
             let layout = &mut self.layout;
             if shortcuts_enabled {
@@ -193,6 +198,7 @@ impl App for TwixApp {
             layout.ui(ui, &self.backend);
         });
         self.layout.dialogs(&context);
+        self.backend.replay().dispatch(&context, &self.backend);
     }
 
     fn save(&mut self, storage: &mut dyn Storage) {

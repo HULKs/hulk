@@ -37,6 +37,34 @@ pub enum KeybindAction {
     OpenSplit,
     OpenTab,
     CloseAll,
+    TimelineTogglePlayback,
+    TimelineStepBackward,
+    TimelineStepForward,
+    TimelineFineStepBackward,
+    TimelineFineStepForward,
+    TimelineNudgeBackward,
+    TimelineNudgeForward,
+    TimelineStart,
+    TimelineEnd,
+    TimelineFrameAll,
+}
+
+impl KeybindAction {
+    pub fn is_timeline(self) -> bool {
+        matches!(
+            self,
+            Self::TimelineTogglePlayback
+                | Self::TimelineStepBackward
+                | Self::TimelineStepForward
+                | Self::TimelineFineStepBackward
+                | Self::TimelineFineStepForward
+                | Self::TimelineNudgeBackward
+                | Self::TimelineNudgeForward
+                | Self::TimelineStart
+                | Self::TimelineEnd
+                | Self::TimelineFrameAll
+        )
+    }
 }
 
 pub fn parse_modifier(value: &str) -> Result<Modifiers, Error> {
