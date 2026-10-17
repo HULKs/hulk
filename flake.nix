@@ -15,7 +15,7 @@
       rustVersion = workspace.workspace.package.rust-version;
       pkgs = import nixpkgs { inherit system; overlays = [ (import rust-overlay) ]; };
       robotPkgs = import nixpkgs { system = "aarch64-linux"; };
-      robotBridge = robotPkgs.callPackage ./nix/zenoh-bridge-dds/package.nix { };
+      robotBridge = pkgs.pkgsCross.aarch64-multiplatform.callPackage ./nix/zenoh-bridge-dds/package.nix { };
       craneLibrary =
         (crane.mkLib pkgs).overrideToolchain pkgs.rust-bin.stable.${rustVersion}.default;
 

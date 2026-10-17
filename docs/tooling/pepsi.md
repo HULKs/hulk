@@ -51,7 +51,7 @@ The runtime uses a custom `zenoh-bridge-dds` 1.9.0 build for Booster firmware 1.
 `nix/zenoh-bridge-dds` pins the tested IntelligentRoboticsLab `cyclors` and
 `zenoh-plugin-dds` commits through `[patch.crates-io]` and a separate Cargo lockfile.
 These omit the conflicting DDS discovery parameter and skip invalid Zenoh topic names.
-The bridge is built from source, so preparation needs an ARM64 builder or emulation.
+The bridge is cross-compiled from source on x86_64 Linux, without an ARM64 builder or emulation.
 It can also be built separately with `nix build .#packages.aarch64-linux.zenoh-bridge-dds`.
 Gammaray installs it through the runtime profile.
 Remove temporary bridge `ExecStart` drop-ins when switching to the profile's binary.
