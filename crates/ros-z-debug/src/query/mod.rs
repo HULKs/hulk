@@ -3,12 +3,14 @@ mod live;
 pub mod plan;
 mod plan_observation;
 mod projection;
+pub mod remote;
 pub(crate) mod typed;
 
 use crate::{Error, Result};
-use ros_z::{dynamic::Schema, time::Time};
+use plan::QueryPlan;
+use ros_z::{TypeInfo, dynamic::Schema, time::Time};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{fmt::Display, sync::Arc};
 use tokio::sync::watch;
 
 pub use live::{Live, LiveRetention};
@@ -16,6 +18,7 @@ pub use plan_observation::{
     PlanObservation, PlanSnapshot, PlanStatus, PlanValue, TypedPlanObservation, TypedPlanSnapshot,
 };
 pub use projection::{ProjectionError, TimeEncoding, TimeProjection};
+pub use remote::RemoteMcap;
 pub use typed::{Connection, decode_record};
 
 pub const MAX_ROWS: usize = 4096;
@@ -23,7 +26,7 @@ pub const MAX_PAYLOAD_BYTES: u64 = 32 * 1024 * 1024;
 
 pub trait Backend: Send + Sync {
     fn topics(&self) -> TopicList;
-    fn observe(&self, cursor: CursorHandle, plan: plan::QueryPlan) -> Result<PlanObservation>;
+    fn observe(&self, cursor: CursorHandle, plan: QueryPlan) -> Result<PlanObservation>;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -91,7 +94,7 @@ impl CursorHandle {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TopicInfo {
     pub name: String,
-    pub type_info: ros_z::TypeInfo,
+    pub type_info: TypeInfo,
     pub schema: Option<Schema>,
     pub error: Option<String>,
 }
@@ -180,6 +183,6 @@ impl CursorRange {
     }
 }
 
-pub fn query_error(error: impl std::fmt::Display) -> Error {
+pub fn query_error(error: impl Display) -> Error {
     Error::Query(error.to_string())
 }
