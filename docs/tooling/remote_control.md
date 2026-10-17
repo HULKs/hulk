@@ -1,7 +1,7 @@
 # Remote Control
 
-`./pepsi gammaray <robot>` disables the manufacturer controller services for HULK remote control.
-`./pepsi boosterize <robot>` restores the `RemoteController` section in `/opt/booster/Daemon/bin/child.ini` and enables and starts `joystick_ros2`.
+`./pepsi gammaray <robot>` uploads `tools/k1-setup/child-hulk.ini` to `/opt/booster/Daemon/bin/child.ini`, restarts `booster-daemon`, and disables `joystick_ros2` for HULK remote control.
+`./pepsi boosterize <robot>` uploads `tools/k1-setup/child-booster.ini` to the same path, restarts `booster-daemon`, and enables and starts `joystick_ros2`.
 
 ## Controls
 
@@ -23,6 +23,6 @@ Remote control cannot override `Damping`, `Prepare`, or `Stop`.
 | Analog triggers, L2/LT and R2/RT | Unbound |
 | Right stick up/down | Unbound |
 
-## Restore Manufacturer Controls
+## Restore Booster Controls
 
-Boosterize restores the `RemoteController` section in `/opt/booster/Daemon/bin/child.ini` and enables and starts `joystick_ros2`.
+Boosterize replaces `/opt/booster/Daemon/bin/child.ini` with the checked-in Booster configuration, which includes the `RemoteController` section, and enables and starts `joystick_ros2`.
