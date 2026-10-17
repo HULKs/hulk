@@ -5,7 +5,7 @@ pub use parameters::Parameters;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use booster::{JointsMotorState, LowState};
-use color_eyre::{Result, eyre::ensure};
+use color_eyre::Result;
 use kinematics::{
     forward::{left_sole_to_robot, right_sole_to_robot},
     joints::body::{BodyJoints, LowerBodyJoints},
@@ -36,20 +36,10 @@ pub struct Observation {
 impl Observation {
     pub fn from_low_state(low_state: &LowState, time: Time) -> Result<Self> {
         let motors = low_state.serial_motor_states()?;
-        // The head does not affect falling or standing up.
         let positions = motors.positions().body();
         let velocities = motors.velocities().body();
         let roll_pitch_yaw = low_state.imu_state.roll_pitch_yaw;
         let gyro = low_state.imu_state.angular_velocity;
-        ensure!(
-            positions
-                .into_iter()
-                .chain(velocities)
-                .chain(roll_pitch_yaw.inner.iter().copied())
-                .chain(gyro.inner.iter().copied())
-                .all(f32::is_finite),
-            "non-finite fall detection input"
-        );
 
         // Angle between the torso's z axis and the vertical.
         let tilt = (roll_pitch_yaw.x().cos() * roll_pitch_yaw.y().cos())
@@ -177,7 +167,13 @@ impl Detector {
         let stable = self.start_pose_since.is_some_and(|since| {
             observation.time.duration_since(since) >= parameters.standing_up.confirmation_duration
         });
-        if let Some((Posture::Fallen { ready_for_standup }, _)) = &mut self.posture {
+        if let Some((
+            Posture::Fallen {
+                is_ready_for_standup: ready_for_standup,
+            },
+            _,
+        )) = &mut self.posture
+        {
             // The policy may leave the start pose before the request arrives here.
             *ready_for_standup = stable || (*ready_for_standup && stand_up_requested);
         }
@@ -206,7 +202,7 @@ impl Detector {
         let is_tilted = observation.tilt >= parameters.falling.minimum_torso_tilt;
         let fallen_transition = observation.is_lying_still(&parameters.fallen).then_some((
             Posture::Fallen {
-                ready_for_standup: false,
+                is_ready_for_standup: false,
             },
             parameters.fallen.confirmation_duration,
         ));
@@ -216,7 +212,7 @@ impl Detector {
             }
             Some((
                 Posture::Fallen {
-                    ready_for_standup: true,
+                    is_ready_for_standup: true,
                 },
                 _,
             )) if stand_up_requested => Some((Posture::StandingUp, Duration::ZERO)),

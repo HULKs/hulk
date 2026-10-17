@@ -160,7 +160,7 @@ pub fn is_ready_for_stand_up(blackboard: &mut Blackboard) -> bool {
         posture(blackboard),
         Some(
             Posture::Fallen {
-                ready_for_standup: true
+                is_ready_for_standup: true
             } | Posture::StandingUp
         )
     )

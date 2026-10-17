@@ -71,7 +71,6 @@ pub fn create_tree() -> Node<Blackboard> {
             action!(stand)
         ),
         sequence!(condition!(is_ready_for_stand_up), action!(stand_up)),
-        // Prepare stiffens the joints into a known pose, after which standup can start.
         sequence!(condition!(is_fallen), action!(prepare)),
         sequence!(
             condition!(is_primary_state, PrimaryState::Set),

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 pub enum Posture {
     Upright,
     Falling,
-    Fallen { ready_for_standup: bool },
+    Fallen { is_ready_for_standup: bool },
     StandingUp,
 }
 

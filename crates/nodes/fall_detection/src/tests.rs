@@ -82,7 +82,9 @@ fn seated_pose() -> BodyJoints<f32> {
 }
 
 fn fallen(ready_for_standup: bool) -> Posture {
-    Posture::Fallen { ready_for_standup }
+    Posture::Fallen {
+        is_ready_for_standup: ready_for_standup,
+    }
 }
 
 #[derive(Clone, Copy)]

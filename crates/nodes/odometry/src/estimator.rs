@@ -249,7 +249,7 @@ mod tests {
             time: Time::default(),
             valid_until: Time::default(),
             posture: Posture::Fallen {
-                ready_for_standup: false,
+                is_ready_for_standup: false,
             },
         }
     }

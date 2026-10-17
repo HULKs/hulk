@@ -4,7 +4,6 @@
   detection_lifetime: { secs: 0, nanos: 100000000 },
   upright: {
     maximum_torso_tilt: 0.349066,
-    // Allow the measured terminal get-up oscillation without accepting fast swings.
     maximum_torso_angular_velocity: 2.5,
     maximum_leg_joint_velocity: 6.0,
     minimum_torso_height_above_soles: 0.43,

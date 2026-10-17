@@ -85,6 +85,18 @@ impl Parameters {
         {
             return Err("torso tilts must increase from upright to falling to fallen".into());
         }
+        if ![
+            self.falling.minimum_torso_tilt,
+            self.falling.minimum_torso_tilt,
+            self.fallen.minimum_torso_tilt,
+            self.upright.maximum_torso_tilt,
+        ]
+        .iter()
+        .all(|tilt| *tilt <= FRAC_PI_2)
+        {
+            return Err("torso tilt limits must be below pi/2".into());
+        }
+
         if self.detection_lifetime <= self.maximum_observation_age {
             return Err("detection_lifetime must exceed maximum_observation_age".into());
         }

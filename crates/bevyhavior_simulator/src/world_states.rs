@@ -118,7 +118,6 @@ pub fn build_world_states(
                     )
                 }),
                 rule_obstacles,
-                // Rebuilt every tick, so it only needs to be valid now.
                 fall_detection: Some(FallDetection {
                     time: clock.now.into(),
                     valid_until: clock.now.into(),
