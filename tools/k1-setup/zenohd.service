@@ -1,0 +1,14 @@
+[Unit]
+Description=Zenoh router
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=zenohd
+Group=zenohd
+Environment=ZENOH_HOME=/var/lib/zenoh
+ExecStart=/nix/var/nix/profiles/hulks/bin/zenohd -c /etc/zenohd/zenohd.json5
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

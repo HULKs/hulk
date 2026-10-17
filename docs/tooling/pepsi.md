@@ -40,6 +40,29 @@ Many subcommands can act on multiple robots concurrently.
 On K1 robots, `gammaray` configures HULK and disables manufacturer controller programs; `boosterize` restores manufacturer control.
 See [Remote Control](remote_control.md) for setup, gamepad bindings, and restoration instructions.
 
+### Offline gammaray preparation
+
+Prepare packages on an internet-connected Linux host with Nix and curl.
+The existing flake lock pins Podman, Zenoh, nftables, and their dependencies.
+ARM64 binaries are fetched from the Nix cache; cache misses require an ARM64 builder or emulation.
+Environment assembly runs on x86_64 Linux.
+
+```sh
+pepsi gammaray --prepare
+```
+
+`--prepare` creates the bundle if absent, then exits before reading robot configuration or contacting robots.
+An existing bundle is reused without Nix commands or downloads.
+Gammaray also prepares a missing bundle, so run `--prepare` while online before gammaraying offline.
+Bundles are stored in `$XDG_DATA_HOME/hulk/image/{version}`, defaulting to `~/.local/share/hulk/image/{version}`.
+`HULK_DATA_HOME` overrides the HULK data directory.
+`version` is `runtime_version` from `hulk.toml`.
+Bump that version after runtime package changes, or remove the directory to rebuild.
+Failed preparation does not publish a partial bundle.
+
+The bundle includes a version-pinned ARM64 Nix installer, complete Nix runtime closure, and root store path.
+The robot needs SSH, rsync, sudo, Bash, tar/xz, systemd, NVIDIA tooling, and kernel support for nftables.
+
 ### Filesystem overlay
 
 Gammaray runs inside a persistent writable OverlayFS root.
@@ -85,6 +108,32 @@ Gammaray enables passwordless sudo before activation; when performed on the unde
 Overlay boot scripts, data, and boot-target configuration also reside on the underlying installation.
 An early systemd target activates the overlay after device initialization.
 Bootloader and initramfs configuration are unchanged.
+
+### Offline runtime installation
+
+Build/install Pepsi and prepare the runtime-image tar before disconnecting:
+
+```sh
+pepsi gammaray 42 --image-file /path/to/hulk-runtime.tar
+```
+
+With the bundle already prepared, neither host nor robot needs internet during this command.
+Nix is bootstrapped from the local installer without channels; the closure is imported without building or fetching packages.
+The active runtime lives at `/nix/var/nix/profiles/hulks`, retained by a Nix profile.
+Ubuntu systemd runs the supplied Zenoh services and Nix Podman's Quadlet generator.
+NVIDIA drivers and CDI tooling remain part of the robot baseline.
+
+`hulks-firewall.service` blocks outbound UDP destination port 9000 for IPv4 and IPv6.
+It loads `/etc/hulks.nft` at boot and atomically replaces only the `inet hulks` table on reload.
+The runtime requires this service.
+Gammaray removes its old UFW UDP/9000 rule after activating nftables; other firewall rules and policies remain in effect.
+No Debian packages or UFW installation are needed.
+
+The image tar must contain `hulk-runtime:latest`.
+It may be omitted when that image already exists in rootful Podman storage; registry pulls are disabled.
+Services are stopped during activation.
+Package/profile rollback alone does not undo Podman database migrations.
+Network reconfiguration runs last, and robot failures are reported individually.
 
 ## Build Options
 

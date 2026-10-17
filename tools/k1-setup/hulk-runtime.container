@@ -1,9 +1,12 @@
 [Unit]
 Description=HULK Runtime Environment
+Requires=hulks-firewall.service
+After=hulks-firewall.service
 
 [Container]
 ContainerName=hulk
 Image=hulk-runtime:latest
+Pull=never
 Network=host
 AddDevice=nvidia.com/gpu=all
 AddDevice=/dev/snd

@@ -9,7 +9,7 @@ ln -sfn "${INTERNAL_LOG_PATH}" "/home/booster/hulk/logs/latest"
 touch "${INTERNAL_LOG_PATH}/hulk.out" "${INTERNAL_LOG_PATH}/hulk.err"
 chown -R booster:booster /home/booster/hulk
 
-/usr/local/bin/podman exec \
+/nix/var/nix/profiles/hulks/bin/podman exec \
   --env RUST_BACKTRACE=1 \
   --env RUST_LOG=info,ros_z=error,ort=error,factrs=error,localization_factrs=error,stereo_visual_odometry=error \
   --user "$(id -u booster)" \
