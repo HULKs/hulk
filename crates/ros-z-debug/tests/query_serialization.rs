@@ -1,6 +1,7 @@
 use std::{num::NonZeroUsize, time::Duration};
 
 use ros_z::{
+    Message,
     pubsub::QueueOverflowReporting,
     qos::{QosDurability, QosHistory, QosProfile, QosReliability},
 };
@@ -27,6 +28,7 @@ fn query_plan_round_trip_preserves_live_policy() {
         .with_queue_overflow_reporting(QueueOverflowReporting::Silent);
     let source = TopicSource {
         topic: "/test".into(),
+        expected_type: Some(u64::type_info()),
         projection: TimeProjection::SourceTime,
         live_policy: policy,
     };

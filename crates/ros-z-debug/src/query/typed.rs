@@ -171,6 +171,7 @@ fn cache<T: Send + Sync + 'static>(
     };
     let source = Source::from(TopicSource {
         topic: resolved_topic.clone(),
+        expected_type: None,
         live_policy: policy,
         projection,
     });
@@ -546,6 +547,7 @@ mod tests {
         provisional.dependencies.push(Dependency {
             source: TopicSource {
                 topic: "/test".into(),
+                expected_type: None,
                 live_policy: ObservationPolicy::default(),
                 projection: TimeProjection::default(),
             },

@@ -3,9 +3,9 @@ use std::sync::Arc;
 use eframe::egui::Context;
 use ros_z_debug::{
     DynamicTopicObservation, TopicObservation, TopicObservationUpdateClosed,
-    TopicObservationUpdateReceiver,
+    TopicObservationUpdateReceiver, query::PlanObservation,
 };
-use tokio::{runtime::Handle, task::JoinHandle};
+use tokio::{runtime::Handle, sync::watch, task::JoinHandle};
 
 use crate::{
     backend::RobotBackend,
@@ -42,6 +42,19 @@ pub struct ObservationRepaint {
 }
 
 impl ObservationRepaint {
+    fn watch<T: Send + Sync + 'static>(
+        context: &impl ObservationContext,
+        mut updates: watch::Receiver<T>,
+    ) -> Self {
+        let egui = context.egui_context();
+        let task = context.backend().runtime_handle().spawn(async move {
+            while updates.changed().await.is_ok() {
+                egui.request_repaint();
+            }
+        });
+        Self { task }
+    }
+
     fn spawn(
         egui_context: Context,
         runtime_handle: &Handle,
@@ -78,6 +91,12 @@ pub trait RepaintOnUpdates {
     fn repaint_on_updates<C>(&self, context: &C) -> ObservationRepaint
     where
         C: ObservationContext;
+}
+
+impl RepaintOnUpdates for PlanObservation {
+    fn repaint_on_updates<C: ObservationContext>(&self, context: &C) -> ObservationRepaint {
+        ObservationRepaint::watch(context, self.subscribe_updates())
+    }
 }
 
 impl RepaintOnUpdates for DynamicTopicObservation {

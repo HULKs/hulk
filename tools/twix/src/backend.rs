@@ -1,7 +1,11 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicU64, Ordering},
+};
 
 use color_eyre::{Result, eyre::Context as _};
 use ros_z::{context::ContextBuilder, graph::Graph, node::Node, prelude::*};
+use ros_z_debug::query::{Connection, Cursor, CursorHandle, Live, LiveRetention, TopicList};
 use ros_z_debug::{TopicObserver, TopicObserverOptions};
 use tokio::runtime::Handle;
 use uuid::Uuid;
@@ -12,6 +16,9 @@ pub struct RobotBackend {
     node: Arc<Node>,
     observer: TopicObserver,
     namespace: Mutex<String>,
+    connection_generation: AtomicU64,
+    connection: Mutex<Connection>,
+    live: Arc<Live>,
 }
 
 impl RobotBackend {
@@ -45,6 +52,12 @@ impl RobotBackend {
         let options = TopicObserverOptions::with_namespace(namespace.clone())
             .wrap_err("failed to configure initial Twix namespace")?;
         let observer = TopicObserver::new(Arc::clone(&node), options);
+        let live = Arc::new(Live::new(Arc::clone(&node), LiveRetention::default()));
+        let connection = Connection {
+            backend: live.clone(),
+            cursor: CursorHandle::new(Cursor::Live),
+        };
+        observer.set_backend(connection.clone());
 
         Ok(Self {
             runtime_handle,
@@ -52,6 +65,9 @@ impl RobotBackend {
             node,
             observer,
             namespace: Mutex::new(namespace),
+            connection_generation: AtomicU64::new(0),
+            connection: Mutex::new(connection),
+            live,
         })
     }
 
@@ -71,6 +87,32 @@ impl RobotBackend {
         &self.observer
     }
 
+    pub fn query_connection(&self) -> Connection {
+        self.connection.lock().expect("connection mutex").clone()
+    }
+
+    pub fn topics(&self) -> TopicList {
+        self.connection
+            .lock()
+            .expect("connection mutex")
+            .backend
+            .topics()
+    }
+
+    pub fn use_live(&self) {
+        self.set_connection(Connection {
+            backend: self.live.clone(),
+            cursor: CursorHandle::new(Cursor::Live),
+        });
+    }
+
+    fn set_connection(&self, connection: Connection) {
+        self.observer.set_backend(connection.clone());
+        let mut current = self.connection.lock().expect("connection mutex");
+        *current = connection;
+        self.connection_generation.fetch_add(1, Ordering::Relaxed);
+    }
+
     pub fn namespace(&self) -> String {
         self.namespace
             .lock()
@@ -87,6 +129,15 @@ impl RobotBackend {
             .lock()
             .expect("namespace mutex should not be poisoned") = namespace;
         Ok(())
+    }
+
+    /// Connection replacements and cursor seeks independently invalidate presentation state.
+    pub fn presentation_identity(&self) -> (u64, u64) {
+        let connection = self.connection.lock().expect("connection mutex");
+        (
+            self.connection_generation.load(Ordering::Relaxed),
+            connection.cursor.position().revision,
+        )
     }
 }
 
@@ -122,5 +173,33 @@ fn sanitize_node_component(value: &str) -> String {
         "unknown-host".to_string()
     } else {
         sanitized
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn connection_replacements_have_distinct_presentation_identities_at_revision_zero() {
+        let backend = RobotBackend::new(Handle::current(), None, "/".into())
+            .await
+            .unwrap();
+        let initial = backend.presentation_identity();
+        assert_eq!(initial.1, 0);
+
+        backend.set_connection(Connection {
+            backend: Arc::new(Live::new(backend.node(), LiveRetention::default())),
+            cursor: CursorHandle::new(Cursor::Live),
+        });
+        let replacement = backend.presentation_identity();
+        assert_eq!(replacement.1, 0);
+        assert_ne!(replacement.0, initial.0);
+
+        backend.use_live();
+        let live = backend.presentation_identity();
+        assert_eq!(live.1, 0);
+        assert_ne!(live.0, replacement.0);
+        assert_ne!(live.0, initial.0);
     }
 }

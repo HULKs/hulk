@@ -131,6 +131,23 @@ pub struct RawRecord {
     pub data: Arc<[u8]>,
 }
 
+/// Cardinality-preserving accessor for temporal selections used by interpolation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TemporalMatch<T> {
+    Exact(T),
+    Before(T),
+    Bracket { before: T, after: T },
+}
+
+impl<T> TemporalMatch<T> {
+    pub fn last(&self) -> &T {
+        match self {
+            Self::Exact(value) | Self::Before(value) => value,
+            Self::Bracket { after, .. } => after,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SourceCoverage {
     Complete,

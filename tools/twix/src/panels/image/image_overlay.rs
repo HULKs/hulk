@@ -1,267 +1,172 @@
-use std::{sync::Arc, time::Duration};
-
-use color_eyre::{Report, eyre::Context as _};
+use super::{
+    inputs::{OverlayInput, OverlayInputs},
+    overlays::{HorizonOverlay, ObjectDetectionOverlay, PoseDetectionOverlay},
+};
+use color_eyre::Report;
 use coordinate_systems::Pixel;
 use eframe::egui::{Popup, PopupCloseBehavior, Ui};
-use ros_z::{Message, time::Time};
-use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
+use ros_z::time::Time;
+use ros_z_debug::query::plan::{Frame, InputSpec, Source};
 use serde_json::{Value, json};
-use types::time_wrapper::TimeWrapper;
-
-use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
+use std::ops::Range;
 use twix_visualization::twix_painter::TwixPainter;
 
-use super::overlays::{HorizonOverlay, ObjectDetectionOverlay, PoseDetectionOverlay};
+pub(super) trait ImageOverlay {
+    fn inputs(&self) -> Vec<OverlayInput>;
+    fn prepare(&mut self, time: Time, inputs: &mut OverlayInputs) -> Result<(), Report>;
+    fn paint(&self, painter: &TwixPainter<Pixel>);
+}
 
-const OVERLAY_RETENTION_WINDOW: Duration = Duration::from_secs(2);
+struct OverlayEntry {
+    id: &'static str,
+    name: &'static str,
+    enabled: bool,
+    overlay: Box<dyn ImageOverlay>,
+    slots: Range<usize>,
+    frame: Option<Time>,
+    error: Option<String>,
+    inputs: OverlayInputs,
+}
+
+impl OverlayEntry {
+    fn new(id: &'static str, name: &'static str, overlay: impl ImageOverlay + 'static) -> Self {
+        Self {
+            id,
+            name,
+            enabled: false,
+            overlay: Box::new(overlay),
+            slots: 0..0,
+            frame: None,
+            error: None,
+            inputs: OverlayInputs::default(),
+        }
+    }
+
+    fn clear(&mut self) {
+        self.frame = None;
+        self.error = None;
+        self.inputs.clear();
+        let _ = self.overlay.prepare(Time::zero(), &mut self.inputs);
+    }
+}
 
 pub(super) struct ImageOverlays {
-    horizon: OverlaySlot<HorizonOverlay>,
-    object_detection: OverlaySlot<ObjectDetectionOverlay>,
-    pose_detection: OverlaySlot<PoseDetectionOverlay>,
+    entries: Vec<OverlayEntry>,
+    pub revision: u64,
 }
 
 impl ImageOverlays {
-    pub(super) fn new<C>(value: Option<&Value>, context: &C) -> Self
-    where
-        C: ObservationContext,
-    {
+    pub(super) fn new(value: Option<&Value>) -> Self {
+        let mut entries = vec![
+            OverlayEntry::new("horizon", "Horizon", HorizonOverlay::default()),
+            OverlayEntry::new(
+                "object_detection",
+                "Object Detection",
+                ObjectDetectionOverlay::default(),
+            ),
+            OverlayEntry::new(
+                "pose_detection",
+                "Pose Detection",
+                PoseDetectionOverlay::default(),
+            ),
+        ];
+        for entry in &mut entries {
+            entry.enabled = value
+                .and_then(|v| v.get(entry.id))
+                .and_then(|v| v.get("active"))
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+        }
         Self {
-            horizon: OverlaySlot::new(value, context),
-            object_detection: OverlaySlot::new(value, context),
-            pose_detection: OverlaySlot::new(value, context),
+            entries,
+            revision: 0,
         }
     }
 
-    pub(super) fn ui<C>(&mut self, ui: &mut Ui, context: &C)
-    where
-        C: ObservationContext,
-    {
+    pub(super) fn declarations(
+        &mut self,
+        namespace: &str,
+        supported: bool,
+    ) -> Result<(Vec<InputSpec>, Vec<Source>), Report> {
+        let mut inputs = Vec::new();
+        let mut preferences = Vec::new();
+        for entry in &mut self.entries {
+            entry.clear();
+            let start = inputs.len();
+            if supported && entry.enabled {
+                for input in entry.overlay.inputs() {
+                    let prefer_frame = input.prefer_frame;
+                    let spec = input.into_spec(namespace)?;
+                    if prefer_frame {
+                        preferences.push(spec.source.clone());
+                    }
+                    inputs.push(spec);
+                }
+            }
+            entry.slots = start..inputs.len();
+        }
+        Ok((inputs, preferences))
+    }
+
+    pub(super) fn clear(&mut self) {
+        for entry in &mut self.entries {
+            entry.clear();
+        }
+    }
+
+    pub(super) fn prepare(&mut self, frame: &Frame) {
+        let time = frame.primary.record.time;
+        for entry in &mut self.entries {
+            if !entry.enabled || entry.slots.is_empty() {
+                continue;
+            }
+            let Some(inputs) = frame.inputs.get(entry.slots.clone()) else {
+                entry.clear();
+                continue;
+            };
+            let changed = entry.inputs.update(inputs);
+            if changed || entry.frame != Some(time) {
+                entry.frame = Some(time);
+                entry.inputs.begin_prepare();
+                entry.error = entry
+                    .overlay
+                    .prepare(time, &mut entry.inputs)
+                    .err()
+                    .map(|e| format!("{e:#}"))
+                    .or_else(|| entry.inputs.errors().next().map(str::to_owned));
+            }
+        }
+    }
+
+    pub(super) fn paint(&self, painter: &TwixPainter<Pixel>, time: Time) {
+        for entry in &self.entries {
+            if entry.enabled && entry.frame == Some(time) {
+                entry.overlay.paint(painter);
+            }
+        }
+    }
+
+    pub(super) fn ui(&mut self, ui: &mut Ui) {
         Popup::menu(&ui.button("Overlays"))
             .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
             .show(|ui| {
-                self.horizon.checkbox(ui, context);
-                self.object_detection.checkbox(ui, context);
-                self.pose_detection.checkbox(ui, context);
+                for entry in &mut self.entries {
+                    if ui.checkbox(&mut entry.enabled, entry.name).changed() {
+                        self.revision = self.revision.wrapping_add(1);
+                    }
+                    if let Some(error) = &entry.error {
+                        ui.colored_label(ui.visuals().error_fg_color, error);
+                    }
+                }
             });
     }
 
-    pub(super) fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
-        self.horizon.paint(painter, image_time);
-        self.object_detection.paint(painter, image_time);
-        self.pose_detection.paint(painter, image_time);
-    }
-
-    pub(super) fn preferred_image_time(&self) -> Option<Time> {
-        [
-            self.object_detection.latest_time(),
-            self.pose_detection.latest_time(),
-        ]
-        .into_iter()
-        .flatten()
-        .min()
-    }
-
     pub(super) fn save(&self) -> Value {
-        json!({
-            HorizonOverlay::STORAGE_KEY: self.horizon.save(),
-            ObjectDetectionOverlay::STORAGE_KEY: self.object_detection.save(),
-            PoseDetectionOverlay::STORAGE_KEY: self.pose_detection.save(),
-        })
+        Value::Object(
+            self.entries
+                .iter()
+                .map(|entry| (entry.id.into(), json!({"active":entry.enabled})))
+                .collect(),
+        )
     }
-}
-
-impl Default for ImageOverlays {
-    fn default() -> Self {
-        Self {
-            horizon: OverlaySlot::inactive(),
-            object_detection: OverlaySlot::inactive(),
-            pose_detection: OverlaySlot::inactive(),
-        }
-    }
-}
-
-struct OverlaySlot<T> {
-    active: bool,
-    overlay: Option<T>,
-    error: Option<String>,
-}
-
-impl<T> OverlaySlot<T>
-where
-    T: ImageOverlay,
-{
-    fn new<C>(value: Option<&Value>, context: &C) -> Self
-    where
-        C: ObservationContext,
-    {
-        let mut slot = Self::inactive();
-        slot.active = value
-            .and_then(|value| value.get(T::STORAGE_KEY))
-            .and_then(|value| value.get("active"))
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        if slot.active {
-            slot.recreate(context);
-        }
-        slot
-    }
-
-    fn inactive() -> Self {
-        Self {
-            active: false,
-            overlay: None,
-            error: None,
-        }
-    }
-
-    fn checkbox<C>(&mut self, ui: &mut Ui, context: &C)
-    where
-        C: ObservationContext,
-    {
-        let changed = ui.checkbox(&mut self.active, T::NAME).changed();
-        if changed {
-            if self.active {
-                self.recreate(context);
-            } else {
-                self.overlay = None;
-                self.error = None;
-            }
-        }
-        if let Some(error) = &self.error {
-            ui.colored_label(ui.visuals().error_fg_color, error);
-        }
-    }
-
-    fn recreate<C>(&mut self, context: &C)
-    where
-        C: ObservationContext,
-    {
-        match T::new(context) {
-            Ok(overlay) => {
-                self.overlay = Some(overlay);
-                self.error = None;
-            }
-            Err(error) => {
-                self.overlay = None;
-                self.error = Some(format!("{}: {error:#}", T::NAME));
-            }
-        }
-    }
-
-    fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time) {
-        if let Some(overlay) = &self.overlay {
-            overlay.paint(painter, image_time);
-        }
-    }
-
-    fn latest_time(&self) -> Option<Time> {
-        self.overlay.as_ref().and_then(ImageOverlay::latest_time)
-    }
-
-    fn save(&self) -> Value {
-        json!({"active": self.active})
-    }
-}
-
-pub(super) trait ImageOverlay: Sized {
-    const NAME: &'static str;
-    const STORAGE_KEY: &'static str;
-
-    fn new<C>(context: &C) -> Result<Self, Report>
-    where
-        C: ObservationContext;
-
-    fn paint(&self, painter: &TwixPainter<Pixel>, image_time: Time);
-
-    fn latest_time(&self) -> Option<Time> {
-        None
-    }
-}
-
-pub(super) struct OverlayObservation<T> {
-    observation: TopicObservation<T>,
-    _repaint: ObservationRepaint,
-}
-
-impl<T> OverlayObservation<T>
-where
-    T: Message + Send + Sync + 'static,
-    T::Codec: Send + Sync,
-{
-    pub(super) fn new<C>(context: &C, topic: &str) -> Result<Self, Report>
-    where
-        C: ObservationContext,
-    {
-        let (observation, repaint) = create_typed_observation(context, topic)?;
-        Ok(Self {
-            observation,
-            _repaint: repaint,
-        })
-    }
-
-    pub(super) fn latest(&self) -> Option<Arc<SampleRecord<T>>> {
-        self.observation.latest()
-    }
-
-    fn get_all(&self) -> Vec<Arc<SampleRecord<T>>> {
-        self.observation.get_all()
-    }
-}
-
-impl<T> OverlayObservation<TimeWrapper<T>>
-where
-    TimeWrapper<T>: Message + Send + Sync + 'static,
-    <TimeWrapper<T> as Message>::Codec: Send + Sync,
-{
-    pub(super) fn latest_time(&self) -> Option<Time> {
-        self.latest().map(|record| record.value.time)
-    }
-
-    pub(super) fn nearest_to_time(
-        &self,
-        time: Time,
-        tolerance: Duration,
-    ) -> Option<Arc<SampleRecord<TimeWrapper<T>>>> {
-        let nearest = self
-            .get_all()
-            .into_iter()
-            .min_by_key(|record| time_distance(record.value.time, time))?;
-        (time_distance(nearest.value.time, time) <= tolerance).then_some(nearest)
-    }
-
-    pub(super) fn at_time(&self, time: Time) -> Option<Arc<SampleRecord<TimeWrapper<T>>>> {
-        self.get_all()
-            .into_iter()
-            .rev()
-            .find(|record| record.value.time == time)
-    }
-}
-
-fn time_distance(first: Time, second: Time) -> Duration {
-    first
-        .duration_since(second)
-        .max(second.duration_since(first))
-}
-
-fn create_typed_observation<T>(
-    context: &impl ObservationContext,
-    topic: &str,
-) -> Result<(TopicObservation<T>, ObservationRepaint), Report>
-where
-    T: Message + Send + Sync + 'static,
-    T::Codec: Send + Sync,
-{
-    let runtime_handle = context.backend().runtime_handle().clone();
-    // ros_z_debug spawns observation tasks internally and needs a current runtime.
-    let _runtime_context = runtime_handle.enter();
-    let observation = context
-        .backend()
-        .observer()
-        .observe_typed::<T>(topic)
-        .wrap_err_with(|| format!("failed to create typed topic observation for {topic}"))?
-        .retention(RetentionPolicy::time_window(OVERLAY_RETENTION_WINDOW)?)
-        .spawn();
-    let repaint = observation.repaint_on_updates(context);
-    Ok((observation, repaint))
 }
