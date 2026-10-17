@@ -63,11 +63,12 @@ const BUNDLE_INSTALLATION_SCRIPT: &str = include_str!("install-hulks-bundle.sh")
 const REMOTE_BUNDLE: &str = "/home/booster/.cache/hulk/hulks";
 const PODMAN: &str = "/nix/var/nix/profiles/hulks/bin/podman";
 
-pub(super) const MANUFACTURER_CONTROLLER_SCRIPT: &str = r#"set -euo pipefail
+pub(super) const MANUFACTURER_SERVICES_SCRIPT: &str = r#"set -euo pipefail
 
 mode="$1"
 case "$mode" in
-    enable|disable) ;;
+    enable) enabled=true ;;
+    disable) enabled=false ;;
     *) echo "Expected enable or disable" >&2; exit 1 ;;
 esac
 
@@ -76,12 +77,29 @@ updated="$(mktemp "${config}.XXXXXX")"
 trap 'rm -f "$updated"' EXIT
 cp --preserve=mode,ownership "$config" "$updated"
 
-awk -v mode="$mode" -v marker='; HULK disabled RemoteController: ' '
-    { sub("^" marker, "") }
-    /^[[:space:]]*\[/ {
-        in_controller = ($0 ~ /^[[:space:]]*\[RemoteController\]/)
+# The daemon reloads this template on every start, replacing its runtime config.
+awk -v enabled="$enabled" '
+    BEGIN {
+        split("remote_controller ros.booster.vision_detection ros.booster.rpc_bridge.perception ros.agent_manager lui rtc_client", names, " ")
+        for (i in names) managed[names[i]] = 0
     }
-    { print (mode == "disable" && in_controller ? marker : "") $0 }
+    /^services:/ { in_services = 1; print; next }
+    /^[^[:space:]#]/ { in_services = 0 }
+    in_services && /^  - name:/ { service = $3 }
+    in_services && /^    enable:/ && service in managed {
+        $0 = "    enable: " enabled
+        managed[service]++
+    }
+    { print }
+    END {
+        for (service in managed) {
+            if (managed[service] != 1) {
+                print "Expected one enable flag for manufacturer service " service > "/dev/stderr"
+                failed = 1
+            }
+        }
+        exit failed
+    }
 ' "$config" > "$updated"
 
 if ! cmp -s "$config" "$updated"; then
@@ -322,14 +340,11 @@ async fn gammaray_robot(
     // Stop replaced DDS publishers before starting the bridge.
     robot
         .ssh_to_overlay()?
-        .arg("sudo systemctl disable --now")
-        .args([
-            "booster-daemon-perception",
-            "booster-agent-manager",
-            "booster-lui",
-            "booster-rtc-speech",
-        ])
-        .ssh_with_log("disabling booster services", &progress_bar)
+        .arg(format!(
+            "sudo bash -s -- disable /opt/booster/config/containerd/config.yaml <<'EOF'\n{}\nEOF",
+            MANUFACTURER_SERVICES_SCRIPT
+        ))
+        .ssh_with_log("disabling manufacturer services", &progress_bar)
         .await?;
 
     robot
@@ -351,15 +366,6 @@ async fn gammaray_robot(
         .ssh_to_overlay()?
         .arg("sudo systemctl enable --now jetson-clocks-refresh.timer")
         .ssh_with_log("enabling jetson clocks refresh timer", &progress_bar)
-        .await?;
-
-    robot
-        .ssh_to_overlay()?
-        .arg(format!(
-            "sudo bash -s -- disable /opt/booster/Daemon/bin/child.ini <<'EOF'\n{}\nEOF",
-            MANUFACTURER_CONTROLLER_SCRIPT
-        ))
-        .ssh_with_log("disabling manufacturer controller", &progress_bar)
         .await?;
 
     robot

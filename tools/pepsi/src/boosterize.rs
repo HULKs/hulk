@@ -5,7 +5,7 @@ use argument_parsers::RobotAddress;
 use robot::Robot;
 
 use crate::{
-    gammaray::{CommandExt, MANUFACTURER_CONTROLLER_SCRIPT},
+    gammaray::{CommandExt, MANUFACTURER_SERVICES_SCRIPT},
     progress_indicator::ProgressIndicator,
 };
 
@@ -41,34 +41,10 @@ pub async fn boosterize(arguments: Arguments) -> Result<()> {
                 robot
                     .ssh_to_robot()?
                     .arg(format!(
-                        "sudo bash -s -- enable /opt/booster/Daemon/bin/child.ini <<'EOF'\n{}\nEOF",
-                        MANUFACTURER_CONTROLLER_SCRIPT
+                        "sudo bash -s -- enable /opt/booster/config/containerd/config.yaml <<'EOF'\n{}\nEOF",
+                        MANUFACTURER_SERVICES_SCRIPT
                     ))
-                    .ssh_with_log("restoring manufacturer controller", &progress_bar)
-                    .await?;
-                robot
-                    .ssh_to_robot()?
-                    .arg("sudo systemctl enable --now")
-                    .arg("booster-daemon-perception")
-                    .ssh_with_log("enabling booster-daemon-perception", &progress_bar)
-                    .await?;
-                robot
-                    .ssh_to_robot()?
-                    .arg("sudo systemctl enable --now")
-                    .arg("booster-agent-manager")
-                    .ssh_with_log("enabling booster-agent-manager", &progress_bar)
-                    .await?;
-                robot
-                    .ssh_to_robot()?
-                    .arg("sudo systemctl enable --now")
-                    .arg("booster-lui")
-                    .ssh_with_log("enabling booster-lui", &progress_bar)
-                    .await?;
-                robot
-                    .ssh_to_robot()?
-                    .arg("sudo systemctl enable --now")
-                    .arg("booster-rtc-speech")
-                    .ssh_with_log("enabling booster-rtc-speech", &progress_bar)
+                    .ssh_with_log("restoring manufacturer services", &progress_bar)
                     .await
             },
         )
