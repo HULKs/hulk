@@ -41,6 +41,22 @@ where
     }
 }
 
+impl<'a, T> IntoIterator for &'a ArmJoints<T> {
+    type Item = &'a T;
+
+    type IntoIter = std::array::IntoIter<&'a T, 4>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        [
+            &self.shoulder_pitch,
+            &self.shoulder_roll,
+            &self.shoulder_yaw,
+            &self.elbow,
+        ]
+        .into_iter()
+    }
+}
+
 impl<T> IntoIterator for ArmJoints<T> {
     type Item = T;
 
