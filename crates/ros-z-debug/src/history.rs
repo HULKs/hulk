@@ -116,7 +116,7 @@ impl<V> TimeIndexedHistory<V> {
     }
 
     pub fn insert(&mut self, record: Arc<SampleRecord<V>>) {
-        let source_time = record.source_time;
+        let source_time = record.effective_time;
         self.entries.insert(source_time, record);
 
         self.evict();
@@ -197,6 +197,7 @@ mod tests {
         Arc::new(SampleRecord {
             value,
             source_time: Time::from_nanos(source_time_nanos),
+            effective_time: Time::from_nanos(source_time_nanos),
             transport_time: None,
             publication_id: test_publication_id(),
             metadata: test_metadata(),

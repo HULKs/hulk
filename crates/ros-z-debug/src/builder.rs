@@ -218,7 +218,7 @@ impl CachedSubscriptionBuilder {
     }
 }
 
-fn subscriber_qos(node: &Node, topic: &str, policy: ObservationPolicy) -> QosProfile {
+pub(crate) fn subscriber_qos(node: &Node, topic: &str, policy: ObservationPolicy) -> QosProfile {
     policy.subscriber_qos().unwrap_or_else(|| QosProfile {
         durability: inferred_durability(node.graph().lock().publishers_on(topic)),
         ..Default::default()
@@ -265,6 +265,7 @@ async fn receive_typed_loop<T>(
                 state.store_latest(Arc::new(SampleRecord {
                     value: received.message,
                     source_time: received.source_time,
+                    effective_time: received.source_time,
                     transport_time: received.transport_time,
                     publication_id,
                     metadata: Arc::clone(&metadata),
@@ -301,6 +302,7 @@ async fn receive_dynamic_loop(
                 state.store_latest(Arc::new(SampleRecord {
                     value: received.message,
                     source_time: received.source_time,
+                    effective_time: received.source_time,
                     transport_time: received.transport_time,
                     publication_id,
                     metadata: Arc::clone(&metadata),

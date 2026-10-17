@@ -1,4 +1,8 @@
-use std::{num::NonZeroUsize, sync::Arc};
+use std::{
+    future::Future,
+    num::NonZeroUsize,
+    sync::{Arc, Weak},
+};
 
 use arc_swap::ArcSwapOption;
 use parking_lot::Mutex;
@@ -12,6 +16,7 @@ use crate::{
     CachedSubscriptionUpdateClosed, CachedSubscriptionUpdateReceiver, JsonRenderPolicy,
     RetentionPolicy, SampleRecord,
     history::TimeIndexedHistory,
+    query::{PlanObservation, PlanStatus},
     sample::{dynamic_record_json_value, dynamic_record_to_json_sample},
 };
 
@@ -19,6 +24,11 @@ use crate::{
 ///
 /// Cloning the handle keeps the subscription alive. Dropping the last handle
 /// cancels the receive task.
+///
+/// Query-backed reads retain the last resolved result while a replacement is
+/// pending, including after a seek. A resolved empty result clears retained data.
+/// Use [`Self::query_status`] to inspect the underlying query's state; retained
+/// data does not imply that the current cursor has resolved.
 pub struct CachedSubscription<V> {
     state: Arc<CachedSubscriptionState<V>>,
 }
@@ -32,6 +42,15 @@ impl<V> Clone for CachedSubscription<V> {
 }
 
 impl<V> CachedSubscription<V> {
+    /// Query resolution and coverage, including immediate cursor invalidation.
+    pub fn query_status(&self) -> Option<PlanStatus> {
+        self.state
+            .query
+            .lock()
+            .as_ref()
+            .map(PlanObservation::status)
+    }
+
     /// Return the current status snapshot.
     pub fn status(&self) -> CachedSubscriptionStatusSnapshot {
         self.state.status()
@@ -42,7 +61,8 @@ impl<V> CachedSubscription<V> {
         self.state.latest()
     }
 
-    /// Return retained samples whose source time falls inside `[start, end]`.
+    /// Return retained samples whose effective time falls inside `[start, end]`.
+    /// Effective time equals source time unless a projection was configured.
     ///
     /// Handles with [`RetentionPolicy::LatestOnly`] return an empty window.
     pub fn window(&self, start: Time, end: Time) -> Vec<Arc<SampleRecord<V>>> {
@@ -145,7 +165,9 @@ impl CachedJsonSubscription {
 }
 
 pub(crate) struct CachedSubscriptionState<V> {
+    query: Mutex<Option<PlanObservation>>,
     latest: ArcSwapOption<SampleRecord<V>>,
+    query_records: Mutex<Option<Vec<Arc<SampleRecord<V>>>>>,
     history: Option<Mutex<TimeIndexedHistory<V>>>,
     meta: Mutex<CachedSubscriptionMeta>,
     cancellation_token: CancellationToken,
@@ -162,6 +184,53 @@ enum CachedSubscriptionMeta {
 }
 
 impl<V> CachedSubscriptionState<V> {
+    pub(crate) fn attach_query(&self, query: PlanObservation) {
+        *self.query.lock() = Some(query);
+    }
+
+    pub(crate) fn install_query_result(
+        &self,
+        result: std::result::Result<Vec<Arc<SampleRecord<V>>>, String>,
+        revision: u64,
+    ) {
+        let query = self.query.lock();
+        let Some(query) = query.as_ref() else { return };
+        // Keep seeks blocked until the result and its notifications are installed.
+        let positions = query.cursor.subscribe();
+        let position = positions.borrow();
+        if position.revision != revision {
+            return;
+        }
+        let mut meta = self.meta.lock();
+        let CachedSubscriptionMeta::Open { status, updates } = &mut *meta else {
+            return;
+        };
+        let records = match result {
+            Ok(records) => records,
+            Err(error) => {
+                let error = CachedSubscriptionStatus::decode_error(error);
+                if status.status() != &error {
+                    status.set_status(error);
+                    let _ = updates.send(CachedSubscriptionUpdate::StatusChanged(status.clone()));
+                }
+                return;
+            }
+        };
+        self.latest.store(records.last().cloned());
+        if let Some(record) = records.last() {
+            *status = CachedSubscriptionStatusSnapshot::with_metadata(
+                CachedSubscriptionStatus::Ready,
+                record.metadata.resolved_topic.clone(),
+                record.metadata.type_info.clone(),
+            );
+        } else {
+            status.set_status(CachedSubscriptionStatus::WaitingForFirstSample);
+        }
+        *self.query_records.lock() = Some(records);
+        let _ = updates.send(CachedSubscriptionUpdate::StatusChanged(status.clone()));
+        let _ = updates.send(CachedSubscriptionUpdate::DataChanged);
+    }
+
     pub(crate) fn new(
         status: CachedSubscriptionStatusSnapshot,
         retention: RetentionPolicy,
@@ -175,7 +244,9 @@ impl<V> CachedSubscriptionState<V> {
         let (updates, _) = broadcast::channel(update_buffer_capacity.get());
 
         Self {
+            query: Mutex::new(None),
             latest: ArcSwapOption::empty(),
+            query_records: Mutex::new(None),
             history,
             meta: Mutex::new(CachedSubscriptionMeta::Open { status, updates }),
             cancellation_token: CancellationToken::new(),
@@ -189,17 +260,25 @@ impl<V> CachedSubscriptionState<V> {
         receive_loop: F,
     ) -> Arc<Self>
     where
+        F: FnOnce(Weak<Self>, CancellationToken) -> Fut,
+        Fut: Future<Output = ()> + Send + 'static,
+        V: Send + Sync + 'static,
+    {
+        let state = Arc::new(Self::new(status, retention, update_buffer_capacity));
+        state.spawn_receive(receive_loop);
+        state
+    }
+
+    pub(crate) fn spawn_receive<F, Fut>(self: &Arc<Self>, receive_loop: F)
+    where
         F: FnOnce(std::sync::Weak<Self>, CancellationToken) -> Fut,
         Fut: std::future::Future<Output = ()> + Send + 'static,
         V: Send + Sync + 'static,
     {
-        let state = Arc::new(Self::new(status, retention, update_buffer_capacity));
-        let weak_state = Arc::downgrade(&state);
-        let cancellation = state.cancellation_token();
-
-        tokio::spawn(receive_loop(weak_state, cancellation));
-
-        state
+        tokio::spawn(receive_loop(
+            Arc::downgrade(self),
+            self.cancellation_token(),
+        ));
     }
 
     pub(crate) fn handle(self: &Arc<Self>) -> CachedSubscription<V> {
@@ -234,6 +313,8 @@ impl<V> CachedSubscriptionState<V> {
 
         drop(updates);
         self.cancellation_token.cancel();
+        // A frozen display cache must not keep its backend observation running.
+        self.query.lock().take();
     }
 
     pub(crate) fn store_latest(&self, record: Arc<SampleRecord<V>>) {
@@ -288,18 +369,49 @@ impl<V> CachedSubscriptionState<V> {
     }
 
     fn window(&self, start: Time, end: Time) -> Vec<Arc<SampleRecord<V>>> {
+        if self.history.is_none() || start > end {
+            return Vec::new();
+        }
+        if let Some(records) = self.query_records.lock().as_ref() {
+            let start = records.partition_point(|r| r.effective_time < start);
+            let end = records.partition_point(|r| r.effective_time <= end);
+            return records[start..end].to_vec();
+        }
         self.history
             .as_ref()
             .map_or_else(Vec::new, |history| history.lock().window(start, end))
     }
 
     fn get_all(&self) -> Vec<Arc<SampleRecord<V>>> {
+        if self.history.is_none() {
+            return Vec::new();
+        }
+        if let Some(records) = self.query_records.lock().as_ref() {
+            return records.clone();
+        }
         self.history
             .as_ref()
             .map_or_else(Vec::new, |history| history.lock().get_all())
     }
 
     fn get_nearest(&self, time: Time) -> Option<Arc<SampleRecord<V>>> {
+        self.history.as_ref()?;
+        if let Some(records) = self.query_records.lock().as_ref() {
+            let after = records.partition_point(|r| r.effective_time < time);
+            return match (
+                after.checked_sub(1).map(|i| &records[i]),
+                records.get(after),
+            ) {
+                (Some(before), Some(after)) => Some(Arc::clone(
+                    if time.abs_diff(before.effective_time) < time.abs_diff(after.effective_time) {
+                        before
+                    } else {
+                        after
+                    },
+                )),
+                (before, after) => before.or(after).cloned(),
+            };
+        }
         self.history
             .as_ref()
             .and_then(|history| history.lock().get_nearest(time))
@@ -341,6 +453,53 @@ mod tests {
 
     struct NonClonePayload(u32);
 
+    #[test]
+    fn pending_revision_retains_records_but_rejects_superseded_installations() {
+        use crate::query::{Cursor, CursorHandle, PlanObservation};
+        let cursor = CursorHandle::new(Cursor::At(Time::zero()));
+        let raw = PlanObservation::new(
+            cursor.clone(),
+            || panic!("unused snapshot"),
+            tokio::sync::watch::channel(0).1,
+        );
+        let state = CachedSubscriptionState::new(
+            CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::time_window(Duration::from_secs(1)).unwrap(),
+            NonZeroUsize::MIN,
+        );
+        state.attach_query(raw);
+        state.install_query_result(Ok(vec![sample_record(NonClonePayload(1))]), 0);
+        assert!(state.latest().is_some());
+        cursor.set(Cursor::At(Time::from_nanos(1)));
+        assert_eq!(state.latest().unwrap().value.0, 1);
+        assert_eq!(state.get_all()[0].value.0, 1);
+        assert_eq!(
+            state.window(Time::zero(), Time::from_nanos(2))[0].value.0,
+            1
+        );
+        assert_eq!(state.get_nearest(Time::zero()).unwrap().value.0, 1);
+        assert!(
+            state
+                .window(Time::from_nanos(1), Time::from_nanos(2))
+                .is_empty()
+        );
+        let mut updates = state.subscribe_updates().unwrap();
+        state.install_query_result(Ok(vec![sample_record(NonClonePayload(2))]), 0);
+        state.install_query_result(Err("obsolete error".into()), 0);
+        assert_eq!(state.latest().unwrap().value.0, 1);
+        assert!(matches!(updates.try_recv(), Ok(None)));
+        state.install_query_result(Ok(vec![sample_record(NonClonePayload(3))]), 1);
+        assert_eq!(state.latest().unwrap().value.0, 3);
+        let metadata = state.status();
+        state.install_query_result(Ok(Vec::new()), 1);
+        assert_eq!(state.status().resolved_topic(), metadata.resolved_topic());
+        assert_eq!(state.status().type_info(), metadata.type_info());
+        assert!(state.latest().is_none());
+        assert!(state.get_all().is_empty());
+        assert!(state.window(Time::zero(), Time::from_nanos(2)).is_empty());
+        assert!(state.get_nearest(Time::zero()).is_none());
+    }
+
     fn test_type_info() -> ros_z::TypeInfo {
         ros_z::TypeInfo::new("test_msgs::DebugValue", ros_z::SchemaHash::zero())
     }
@@ -371,6 +530,7 @@ mod tests {
         Arc::new(SampleRecord {
             value,
             source_time,
+            effective_time: source_time,
             transport_time: None,
             publication_id: test_publication_id(),
             metadata: test_metadata(),
@@ -396,6 +556,7 @@ mod tests {
         Arc::new(SampleRecord {
             value: dynamic_payload(value),
             source_time,
+            effective_time: source_time,
             transport_time: None,
             publication_id: test_publication_id(),
             metadata: test_metadata(),

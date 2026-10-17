@@ -10,6 +10,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     #[error(transparent)]
     Projection(#[from] ProjectionError),
+    #[error("query: {0}")]
+    Query(String),
     #[error("invalid topic reference '{topic}': {source}")]
     InvalidTopicReference {
         topic: String,

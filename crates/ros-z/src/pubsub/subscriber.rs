@@ -42,7 +42,9 @@ pub(super) fn subscriber_queue_capacity(
 /// queue capacity, or the queue drop policy. When the local receive queue is
 /// full, the oldest queued sample is still dropped to make room for the newest
 /// sample.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+)]
 pub enum QueueOverflowReporting {
     /// Do not emit a log message when the local queue overflows.
     ///
