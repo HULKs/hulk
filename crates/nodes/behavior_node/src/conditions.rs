@@ -1,4 +1,3 @@
-use booster::{FallDownState, FallDownStateType};
 use filtering::hysteresis::less_than_with_hysteresis;
 use hsl_network_messages::Team;
 use linear_algebra::{point, vector};
