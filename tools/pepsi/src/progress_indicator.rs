@@ -18,6 +18,22 @@ pub struct ProgressIndicator {
 
 pub trait TaskMessage {
     fn message(&self) -> Option<String>;
+
+    fn inline(&self) -> bool {
+        false
+    }
+}
+
+pub struct InlineMessage(pub String);
+
+impl TaskMessage for InlineMessage {
+    fn message(&self) -> Option<String> {
+        Some(self.0.clone())
+    }
+
+    fn inline(&self) -> bool {
+        true
+    }
 }
 
 impl<T> TaskMessage for &T
@@ -26,6 +42,10 @@ where
 {
     fn message(&self) -> Option<String> {
         (*self).message()
+    }
+
+    fn inline(&self) -> bool {
+        (*self).inline()
     }
 }
 
@@ -129,9 +149,11 @@ impl Task {
     pub fn finish_with_success(&self, message: impl TaskMessage) {
         self.progress.set_style(self.success_style.clone());
         let icon = "✔".green();
-        let message = message
-            .message()
-            .map_or_else(|| icon.to_string(), |message| format!("{icon}\n{message}"));
+        let separator = if message.inline() { " " } else { "\n" };
+        let message = message.message().map_or_else(
+            || icon.to_string(),
+            |message| format!("{icon}{separator}{message}"),
+        );
 
         if atty::is(Stream::Stdout) {
             self.progress.finish_with_message(message);

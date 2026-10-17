@@ -98,6 +98,10 @@ enum Command {
     /// Flash a HULKs-OS image to Robots
     #[command(visible_alias = "gammastrahl")]
     Gammaray(gammaray::Arguments),
+
+    /// Enable, disable, or inspect overlay autostart on a robot
+    #[command(visible_alias = "überlegen")]
+    Overlay(gammaray::overlay::Arguments),
     /// Run Hydra neural-network latency benchmarks on a robot
     HydraBench(hydra_bench::Arguments),
     /// Control the HULK service
@@ -227,6 +231,7 @@ async fn main() -> Result<()> {
         Command::Gamebranch(arguments) => game_branch(arguments, &repository?)
             .await
             .wrap_err("failed to execute gamebranch command")?,
+        Command::Overlay(arguments) => gammaray::overlay::overlay(arguments).await?,
         Command::Gammaray(arguments) => gammaray(arguments, &repository?)
             .await
             .wrap_err("failed to execute gammaray command")?,

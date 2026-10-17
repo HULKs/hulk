@@ -1,0 +1,5 @@
+[Unit]
+Description=Enter saved HULK overlay before normal boot
+DefaultDependencies=no
+Requires=hulks-overlay-boot.service
+After=hulks-overlay-boot.service

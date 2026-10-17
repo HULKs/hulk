@@ -8224,7 +8224,7 @@ dependencies = [
 
 [[package]]
 name = "pepsi"
-version = "7.38.6"
+version = "7.39.0"
 dependencies = [
  "aliveness",
  "argument_parsers",
