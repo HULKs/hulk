@@ -172,12 +172,17 @@ fn cache<T: Send + Sync + 'static>(
                     // Keep the last resolved answer until its replacement is definitive.
                 } else if let State::Failed(error) = &snapshot.evaluation.state {
                     applied = None;
-                    state.set_receive_error(CachedSubscriptionStatus::decode_error(error.clone()));
+                    state.install_query_result(Err(error.clone()), snapshot.revision);
                 } else if let State::Ready(Value::Records(samples)) = &snapshot.evaluation.state {
-                    let sample_type = samples.first().map(|sample| &sample.topic.type_info);
-                    if sample_type.is_some() && decoded_type.as_ref() != sample_type {
+                    let sample_type = samples
+                        .first()
+                        .map(|sample| (&sample.topic.type_info, sample.topic.schema.is_some()));
+                    if sample_type.is_some()
+                        && decoded_type.as_ref().map(|(info, schema)| (info, *schema))
+                            != sample_type
+                    {
                         decoded.clear();
-                        decoded_type = sample_type.cloned();
+                        decoded_type = sample_type.map(|(info, schema)| (info.clone(), schema));
                         applied = None;
                     }
                     let limit = match policy.retention() {
@@ -195,13 +200,7 @@ fn cache<T: Send + Sync + 'static>(
                         let records = decode_samples(&mut decoded, samples, |sample| {
                             decode(&sample.record, &sample.topic).map_err(|error| error.to_string())
                         });
-                        match records {
-                            Ok(records) => {
-                                state.replace_records(records, snapshot.revision);
-                            }
-                            Err(error) => state
-                                .set_receive_error(CachedSubscriptionStatus::decode_error(error)),
-                        }
+                        state.install_query_result(records, snapshot.revision);
                         applied =
                             Some((samples.iter().map(record_key).collect(), snapshot.revision));
                     }
@@ -228,52 +227,6 @@ mod tests {
 
     use super::*;
     use crate::query::plan::Evaluation;
-
-    #[test]
-    fn decoding_visits_records_after_errors_and_reuses_successes_and_failures() {
-        let samples: Vec<_> = (1..=3)
-            .map(|id| Sample {
-                topic: TopicInfo {
-                    name: "/test".into(),
-                    type_info: u64::type_info(),
-                    schema: None,
-                    error: None,
-                },
-                record: Arc::new(RawRecord {
-                    id,
-                    publication: None,
-                    time: Time::from_nanos(id as i64),
-                    source_time: Time::zero(),
-                    log_time: None,
-                    data: Arc::from([]),
-                }),
-            })
-            .collect();
-        let mut decoded = HashMap::new();
-        let mut calls = Vec::new();
-        for _ in 0..2 {
-            assert!(
-                decode_samples(&mut decoded, &samples, |sample| {
-                    calls.push(sample.record.id);
-                    if sample.record.id == 2 {
-                        Err("invalid payload".into())
-                    } else {
-                        wrap_record(&sample.record, &sample.topic, sample.record.id)
-                            .map_err(|e| e.to_string())
-                    }
-                })
-                .is_err()
-            );
-        }
-        assert_eq!(calls, vec![1, 2, 3]);
-        let good = decoded[&record_key(&samples[2])].as_ref().unwrap().clone();
-        let result = decode_samples(&mut decoded, &samples[2..], |_| {
-            panic!("retained record decoded again")
-        })
-        .unwrap();
-        assert!(Arc::ptr_eq(&good, &result[0]));
-        assert_eq!(decoded.len(), 1);
-    }
 
     fn ready_result() -> Arc<Evaluation> {
         Arc::new(Evaluation {
@@ -306,6 +259,21 @@ mod tests {
 
     struct TestBackend(PlanObservation);
 
+    fn channel(cursor: CursorHandle) -> (PlanObservation, impl Fn(Arc<PlanSnapshot>)) {
+        let (sender, receiver) = watch::channel(Arc::new(PlanSnapshot {
+            revision: cursor.position().revision,
+            evaluation: Arc::new(Evaluation::unresolved(Time::zero(), State::Pending)),
+        }));
+        let (notify, updates) = watch::channel(0);
+        (
+            PlanObservation::new(cursor, move || receiver.borrow().clone(), updates),
+            move |snapshot| {
+                sender.send_replace(snapshot);
+                notify.send_modify(|revision| *revision += 1);
+            },
+        )
+    }
+
     impl Backend for TestBackend {
         fn topics(&self) -> TopicList {
             TopicList(watch::channel(Arc::new(TopicSnapshot::default())).1)
@@ -324,60 +292,71 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn seek_during_first_decode_rejects_the_obsolete_installation() {
         let cursor = CursorHandle::new(Cursor::At(Time::from_nanos(100)));
-        let (raw, sender) = PlanObservation::channel(cursor.clone());
-        let result = ready_result();
-        sender.send_replace(Arc::new(PlanSnapshot {
-            revision: 0,
-            evaluation: result.clone(),
-        }));
-        let (started, waiting) = oneshot::channel();
-        let started = Mutex::new(Some(started));
-        let (release, gate) = std::sync::mpsc::channel();
-        let gate = Mutex::new(gate);
-        let cache = cache(
-            &Connection {
-                backend: Arc::new(TestBackend(raw)),
-                cursor: cursor.clone(),
-            },
-            "/test",
-            ObservationPolicy::default(),
-            TimeProjection::SourceTime,
-            move |record, topic| {
-                if let Some(started) = started.lock().take() {
-                    started.send(()).unwrap();
-                    gate.lock().recv_timeout(Duration::from_secs(5)).unwrap();
-                }
-                wrap_record(record, topic, record.id)
-            },
-        )
-        .unwrap();
-        assert!(
-            cache.query_status().is_some(),
-            "query guard is installed before the worker starts"
-        );
-        let mut updates = cache.subscribe_updates().unwrap();
-        tokio::time::timeout(Duration::from_secs(3), waiting)
-            .await
-            .unwrap()
+        for fail in [false, true] {
+            let (raw, send) = channel(cursor.clone());
+            let result = ready_result();
+            let revision = cursor.position().revision;
+            send(Arc::new(PlanSnapshot {
+                revision,
+                evaluation: result.clone(),
+            }));
+            let (started, waiting) = oneshot::channel();
+            let started = Mutex::new(Some(started));
+            let (release, gate) = std::sync::mpsc::channel();
+            let gate = Mutex::new(gate);
+            let cache = cache(
+                &Connection {
+                    backend: Arc::new(TestBackend(raw)),
+                    cursor: cursor.clone(),
+                },
+                "/test",
+                ObservationPolicy::default(),
+                TimeProjection::SourceTime,
+                move |record, topic| {
+                    if let Some(started) = started.lock().take() {
+                        started.send(()).unwrap();
+                        gate.lock().recv_timeout(Duration::from_secs(5)).unwrap();
+                    }
+                    if fail {
+                        Err(query_error("obsolete decode error"))
+                    } else {
+                        wrap_record(record, topic, record.id)
+                    }
+                },
+            )
             .unwrap();
-        cursor.set(Cursor::At(Time::from_nanos(50)));
-        sender.send_replace(Arc::new(PlanSnapshot {
-            revision: 1,
-            evaluation: Arc::new(Evaluation {
-                state: State::Pending,
-                ..(*result).clone()
-            }),
-        }));
-        release.send(()).unwrap();
-        settle().await;
-        assert!(cache.latest().is_none());
-        assert!(matches!(updates.try_recv(), Ok(None)));
+            assert!(
+                cache.query_status().is_some(),
+                "query guard is installed before the worker starts"
+            );
+            let mut updates = cache.subscribe_updates().unwrap();
+            tokio::time::timeout(Duration::from_secs(3), waiting)
+                .await
+                .unwrap()
+                .unwrap();
+            cursor.set(Cursor::At(Time::from_nanos(50 + i64::from(fail))));
+            send(Arc::new(PlanSnapshot {
+                revision: cursor.position().revision,
+                evaluation: Arc::new(Evaluation {
+                    state: State::Pending,
+                    ..(*result).clone()
+                }),
+            }));
+            release.send(()).unwrap();
+            settle().await;
+            assert!(cache.latest().is_none());
+            assert!(matches!(updates.try_recv(), Ok(None)));
+            assert_eq!(
+                cache.status().status(),
+                &CachedSubscriptionStatus::WaitingForFirstSample
+            );
+        }
     }
 
     #[tokio::test]
     async fn pending_queries_retain_results_until_a_definitive_replacement() {
         let cursor = CursorHandle::new(Cursor::At(Time::from_nanos(100)));
-        let (raw, sender) = PlanObservation::channel(cursor.clone());
+        let (raw, send) = channel(cursor.clone());
         let calls = Arc::new(AtomicUsize::new(0));
         let counter = Arc::clone(&calls);
         let cache = cache(
@@ -399,7 +378,7 @@ mod tests {
         .unwrap();
         let result = ready_result();
         let emit = |revision, value: Option<Arc<Evaluation>>| {
-            sender.send_replace(Arc::new(PlanSnapshot {
+            send(Arc::new(PlanSnapshot {
                 revision,
                 evaluation: value.unwrap_or_else(|| {
                     Arc::new(Evaluation {
@@ -413,42 +392,59 @@ mod tests {
         settle().await;
         let first = cache.latest().unwrap();
         let mut updates = cache.subscribe_updates().unwrap();
-        for tick in 101..105 {
-            cursor.advance(Time::from_nanos(tick));
-            settle().await;
-            assert!(matches!(updates.try_recv(), Ok(None)));
-            assert!(Arc::ptr_eq(&first, &cache.latest().unwrap()));
-        }
+        cursor.advance(Time::from_nanos(101));
+        settle().await;
+        assert!(matches!(updates.try_recv(), Ok(None)));
+        assert!(Arc::ptr_eq(&first, &cache.latest().unwrap()));
         assert_eq!(calls.load(Ordering::Relaxed), 1);
 
         let mut failing = (*result).clone();
         let State::Ready(Value::Records(samples)) = &mut failing.state else {
             unreachable!()
         };
-        let mut bad = (*samples[0].record).clone();
-        bad.id = 8;
-        samples.push(Sample {
-            record: Arc::new(bad),
-            topic: samples[0].topic.clone(),
-        });
-        let failing = Arc::new(failing);
-        emit(0, Some(Arc::clone(&failing)));
+        for id in [8, 9] {
+            samples.push(Sample {
+                record: Arc::new(RawRecord {
+                    id,
+                    ..(*samples[0].record).clone()
+                }),
+                topic: samples[0].topic.clone(),
+            });
+        }
+        emit(0, Some(Arc::new(failing.clone())));
         settle().await;
         assert!(Arc::ptr_eq(&first, &cache.latest().unwrap()));
         assert_eq!(cache.status().message(), Some("query: bad row"));
         let mut errors = cache.subscribe_updates().unwrap();
-        cursor.advance(Time::from_nanos(105));
+        let State::Ready(Value::Records(samples)) = &mut failing.state else {
+            unreachable!()
+        };
+        samples.remove(0);
+        // Changing the selected set must reuse both failed and successful decodes.
+        emit(0, Some(Arc::new(failing.clone())));
         settle().await;
         assert!(matches!(errors.try_recv(), Ok(None)));
-        // A fresh result Arc must reuse failed decodes too.
-        emit(0, Some(Arc::new((*failing).clone())));
+        let State::Ready(Value::Records(samples)) = &mut failing.state else {
+            unreachable!()
+        };
+        samples.remove(0);
+        emit(0, Some(Arc::new(failing)));
         settle().await;
-        assert!(matches!(errors.try_recv(), Ok(None)));
+        assert_eq!(
+            cache.latest().unwrap().value,
+            9,
+            "good rows after errors are decoded and cached"
+        );
+        assert_eq!(calls.load(Ordering::Relaxed), 3);
         emit(0, Some(Arc::clone(&result)));
         settle().await;
         assert_eq!(cache.status().status(), &CachedSubscriptionStatus::Ready);
-        assert!(Arc::ptr_eq(&first, &cache.latest().unwrap()));
-        assert_eq!(calls.load(Ordering::Relaxed), 2);
+        let first = cache.latest().unwrap();
+        assert_eq!(
+            calls.load(Ordering::Relaxed),
+            4,
+            "removed rows leave the decode cache"
+        );
 
         // Pending responses preserve both data and the installation guard.
         let mut updates = cache.subscribe_updates().unwrap();
@@ -506,12 +502,13 @@ mod tests {
         emit(1, Some(Arc::clone(&result)));
         settle().await;
         let first = cache.latest().unwrap();
+        let decoded_before_switch = calls.load(Ordering::Relaxed);
         // Also cover a revision change coalesced with the ready result.
         cursor.set(Cursor::At(Time::from_nanos(60)));
         emit(2, Some(result.clone()));
         settle().await;
         assert!(Arc::ptr_eq(&first, &cache.latest().unwrap()));
-        assert_eq!(calls.load(Ordering::Relaxed), 3);
+        assert_eq!(calls.load(Ordering::Relaxed), decoded_before_switch);
         let mut replaced = (*result).clone();
         let State::Ready(Value::Records(samples)) = &mut replaced.state else {
             unreachable!()
@@ -521,7 +518,7 @@ mod tests {
         settle().await;
         assert_eq!(
             calls.load(Ordering::Relaxed),
-            4,
+            decoded_before_switch + 1,
             "reused IDs from a new publisher must decode again"
         );
         assert!(!Arc::ptr_eq(&first, &cache.latest().unwrap()));
@@ -533,7 +530,7 @@ mod tests {
         settle().await;
         assert_eq!(
             calls.load(Ordering::Relaxed),
-            5,
+            decoded_before_switch + 2,
             "schema changes invalidate the decode cache"
         );
     }

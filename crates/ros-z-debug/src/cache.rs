@@ -182,20 +182,34 @@ impl<V> CachedSubscriptionState<V> {
         *self.query.lock() = Some(query);
     }
 
-    fn query_current(&self, revision: u64) -> bool {
-        self.query
-            .lock()
-            .as_ref()
-            .is_none_or(|query| query.is_current_revision(revision))
-    }
-    pub(crate) fn replace_records(&self, records: Vec<Arc<SampleRecord<V>>>, revision: u64) {
+    pub(crate) fn install_query_result(
+        &self,
+        result: std::result::Result<Vec<Arc<SampleRecord<V>>>, String>,
+        revision: u64,
+    ) {
+        let query = self.query.lock();
+        let Some(query) = query.as_ref() else { return };
+        // Keep seeks blocked until the result and its notifications are installed.
+        let positions = query.cursor.subscribe();
+        let position = positions.borrow();
+        if position.revision != revision {
+            return;
+        }
         let mut meta = self.meta.lock();
         let CachedSubscriptionMeta::Open { status, updates } = &mut *meta else {
             return;
         };
-        if !self.query_current(revision) {
-            return;
-        }
+        let records = match result {
+            Ok(records) => records,
+            Err(error) => {
+                let error = CachedSubscriptionStatus::decode_error(error);
+                if status.status() != &error {
+                    status.set_status(error);
+                    let _ = updates.send(CachedSubscriptionUpdate::StatusChanged(status.clone()));
+                }
+                return;
+            }
+        };
         self.latest.store(records.last().cloned());
         if let Some(record) = records.last() {
             *status = CachedSubscriptionStatusSnapshot::with_metadata(
@@ -436,14 +450,18 @@ mod tests {
     fn pending_revision_retains_records_but_rejects_superseded_installations() {
         use crate::query::{Cursor, CursorHandle, PlanObservation};
         let cursor = CursorHandle::new(Cursor::At(Time::zero()));
-        let (raw, _sender) = PlanObservation::channel(cursor.clone());
+        let raw = PlanObservation::new(
+            cursor.clone(),
+            || panic!("unused snapshot"),
+            tokio::sync::watch::channel(0).1,
+        );
         let state = CachedSubscriptionState::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::time_window(Duration::from_secs(1)).unwrap(),
             NonZeroUsize::MIN,
         );
         state.attach_query(raw);
-        state.replace_records(vec![sample_record(NonClonePayload(1))], 0);
+        state.install_query_result(Ok(vec![sample_record(NonClonePayload(1))]), 0);
         assert!(state.latest().is_some());
         cursor.set(Cursor::At(Time::from_nanos(1)));
         assert_eq!(state.latest().unwrap().value.0, 1);
@@ -459,13 +477,14 @@ mod tests {
                 .is_empty()
         );
         let mut updates = state.subscribe_updates().unwrap();
-        state.replace_records(vec![sample_record(NonClonePayload(2))], 0);
+        state.install_query_result(Ok(vec![sample_record(NonClonePayload(2))]), 0);
+        state.install_query_result(Err("obsolete error".into()), 0);
         assert_eq!(state.latest().unwrap().value.0, 1);
         assert!(matches!(updates.try_recv(), Ok(None)));
-        state.replace_records(vec![sample_record(NonClonePayload(3))], 1);
+        state.install_query_result(Ok(vec![sample_record(NonClonePayload(3))]), 1);
         assert_eq!(state.latest().unwrap().value.0, 3);
         let metadata = state.status();
-        state.replace_records(Vec::new(), 1);
+        state.install_query_result(Ok(Vec::new()), 1);
         assert_eq!(state.status().resolved_topic(), metadata.resolved_topic());
         assert_eq!(state.status().type_info(), metadata.type_info());
         assert!(state.latest().is_none());

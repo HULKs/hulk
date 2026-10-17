@@ -10,16 +10,20 @@ use futures_util::{
     stream::{self, BoxStream, SelectAll},
 };
 use parking_lot::Mutex;
-use ros_z::{attachment::Attachment, node::Node};
+use ros_z::{node::Node, pubsub::Received};
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
 use super::plan::{Evaluation, QueryPlan, SourceState, SourceView, State, TopicSource};
-use super::plan_observation::PlanSender;
 use super::*;
-use crate::{ObservationPolicy, RetentionPolicy, builder::subscriber_qos};
+use crate::{
+    ObservationPolicy, RetentionPolicy, builder::subscriber_qos, observation::format_error_chain,
+};
 
 #[derive(Clone, Copy)]
+/// Per-feed retained-payload budgets, keyed by topic and subscription policy.
+/// Both limits apply; oldest arrivals are evicted regardless of projected time.
+/// Query windows cannot recover evicted samples. Multiple feeds multiply budgets.
 pub struct LiveRetention {
     pub samples: NonZeroUsize,
     pub bytes: NonZeroUsize,
@@ -42,6 +46,7 @@ struct Index {
     building: bool,
     records: BTreeMap<(Time, u64), Arc<RawRecord>>,
     times: HashMap<u64, Time>,
+    snapshot: Option<LiveRecords>,
 }
 
 impl Drop for Index {
@@ -60,17 +65,27 @@ impl Index {
             last_rejection: None,
             records: BTreeMap::new(),
             times: HashMap::new(),
+            snapshot: None,
         }
     }
     fn insert(&mut self, record: RawRecord) {
+        self.snapshot = None;
         self.times.insert(record.id, record.time);
         self.records
             .insert((record.time, record.id), Arc::new(record));
     }
     fn remove(&mut self, id: u64) {
         if let Some(time) = self.times.remove(&id) {
+            self.snapshot = None;
             self.records.remove(&(time, id));
         }
+    }
+
+    fn snapshot(&mut self) -> LiveRecords {
+        Arc::clone(
+            self.snapshot
+                .get_or_insert_with(|| Arc::new(self.records.values().cloned().collect())),
+        )
     }
 }
 
@@ -103,31 +118,24 @@ struct FeedState {
 }
 
 impl FeedState {
-    fn ingest(
-        &mut self,
-        attachment: Attachment,
-        data: Arc<[u8]>,
-        log_time: Option<Time>,
-        schema: &Schema,
-        retention: LiveRetention,
-    ) {
+    fn ingest(&mut self, sample: Received<Arc<[u8]>>, retention: LiveRetention) {
         let record = RawRecord {
-            publication: Some((
-                attachment.source_global_id.into_bytes(),
-                attachment.sequence_number,
-            )),
+            publication: Some((sample.source_global_id.into_bytes(), sample.sequence_number)),
             id: self.next_id,
-            time: attachment.source_time(),
-            source_time: attachment.source_time(),
-            log_time,
-            data,
+            time: sample.source_time,
+            source_time: sample.source_time,
+            log_time: sample.transport_time,
+            data: sample.message,
         };
         self.next_id = self.next_id.wrapping_add(1);
+        let schema = self.info.as_ref().and_then(|info| info.schema.as_ref());
         for (projection, index) in &mut self.indexes {
-            if index.error.is_some() {
+            if index.error.is_some()
+                || (schema.is_none() && *projection != TimeProjection::SourceTime)
+            {
                 continue;
             }
-            match projection.project_cdr(record.source_time, &record.data, schema) {
+            match project_record(&record, projection, schema) {
                 Ok(time) => index.insert(RawRecord {
                     time,
                     ..record.clone()
@@ -167,62 +175,7 @@ impl Feed {
     fn projection(self: &Arc<Self>, projection: &TimeProjection) -> ProjectionLease {
         let mut state = self.state.lock();
         if !state.indexes.contains_key(projection) {
-            let records: Vec<_> = state.records.iter().cloned().collect();
-            let schema = state.info.as_ref().and_then(|info| info.schema.clone());
-            let index = Index::new(
-                0,
-                schema
-                    .as_ref()
-                    .and_then(|schema| projection.validate(schema).err().map(|e| e.to_string())),
-                !records.is_empty(),
-            );
-            let cancel = index.cancel.clone();
-            let valid = index.error.is_none();
-            state.indexes.insert(projection.clone(), index);
-            if !records.is_empty() && valid {
-                let schema = schema.expect("retained records have a discovered schema");
-                let projection = projection.clone();
-                let weak = Arc::downgrade(self);
-                let changed = self.changed.clone();
-                tokio::task::spawn_blocking(move || {
-                    let mut indexed = Vec::with_capacity(records.len());
-                    let mut issue = None;
-                    for mut record in records {
-                        if cancel.is_cancelled() {
-                            return;
-                        }
-                        match projection.project_cdr(record.source_time, &record.data, &schema) {
-                            Ok(time) => {
-                                record.time = time;
-                                indexed.push(record);
-                            }
-                            Err(error) => issue = Some(error.to_string()),
-                        }
-                    }
-                    if let Some(feed) = weak.upgrade() {
-                        let mut state = feed.state.lock();
-                        // A dropped/recreated projection or reconnect cancels this generation.
-                        if cancel.is_cancelled() {
-                            return;
-                        }
-                        let first = state.records.front().map(|record| record.id);
-                        let index = state
-                            .indexes
-                            .get_mut(&projection)
-                            .expect("active projection");
-                        for record in indexed {
-                            if first.is_some_and(|first| record.id >= first) {
-                                index.insert(record);
-                            }
-                        }
-                        index.building = false;
-                        if issue.is_some() {
-                            index.last_rejection = issue;
-                        }
-                    }
-                    changed.send_modify(|revision| *revision = revision.wrapping_add(1));
-                });
-            }
+            self.build_index(&mut state, projection, 0);
         }
         state
             .indexes
@@ -234,6 +187,92 @@ impl Feed {
             projection: projection.clone(),
         }
     }
+
+    fn build_index(
+        self: &Arc<Self>,
+        state: &mut FeedState,
+        projection: &TimeProjection,
+        users: usize,
+    ) {
+        let records: Vec<_> = state.records.iter().cloned().collect();
+        let schema = state.info.as_ref().and_then(|info| info.schema.clone());
+        let needs_schema = *projection != TimeProjection::SourceTime;
+        let index = Index::new(
+            users,
+            if needs_schema {
+                schema.as_ref().map_or_else(
+                    || state.info.as_ref().and_then(|info| info.error.clone()),
+                    |schema| projection.validate(schema).err().map(|e| e.to_string()),
+                )
+            } else {
+                None
+            },
+            !records.is_empty() || (needs_schema && schema.is_none()),
+        );
+        let cancel = index.cancel.clone();
+        let valid = index.error.is_none();
+        state.indexes.insert(projection.clone(), index);
+        if !records.is_empty() && valid && (!needs_schema || schema.is_some()) {
+            let projection = projection.clone();
+            let weak = Arc::downgrade(self);
+            let changed = self.changed.clone();
+            tokio::task::spawn_blocking(move || {
+                let mut indexed = Vec::with_capacity(records.len());
+                let mut issue = None;
+                for mut record in records {
+                    if cancel.is_cancelled() {
+                        return;
+                    }
+                    match project_record(&record, &projection, schema.as_ref()) {
+                        Ok(time) => {
+                            record.time = time;
+                            indexed.push(record);
+                        }
+                        Err(error) => issue = Some(error.to_string()),
+                    }
+                }
+                if let Some(feed) = weak.upgrade() {
+                    let mut state = feed.state.lock();
+                    // A dropped/recreated projection or reconnect cancels this generation.
+                    if cancel.is_cancelled() {
+                        return;
+                    }
+                    let first = state.records.front().map(|record| record.id);
+                    let index = state
+                        .indexes
+                        .get_mut(&projection)
+                        .expect("active projection");
+                    for record in indexed {
+                        if first.is_some_and(|first| record.id >= first) {
+                            index.insert(record);
+                        }
+                    }
+                    index.building = false;
+                    if issue.is_some() {
+                        index.last_rejection = issue;
+                    }
+                }
+                changed.send_modify(|revision| *revision = revision.wrapping_add(1));
+            });
+        }
+    }
+}
+
+fn project_record(
+    record: &RawRecord,
+    projection: &TimeProjection,
+    schema: Option<&Schema>,
+) -> Result<Time> {
+    if *projection == TimeProjection::SourceTime {
+        return Ok(record.source_time);
+    }
+    projection
+        .project_cdr(
+            record.source_time,
+            &record.data,
+            schema.ok_or_else(|| query_error("topic schema unavailable"))?,
+        )
+        .map_err(query_error)
 }
 
 #[derive(Clone)]
@@ -351,10 +390,11 @@ impl Backend for Live {
         let changes = query
             .refresh_sources(&self.topics.snapshot())
             .unwrap_or_default();
-        let (mut observation, sender) = PlanObservation::channel(cursor);
+        let (sender, updates) = watch::channel(0);
         let reader = Arc::clone(&query);
-        observation.local = Some(Arc::new(move || reader.snapshot()));
-        tokio::spawn(query.run(sender, changes));
+        let observation = PlanObservation::new(cursor, move || reader.snapshot(), updates);
+        let cancel = observation.cancellation_token();
+        tokio::spawn(query.run(sender, changes, cancel));
         Ok(observation)
     }
 }
@@ -454,7 +494,12 @@ impl LiveQuery {
         snapshot
     }
 
-    async fn run(self: Arc<Self>, sender: PlanSender, mut changes: FeedUpdates) {
+    async fn run(
+        self: Arc<Self>,
+        sender: watch::Sender<u64>,
+        mut changes: FeedUpdates,
+        cancel: CancellationToken,
+    ) {
         let mut positions = self.cursor.subscribe();
         let mut catalogs = self.live.topics.subscribe_updates();
         loop {
@@ -463,9 +508,9 @@ impl LiveQuery {
             if let Some(updated) = self.refresh_sources(&catalog) {
                 changes = updated;
             }
-            sender.notify();
+            sender.send_modify(|revision| *revision = revision.wrapping_add(1));
             tokio::select! {
-                _ = sender.closed() => break,
+                _ = cancel.cancelled() => break,
                 changed = positions.changed() => if changed.is_err() { break; },
                 _ = changes.next(), if !changes.is_empty() => {},
                 _ = catalogs.changed() => {},
@@ -491,7 +536,7 @@ fn capture_source(
     let Some(lease) = lease else {
         return SourceState::Pending;
     };
-    let state = lease.feed.state.lock();
+    let mut state = lease.feed.state.lock();
     let index = &state.indexes[&lease.projection];
     if let Some(error) = &index.error {
         return SourceState::Failed(error.clone());
@@ -511,25 +556,33 @@ fn capture_source(
     {
         return SourceState::Failed("incompatible publisher schema".into());
     }
-    let records: LiveRecords = Arc::new(index.records.values().cloned().collect());
+    let topic = info.clone();
+    let coverage = Coverage {
+        source: if state.limited {
+            SourceCoverage::RetentionLimited
+        } else {
+            SourceCoverage::Live
+        },
+        truncated: false,
+    };
+    let diagnostics = state
+        .error
+        .iter()
+        .chain(info.error.iter())
+        .chain(index.last_rejection.iter())
+        .cloned()
+        .collect();
+    let records = state
+        .indexes
+        .get_mut(&lease.projection)
+        .expect("leased projection")
+        .snapshot();
     *retained = Some(Arc::clone(&records));
     SourceState::Ready(SourceView {
-        topic: info.clone(),
+        topic,
         index: records,
-        coverage: Coverage {
-            source: if state.limited {
-                SourceCoverage::RetentionLimited
-            } else {
-                SourceCoverage::Live
-            },
-            truncated: false,
-        },
-        diagnostics: state
-            .error
-            .iter()
-            .chain(index.last_rejection.iter())
-            .cloned()
-            .collect(),
+        coverage,
+        diagnostics,
     })
 }
 
@@ -560,7 +613,7 @@ async fn receive(
             feed.state.lock().error = Some(
                 result
                     .err()
-                    .map_or_else(|| "publisher changed".into(), |e| e.to_string()),
+                    .map_or_else(|| "publisher changed".into(), |e| format_error_chain(&e)),
             );
         }
         changed.send_modify(|revision| *revision = revision.wrapping_add(1));
@@ -593,26 +646,15 @@ async fn receive_connection(
         publishers.sort_by_key(|(id, _)| *id);
         publishers
     };
-    let discovered = node
-        .discover_topic_schema(topic, Duration::from_secs(3))
-        .await
-        .map_err(query_error)?;
-    let info = TopicInfo {
-        name: topic.into(),
-        type_info: discovered.type_info(),
-        schema: Some(Arc::clone(&discovered.schema)),
-        error: None,
-    };
     let fingerprint = publishers();
-    if fingerprint.is_empty()
-        || fingerprint
-            .iter()
-            .any(|(_, type_info)| *type_info != info.type_info)
-    {
+    let Some((_, type_info)) = fingerprint.first() else {
         return Ok(());
+    };
+    if fingerprint.iter().any(|(_, info)| info != type_info) {
+        return Err(query_error("incompatible publisher schema"));
     }
     let mut subscriber = node
-        .dynamic_raw_subscriber(topic, discovered.type_info())
+        .dynamic_raw_subscriber(topic, type_info.clone())
         .qos(subscriber_qos(node, topic, policy))
         .queue_overflow_reporting(policy.queue_overflow_reporting());
     if let Some(capacity) = policy.subscriber_queue_capacity() {
@@ -624,50 +666,85 @@ async fn receive_connection(
     }
     if let Some(feed) = feed.upgrade() {
         let mut state = feed.state.lock();
-        state.info = Some(info);
+        state.info = Some(TopicInfo {
+            name: topic.into(),
+            type_info: type_info.clone(),
+            schema: None,
+            error: None,
+        });
         state.records.clear();
         state.bytes = 0;
         state.error = None;
         state.limited = false;
         for (projection, index) in &mut state.indexes {
-            *index = Index::new(
-                index.users,
-                projection
-                    .validate(&discovered.schema)
-                    .err()
-                    .map(|e| e.to_string()),
-                false,
-            );
+            *index = Index::new(index.users, None, *projection != TimeProjection::SourceTime);
         }
     }
     changed.send_modify(|revision| *revision = revision.wrapping_add(1));
+    // Schema discovery enriches raw feeds; source-time subscriptions never wait for it.
+    let discovery = discover_schema(node, topic, feed, changed, type_info);
+    tokio::pin!(discovery);
+    let mut discovering = true;
     loop {
         let sample = tokio::select! {
             sample = subscriber.recv() => sample?,
+            _ = &mut discovery, if discovering => { discovering = false; continue; },
             revision = revisions.changed() => { if revision.is_none() || publishers() != fingerprint { return Ok(()); } continue; }
         };
         let Some(feed) = feed.upgrade() else {
             return Ok(());
         };
-        let attachment = sample
-            .attachment()
-            .ok_or_else(|| query_error("missing source timestamp attachment"))
-            .and_then(|attachment| Attachment::try_from(attachment).map_err(query_error));
-        match attachment {
-            Ok(attachment) => feed.state.lock().ingest(
-                attachment,
-                sample.payload().to_bytes().as_ref().into(),
-                sample
-                    .timestamp()
-                    .map(|t| Time::from_wallclock(t.get_time().to_system_time())),
-                &discovered.schema,
-                retention,
-            ),
-            Err(error) => feed.state.lock().error = Some(error.to_string()),
+        match Received::try_from_sample(&sample, sample.payload().to_bytes().as_ref().into()) {
+            Ok(sample) => feed.state.lock().ingest(sample, retention),
+            Err(error) => feed.state.lock().error = Some(format_error_chain(&error)),
         }
         changed.send_modify(|revision| *revision = revision.wrapping_add(1));
         // A continuously ready raw queue must not monopolize a runtime worker.
         tokio::task::yield_now().await;
+    }
+}
+
+async fn discover_schema(
+    node: &Node,
+    topic: &str,
+    feed: &Weak<Feed>,
+    changed: &watch::Sender<u64>,
+    type_info: &ros_z::TypeInfo,
+) {
+    loop {
+        let result = node
+            .discover_topic_schema(topic, Duration::from_secs(3))
+            .await;
+        {
+            let Some(feed) = feed.upgrade() else { return };
+            let mut state = feed.state.lock();
+            let Some(info) = &mut state.info else { return };
+            if &info.type_info != type_info {
+                return;
+            }
+            match &result {
+                Ok(discovered) if discovered.type_info() == *type_info => {
+                    info.schema = Some(discovered.schema.clone());
+                    info.error = None;
+                }
+                Ok(_) => return,
+                Err(error) => info.error = Some(format_error_chain(error)),
+            }
+            let projections: Vec<_> = state
+                .indexes
+                .iter()
+                .filter(|(projection, _)| **projection != TimeProjection::SourceTime)
+                .map(|(projection, index)| (projection.clone(), index.users))
+                .collect();
+            for (projection, users) in projections {
+                feed.build_index(&mut state, &projection, users);
+            }
+        }
+        changed.send_modify(|revision| *revision = revision.wrapping_add(1));
+        if result.is_ok() {
+            return;
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
     }
 }
 
@@ -702,7 +779,13 @@ mod tests {
         assert_eq!(a.feed.state.lock().indexes.len(), 1);
         let weak = Arc::downgrade(&a.feed);
         drop(a);
-        assert_eq!(weak.strong_count(), 0);
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while weak.upgrade().is_some() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
     }
 
     #[test]
@@ -738,16 +821,26 @@ mod tests {
             let ingest = |stamp, source, retention| {
                 let data = <Time as Message>::Codec::serialize(&Time::from_nanos(stamp)).unwrap();
                 feed.state.lock().ingest(
-                    Attachment::with_source_time(stamp, [0; 16].into(), Time::from_nanos(source)),
-                    data.into(),
-                    None,
-                    &schema,
+                    Received {
+                        message: data.into(),
+                        source_time: Time::from_nanos(source),
+                        transport_time: None,
+                        sequence_number: stamp,
+                        source_global_id: [0; 16].into(),
+                    },
                     retention,
                 );
             };
             ingest(10, 100, LiveRetention::default());
             ingest(20, 200, LiveRetention::default());
             let raw = feed.projection(&TimeProjection::SourceTime);
+            let original = feed
+                .state
+                .lock()
+                .indexes
+                .get_mut(&TimeProjection::SourceTime)
+                .unwrap()
+                .snapshot();
             let projected = TimeProjection::field("", TimeEncoding::RosZTime).unwrap();
             let old = feed.projection(&projected);
             let cancelled = feed.state.lock().indexes[&projected].cancel.clone();
@@ -783,14 +876,21 @@ mod tests {
             })
             .await
             .unwrap();
-            let state = feed.state.lock();
+            let mut state = feed.state.lock();
             for (projection, time) in [(TimeProjection::SourceTime, 300), (projected, 30)] {
-                let index = &state.indexes[&projection];
+                let index = state.indexes.get_mut(&projection).unwrap();
                 assert_eq!(index.records.len(), 1);
                 let record = index.records.values().next().unwrap();
                 assert_eq!(record.id, 2, "backfill must not revive evicted records");
                 assert_eq!(record.time, Time::from_nanos(time));
                 assert!(index.error.is_none());
+                let snapshot = index.snapshot();
+                assert!(Arc::ptr_eq(&snapshot, &index.snapshot()));
+                assert!(original.is_empty(), "published snapshots stay immutable");
+                assert!(!Arc::ptr_eq(&original, &snapshot));
+                index.remove(2);
+                assert!(index.snapshot().is_empty());
+                assert_eq!(snapshot.len(), 1);
             }
             assert!(state.indexes[&invalid].error.is_some());
             drop(state);

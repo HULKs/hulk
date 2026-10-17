@@ -5,11 +5,29 @@ use ros_z::{
     context::ContextBuilder,
     dynamic::{GetSchema, GetSchemaResponse},
     entity::{EndpointEntity, EndpointKind, Entity, NodeEntity},
+    node::Node,
     service::ServiceRequest,
     time::Time,
 };
 use ros_z_debug::query::plan::{self, InputSpec, Selection, Source, State, TopicSource, Value};
 use ros_z_debug::query::*;
+use tokio::sync::watch;
+
+async fn test_node(name: &str, serve_schema: bool) -> Arc<Node> {
+    let context = ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_json("connect/endpoints", serde_json::json!([]))
+        .build()
+        .await
+        .unwrap();
+    let builder = context.create_node(name);
+    let builder = if serve_schema {
+        builder
+    } else {
+        builder.without_schema_service()
+    };
+    Arc::new(builder.build().await.unwrap())
+}
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, ros_z::Message)]
 struct Stamped {
@@ -46,22 +64,117 @@ fn reply_schema<T: Message>(request: ServiceRequest<GetSchema>) {
         .unwrap();
 }
 
+async fn publish_until_selected<T: Message + PartialEq>(
+    publisher: &ros_z::pubsub::Publisher<T>,
+    value: &T,
+    observation: &TypedPlanObservation<Option<plan::Sample>>,
+) -> plan::Sample {
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            publisher.publish(value).await.unwrap();
+            if let State::Ready(Some(sample)) = observation.snapshot().state
+                && decode_record::<T>(&sample.record, &sample.topic)
+                    .unwrap()
+                    .value
+                    == *value
+            {
+                return sample;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap()
+}
+
+#[test]
+fn external_backends_can_construct_observations() {
+    struct Memory;
+    impl Backend for Memory {
+        fn topics(&self) -> TopicList {
+            TopicList::new(watch::channel(Arc::new(TopicSnapshot::default())).1)
+        }
+        fn observe(
+            &self,
+            cursor: CursorHandle,
+            plan: plan::QueryPlan,
+        ) -> ros_z_debug::Result<PlanObservation> {
+            let position = cursor.position();
+            let Cursor::At(time) = position.cursor else {
+                panic!("fixed cursor")
+            };
+            let snapshot = Arc::new(PlanSnapshot {
+                revision: position.revision,
+                evaluation: Arc::new(
+                    plan.evaluate(time, &[], |_, _| panic!("unexpected payload read"))?,
+                ),
+            });
+            Ok(PlanObservation::new(
+                cursor,
+                move || snapshot.clone(),
+                watch::channel(0).1,
+            ))
+        }
+    }
+    let cursor = CursorHandle::new(Cursor::At(Time::zero()));
+    let backend = Arc::new(Memory);
+    assert!(!backend.topics().snapshot().loading);
+    let observation = plan::cursor().observe(backend, cursor.clone()).unwrap();
+    let cancel = observation.raw().cancellation_token();
+    let _updates = observation.raw().subscribe_updates();
+    assert!(
+        matches!(observation.snapshot().state, State::Ready(Some(time)) if time == Time::zero())
+    );
+    drop(observation);
+    assert!(cancel.is_cancelled());
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn live_discards_schema_discovery_from_a_replaced_publisher() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", serde_json::json!([]))
+async fn typed_source_time_does_not_require_a_schema_service() {
+    let node = test_node("no_schema", false).await;
+    let publisher = node.publisher::<u64>("raw").build().await.unwrap();
+    let observer = ros_z_debug::TopicObserver::new(node.clone(), Default::default());
+    observer.set_backend(Connection {
+        backend: Arc::new(Live::new(node.clone(), LiveRetention::default())),
+        cursor: CursorHandle::new(Cursor::Live),
+    });
+    let observation = observer.observe_typed::<u64>("raw").unwrap().spawn();
+    let dynamic = observer.observe_dynamic("raw").unwrap().spawn();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            publisher.publish(&42).await.unwrap();
+            if observation
+                .latest()
+                .is_some_and(|sample| sample.value == 42)
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(dynamic.latest().is_none());
+    let mut schemas = node
+        .service_server::<GetSchema>("~get_schema")
         .build()
         .await
         .unwrap();
-    let node = Arc::new(
-        context
-            .create_node("query_schema_swap")
-            .without_schema_service()
-            .build()
-            .await
-            .unwrap(),
-    );
+    tokio::time::timeout(Duration::from_secs(6), async {
+        while dynamic.latest().is_none() {
+            tokio::select! {
+                request = schemas.take_request_async() => reply_schema::<u64>(request.unwrap()),
+                _ = tokio::time::sleep(Duration::from_millis(10)) => {},
+            }
+        }
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn live_discards_schema_discovery_from_a_replaced_publisher() {
+    let node = test_node("query_schema_swap", false).await;
     let mut schemas = node
         .service_server::<GetSchema>("~get_schema")
         .build()
@@ -118,13 +231,7 @@ async fn live_discards_schema_discovery_from_a_replaced_publisher() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn delayed_join_holds_older_row_without_ui_and_fixed_cursor_accepts_late_data() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", serde_json::json!([]))
-        .build()
-        .await
-        .unwrap();
-    let node = Arc::new(context.create_node("query_test").build().await.unwrap());
+    let node = test_node("query_test", true).await;
     let images = node.publisher::<Stamped>("images").build().await.unwrap();
     let detections = node
         .publisher::<Stamped>("detections")
@@ -276,19 +383,7 @@ async fn delayed_join_holds_older_row_without_ui_and_fixed_cursor_accepts_late_d
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn live_fallback_follows_presence_even_while_another_schema_is_unavailable() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", serde_json::json!([]))
-        .build()
-        .await
-        .unwrap();
-    let node = Arc::new(
-        context
-            .create_node("fallback_live_test")
-            .build()
-            .await
-            .unwrap(),
-    );
+    let node = test_node("fallback_live_test", true).await;
     let fallback = node.publisher::<u64>("fallback").build().await.unwrap();
     // This publisher sorts first, but deliberately has no schema service.
     node.graph()
@@ -303,35 +398,6 @@ async fn live_fallback_follows_presence_even_while_another_schema_is_unavailable
         .unwrap();
     let backend = Arc::new(Live::new(Arc::clone(&node), LiveRetention::default()));
     let catalog = backend.topics();
-    let assert_advertisements = |primary_present| {
-        let snapshot = catalog.snapshot();
-        assert!(!snapshot.loading);
-        assert!(snapshot.error.is_none());
-        assert!(
-            snapshot
-                .topics
-                .iter()
-                .all(|topic| topic.schema.is_none() && topic.error.is_none()),
-            "catalog contains advertisements only, even after feeds discover schemas"
-        );
-        for (name, type_info) in [
-            ("/aaa_missing_schema", bool::type_info()),
-            ("/fallback", u64::type_info()),
-        ] {
-            assert!(
-                snapshot
-                    .topics
-                    .iter()
-                    .any(|topic| topic.name == name && topic.type_info == type_info)
-            );
-        }
-        assert_eq!(
-            snapshot.topics.iter().any(|topic| {
-                topic.name == "/primary" && topic.type_info == String::type_info()
-            }),
-            primary_present
-        );
-    };
     let observation = Source::first_present([
         TopicSource::new("/primary", TimeProjection::SourceTime),
         TopicSource::new("/fallback", TimeProjection::SourceTime),
@@ -361,62 +427,35 @@ async fn live_fallback_follows_presence_even_while_another_schema_is_unavailable
         .unwrap();
     }
     wait_presence(&catalog, false).await;
-    assert_advertisements(false);
-    tokio::time::timeout(Duration::from_secs(3), async {
-        loop {
-            fallback.publish(&42u64).await.unwrap();
-            if let State::Ready(Some(sample)) = observation.snapshot().state {
-                assert_eq!(sample.topic.name, "/fallback");
-                assert_eq!(
-                    decode_record::<u64>(&sample.record, &sample.topic)
-                        .unwrap()
-                        .value,
-                    42
-                );
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .unwrap();
-    let previous = observation.snapshot();
-    assert_advertisements(false);
+    let sample = publish_until_selected(&fallback, &42, &observation).await;
+    assert_eq!(sample.topic.name, "/fallback");
+    let advertised = catalog.snapshot();
+    assert!(advertised.error.is_none());
+    assert!(
+        advertised
+            .topics
+            .iter()
+            .all(|topic| topic.schema.is_none() && topic.error.is_none()),
+        "catalog contains advertisements, not feed discovery results"
+    );
+    assert!(
+        advertised.topics.iter().any(
+            |topic| topic.name == "/aaa_missing_schema" && topic.type_info == bool::type_info()
+        )
+    );
     let primary = node.publisher::<String>("primary").build().await.unwrap();
     wait_presence(&catalog, true).await;
     assert!(
         !matches!(observation.snapshot().state, State::Ready(Some(_))),
         "primary presence wins before its first sample"
     );
-    tokio::time::timeout(Duration::from_secs(3), async {
-        loop {
-            primary
-                .publish(&"primary decoded".to_owned())
-                .await
-                .unwrap();
-            if let State::Ready(Some(sample)) = observation.snapshot().state {
-                assert_eq!(sample.topic.name, "/primary");
-                assert_eq!(
-                    decode_record::<String>(&sample.record, &sample.topic)
-                        .unwrap()
-                        .value,
-                    "primary decoded"
-                );
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .unwrap();
-    assert_advertisements(true);
+    let sample =
+        publish_until_selected(&primary, &"primary decoded".to_owned(), &observation).await;
+    assert_eq!(sample.topic.name, "/primary");
     drop(primary);
     wait_presence(&catalog, false).await;
-    assert_advertisements(false);
-    assert!(
-        !Arc::ptr_eq(&observation.snapshot().raw, &previous.raw),
-        "source changes must reevaluate rather than revive an old snapshot"
-    );
+    let sample = publish_until_selected(&fallback, &43, &observation).await;
+    assert_eq!(sample.topic.name, "/fallback");
     let mut updates = observation.raw().subscribe_updates();
     drop(observation);
     tokio::time::timeout(Duration::from_secs(3), async {

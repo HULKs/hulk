@@ -1,5 +1,5 @@
 use super::*;
-use plan::{Evaluation, Expr, Frame, Sample, State, Value};
+use plan::{Evaluation, Expr, Frame, Sample, SelectionExpr, State, Value};
 
 #[derive(Clone, Debug)]
 pub struct PlanSnapshot {
@@ -14,21 +14,51 @@ pub struct PlanStatus {
     pub snapshot: Arc<PlanSnapshot>,
 }
 
-type LocalSnapshot = dyn Fn() -> Arc<PlanSnapshot> + Send + Sync;
+struct ReadSnapshot {
+    read: Box<dyn Fn() -> Arc<PlanSnapshot> + Send + Sync>,
+    cancel: tokio_util::sync::CancellationToken,
+}
+
+impl Drop for ReadSnapshot {
+    fn drop(&mut self) {
+        self.cancel.cancel();
+    }
+}
 
 #[derive(Clone)]
 pub struct PlanObservation {
-    cursor: CursorHandle,
-    receiver: watch::Receiver<Arc<PlanSnapshot>>,
+    pub(crate) cursor: CursorHandle,
     updates: watch::Receiver<u64>,
-    pub(super) local: Option<Arc<LocalSnapshot>>,
+    read: Arc<ReadSnapshot>,
 }
 
 impl PlanObservation {
+    /// Construct an observation backed by an immutable-snapshot reader.
+    /// Notify `updates` after changing results; stamp snapshots with the cursor
+    /// revision captured before evaluation, so seeks invalidate obsolete work.
+    /// Producers should stop when [`Self::cancellation_token`] is cancelled.
+    pub fn new(
+        cursor: CursorHandle,
+        read: impl Fn() -> Arc<PlanSnapshot> + Send + Sync + 'static,
+        updates: watch::Receiver<u64>,
+    ) -> Self {
+        Self {
+            cursor,
+            updates,
+            read: Arc::new(ReadSnapshot {
+                read: Box::new(read),
+                cancel: tokio_util::sync::CancellationToken::new(),
+            }),
+        }
+    }
+
+    /// Cancelled when the last observation is dropped, even if update receivers remain.
+    pub fn cancellation_token(&self) -> tokio_util::sync::CancellationToken {
+        self.read.cancel.clone()
+    }
+
     pub fn snapshot(&self) -> Arc<PlanSnapshot> {
-        self.local
-            .as_ref()
-            .map_or_else(|| self.receiver.borrow().clone(), |snapshot| snapshot())
+        (self.read.read)()
     }
     pub fn status(&self) -> PlanStatus {
         let snapshot = self.snapshot();
@@ -38,53 +68,12 @@ impl PlanObservation {
         }
     }
     pub fn is_current(&self, snapshot: &PlanSnapshot) -> bool {
-        self.is_current_revision(snapshot.revision)
-    }
-    pub(crate) fn is_current_revision(&self, revision: u64) -> bool {
-        revision == self.cursor.position().revision
+        snapshot.revision == self.cursor.position().revision
     }
     /// Notifications invalidate the last read. Live evaluates on demand while
     /// ingestion and index maintenance continue independently in the background.
     pub fn subscribe_updates(&self) -> watch::Receiver<u64> {
         self.updates.clone()
-    }
-    pub(crate) fn channel(cursor: CursorHandle) -> (Self, PlanSender) {
-        let (sender, receiver) = watch::channel(Arc::new(PlanSnapshot {
-            revision: cursor.position().revision,
-            evaluation: Arc::new(Evaluation::unresolved(Time::zero(), State::Pending)),
-        }));
-        let (updates_sender, updates) = watch::channel(0);
-        (
-            Self {
-                cursor,
-                receiver,
-                updates,
-                local: None,
-            },
-            PlanSender {
-                sender,
-                updates: updates_sender,
-            },
-        )
-    }
-}
-
-pub(crate) struct PlanSender {
-    sender: watch::Sender<Arc<PlanSnapshot>>,
-    updates: watch::Sender<u64>,
-}
-impl PlanSender {
-    pub fn notify(&self) {
-        self.updates
-            .send_modify(|revision| *revision = revision.wrapping_add(1));
-    }
-    #[cfg(test)]
-    pub fn send_replace(&self, value: Arc<PlanSnapshot>) {
-        self.sender.send_replace(value);
-        self.notify();
-    }
-    pub async fn closed(&self) {
-        self.sender.closed().await;
     }
 }
 
@@ -157,5 +146,15 @@ impl<T: PlanValue> Expr<T> {
             raw: backend.observe(cursor, self.plan())?,
             marker: std::marker::PhantomData,
         })
+    }
+}
+
+impl SelectionExpr {
+    pub fn observe(
+        self,
+        backend: Arc<dyn Backend>,
+        cursor: CursorHandle,
+    ) -> Result<TypedPlanObservation<Vec<Sample>>> {
+        self.into_expr().observe(backend, cursor)
     }
 }

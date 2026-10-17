@@ -277,7 +277,7 @@ impl TryFrom<EntityKind> for EndpointKind {
 }
 
 /// Type information (name + schema hash).
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct TypeInfo {
     pub name: String,
     pub hash: SchemaHash,

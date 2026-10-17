@@ -874,7 +874,7 @@ impl DynamicTopicObservation {
     }
 }
 
-fn format_error_chain(error: &dyn std::error::Error) -> String {
+pub(crate) fn format_error_chain(error: &dyn std::error::Error) -> String {
     let mut message = error.to_string();
     let mut source = error.source();
     while let Some(error) = source {

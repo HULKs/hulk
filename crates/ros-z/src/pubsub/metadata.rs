@@ -62,7 +62,8 @@ pub(super) fn publication_id_from_sample(sample: &Sample) -> Option<PublicationI
 }
 
 impl<T> Received<T> {
-    pub(super) fn try_from_sample(sample: &Sample, message: T) -> Result<Self> {
+    /// Decode the required publication metadata without decoding the payload.
+    pub fn try_from_sample(sample: &Sample, message: T) -> Result<Self> {
         let transport_time = sample
             .timestamp()
             .map(|ts| Time::from_wallclock(ts.get_time().to_system_time()));

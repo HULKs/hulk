@@ -1,8 +1,10 @@
 use std::fmt;
 use std::num::NonZeroUsize;
 
+use serde::{Deserialize, Serialize};
+
 #[non_exhaustive]
-#[derive(Debug, Default, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Default, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum QosReliability {
     #[default]
     Reliable,
@@ -22,7 +24,7 @@ impl fmt::Display for QosReliability {
 /// This follows ROS-style reliable defaults.
 pub const DEFAULT_HISTORY_DEPTH: usize = 10;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum QosHistory {
     KeepLast(NonZeroUsize),
     KeepAll,
@@ -60,7 +62,7 @@ impl fmt::Display for QosHistory {
 }
 
 #[non_exhaustive]
-#[derive(Debug, Default, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Default, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum QosDurability {
     TransientLocal,
     #[default]
@@ -77,7 +79,7 @@ impl fmt::Display for QosDurability {
 }
 
 #[non_exhaustive]
-#[derive(Debug, Default, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Default, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum QosLiveliness {
     #[default]
     Automatic,
@@ -100,7 +102,7 @@ impl fmt::Display for QosLiveliness {
 /// This is distinct from [`std::time::Duration`] and is used exclusively for
 /// configuring QoS deadline, lifespan, and liveliness lease duration.
 /// Use [`QosDuration::INFINITE`] (the default) to disable a QoS time constraint.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct QosDuration {
     pub sec: u64,
     pub nsec: u64,
@@ -140,7 +142,7 @@ impl fmt::Display for QosDuration {
     }
 }
 
-#[derive(Debug, Default, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Default, Hash, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct QosProfile {
     pub reliability: QosReliability,
     pub durability: QosDurability,

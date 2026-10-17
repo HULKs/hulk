@@ -13,6 +13,15 @@ impl TimeIndex for Times {
 fn times(values: &[i64]) -> Times {
     Times(values.iter().copied().map(Time::from_nanos).collect())
 }
+fn select_indices(
+    index: &dyn TimeIndex,
+    at: Time,
+    selection: &Selection,
+    limit: usize,
+    mut eligible: impl FnMut(usize) -> bool,
+) -> (Vec<usize>, bool) {
+    super::select_indices(index, at, selection, limit, |slot| Ok(eligible(slot))).unwrap()
+}
 fn source(name: &str) -> Source {
     TopicSource::new(name, TimeProjection::SourceTime).into()
 }
@@ -75,6 +84,11 @@ fn evaluate(plan: &QueryPlan, data: &[(&str, &[i64])], cursor: i64) -> Evaluatio
 fn selectors_share_boundary_duplicate_and_eligibility_rules() {
     let index = times(&[10, 10, 20, 30]);
     let at = Time::from_nanos(10);
+    assert!(
+        select_indices(&times(&[]), at, &Selection::latest(), 10, |_| true)
+            .0
+            .is_empty()
+    );
     assert_eq!(
         select_indices(&index, at, &Selection::latest(), 10, |_| true).0,
         vec![1]
@@ -240,30 +254,47 @@ fn source_presence_and_temporal_fallback_do_not_hide_pending_or_failed_sources()
     assert!(
         matches!(evaluate(&plan,&[("/fallback",&[10])],20).state,State::Ready(Value::Records(records)) if records.len()==1)
     );
-    for (topic, pending) in [("/pending", true), ("/failed", false)] {
+    for topic in ["/absent", "/pending", "/failed"] {
         let grouped = Source::first_present([
             TopicSource::new(topic, TimeProjection::SourceTime),
             TopicSource::new("/fallback", TimeProjection::SourceTime),
-        ])
-        .latest(cursor())
-        .plan();
-        let state = evaluate(&grouped, &[("/fallback", &[10])], 20).state;
-        assert!(if pending {
-            matches!(state, State::Pending)
-        } else {
-            matches!(state, State::Failed(_))
-        });
+        ]);
+        for query in [
+            grouped.latest(cursor()).plan(),
+            source("/fallback")
+                .select(Selection::latest(), cursor())
+                .requiring([InputSpec {
+                    source: grouped,
+                    selection: Selection::Exact,
+                }])
+                .plan(),
+        ] {
+            let state = evaluate(&query, &[("/fallback", &[10])], 20).state;
+            assert!(match topic {
+                "/absent" =>
+                    matches!(state, State::Ready(Value::Records(records)) if records.len() == 1),
+                "/pending" => matches!(state, State::Pending),
+                _ => matches!(state, State::Failed(_)),
+            });
+        }
         let plan = source(topic)
             .exact(cursor())
             .or_else(source("/fallback").latest(cursor()))
             .plan();
         let state = evaluate(&plan, &[("/fallback", &[10])], 20).state;
-        assert!(if pending {
-            matches!(state, State::Pending)
-        } else {
-            matches!(state, State::Failed(_))
+        assert!(match topic {
+            "/absent" =>
+                matches!(state, State::Ready(Value::Records(records)) if records.len() == 1),
+            "/pending" => matches!(state, State::Pending),
+            _ => matches!(state, State::Failed(_)),
         });
     }
+    let query = source("/primary")
+        .select(Selection::latest(), cursor())
+        .requiring([exact_input("/absent")])
+        .plan();
+    assert!(matches!(evaluate(&query, &[("/primary", &[10])], 10).state,
+        State::Ready(Value::Records(records)) if records.is_empty()));
 }
 
 #[test]
@@ -328,6 +359,57 @@ fn validity_ranges_preserve_real_plan_results_and_missing_input_diagnostics() {
 }
 
 #[test]
+fn scalar_result_validation_rejects_multiple_records_and_frames() {
+    let scalar = source("/primary").latest(cursor());
+    for query in [scalar.clone().plan(), scalar.attach([]).plan()] {
+        let mut result = evaluate(&query, &[("/primary", &[10])], 10);
+        let catalog = match &mut result.state {
+            State::Ready(Value::Records(records)) => {
+                records.push(records[0].clone());
+                vec![records[0].topic.clone()]
+            }
+            State::Ready(Value::Frames(frames)) => {
+                frames.push(frames[0].clone());
+                vec![frames[0].primary.topic.clone()]
+            }
+            _ => panic!("expected scalar result"),
+        };
+        assert!(query.validate_result(&mut result, &catalog).is_err());
+    }
+}
+
+#[test]
+fn missing_matches_cannot_scan_unbounded_history() {
+    let query = source("/primary")
+        .select(Selection::latest(), cursor())
+        .requiring([exact_input("/input")])
+        .plan();
+    let mut views = views(&query, &[("/primary", &[]), ("/input", &[])]);
+    struct SharedCounting(std::sync::atomic::AtomicUsize);
+    impl TimeIndex for SharedCounting {
+        fn len(&self) -> usize {
+            MAX_CANDIDATES * 2
+        }
+        fn time(&self, slot: usize) -> Time {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            Time::from_nanos(slot as i64)
+        }
+    }
+    let index = Arc::new(SharedCounting(std::sync::atomic::AtomicUsize::new(0)));
+    let SourceState::Ready(primary) = &mut views[0] else {
+        panic!("primary")
+    };
+    primary.index = index.clone();
+    let result = query
+        .evaluate(Time::from_nanos(i64::MAX), &views, |_, _| {
+            panic!("loaded a rejected candidate")
+        })
+        .unwrap();
+    assert!(matches!(result.state, State::Failed(error) if error.contains("candidate work limit")));
+    assert!(index.0.load(std::sync::atomic::Ordering::Relaxed) < MAX_CANDIDATES + 100);
+}
+
+#[test]
 fn required_inputs_filter_before_counting_and_report_rejected_candidates() {
     let input = exact_input("/detections");
     let camera = exact_input("/camera");
@@ -338,7 +420,8 @@ fn required_inputs_filter_before_counting_and_report_rejected_candidates() {
             },
             cursor(),
         )
-        .requiring([input.clone(), camera.clone()])
+        .requiring([input.clone()])
+        .requiring([camera.clone()])
         .attach([input, camera])
         .plan();
     let result = evaluate(
