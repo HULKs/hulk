@@ -1,0 +1,83 @@
+# Native AArch64 SDK container for Apple Silicon and other arm64 hosts.
+FROM docker.io/library/ubuntu:22.04
+
+LABEL maintainer="HULKs"
+LABEL description="Native AArch64 compilation toolchain for T1 and K1 robots"
+LABEL version="6.1"
+LABEL target="k1"
+
+USER root
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        gcc \
+        git \
+        libasound2-dev \
+        libclang-dev \
+        libssl-dev \
+        libstdc++-11-dev \
+        libudev-dev \
+        pkg-config && \
+    rm -rf \
+        /usr/lib/llvm-14/include \
+        /usr/lib/llvm-14/lib/*.a \
+        /usr/lib/llvm-14/lib/cmake \
+        /var/lib/apt/lists/* \
+        /usr/share/doc/* \
+        /usr/share/info/* \
+        /usr/share/lintian/* \
+        /usr/share/locale/* \
+        /usr/share/man/*
+
+ENV PKG_CONFIG=/usr/bin/pkg-config
+ENV PKG_CONFIG_SYSROOT_DIR_aarch64_unknown_linux_gnu="/"
+ENV PKG_CONFIG_PATH_aarch64_unknown_linux_gnu="/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig:/usr/lib/pkgconfig"
+ENV PKG_CONFIG_ALLOW_CROSS=1
+
+ENV CC_aarch64_unknown_linux_gnu=gcc
+ENV AR_aarch64_unknown_linux_gnu=ar
+
+ENV RUSTUP_TOOLCHAIN=1.98.0
+ENV PATH="/root/.cargo/bin:${PATH}"
+ENV CARGO_HOME="/root/.cargo"
+
+RUN curl --proto '=https' --tlsv1.2 -sSf --retry 3 https://sh.rustup.rs -o rustup.sh \
+    && sh rustup.sh -y \
+        --default-toolchain ${RUSTUP_TOOLCHAIN} \
+        --profile minimal \
+        --component clippy \
+        --target aarch64-unknown-linux-gnu \
+    && rm rustup.sh \
+    && rm -rf /root/.rustup/downloads /root/.rustup/tmp
+
+ENV CARGO_NEXTEST_VERSION=0.9.137
+RUN curl --proto '=https' --tlsv1.2 -sSfL --retry 3 \
+        https://get.nexte.st/${CARGO_NEXTEST_VERSION}/linux-arm \
+        -o cargo-nextest.tar.gz \
+    && tar -xzf cargo-nextest.tar.gz -C /root/.cargo/bin \
+    && rm cargo-nextest.tar.gz
+
+COPY cargo-config.arm64.toml /root/.cargo/config.toml
+
+ENV BINDGEN_EXTRA_CLANG_ARGS_aarch64_unknown_linux_gnu="\
+    --target=aarch64-unknown-linux-gnu \
+    --sysroot=/ \
+    -I/usr/include \
+    -I/usr/include/aarch64-linux-gnu"
+
+ENV MOLD_VERSION=2.40.4
+RUN curl -L https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-aarch64-linux.tar.gz \
+    -o mold.tar.gz && \
+    tar -xf mold.tar.gz && \
+    mv mold-${MOLD_VERSION}-aarch64-linux/bin/mold /usr/bin/mold && \
+    mv mold-${MOLD_VERSION}-aarch64-linux/lib/mold /usr/lib/mold && \
+    rm -rf mold.tar.gz mold-${MOLD_VERSION}-aarch64-linux && \
+    chmod +x /usr/bin/mold && \
+    mkdir -p /usr/libexec/mold && \
+    ln -sf /usr/bin/mold /usr/libexec/mold/ld
+
+WORKDIR /workspace
