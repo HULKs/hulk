@@ -1,11 +1,11 @@
 use std::time::SystemTime;
 
 use bevy::prelude::*;
-use booster::walking::WalkingParameters;
 use color_eyre::Result;
 use coordinate_systems::{Field, Ground, World};
 use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{Isometry2, Orientation2, Point2};
+use motion::walking::WalkingParameters;
 use serde::Serializer;
 use types::fall_detection::Posture;
 use types::{parameters::BehaviorParameters, primary_state::PrimaryState};

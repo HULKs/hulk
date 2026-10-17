@@ -6,8 +6,6 @@ use ros_z::Message;
 use ros2::{geometry_msgs::transform_stamped::TransformStamped, std_msgs::header::Header};
 use serde::{Deserialize, Serialize};
 
-pub mod walking;
-
 pub use types::{
     buttons::ButtonEventType,
     fall_down_state::{FallDownState, FallDownStateType},
