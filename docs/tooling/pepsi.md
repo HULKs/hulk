@@ -172,6 +172,25 @@ Use the same environment, profile, and target directory as the build that produc
 Remote container builds return binaries from the selected container directory to the matching path in your local repository.
 For remote native builds that retrieve binaries, use a relative `--target-dir`; absolute paths can refer to different locations on the two machines.
 
+### VS Code on Apple Silicon macOS
+
+By default, VS Code's local rust-analyzer runs Cargo on macOS, where Linux SDK libraries such as ALSA are unavailable.
+Build the image with `./pepsi sdk build` before configuring the editor.
+
+To keep VS Code, your shell, and your other extensions on macOS, configure the local rust-analyzer extension to launch its server through the SDK:
+
+```json
+{
+  "rust-analyzer.server.path": "${workspaceFolder}/scripts/rust_analyzer_sdk",
+  "rust-analyzer.check.workspace": false
+}
+```
+
+Place this in your workspace's `.vscode/settings.json`, reopen the folder locally, and restart rust-analyzer.
+The script mounts this checkout at the same absolute path in the container, so language-server file paths still refer to the files on your Mac.
+It also shares Pepsi's Cargo registry cache and `target/container` build directory.
+The `.vscode` directory is ignored by Git, so this setting remains local to your checkout.
+
 ## Aliveness
 
 Using the `aliveness` subcommand, pepsi can query information from robots connected via ethernet.

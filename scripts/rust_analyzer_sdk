@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+
+# VS Code launched from Finder may not inherit Homebrew's executable directory.
+PATH="$PATH:/opt/homebrew/bin:/usr/local/bin"
+export PATH
+
+repository_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
+sdk_version=$(sed -n 's/^sdk_version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$repository_root/hulk.toml")
+if [ -z "$sdk_version" ]; then
+    echo "failed to read sdk_version from hulk.toml" >&2
+    exit 1
+fi
+
+data_home=$("$repository_root/scripts/resolve_data_home")
+cargo_home="$data_home/container-cargo-home"
+mkdir -p "$cargo_home/git" "$cargo_home/registry"
+
+# Keep workspace paths identical on the host and in the container for LSP file URIs.
+exec docker run --rm --interactive --pull=never \
+    --volume="$repository_root:$repository_root" \
+    --volume="$cargo_home/git:/root/.cargo/git" \
+    --volume="$cargo_home/registry:/root/.cargo/registry" \
+    --workdir="$repository_root" \
+    --env="CARGO_TARGET_DIR=$repository_root/target/container" \
+    "k1sdk:$sdk_version" \
+    rust-analyzer "$@"
