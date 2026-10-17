@@ -1,4 +1,8 @@
-use std::{num::NonZeroUsize, sync::Arc};
+use std::{
+    future::Future,
+    num::NonZeroUsize,
+    sync::{Arc, Weak},
+};
 
 use arc_swap::ArcSwapOption;
 use parking_lot::Mutex;
@@ -12,6 +16,7 @@ use crate::{
     CachedSubscriptionUpdateClosed, CachedSubscriptionUpdateReceiver, JsonRenderPolicy,
     RetentionPolicy, SampleRecord,
     history::TimeIndexedHistory,
+    query::{PlanObservation, PlanStatus},
     sample::{dynamic_record_json_value, dynamic_record_to_json_sample},
 };
 
@@ -38,13 +43,14 @@ impl<V> Clone for CachedSubscription<V> {
 
 impl<V> CachedSubscription<V> {
     /// Query resolution and coverage, including immediate cursor invalidation.
-    pub fn query_status(&self) -> Option<crate::query::PlanStatus> {
+    pub fn query_status(&self) -> Option<PlanStatus> {
         self.state
             .query
             .lock()
             .as_ref()
-            .map(crate::query::PlanObservation::status)
+            .map(PlanObservation::status)
     }
+
     /// Return the current status snapshot.
     pub fn status(&self) -> CachedSubscriptionStatusSnapshot {
         self.state.status()
@@ -159,7 +165,7 @@ impl CachedJsonSubscription {
 }
 
 pub(crate) struct CachedSubscriptionState<V> {
-    query: Mutex<Option<crate::query::PlanObservation>>,
+    query: Mutex<Option<PlanObservation>>,
     latest: ArcSwapOption<SampleRecord<V>>,
     query_records: Mutex<Option<Vec<Arc<SampleRecord<V>>>>>,
     history: Option<Mutex<TimeIndexedHistory<V>>>,
@@ -178,24 +184,38 @@ enum CachedSubscriptionMeta {
 }
 
 impl<V> CachedSubscriptionState<V> {
-    pub(crate) fn attach_query(&self, query: crate::query::PlanObservation) {
+    pub(crate) fn attach_query(&self, query: PlanObservation) {
         *self.query.lock() = Some(query);
     }
 
-    fn query_current(&self, revision: u64) -> bool {
-        self.query
-            .lock()
-            .as_ref()
-            .is_none_or(|query| query.is_current_revision(revision))
-    }
-    pub(crate) fn replace_records(&self, records: Vec<Arc<SampleRecord<V>>>, revision: u64) {
+    pub(crate) fn install_query_result(
+        &self,
+        result: std::result::Result<Vec<Arc<SampleRecord<V>>>, String>,
+        revision: u64,
+    ) {
+        let query = self.query.lock();
+        let Some(query) = query.as_ref() else { return };
+        // Keep seeks blocked until the result and its notifications are installed.
+        let positions = query.cursor.subscribe();
+        let position = positions.borrow();
+        if position.revision != revision {
+            return;
+        }
         let mut meta = self.meta.lock();
         let CachedSubscriptionMeta::Open { status, updates } = &mut *meta else {
             return;
         };
-        if !self.query_current(revision) {
-            return;
-        }
+        let records = match result {
+            Ok(records) => records,
+            Err(error) => {
+                let error = CachedSubscriptionStatus::decode_error(error);
+                if status.status() != &error {
+                    status.set_status(error);
+                    let _ = updates.send(CachedSubscriptionUpdate::StatusChanged(status.clone()));
+                }
+                return;
+            }
+        };
         self.latest.store(records.last().cloned());
         if let Some(record) = records.last() {
             *status = CachedSubscriptionStatusSnapshot::with_metadata(
@@ -210,6 +230,7 @@ impl<V> CachedSubscriptionState<V> {
         let _ = updates.send(CachedSubscriptionUpdate::StatusChanged(status.clone()));
         let _ = updates.send(CachedSubscriptionUpdate::DataChanged);
     }
+
     pub(crate) fn new(
         status: CachedSubscriptionStatusSnapshot,
         retention: RetentionPolicy,
@@ -239,8 +260,8 @@ impl<V> CachedSubscriptionState<V> {
         receive_loop: F,
     ) -> Arc<Self>
     where
-        F: FnOnce(std::sync::Weak<Self>, CancellationToken) -> Fut,
-        Fut: std::future::Future<Output = ()> + Send + 'static,
+        F: FnOnce(Weak<Self>, CancellationToken) -> Fut,
+        Fut: Future<Output = ()> + Send + 'static,
         V: Send + Sync + 'static,
     {
         let state = Arc::new(Self::new(status, retention, update_buffer_capacity));
@@ -436,14 +457,18 @@ mod tests {
     fn pending_revision_retains_records_but_rejects_superseded_installations() {
         use crate::query::{Cursor, CursorHandle, PlanObservation};
         let cursor = CursorHandle::new(Cursor::At(Time::zero()));
-        let (raw, _sender) = PlanObservation::channel(cursor.clone());
+        let raw = PlanObservation::new(
+            cursor.clone(),
+            || panic!("unused snapshot"),
+            tokio::sync::watch::channel(0).1,
+        );
         let state = CachedSubscriptionState::new(
             CachedSubscriptionStatusSnapshot::new(CachedSubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::time_window(Duration::from_secs(1)).unwrap(),
             NonZeroUsize::MIN,
         );
         state.attach_query(raw);
-        state.replace_records(vec![sample_record(NonClonePayload(1))], 0);
+        state.install_query_result(Ok(vec![sample_record(NonClonePayload(1))]), 0);
         assert!(state.latest().is_some());
         cursor.set(Cursor::At(Time::from_nanos(1)));
         assert_eq!(state.latest().unwrap().value.0, 1);
@@ -459,13 +484,14 @@ mod tests {
                 .is_empty()
         );
         let mut updates = state.subscribe_updates().unwrap();
-        state.replace_records(vec![sample_record(NonClonePayload(2))], 0);
+        state.install_query_result(Ok(vec![sample_record(NonClonePayload(2))]), 0);
+        state.install_query_result(Err("obsolete error".into()), 0);
         assert_eq!(state.latest().unwrap().value.0, 1);
         assert!(matches!(updates.try_recv(), Ok(None)));
-        state.replace_records(vec![sample_record(NonClonePayload(3))], 1);
+        state.install_query_result(Ok(vec![sample_record(NonClonePayload(3))]), 1);
         assert_eq!(state.latest().unwrap().value.0, 3);
         let metadata = state.status();
-        state.replace_records(Vec::new(), 1);
+        state.install_query_result(Ok(Vec::new()), 1);
         assert_eq!(state.status().resolved_topic(), metadata.resolved_topic());
         assert_eq!(state.status().type_info(), metadata.type_info());
         assert!(state.latest().is_none());

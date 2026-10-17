@@ -20,7 +20,7 @@
 //! }
 //! # Ok(()) }
 //! ```
-use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{cell::Cell, marker::PhantomData, num::NonZeroUsize, sync::Arc, time::Duration};
 
 use ros_z::time::Time;
 use serde::{Deserialize, Serialize};
@@ -29,12 +29,13 @@ use super::*;
 use crate::ObservationPolicy;
 
 const MAX_NODES: usize = 128;
+const MAX_CANDIDATES: usize = 65_536;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TopicSource {
     pub topic: String,
     pub projection: TimeProjection,
-    #[serde(skip)]
+    #[serde(default)]
     pub live_policy: ObservationPolicy,
 }
 
@@ -59,11 +60,17 @@ impl From<TopicSource> for Source {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Temporal selections return records in chronological `(time, id)` order.
 pub enum Selection {
+    /// Up to `count` latest records at or before the timestamp.
     AtOrBefore { count: NonZeroUsize },
+    /// Up to `count` earliest records strictly after the timestamp.
     After { count: NonZeroUsize },
+    /// At most one matching record; duplicate timestamps prefer the latest ID.
     Exact,
+    /// One exact match or two surrounding endpoints, at most `max_gap` apart.
     Bracket { max_gap: Duration },
+    /// All records in the inclusive interval `[at - before, at + after]`.
     Window { before: Duration, after: Duration },
 }
 
@@ -111,12 +118,22 @@ enum Kind {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct QueryPlan {
     root: Node,
+    max_rows: NonZeroUsize,
 }
 
 #[derive(Clone)]
 pub struct Expr<T> {
     node: Node,
     marker: PhantomData<fn() -> T>,
+}
+
+/// A record selection whose required inputs filter candidates before counting.
+#[derive(Clone)]
+pub struct SelectionExpr {
+    source: Source,
+    at: Expr<Option<Time>>,
+    selection: Selection,
+    required: Vec<InputSpec>,
 }
 
 impl<T> Expr<T> {
@@ -127,7 +144,10 @@ impl<T> Expr<T> {
         }
     }
     pub fn plan(self) -> QueryPlan {
-        QueryPlan { root: self.node }
+        QueryPlan {
+            root: self.node,
+            max_rows: NonZeroUsize::new(MAX_ROWS).expect("nonzero response limit"),
+        }
     }
 }
 
@@ -139,19 +159,19 @@ impl Source {
     pub fn first_present(sources: impl IntoIterator<Item = TopicSource>) -> Self {
         Self(sources.into_iter().collect())
     }
-    pub fn select(&self, selection: Selection, at: Expr<Option<Time>>) -> Expr<Vec<Sample>> {
-        Expr::new(Node::Select {
+    pub fn select(&self, selection: Selection, at: Expr<Option<Time>>) -> SelectionExpr {
+        SelectionExpr {
             source: self.clone(),
-            at: Box::new(at.node),
+            at,
             selection,
             required: vec![],
-        })
+        }
     }
     pub fn latest(&self, at: Expr<Option<Time>>) -> Expr<Option<Sample>> {
-        Expr::new(self.select(Selection::latest(), at).node)
+        Expr::new(self.select(Selection::latest(), at).into_expr().node)
     }
     pub fn exact(&self, at: Expr<Option<Time>>) -> Expr<Option<Sample>> {
-        Expr::new(self.select(Selection::Exact, at).node)
+        Expr::new(self.select(Selection::Exact, at).into_expr().node)
     }
 }
 
@@ -185,19 +205,29 @@ impl Expr<Vec<Time>> {
     }
 }
 
-impl Expr<Vec<Sample>> {
+impl SelectionExpr {
+    pub(super) fn into_expr(self) -> Expr<Vec<Sample>> {
+        Expr::new(Node::Select {
+            source: self.source,
+            at: Box::new(self.at.node),
+            selection: self.selection,
+            required: self.required,
+        })
+    }
+
+    pub fn plan(self) -> QueryPlan {
+        self.into_expr().plan()
+    }
+
     /// Constrain candidate eligibility before selection/counting. Unlike attached
     /// inputs, a required input with no match rejects that primary candidate.
     pub fn requiring(mut self, inputs: impl IntoIterator<Item = InputSpec>) -> Self {
-        let Node::Select { required, .. } = &mut self.node else {
-            unreachable!("record collections are selections")
-        };
-        required.extend(inputs);
+        self.required.extend(inputs);
         self
     }
     pub fn attach(self, inputs: impl IntoIterator<Item = InputSpec>) -> Expr<Vec<Frame>> {
         Expr::new(Node::Attach {
-            primary: Box::new(self.node),
+            primary: Box::new(self.into_expr().node),
             inputs: inputs.into_iter().collect(),
         })
     }
@@ -270,12 +300,26 @@ impl Evaluation {
     }
 }
 
-/// Implemented by immutable Live snapshots and pinned recording indexes.
+/// Immutable Live snapshots and pinned recording indexes, sorted by timestamp.
 pub trait TimeIndex {
     fn len(&self) -> usize;
     fn time(&self, index: usize) -> Time;
     fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// First index where `predicate` is false; it must be true then false in index order.
+    fn partition_point(&self, predicate: &dyn Fn(Time) -> bool) -> usize {
+        let (mut lo, mut hi) = (0, self.len());
+        while lo < hi {
+            let mid = lo + (hi - lo) / 2;
+            if predicate(self.time(mid)) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        lo
     }
 }
 
@@ -304,6 +348,12 @@ struct Reference {
 pub type LoadedRecord = std::result::Result<Arc<RawRecord>, String>;
 
 impl QueryPlan {
+    /// Limit selected rows before loading payloads, within the backend response limit.
+    pub fn with_max_rows(mut self, max_rows: NonZeroUsize) -> Self {
+        self.max_rows = max_rows;
+        self
+    }
+
     /// Only the first advertised alternative of each source group acquires data.
     /// Catalog changes invalidate this set independently of sample availability.
     pub fn active_sources(&self, catalog: &TopicSnapshot) -> Result<Vec<bool>> {
@@ -345,7 +395,7 @@ impl QueryPlan {
         let mut count = 0;
         let mut sample = |sample: &mut Sample| -> Result<()> {
             count += 1;
-            if count > MAX_ROWS {
+            if count > self.max_rows.get() {
                 return Err(query_error("plan response exceeds record limit"));
             }
             let known = catalog
@@ -383,6 +433,9 @@ impl QueryPlan {
             (Kind::Time, Value::Time(_)) => {}
             (Kind::Times, Value::Times(times)) if times.len() <= MAX_NODES => {}
             (Kind::Records, Value::Records(records)) => {
+                if single(&self.root) && records.len() > 1 {
+                    return Err(query_error("scalar plan returned multiple records"));
+                }
                 for record in records {
                     if !primary_matches(&self.root, record, catalog) {
                         return Err(query_error("invalid primary source"));
@@ -391,6 +444,9 @@ impl QueryPlan {
                 }
             }
             (Kind::Frames, Value::Frames(frames)) => {
+                if single(&self.root) && frames.len() > 1 {
+                    return Err(query_error("scalar plan returned multiple frames"));
+                }
                 let Node::Attach { inputs, .. } = &self.root else {
                     return Err(query_error("invalid frame root"));
                 };
@@ -431,6 +487,9 @@ impl QueryPlan {
         Ok(())
     }
     pub fn validate(&self) -> Result<()> {
+        if self.max_rows.get() > MAX_ROWS {
+            return Err(query_error("plan row limit exceeds response limit"));
+        }
         let mut remaining = MAX_NODES;
         validate_node(&self.root, &mut remaining)?;
         Ok(())
@@ -459,6 +518,8 @@ impl QueryPlan {
         })
     }
 
+    /// Evaluate with bounded output and at most 65,536 candidate eligibility checks,
+    /// shared across primary selections and required inputs.
     pub fn evaluate(
         &self,
         cursor: Time,
@@ -491,7 +552,8 @@ impl QueryPlan {
             cursor,
             used: vec![false; sources.len()],
             truncated: vec![false; sources.len()],
-            remaining: MAX_ROWS,
+            remaining: self.max_rows.get(),
+            work: Cell::new(MAX_CANDIDATES),
             missing: None,
         };
         let state = evaluator.eval(&self.root);
@@ -664,15 +726,7 @@ fn selection_range(index: &dyn TimeIndex, cursor: Time, selection: &Selection) -
         end: None,
     };
     let mut constrain = |boundary: &dyn Fn(Time) -> Option<Time>| {
-        let (mut lo, mut hi) = (0, index.len());
-        while lo < hi {
-            let mid = lo + (hi - lo) / 2;
-            if boundary(index.time(mid)).is_some_and(|t| t <= cursor) {
-                lo = mid + 1;
-            } else {
-                hi = mid;
-            }
-        }
+        let lo = index.partition_point(&|time| boundary(time).is_some_and(|t| t <= cursor));
         if lo > 0
             && let Some(start) = boundary(index.time(lo - 1))
         {
@@ -713,11 +767,12 @@ struct Evaluator<'a> {
     used: Vec<bool>,
     truncated: Vec<bool>,
     remaining: usize,
+    work: Cell<usize>,
     missing: Option<MissingMatches>,
 }
 
-impl Evaluator<'_> {
-    fn source(&mut self, source: &Source) -> State<Option<usize>> {
+impl<'a> Evaluator<'a> {
+    fn source(&mut self, source: &Source) -> State<Option<(usize, &'a SourceView)>> {
         for candidate in &source.0 {
             let index = self
                 .sources
@@ -729,7 +784,7 @@ impl Evaluator<'_> {
                 SourceState::Absent => continue,
                 SourceState::Pending => return State::Pending,
                 SourceState::Failed(error) => return State::Failed(error.clone()),
-                SourceState::Ready(_) => return State::Ready(Some(index)),
+                SourceState::Ready(view) => return State::Ready(Some((index, view))),
             }
         }
         State::Ready(None)
@@ -742,8 +797,8 @@ impl Evaluator<'_> {
         selection: &Selection,
         required: &[InputSpec],
     ) -> State<Vec<Reference>> {
-        let index = match self.source(source) {
-            State::Ready(Some(index)) => index,
+        let (index, view) = match self.source(source) {
+            State::Ready(Some(resolved)) => resolved,
             State::Ready(None) => return State::Ready(vec![]),
             State::Pending => return State::Pending,
             State::Failed(error) => return State::Failed(error),
@@ -751,47 +806,26 @@ impl Evaluator<'_> {
         let mut constraints = Vec::new();
         for input in required {
             match self.source(&input.source) {
-                State::Ready(Some(index)) => constraints.push((index, &input.selection)),
+                State::Ready(Some((_, view))) => constraints.push((view, &input.selection)),
                 State::Ready(None) => return State::Ready(vec![]),
                 State::Pending => return State::Pending,
                 State::Failed(error) => return State::Failed(error),
             }
         }
-        let SourceState::Ready(view) = &self.views[index] else {
-            unreachable!()
-        };
         let mut missing = None;
         let eligible = |slot| {
-            let mut missing_inputs =
-                constraints
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, (index, selection))| {
-                        let SourceState::Ready(other) = &self.views[*index] else {
-                            unreachable!()
-                        };
-                        select_indices(
-                            other.index.as_ref(),
-                            view.index.time(slot),
-                            selection,
-                            1,
-                            |_| true,
-                        )
-                        .0
-                        .is_empty()
-                        .then_some(i)
-                    });
-            let Some(first) = missing_inputs.next() else {
-                return true;
-            };
-            missing.get_or_insert_with(|| MissingMatches {
-                time: view.index.time(slot),
-                inputs: std::iter::once(first).chain(missing_inputs).collect(),
-            });
-            false
+            candidate_eligible(
+                view.index.time(slot),
+                &constraints,
+                &mut missing,
+                &self.work,
+            )
         };
         let (slots, truncated) =
-            select_indices(view.index.as_ref(), at, selection, self.remaining, eligible);
+            match select_indices(view.index.as_ref(), at, selection, self.remaining, eligible) {
+                Ok(selected) => selected,
+                Err(error) => return State::Failed(error.to_string()),
+            };
         if self.missing.is_none() {
             self.missing = missing;
         }
@@ -883,6 +917,59 @@ impl Evaluator<'_> {
     }
 }
 
+fn candidate_eligible(
+    time: Time,
+    constraints: &[(&SourceView, &Selection)],
+    missing: &mut Option<MissingMatches>,
+    work: &Cell<usize>,
+) -> Result<bool> {
+    charge_candidate(work)?;
+    let mut absent = Vec::new();
+    for (i, (view, selection)) in constraints.iter().enumerate() {
+        if select_indices(view.index.as_ref(), time, selection, 1, |_| {
+            charge_candidate(work)
+        })?
+        .0
+        .is_empty()
+        {
+            absent.push(i);
+            // Only the first rejected candidate needs complete diagnostics.
+            if missing.is_some() {
+                return Ok(false);
+            }
+        }
+    }
+    if absent.is_empty() {
+        return Ok(true);
+    }
+    missing.get_or_insert(MissingMatches {
+        time,
+        inputs: absent,
+    });
+    Ok(false)
+}
+
+fn charge_candidate(work: &Cell<usize>) -> Result<bool> {
+    work.set(
+        work.get()
+            .checked_sub(1)
+            .ok_or_else(|| query_error("plan exceeds candidate work limit"))?,
+    );
+    Ok(true)
+}
+
+fn find_eligible(
+    slots: impl Iterator<Item = usize>,
+    eligible: &mut impl FnMut(usize) -> Result<bool>,
+) -> Result<Option<usize>> {
+    for slot in slots {
+        if eligible(slot)? {
+            return Ok(Some(slot));
+        }
+    }
+    Ok(None)
+}
+
 /// Index-only selection shared by memory and disk adapters. Required constraints
 /// are evaluated lazily while scanning candidates, before count/bracket selection.
 fn select_indices(
@@ -890,58 +977,42 @@ fn select_indices(
     at: Time,
     selection: &Selection,
     limit: usize,
-    mut eligible: impl FnMut(usize) -> bool,
-) -> (Vec<usize>, bool) {
-    let partition = |predicate: &dyn Fn(Time) -> bool| {
-        let (mut lo, mut hi) = (0, index.len());
-        while lo < hi {
-            let mid = lo + (hi - lo) / 2;
-            if predicate(index.time(mid)) {
-                lo = mid + 1;
-            } else {
-                hi = mid;
-            }
-        }
-        lo
-    };
-    let upper = partition(&|time| time <= at);
+    mut eligible: impl FnMut(usize) -> Result<bool>,
+) -> Result<(Vec<usize>, bool)> {
+    let upper = index.partition_point(&|time| time <= at);
     if matches!(selection, Selection::Exact) {
-        let start = partition(&|time| time < at);
-        return (
-            (start..upper)
-                .rev()
-                .find(|&slot| eligible(slot))
+        let start = index.partition_point(&|time| time < at);
+        return Ok((
+            find_eligible((start..upper).rev(), &mut eligible)?
                 .into_iter()
                 .collect(),
             false,
-        );
+        ));
     }
     if matches!(selection, Selection::Exact | Selection::Bracket { .. }) {
-        let before = (0..upper).rev().find(|&slot| eligible(slot));
+        let before = find_eligible((0..upper).rev(), &mut eligible)?;
         if let Some(before) = before {
             if index.time(before) == at {
-                return (vec![before], false);
+                return Ok((vec![before], false));
             }
             if let Selection::Bracket { max_gap } = selection
-                && let Some(after) = (upper..index.len()).find(|&slot| eligible(slot))
+                && let Some(after) = find_eligible(upper..index.len(), &mut eligible)?
                 && index.time(after).duration_since(index.time(before)) <= *max_gap
             {
-                let end = partition(&|time| time <= index.time(after));
-                let after = (after..end)
-                    .rev()
-                    .find(|&slot| eligible(slot))
-                    .expect("eligible endpoint");
-                return (vec![before, after], false);
+                let end = index.partition_point(&|time| time <= index.time(after));
+                let after =
+                    find_eligible((after..end).rev(), &mut eligible)?.expect("eligible endpoint");
+                return Ok((vec![before, after], false));
             }
         }
-        return (vec![], false);
+        return Ok((vec![], false));
     }
     let (start, end, reverse, count) = match selection {
         Selection::AtOrBefore { count } => (0, upper, true, count.get()),
         Selection::After { count } => (upper, index.len(), false, count.get()),
         Selection::Window { before, after } => (
-            partition(&|t| t < at.saturating_sub(*before)),
-            partition(&|t| t <= at.saturating_add(*after)),
+            index.partition_point(&|t| t < at.saturating_sub(*before)),
+            index.partition_point(&|t| t <= at.saturating_add(*after)),
             true,
             usize::MAX,
         ),
@@ -955,7 +1026,7 @@ fn select_indices(
         } else {
             start + offset
         };
-        if !eligible(slot) {
+        if !eligible(slot)? {
             continue;
         }
         if selected.len() == limit {
@@ -970,7 +1041,7 @@ fn select_indices(
     if reverse {
         selected.reverse();
     }
-    (selected, truncated)
+    Ok((selected, truncated))
 }
 
 fn map_state(
@@ -1021,6 +1092,22 @@ fn map_state(
     }
 }
 
+fn single(node: &Node) -> bool {
+    match node {
+        Node::Select {
+            selection: Selection::Exact,
+            ..
+        } => true,
+        Node::Select {
+            selection: Selection::AtOrBefore { count } | Selection::After { count },
+            ..
+        } => count.get() == 1,
+        Node::OrElse(a, b) => single(a) && single(b),
+        Node::Attach { primary, .. } => single(primary),
+        _ => false,
+    }
+}
+
 fn validate_node(node: &Node, remaining: &mut usize) -> Result<Kind> {
     *remaining = remaining
         .checked_sub(1)
@@ -1061,20 +1148,6 @@ fn validate_node(node: &Node, remaining: &mut usize) -> Result<Kind> {
         }
         Node::Time(value) => {
             require(validate_node(value, remaining)?, Kind::Records)?;
-            fn single(node: &Node) -> bool {
-                match node {
-                    Node::Select {
-                        selection: Selection::Exact,
-                        ..
-                    } => true,
-                    Node::Select {
-                        selection: Selection::AtOrBefore { count } | Selection::After { count },
-                        ..
-                    } => count.get() == 1,
-                    Node::OrElse(a, b) => single(a) && single(b),
-                    _ => false,
-                }
-            }
             if !single(value) {
                 return Err(query_error(
                     "timestamp extraction requires a scalar selection",

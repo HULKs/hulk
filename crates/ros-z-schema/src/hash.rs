@@ -1,10 +1,11 @@
+use serde::{Deserialize, Serialize};
 use sha2::Digest;
 
 use crate::json::{JsonEncode, to_json};
 use crate::schema::SchemaError;
 
 /// Canonical schema hash bytes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct SchemaHash(pub [u8; 32]);
 
 impl SchemaHash {

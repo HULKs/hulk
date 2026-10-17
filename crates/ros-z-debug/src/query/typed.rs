@@ -1,17 +1,27 @@
-use std::{collections::HashMap, num::NonZeroUsize, sync::Arc, time::Duration};
-
-use ros_z::{
-    Message,
-    dynamic::{DynamicCdrCodec, DynamicPayload},
-    message::WireDecoder,
+use std::{
+    collections::HashMap,
+    sync::{Arc, Weak},
+    time::Duration,
 };
 
-use super::plan::{Sample, Selection, Source, State, TopicSource, Value};
-use super::*;
+use ros_z::{
+    Message, SchemaHash, TypeInfo,
+    dynamic::{DynamicCdrCodec, DynamicPayload},
+    message::WireDecoder,
+    pubsub::Received,
+    time::Time,
+};
+use tokio_util::sync::CancellationToken;
+
+use super::{
+    Backend, CursorHandle, MAX_ROWS, PlanObservation, RawRecord, TimeProjection, TopicInfo,
+    plan::{self, Sample, Selection, Source, State, TopicSource, Value},
+    query_error,
+};
 use crate::{
     CachedSubscription, CachedSubscriptionStatus, CachedSubscriptionStatusSnapshot,
-    ObservationPolicy, SampleMetadata, SampleRecord, TopicReference,
-    cache::CachedSubscriptionState,
+    ObservationPolicy, Result, RetentionPolicy, SampleMetadata, SampleRecord, TargetIdentity,
+    TopicReference, cache::CachedSubscriptionState,
 };
 
 type Decoded<T> = std::result::Result<Arc<SampleRecord<T>>, String>;
@@ -55,6 +65,16 @@ pub fn decode_record<T: Message>(
     record: &RawRecord,
     topic: &TopicInfo,
 ) -> Result<Arc<SampleRecord<T>>> {
+    let value = decode_value::<T>(record, topic)?;
+    Ok(wrap_record(
+        record,
+        topic,
+        TopicReference::new(&topic.name)?,
+        value,
+    ))
+}
+
+fn decode_value<T: Message>(record: &RawRecord, topic: &TopicInfo) -> Result<T> {
     if topic.type_info != T::type_info() {
         return Err(query_error(format!(
             "{}: recorded schema does not match {}",
@@ -62,18 +82,22 @@ pub fn decode_record<T: Message>(
             T::type_name()
         )));
     }
-    let value = T::Codec::deserialize(&record.data).map_err(query_error)?;
-    wrap_record(record, topic, value)
+    T::Codec::deserialize(&record.data).map_err(query_error)
 }
 
-fn wrap_record<T>(record: &RawRecord, topic: &TopicInfo, value: T) -> Result<Arc<SampleRecord<T>>> {
+fn wrap_record<T>(
+    record: &RawRecord,
+    topic: &TopicInfo,
+    topic_reference: TopicReference,
+    value: T,
+) -> Arc<SampleRecord<T>> {
     let (publisher, sequence) = record.publication.unwrap_or(([0; 16], record.id as i64));
-    Ok(Arc::new(SampleRecord {
+    Arc::new(SampleRecord {
         value,
         source_time: record.source_time,
         effective_time: record.time,
         transport_time: record.log_time,
-        publication_id: ros_z::pubsub::Received {
+        publication_id: Received {
             message: (),
             transport_time: record.log_time,
             source_time: record.source_time,
@@ -82,198 +106,180 @@ fn wrap_record<T>(record: &RawRecord, topic: &TopicInfo, value: T) -> Result<Arc
         }
         .publication_id(),
         metadata: Arc::new(SampleMetadata {
-            topic_reference: TopicReference::new(&topic.name)?,
+            topic_reference,
             resolved_topic: topic.name.clone(),
             type_info: topic.type_info.clone(),
         }),
-    }))
+    })
 }
 
 pub(crate) fn typed_cache<T: Message>(
     connection: &Connection,
-    topic: &str,
+    topic: TopicReference,
+    identity: &TargetIdentity,
     policy: ObservationPolicy,
     projection: TimeProjection,
 ) -> Result<CachedSubscription<T>> {
-    cache(connection, topic, policy, projection, decode_record::<T>)
+    cache(
+        connection,
+        topic,
+        identity,
+        policy,
+        projection,
+        decode_value::<T>,
+    )
 }
 
 pub(crate) fn dynamic_cache(
     connection: &Connection,
-    topic: &str,
+    topic: TopicReference,
+    identity: &TargetIdentity,
     policy: ObservationPolicy,
     projection: TimeProjection,
 ) -> Result<CachedSubscription<DynamicPayload>> {
-    cache(connection, topic, policy, projection, |record, topic| {
-        let schema = topic
-            .schema
-            .as_ref()
-            .ok_or_else(|| query_error("topic schema unavailable"))?;
-        let payload = DynamicCdrCodec::decode(&record.data, schema).map_err(query_error)?;
-        wrap_record(record, topic, payload)
-    })
+    cache(
+        connection,
+        topic,
+        identity,
+        policy,
+        projection,
+        |record, topic| {
+            let schema = topic
+                .schema
+                .as_ref()
+                .ok_or_else(|| query_error("topic schema unavailable"))?;
+            DynamicCdrCodec::decode(&record.data, schema).map_err(query_error)
+        },
+    )
 }
 
 fn cache<T: Send + Sync + 'static>(
     connection: &Connection,
-    topic: &str,
+    topic: TopicReference,
+    identity: &TargetIdentity,
     policy: ObservationPolicy,
     projection: TimeProjection,
-    decode: impl Fn(&RawRecord, &TopicInfo) -> Result<Arc<SampleRecord<T>>> + Send + 'static,
+    decode: impl Fn(&RawRecord, &TopicInfo) -> Result<T> + Send + 'static,
 ) -> Result<CachedSubscription<T>> {
+    let resolved_topic = topic.resolve(identity)?;
     let selection = match policy.retention() {
-        crate::RetentionPolicy::LatestOnly => Selection::latest(),
-        crate::RetentionPolicy::TimeWindow(window) if window.duration() == Duration::MAX => {
-            Selection::AtOrBefore {
-                count: window
-                    .max_samples()
-                    .unwrap_or(NonZeroUsize::new(MAX_ROWS).expect("nonzero response limit")),
-            }
-        }
-        crate::RetentionPolicy::TimeWindow(window) => Selection::Window {
+        RetentionPolicy::LatestOnly => Selection::latest(),
+        RetentionPolicy::TimeWindow(window) => Selection::Window {
             before: window.duration(),
             after: Duration::ZERO,
         },
     };
     let source = Source::from(TopicSource {
-        topic: topic.into(),
+        topic: resolved_topic.clone(),
         live_policy: policy,
         projection,
     });
-    let raw = connection.backend.observe(
-        connection.cursor.clone(),
-        source.select(selection, plan::cursor()).plan(),
-    )?;
-    let mut updates = raw.subscribe_updates();
-    let mut positions = connection.cursor.subscribe();
+    let mut plan = source.select(selection, plan::cursor()).plan();
+    if let RetentionPolicy::TimeWindow(window) = policy.retention()
+        && let Some(limit) = window.max_samples()
+        && limit.get() < MAX_ROWS
+    {
+        plan = plan.with_max_rows(limit);
+    }
+    let raw = connection
+        .backend
+        .observe(connection.cursor.clone(), plan)?;
     let state = Arc::new(CachedSubscriptionState::new(
         CachedSubscriptionStatusSnapshot::with_metadata(
             CachedSubscriptionStatus::WaitingForFirstSample,
-            topic.into(),
-            ros_z::TypeInfo::new("pending", ros_z::SchemaHash::zero()),
+            resolved_topic,
+            TypeInfo::new("pending", SchemaHash::zero()),
         ),
         policy.retention(),
         policy.update_buffer_capacity(),
     ));
     state.attach_query(raw.clone());
-    state.spawn_receive(move |state, cancellation| async move {
-        let mut decoded = HashMap::new();
-        let mut decoded_type = None;
-        let mut applied: Option<(Vec<RecordKey>, u64)> = None;
-        loop {
-            positions.borrow_and_update();
-            updates.borrow_and_update();
-            let snapshot = raw.snapshot();
-            if let Some(state) = state.upgrade() {
-                if !raw.is_current(&snapshot)
-                    || matches!(snapshot.evaluation.state, State::Pending)
-                    || !snapshot.evaluation.settled()
-                {
-                    // Keep the last resolved answer until its replacement is definitive.
-                } else if let State::Failed(error) = &snapshot.evaluation.state {
-                    applied = None;
-                    state.set_receive_error(CachedSubscriptionStatus::decode_error(error.clone()));
-                } else if let State::Ready(Value::Records(samples)) = &snapshot.evaluation.state {
-                    let sample_type = samples.first().map(|sample| &sample.topic.type_info);
-                    if sample_type.is_some() && decoded_type.as_ref() != sample_type {
-                        decoded.clear();
-                        decoded_type = sample_type.cloned();
-                        applied = None;
-                    }
-                    let limit = match policy.retention() {
-                        crate::RetentionPolicy::TimeWindow(window) => {
-                            window.max_samples().map_or(usize::MAX, NonZeroUsize::get)
-                        }
-                        crate::RetentionPolicy::LatestOnly => 1,
-                    };
-                    let samples = &samples[samples.len().saturating_sub(limit)..];
-                    let unchanged = applied.as_ref().is_some_and(|(keys, revision)| {
-                        *revision == snapshot.revision
-                            && keys.iter().copied().eq(samples.iter().map(record_key))
-                    });
-                    if !unchanged {
-                        let records = decode_samples(&mut decoded, samples, |sample| {
-                            decode(&sample.record, &sample.topic).map_err(|error| error.to_string())
-                        });
-                        match records {
-                            Ok(records) => {
-                                state.replace_records(records, snapshot.revision);
-                            }
-                            Err(error) => state
-                                .set_receive_error(CachedSubscriptionStatus::decode_error(error)),
-                        }
-                        applied =
-                            Some((samples.iter().map(record_key).collect(), snapshot.revision));
-                    }
-                }
-            } else {
-                break;
-            }
-            tokio::select! {
-                _ = cancellation.cancelled() => break,
-                changed = updates.changed() => if changed.is_err() { break; },
-                changed = positions.changed() => if changed.is_err() { break; },
-            }
-        }
+    let cursor = connection.cursor.clone();
+    state.spawn_receive(move |state, cancellation| {
+        receive_cache(raw, cursor, topic, decode, state, cancellation)
     });
     Ok(state.handle())
 }
 
+async fn receive_cache<T: Send + Sync + 'static>(
+    raw: PlanObservation,
+    cursor: CursorHandle,
+    topic: TopicReference,
+    decode: impl Fn(&RawRecord, &TopicInfo) -> Result<T>,
+    state: Weak<CachedSubscriptionState<T>>,
+    cancellation: CancellationToken,
+) {
+    let mut updates = raw.subscribe_updates();
+    let mut positions = cursor.subscribe();
+    let mut decoded = HashMap::new();
+    let mut decoded_type = None;
+    let mut applied: Option<(Vec<RecordKey>, u64)> = None;
+    loop {
+        positions.borrow_and_update();
+        updates.borrow_and_update();
+        let snapshot = raw.snapshot();
+        if let Some(state) = state.upgrade() {
+            if !raw.is_current(&snapshot)
+                || matches!(snapshot.evaluation.state, State::Pending)
+                || !snapshot.evaluation.settled()
+            {
+                // Keep the last resolved answer until its replacement is definitive.
+            } else if let State::Failed(error) = &snapshot.evaluation.state {
+                applied = None;
+                state.install_query_result(Err(error.clone()), snapshot.revision);
+            } else if let State::Ready(Value::Records(samples)) = &snapshot.evaluation.state {
+                let sample_type = samples
+                    .first()
+                    .map(|sample| (&sample.topic.type_info, sample.topic.schema.is_some()));
+                if sample_type.is_some()
+                    && decoded_type.as_ref().map(|(info, schema)| (info, *schema)) != sample_type
+                {
+                    decoded.clear();
+                    decoded_type = sample_type.map(|(info, schema)| (info.clone(), schema));
+                    applied = None;
+                }
+                let unchanged = applied.as_ref().is_some_and(|(keys, revision)| {
+                    *revision == snapshot.revision
+                        && keys.iter().copied().eq(samples.iter().map(record_key))
+                });
+                if !unchanged {
+                    let records = decode_samples(&mut decoded, samples, |sample| {
+                        decode(&sample.record, &sample.topic)
+                            .map(|value| {
+                                wrap_record(&sample.record, &sample.topic, topic.clone(), value)
+                            })
+                            .map_err(|error| error.to_string())
+                    });
+                    state.install_query_result(records, snapshot.revision);
+                    applied = Some((samples.iter().map(record_key).collect(), snapshot.revision));
+                }
+            }
+        } else {
+            break;
+        }
+        tokio::select! {
+            _ = cancellation.cancelled() => break,
+            changed = updates.changed() => if changed.is_err() { break; },
+            changed = positions.changed() => if changed.is_err() { break; },
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::{
+        num::NonZeroUsize,
+        sync::atomic::{AtomicUsize, Ordering},
+    };
 
     use parking_lot::Mutex;
-    use tokio::sync::oneshot;
+    use tokio::sync::{oneshot, watch};
 
     use super::*;
-    use crate::query::plan::Evaluation;
-
-    #[test]
-    fn decoding_visits_records_after_errors_and_reuses_successes_and_failures() {
-        let samples: Vec<_> = (1..=3)
-            .map(|id| Sample {
-                topic: TopicInfo {
-                    name: "/test".into(),
-                    type_info: u64::type_info(),
-                    schema: None,
-                    error: None,
-                },
-                record: Arc::new(RawRecord {
-                    id,
-                    publication: None,
-                    time: Time::from_nanos(id as i64),
-                    source_time: Time::zero(),
-                    log_time: None,
-                    data: Arc::from([]),
-                }),
-            })
-            .collect();
-        let mut decoded = HashMap::new();
-        let mut calls = Vec::new();
-        for _ in 0..2 {
-            assert!(
-                decode_samples(&mut decoded, &samples, |sample| {
-                    calls.push(sample.record.id);
-                    if sample.record.id == 2 {
-                        Err("invalid payload".into())
-                    } else {
-                        wrap_record(&sample.record, &sample.topic, sample.record.id)
-                            .map_err(|e| e.to_string())
-                    }
-                })
-                .is_err()
-            );
-        }
-        assert_eq!(calls, vec![1, 2, 3]);
-        let good = decoded[&record_key(&samples[2])].as_ref().unwrap().clone();
-        let result = decode_samples(&mut decoded, &samples[2..], |_| {
-            panic!("retained record decoded again")
-        })
-        .unwrap();
-        assert!(Arc::ptr_eq(&good, &result[0]));
-        assert_eq!(decoded.len(), 1);
-    }
+    use crate::query::{
+        Cursor, CursorRange, PlanObservation, PlanSnapshot, TopicList, TopicSnapshot,
+        plan::{Dependency, Evaluation},
+    };
 
     fn ready_result() -> Arc<Evaluation> {
         Arc::new(Evaluation {
@@ -306,12 +312,28 @@ mod tests {
 
     struct TestBackend(PlanObservation);
 
+    fn channel(cursor: CursorHandle) -> (PlanObservation, impl Fn(Arc<PlanSnapshot>)) {
+        let (sender, receiver) = watch::channel(Arc::new(PlanSnapshot {
+            revision: cursor.position().revision,
+            evaluation: Arc::new(Evaluation::unresolved(Time::zero(), State::Pending)),
+        }));
+        let (notify, updates) = watch::channel(0);
+        (
+            PlanObservation::new(cursor, move || receiver.borrow().clone(), updates),
+            move |snapshot| {
+                sender.send_replace(snapshot);
+                notify.send_modify(|revision| *revision += 1);
+            },
+        )
+    }
+
     impl Backend for TestBackend {
         fn topics(&self) -> TopicList {
             TopicList(watch::channel(Arc::new(TopicSnapshot::default())).1)
         }
 
-        fn observe(&self, _: CursorHandle, _: plan::QueryPlan) -> Result<PlanObservation> {
+        fn observe(&self, _: CursorHandle, plan: plan::QueryPlan) -> Result<PlanObservation> {
+            plan.validate()?;
             Ok(self.0.clone())
         }
     }
@@ -321,63 +343,100 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
 
+    #[tokio::test]
+    async fn retention_caps_above_the_response_limit_still_start() {
+        for limit in [2, MAX_ROWS, 5_000] {
+            let cursor = CursorHandle::new(Cursor::Live);
+            let (raw, _) = channel(cursor.clone());
+            let connection = Connection {
+                backend: Arc::new(TestBackend(raw)),
+                cursor,
+            };
+            let retention = RetentionPolicy::time_window_with_max_samples(
+                Duration::from_secs(1),
+                NonZeroUsize::new(limit).unwrap(),
+            )
+            .unwrap();
+            typed_cache::<u64>(
+                &connection,
+                TopicReference::new("/test").unwrap(),
+                &TargetIdentity::new("/").unwrap(),
+                ObservationPolicy::default().with_retention(retention),
+                TimeProjection::default(),
+            )
+            .unwrap();
+        }
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn seek_during_first_decode_rejects_the_obsolete_installation() {
         let cursor = CursorHandle::new(Cursor::At(Time::from_nanos(100)));
-        let (raw, sender) = PlanObservation::channel(cursor.clone());
-        let result = ready_result();
-        sender.send_replace(Arc::new(PlanSnapshot {
-            revision: 0,
-            evaluation: result.clone(),
-        }));
-        let (started, waiting) = oneshot::channel();
-        let started = Mutex::new(Some(started));
-        let (release, gate) = std::sync::mpsc::channel();
-        let gate = Mutex::new(gate);
-        let cache = cache(
-            &Connection {
-                backend: Arc::new(TestBackend(raw)),
-                cursor: cursor.clone(),
-            },
-            "/test",
-            ObservationPolicy::default(),
-            TimeProjection::SourceTime,
-            move |record, topic| {
-                if let Some(started) = started.lock().take() {
-                    started.send(()).unwrap();
-                    gate.lock().recv_timeout(Duration::from_secs(5)).unwrap();
-                }
-                wrap_record(record, topic, record.id)
-            },
-        )
-        .unwrap();
-        assert!(
-            cache.query_status().is_some(),
-            "query guard is installed before the worker starts"
-        );
-        let mut updates = cache.subscribe_updates().unwrap();
-        tokio::time::timeout(Duration::from_secs(3), waiting)
-            .await
-            .unwrap()
+        for fail in [false, true] {
+            let (raw, send) = channel(cursor.clone());
+            let result = ready_result();
+            let revision = cursor.position().revision;
+            send(Arc::new(PlanSnapshot {
+                revision,
+                evaluation: result.clone(),
+            }));
+            let (started, waiting) = oneshot::channel();
+            let started = Mutex::new(Some(started));
+            let (release, gate) = std::sync::mpsc::channel();
+            let gate = Mutex::new(gate);
+            let cache = cache(
+                &Connection {
+                    backend: Arc::new(TestBackend(raw)),
+                    cursor: cursor.clone(),
+                },
+                TopicReference::new("/test").unwrap(),
+                &TargetIdentity::new("/").unwrap(),
+                ObservationPolicy::default(),
+                TimeProjection::SourceTime,
+                move |record, _| {
+                    if let Some(started) = started.lock().take() {
+                        started.send(()).unwrap();
+                        gate.lock().recv_timeout(Duration::from_secs(5)).unwrap();
+                    }
+                    if fail {
+                        Err(query_error("obsolete decode error"))
+                    } else {
+                        Ok(record.id)
+                    }
+                },
+            )
             .unwrap();
-        cursor.set(Cursor::At(Time::from_nanos(50)));
-        sender.send_replace(Arc::new(PlanSnapshot {
-            revision: 1,
-            evaluation: Arc::new(Evaluation {
-                state: State::Pending,
-                ..(*result).clone()
-            }),
-        }));
-        release.send(()).unwrap();
-        settle().await;
-        assert!(cache.latest().is_none());
-        assert!(matches!(updates.try_recv(), Ok(None)));
+            assert!(
+                cache.query_status().is_some(),
+                "query guard is installed before the worker starts"
+            );
+            let mut updates = cache.subscribe_updates().unwrap();
+            tokio::time::timeout(Duration::from_secs(3), waiting)
+                .await
+                .unwrap()
+                .unwrap();
+            cursor.set(Cursor::At(Time::from_nanos(50 + i64::from(fail))));
+            send(Arc::new(PlanSnapshot {
+                revision: cursor.position().revision,
+                evaluation: Arc::new(Evaluation {
+                    state: State::Pending,
+                    ..(*result).clone()
+                }),
+            }));
+            release.send(()).unwrap();
+            settle().await;
+            assert!(cache.latest().is_none());
+            assert!(matches!(updates.try_recv(), Ok(None)));
+            assert_eq!(
+                cache.status().status(),
+                &CachedSubscriptionStatus::WaitingForFirstSample
+            );
+        }
     }
 
     #[tokio::test]
     async fn pending_queries_retain_results_until_a_definitive_replacement() {
         let cursor = CursorHandle::new(Cursor::At(Time::from_nanos(100)));
-        let (raw, sender) = PlanObservation::channel(cursor.clone());
+        let (raw, send) = channel(cursor.clone());
         let calls = Arc::new(AtomicUsize::new(0));
         let counter = Arc::clone(&calls);
         let cache = cache(
@@ -385,21 +444,22 @@ mod tests {
                 backend: Arc::new(TestBackend(raw)),
                 cursor: cursor.clone(),
             },
-            "/test",
+            TopicReference::new("/test").unwrap(),
+            &TargetIdentity::new("/").unwrap(),
             ObservationPolicy::time_window(Duration::from_secs(1)).unwrap(),
             TimeProjection::default(),
-            move |record, topic| {
+            move |record, _| {
                 counter.fetch_add(1, Ordering::Relaxed);
                 if record.id == 8 {
                     return Err(query_error("bad row"));
                 }
-                wrap_record(record, topic, record.id)
+                Ok(record.id)
             },
         )
         .unwrap();
         let result = ready_result();
         let emit = |revision, value: Option<Arc<Evaluation>>| {
-            sender.send_replace(Arc::new(PlanSnapshot {
+            send(Arc::new(PlanSnapshot {
                 revision,
                 evaluation: value.unwrap_or_else(|| {
                     Arc::new(Evaluation {
@@ -413,42 +473,59 @@ mod tests {
         settle().await;
         let first = cache.latest().unwrap();
         let mut updates = cache.subscribe_updates().unwrap();
-        for tick in 101..105 {
-            cursor.advance(Time::from_nanos(tick));
-            settle().await;
-            assert!(matches!(updates.try_recv(), Ok(None)));
-            assert!(Arc::ptr_eq(&first, &cache.latest().unwrap()));
-        }
+        cursor.advance(Time::from_nanos(101));
+        settle().await;
+        assert!(matches!(updates.try_recv(), Ok(None)));
+        assert!(Arc::ptr_eq(&first, &cache.latest().unwrap()));
         assert_eq!(calls.load(Ordering::Relaxed), 1);
 
         let mut failing = (*result).clone();
         let State::Ready(Value::Records(samples)) = &mut failing.state else {
             unreachable!()
         };
-        let mut bad = (*samples[0].record).clone();
-        bad.id = 8;
-        samples.push(Sample {
-            record: Arc::new(bad),
-            topic: samples[0].topic.clone(),
-        });
-        let failing = Arc::new(failing);
-        emit(0, Some(Arc::clone(&failing)));
+        for id in [8, 9] {
+            samples.push(Sample {
+                record: Arc::new(RawRecord {
+                    id,
+                    ..(*samples[0].record).clone()
+                }),
+                topic: samples[0].topic.clone(),
+            });
+        }
+        emit(0, Some(Arc::new(failing.clone())));
         settle().await;
         assert!(Arc::ptr_eq(&first, &cache.latest().unwrap()));
         assert_eq!(cache.status().message(), Some("query: bad row"));
         let mut errors = cache.subscribe_updates().unwrap();
-        cursor.advance(Time::from_nanos(105));
+        let State::Ready(Value::Records(samples)) = &mut failing.state else {
+            unreachable!()
+        };
+        samples.remove(0);
+        // Changing the selected set must reuse both failed and successful decodes.
+        emit(0, Some(Arc::new(failing.clone())));
         settle().await;
         assert!(matches!(errors.try_recv(), Ok(None)));
-        // A fresh result Arc must reuse failed decodes too.
-        emit(0, Some(Arc::new((*failing).clone())));
+        let State::Ready(Value::Records(samples)) = &mut failing.state else {
+            unreachable!()
+        };
+        samples.remove(0);
+        emit(0, Some(Arc::new(failing)));
         settle().await;
-        assert!(matches!(errors.try_recv(), Ok(None)));
+        assert_eq!(
+            cache.latest().unwrap().value,
+            9,
+            "good rows after errors are decoded and cached"
+        );
+        assert_eq!(calls.load(Ordering::Relaxed), 3);
         emit(0, Some(Arc::clone(&result)));
         settle().await;
         assert_eq!(cache.status().status(), &CachedSubscriptionStatus::Ready);
-        assert!(Arc::ptr_eq(&first, &cache.latest().unwrap()));
-        assert_eq!(calls.load(Ordering::Relaxed), 2);
+        let first = cache.latest().unwrap();
+        assert_eq!(
+            calls.load(Ordering::Relaxed),
+            4,
+            "removed rows leave the decode cache"
+        );
 
         // Pending responses preserve both data and the installation guard.
         let mut updates = cache.subscribe_updates().unwrap();
@@ -466,7 +543,7 @@ mod tests {
             ..(*result).clone()
         };
         let mut provisional = empty.clone();
-        provisional.dependencies.push(plan::Dependency {
+        provisional.dependencies.push(Dependency {
             source: TopicSource {
                 topic: "/test".into(),
                 live_policy: ObservationPolicy::default(),
@@ -506,12 +583,13 @@ mod tests {
         emit(1, Some(Arc::clone(&result)));
         settle().await;
         let first = cache.latest().unwrap();
+        let decoded_before_switch = calls.load(Ordering::Relaxed);
         // Also cover a revision change coalesced with the ready result.
         cursor.set(Cursor::At(Time::from_nanos(60)));
         emit(2, Some(result.clone()));
         settle().await;
         assert!(Arc::ptr_eq(&first, &cache.latest().unwrap()));
-        assert_eq!(calls.load(Ordering::Relaxed), 3);
+        assert_eq!(calls.load(Ordering::Relaxed), decoded_before_switch);
         let mut replaced = (*result).clone();
         let State::Ready(Value::Records(samples)) = &mut replaced.state else {
             unreachable!()
@@ -521,7 +599,7 @@ mod tests {
         settle().await;
         assert_eq!(
             calls.load(Ordering::Relaxed),
-            4,
+            decoded_before_switch + 1,
             "reused IDs from a new publisher must decode again"
         );
         assert!(!Arc::ptr_eq(&first, &cache.latest().unwrap()));
@@ -533,7 +611,7 @@ mod tests {
         settle().await;
         assert_eq!(
             calls.load(Ordering::Relaxed),
-            5,
+            decoded_before_switch + 2,
             "schema changes invalidate the decode cache"
         );
     }

@@ -23,6 +23,7 @@ use crate::{
     CachedSubscriptionUpdate, CachedSubscriptionUpdateReceiver, Error, JsonRenderPolicy,
     ObservationPolicy, Result, RetentionPolicy, TargetIdentity, TopicReference,
     builder::inferred_durability,
+    query::{Connection, PlanStatus, TimeProjection},
     sample::{dynamic_record_json_value, dynamic_record_to_json_sample},
 };
 
@@ -239,7 +240,7 @@ struct TopicObserverInner {
 #[derive(Clone)]
 struct InheritedTarget {
     target_identity: TargetIdentity,
-    connection: Option<crate::query::Connection>,
+    connection: Option<Connection>,
     backend_generation: u64,
 }
 
@@ -254,12 +255,13 @@ struct ObservationTaskContext {
 
 impl TopicObserver {
     /// Route observations through a query backend; changing the connection retargets existing handles.
-    pub fn set_backend(&self, connection: crate::query::Connection) {
+    pub fn set_backend(&self, connection: Connection) {
         self.inner.target_sender.send_modify(|inherited| {
             inherited.connection = Some(connection);
             inherited.backend_generation += 1;
         });
     }
+
     /// Create an observer using `node` for underlying debug subscriptions.
     pub fn new(node: Arc<Node>, options: TopicObserverOptions) -> Self {
         let (target_sender, _) = watch::channel(InheritedTarget {
@@ -339,7 +341,7 @@ impl TopicObserver {
 
 /// Builder for a typed topic observation.
 pub struct TopicObservationBuilder<T> {
-    projection: crate::query::TimeProjection,
+    projection: TimeProjection,
     observer: TopicObserver,
     topic: TopicReference,
     namespace: Option<String>,
@@ -404,7 +406,7 @@ impl<T> TopicObservationBuilder<T> {
     }
 
     /// Select the timestamp used by a query backend's index.
-    pub fn projection(mut self, projection: crate::query::TimeProjection) -> Self {
+    pub fn projection(mut self, projection: TimeProjection) -> Self {
         self.projection = projection;
         self
     }
@@ -505,10 +507,11 @@ pub struct DynamicTopicObservationBuilder {
 }
 
 impl DynamicTopicObservationBuilder {
-    pub fn projection(mut self, projection: crate::query::TimeProjection) -> Self {
+    pub fn projection(mut self, projection: TimeProjection) -> Self {
         self.inner = self.inner.projection(projection);
         self
     }
+
     fn new(observer: TopicObserver, topic: TopicReference) -> Self {
         Self {
             inner: TopicObservationBuilder::new(observer, topic),
@@ -701,7 +704,7 @@ impl<T> TopicObservation<T> {
     }
 
     /// Query-backed resolution, diagnostics, coverage and cursor freshness.
-    pub fn query_status(&self) -> Option<crate::query::PlanStatus> {
+    pub fn query_status(&self) -> Option<PlanStatus> {
         self.readable_cache()?.query_status()
     }
 
@@ -772,9 +775,10 @@ pub struct DynamicTopicObservation {
 }
 
 impl DynamicTopicObservation {
-    pub fn query_status(&self) -> Option<crate::query::PlanStatus> {
+    pub fn query_status(&self) -> Option<PlanStatus> {
         self.inner.query_status()
     }
+
     /// Render the latest retained dynamic payload as JSON.
     pub fn latest_json(&self) -> Option<serde_json::Value> {
         self.inner
@@ -874,7 +878,7 @@ impl DynamicTopicObservation {
     }
 }
 
-fn format_error_chain(error: &dyn std::error::Error) -> String {
+pub(crate) fn format_error_chain(error: &dyn std::error::Error) -> String {
     let mut message = error.to_string();
     let mut source = error.source();
     while let Some(error) = source {
@@ -906,7 +910,7 @@ struct TopicObservationControls {
 
 #[derive(Clone)]
 struct DesiredObservation {
-    projection: crate::query::TimeProjection,
+    projection: TimeProjection,
     topic: TopicReference,
     namespace: Option<String>,
     node_name: DesiredNodeName,
@@ -1154,7 +1158,7 @@ async fn build_typed_cache<T>(
     schema_discovery_timeout: Duration,
     identity: TargetIdentity,
     desired: DesiredObservation,
-    connection: Option<crate::query::Connection>,
+    connection: Option<Connection>,
 ) -> Result<CachedSubscription<T>>
 where
     T: Message + Send + Sync + 'static,
@@ -1163,7 +1167,8 @@ where
     if let Some(connection) = &connection {
         return crate::query::typed::typed_cache(
             connection,
-            &desired.topic.resolve(&identity)?,
+            desired.topic,
+            &identity,
             desired.policy,
             desired.projection,
         );
@@ -1181,12 +1186,13 @@ async fn build_dynamic_cache(
     schema_discovery_timeout: Duration,
     identity: TargetIdentity,
     desired: DesiredObservation,
-    connection: Option<crate::query::Connection>,
+    connection: Option<Connection>,
 ) -> Result<CachedSubscription<DynamicPayload>> {
     if let Some(connection) = &connection {
         return crate::query::typed::dynamic_cache(
             connection,
-            &desired.topic.resolve(&identity)?,
+            desired.topic,
+            &identity,
             desired.policy,
             desired.projection,
         );
@@ -2038,7 +2044,9 @@ mod tests {
     use crate::{
         CachedSubscriptionStatus, CachedSubscriptionStatusSnapshot, CachedSubscriptionUpdate,
         CachedSubscriptionUpdateReceiver, ObservationPolicy, RetentionPolicy, SampleMetadata,
-        SampleRecord, TargetIdentity, TopicReference, cache::CachedSubscriptionState,
+        SampleRecord, TargetIdentity, TopicReference,
+        cache::CachedSubscriptionState,
+        query::{Connection, Cursor, CursorHandle, Live},
     };
 
     fn test_type_info() -> ros_z::TypeInfo {
@@ -2605,9 +2613,9 @@ mod tests {
                 .unwrap(),
         );
         let observer = super::TopicObserver::new(node.clone(), Default::default());
-        let connection = crate::query::Connection {
-            backend: Arc::new(crate::query::Live::new(node.clone(), Default::default())),
-            cursor: crate::query::CursorHandle::new(crate::query::Cursor::Live),
+        let connection = Connection {
+            backend: Arc::new(Live::new(node.clone(), Default::default())),
+            cursor: CursorHandle::new(Cursor::Live),
         };
         observer.set_backend(connection.clone());
         observer.set_namespace("/42").unwrap();
@@ -2658,8 +2666,8 @@ mod tests {
                 0,
             );
             if generation == 1 {
-                observer.set_backend(crate::query::Connection {
-                    backend: Arc::new(crate::query::Live::new(node.clone(), Default::default())),
+                observer.set_backend(Connection {
+                    backend: Arc::new(Live::new(node.clone(), Default::default())),
                     cursor: connection.cursor.clone(),
                 });
             }

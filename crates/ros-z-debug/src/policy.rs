@@ -1,6 +1,7 @@
 use std::{num::NonZeroUsize, time::Duration};
 
 use ros_z::{pubsub::QueueOverflowReporting, qos::QosProfile};
+use serde::{Deserialize, Serialize};
 
 use crate::{Result, RetentionPolicy};
 
@@ -18,7 +19,7 @@ const DEFAULT_UPDATE_BUFFER_CAPACITY: usize = 256;
 /// By default, durability follows the currently discovered publishers. Use
 /// [`ObservationPolicy::latest`] for latest-only observation with quieter queue
 /// overflow logging, then apply builder-style overrides for expert tuning.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ObservationPolicy {
     retention: RetentionPolicy,
     subscriber_qos: Option<QosProfile>,

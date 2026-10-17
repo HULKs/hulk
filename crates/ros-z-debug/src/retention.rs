@@ -1,12 +1,14 @@
 use std::{num::NonZeroUsize, time::Duration};
 
+use serde::{Deserialize, Serialize};
+
 use crate::{Error, Result};
 
 /// Default sample cap used by [`RetentionPolicy::time_window`].
 pub const DEFAULT_TIME_WINDOW_MAX_SAMPLES: usize = 4096;
 
 /// Sample retention policy for a debug subscription handle.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum RetentionPolicy {
     /// Keep only the latest sample.
@@ -16,10 +18,23 @@ pub enum RetentionPolicy {
 }
 
 /// Source-time retention window configuration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RetentionWindow {
+    #[serde(deserialize_with = "deserialize_nonzero_duration")]
     duration: Duration,
     max_samples: Option<NonZeroUsize>,
+}
+
+fn deserialize_nonzero_duration<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Duration, D::Error> {
+    let duration = Duration::deserialize(deserializer)?;
+    if duration.is_zero() {
+        return Err(serde::de::Error::custom(
+            "time window duration must be greater than zero",
+        ));
+    }
+    Ok(duration)
 }
 
 impl RetentionWindow {
