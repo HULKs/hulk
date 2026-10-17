@@ -11,7 +11,6 @@
     "fall_detection/status",
     "robot_kinematics",
     "joint_limits",
-    "robot_kinematics",
     "inputs/odometry",
     "inputs/booster_odometry",
     "support_foot_state",
