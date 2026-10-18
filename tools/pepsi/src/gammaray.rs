@@ -319,14 +319,6 @@ async fn gammaray_robot(
         .ssh_with_log("applying firewall rules", &progress_bar)
         .await?;
 
-    // Remove only the rule previously installed by gammaray, after its
-    // replacement is active. Other UFW rules and policies remain in effect.
-    robot
-        .ssh_to_overlay()?
-        .arg("sudo bash -c 'if command -v ufw >/dev/null; then ufw --force delete deny out proto udp to any port 9000; fi'")
-        .ssh_with_log("migrating legacy UFW rule", &progress_bar)
-        .await?;
-
     // Stop replaced DDS publishers before starting the bridge.
     robot
         .ssh_to_overlay()?

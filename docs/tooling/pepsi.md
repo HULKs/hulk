@@ -126,7 +126,6 @@ NVIDIA drivers and CDI tooling remain part of the robot baseline.
 `hulks-firewall.service` blocks outbound UDP destination port 9000 for IPv4 and IPv6.
 It loads `/etc/hulks.nft` at boot and atomically replaces only the `inet hulks` table on reload.
 The runtime requires this service.
-Gammaray removes its old UFW UDP/9000 rule after activating nftables; other firewall rules and policies remain in effect.
 No Debian packages or UFW installation are needed.
 
 The image tar must contain `hulk-runtime:latest`.
