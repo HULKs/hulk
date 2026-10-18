@@ -37,8 +37,8 @@ pub struct Arguments {
     #[arg(long, visible_alias = "sauber")]
     clean: bool,
 
-    /// Ensure cached runtime image exists
-    /// Exit without gammaraying robots
+    /// Ensure cached runtime image exists,
+    /// but exit without gammaraying robots
     #[arg(long, visible_alias = "vorbereit")]
     prepare: bool,
 
