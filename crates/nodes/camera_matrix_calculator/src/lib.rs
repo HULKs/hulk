@@ -7,7 +7,7 @@ use std::{
 
 use color_eyre::Result;
 
-use coordinate_systems::{Camera, Ground, Head, Robot};
+use coordinate_systems::{Camera, Ground, Robot};
 use futures_util::future::{Either, select};
 use kinematics::{forward::head_to_camera, robot_kinematics::RobotKinematics};
 use linear_algebra::{Isometry3, Rotation3, vector};
@@ -117,15 +117,16 @@ fn compute_camera_matrix(
     camera_info: &CameraInfo,
 ) -> CameraMatrix {
     let image_size = vector![camera_info.width as f32, camera_info.height as f32];
-    let (robot_to_head, head_to_camera) = calibrated_transforms(parameters, robot_kinematics);
+    let (correction_in_robot, correction_in_camera) = camera_corrections(parameters);
 
     CameraMatrix::from_camera_info(
         camera_info,
         image_size,
         robot_to_ground.inverse(),
-        robot_to_head,
-        head_to_camera,
+        robot_kinematics.head.head_to_robot.inverse(),
+        head_to_camera(parameters.camera_to_head_pitch.to_radians()),
     )
+    .to_corrected(correction_in_robot, correction_in_camera)
 }
 
 fn compute_camera_geometry(
@@ -133,19 +134,19 @@ fn compute_camera_geometry(
     robot_kinematics: &RobotKinematics,
     camera_info: &CameraInfo,
 ) -> CameraGeometry {
-    let (robot_to_head, head_to_camera) = calibrated_transforms(parameters, robot_kinematics);
+    let (correction_in_robot, correction_in_camera) = camera_corrections(parameters);
+    let robot_to_head = robot_kinematics.head.head_to_robot.inverse() * correction_in_robot;
+    let head_to_camera =
+        correction_in_camera * head_to_camera(parameters.camera_to_head_pitch.to_radians());
     CameraGeometry {
         robot_to_camera: head_to_camera * robot_to_head,
         intrinsics: Intrinsic::from(camera_info),
     }
 }
 
-fn calibrated_transforms(
+fn camera_corrections(
     parameters: &CameraMatrixParameters,
-    robot_kinematics: &RobotKinematics,
-) -> (Isometry3<Robot, Head>, Isometry3<Head, Camera>) {
-    let head_to_camera = head_to_camera(parameters.camera_to_head_pitch.to_radians());
-
+) -> (Rotation3<Robot, Robot>, Rotation3<Camera, Camera>) {
     let correction_in_robot = Rotation3::from_euler_angles(
         parameters.correction_in_robot.x(),
         parameters.correction_in_robot.y(),
@@ -157,10 +158,7 @@ fn calibrated_transforms(
         parameters.correction_in_camera.z(),
     );
 
-    (
-        robot_kinematics.head.head_to_robot.inverse() * correction_in_robot,
-        correction_in_camera * head_to_camera,
-    )
+    (correction_in_robot, correction_in_camera)
 }
 
 #[cfg(test)]
