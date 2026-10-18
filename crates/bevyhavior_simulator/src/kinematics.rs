@@ -268,7 +268,6 @@ fn desired_head_yaw(
     tick_duration: Duration,
     config: &SimulationConfig,
 ) -> f32 {
-    // This simulation models head yaw only; target height affects pitch on the robot.
     match head_motion {
         Some(HeadMotion::MoveWithVelocity { yaw, .. }) => {
             current_yaw.angle() + yaw * tick_duration.as_secs_f32()

@@ -1,5 +1,9 @@
-use std::{boxed::Box, future::Future, pin::Pin};
-use std::{pin::pin, sync::Arc};
+use std::{
+    boxed::Box,
+    future::Future,
+    pin::{Pin, pin},
+    sync::Arc,
+};
 
 use color_eyre::Result;
 
@@ -7,8 +11,7 @@ use coordinate_systems::{Camera, Ground, Head, Robot};
 use futures_util::future::{Either, select};
 use kinematics::{forward::head_to_camera, robot_kinematics::RobotKinematics};
 use linear_algebra::{Isometry3, Rotation3, vector};
-use projection::camera_matrix::CameraMatrix;
-use projection::intrinsic::Intrinsic;
+use projection::{camera_matrix::CameraMatrix, intrinsic::Intrinsic};
 use ros_z::prelude::*;
 use ros2::sensor_msgs::camera_info::CameraInfo;
 use types::{
