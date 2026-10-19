@@ -13,7 +13,7 @@ use std::{
 use color_eyre::{Result, eyre::WrapErr};
 use serde::{Deserialize, Serialize};
 use tokio::sync::watch;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use booster::{LedColor, LowCommand, RobotMode};
 use retry_worker::{RetryCommand, run_retrying_rpc_worker};
@@ -190,10 +190,24 @@ async fn joints_command_worker(
         };
 
         if assumed_robot_mode != desired_mode {
-            send_retry_command(&mode_command_sender, desired_mode, timeout, "change_mode");
+            if is_legal_mode_transition(assumed_robot_mode, desired_mode) {
+                send_retry_command(&mode_command_sender, desired_mode, timeout, "change_mode");
 
-            assumed_robot_mode = desired_mode;
+                assumed_robot_mode = desired_mode;
+            } else {
+                warn!(
+                    "inhibiting illegal transition from {assumed_robot_mode:?} to {desired_mode:?}"
+                );
+            }
         }
+    }
+}
+
+fn is_legal_mode_transition(old: RobotMode, new: RobotMode) -> bool {
+    match (old, new) {
+        (old, RobotMode::Custom) => old == RobotMode::Prepare,
+        (RobotMode::Damping, new) => new == RobotMode::Prepare,
+        _ => true,
     }
 }
 
