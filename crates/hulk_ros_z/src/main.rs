@@ -29,7 +29,7 @@ struct Args {
     router: Option<String>,
     #[arg(long)]
     log_path: Option<PathBuf>,
-    /// Run the four motion nodes on these Linux CPUs (comma-separated).
+    /// Run motion, sensor input, and safety nodes on these Linux CPUs (comma-separated).
     #[arg(long, value_delimiter = ',')]
     motion_cpus: Vec<usize>,
 }
@@ -208,23 +208,28 @@ async fn spawn_all(
     let stop = CancellationToken::new();
 
     let motion_handle = motion_handle.unwrap_or_else(tokio::runtime::Handle::current);
-    // Poll these futures on the motion runtime from the start, so their nested
+    // Poll these nodes on the isolated runtime from the start, so their nested
     // tasks and lazily created blocking/inference threads inherit its affinity.
+    join_set.spawn_on(button_event_bridge::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(button_event_handler::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(controller_handler::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(fall_detection::run_boxed(ctx.clone()), &motion_handle);
     join_set.spawn_on(hardware_interface::run_boxed(ctx.clone()), &motion_handle);
     join_set.spawn_on(head_motion::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(low_state_bridge::run_boxed(ctx.clone()), &motion_handle);
     join_set.spawn_on(motion::run_boxed(ctx.clone()), &motion_handle);
     join_set.spawn_on(motion_inference::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(primary_state_filter::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(safe_pose_checker::run_boxed(ctx.clone()), &motion_handle);
 
+    // Behavior includes tactical decisions and Voronoi computation, so it stays
+    // on the general runtime alongside perception and planning.
     join_set.spawn(active_vision::run_boxed(ctx.clone()));
     join_set.spawn(ball_filter::run_boxed(ctx.clone()));
     join_set.spawn(ball_state_composer::run_boxed(ctx.clone()));
     join_set.spawn(behavior_node::run_boxed(ctx.clone()));
-    join_set.spawn(button_event_bridge::run_boxed(ctx.clone()));
-    join_set.spawn(button_event_handler::run_boxed(ctx.clone()));
     join_set.spawn(camera_matrix_calculator::run_boxed(ctx.clone()));
-    join_set.spawn(controller_handler::run_boxed(ctx.clone()));
     join_set.spawn(detection::run_boxed(ctx.clone()));
-    join_set.spawn(fall_detection::run_boxed(ctx.clone()));
     join_set.spawn(fall_down_state_receiver::run_boxed(ctx.clone()));
     join_set.spawn(field_mark_association::run_boxed(ctx.clone()));
     join_set.spawn(game_controller_filter::run_boxed(ctx.clone()));
@@ -236,7 +241,6 @@ async fn spawn_all(
     join_set.spawn(led_handler::run_boxed(ctx.clone()));
     join_set.spawn(localization_2d::run_boxed(ctx.clone()));
     join_set.spawn(localization_3d::run_boxed(ctx.clone()));
-    join_set.spawn(low_state_bridge::run_boxed(ctx.clone()));
     let recorder = tokio::spawn(mcap_recorder::run_boxed(
         ctx.clone(),
         log_path,
@@ -250,10 +254,8 @@ async fn spawn_all(
     join_set.spawn(odometer_bridge::run_boxed(ctx.clone()));
     join_set.spawn(odometry::run_boxed(ctx.clone()));
     join_set.spawn(player_states_receiver::run_boxed(ctx.clone()));
-    join_set.spawn(primary_state_filter::run_boxed(ctx.clone()));
     join_set.spawn(visual_kick_ball_selector::run_boxed(ctx.clone()));
     join_set.spawn(rule_obstacle_composer::run_boxed(ctx.clone()));
-    join_set.spawn(safe_pose_checker::run_boxed(ctx.clone()));
     join_set.spawn(search_suggestor::run_boxed(ctx.clone()));
     join_set.spawn(stereo_visual_odometry::run_boxed(ctx.clone()));
     join_set.spawn(support_foot_estimator::run_boxed(ctx.clone()));

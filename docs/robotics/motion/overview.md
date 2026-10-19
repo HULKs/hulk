@@ -22,18 +22,37 @@ Motion finishes by collecting and optimizing all motor commands in the `motor_co
 
 ### CPU isolation
 
-`hulk_ros_z --motion-cpus 4,5` places `motion`, `motion_inference`, `head_motion`,
-and `hardware_interface` on a separate Tokio runtime with one async worker per
-selected Linux CPU (CPU numbering starts at zero). Each worker is pinned to one
-CPU; the two workers execute tasks across CPUs 4 and 5. Their nested async tasks
-use the same runtime. Additional blocking workers are pinned round-robin across
-the selected CPUs, and native threads they create inherit that worker's affinity.
+`hulk_ros_z --motion-cpus 4,5` places motion, sensor input, and safety nodes on a
+separate Tokio runtime:
+
+- Motion and output: `motion`, `motion_inference`, `head_motion`, and
+  `hardware_interface`.
+- Sensor input and checks: `low_state_bridge`, `fall_detection`, and
+  `safe_pose_checker`.
+- Operator input and state: `button_event_bridge`, `button_event_handler`,
+  `controller_handler`, and `primary_state_filter`.
+
+The runtime starts one async worker per selected Linux CPU (numbering starts at
+zero). Each thread is pinned to one CPU. Nested async tasks use the same runtime.
+Additional blocking workers are pinned round-robin across the selected CPUs, and
+native threads they create inherit that worker's affinity.
 `motion_inference.inference_threads` remains at its default of 1.
 
 Individual thread pinning matters because the robot's `isolcpus=4-5` boot setting
 disables normal load balancing on those cores. A probe inside the HULK container
 confirmed that threads with the shared affinity mask `4-5` could all remain on
-CPU 4. Pinning workers individually ensures that both cores are used.
+CPU 4. Individual pinning spreads the initial async workers across both CPUs.
+Tokio's `block_in_place`, used by parameter binding, can subsequently transfer
+an async scheduler to a blocking-pool thread on another CPU. Both async schedulers
+can therefore end up on the same CPU, although all runtime threads remain within
+the selected CPU set. Preserving scheduler distribution is a future improvement;
+its effect on robot latency and missed deadlines has not been measured.
+
+`behavior_node` stays on the general runtime because it also performs tactical
+decisions, Voronoi computation, and planning. It currently converts primary-state
+and fall-detection updates into motion commands, so those response paths still
+depend on the general runtime. Separating their safety decisions from tactical
+behavior would remove that dependency without moving the whole behavior node.
 
 The main thread excludes the selected CPUs before starting the general runtime
 and shared transport, so their threads inherit the remaining allowed CPUs.
@@ -50,13 +69,13 @@ only the binary does not enable isolation. Robot 43 was inspected with
 the vendor motion loops run on CPU 5. This sample does not establish the available
 budget across all motion states.
 
-This separates motion from HULK's other executor work, while still sharing CPUs
-with vendor processes and sharing Zenoh transport, memory, and upstream sensor
-processing with the rest of HULK. It does not reserve an exclusive CPU or change
+This separates the listed nodes from HULK's other executor work, while still
+sharing CPUs with vendor processes and sharing Zenoh transport and memory with
+the rest of HULK. It does not reserve an exclusive CPU or change
 real-time priorities. After deployment, verify `Cpus_allowed_list: 4` or `5` for
-each `hulk-motion` thread in `/proc/<pid>/task/<tid>/status`, with async workers on
-both CPUs, and measure motion timing
-and missed deadlines under perception load while walking and kicking.
+each `hulk-motion` thread in `/proc/<pid>/task/<tid>/status`. Measure motion timing,
+sensor freshness, and stop-response latency under perception load while walking
+and kicking, including the distribution of active async workers after startup.
 
 ### Command path
 
