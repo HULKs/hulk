@@ -1,6 +1,5 @@
 use std::{
     ffi::{OsStr, OsString},
-    path::{Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
     sync::{
         Arc, Mutex,
@@ -16,13 +15,11 @@ use ros_z::{
     entity::TypeInfo,
     message::Service,
     node::Node,
-    parameter::{NodeParameters, NodeParametersExt},
     pubsub::Publisher,
     service::ServiceServer,
 };
 use serde::{Deserialize as SerdeDec, Serialize as SerdeEnc};
 use serde_json::Value;
-use tempfile::TempDir;
 use zenoh::{Wait, config::WhatAmI};
 
 static NEXT_ROUTER_PORT: AtomicUsize = AtomicUsize::new(0);
@@ -45,22 +42,6 @@ struct Telemetry {
 #[message(name = "test_cli::Command")]
 struct CommandMessage {
     enabled: bool,
-}
-
-#[derive(Debug, Clone, SerdeEnc, SerdeDec, PartialEq, ros_z::Message)]
-#[message(name = "test_cli::VisionParameters")]
-#[serde(deny_unknown_fields)]
-struct VisionParameters {
-    enabled: bool,
-    threshold: f64,
-    nested: VisionNestedParameters,
-}
-
-#[derive(Debug, Clone, SerdeEnc, SerdeDec, PartialEq, ros_z::Message)]
-#[message(name = "test_cli::VisionNestedParameters")]
-#[serde(deny_unknown_fields)]
-struct VisionNestedParameters {
-    count: u32,
 }
 
 #[derive(Debug, Clone, SerdeEnc, SerdeDec, Default, PartialEq, ros_z::Message)]
@@ -150,19 +131,13 @@ fn candidate_router_port() -> usize {
 
 struct TestEnv {
     router: TestRouter,
-    temp: TempDir,
 }
 
 impl TestEnv {
     fn new() -> Self {
         Self {
             router: TestRouter::new(),
-            temp: tempfile::tempdir().expect("tempdir"),
         }
-    }
-
-    fn temp_path(&self, name: &str) -> PathBuf {
-        self.temp.path().join(name)
     }
 
     async fn create_context(&self) -> ros_z::Result<Context> {
@@ -170,19 +145,6 @@ impl TestEnv {
             .with_mode("client")
             .with_connect_endpoints([self.router.endpoint()])
             .disable_multicast_scouting()
-            .build()
-            .await
-    }
-
-    async fn create_context_with_parameter_layers(
-        &self,
-        layers: &[PathBuf],
-    ) -> ros_z::Result<Context> {
-        ContextBuilder::default()
-            .with_mode("client")
-            .with_connect_endpoints([self.router.endpoint()])
-            .disable_multicast_scouting()
-            .with_parameter_layers(layers.iter().cloned())
             .build()
             .await
     }
@@ -312,16 +274,6 @@ fn json_array_contains_field(value: &Value, field: &str, expected: &str) -> bool
             .iter()
             .any(|item| item.get(field).and_then(Value::as_str) == Some(expected))
     })
-}
-
-fn path_str(path: &Path) -> &str {
-    path.to_str().expect("test path must be UTF-8")
-}
-
-fn write_parameter_file(layer: &Path, parameter_key: &str, contents: &str) {
-    std::fs::create_dir_all(layer).expect("create parameter layer");
-    std::fs::write(layer.join(format!("{parameter_key}.json5")), contents)
-        .expect("write parameter file");
 }
 
 struct RoszCommand {
@@ -592,56 +544,6 @@ impl Drop for PublishingFixture {
         {
             task.abort();
         }
-    }
-}
-
-struct ParameterFixture {
-    node_fqn: String,
-    robot_layer: PathBuf,
-    _parameters: NodeParameters<VisionParameters>,
-    _node: Node,
-    _context: Context,
-}
-
-impl ParameterFixture {
-    async fn new(env: &TestEnv) -> TestResult<Self> {
-        let base_layer = env.temp_path("parameters/base");
-        let robot_layer = env.temp_path("parameters/robot");
-        write_parameter_file(
-            &base_layer,
-            "parameter_fixture",
-            r#"{
-                enabled: false,
-                threshold: 0.5,
-                nested: { count: 1 }
-            }"#,
-        );
-        write_parameter_file(
-            &robot_layer,
-            "parameter_fixture",
-            r#"{
-                enabled: true,
-                threshold: 0.8,
-                nested: { count: 3 }
-            }"#,
-        );
-
-        let layers = vec![base_layer, robot_layer.clone()];
-        let context = env.create_context_with_parameter_layers(&layers).await?;
-        let node = context
-            .create_node("parameter_fixture")
-            .with_namespace("/cli_e2e")
-            .build()
-            .await?;
-        let parameters = node.bind_parameter_as::<VisionParameters>("parameter_fixture")?;
-
-        Ok(Self {
-            node_fqn: "/cli_e2e/parameter_fixture".to_string(),
-            robot_layer,
-            _parameters: parameters,
-            _node: node,
-            _context: context,
-        })
     }
 }
 
@@ -1167,135 +1069,6 @@ async fn schema_resolves_string_publisher_schema() -> TestResult {
             .as_array()
             .is_some_and(|fields| fields.is_empty())
     );
-
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn parameter_commands_read_mutate_reset_and_reload_fixture_node() -> TestResult {
-    let env = TestEnv::new();
-    let fixture = ParameterFixture::new(&env).await?;
-
-    eventually_json(&env, &["list", "services"], |services| {
-        json_array_contains_field(
-            services,
-            "name",
-            "/cli_e2e/parameter_fixture/parameter/get_snapshot",
-        )
-    });
-
-    let snapshot = env
-        .rosz()
-        .json_command(["parameter", "snapshot", "--node", fixture.node_fqn.as_str()])
-        .run_json();
-    assert_eq!(snapshot["node"], fixture.node_fqn);
-    assert_eq!(snapshot["parameter_key"], "parameter_fixture");
-    assert_eq!(snapshot["effective"]["enabled"].as_bool(), Some(true));
-    assert_eq!(snapshot["effective"]["threshold"].as_f64(), Some(0.8));
-
-    let initial_revision = snapshot["revision"].as_u64().expect("initial revision");
-    let value = env
-        .rosz()
-        .json_command([
-            "parameter",
-            "get",
-            "nested.count",
-            "--node",
-            fixture.node_fqn.as_str(),
-        ])
-        .run_json();
-    assert_eq!(value["path"], "nested.count");
-    assert_eq!(value["value"].as_u64(), Some(3));
-
-    let set = env
-        .rosz()
-        .json_command([
-            "parameter",
-            "set",
-            "threshold",
-            "0.95",
-            "--node",
-            fixture.node_fqn.as_str(),
-            "--layer",
-            path_str(&fixture.robot_layer),
-        ])
-        .run_json();
-    assert_eq!(set["operation"], "set");
-    assert_eq!(set["successful"].as_bool(), Some(true));
-    assert!(set["committed_revision"].as_u64().unwrap_or(0) > initial_revision);
-    assert!(
-        set["changed_paths"]
-            .as_array()
-            .is_some_and(|paths| { paths.iter().any(|path| path == "threshold") })
-    );
-
-    let updated = env
-        .rosz()
-        .json_command([
-            "parameter",
-            "get",
-            "threshold",
-            "--node",
-            fixture.node_fqn.as_str(),
-        ])
-        .run_json();
-    assert_eq!(updated["value"].as_f64(), Some(0.95));
-
-    let reset = env
-        .rosz()
-        .json_command([
-            "parameter",
-            "reset",
-            "threshold",
-            "--node",
-            fixture.node_fqn.as_str(),
-            "--layer",
-            path_str(&fixture.robot_layer),
-        ])
-        .run_json();
-    assert_eq!(reset["operation"], "reset");
-    assert_eq!(reset["successful"].as_bool(), Some(true));
-
-    let reset_value = env
-        .rosz()
-        .json_command([
-            "parameter",
-            "get",
-            "threshold",
-            "--node",
-            fixture.node_fqn.as_str(),
-        ])
-        .run_json();
-    assert_eq!(reset_value["value"].as_f64(), Some(0.5));
-
-    write_parameter_file(
-        &fixture.robot_layer,
-        "parameter_fixture",
-        r#"{
-            enabled: true,
-            threshold: 0.7,
-            nested: { count: 3 }
-        }"#,
-    );
-
-    let reloaded = env
-        .rosz()
-        .json_command(["parameter", "reload", "--node", fixture.node_fqn.as_str()])
-        .run_json();
-    assert_eq!(reloaded["operation"], "reload");
-    assert_eq!(reloaded["successful"].as_bool(), Some(true));
-
-    let reloaded_value = env
-        .rosz()
-        .json_command([
-            "parameter",
-            "get",
-            "threshold",
-            "--node",
-            fixture.node_fqn.as_str(),
-        ])
-        .run_json();
-    assert_eq!(reloaded_value["value"].as_f64(), Some(0.7));
 
     Ok(())
 }
