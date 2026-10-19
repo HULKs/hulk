@@ -24,17 +24,23 @@ use tokio::{
 use self::overlay::RobotOverlayExt;
 use crate::progress_indicator::ProgressIndicator;
 
+mod bundle;
 pub(crate) mod overlay;
 
 #[derive(Args)]
 pub struct Arguments {
-    /// The Robots to flash the image to, e.g. 20w or 10.1.24.22
-    #[arg(required = true)]
+    /// The robots to gammaray, e.g. 20w or 10.1.24.22
+    #[arg(required_unless_present = "prepare")]
     robots: Vec<RobotAddress>,
 
     /// Discard the saved overlay and provision from a clean lower root
     #[arg(long, visible_alias = "sauber")]
     clean: bool,
+
+    /// Ensure cached runtime image exists,
+    /// but exit without gammaraying robots
+    #[arg(long, visible_alias = "vorbereit")]
+    prepare: bool,
 
     /// The password for the `booster` user
     #[arg(short, long, default_value = "123456")]
@@ -51,11 +57,11 @@ pub struct Arguments {
     update_x5_file: Option<PathBuf>,
 }
 
-static PACKAGES: [&str; 3] = ["zenohd", "zenoh-bridge-dds", "ufw"];
-
 const WIFI_PASSWORD: &str = "HSL?!HSL?!";
 
-const PODMAN_INSTALLATION_SCRIPT: &str = include_str!("install-podman.sh");
+const BUNDLE_INSTALLATION_SCRIPT: &str = include_str!("install-hulks-bundle.sh");
+const REMOTE_BUNDLE: &str = "/home/booster/.cache/hulk/hulks";
+const PODMAN: &str = "/nix/var/nix/profiles/hulks/bin/podman";
 
 pub(super) const MANUFACTURER_CONTROLLER_SCRIPT: &str = r#"set -euo pipefail
 
@@ -87,13 +93,12 @@ fi
 systemctl "$mode" --now joystick_ros2
 "#;
 
-static ADD_ZENOH_APT_SOURCES: &str = "
-curl -L https://download.eclipse.org/zenoh/debian-repo/zenoh-public-key | sudo gpg --dearmor --yes --output /etc/apt/keyrings/zenoh-public-key.gpg
-grep \"https://download.eclipse.org/zenoh/debian-repo/\" /etc/apt/sources.list || echo \"deb [signed-by=/etc/apt/keyrings/zenoh-public-key.gpg] https://download.eclipse.org/zenoh/debian-repo/ /\" | sudo tee -a /etc/apt/sources.list > /dev/null
-";
-
 pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<()> {
     let setup_path = &repository.root.join("tools/k1-setup");
+    let bundle = bundle::prepare(repository).await?;
+    if arguments.prepare {
+        return Ok(());
+    }
 
     let progress = ProgressIndicator::new();
 
@@ -113,6 +118,7 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
                     arguments.update_x5_file.as_deref(),
                     &team,
                     setup_path,
+                    &bundle,
                 )
             },
         )
@@ -131,6 +137,7 @@ async fn gammaray_robot(
     update_x5_file: Option<&Path>,
     team: &Team,
     setup: &Path,
+    bundle: &Path,
 ) -> Result<()> {
     let robot = Robot::try_new_with_ping(robot.ip).await?;
 
@@ -143,7 +150,10 @@ async fn gammaray_robot(
         .arg("jetson_release -s | grep 'Serial Number:' | grep '[0-9]*$' -o")
         .output()
         .await?;
-    let id = String::from_utf8(output.stdout).unwrap();
+    if !output.status.success() {
+        bail!("failed to read robot ID");
+    }
+    let id = String::from_utf8(output.stdout)?;
     let id = id.trim();
     let Some(team_robot) = team.robots.iter().find(|robot| robot.id == id) else {
         bail!(r#"ID "{id}" not found in team.toml"#);
@@ -176,48 +186,13 @@ async fn gammaray_robot(
         .ssh_with_log("setting hostname", &progress_bar)
         .await?;
 
-    set_up_static_ips(&robot, team_robot, team.team_number, &progress_bar).await?;
-    set_up_wifi(&robot, team_robot, team.team_number, &progress_bar).await?;
-
-    robot
-        .ssh_to_overlay()?
-        .arg(ADD_ZENOH_APT_SOURCES)
-        .ssh_with_log("adding zenoh APT sources", &progress_bar)
-        .await?;
-
-    let mut check_string = "(".to_string();
-    for package in PACKAGES {
-        check_string.push_str(&format!("dpkg -s {package} && "));
-    }
-    check_string.push_str("true)");
-    robot
-        .ssh_to_overlay()?
-        // check if packages are installed already
-        .arg(check_string)
-        .arg("|| (")
-        .arg("sudo apt update && sudo apt install -y")
-        .args(PACKAGES)
-        .arg(")")
-        .ssh_with_log("installing packages", &progress_bar)
-        .await?;
-
-    robot
-        .ssh_to_overlay()?
-        .arg("sudo ufw default allow &&")
-        .arg("sudo ufw deny out proto udp to any port 9000 &&")
-        .arg("yes | sudo ufw enable")
-        .ssh_with_log("adding firewall rules", &progress_bar)
-        .await?;
+    deploy_nix(&robot, bundle, &progress_bar).await?;
 
     robot
         .ssh_to_overlay()?
         .arg("sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml")
         .ssh_with_log("generating nvidia CDI", &progress_bar)
         .await?;
-
-    install_podman(&robot, &progress_bar)
-        .await
-        .wrap_err("failed to install podman on robot")?;
 
     robot
         .rsync_with_overlay_sudo()?
@@ -262,6 +237,9 @@ async fn gammaray_robot(
         .rsync_with_overlay_sudo()?
         .arg("--info=progress2")
         .arg(setup.join("hulk.service"))
+        .arg(setup.join("hulks-firewall.service"))
+        .arg(setup.join("zenohd.service"))
+        .arg(setup.join("zenoh-bridge-dds.service"))
         .arg(setup.join("jetson-clocks-refresh.service"))
         .arg(setup.join("jetson-clocks-refresh.timer"))
         .arg(format!("{}:/etc/systemd/system/", robot.address))
@@ -285,7 +263,7 @@ async fn gammaray_robot(
             .await?;
         robot
             .ssh_to_overlay()?
-            .arg(format!("sudo podman load -i {REMOTE_IMAGE_PATH}"))
+            .arg(format!("sudo {PODMAN} load -i {REMOTE_IMAGE_PATH}"))
             .ssh_with_log("loading podman image", &progress_bar)
             .await?;
     }
@@ -323,9 +301,35 @@ async fn gammaray_robot(
         .await?;
 
     robot
+        .rsync_with_overlay_sudo()?
+        .arg(setup.join("hulks.nft"))
+        .arg(format!("{}:/etc/hulks.nft", robot.address))
+        .rsync_with_log("uploading firewall rules", &progress_bar)
+        .await?;
+
+    robot
         .ssh_to_overlay()?
         .arg("sudo systemctl daemon-reload")
         .ssh_with_log("reloading service daemon", &progress_bar)
+        .await?;
+
+    robot
+        .ssh_to_overlay()?
+        .arg("sudo systemctl enable hulks-firewall && sudo systemctl reload-or-restart hulks-firewall")
+        .ssh_with_log("applying firewall rules", &progress_bar)
+        .await?;
+
+    // Stop replaced DDS publishers before starting the bridge.
+    robot
+        .ssh_to_overlay()?
+        .arg("sudo systemctl disable --now")
+        .args([
+            "booster-daemon-perception",
+            "booster-agent-manager",
+            "booster-lui",
+            "booster-rtc-speech",
+        ])
+        .ssh_with_log("disabling booster services", &progress_bar)
         .await?;
 
     robot
@@ -366,29 +370,37 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_overlay()?
-        .arg("sudo systemctl disable --now")
-        .args([
-            "booster-daemon-perception",
-            "booster-agent-manager",
-            "booster-lui",
-            "booster-rtc-speech",
-        ])
-        .ssh_with_log("disabling booster services", &progress_bar)
+        .arg("for service in hulks-firewall zenohd zenoh-bridge-dds hulk-runtime hulk; do sudo systemctl is-active \"$service\" || exit 1; done")
+        .ssh_with_log("verifying services", &progress_bar)
         .await?;
+
+    set_up_wifi(&robot, team_robot, team.team_number, &progress_bar).await?;
+    set_up_static_ips(&robot, team_robot, team.team_number, &progress_bar).await?;
 
     Ok(())
 }
 
-async fn install_podman(robot: &Robot, progress_bar: &ProgressBar) -> Result<()> {
+async fn deploy_nix(robot: &Robot, bundle: &Path, progress_bar: &ProgressBar) -> Result<()> {
+    robot
+        .ssh_to_overlay()?
+        .arg(format!("mkdir -p {REMOTE_BUNDLE}"))
+        .ssh_with_log("creating package cache", progress_bar)
+        .await?;
+    robot
+        .rsync_with_overlay()?
+        .arg("--delete")
+        .arg(bundle.join("."))
+        .arg(format!("{}:{REMOTE_BUNDLE}/", robot.address))
+        .rsync_with_log("uploading offline package bundle", progress_bar)
+        .await?;
     robot
         .ssh_to_overlay()?
         .arg(format!(
-            "sudo bash -s <<'EOF'\n{}\nEOF",
-            PODMAN_INSTALLATION_SCRIPT
+            "sudo bash -s -- {REMOTE_BUNDLE} <<'HULKS_BUNDLE_INSTALL_SCRIPT'\n{BUNDLE_INSTALLATION_SCRIPT}\nHULKS_BUNDLE_INSTALL_SCRIPT"
         ))
-        .ssh_with_log("installing podman", progress_bar)
+        .ssh_with_log("installing nix bundle", progress_bar)
         .await
-        .wrap_err("podman install/verification failed")
+        .wrap_err("offline package installation failed")
 }
 
 async fn set_up_static_ips(

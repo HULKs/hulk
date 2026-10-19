@@ -95,7 +95,7 @@ enum Command {
     /// Create a game branch from the deploy.toml in the repository root
     #[command(visible_alias = "spielzweig")]
     Gamebranch(game_branch::Arguments),
-    /// Flash a HULKs-OS image to Robots
+    /// Install HULKs runtime environment on robots
     #[command(visible_alias = "gammastrahl")]
     Gammaray(gammaray::Arguments),
 

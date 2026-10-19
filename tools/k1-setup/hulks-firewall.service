@@ -1,0 +1,15 @@
+[Unit]
+Description=HULKs outbound firewall
+Wants=network-pre.target
+Before=network-pre.target
+RequiresMountsFor=/nix/store /nix/var/nix/profiles/hulks
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/nix/var/nix/profiles/hulks/bin/nft -f /etc/hulks.nft
+ExecReload=/nix/var/nix/profiles/hulks/bin/nft -f /etc/hulks.nft
+ExecStop=/nix/var/nix/profiles/hulks/bin/nft delete table inet hulks
+
+[Install]
+WantedBy=multi-user.target
