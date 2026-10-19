@@ -8,7 +8,6 @@ rustPlatform.buildRustPackage {
   pname = "zenoh-bridge-dds";
   version = "1.9.0-booster-interop";
 
-  # The standalone executable is not published on crates.io.
   src = fetchFromGitHub {
     owner = "eclipse-zenoh";
     repo = "zenoh-plugin-dds";
@@ -25,7 +24,6 @@ rustPlatform.buildRustPackage {
   };
 
   postPatch = ''
-    # Select the registry plugin so both Cargo patches take effect.
     substituteInPlace Cargo.toml \
       --replace-fail 'members = ["zenoh-bridge-dds", "zenoh-plugin-dds"]' 'members = ["zenoh-bridge-dds"]' \
       --replace-fail 'version = "1.9.0", path = "zenoh-plugin-dds/"' 'version = "=1.9.0"'

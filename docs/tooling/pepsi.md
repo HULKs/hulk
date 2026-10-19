@@ -48,13 +48,11 @@ ARM64 binaries are fetched from the Nix cache; cache misses require an ARM64 bui
 Environment assembly runs on x86_64 Linux.
 
 The runtime uses a custom `zenoh-bridge-dds` 1.9.0 build for Booster firmware 1.8.
-`nix/zenoh-bridge-dds` pins the tested IntelligentRoboticsLab `cyclors` and
-`zenoh-plugin-dds` commits through `[patch.crates-io]` and a separate Cargo lockfile.
+`nix/zenoh-bridge-dds` uses two patches made by IntelligentRoboticsLab for `cyclors` and `zenoh-plugin-dds`.
 These omit the conflicting DDS discovery parameter and skip invalid Zenoh topic names.
-The bridge is cross-compiled from source on x86_64 Linux, without an ARM64 builder or emulation.
+The bridge is cross-compiled from source on x86_64 Linux via nix during bundle preparation of `gammaray` or `gammaray --prepare`.
 It can also be built separately with `nix build .#packages.aarch64-linux.zenoh-bridge-dds`.
 Gammaray installs it through the runtime profile.
-Remove temporary bridge `ExecStart` drop-ins when switching to the profile's binary.
 
 ```sh
 pepsi gammaray --prepare
