@@ -61,6 +61,7 @@ fn opponent_kickoff(app: &mut App) {
 fn startup(
     mut commands: Commands,
     clock: Res<SimulatorClock>,
+    field_dimensions: Res<SimulatorFieldDimensions>,
     mut referee: ResMut<SimulatorAutoReferee>,
     mut game: ResMut<SimulatorGameState>,
     mut ball: ResMut<SimulatorBall>,
@@ -85,6 +86,7 @@ fn startup(
             Team::Hulks,
             PLAYER,
             Isometry2::from_parts(vector![-4.0, -2.0], 0.0),
+            field_dimensions.0,
             parameters,
         )
         .expect("failed to create robot")

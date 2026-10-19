@@ -6643,6 +6643,7 @@ name = "look_around"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "hsl_network_messages",
  "kinematics",
  "ros-z",
  "serde",

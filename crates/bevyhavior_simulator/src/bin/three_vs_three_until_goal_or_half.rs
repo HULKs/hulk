@@ -47,9 +47,15 @@ fn startup(
                 FRAC_PI_2 * team_sign,
             );
             commands.spawn(
-                SimulatorRobotBundle::new(team, player_number, pose, parameters.clone())
-                    .expect("failed to create robot bundle")
-                    .with_primary_state(PrimaryState::Ready),
+                SimulatorRobotBundle::new(
+                    team,
+                    player_number,
+                    pose,
+                    field_dimensions.0,
+                    parameters.clone(),
+                )
+                .expect("failed to create robot bundle")
+                .with_primary_state(PrimaryState::Ready),
             );
         }
     }
