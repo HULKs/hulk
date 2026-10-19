@@ -129,7 +129,7 @@ impl HeadMotionState {
             return filtered_head_joints;
         }
 
-        let raw_positions = match motion_command.head_motion() {
+        let raw_positions = match motion_command.and_then(MotionCommand::head_motion) {
             Some(HeadMotion::MoveWithVelocity { yaw, pitch }) => {
                 self.last_positions + HeadJoints { yaw, pitch } * last_cycle_duration.as_secs_f32()
             }
