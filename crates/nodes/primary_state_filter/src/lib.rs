@@ -188,9 +188,6 @@ impl PrimaryStateFilter {
             (PrimaryState::Playing, FilteredGameState::Ready) if !is_penalized => {
                 PrimaryState::Ready
             }
-            (PrimaryState::Playing, FilteredGameState::Initial) if !is_penalized => {
-                PrimaryState::Initial
-            }
             (state, FilteredGameState::Finished)
                 if !matches!(state, PrimaryState::Damping | PrimaryState::Prepare) =>
             {
