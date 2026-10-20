@@ -36,6 +36,13 @@ impl<T> BodyJoints<T> {
             right_leg: lower.right_leg,
         }
     }
+
+    pub fn upper(self) -> UpperBodyJoints<T> {
+        UpperBodyJoints {
+            left_arm: self.left_arm,
+            right_arm: self.right_arm,
+        }
+    }
 }
 
 impl<T> BodyJoints<T>
@@ -152,7 +159,7 @@ impl Div<f32> for BodyJoints<f32> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, ros_z::Message)]
 pub struct LowerBodyJoints<T = f32> {
     pub left_leg: LegJoints<T>,
     pub right_leg: LegJoints<T>,
@@ -189,7 +196,7 @@ impl<T> IntoIterator for LowerBodyJoints<T> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, ros_z::Message)]
 pub struct UpperBodyJoints<T> {
     pub left_arm: ArmJoints<T>,
     pub right_arm: ArmJoints<T>,
@@ -203,6 +210,50 @@ where
         Self {
             left_arm: ArmJoints::fill(value.clone()),
             right_arm: ArmJoints::fill(value),
+        }
+    }
+}
+
+impl LowerBodyJoints<f32> {
+    pub fn clamp(self, limits: LowerBodyJoints<[f32; 2]>) -> Self {
+        Self {
+            left_leg: self.left_leg.clamp2(limits.left_leg),
+            right_leg: self.right_leg.clamp2(limits.right_leg),
+        }
+    }
+}
+
+impl<T> LowerBodyJoints<T> {
+    pub fn map<U>(self, f: impl Fn(T) -> U) -> LowerBodyJoints<U> {
+        LowerBodyJoints {
+            left_leg: self.left_leg.map(&f),
+            right_leg: self.right_leg.map(&f),
+        }
+    }
+
+    pub fn map_ref<U>(&self, f: impl Fn(&T) -> U) -> LowerBodyJoints<U> {
+        LowerBodyJoints {
+            left_leg: self.left_leg.map_ref(&f),
+            right_leg: self.right_leg.map_ref(&f),
+        }
+    }
+}
+
+impl<'a, T> IntoIterator for &'a LowerBodyJoints<T> {
+    type Item = &'a T;
+
+    type IntoIter = Chain<IntoIter<&'a T, 6>, IntoIter<&'a T, 6>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.left_leg).into_iter().chain(&self.right_leg)
+    }
+}
+
+impl<T> UpperBodyJoints<T> {
+    pub fn map<U>(self, f: impl Fn(T) -> U) -> UpperBodyJoints<U> {
+        UpperBodyJoints {
+            left_arm: self.left_arm.map(&f),
+            right_arm: self.right_arm.map(&f),
         }
     }
 }

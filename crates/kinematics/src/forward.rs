@@ -1,10 +1,12 @@
+use std::f32::consts::FRAC_PI_2;
+
 use coordinate_systems::{
-    Head, LeftAnkle, LeftFoot, LeftForearm, LeftHip, LeftInnerShoulder, LeftOuterShoulder,
+    Camera, Head, LeftAnkle, LeftFoot, LeftForearm, LeftHip, LeftInnerShoulder, LeftOuterShoulder,
     LeftPelvis, LeftSole, LeftThigh, LeftTibia, LeftUpperArm, Neck, RightAnkle, RightFoot,
     RightForearm, RightHip, RightInnerShoulder, RightOuterShoulder, RightPelvis, RightSole,
     RightThigh, RightTibia, RightUpperArm, Robot,
 };
-use linear_algebra::{Isometry3, Orientation3, Vector3};
+use linear_algebra::{Isometry3, Orientation3, Rotation3, Vector3};
 
 use crate::{
     joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints},
@@ -23,6 +25,18 @@ pub fn head_to_neck(angles: &HeadJoints<f32>) -> Isometry3<Head, Neck> {
         RobotDimensions::NECK_TO_HEAD,
         Orientation3::new(Vector3::y_axis() * angles.pitch),
     )
+}
+
+pub fn head_to_robot(angles: &HeadJoints<f32>) -> Isometry3<Head, Robot> {
+    neck_to_robot(angles) * head_to_neck(angles)
+}
+
+/// Camera optical frame: X right, Y down, Z forward. Mounting pitch is in radians;
+/// positive pitch raises the viewing direction. Calibration is applied separately.
+pub fn head_to_camera(camera_pitch: f32) -> Isometry3<Head, Camera> {
+    Rotation3::<Camera, Camera>::new(Vector3::x_axis() * -camera_pitch)
+        * Rotation3::<Head, Camera>::from_euler_angles(FRAC_PI_2, -FRAC_PI_2, 0.0)
+        * Isometry3::<Head, Head>::from(-RobotDimensions::HEAD_TO_CAMERA)
 }
 
 // left arm

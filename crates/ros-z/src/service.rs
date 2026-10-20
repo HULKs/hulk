@@ -605,7 +605,9 @@ where
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(
+    Debug, PartialEq, Eq, Hash, Clone, serde::Serialize, serde::Deserialize, crate::Message,
+)]
 pub struct RequestId {
     pub sequence_number: i64,
     pub writer_global_id: EndpointGlobalId,
