@@ -4,7 +4,7 @@
   // HSL 2026 rules, "The Field of Play": measurements include the boundary lines.
   // Convert to line centers for FieldDimensions, using meters throughout.
   field_dimensions: {
-    // The PDF omits paint width. Assume the HSL L-field nominal width.
+    // The PDF omits paint width. Use the HSL L-field nominal width.
     // Source: HSL-Rules, rules-2026-v1.1.1, rules/environment.tex.
     line_width: 0.12,
     length: 21.88, // 22.0 - line_width.
