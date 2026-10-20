@@ -11,7 +11,7 @@ use linear_algebra::point;
 use ros_z::time::Time;
 use types::{
     field_dimensions::GlobalFieldSide, joint_limits::JointLimits, motion_command::HeadMotion,
-    motor_command::MotorCommand, support_foot::Side,
+    motor_command::MotorCommand, side::Side,
 };
 
 use crate::{

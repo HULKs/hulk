@@ -2,7 +2,7 @@
 
 use kinematics::joints::head::HeadJoints;
 use ros_z::time::Time;
-use types::support_foot::Side;
+use types::side::Side;
 
 use crate::parameters::ScanParameters;
 
