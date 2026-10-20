@@ -1,24 +1,18 @@
 {
-  // Interpret ItalianOpenField.pdf dimensions as outside-edge measurements
-  // under the HSL rules, and convert its millimeters to meters.
-  // HSL 2026 rules, "The Field of Play": measurements include the boundary lines.
-  // Convert to line centers for FieldDimensions, using meters throughout.
   field_dimensions: {
-    // The organizers confirmed 100 mm painted lines.
     line_width: 0.1,
-    length: 21.9, // 22.0 - line_width.
-    width: 13.9, // 14.0 - line_width.
-    // Page 2 gives clear goal dimensions, so no paint-width correction applies.
+    length: 21.9,
+    width: 13.9,
     goal_depth: 1.0,
     goal_inner_width: 3.0,
     goal_post_diameter: 0.1,
-    goal_box_area_length: 1.9, // 2.0 - line_width.
-    goal_box_area_width: 4.9, // 5.0 - line_width.
-    penalty_area_length: 4.9, // 5.0 - line_width.
-    penalty_area_width: 7.9, // 8.0 - line_width.
-    penalty_marker_distance: 3.45, // 3.5 - line_width / 2, to the mark center.
-    center_circle_diameter: 3.9, // 2 * 2.0 - line_width; PDF gives outer radius.
-    corner_arc_radius: 0.7, // 0.75 - line_width / 2, from the outside corner.
-    // Ball radius, marker size and border width are unlabelled; inherit base values.
+    goal_box_area_length: 1.9,
+    goal_box_area_width: 4.9,
+    penalty_area_length: 4.9,
+    penalty_area_width: 7.9,
+    penalty_marker_distance: 3.45,
+    center_circle_diameter: 3.9,
+    corner_arc_radius: 0.7,
+    // Ball radius, mark size and border width are unconfirmed; inherit base.
   }
 }
