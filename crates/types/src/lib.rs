@@ -17,6 +17,7 @@ pub mod filtered_whistle;
 pub mod game_controller_state;
 pub mod heatmap;
 pub mod joint_limits;
+pub mod localization;
 pub mod messages;
 pub mod motion_command;
 pub mod motion_type;

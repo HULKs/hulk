@@ -93,6 +93,7 @@ macro_rules! impl_selectable_panel {
                     backend: context.backend,
                     value: Some(&saved.state),
                     egui_context: context.egui_context,
+                    render_state: context.render_state,
                 }))
             }
 
