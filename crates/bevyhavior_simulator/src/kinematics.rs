@@ -512,7 +512,7 @@ mod tests {
                 world_state: WorldState::default(),
                 motion_command: MotionCommand::Walk {
                     head: HeadMotion::Center {
-                        image_region_target: Default::default(),
+                        image_region_target: ImageRegion::Center,
                     },
                     path: direct_path(point![0.0, 0.0], point![2.0, 0.0]),
                     orientation_mode: OrientationMode::AlignWithPath,

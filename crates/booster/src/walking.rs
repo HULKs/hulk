@@ -94,7 +94,10 @@ pub fn step_from_motion_command(command: &MotionCommand, parameters: &WalkingPar
 #[cfg(test)]
 mod tests {
     use linear_algebra::{Orientation2, point, vector};
-    use types::{motion_command::HeadMotion, path::direct_path};
+    use types::{
+        motion_command::{HeadMotion, ImageRegion},
+        path::direct_path,
+    };
 
     use super::*;
 
@@ -110,7 +113,7 @@ mod tests {
     fn walk_with_velocity_maps_directly_to_step() {
         let command = MotionCommand::WalkWithVelocity {
             head: HeadMotion::Center {
-                image_region_target: Default::default(),
+                image_region_target: ImageRegion::Center,
             },
             velocity: vector![0.3, -0.2],
             angular_velocity: 0.4,
@@ -127,7 +130,7 @@ mod tests {
     fn stand_maps_to_zero_step() {
         let command = MotionCommand::Stand {
             head: HeadMotion::Center {
-                image_region_target: Default::default(),
+                image_region_target: ImageRegion::Center,
             },
         };
 
@@ -158,7 +161,7 @@ mod tests {
     fn walk_path_decelerates_near_target() {
         let command = MotionCommand::Walk {
             head: HeadMotion::Center {
-                image_region_target: Default::default(),
+                image_region_target: ImageRegion::Center,
             },
             path: direct_path(point![0.0, 0.0], point![0.25, 0.0]),
             orientation_mode: OrientationMode::AlignWithPath,
