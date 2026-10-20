@@ -1,0 +1,17 @@
+{
+  // Dimensions from ItalianOpenField.pdf, converted from millimeters to meters.
+  field_dimensions: {
+    length: 22.0,
+    width: 14.0,
+    goal_depth: 1.0,
+    goal_inner_width: 3.0,
+    goal_box_area_length: 2.0,
+    goal_box_area_width: 5.0,
+    penalty_area_length: 5.0,
+    penalty_area_width: 8.0,
+    penalty_marker_distance: 3.5,
+    center_circle_diameter: 4.0, // The drawing specifies a 2000 mm radius.
+    corner_arc_radius: 0.75,
+    goal_post_diameter: 0.1,
+  }
+}
