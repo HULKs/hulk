@@ -1,41 +1,51 @@
-use std::{
-    slice::from_ref,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-};
+use std::sync::Arc;
 
-use color_eyre::eyre::{Result, ensure, eyre};
+use color_eyre::eyre::{OptionExt, Result, ensure};
 use ros_z::time::Time;
 use ros_z_debug::query::{
     Coverage, MAX_PAYLOAD_BYTES, RawRecord, SourceCoverage, TopicInfo,
-    plan::{Evaluation, LoadedRecord, QueryPlan, SourceState, SourceView, State},
+    plan::{Evaluation, LoadedRecord, QueryPlan, SourceState, SourceView, State, TopicSource},
     remote::RecordingInfo,
 };
+use tokio::sync::OwnedMutexGuard;
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use super::{Recording, SnapshotChunk};
-use index::{INDEX_WORKERS, Index, IndexCache, IndexEntry, IndexKey};
+pub use index::IndexCache;
+use index::{INDEX_WORKERS, Index, IndexEntry, IndexKey};
 
 mod index;
 #[cfg(test)]
 pub(super) mod tests;
 
-pub const DEFAULT_INDEX_BYTES: usize = 256 * 1024 * 1024;
-
 /// Coordinates progressive queries; each evaluation pins its acquired indexes.
 pub struct QueryRecording {
-    cancel: Arc<AtomicBool>,
+    cancel: CancellationToken,
     recording: Recording,
     publication_publisher: [u8; 16],
-    cache: IndexCache,
+    cache: Arc<IndexCache>,
+    owner: Uuid,
     index_workers: usize,
     pub info: RecordingInfo,
 }
 
+pub struct PendingQuery {
+    plan: QueryPlan,
+    cursor: Time,
+    sources: Vec<TopicSource>,
+    keys: Vec<Option<IndexKey>>,
+    pinned: Vec<Option<Arc<Index>>>,
+    failures: Vec<Option<String>>,
+}
+
 impl QueryRecording {
-    pub fn new(recording: Recording, name: String, cancel: Arc<AtomicBool>) -> Result<Self> {
+    pub fn new(
+        recording: Recording,
+        name: String,
+        cancel: CancellationToken,
+        cache: Arc<IndexCache>,
+    ) -> Result<Self> {
         let instance = Uuid::new_v4();
         let info = RecordingInfo {
             instance: instance.to_string(),
@@ -58,15 +68,11 @@ impl QueryRecording {
             cancel,
             recording,
             publication_publisher: *instance.as_bytes(),
-            cache: IndexCache::new(DEFAULT_INDEX_BYTES),
+            cache,
+            owner: instance,
             index_workers: INDEX_WORKERS,
             info,
         })
-    }
-
-    pub fn with_index_budget(mut self, bytes: usize) -> Result<Self> {
-        self.cache.set_budget(bytes)?;
-        Ok(self)
     }
 
     fn channel(&self, topic: &str) -> Result<u16> {
@@ -75,7 +81,7 @@ impl QueryRecording {
             .iter()
             .find(|(_, channel)| channel.topic == topic)
             .map(|(id, _)| *id)
-            .ok_or_else(|| eyre!("recording has no topic {topic}"))
+            .ok_or_eyre(format!("recording has no topic {topic}"))
     }
 
     fn source_view(
@@ -91,7 +97,7 @@ impl QueryRecording {
             return SourceState::Failed(error.clone());
         }
         if pinned.is_none() {
-            *pinned = self.cache.get(key);
+            *pinned = self.cache.get(&self.owner, key);
         }
         let Some(index) = pinned else {
             return SourceState::Pending;
@@ -175,6 +181,9 @@ impl QueryRecording {
                     .map_err(|error| format!("{error:#}")),
                 Err(error) => Err(error.clone()),
             };
+            if let Err(error) = &loaded {
+                tracing::warn!(recording = %self.info.name, %error, "reading query payload failed");
+            }
             if let Ok(record) = &loaded {
                 bytes += record.data.len();
             }
@@ -190,70 +199,110 @@ impl QueryRecording {
             .collect()
     }
 
-    /// Emit primary results before building optional indexes; failures stay local.
-    pub fn query_plan(
-        &mut self,
-        plan: &QueryPlan,
-        cursor: Time,
-        mut emit: impl FnMut(Evaluation) -> bool,
-    ) -> Result<()> {
+    pub async fn acquire_build(&self) -> OwnedMutexGuard<()> {
+        self.cache.acquire_build().await
+    }
+}
+
+impl PendingQuery {
+    pub fn new(recording: &QueryRecording, plan: QueryPlan, cursor: Time) -> Result<Self> {
         let sources = plan.sources()?;
         let keys: Vec<_> = sources
             .iter()
             .map(|source| {
-                self.channel(&source.topic)
+                recording
+                    .channel(&source.topic)
                     .ok()
                     .map(|channel| (channel, source.projection.clone()))
             })
             .collect();
-        let mut pinned = vec![None; sources.len()];
-        let mut failures: Vec<Option<String>> = vec![None; sources.len()];
-        loop {
-            ensure!(!self.cancel.load(Ordering::Relaxed), "query cancelled");
-            let views: Vec<_> = keys
-                .iter()
-                .zip(&mut pinned)
-                .zip(&failures)
-                .map(|((key, pinned), failure)| {
-                    self.source_view(key.as_ref(), pinned, failure.as_ref())
-                })
-                .collect();
-            let result = plan.evaluate_batched(cursor, &views, |locations| {
-                self.load_records(&keys, &pinned, locations)
-            })?;
-            let pending = result
-                .dependencies
-                .iter()
-                .find(|dependency| dependency.resolution == State::Pending)
-                .and_then(|dependency| {
-                    sources
-                        .iter()
-                        .position(|source| source == &dependency.source)
-                });
-            drop(views);
-            for (source, pin) in sources.iter().zip(&mut pinned) {
-                if !result
-                    .dependencies
-                    .iter()
-                    .any(|dependency| &dependency.source == source)
-                {
-                    *pin = None;
-                }
-            }
-            if !emit(result) {
-                return Ok(());
-            }
-            let Some(index) = pending else { return Ok(()) };
-            let key = keys[index].as_ref().expect("pending source key");
-            match self.cache.indexes(
-                &self.recording,
-                &self.cancel,
-                self.index_workers,
-                from_ref(key),
-            ) {
-                Ok(mut indexes) => pinned[index] = indexes.pop(),
-                Err(error) => failures[index] = Some(format!("{error:#}")),
+        Ok(Self {
+            pinned: vec![None; sources.len()],
+            failures: vec![None; sources.len()],
+            plan,
+            cursor,
+            sources,
+            keys,
+        })
+    }
+
+    pub fn build(
+        &mut self,
+        recording: &QueryRecording,
+        source: usize,
+        guard: OwnedMutexGuard<()>,
+    ) -> Result<()> {
+        let key = self
+            .keys
+            .get(source)
+            .and_then(Option::as_ref)
+            .ok_or_eyre("missing pending source")?;
+        match recording.cache.index(
+            &recording.owner,
+            &recording.recording,
+            &recording.cancel,
+            recording.index_workers,
+            key,
+            guard,
+        ) {
+            Ok(index) => self.pinned[source] = Some(index),
+            Err(error) => {
+                tracing::warn!(recording = %recording.info.name, error = %format!("{error:#}"), "building query index failed");
+                self.failures[source] = Some(format!("{error:#}"));
             }
         }
+        Ok(())
+    }
+
+    /// Evaluate cached inputs before asking the async driver for the build lock.
+    pub fn advance(
+        &mut self,
+        recording: &mut QueryRecording,
+        mut emit: impl FnMut(Evaluation) -> bool,
+    ) -> Result<Option<usize>> {
+        ensure!(!recording.cancel.is_cancelled(), "query cancelled");
+        let views: Vec<_> = self
+            .keys
+            .iter()
+            .zip(&mut self.pinned)
+            .zip(&self.failures)
+            .map(|((key, pinned), failure)| {
+                recording.source_view(key.as_ref(), pinned, failure.as_ref())
+            })
+            .collect();
+        let result = self
+            .plan
+            .evaluate_batched(self.cursor, &views, |locations| {
+                recording.load_records(&self.keys, &self.pinned, locations)
+            })?;
+        let pending = result
+            .dependencies
+            .iter()
+            .find(|dependency| dependency.resolution == State::Pending)
+            .and_then(|dependency| {
+                self.sources
+                    .iter()
+                    .position(|source| source == &dependency.source)
+            });
+        drop(views);
+        for (source, pin) in self.sources.iter().zip(&mut self.pinned) {
+            if !result
+                .dependencies
+                .iter()
+                .any(|dependency| &dependency.source == source)
+            {
+                *pin = None;
+            }
+        }
+        if !emit(result) {
+            return Ok(None);
+        }
+        Ok(pending)
+    }
+}
+
+impl Drop for QueryRecording {
+    fn drop(&mut self) {
+        self.cache.remove_recording(self.owner);
     }
 }

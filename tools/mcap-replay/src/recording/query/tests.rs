@@ -11,22 +11,50 @@ use ros_z_debug::query::{
     *,
 };
 use std::{
-    borrow::Cow, collections::BTreeMap, num::NonZeroUsize, path::Path, sync::Arc, time::Duration,
+    borrow::Cow,
+    collections::BTreeMap,
+    num::NonZeroUsize,
+    path::Path,
+    sync::{Arc, OnceLock},
+    time::Duration,
 };
 use tempfile::NamedTempFile;
 use tokio::{
+    runtime::Runtime,
     sync::{oneshot, watch},
     task::JoinHandle,
 };
 use uuid::Uuid;
 
+const DEFAULT_INDEX_BYTES: usize = 1024 * 1024 * 1024;
+
 impl QueryRecording {
+    fn with_index_budget(self, bytes: usize) -> Result<Self> {
+        self.cache.state.lock().set_budget(bytes)?;
+        Ok(self)
+    }
+
+    fn query_plan(
+        &mut self,
+        plan: &QueryPlan,
+        cursor: Time,
+        mut emit: impl FnMut(Evaluation) -> bool,
+    ) -> Result<()> {
+        let mut query = PendingQuery::new(self, plan.clone(), cursor)?;
+        while let Some(source) = query.advance(self, &mut emit)? {
+            let guard = Arc::clone(&self.cache.builds).try_lock_owned()?;
+            query.build(self, source, guard)?;
+        }
+        Ok(())
+    }
+
     fn decoded_chunks(&self) -> usize {
-        self.recording.decoded_chunks + self.cache.stats.decoded_chunks
+        self.recording.decoded_chunks + self.cache.state.lock().stats.decoded_chunks
     }
 
     fn index_stats(&self) -> (usize, usize) {
-        (self.cache.entries.len(), self.cache.bytes)
+        let cache = self.cache.state.lock();
+        (cache.entries.len(), cache.bytes)
     }
 
     fn with_index_workers(mut self, workers: usize) -> Self {
@@ -38,8 +66,10 @@ impl QueryRecording {
     fn has_index(&self, source: &TopicSource) -> bool {
         self.channel(&source.topic).is_ok_and(|channel| {
             self.cache
+                .state
+                .lock()
                 .entries
-                .contains_key(&(channel, source.projection.clone()))
+                .contains_key(&(self.owner, (channel, source.projection.clone())))
         })
     }
 }
@@ -120,11 +150,20 @@ pub(crate) fn fixture_records(
     file
 }
 
+fn index_cache() -> Arc<IndexCache> {
+    static RUNTIME: OnceLock<Runtime> = OnceLock::new();
+    let runtime = RUNTIME.get_or_init(|| Runtime::new().unwrap());
+    let _entered = runtime.enter();
+    let (cache, _cleanup) = IndexCache::new(DEFAULT_INDEX_BYTES).unwrap();
+    Arc::new(cache)
+}
+
 fn open(file: &Path) -> QueryRecording {
     QueryRecording::new(
         Recording::open(file, "/replay").unwrap(),
         "fixture".into(),
-        Arc::new(AtomicBool::new(false)),
+        CancellationToken::new(),
+        index_cache(),
     )
     .unwrap()
 }
@@ -288,7 +327,7 @@ fn progressive_indexes_preserve_file_order_ties_and_reuse_loaded_chunks() {
             3,
             "both indexes and payload chunk reused"
         );
-        assert_eq!(recording.cache.stats.projected_messages, 6);
+        assert_eq!(recording.cache.state.lock().stats.projected_messages, 6);
     }
 }
 
@@ -409,8 +448,8 @@ fn parallel_indexes_match_serial_across_chunks_duplicates_and_rejected_times() {
             );
         }
         assert_eq!(
-            parallel.cache.stats.projected_messages,
-            serial.cache.stats.projected_messages
+            parallel.cache.state.lock().stats.projected_messages,
+            serial.cache.state.lock().stats.projected_messages
         );
         assert_eq!(parallel.index_stats(), serial.index_stats());
         assert_eq!(parallel.decoded_chunks(), serial.decoded_chunks());
@@ -430,11 +469,12 @@ fn worker_failure_discards_builders_without_cancelling_the_recording() {
             (1, 20, 500, 500),
         ],
     );
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = CancellationToken::new();
     let mut recording = QueryRecording::new(
         Recording::open(file.path(), "/replay").unwrap(),
         "failure".into(),
         cancel.clone(),
+        index_cache(),
     )
     .unwrap();
     let result = finish(
@@ -446,7 +486,7 @@ fn worker_failure_discards_builders_without_cancelling_the_recording() {
         panic!("expected index failure")
     };
     assert!(!error.contains("cancelled"), "originating error: {error}");
-    assert!(!cancel.load(Ordering::Relaxed));
+    assert!(!cancel.is_cancelled());
     assert_eq!(recording.index_stats(), (0, 0));
     let plan = Source::from(TopicSource::new(
         "/replay/detections",
@@ -460,7 +500,7 @@ fn worker_failure_discards_builders_without_cancelling_the_recording() {
             .source_time,
         Time::from_nanos(500)
     );
-    cancel.store(true, Ordering::Relaxed);
+    cancel.cancel();
     assert!(
         recording
             .query_plan(&plan, Time::from_nanos(1000), |_| true)
@@ -483,7 +523,7 @@ fn exact_and_before_inputs_ignore_publication_time_and_reuse_indexes() {
             input(&frames(&result)[0], 0)[0].record.source_time,
             Time::from_nanos(520)
         );
-        let decoded = recording.cache.stats.projected_messages;
+        let decoded = recording.cache.state.lock().stats.projected_messages;
         for time in [10, 20, 30, 10] {
             assert_eq!(
                 frames(&finish(&mut recording, &plan, Time::from_nanos(time)))[0]
@@ -493,7 +533,10 @@ fn exact_and_before_inputs_ignore_publication_time_and_reuse_indexes() {
                 Time::from_nanos(time.min(20))
             );
         }
-        assert_eq!(recording.cache.stats.projected_messages, decoded);
+        assert_eq!(
+            recording.cache.state.lock().stats.projected_messages,
+            decoded
+        );
         let result = finish(
             &mut recording,
             &image_plan(Selection::latest(), Selection::latest()),
@@ -661,7 +704,7 @@ fn start_server(
     let name = name.to_owned();
     let (stop, shutdown) = oneshot::channel();
     let server = tokio::spawn(async move {
-        serve_queries(&node, recording, name, DEFAULT_INDEX_BYTES, async {
+        serve_queries(&node, recording, name, index_cache(), async {
             let _ = shutdown.await;
         })
         .await

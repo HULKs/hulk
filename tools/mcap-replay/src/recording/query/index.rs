@@ -1,22 +1,35 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{HashMap, hash_map::Entry},
+    io::Error,
     mem::size_of,
     sync::{
-        Arc, Mutex,
+        Arc,
         atomic::{AtomicBool, AtomicUsize, Ordering},
+        mpsc::{Sender, channel},
     },
     thread,
 };
 
-use color_eyre::eyre::{Context, Result, bail, ensure, eyre};
+use color_eyre::eyre::{Context, Result, bail, ensure};
 use mcap::{
     parse_record,
     records::{Record, op::MESSAGE},
 };
+use parking_lot::Mutex;
 use ros_z::{dynamic::Schema, time::Time};
 use ros_z_debug::query::{TimeProjection, plan::TimeIndex};
+use tokio::{
+    runtime::Handle,
+    sync::{Mutex as AsyncMutex, OwnedMutexGuard},
+    task::JoinHandle,
+};
+use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
 
 use super::super::Recording;
+
+#[cfg(test)]
+mod tests;
 
 const MAX_INDEXES: usize = 256;
 const ENTRY_BYTES: usize = size_of::<IndexEntry>();
@@ -75,16 +88,23 @@ pub(super) struct BuildStats {
     pub projected_messages: usize,
 }
 
-pub(super) struct IndexCache {
-    pub entries: HashMap<IndexKey, CachedIndex>,
+pub struct IndexCache {
+    pub(super) state: Arc<Mutex<CacheState>>,
+    pub(super) builds: Arc<AsyncMutex<()>>,
+    cleanup: Sender<Uuid>,
+}
+
+pub(super) struct CacheState {
+    pub(super) entries: HashMap<(Uuid, IndexKey), CachedIndex>,
+    // Includes removed indexes until the cleanup worker has released their allocations.
     pub bytes: usize,
-    pub stats: BuildStats,
+    pub(super) stats: BuildStats,
     budget: usize,
     clock: u64,
 }
 
-impl IndexCache {
-    pub fn new(budget: usize) -> Self {
+impl CacheState {
+    fn new(budget: usize) -> Self {
         Self {
             entries: HashMap::new(),
             bytes: 0,
@@ -94,17 +114,8 @@ impl IndexCache {
         }
     }
 
-    pub fn set_budget(&mut self, bytes: usize) -> Result<()> {
-        ensure!(
-            bytes >= ENTRY_BYTES,
-            "index cache must hold at least one {ENTRY_BYTES}-byte entry"
-        );
-        self.budget = bytes;
-        self.make_room(0, 0)
-    }
-
-    pub fn get(&mut self, key: &IndexKey) -> Option<Arc<Index>> {
-        let cached = self.entries.get_mut(key)?;
+    pub(super) fn get(&mut self, owner: &Uuid, key: &IndexKey) -> Option<Arc<Index>> {
+        let cached = self.entries.get_mut(&(*owner, key.clone()))?;
         self.clock = self.clock.saturating_add(1);
         cached.last_used = self.clock;
         Some(Arc::clone(&cached.index))
@@ -176,59 +187,109 @@ impl IndexCache {
         self.make_room(*building_bytes, building_count)
     }
 
-    fn insert(&mut self, key: IndexKey, index: Arc<Index>) {
+    fn remove_recording(&mut self, owner: Uuid) -> Vec<Arc<Index>> {
+        self.entries
+            .extract_if(|(id, _), _| *id == owner)
+            .map(|(_, cached)| cached.index)
+            .collect()
+    }
+
+    fn insert(&mut self, owner: &Uuid, key: IndexKey, index: Arc<Index>) -> Result<()> {
+        let bytes = self
+            .bytes
+            .checked_add(index.bytes())
+            .filter(|bytes| *bytes <= self.budget)
+            .ok_or_else(|| Error::other("index cache budget exceeded"))?;
+        let Entry::Vacant(entry) = self.entries.entry((*owner, key)) else {
+            bail!("index already cached");
+        };
         self.clock = self.clock.saturating_add(1);
-        self.bytes += index.bytes();
-        let previous = self.entries.insert(
-            key,
-            CachedIndex {
-                index,
-                last_used: self.clock,
-            },
+        entry.insert(CachedIndex {
+            index,
+            last_used: self.clock,
+        });
+        self.bytes = bytes;
+        Ok(())
+    }
+}
+
+impl IndexCache {
+    pub fn new(budget: usize) -> Result<(Self, JoinHandle<Result<()>>)> {
+        ensure!(
+            budget >= ENTRY_BYTES,
+            "index cache must hold at least one index entry"
         );
-        debug_assert!(previous.is_none());
-        debug_assert!(self.bytes <= self.budget);
+        let state = Arc::new(Mutex::new(CacheState::new(budget)));
+        let (cleanup, removed) = channel();
+        let worker_state = Arc::clone(&state);
+        let worker = Handle::try_current()
+            .wrap_err("starting index cleanup task")?
+            .spawn_blocking(move || {
+                for owner in removed {
+                    let indexes = worker_state.lock().remove_recording(owner);
+                    let bytes = indexes.iter().map(|index| index.bytes()).sum::<usize>();
+                    // Release potentially large allocations outside the cache lock.
+                    drop(indexes);
+                    worker_state.lock().bytes -= bytes;
+                }
+                Ok(())
+            });
+
+        Ok((
+            Self {
+                state,
+                builds: Arc::new(AsyncMutex::new(())),
+                cleanup,
+            },
+            worker,
+        ))
     }
 
-    pub fn indexes(
-        &mut self,
-        recording: &Recording,
-        cancel: &AtomicBool,
-        workers: usize,
-        keys: &[IndexKey],
-    ) -> Result<Vec<Arc<Index>>> {
-        let mut available = HashMap::new();
-        let mut pending = Vec::<PendingIndex>::new();
-        for key in keys {
-            if available.contains_key(key) || pending.iter().any(|pending| pending.key == *key) {
-                continue;
-            }
-            if let Some(index) = self.get(key) {
-                available.insert(key.clone(), index);
-                continue;
-            }
-            pending.push(PendingIndex::new(recording, key.clone())?);
+    pub(super) fn remove_recording(&self, owner: Uuid) {
+        if let Err(error) = self.cleanup.send(owner) {
+            tracing::error!(%owner, %error, "index cleanup worker stopped unexpectedly");
         }
-        self.make_room(0, pending.len())?;
-        if !pending.is_empty() {
-            self.build_indexes(recording, cancel, workers, &mut pending)?;
-        }
-        // A failed build drops every unfinished index instead of caching partial data.
-        for pending in pending {
-            ensure!(!cancel.load(Ordering::Relaxed), "indexing cancelled");
-            let (key, index) = pending.finish();
-            self.insert(key.clone(), Arc::clone(&index));
-            available.insert(key, index);
-        }
-        Ok(keys.iter().map(|key| Arc::clone(&available[key])).collect())
     }
 
-    fn build_indexes(
-        &mut self,
+    pub(super) fn get(&self, owner: &Uuid, key: &IndexKey) -> Option<Arc<Index>> {
+        self.state.lock().get(owner, key)
+    }
+
+    pub(super) async fn acquire_build(&self) -> OwnedMutexGuard<()> {
+        Arc::clone(&self.builds).lock_owned().await
+    }
+
+    pub(super) fn index(
+        &self,
+        owner: &Uuid,
         recording: &Recording,
-        cancel: &AtomicBool,
+        cancel: &CancellationToken,
         workers: usize,
-        pending: &mut [PendingIndex],
+        key: &IndexKey,
+        _guard: OwnedMutexGuard<()>,
+    ) -> Result<Arc<Index>> {
+        // The owned guard outlives unfinished allocations, including on failure.
+        ensure!(!cancel.is_cancelled(), "indexing cancelled");
+        if let Some(index) = self.get(owner, key) {
+            return Ok(index);
+        }
+        let mut pending = PendingIndex::new(recording, key.clone())?;
+        self.state.lock().make_room(0, 1)?;
+        self.build_index(recording, cancel, workers, &mut pending)?;
+        ensure!(!cancel.is_cancelled(), "indexing cancelled");
+        let index = pending.finish();
+        self.state
+            .lock()
+            .insert(owner, key.clone(), Arc::clone(&index))?;
+        Ok(index)
+    }
+
+    fn build_index(
+        &self,
+        recording: &Recording,
+        cancel: &CancellationToken,
+        workers: usize,
+        pending: &mut PendingIndex,
     ) -> Result<()> {
         let scan = IndexScan::new(recording, cancel, pending)?;
         let build = Mutex::new(IndexBuild {
@@ -238,11 +299,10 @@ impl IndexCache {
             stats: BuildStats::default(),
         });
         let result = scan.run(&build, workers);
-        let build = build
-            .into_inner()
-            .map_err(|_| eyre!("index build lock poisoned"))?;
-        build.cache.stats.decoded_chunks += build.stats.decoded_chunks;
-        build.cache.stats.projected_messages += build.stats.projected_messages;
+        let build = build.into_inner();
+        let mut state = self.state.lock();
+        state.stats.decoded_chunks += build.stats.decoded_chunks;
+        state.stats.projected_messages += build.stats.projected_messages;
         result
     }
 }
@@ -291,7 +351,7 @@ impl PendingIndex {
         }
     }
 
-    fn finish(mut self) -> (IndexKey, Arc<Index>) {
+    fn finish(mut self) -> Arc<Index> {
         self.index.entries.sort_unstable();
         if let Some((_, error)) = self.last_error {
             self.index.diagnostics.push(format!(
@@ -299,51 +359,40 @@ impl PendingIndex {
                 self.rejected
             ));
         }
-        (self.key, Arc::new(self.index))
+        Arc::new(self.index)
     }
 }
 
 enum IndexedRecord {
-    Timestamp {
-        index: usize,
-        entry: IndexEntry,
-    },
-    Rejected {
-        index: usize,
-        location: (u32, u32),
-        error: String,
-    },
+    Timestamp(IndexEntry),
+    Rejected { location: (u32, u32), error: String },
 }
 
 /// All allocation and eviction happens under this lock, never file reads or projection.
 struct IndexBuild<'a> {
-    pending: &'a mut [PendingIndex],
-    cache: &'a mut IndexCache,
+    pending: &'a mut PendingIndex,
+    cache: &'a IndexCache,
     building_bytes: usize,
     stats: BuildStats,
 }
 
 impl IndexBuild<'_> {
     fn merge(&mut self, batch: &mut Vec<IndexedRecord>) -> Result<()> {
-        let count = self.pending.len();
+        let pending = &mut self.pending;
         for record in batch.drain(..) {
-            let index = match &record {
-                IndexedRecord::Timestamp { index, .. } | IndexedRecord::Rejected { index, .. } => {
-                    *index
-                }
-            };
-            let pending = &mut self.pending[index];
             if pending.key.1 != TimeProjection::SourceTime {
                 self.stats.projected_messages += 1;
             }
             match record {
-                IndexedRecord::Timestamp { entry, .. } => {
-                    self.cache.reserve_entry(
-                        &mut pending.index.entries,
-                        pending.hint,
-                        &mut self.building_bytes,
-                        count,
-                    )?;
+                IndexedRecord::Timestamp(entry) => {
+                    if pending.index.entries.len() == pending.index.entries.capacity() {
+                        self.cache.state.lock().reserve_entry(
+                            &mut pending.index.entries,
+                            pending.hint,
+                            &mut self.building_bytes,
+                            1,
+                        )?;
+                    }
                     pending.index.entries.push(entry);
                 }
                 IndexedRecord::Rejected {
@@ -357,9 +406,9 @@ impl IndexBuild<'_> {
 
 struct IndexScan<'a> {
     recording: &'a Recording,
-    cancel: &'a AtomicBool,
-    plans: Vec<(TimeProjection, Schema)>,
-    by_channel: BTreeMap<u16, Vec<usize>>,
+    cancel: &'a CancellationToken,
+    key: IndexKey,
+    schema: Schema,
     chunks: Vec<u32>,
     next_chunk: AtomicUsize,
     failed: AtomicBool,
@@ -368,13 +417,9 @@ struct IndexScan<'a> {
 impl<'a> IndexScan<'a> {
     fn new(
         recording: &'a Recording,
-        cancel: &'a AtomicBool,
-        pending: &[PendingIndex],
+        cancel: &'a CancellationToken,
+        pending: &PendingIndex,
     ) -> Result<Self> {
-        let mut by_channel = BTreeMap::<u16, Vec<usize>>::new();
-        for (slot, pending) in pending.iter().enumerate() {
-            by_channel.entry(pending.key.0).or_default().push(slot);
-        }
         let chunks = recording
             .summary
             .chunk_indexes
@@ -382,22 +427,15 @@ impl<'a> IndexScan<'a> {
             .enumerate()
             .filter(|(_, chunk)| {
                 chunk.message_index_offsets.is_empty()
-                    || by_channel
-                        .keys()
-                        .any(|channel| chunk.message_index_offsets.contains_key(channel))
+                    || chunk.message_index_offsets.contains_key(&pending.key.0)
             })
             .map(|(index, _)| u32::try_from(index))
             .collect::<std::result::Result<_, _>>()?;
-        // Copy each small projection once, not once per chunk or message.
-        let plans = pending
-            .iter()
-            .map(|index| (index.key.1.clone(), Arc::clone(&index.schema)))
-            .collect();
         Ok(Self {
             recording,
             cancel,
-            plans,
-            by_channel,
+            key: pending.key.clone(),
+            schema: Arc::clone(&pending.schema),
             chunks,
             next_chunk: AtomicUsize::new(0),
             failed: AtomicBool::new(false),
@@ -424,7 +462,7 @@ impl<'a> IndexScan<'a> {
             for worker in workers {
                 let result = worker.join().unwrap_or_else(|_| {
                     self.failed.store(true, Ordering::Relaxed);
-                    Err(eyre!("index worker panicked"))
+                    Err(Error::other("index worker panicked")).wrap_err("joining index worker")
                 });
                 if let Err(error) = result {
                     failure.get_or_insert(error);
@@ -443,7 +481,7 @@ impl<'a> IndexScan<'a> {
     }
 
     fn cancelled(&self) -> bool {
-        self.cancel.load(Ordering::Relaxed) || self.failed.load(Ordering::Relaxed)
+        self.cancel.is_cancelled() || self.failed.load(Ordering::Relaxed)
     }
 
     fn scan_chunks(&self, build: &Mutex<IndexBuild<'_>>) -> Result<()> {
@@ -464,9 +502,7 @@ impl<'a> IndexScan<'a> {
                     self.project_message(chunk_id, offset, opcode, body, &mut batch, build)
                 },
             )?;
-            let mut build = build
-                .lock()
-                .map_err(|_| eyre!("index build lock poisoned"))?;
+            let mut build = build.lock();
             build.merge(&mut batch)?;
             build.stats.decoded_chunks += 1;
         }
@@ -487,33 +523,23 @@ impl<'a> IndexScan<'a> {
         let Record::Message { header, data } = parse_record(opcode, body)? else {
             unreachable!("message opcode was checked");
         };
-        let Some(slots) = self.by_channel.get(&header.channel_id) else {
+        if header.channel_id != self.key.0 {
             return Ok(());
-        };
+        }
         let source = Time::from_nanos(header.publish_time.try_into()?);
-        for &index in slots {
-            let (projection, schema) = &self.plans[index];
-            batch.push(match projection.project_cdr(source, &data, schema) {
-                Ok(time) => IndexedRecord::Timestamp {
-                    index,
-                    entry: IndexEntry {
-                        timestamp_ns: time.as_nanos(),
-                        chunk_id,
-                        record_offset: offset,
-                    },
-                },
-                Err(error) => IndexedRecord::Rejected {
-                    index,
-                    location: (chunk_id, offset),
-                    error: error.to_string(),
-                },
-            });
-            if batch.len() == INDEX_BATCH_RECORDS {
-                build
-                    .lock()
-                    .map_err(|_| eyre!("index build lock poisoned"))?
-                    .merge(batch)?;
-            }
+        batch.push(match self.key.1.project_cdr(source, &data, &self.schema) {
+            Ok(time) => IndexedRecord::Timestamp(IndexEntry {
+                timestamp_ns: time.as_nanos(),
+                chunk_id,
+                record_offset: offset,
+            }),
+            Err(error) => IndexedRecord::Rejected {
+                location: (chunk_id, offset),
+                error: error.to_string(),
+            },
+        });
+        if batch.len() == INDEX_BATCH_RECORDS {
+            build.lock().merge(batch)?;
         }
         Ok(())
     }
