@@ -127,7 +127,7 @@ bat = { version = "0.25.0", default-features = false, features = [
   "regex-fancy",
 ] }
 behavior_node = { path = "crates/nodes/behavior_node" }
-bevy = { git = "https://github.com/bevyengine/bevy", rev = "4805ca792c3e94eef07afd6fa9a2712f388c9a67", default-features = false }
+bevy = { version = "0.20", default-features = false }
 bevy_mujoco = { path = "crates/bevy_mujoco" }
 bincode = "1.3.3"
 bindgen = "0.71.1"

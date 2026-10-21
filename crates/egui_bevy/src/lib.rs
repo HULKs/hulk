@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bevy::{
     camera::{ManualTextureViewHandle, RenderTarget, Viewport},
     camera_controller::pan_orbit_camera::{
@@ -18,10 +16,7 @@ use bevy::{
     render::{
         RenderDebugFlags, RenderPlugin,
         render_resource::Texture,
-        renderer::{
-            RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue,
-            WgpuWrapper,
-        },
+        renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue},
         settings::RenderCreation,
         texture::ManualTextureView,
     },
@@ -169,11 +164,11 @@ impl Plugin for EguiRenderPlugin {
             BevyRenderTarget::create_texture(Vec2::new(512.0, 512.0), &self.wgpu_state);
         let plugin = RenderPlugin {
             render_creation: RenderCreation::manual(
-                RenderDevice::new(WgpuWrapper::new(device)),
-                RenderQueue(Arc::new(WgpuWrapper::new(queue))),
-                RenderAdapterInfo(WgpuWrapper::new(adapter.get_info())),
-                RenderAdapter(Arc::new(WgpuWrapper::new(adapter))),
-                RenderInstance(Arc::new(WgpuWrapper::new(instance))),
+                RenderDevice::new(device),
+                RenderQueue::new(queue),
+                RenderAdapterInfo::new(adapter.get_info()),
+                RenderAdapter::new(adapter),
+                RenderInstance::new(instance),
             ),
             synchronous_pipeline_compilation: true,
             debug_flags: RenderDebugFlags::empty(),
