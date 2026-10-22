@@ -1,12 +1,12 @@
-use ::kinematics::joints::Joints;
 use coordinate_systems::Robot;
+use kinematics::joints::Joints;
 use linear_algebra::Vector3;
 use ros_z::time::Time;
 use types::joint_limits::JointLimits;
 
-use super::GetUp;
 use crate::{
     config::{Policy, clip_measurement},
+    get_up::GetUp,
     observation::SensorFrame,
 };
 

@@ -1,13 +1,13 @@
 use std::collections::VecDeque;
+
+use coordinate_systems::Ground;
+use kinematics::joints::Joints;
+use linear_algebra::Vector2;
 use types::joint_limits::JointLimits;
 
-use ::kinematics::joints::Joints;
-use coordinate_systems::Ground;
-use linear_algebra::Vector2;
-
-use super::Locomotion;
 use crate::{
     config::{HISTORY_FRAME_SIZE, HISTORY_LENGTH, LEGS, Parameters, Policy, clip_measurement},
+    locomotion::Locomotion,
     observation::SensorFrame,
 };
 

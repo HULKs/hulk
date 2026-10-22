@@ -6,8 +6,7 @@ use kinematics::{
     joints::{Joints, leg::LegJoints},
 };
 use linear_algebra::{Orientation2, Point2, Point3, Vector2, point};
-use types::joint_limits::JointLimits;
-use types::motor_command::MotorCommand;
+use types::{joint_limits::JointLimits, motor_command::MotorCommand};
 
 use crate::{
     config::{HISTORY_FRAME_SIZE, HISTORY_LENGTH, LEGS, Parameters, Policy},

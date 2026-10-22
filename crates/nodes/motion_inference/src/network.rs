@@ -1,10 +1,12 @@
-use crate::config::{Parameters, Policy};
+use std::path::Path;
+
 use color_eyre::eyre::{Result, WrapErr, ensure, eyre};
 use ort::{
     session::Session,
     value::{TensorElementType, TensorRef, ValueType},
 };
-use std::path::Path;
+
+use crate::config::{Parameters, Policy};
 
 pub struct Network {
     session: Session,

@@ -1,9 +1,12 @@
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
-use booster::{JointsMotorState, LowState};
 use color_eyre::{Report, Result};
-use kinematics::joints::{Joints, body::LowerBodyJoints};
 use nalgebra::UnitQuaternion;
+use serde::{Deserialize, Serialize};
+use tracing::warn;
+
+use booster::{JointsMotorState, LowState};
+use kinematics::joints::{Joints, body::LowerBodyJoints};
 use ros_z::{
     Message,
     prelude::*,
@@ -12,8 +15,6 @@ use ros_z::{
     service::RequestId,
     time::Time,
 };
-use serde::{Deserialize, Serialize};
-use tracing::warn;
 use types::{
     joint_limits::JointLimits,
     motor_command::MotorCommand,

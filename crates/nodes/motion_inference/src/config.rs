@@ -1,7 +1,9 @@
-use ::kinematics::joints::{Joints, JointsName, arm::ArmJoint, leg::LegJoint};
+use std::{collections::HashMap, path::PathBuf, time::Duration};
+
 use color_eyre::eyre::{Result, ensure, eyre};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf, time::Duration};
+
+use kinematics::joints::{Joints, JointsName, arm::ArmJoint, leg::LegJoint};
 
 pub const HISTORY_LENGTH: usize = 10;
 pub const HISTORY_FRAME_SIZE: usize = 32;

@@ -3,6 +3,9 @@ use std::sync::{
     atomic::{AtomicU64, Ordering},
 };
 
+use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::{self, Receiver, Sender, error::TrySendError};
+
 use ros_z::{
     Message,
     prelude::Publisher,
@@ -10,8 +13,6 @@ use ros_z::{
     service::RequestId,
     time::{Clock, Time},
 };
-use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc::{self, Receiver, Sender, error::TrySendError};
 
 use crate::{config::Policy, inference::InferenceCommand, node::InferenceError};
 

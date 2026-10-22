@@ -1,14 +1,15 @@
 use std::f32::consts::{PI, TAU};
-use types::joint_limits::JointLimits;
 
-use ::kinematics::joints::Joints;
-use coordinate_systems::{Ground, Robot};
-use linear_algebra::{Orientation2, Point2, Vector3};
 use nalgebra::{UnitComplex, UnitQuaternion};
 
-use super::{KickRequest, Locomotion, leg};
+use coordinate_systems::{Ground, Robot};
+use kinematics::joints::Joints;
+use linear_algebra::{Orientation2, Point2, Vector3};
+use types::joint_limits::JointLimits;
+
 use crate::{
     config::{KickParameters, LEGS, Policy, clip_measurement},
+    locomotion::{KickRequest, Locomotion, leg},
     observation::SensorFrame,
 };
 

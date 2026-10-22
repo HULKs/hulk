@@ -1,8 +1,9 @@
-use ::kinematics::joints::Joints;
 use color_eyre::eyre::{Result, ensure};
-use coordinate_systems::Robot;
-use linear_algebra::Vector3;
 use nalgebra::UnitQuaternion;
+
+use coordinate_systems::Robot;
+use kinematics::joints::Joints;
+use linear_algebra::Vector3;
 use ros_z::time::Time;
 
 use crate::config::Parameters;

@@ -1,13 +1,6 @@
-use crate::{
-    inference::InferenceCommand,
-    node::{
-        GETUP_INFERENCE_SERVICE, GetUpInferenceService, InferenceError, InferenceRequest,
-        InferenceResult, KICK_INFERENCE_SERVICE, KickInferenceService, WALK_INFERENCE_SERVICE,
-        WalkInferenceService,
-    },
-    trace::{Event, Trace},
-};
 use color_eyre::Report;
+use tracing::warn;
+
 use kinematics::joints::{
     Joints,
     body::{BodyJoints, LowerBodyJoints},
@@ -18,8 +11,17 @@ use ros_z::{
     service::{RequestId, ServiceReply, ServiceServer},
     time::{Clock, Time},
 };
-use tracing::warn;
 use types::motor_command::MotorCommand;
+
+use crate::{
+    inference::InferenceCommand,
+    node::{
+        GETUP_INFERENCE_SERVICE, GetUpInferenceService, InferenceError, InferenceRequest,
+        InferenceResult, KICK_INFERENCE_SERVICE, KickInferenceService, WALK_INFERENCE_SERVICE,
+        WalkInferenceService,
+    },
+    trace::{Event, Trace},
+};
 
 pub(super) struct Pending {
     pub request: InferenceRequest<InferenceCommand>,
