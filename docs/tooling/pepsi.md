@@ -38,6 +38,8 @@ Many subcommands can act on multiple robots concurrently.
 `logs` or and `postgame` can be used after a (test-)game to download logs, the latter also shuts down the HULKs binary and disables wifi.
 
 On K1 robots, `gammaray` configures HULK and disables manufacturer controller programs; `boosterize` restores manufacturer control.
+Gammaray preserves Booster's saved runtime configuration across starts and disables services through `bdb`.
+Boosterize regenerates Booster's platform defaults.
 See [Remote Control](remote_control.md) for setup, gamepad bindings, and restoration instructions.
 
 ### Offline gammaray preparation
@@ -46,6 +48,13 @@ Prepare packages on an internet-connected Linux host with Nix and curl.
 The existing flake lock pins Podman, Zenoh, nftables, and their dependencies.
 ARM64 binaries are fetched from the Nix cache; cache misses require an ARM64 builder or emulation.
 Environment assembly runs on x86_64 Linux.
+
+The runtime uses a custom `zenoh-bridge-dds` 1.9.0 build for Booster firmware 1.8.
+`nix/zenoh-bridge-dds` uses two patches made by IntelligentRoboticsLab for `cyclors` and `zenoh-plugin-dds`.
+These omit the conflicting DDS discovery parameter and skip invalid Zenoh topic names.
+The bridge is cross-compiled from source on x86_64 Linux via nix during bundle preparation of `gammaray` or `gammaray --prepare`.
+It can also be built separately with `nix build .#packages.aarch64-linux.zenoh-bridge-dds`.
+Gammaray installs it through the runtime profile.
 
 ```sh
 pepsi gammaray --prepare
@@ -61,7 +70,8 @@ Bump that version after runtime package changes, or remove the directory to rebu
 Failed preparation does not publish a partial bundle.
 
 The bundle includes a version-pinned ARM64 Nix installer, complete Nix runtime closure, and root store path.
-The robot needs SSH, rsync, sudo, Bash, tar/xz, systemd, NVIDIA tooling, and kernel support for nftables.
+The robot needs SSH, rsync, sudo, Bash, Python 3, tar/xz, systemd, NVIDIA tooling, and kernel support for nftables.
+Booster firmware must provide `bdb` and the recognized dynamic configuration startup script.
 
 ### Filesystem overlay
 

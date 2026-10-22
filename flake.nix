@@ -15,6 +15,7 @@
       rustVersion = workspace.workspace.package.rust-version;
       pkgs = import nixpkgs { inherit system; overlays = [ (import rust-overlay) ]; };
       robotPkgs = import nixpkgs { system = "aarch64-linux"; };
+      robotBridge = pkgs.pkgsCross.aarch64-multiplatform.callPackage ./nix/zenoh-bridge-dds/package.nix { };
       craneLibrary =
         (crane.mkLib pkgs).overrideToolchain pkgs.rust-bin.stable.${rustVersion}.default;
 
@@ -24,6 +25,7 @@
           (craneLibrary.fileset.commonCargoSources ./.)
           ./crates/hsl_network_messages/headers/RoboCupGameControlData.hpp
           ./tools/pepsi/src/install-hulks-bundle.sh
+          ./tools/pepsi/src/gammaray
         ];
       };
 
@@ -76,11 +78,16 @@
       };
     in
     {
-      packages.${system} = { inherit pepsi twix rosz; };
+      packages.${system} = {
+        inherit pepsi twix rosz;
+        zenoh-bridge-dds = pkgs.callPackage ./nix/zenoh-bridge-dds/package.nix { };
+      };
+
+      packages.aarch64-linux.zenoh-bridge-dds = robotBridge;
 
       packages.aarch64-linux.hulk-runtime = pkgs.buildEnv {
         name = "hulk-runtime";
-        paths = with robotPkgs; [ podman zenoh zenoh-plugin-dds catatonit nftables ];
+        paths = with robotPkgs; [ podman zenoh robotBridge catatonit nftables ];
         pathsToLink = [ "/bin" "/libexec" "/lib/systemd" ];
       };
 
