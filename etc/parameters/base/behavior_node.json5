@@ -101,7 +101,7 @@
     ],
   },
   voronoi: {
-    grid_resolution: 0.2,
+    grid_resolution: 0.5,
     padding: 0.5,
     forward_weight: 0.2,
     ball_weight: 1.0,
