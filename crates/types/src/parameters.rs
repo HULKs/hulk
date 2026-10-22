@@ -227,6 +227,10 @@ pub struct SearchSuggestorParameters {
     pub last_ball_priority_maximum: f32,
     pub last_ball_priority_half_distance: f32,
     pub last_ball_priority_rise_time: Duration,
+    /// Time after the last observation until the spatial last-ball bias disappears.
+    /// Zero disables the spatial bias immediately, retaining uniform priority growth.
+    #[serde(default)]
+    pub last_ball_priority_fade_time: Duration,
     pub turn_preference_priority_margin: f32,
     pub border_view_penalty: f32,
     pub border_view_penalty_range: f32,

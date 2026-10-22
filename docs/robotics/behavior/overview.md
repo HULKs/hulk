@@ -76,11 +76,16 @@ Rule-generated positions are provided separately and are not retained as last se
 The `search_suggestor` combines local, team, hypothetical, and rule-based ball information in a priority heatmap with half-meter cells and values between zero and one.
 An observed ball raises nearby cells without clearing the rest of the heatmap; ball positions well outside the field are ignored.
 After losing a locally observed ball during `Playing`, priorities grow over time, fastest around its last position.
+The spatial bias fades linearly over `last_ball_priority_fade_time` (10 seconds by default), measured from the ball's last observation rather than reception of a predicted filter output.
+Setting this duration to zero disables the spatial bias immediately.
+Afterwards only the uniform `last_ball_priority_minimum` growth remains; previously accumulated priorities are still cleared by observed empty areas.
 On entering `Playing`, a map with a high average priority is scaled down while preserving differences between cells.
 Areas within the estimated field of view lose priority; obstacles reduce this decay for areas they obscure.
 Corner kicks, goal kicks, and throw-ins clear the heatmap outside their restart locations, including priorities from earlier observations.
 
 The robot's own pose and fresh teammate poses define its search Voronoi region.
+Field players exclude the configured goalkeeper from this partition, matching the behavior's goalkeeper-free Voronoi calculation.
+The goalkeeper searches independently of the field-player partition.
 Within that region, the suggestor selects a cell above the minimum priority.
 For the configured goalkeeper, search targets are additionally restricted to the own half of the field, including fallback targets.
 The suggestor receives the goalkeeper player number from the behavior node; until that assignment is available, it does not publish a search target.

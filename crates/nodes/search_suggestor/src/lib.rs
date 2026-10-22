@@ -224,10 +224,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     {
                         continue;
                     }
+                    let last_seen = ball_position.last_seen;
                     let ball_position = ground_to_field * ball_position.position;
                     if ball_position_near_field(field_dimensions, ball_position) {
                         ball_was_seen = true;
-                        last_ball_position = Some(ball_position);
+                        last_ball_position = Some((ball_position, last_seen));
                         current_ball_position = Some(ball_position);
                     } else {
                         current_ball_position = None;
@@ -294,7 +295,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         if !restart_regenerated
             && is_playing
             && current_ball_position.is_none()
-            && let Some(last_ball_position) = last_ball_position
+            && let Some((last_ball_position, last_seen)) = last_ball_position
         {
             heatmap.increase_around_last_ball(
                 field_dimensions,
@@ -304,6 +305,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 } else {
                     elapsed_since_last_priority_update
                 },
+                now.duration_since(last_seen),
                 parameters,
             );
         }
@@ -357,6 +359,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             search_voronoi_selection_from_teammates(
                 field_dimensions,
                 own_voronoi_site,
+                goalkeeper_player_number_cache
+                    .get_latest()
+                    .map(|number| *number),
                 &last_teammate_states,
                 teammate_freshness,
             )
@@ -496,17 +501,25 @@ fn search_occluders_from_obstacles(
 fn search_voronoi_selection_from_teammates(
     field_dimensions: FieldDimensions,
     own_voronoi_site: Option<(Isometry2<Ground, Field>, PlayerNumber)>,
+    goalkeeper_player_number: Option<PlayerNumber>,
     last_teammate_states: &Players<Option<TimeWrapper<PlayerState>>>,
     teammate_freshness: TeammateFreshness,
 ) -> Option<SearchVoronoiSelection> {
     let (ground_to_field, own_player_number) = own_voronoi_site?;
+    let goalkeeper_player_number = goalkeeper_player_number?;
     let mut sites = vec![(ground_to_field.as_pose(), own_player_number)];
 
     for (player_number, teammate_state) in last_teammate_states.iter() {
         let Some(teammate_state) = teammate_state else {
             continue;
         };
-        if player_number == own_player_number {
+        // Field players divide the field without the goalkeeper, matching the
+        // behavior's calculate_voronoi_grid_without_goalkeeper. The goalkeeper
+        // searches its own half independently of the field players' partition.
+        if player_number == own_player_number
+            || player_number == goalkeeper_player_number
+            || own_player_number == goalkeeper_player_number
+        {
             continue;
         }
         if teammate_freshness.contains(teammate_state.time) {

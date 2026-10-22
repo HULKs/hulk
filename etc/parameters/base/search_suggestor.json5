@@ -7,6 +7,7 @@
   last_ball_priority_minimum: 0.2,
   last_ball_priority_maximum: 1.0,
   last_ball_priority_half_distance: 2.0,
+  last_ball_priority_fade_time: { secs: 10, nanos: 0 },
   last_ball_priority_rise_time: {
     nanos: 0,
     secs: 20,

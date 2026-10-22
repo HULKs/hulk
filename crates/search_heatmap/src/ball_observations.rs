@@ -84,6 +84,7 @@ impl Heatmap {
         field_dimensions: FieldDimensions,
         last_ball_position: Point2<Field>,
         elapsed: Duration,
+        observation_age: Duration,
         parameters: &SearchSuggestorParameters,
     ) {
         let rise_time = parameters.last_ball_priority_rise_time.as_secs_f32();
@@ -99,13 +100,20 @@ impl Heatmap {
         let half_distance = parameters
             .last_ball_priority_half_distance
             .max(f32::EPSILON);
+        let fade_time = parameters.last_ball_priority_fade_time.as_secs_f32();
+        let spatial_weight = if fade_time > 0.0 {
+            (1.0 - observation_age.as_secs_f32() / fade_time).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
         self.map.indexed_iter_mut().for_each(|((x, y), value)| {
             let tile_center_in_field = heatmap_tile_center(field_dimensions, (x, y));
             let distance_to_last_ball = (tile_center_in_field - last_ball_position).norm();
             let gaussian = (-LN_2 * (distance_to_last_ball / half_distance).powi(2)).exp();
             let multiplier = parameters.last_ball_priority_minimum
                 + (parameters.last_ball_priority_maximum - parameters.last_ball_priority_minimum)
-                    * gaussian;
+                    * gaussian
+                    * spatial_weight;
             *value += multiplier * rise_fraction;
         });
     }
@@ -115,6 +123,60 @@ impl Heatmap {
 mod tests {
     use super::*;
     use linear_algebra::point;
+
+    #[test]
+    fn last_ball_bias_fades_to_uniform_growth_without_erasing_history() {
+        let field = FieldDimensions::SPL_2025;
+        let parameters = SearchSuggestorParameters {
+            last_ball_priority_minimum: 0.1,
+            last_ball_priority_maximum: 1.0,
+            last_ball_priority_half_distance: 2.0,
+            last_ball_priority_rise_time: Duration::from_secs(10),
+            last_ball_priority_fade_time: Duration::from_secs(30),
+            ..Default::default()
+        };
+        let mut contrasts = Vec::new();
+        for age in [0, 15, 30, 60] {
+            let mut heatmap = Heatmap::new(field);
+            heatmap.map.fill(0.3);
+            heatmap.increase_around_last_ball(
+                field,
+                heatmap_tile_center(field, (9, 6)),
+                Duration::from_secs(1),
+                Duration::from_secs(age),
+                &parameters,
+            );
+            contrasts.push(heatmap.map[(9, 6)] - heatmap.map[(0, 0)]);
+            assert!(heatmap.map.iter().all(|value| *value >= 0.31 - 1e-6));
+            if age >= 30 {
+                assert!(heatmap.map.iter().all(|value| (*value - 0.31).abs() < 1e-6));
+            }
+        }
+        assert!(contrasts[0] > 0.08);
+        assert!((contrasts[1] - contrasts[0] * 0.5).abs() < 1e-6);
+        assert_eq!(contrasts[2], 0.0);
+        assert_eq!(contrasts[3], 0.0);
+    }
+
+    #[test]
+    fn zero_fade_time_disables_spatial_bias() {
+        let field = FieldDimensions::SPL_2025;
+        let mut heatmap = Heatmap::new(field);
+        heatmap.increase_around_last_ball(
+            field,
+            point![0.0, 0.0],
+            Duration::from_secs(1),
+            Duration::ZERO,
+            &SearchSuggestorParameters {
+                last_ball_priority_minimum: 0.1,
+                last_ball_priority_maximum: 1.0,
+                last_ball_priority_rise_time: Duration::from_secs(10),
+                last_ball_priority_fade_time: Duration::ZERO,
+                ..Default::default()
+            },
+        );
+        assert!(heatmap.map.iter().all(|value| (*value - 0.01).abs() < 1e-6));
+    }
 
     #[test]
     fn own_ball_keeps_search_history_and_current_target() {

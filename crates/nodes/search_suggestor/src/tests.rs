@@ -1,6 +1,64 @@
 use super::*;
 
 #[test]
+fn search_partition_excludes_assigned_goalkeeper_and_keeps_its_search_independent() {
+    use linear_algebra::vector;
+
+    let field = FieldDimensions::SPL_2025;
+    let now = Time::from_nanos(10_000_000_000);
+    let field_pose = Isometry2::<Ground, Field>::from_parts(vector![-1.0, 0.0], 0.0);
+    let keeper_pose = Isometry2::<Ground, Field>::from_parts(vector![-4.0, 0.0], 0.0);
+    let other_pose = Isometry2::<Ground, Field>::from_parts(vector![3.0, 0.0], 0.0);
+    // Use a non-default keeper number to exercise the actual role assignment.
+    let mut states = Players::new(None);
+    for (number, pose) in [
+        (PlayerNumber::Two, field_pose),
+        (PlayerNumber::Three, keeper_pose),
+        (PlayerNumber::Four, other_pose),
+    ] {
+        states[number] = Some(TimeWrapper {
+            time: now,
+            inner: PlayerState {
+                pose: pose.as_pose(),
+                head_yaw: 0.0,
+                ball_position: None,
+            },
+        });
+    }
+    for (number, pose, expected_sites) in [
+        (
+            PlayerNumber::Two,
+            field_pose,
+            vec![
+                (field_pose.as_pose(), PlayerNumber::Two),
+                (other_pose.as_pose(), PlayerNumber::Four),
+            ],
+        ),
+        (
+            PlayerNumber::Three,
+            keeper_pose,
+            vec![(keeper_pose.as_pose(), PlayerNumber::Three)],
+        ),
+    ] {
+        let selection = search_voronoi_selection_from_teammates(
+            field,
+            Some((pose, number)),
+            Some(PlayerNumber::Three),
+            &states,
+            TeammateFreshness {
+                now,
+                window: Some(Duration::from_secs(1)),
+            },
+        )
+        .unwrap();
+        let expected = SearchVoronoiSelection::new(field, number, expected_sites);
+        for (position, ownership) in selection.grid.cells() {
+            assert_eq!(Some(ownership), expected.grid.ownership_at(position));
+        }
+    }
+}
+
+#[test]
 fn heatmap_search_is_enabled_by_default() {
     assert!(!SearchSuggestorParameters::default().disable_heatmap_search);
 }
