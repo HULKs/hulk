@@ -350,6 +350,7 @@ impl Runtime {
         }
     }
 
+    #[expect(clippy::too_many_arguments)]
     async fn run(
         mut self,
         sensors: Subscriber<LowState>,

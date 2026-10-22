@@ -123,6 +123,7 @@ impl Inference {
         self.velocity = VelocityEstimator::default();
     }
 
+    #[expect(clippy::too_many_arguments)]
     pub(crate) fn execute_request(
         &mut self,
         now: Time,
