@@ -3,10 +3,7 @@ use std::{
     path::PathBuf, pin::Pin, sync::Arc, time::Duration,
 };
 
-use color_eyre::{
-    Result,
-    eyre::{WrapErr, eyre},
-};
+use color_eyre::{Result, eyre::WrapErr};
 use futures_util::{FutureExt, StreamExt, future::BoxFuture, stream::FuturesUnordered};
 use mcap::{Compression, WriteOptions, Writer, records::MessageHeader};
 use ros_z::{
@@ -19,7 +16,11 @@ use ros_z::{
     time::Time,
 };
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
+use tokio::{
+    sync::mpsc,
+    task::{JoinHandle, spawn_blocking},
+};
+use tokio_util::sync::CancellationToken;
 use zenoh::sample::Sample;
 
 type ChannelId = u16;
@@ -41,11 +42,12 @@ pub struct McapRecorderParameters {
 pub fn run_boxed(
     ctx: Arc<Context>,
     log_path: Option<PathBuf>,
+    stop: CancellationToken,
 ) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
-    Box::pin(run(ctx, log_path))
+    Box::pin(run(ctx, log_path, stop))
 }
 
-async fn run(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<()> {
+async fn run(ctx: Arc<Context>, log_path: Option<PathBuf>, stop: CancellationToken) -> Result<()> {
     let Some(log_path) = log_path else {
         return Ok(());
     };
@@ -56,7 +58,7 @@ async fn run(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<()> {
     let parameters = parameters.snapshot().typed().clone();
 
     if !parameters.enable {
-        std::future::pending::<()>().await;
+        stop.cancelled().await;
         return Ok(());
     }
 
@@ -77,53 +79,61 @@ async fn run(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<()> {
         mcap_path.clone(),
         parameters.raw_image_min_interval,
         write_receiver,
+        stop.clone(),
     );
 
-    let mut recorders = RecorderTasks::new();
-    for topic in &parameters.topics {
-        subscribe_topic(
-            &node,
-            &mut recorders,
-            parameters.queue_depth,
-            parameters.schema_discovery_timeout,
-            topic,
-        )
-        .await?;
-    }
+    let subscribe_and_record = async {
+        let mut recorders = RecorderTasks::new();
+        for topic in &parameters.topics {
+            subscribe_topic(
+                &node,
+                &mut recorders,
+                parameters.queue_depth,
+                parameters.schema_discovery_timeout,
+                topic,
+            )
+            .await?;
+        }
 
-    if parameters.include_raw_images {
-        subscribe_topic(
-            &node,
-            &mut recorders,
-            parameters.queue_depth,
-            parameters.schema_discovery_timeout,
-            RAW_IMAGE_TOPIC,
-        )
-        .await?;
-    }
+        if parameters.include_raw_images {
+            subscribe_topic(
+                &node,
+                &mut recorders,
+                parameters.queue_depth,
+                parameters.schema_discovery_timeout,
+                RAW_IMAGE_TOPIC,
+            )
+            .await?;
+        }
 
-    tracing::info!(
-        path = %mcap_path.display(),
-        include_raw_images = parameters.include_raw_images,
-        raw_image_min_interval = ?parameters.raw_image_min_interval,
-        queue_depth = parameters.queue_depth,
-        topics = parameters.topics.len(),
-        compression = "lz4",
-        "localization recording started"
-    );
+        tracing::info!(
+            path = %mcap_path.display(),
+            include_raw_images = parameters.include_raw_images,
+            raw_image_min_interval = ?parameters.raw_image_min_interval,
+            queue_depth = parameters.queue_depth,
+            topics = parameters.topics.len(),
+            compression = "lz4",
+            "localization recording started"
+        );
 
-    let recorder_result =
-        record_samples(&mut recorders, parameters.max_duration, &write_sender).await;
+        record_samples(&mut recorders, parameters.max_duration, &write_sender).await
+    };
+
+    let recorder_result = match stop.run_until_cancelled_owned(subscribe_and_record).await {
+        None => Ok(()),
+        Some(result) => result,
+    };
+
     drop(write_sender);
 
     let writer_result = writer_task
         .await
-        .wrap_err("localization recording writer task failed to join")?;
+        .wrap_err("recording writer task failed to join")?;
     let samples_written = writer_result.as_ref().copied().unwrap_or_default();
     tracing::info!(
         path = %mcap_path.display(),
         samples_written,
-        "localization recording finished"
+        "recording finished"
     );
 
     writer_result?;
@@ -136,16 +146,16 @@ fn spawn_writer_task(
     mcap_path: PathBuf,
     raw_image_min_interval: Option<Duration>,
     write_receiver: mpsc::Receiver<WriteRequest>,
-) -> tokio::task::JoinHandle<Result<usize>> {
-    tokio::task::spawn_blocking(move || {
-        write_samples(mcap_path, raw_image_min_interval, write_receiver)
-    })
+    stop: CancellationToken,
+) -> JoinHandle<Result<usize>> {
+    spawn_blocking(move || write_samples(mcap_path, raw_image_min_interval, write_receiver, stop))
 }
 
 fn write_samples(
     mcap_path: PathBuf,
     raw_image_min_interval: Option<Duration>,
     mut write_receiver: mpsc::Receiver<WriteRequest>,
+    stop: CancellationToken,
 ) -> Result<usize> {
     let file = File::create(&mcap_path).wrap_err_with(|| {
         format!(
@@ -157,11 +167,15 @@ fn write_samples(
     let mut samples_written = 0;
 
     while let Some(WriteRequest { channel, sample }) = write_receiver.blocking_recv() {
+        if stop.is_cancelled() {
+            break;
+        }
         if writer.write(&channel, &sample)? {
             samples_written += 1;
         }
     }
 
+    drop(write_receiver);
     writer.finish()?;
 
     Ok(samples_written)
@@ -267,7 +281,7 @@ async fn handle_recorded_sample(
             sample,
         })
         .await
-        .map_err(|_| eyre!("localization recording writer task stopped before receiving sample"))?;
+        .wrap_err("recording writer task stopped before receiving sample")?;
     recorders.push(receive_sample(recorder));
 
     Ok(true)
