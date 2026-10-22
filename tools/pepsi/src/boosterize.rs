@@ -44,7 +44,7 @@ pub async fn boosterize(arguments: Arguments) -> Result<()> {
                         "sudo bash -s -- enable /opt/booster/config/containerd/config.yaml <<'EOF'\n{}\nEOF",
                         MANUFACTURER_SERVICES_SCRIPT
                     ))
-                    .ssh_with_log("restoring manufacturer services", &progress_bar)
+                    .ssh_with_log("restoring Booster services", &progress_bar)
                     .await
             },
         )
