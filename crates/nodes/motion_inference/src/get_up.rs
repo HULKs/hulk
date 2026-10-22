@@ -38,10 +38,6 @@ impl GetUp {
             .clamp(0.0, 1.0)
     }
 
-    pub(crate) fn update_parameters(&mut self, parameters: std::sync::Arc<Parameters>) {
-        self.parameters = parameters;
-    }
-
     pub fn decode(&mut self, actions: &[f32; JOINT_COUNT]) -> Joints<MotorCommand> {
         let policy = Policy::GetUp;
         let reference_position = policy.offset(&self.parameters);

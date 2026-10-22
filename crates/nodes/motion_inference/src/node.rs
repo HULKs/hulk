@@ -585,7 +585,6 @@ impl Runtime {
         let velocity = self.velocity.clone();
         let mut controller = self.controller.take().expect("idle controller");
         let clock = self.clock.clone();
-        let parameters = self.parameters.clone();
         let trace = pending.trace.with_inputs(InputSources {
             sensor: sensor_lifetime.origin.clone(),
             previous_velocity_sensor: self.previous_velocity_sensor.clone(),
@@ -606,7 +605,6 @@ impl Runtime {
                 Err(InferenceError::DeadlineExpired)
             } else {
                 sensor_lifetime.check(start).and_then(|()| {
-                    controller.update_parameters(parameters);
                     controller
                         .execute_request(
                             start,

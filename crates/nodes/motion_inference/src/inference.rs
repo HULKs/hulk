@@ -140,21 +140,6 @@ impl Inference {
         self.infer(now, sensor, request, standing, joints, trace)
     }
 
-    pub(crate) fn update_parameters(&mut self, parameters: Arc<Parameters>) {
-        if Arc::ptr_eq(&self.parameters, &parameters) {
-            return;
-        }
-        if let Some(active) = &mut self.active {
-            match &mut active.state {
-                State::Locomotion(state) => state.update_parameters(parameters.clone()),
-                State::GetUp(state) => {
-                    state.update_parameters(parameters.clone());
-                }
-            }
-        }
-        self.parameters = parameters;
-    }
-
     fn validate_update(
         &self,
         sensor: &SensorFrame,
