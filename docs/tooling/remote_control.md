@@ -26,15 +26,14 @@ Remote control cannot override `Damping`, `Prepare`, or `Stop`.
 ## Restore Booster Controls
 
 Boosterize uploads `tools/k1-setup/containerd-booster.yaml` to `/opt/booster/config/containerd/config.yaml`.
-This configuration enables these Booster services:
+This restores the Booster services and their dependencies.
 
-- `remote_controller`
-- `ros.booster.vision_detection`
-- `ros.booster.rpc_bridge.perception`
-- `ros.agent_manager`
-- `lui`
-- `rtc_client`
+Gammaray uploads `tools/k1-setup/containerd-hulk.yaml`, which disables:
 
-Gammaray uploads `tools/k1-setup/containerd-hulk.yaml`, which disables the same services.
+- `remote_controller` and `ros.agent_manager`
+- all services in the `perception` container except `battery_daemon`, including `audio`
+- all X5 services, including the left and right hand ROS bridges in the `motion` container
+
+The HULK configuration removes the `battery_daemon` dependency on `audio` and the `server.motion` dependency on `server.perception`.
 Both commands stop HULK before uploading the template and restart `booster-daemon` on every run to apply it.
 Boosterize also enables and starts `joystick_ros2`.

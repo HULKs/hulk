@@ -137,7 +137,7 @@ services:
       - motion
 
   - name: ros.hand_ros2_bridge_left
-    enable: true
+    enable: false
     container: motion
     exe: /opt/booster/bin/container/cli_wrapper
     args: 'bash -c "/opt/booster/booster-x5-host-tools/ros-bridge-client/run.sh"'
@@ -161,7 +161,7 @@ services:
     deps: []
 
   - name: ros.hand_ros2_bridge_right
-    enable: true
+    enable: false
     container: motion
     exe: /opt/booster/bin/container/cli_wrapper
     args: 'bash -c "/opt/booster/booster-x5-host-tools/ros-bridge-client/run.sh"'
@@ -203,7 +203,7 @@ services:
       - lui
 
   - name: ros.booster.video_stream
-    enable: true
+    enable: false
     container: perception
     exe: /opt/booster/bin/container/cli_wrapper
     args: 'ros2 launch /opt/booster/bin/script/launch/booster_video_stream.launch.py'
@@ -260,7 +260,7 @@ services:
     deps: []
 
   - name: ros.booster.auto_handeye_calib
-    enable: true
+    enable: false
     container: perception
     exe: /opt/booster/bin/container/cli_wrapper
     args: 'bash -c "source install/setup.bash && install/auto_handeye_calib/lib/auto_handeye_calib/ros_service_node_venv.sh --urdf_name ${urdf_name} --ros-args -p output_root:=/var/log/booster/auto_handeye_calib_runs -p publish_feedback:=true -p feedback_topic:=/handeye_calib/feedback/image -p image_topic:=/boostercamera/head/rgb -p camera_info_topic:=/boostercamera/head/rgb/camera_info -p use_camera_info:=true"'
@@ -300,11 +300,10 @@ services:
     keepalive: true
     max_boot_retry: 3
     cpu_cores: "0,1,2,3"
-    deps:
-      - server.perception
+    deps: []
 
   - name: server.perception
-    enable: true
+    enable: false
     container: perception
     exe: /opt/booster/bin/container/server_perception
     args: ""
@@ -422,7 +421,7 @@ services:
       - audio
 
   - name: audio
-    enable: true
+    enable: false
     container: perception
     exe: /opt/booster/bin/container/audio
     args: ""
@@ -447,8 +446,7 @@ services:
     keepalive: true
     max_boot_retry: 3
     cpu_cores: "0,1,2,3"
-    deps:
-      - audio
+    deps: []
 
   - name: ros.booster.x5_camera.head
     enable: false
@@ -481,7 +479,7 @@ services:
     deps: []
 
   - name: booster_camera
-    enable: true
+    enable: false
     container: perception
     exe: /opt/booster/bin/container/booster_camera
     args: ""
