@@ -48,6 +48,7 @@
       allow: [
         "low_state",
         "joint_states",
+        "joint_ctrl",
         "image_left_raw",
         "rectified_image",
         "kick_ball",
