@@ -2,10 +2,12 @@ use clap::Args;
 use color_eyre::Result;
 
 use argument_parsers::RobotAddress;
-use repository::Repository;
 use robot::Robot;
 
-use crate::{gammaray::CommandExt, progress_indicator::ProgressIndicator};
+use crate::{
+    gammaray::{CommandExt, manufacturer_services_command},
+    progress_indicator::ProgressIndicator,
+};
 
 #[derive(Args, Debug)]
 pub struct Arguments {
@@ -14,8 +16,7 @@ pub struct Arguments {
     pub robots: Vec<RobotAddress>,
 }
 
-pub async fn boosterize(arguments: Arguments, repository: &Repository) -> Result<()> {
-    let setup = &repository.root.join("tools/k1-setup");
+pub async fn boosterize(arguments: Arguments) -> Result<()> {
     let progress = ProgressIndicator::new();
 
     progress
@@ -38,19 +39,8 @@ pub async fn boosterize(arguments: Arguments, repository: &Repository) -> Result
                     .ssh_with_log("disabling hulk", &progress_bar)
                     .await?;
                 robot
-                    .rsync_with_robot()?
-                    .arg("--rsync-path=sudo rsync")
-                    .arg("--info=progress2")
-                    .arg(setup.join("containerd-booster.yaml"))
-                    .arg(format!(
-                        "{}:/opt/booster/config/containerd/config.yaml",
-                        robot.address
-                    ))
-                    .rsync_with_log("uploading Booster service configuration", &progress_bar)
-                    .await?;
-                robot
                     .ssh_to_robot()?
-                    .arg("sudo systemctl restart booster-daemon && sudo systemctl enable --now joystick_ros2")
+                    .arg(manufacturer_services_command("enable"))
                     .ssh_with_log("restoring Booster services", &progress_bar)
                     .await
             },

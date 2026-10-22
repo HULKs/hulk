@@ -63,6 +63,17 @@ const BUNDLE_INSTALLATION_SCRIPT: &str = include_str!("install-hulks-bundle.sh")
 const REMOTE_BUNDLE: &str = "/home/booster/.cache/hulk/hulks";
 const PODMAN: &str = "/nix/var/nix/profiles/hulks/bin/podman";
 
+const PRESERVE_BOOSTER_CONFIG_SCRIPT: &str = include_str!("gammaray/preserve-booster-config.sh");
+const MANUFACTURER_SERVICES_SCRIPT: &str = include_str!("gammaray/manufacturer-services.sh");
+const LOWER_ROOT_SCRIPT: &str = include_str!("gammaray/overlay-lower-root.sh");
+const RESTORE_BOOSTER_TEMPLATE_SCRIPT: &str = include_str!("gammaray/restore-booster-template.sh");
+
+pub(super) fn manufacturer_services_command(mode: &str) -> String {
+    format!(
+        "set -e\nsudo -n unshare --mount bash -s <<'HULKS_BOOSTER_TEMPLATE'\n{LOWER_ROOT_SCRIPT}\n{RESTORE_BOOSTER_TEMPLATE_SCRIPT}\nHULKS_BOOSTER_TEMPLATE\nsudo bash -s -- {mode} <<'HULKS_MANUFACTURER_SERVICES'\n{PRESERVE_BOOSTER_CONFIG_SCRIPT}\n{MANUFACTURER_SERVICES_SCRIPT}\nHULKS_MANUFACTURER_SERVICES"
+    )
+}
+
 pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<()> {
     let setup_path = &repository.root.join("tools/k1-setup");
     let bundle = bundle::prepare(repository).await?;
@@ -292,24 +303,7 @@ async fn gammaray_robot(
     // Stop replaced DDS publishers before starting the bridge.
     robot
         .ssh_to_overlay()?
-        .arg("sudo systemctl stop hulk")
-        .ssh_with_log("stopping hulk", &progress_bar)
-        .await?;
-
-    robot
-        .rsync_with_overlay_sudo()?
-        .arg("--info=progress2")
-        .arg(setup.join("containerd-hulk.yaml"))
-        .arg(format!(
-            "{}:/opt/booster/config/containerd/config.yaml",
-            robot.address
-        ))
-        .rsync_with_log("uploading HULK service configuration", &progress_bar)
-        .await?;
-
-    robot
-        .ssh_to_overlay()?
-        .arg("sudo systemctl restart booster-daemon && sudo systemctl disable --now joystick_ros2")
+        .arg(manufacturer_services_command("disable"))
         .ssh_with_log("disabling Booster services", &progress_bar)
         .await?;
 

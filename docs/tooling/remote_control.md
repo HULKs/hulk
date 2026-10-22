@@ -25,15 +25,22 @@ Remote control cannot override `Damping`, `Prepare`, or `Stop`.
 
 ## Restore Booster Controls
 
-Boosterize uploads `tools/k1-setup/containerd-booster.yaml` to `/opt/booster/config/containerd/config.yaml`.
-This restores the Booster services and their dependencies.
+Gammaray patches Booster's startup script to keep an existing runtime configuration.
+Booster's platform defaults are initialized only when `/etc/booster/config/containerd/config.yaml` is missing or empty.
+The patch is applied in the overlay and rejects unrecognized startup scripts.
 
-Gammaray uploads `tools/k1-setup/containerd-hulk.yaml`, which disables:
+Gammaray uses `bdb` to disable:
 
 - `remote_controller` and `ros.agent_manager`
 - all services in the `perception` container except `battery_daemon`, including `audio`
 - all X5 services, including the left and right hand ROS bridges in the `motion` container
 
-The HULK configuration removes the `battery_daemon` dependency on `audio` and the `server.motion` dependency on `server.perception`.
-Both commands stop HULK before uploading the template and restart `booster-daemon` on every run to apply it.
-Boosterize also enables and starts `joystick_ros2`.
+It also removes the `battery_daemon` dependency on `audio` and the `server.motion` dependency on `server.perception`.
+The draft is validated and applied through `bdb`, then `booster-daemon` is restarted to load the saved configuration into the live service list.
+The settings survive daemon restarts and robot reboots.
+Older template overrides in the overlay are replaced with the vendor template from the underlying installation.
+No complete Booster configuration is stored in the repository or transferred from the host.
+
+Boosterize deliberately regenerates the runtime configuration from Booster's template and platform defaults to restore manufacturer services and dependencies.
+It also enables and starts `joystick_ros2`; gammaray disables and stops it.
+After a firmware update replaces the startup script, run gammaray again to reapply the patch.
