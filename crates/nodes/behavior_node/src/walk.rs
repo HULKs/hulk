@@ -343,11 +343,13 @@ fn target_player_position(
 
     let resolution = map.resolution();
 
-    let support_distance = parameters.ball_support_distance.max(resolution);
-    let support_sigma = parameters.ball_support_sigma.max(resolution);
+    let support_distance = (field_dimensions.center_circle_diameter / 2.0).max(resolution);
+    let support_sigma =
+        (parameters.relative_ball_support_sigma * field_dimensions.width).max(resolution);
     let inv_two_support_sigma_sq = 1.0 / (2.0 * support_sigma * support_sigma);
 
-    let centroid_sigma = parameters.centroid_anchor_sigma.max(resolution);
+    let centroid_sigma =
+        (parameters.relative_centroid_anchor_sigma * field_dimensions.width).max(resolution);
 
     let mut best_target = None;
 

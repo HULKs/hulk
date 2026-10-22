@@ -98,10 +98,10 @@
     padding: 0.5,
     forward_weight: 0.2,
     ball_weight: 1.0,
-    ball_support_distance: 1.5,
-    ball_support_sigma: 0.5,
+    // Support distance is the center-circle radius; sigma scales use field width.
+    relative_ball_support_sigma: 0.05,
     centroid_anchor_weight: 0.6,
-    centroid_anchor_sigma: 1.0,
+    relative_centroid_anchor_sigma: 0.3,
   },
   network: {
     game_controller_return_message_interval: {
