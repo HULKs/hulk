@@ -1,11 +1,8 @@
-use std::{sync::Arc, thread::sleep};
+use std::sync::Arc;
 
 use alsa::{Direction, PCM, ValueOr, pcm::HwParams};
-use color_eyre::{
-    Result,
-    eyre::{WrapErr, eyre},
-};
-use log::warn;
+use color_eyre::{Result, eyre::WrapErr};
+
 use types::samples::Samples;
 
 use crate::parameters::Parameters;
@@ -21,30 +18,13 @@ impl Microphones {
         Ok(Self { device, parameters })
     }
 
-    pub fn retrying_read(&mut self) -> Result<Samples> {
-        let number_of_retries = self.parameters.number_of_retries;
-        for _ in 0..number_of_retries {
-            match self.read() {
-                Ok(samples) => return Ok(samples),
-                Err(error) => {
-                    warn!("failed to read from microphones: {error:#?}");
-                    sleep(self.parameters.retry_sleep_duration);
-                    self.device = match create_device(&self.parameters) {
-                        Ok(device) => device,
-                        Err(error) => {
-                            warn!("failed to create device: {error:#?}");
-                            continue;
-                        }
-                    };
-                }
-            }
-        }
-        Err(eyre!(
-            "failed to read from microphones after {number_of_retries}, giving up..."
-        ))
+    pub fn recreate_device(&mut self) -> Result<()> {
+        self.device = create_device(&self.parameters).wrap_err("failed to create device")?;
+
+        Ok(())
     }
 
-    fn read(&self) -> Result<Samples> {
+    pub fn read(&self) -> Result<Samples> {
         let io_device = self
             .device
             .io_i16()

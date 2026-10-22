@@ -34,7 +34,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     };
 
     loop {
-        let samples = block_in_place(|| microphones.retrying_read())?;
-        microphones_samples_pub.publish(&samples).await?;
+        match block_in_place(|| microphones.read()) {
+            Ok(samples) => microphones_samples_pub.publish(&samples).await?,
+            Err(error) => {
+                warn!("failed to read from microphones: {error:#?}");
+                tokio::time::sleep(parameters.retry_sleep_duration).await;
+                if let Err(error) = microphones.recreate_device() {
+                    warn!("failed to create device: {error:#}");
+                }
+            }
+        }
     }
 }
