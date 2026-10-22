@@ -17,10 +17,12 @@ this investigation has not identified an exact match-proven commit.
 ## Branches and locations
 
 - Production PR: [HULKs/hulk#2965](https://github.com/HULKs/hulk/pull/2965),
-  fork branch `dev/ball-filter-preferred-20261004`, experimental changes after
+  fork branch [`dev/ball-filter-preferred-20261004`](https://github.com/schluis/hulk/tree/dev/ball-filter-preferred-20261004).
+  The experimental production code checkpoint is `6fb412a08`, following
   `4408fd02065a914fc27da3bd147736d0ef0b7a76`.
 - Simulator companion: fork branch
-  `dev/ball-filter-preferred-simulator-20261004`, experimental changes after
+  [`dev/ball-filter-preferred-simulator-20261004`](https://github.com/schluis/hulk/tree/dev/ball-filter-preferred-simulator-20261004).
+  The experimental simulator code checkpoint is `8a30f6da0`, following
   `92d281c7f5789591ba40521cbace475f8a57fff1`.
 - Both follow-up commits have subjects beginning `EXPERIMENTAL:`. PR #2965 stays
   a draft; predecessor PR #2944 is closed.
@@ -29,6 +31,37 @@ this investigation has not identified an exact match-proven commit.
 - Local checkouts: `/home/schluis/hulk-worktree/ball-filter-pr2965` and
   `/home/schluis/hulk-worktree/ball-filter-simulator`. The original checkout at
   `/home/schluis/hulk-worktree/hulk2` is unchanged.
+
+### Git structure
+
+`HULKs/hulk` is the upstream repository (local remote `hulk`); `schluis/hulk`
+is the fork (local remote `schluis`) containing both development branches.
+Those remote names describe the existing local worktrees; a fresh clone below
+names the fork remote `origin` by default.
+PR #2965 proposes the production branch against upstream `main` and excludes
+simulator tooling. The companion branch includes the simulator, observer, and
+research tooling together with the same filter/composer source and configuration.
+Their commit histories differ: the simulator branch is not a child of the PR
+branch, and changes do not synchronize automatically. Keep relevant filter fixes
+mirrored; do not merge the entire simulator branch into the production PR.
+
+The existing local directories are Git worktrees sharing repository history,
+with each directory checked out on its own branch. On another machine, a normal
+clone of the simulator branch is sufficient; the worktree arrangement is optional.
+
+### Get the simulator on another machine
+
+With Git LFS installed:
+
+```sh
+git clone --branch dev/ball-filter-preferred-simulator-20261004 https://github.com/schluis/hulk.git hulk-ball-filter-sim
+cd hulk-ball-filter-sim
+git lfs pull
+```
+
+The LFS step retrieves the motion models in `etc/neural_networks`. If using an
+existing clone, fetch the fork branch and use a separate checkout or worktree;
+the production PR branch does not contain the simulator launcher.
 
 ## Behavior and implementation
 
@@ -93,6 +126,13 @@ used `CARGO_TARGET_DIR=/home/schluis/hulk-worktree/hulk2/target` and
 `CARGO_BUILD_JOBS=4` for builds. The simulator was compile-checked; no new GUI demo
 or scenario accuracy benchmark ran.
 
+The colleague handoff follow-up also passed `cargo check --locked -p simulate`
+with the installed default stable Rust 1.99.0 and the same MuJoCo environment.
+The launcher passed a Bash syntax check and a direct-execution/argument-forwarding
+smoke check with Cargo stubbed. Its line endings are now pinned to LF in the
+companion's `.gitattributes`, including for checkouts using `core.autocrlf=true`.
+No filter or composer code changed in this documentation follow-up.
+
 The first tuner run exposed a pre-existing test that pinned the production
 field-boundary decay to 0.5 while the checked-in value was already 2.0. The
 fixture now sets its own comparison values and also checks that a legacy
@@ -114,18 +154,27 @@ the objective as having been repaired by this runtime change.
 ## Run and inspect the simulator
 
 Use the companion branch; the production PR intentionally excludes the simulator.
-Choose an unused output directory:
+From the root of that checkout, run:
 
 ```sh
-cd /home/schluis/hulk-worktree/ball-filter-simulator
-RUSTUP_TOOLCHAIN=1.98.1 ./simulator demo --output logs/ball-freshness-experimental-20261022
+./simulator demo
 ```
 
+The current default stable toolchain works: Rust 1.99.0 passed the simulator
+compile check. No toolchain override is needed.
+
 This runs nine scenarios without parameter search and opens the 3D viewer.
+Recordings and summaries go to a new timestamped directory under `logs/`.
 Open <http://127.0.0.1:8765> for the image observer. Stored hypotheses may remain
 visible after the selected estimate disappears. Use `--headless --exit-after`
-for a finite run without the desktop viewer. See `tools/simulate/README.md` for
-MuJoCo, ONNX Runtime, model, display, and existing-recording prerequisites.
+for a finite run without the desktop viewer. Run `./simulator` without `demo`
+for the interactive simulator; use its Run / Pause control to advance physics.
+The launcher configures MuJoCo and ONNX Runtime paths and downloads its required
+runtimes when absent. First startup may take time to build and download them.
+Use a graphical desktop for the 3D window.
+
+See [`tools/simulate/README.md`](https://github.com/schluis/hulk/blob/dev/ball-filter-preferred-simulator-20261004/tools/simulate/README.md) on the companion
+branch for runtime, model, display, and existing-recording prerequisites.
 The commands here are instructions for validation, not claims that a new demo
 or benchmark has already run. Restart existing processes to load the new code.
 
