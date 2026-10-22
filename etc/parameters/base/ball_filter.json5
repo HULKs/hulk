@@ -25,6 +25,7 @@
   "maximum_matching_cost": 7.652429580688477,
   "maximum_matching_distance": 1.6011608839035034,
   "maximum_number_of_hypotheses": 15,
+  "maximum_output_age": { "secs": 0, "nanos": 200000000 },
   "maximum_obstacle_time_difference": {
     "nanos": 100000000,
     "secs": 0

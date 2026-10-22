@@ -207,7 +207,7 @@ impl Tracker {
                 )?;
                 let covariance_trace = tracker
                     .filter
-                    .best_hypothesis_with_field_pose(&alternate, dimensions, ground_to_field)?
+                    .best_hypothesis_for_output(time, &alternate, dimensions, ground_to_field)?
                     .position_covariance()
                     .trace();
                 Some((ball, covariance_trace))
@@ -233,9 +233,12 @@ impl Tracker {
             parameters,
         );
         remove_invalid_and_merge_hypotheses(&mut self.filter, time, parameters, dimensions);
-        let hypothesis =
-            self.filter
-                .best_hypothesis_with_field_pose(parameters, dimensions, ground_to_field)?;
+        let hypothesis = self.filter.best_hypothesis_for_output(
+            time,
+            parameters,
+            dimensions,
+            ground_to_field,
+        )?;
         let baseline = hypothesis.position();
         // A separate history is only a correction for physically inconsistent
         // detector evidence. Keep ordinary, supported observations unchanged.
@@ -308,6 +311,8 @@ mod tests {
             ..Default::default()
         };
         let mut parameters = crate::test_parameters();
+        // These fixtures isolate retention and auxiliary covariance; freshness tests opt in.
+        parameters.maximum_output_age = None;
         parameters.maximum_camera_matrix_age = Duration::from_millis(20);
         parameters.visible_missed_detection_timeout = Duration::from_millis(160);
         parameters.visibility_uncertainty_scale = 0.0; // Individual cases opt into covariance margins.
@@ -341,6 +346,51 @@ mod tests {
         let alternate = publication_parameters(&parameters).unwrap();
         assert_eq!(alternate.noise.detection_noise.x(), 0.0);
         assert_eq!(alternate.noise.detection_noise.y(), 0.0);
+    }
+
+    #[test]
+    fn disappearance_stops_output_without_destroying_reacquisition_memory() {
+        let (mut tracker, camera, mut parameters, dimensions) = negative_evidence_fixture();
+        parameters.maximum_output_age = Some(Duration::from_millis(200));
+        parameters.hypothesis_timeout = Duration::from_secs(120);
+        for (millis, visible) in [
+            (0, true),
+            (200, true),
+            (201, false),
+            (1_000, false),
+            (60_000, false),
+        ] {
+            let time = Time::from_nanos(millis * 1_000_000);
+            assert_eq!(
+                tracker.finish(time, &parameters, &dimensions).is_some(),
+                visible
+            );
+            assert_eq!(tracker.filter.hypotheses.len(), 1);
+            assert_eq!(tracker.filter.hypotheses[0].last_seen, Time::zero());
+            assert_eq!(tracker.filter.hypotheses[0].validity, 25.0);
+        }
+        let remembered = crate::hypothetical_ball_positions(
+            Time::from_nanos(60_000_000_000),
+            &tracker.filter,
+            &parameters,
+            &dimensions,
+            None,
+        );
+        assert_eq!(remembered.len(), 1);
+
+        detector_frame(
+            &mut tracker,
+            &camera,
+            60_040,
+            &[image_object(RobocupObjectLabel::Ball, 1.0)],
+            &parameters,
+            &dimensions,
+        );
+        let reacquired = tracker
+            .finish(Time::from_nanos(60_040_000_000), &parameters, &dimensions)
+            .unwrap();
+        assert_eq!(reacquired.last_seen, Time::from_nanos(60_040_000_000));
+        assert_eq!(tracker.filter.hypotheses.len(), 1);
     }
 
     #[test]
@@ -416,6 +466,22 @@ mod tests {
         assert_eq!(supported.position, unguarded.position);
         assert_eq!(supported.velocity, unguarded.velocity);
         assert_eq!(supported.last_seen, unguarded.last_seen);
+
+        parameters.maximum_output_age = Some(Duration::from_millis(200));
+        let recent = tracker.finish(time, &parameters, &dimensions).unwrap();
+        assert_eq!(recent.position, baseline.position);
+        assert_eq!(recent.velocity, baseline.velocity);
+        assert_eq!(recent.last_seen, baseline.last_seen);
+        assert_eq!(
+            tracker
+                .publication_tracker
+                .as_ref()
+                .unwrap()
+                .filter
+                .hypotheses
+                .len(),
+            1
+        );
     }
 
     #[test]

@@ -199,6 +199,10 @@ pub struct BallFilterParameters {
     /// Maximum projected detection distance in Ground metres, including zero.
     pub maximum_detection_distance: f32,
     pub hypothesis_timeout: Duration,
+    /// Maximum age of visual support for current output, independent of storage.
+    /// None preserves historical recording replay; zero requires a current observation.
+    #[serde(default)]
+    pub maximum_output_age: Option<Duration>,
     /// Confirmed clear-view miss time before deleting a hypothesis. Zero deletes
     /// on the first confirmed clear miss; a large timeout delays this expiry.
     pub visible_missed_detection_timeout: Duration,

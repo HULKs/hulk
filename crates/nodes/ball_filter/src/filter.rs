@@ -56,13 +56,58 @@ impl BallFilter {
         uncertainty_weight: f32,
         confidence_cap: f32,
     ) -> Option<&BallHypothesis> {
+        self.select_eligible_hypothesis(
+            validity_threshold,
+            confidence_weight,
+            uncertainty_weight,
+            confidence_cap,
+            |_| true,
+        )
+    }
+
+    /// Select recent visual support without deleting retained hypotheses.
+    pub fn best_hypothesis_for_output(
+        &self,
+        time: ros_z::time::Time,
+        parameters: &BallFilterParameters,
+        dimensions: &FieldDimensions,
+        ground_to_field: Option<Isometry2<Ground, Field>>,
+    ) -> Option<&BallHypothesis> {
+        self.select_eligible_hypothesis(
+            parameters.validity_output_threshold,
+            |hypothesis| {
+                crate::field_prior::confidence_weight(
+                    hypothesis,
+                    ground_to_field,
+                    dimensions,
+                    parameters,
+                )
+            },
+            parameters.hypothesis_uncertainty_weight,
+            parameters.selection_confidence_cap,
+            |hypothesis| hypothesis.has_recent_observation(time, parameters.maximum_output_age),
+        )
+    }
+
+    fn select_eligible_hypothesis(
+        &self,
+        validity_threshold: f32,
+        confidence_weight: impl Fn(&BallHypothesis) -> f32,
+        uncertainty_weight: f32,
+        confidence_cap: f32,
+        is_eligible: impl Fn(&BallHypothesis) -> bool,
+    ) -> Option<&BallHypothesis> {
         let confirmation_confidence = 3.0_f32.max(validity_threshold);
         let supported_moving_alternative = self.hypotheses.iter().any(|hypothesis| {
-            matches!(hypothesis.mode, BallMode::Moving(_))
+            is_eligible(hypothesis)
+                && matches!(hypothesis.mode, BallMode::Moving(_))
                 && hypothesis.last_observation_size_plausible == Some(true)
                 && hypothesis.validity * confidence_weight(hypothesis) >= confirmation_confidence
         });
         let candidates = self.hypotheses.iter().filter_map(|hypothesis| {
+            if !is_eligible(hypothesis) {
+                return None;
+            }
             if supported_moving_alternative
                 && matches!(hypothesis.mode, BallMode::Resting(_))
                 && hypothesis.last_observation_size_plausible == Some(false)
@@ -133,8 +178,8 @@ impl BallFilter {
                     .then_with(|| validity_a.total_cmp(validity_b))
             })
             .map(|(hypothesis, _, _)| hypothesis);
-        // Selection does not change stored validity, output eligibility, decay,
-        // or timeout. A lone false observation cannot trigger stale recovery.
+        // Eligibility is checked before ranking. Selection does not mutate stored
+        // validity, decay, or retention. A lone false observation cannot trigger recovery.
         Some(recovered.unwrap_or(incumbent))
     }
 
@@ -267,6 +312,43 @@ impl BallFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stored_support_does_not_block_a_fresh_output_candidate() {
+        let time = ros_z::time::Time::from_nanos(1_000_000_000);
+        let mut parameters = crate::test_parameters();
+        parameters.maximum_output_age = Some(Duration::from_millis(200));
+        parameters.selection_confidence_cap = 1_000_000.0;
+        let filter = BallFilter {
+            hypotheses: vec![track(1.0, 50.0, 0), track(2.0, 1.0, 960_000_000)],
+        };
+        let dimensions = FieldDimensions::SPL_2025;
+        let stored = filter
+            .best_hypothesis_with_field_pose(&parameters, &dimensions, None)
+            .unwrap();
+        assert_eq!(stored.position().position.x(), 1.0);
+        let current = filter
+            .best_hypothesis_for_output(time, &parameters, &dimensions, None)
+            .unwrap();
+        assert_eq!(current.position().position.x(), 2.0);
+        assert_eq!(filter.hypotheses.len(), 2);
+        assert_eq!(filter.hypotheses[0].validity, 50.0);
+
+        let future = BallFilter {
+            hypotheses: vec![track(3.0, 100.0, 1_040_000_000)],
+        };
+        assert!(
+            future
+                .best_hypothesis_for_output(time, &parameters, &dimensions, None)
+                .is_none()
+        );
+        parameters.maximum_output_age = Some(Duration::ZERO);
+        assert!(
+            filter
+                .best_hypothesis_for_output(time, &parameters, &dimensions, None)
+                .is_none()
+        );
+    }
 
     fn track(x: f32, validity: f32, last_seen: i64) -> BallHypothesis {
         let mut track = BallHypothesis::new(

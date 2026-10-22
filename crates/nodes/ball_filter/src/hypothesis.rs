@@ -51,6 +51,12 @@ pub struct BallHypothesis {
 }
 
 impl BallHypothesis {
+    pub fn has_recent_observation(&self, time: Time, maximum_age: Option<Duration>) -> bool {
+        self.position()
+            .age_at(time)
+            .is_some_and(|age| maximum_age.is_none_or(|maximum| age <= maximum))
+    }
+
     pub fn new(hypothesis: MultivariateNormalDistribution<4>, last_seen: Time) -> Self {
         Self {
             mode: BallMode::Moving(hypothesis),

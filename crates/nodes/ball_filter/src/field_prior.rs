@@ -156,6 +156,7 @@ mod tests {
     fn parameters() -> BallFilterParameters {
         let mut parameters = crate::test_parameters();
         parameters.selection_confidence_cap = 1_000_000.0; // Test the field prior with uncapped ranking.
+        parameters.maximum_output_age = None; // Isolate localization from output freshness.
         parameters.field_boundary_confidence_decay_distance = 0.3;
         parameters.field_boundary_margin = 0.0;
         parameters.field_boundary_validity_decay_rate = 0.0;
@@ -254,9 +255,16 @@ mod tests {
             assert_eq!(selected.position, original.position);
             assert_eq!(selected.velocity, original.velocity);
             assert_eq!(selected.last_seen, original.last_seen);
-            assert!(crate::hypothetical_ball_positions(
-                &tracker.filter, &parameters, &dimensions, pose,
-            ).is_empty());
+            assert!(
+                crate::hypothetical_ball_positions(
+                    Time::from_nanos(millis * 1_000_000),
+                    &tracker.filter,
+                    &parameters,
+                    &dimensions,
+                    pose,
+                )
+                .is_empty()
+            );
         }
         parameters.good_localization = true;
         let selected = tracker
@@ -274,6 +282,7 @@ mod tests {
         );
         assert_eq!(
             crate::hypothetical_ball_positions(
+                Time::from_nanos(2_040_000_000),
                 &tracker.filter,
                 &parameters,
                 &dimensions,
@@ -803,8 +812,13 @@ mod tests {
             .unwrap();
         assert_eq!(chosen.position, point![1.0, 0.0]);
         assert_eq!(chosen.position, best.position().position);
-        let hypothetical =
-            crate::hypothetical_ball_positions(&tracker.filter, &parameters, &dimensions, pose);
+        let hypothetical = crate::hypothetical_ball_positions(
+            Time::zero(),
+            &tracker.filter,
+            &parameters,
+            &dimensions,
+            pose,
+        );
         assert_eq!(hypothetical.len(), 1);
         assert!(hypothetical[0].position.x() > dimensions.length / 2.0);
         assert!(hypothetical[0].validity < parameters.validity_output_threshold);

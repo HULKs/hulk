@@ -234,8 +234,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             let ball_filter = &tracker.filter;
 
             let filter_state = ball_filter.clone();
-            let best_hypothesis = ball_filter
-                .best_hypothesis_with_field_pose(parameters, &field_dimensions, field_prior_pose)
+            let best_hypothesis = output_time
+                .and_then(|time| {
+                    ball_filter.best_hypothesis_for_output(
+                        time,
+                        parameters,
+                        &field_dimensions,
+                        field_prior_pose,
+                    )
+                })
                 .cloned();
             let output_balls: Vec<_> = ball_filter
                 .hypotheses
@@ -247,6 +254,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                         &field_dimensions,
                         parameters,
                     ) >= parameters.validity_output_threshold
+                        && projection_time.is_some_and(|time| {
+                            hypothesis.has_recent_observation(time, parameters.maximum_output_age)
+                        })
                     {
                         Some(hypothesis.position())
                     } else {
@@ -268,6 +278,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 vec![]
             };
             let hypothetical_ball_positions = hypothetical_ball_positions(
+                projection_time.unwrap_or_else(Time::zero),
                 ball_filter,
                 parameters,
                 &field_dimensions,
@@ -699,6 +710,7 @@ fn remove_invalid_and_merge_hypotheses(
 }
 
 fn hypothetical_ball_positions(
+    time: Time,
     ball_filter: &BallFilter,
     parameters: &BallFilterParameters,
     dimensions: &FieldDimensions,
@@ -714,7 +726,9 @@ fn hypothetical_ball_positions(
                 dimensions,
                 parameters,
             );
-            if validity < parameters.validity_output_threshold {
+            if validity < parameters.validity_output_threshold
+                || !hypothesis.has_recent_observation(time, parameters.maximum_output_age)
+            {
                 Some(HypotheticalBallPosition {
                     position: hypothesis.position().position,
                     validity,
