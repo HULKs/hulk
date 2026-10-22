@@ -42,7 +42,7 @@ pub struct InputSources {
     pub previous_velocity_sensor: Option<String>,
     pub joint_limits: PublicationOrigin,
     pub last_commanded_request: Option<RequestId>,
-    pub configuration: String,
+    pub configuration: Arc<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Message)]

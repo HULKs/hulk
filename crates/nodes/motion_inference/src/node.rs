@@ -318,7 +318,7 @@ struct Runtime {
     last_position: Option<(Policy, Joints<f32>)>,
     last_position_request: Option<RequestId>,
     policy_deadline: Option<Time>,
-    configuration: String,
+    configuration: Arc<String>,
     fault: Option<Arc<Report>>,
 }
 
@@ -344,7 +344,7 @@ impl Runtime {
             last_position: None,
             last_position_request: None,
             policy_deadline: None,
-            configuration,
+            configuration: Arc::new(configuration),
             fault: None,
         }
     }
