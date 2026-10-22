@@ -258,6 +258,7 @@ mod tests {
             time: Time::from_nanos(10),
             inner: PlayerState {
                 pose: Pose2::default(),
+                head_yaw: 0.0,
                 ball_position: None,
             },
         });
@@ -265,6 +266,7 @@ mod tests {
             time: Time::from_nanos(20),
             inner: PlayerState {
                 pose: Pose2::default(),
+                head_yaw: 0.0,
                 ball_position: None,
             },
         });
@@ -302,6 +304,7 @@ mod tests {
             time: Time::from_nanos(1_000_000_000),
             inner: PlayerState {
                 pose: Pose2::default(),
+                head_yaw: 0.0,
                 ball_position: None,
             },
         });
@@ -309,6 +312,7 @@ mod tests {
             time: Time::from_nanos(1_500_000_000),
             inner: PlayerState {
                 pose: Pose2::default(),
+                head_yaw: 0.0,
                 ball_position: None,
             },
         });
@@ -331,6 +335,7 @@ mod tests {
             time: Time::from_nanos(1_000_000_001),
             inner: PlayerState {
                 pose: Pose2::default(),
+                head_yaw: 0.0,
                 ball_position: None,
             },
         });
@@ -350,7 +355,11 @@ mod tests {
         let mut last_received = Players::new(None);
         last_received[PlayerNumber::Two] = Some(TimeWrapper {
             time: Time::from_nanos(1_000_000_000),
-            inner: PlayerState::default(),
+            inner: PlayerState {
+                pose: Pose2::default(),
+                head_yaw: 0.0,
+                ball_position: None,
+            },
         });
 
         let active = age_limited_player_states(
