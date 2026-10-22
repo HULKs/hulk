@@ -44,7 +44,7 @@ impl Microphones {
         ))
     }
 
-    fn read(&self) -> std::result::Result<Samples, color_eyre::eyre::Error> {
+    fn read(&self) -> Result<Samples> {
         let io_device = self
             .device
             .io_i16()
