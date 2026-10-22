@@ -343,11 +343,13 @@ fn target_player_position(
 
     let resolution = map.resolution();
 
-    let support_distance = parameters.ball_support_distance.max(resolution);
-    let support_sigma = parameters.ball_support_sigma.max(resolution);
+    let support_distance = (field_dimensions.center_circle_diameter / 2.0).max(resolution);
+    let support_sigma =
+        (parameters.relative_ball_support_sigma * field_dimensions.width).max(resolution);
     let inv_two_support_sigma_sq = 1.0 / (2.0 * support_sigma * support_sigma);
 
-    let centroid_sigma = parameters.centroid_anchor_sigma.max(resolution);
+    let centroid_sigma =
+        (parameters.relative_centroid_anchor_sigma * field_dimensions.width).max(resolution);
 
     let mut best_target = None;
 
@@ -359,8 +361,14 @@ fn target_player_position(
         let dy_ball = point.y() - ball_y;
         let ball_distance = (dx_ball * dx_ball + dy_ball * dy_ball).sqrt();
         let support_distance_error = ball_distance - support_distance;
-        let ball_term = parameters.ball_weight
-            * (-(support_distance_error * support_distance_error) * inv_two_support_sigma_sq).exp();
+
+        let ball_term = if dx_ball <= 0.0 {
+            parameters.ball_weight
+                * (-(support_distance_error * support_distance_error) * inv_two_support_sigma_sq)
+                    .exp()
+        } else {
+            0.0
+        };
 
         let dx_centroid = point.x() - centroid.x();
         let dy_centroid = point.y() - centroid.y();

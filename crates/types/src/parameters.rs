@@ -27,10 +27,9 @@ pub struct VoronoiParameters {
     pub padding: f32,
     pub forward_weight: f32,
     pub ball_weight: f32,
-    pub ball_support_distance: f32,
-    pub ball_support_sigma: f32,
+    pub relative_ball_support_sigma: f32,
     pub centroid_anchor_weight: f32,
-    pub centroid_anchor_sigma: f32,
+    pub relative_centroid_anchor_sigma: f32,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Message)]
