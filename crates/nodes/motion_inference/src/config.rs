@@ -74,7 +74,6 @@ pub struct PolicyParameters {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ros_z::Message)]
 #[serde(deny_unknown_fields)]
 pub struct TimingParameters {
-    pub policy_period: Duration,
     pub sensor_period: Duration,
     pub sensor_timeout: Duration,
     pub policy_state_max_age: Duration,
@@ -156,10 +155,8 @@ impl Parameters {
         }
         let timing = &self.timing;
         ensure!(
-            [timing.policy_period, timing.sensor_period]
-                .into_iter()
-                .all(|value| !value.is_zero() && value.as_secs_f32().is_finite()),
-            "invalid inference timing"
+            !timing.sensor_period.is_zero() && timing.sensor_period.as_secs_f32().is_finite(),
+            "invalid sensor period"
         );
         ensure!(
             [timing.sensor_timeout, timing.policy_state_max_age]

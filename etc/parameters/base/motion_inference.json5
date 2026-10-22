@@ -2,7 +2,6 @@
   neural_networks_folder: "etc/neural_networks",
   inference_threads: 1,
   timing: {
-    policy_period: { secs: 0, nanos: 20000000 },
     sensor_period: { secs: 0, nanos: 2000000 },
     sensor_timeout: { secs: 0, nanos: 300000000 },
     policy_state_max_age: { secs: 1, nanos: 0 },
