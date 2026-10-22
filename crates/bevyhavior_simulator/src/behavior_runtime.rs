@@ -294,7 +294,7 @@ mod tests {
 
     use bevy::{app::App, ecs::message::Messages};
     use hsl_network_messages::{PlayerNumber, Team};
-    use types::{behavior_tree::Status, world_state::WorldState};
+    use types::{behavior_tree::Status, field_dimensions::Side, world_state::WorldState};
 
     use super::*;
     use crate::behavior_tree_simulator::{
@@ -303,8 +303,11 @@ mod tests {
     };
 
     fn kick_blackboard(ball_position: Point2<Ground>) -> BehaviorBlackboard {
-        let mut blackboard = create_behavior_blackboard(default_behavior_parameters().unwrap());
-        blackboard.field_dimensions = FieldDimensions::SPL_2025;
+        let mut blackboard = create_behavior_blackboard(
+            FieldDimensions::SPL_2025,
+            default_behavior_parameters().unwrap(),
+            PlayerNumber::Three,
+        );
         blackboard.world_state.robot.ground_to_field = Some(linear_algebra::Isometry2::identity());
         blackboard.visual_kick_ball_position = Some(BallPosition {
             position: ball_position,
@@ -396,8 +399,11 @@ mod tests {
 
         let mut blackboard = kick_blackboard(point![0.5, 1.0]);
         blackboard.world_state.ball = Some(BallState {
+            ball_in_ground: Point2::origin(),
+            ball_in_field: Point2::origin(),
             ball_in_ground_velocity: vector![0.0, -1.0],
-            ..Default::default()
+            last_seen_ball: SystemTime::UNIX_EPOCH,
+            field_side: Side::Left,
         });
         blackboard
             .parameters
