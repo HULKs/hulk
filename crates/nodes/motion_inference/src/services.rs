@@ -7,6 +7,7 @@ use crate::{
     },
     trace::{Event, Trace},
 };
+use color_eyre::Report;
 use kinematics::joints::{
     Joints,
     body::{BodyJoints, LowerBodyJoints},
@@ -104,12 +105,13 @@ impl Requests {
         let (request, reply) = match received {
             Ok(received) => received,
             Err(error) => {
+                let error = format!("{:#}", Report::new(error));
                 warn!(service, %error, "discarding malformed inference request");
                 self.trace.record_at(
                     received_at,
                     Event::DecodeError {
                         service: service.to_owned(),
-                        error: error.to_string(),
+                        error,
                     },
                 );
                 return None;
