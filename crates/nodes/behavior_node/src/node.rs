@@ -62,6 +62,8 @@ pub struct Blackboard {
     pub ball: Option<LastBall>,
     pub visual_kick_ball_position: Option<BallPosition<Ground>>,
     pub last_ball: Option<LastBall>,
+    pub last_walk_to_ball_target: Option<Point2<Field>>,
+    pub last_walk_to_ball_target_time: Time,
     pub last_close_enough_to_kick: bool,
     pub last_kick_target: Option<Point2<Field>>,
     pub last_motion_command: Option<MotionCommand>,
@@ -89,6 +91,32 @@ fn validate_behavior_parameters(
 ) -> std::result::Result<(), String> {
     let walk_speed = &parameters.walking.speed;
     let mut errors = Vec::new();
+
+    let ball_prediction = parameters.walking.ball_prediction;
+    if ball_prediction.horizon.is_zero() {
+        errors.push("walking.ball_prediction.horizon must be positive".to_owned());
+    }
+    if !(1..=100).contains(&ball_prediction.samples) {
+        errors.push("walking.ball_prediction.samples must be between 1 and 100".to_owned());
+    }
+    if !ball_prediction.walking_speed.is_finite() || ball_prediction.walking_speed <= 0.0 {
+        errors.push("walking.ball_prediction.walking_speed must be finite and positive".to_owned());
+    }
+    if !ball_prediction.turning_speed.is_finite() || ball_prediction.turning_speed <= 0.0 {
+        errors.push("walking.ball_prediction.turning_speed must be finite and positive".to_owned());
+    }
+    if ball_prediction.arrival_time_margin >= ball_prediction.horizon {
+        errors.push(
+            "walking.ball_prediction.arrival_time_margin must be shorter than horizon".to_owned(),
+        );
+    }
+    if !ball_prediction.velocity_decay_rate.is_finite() || ball_prediction.velocity_decay_rate < 0.0
+    {
+        errors.push(
+            "walking.ball_prediction.velocity_decay_rate must be finite and non-negative"
+                .to_owned(),
+        );
+    }
 
     if !walk_speed.velocity_fade_distance.is_finite() || walk_speed.velocity_fade_distance <= 0.0 {
         errors.push(format!(
@@ -294,6 +322,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         ball: None,
         visual_kick_ball_position: None,
         last_ball: None,
+        last_walk_to_ball_target: None,
+        last_walk_to_ball_target_time: Time::zero(),
         last_close_enough_to_kick: false,
         last_kick_target: None,
         last_motion_command: None,
