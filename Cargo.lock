@@ -12612,8 +12612,10 @@ name = "whistle_filter"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "hsl_network_messages",
  "ros-z",
  "serde",
+ "tokio",
  "types",
 ]
 
