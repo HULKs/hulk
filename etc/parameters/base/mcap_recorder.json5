@@ -6,6 +6,9 @@
   queue_depth: 8,
   schema_discovery_timeout: { secs: 15, nanos: 0 },
   topics: [
+    "player_number",
+    "field_dimensions",
+    "walking_velocity_limits",
     "inputs/low_state",
     "inputs/fall_down_state",
     "fall_detection/status",
