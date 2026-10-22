@@ -1,0 +1,6 @@
+{
+  search: {
+    // Half-meter heatmap cells: enter the chosen cell before treating it as reached.
+    position_reached_distance: 0.2,
+  },
+}
