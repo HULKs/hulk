@@ -38,6 +38,7 @@ pub struct BehaviorParameters {
     pub walking: WalkingBehaviorParameters,
     pub kicking: KickingParameters,
     pub goalkeeper: GoalkeeperParameters,
+    pub search: SearchParameters,
     pub substates: SubstatesParameters,
     pub kickoff: KickoffParameters,
     pub voronoi: VoronoiParameters,
@@ -49,6 +50,11 @@ pub struct BehaviorControlParameters {
     pub allow_switch: AllowSwitchParameters,
     pub injected_motion_command: Option<MotionCommand>,
     pub is_simple: bool,
+}
+
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+pub struct SearchParameters {
+    pub position_reached_distance: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]

@@ -79,6 +79,9 @@
     active_defense_maximum_robot_distance: 2.0,
     distance_to_goalpost: 0.15,
   },
+  search: {
+    position_reached_distance: 0.4,
+  },
   substates: {
     distance_for_kick: 0.4,
     distance_for_kick_hysteresis: 0.2,
