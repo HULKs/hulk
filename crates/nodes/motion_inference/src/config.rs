@@ -82,7 +82,6 @@ pub struct TimingParameters {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ros_z::Message)]
 #[serde(deny_unknown_fields)]
 pub struct ObservationParameters {
-    pub quaternion_norm_tolerance: f32,
     pub maximum_velocity_sample_gap_frames: f32,
     pub maximum_walking_velocity_change_degrees: f32,
     pub joint_velocity_scale: f32,
@@ -165,11 +164,6 @@ impl Parameters {
             "inference timeouts must be positive and fit node-time nanoseconds"
         );
         let observation = &self.observation;
-        ensure!(
-            observation.quaternion_norm_tolerance > 0.0
-                && observation.quaternion_norm_tolerance <= 1.0,
-            "quaternion norm tolerance must be in (0, 1]"
-        );
         let locomotion = &self.locomotion;
         let kick = &self.kick;
         let get_up = &self.get_up;
@@ -187,10 +181,6 @@ impl Parameters {
             "invalid effective get-up duration"
         );
         for (name, value) in [
-            (
-                "observation.quaternion_norm_tolerance",
-                observation.quaternion_norm_tolerance,
-            ),
             (
                 "observation.maximum_walking_velocity_change_degrees",
                 observation.maximum_walking_velocity_change_degrees,

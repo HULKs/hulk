@@ -146,7 +146,7 @@ impl Inference {
         request: InferenceCommand,
         walking_velocity_limits: WalkingVelocityLimits,
     ) -> Result<()> {
-        sensor.validate(&self.parameters)?;
+        sensor.validate()?;
         request.validate(walking_velocity_limits)?;
         let policy = request.policy();
         ensure!(

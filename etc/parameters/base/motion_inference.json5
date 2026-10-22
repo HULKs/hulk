@@ -8,7 +8,6 @@
   },
   // Velocity limiter delta is degrees/second per sensor update; scales encode network features.
   observation: {
-    quaternion_norm_tolerance: 0.05,
     maximum_velocity_sample_gap_frames: 2.5,
     maximum_walking_velocity_change_degrees: 100.0,
     joint_velocity_scale: 0.1,

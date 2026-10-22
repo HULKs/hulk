@@ -2,7 +2,7 @@ use ::kinematics::joints::Joints;
 use color_eyre::eyre::{Result, ensure};
 use coordinate_systems::Robot;
 use linear_algebra::Vector3;
-use nalgebra::{Quaternion, UnitQuaternion};
+use nalgebra::UnitQuaternion;
 use ros_z::time::Time;
 
 use crate::config::Parameters;
@@ -12,13 +12,13 @@ pub struct SensorFrame {
     pub timestamp: Time,
     pub position: Joints<f32>,
     pub velocity: Joints<f32>,
-    pub orientation: Quaternion<f32>,
+    pub orientation: UnitQuaternion<f32>,
     pub gyro: Vector3<Robot>,
     pub last_commanded_position: Joints<f32>,
 }
 
 impl SensorFrame {
-    pub fn validate(&self, parameters: &Parameters) -> Result<()> {
+    pub fn validate(&self) -> Result<()> {
         ensure!(
             self.position
                 .into_iter()
@@ -29,17 +29,11 @@ impl SensorFrame {
                 .all(f32::is_finite),
             "non-finite sensor frame"
         );
-        let q = self.orientation;
-        let norm = (q.w * q.w + q.i * q.i + q.j * q.j + q.k * q.k).sqrt();
-        ensure!(
-            (norm - 1.0).abs() < parameters.observation.quaternion_norm_tolerance,
-            "invalid orientation quaternion norm: {norm}"
-        );
         Ok(())
     }
 
     pub fn rotation(&self) -> UnitQuaternion<f32> {
-        UnitQuaternion::new_normalize(self.orientation)
+        self.orientation
     }
 
     pub fn gravity(&self) -> [f32; 3] {

@@ -439,7 +439,7 @@ impl Runtime {
                 return None;
             }
         };
-        if let Err(error) = sensor.validate(&self.parameters) {
+        if let Err(error) = sensor.validate() {
             self.sensor = None;
             self.set_fault(error);
             return None;
@@ -731,7 +731,7 @@ fn sensor_frame(low_state: &LowState, timestamp: Time) -> Result<SensorFrame> {
         timestamp,
         position: motors.positions(),
         velocity: motors.velocities(),
-        orientation: orientation.into_inner(),
+        orientation,
         gyro: low_state.imu_state.angular_velocity,
         last_commanded_position: motors.positions(),
     })
