@@ -186,6 +186,13 @@ impl PrimaryStateFilter {
                 game_state_to_primary_state(game_state, is_penalized)
             }
             (PrimaryState::Ready, FilteredGameState::Set) if !is_penalized => PrimaryState::Set,
+            (
+                PrimaryState::Ready
+                | PrimaryState::Playing
+                | PrimaryState::Set
+                | PrimaryState::Finished,
+                FilteredGameState::Initial,
+            ) if !is_penalized => PrimaryState::Initial,
             (PrimaryState::Set, FilteredGameState::Playing { .. }) if !is_penalized => {
                 PrimaryState::Playing
             }
