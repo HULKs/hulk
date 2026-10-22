@@ -33,8 +33,33 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         }
     };
 
+    let mut failed_attempts = 0u32;
+    const ATTEMPTS_BEFORE_DEVICE_RESET: u32 = 3;
+
     loop {
-        let samples = block_in_place(|| microphones.retrying_read())?;
-        microphones_samples_pub.publish(&samples).await?;
+        match block_in_place(|| microphones.read()) {
+            Ok(samples) => {
+                failed_attempts = 0;
+                microphones_samples_pub.publish(&samples).await?;
+            }
+            Err(error) => {
+                failed_attempts += 1;
+
+                warn!("failed to read from microphones, attempt={failed_attempts}: {error:#?}");
+                tokio::time::sleep(parameters.retry_sleep_duration).await;
+
+                if failed_attempts >= ATTEMPTS_BEFORE_DEVICE_RESET {
+                    failed_attempts = 0;
+
+                    warn!(
+                        "failed {ATTEMPTS_BEFORE_DEVICE_RESET} times consecutively, resetting the microphone device..."
+                    );
+
+                    if let Err(error) = microphones.recreate_device() {
+                        warn!("failed to recreate microphone device: {error:#}");
+                    }
+                }
+            }
+        }
     }
 }
