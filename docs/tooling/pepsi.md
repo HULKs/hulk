@@ -38,6 +38,9 @@ Many subcommands can act on multiple robots concurrently.
 `logs` or and `postgame` can be used after a (test-)game to download logs, the latter also shuts down the HULKs binary and disables wifi.
 
 On K1 robots, `gammaray` configures HULK and disables manufacturer controller programs; `boosterize` restores manufacturer control.
+Both commands upload a complete configuration to `/opt/booster/config/containerd/config.yaml` and restart `booster-daemon` on every run.
+Gammaray uses `tools/k1-setup/containerd-hulk.yaml`; boosterize uses `tools/k1-setup/containerd-booster.yaml`.
+Keep both configurations in sync with the firmware pinned in `hulk.toml`.
 See [Remote Control](remote_control.md) for setup, gamepad bindings, and restoration instructions.
 
 ### Offline gammaray preparation

@@ -1,6 +1,6 @@
 # Remote Control
 
-`./pepsi gammaray <robot>` disables the manufacturer controller services for HULK remote control.
+`./pepsi gammaray <robot>` disables the Booster controller services for HULK remote control.
 `./pepsi boosterize <robot>` restores the Booster services and enables and starts `joystick_ros2`.
 
 ## Controls
@@ -23,9 +23,10 @@ Remote control cannot override `Damping`, `Prepare`, or `Stop`.
 | Analog triggers, L2/LT and R2/RT | Unbound |
 | Right stick up/down | Unbound |
 
-## Restore Manufacturer Controls
+## Restore Booster Controls
 
-Boosterize sets `enable: true` in `/opt/booster/config/containerd/config.yaml` for these Booster services:
+Boosterize uploads `tools/k1-setup/containerd-booster.yaml` to `/opt/booster/config/containerd/config.yaml`.
+This configuration enables these Booster services:
 
 - `remote_controller`
 - `ros.booster.vision_detection`
@@ -34,5 +35,6 @@ Boosterize sets `enable: true` in `/opt/booster/config/containerd/config.yaml` f
 - `lui`
 - `rtc_client`
 
-When the template changes, it restarts `booster-daemon` to apply the configuration.
-It also enables and starts `joystick_ros2`.
+Gammaray uploads `tools/k1-setup/containerd-hulk.yaml`, which disables the same services.
+Both commands stop HULK before uploading the template and restart `booster-daemon` on every run to apply it.
+Boosterize also enables and starts `joystick_ros2`.

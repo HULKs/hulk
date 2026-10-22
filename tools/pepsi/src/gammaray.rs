@@ -63,54 +63,6 @@ const BUNDLE_INSTALLATION_SCRIPT: &str = include_str!("install-hulks-bundle.sh")
 const REMOTE_BUNDLE: &str = "/home/booster/.cache/hulk/hulks";
 const PODMAN: &str = "/nix/var/nix/profiles/hulks/bin/podman";
 
-pub(super) const MANUFACTURER_SERVICES_SCRIPT: &str = r#"set -euo pipefail
-
-mode="$1"
-case "$mode" in
-    enable) enabled=true ;;
-    disable) enabled=false ;;
-    *) echo "Expected enable or disable" >&2; exit 1 ;;
-esac
-
-config="$(readlink -f "$2")"
-updated="$(mktemp "${config}.XXXXXX")"
-trap 'rm -f "$updated"' EXIT
-cp --preserve=mode,ownership "$config" "$updated"
-
-# The daemon reloads this template on every start, replacing its runtime config.
-awk -v enabled="$enabled" '
-    BEGIN {
-        split("remote_controller ros.booster.vision_detection ros.booster.rpc_bridge.perception ros.agent_manager lui rtc_client", names, " ")
-        for (i in names) managed[names[i]] = 0
-    }
-    /^services:/ { in_services = 1; print; next }
-    /^[^[:space:]#]/ { in_services = 0 }
-    in_services && /^  - name:/ { service = $3 }
-    in_services && /^    enable:/ && service in managed {
-        $0 = "    enable: " enabled
-        managed[service]++
-    }
-    { print }
-    END {
-        for (service in managed) {
-            if (managed[service] != 1) {
-                print "Expected one enable flag for manufacturer service " service > "/dev/stderr"
-                failed = 1
-            }
-        }
-        exit failed
-    }
-' "$config" > "$updated"
-
-if ! cmp -s "$config" "$updated"; then
-    systemctl stop hulk
-    mv "$updated" "$config"
-    systemctl restart booster-daemon
-fi
-
-systemctl "$mode" --now joystick_ros2
-"#;
-
 pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<()> {
     let setup_path = &repository.root.join("tools/k1-setup");
     let bundle = bundle::prepare(repository).await?;
@@ -340,11 +292,25 @@ async fn gammaray_robot(
     // Stop replaced DDS publishers before starting the bridge.
     robot
         .ssh_to_overlay()?
+        .arg("sudo systemctl stop hulk")
+        .ssh_with_log("stopping hulk", &progress_bar)
+        .await?;
+
+    robot
+        .rsync_with_overlay_sudo()?
+        .arg("--info=progress2")
+        .arg(setup.join("containerd-hulk.yaml"))
         .arg(format!(
-            "sudo bash -s -- disable /opt/booster/config/containerd/config.yaml <<'EOF'\n{}\nEOF",
-            MANUFACTURER_SERVICES_SCRIPT
+            "{}:/opt/booster/config/containerd/config.yaml",
+            robot.address
         ))
-        .ssh_with_log("disabling manufacturer services", &progress_bar)
+        .rsync_with_log("uploading HULK service configuration", &progress_bar)
+        .await?;
+
+    robot
+        .ssh_to_overlay()?
+        .arg("sudo systemctl restart booster-daemon && sudo systemctl disable --now joystick_ros2")
+        .ssh_with_log("disabling Booster services", &progress_bar)
         .await?;
 
     robot
