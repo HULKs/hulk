@@ -7,10 +7,15 @@ use color_eyre::{
 };
 use repository::{Repository, team::Team};
 use ros_z::prelude::*;
-use tokio::task::JoinSet;
+use tokio::{
+    task::{JoinHandle, JoinSet},
+    time::timeout,
+};
+use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
 const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
+const RECORDER_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -26,6 +31,28 @@ struct Args {
 
 struct RunningStack {
     join_set: JoinSet<Result<()>>,
+    recorder: Option<JoinHandle<Result<()>>>,
+    stop: CancellationToken,
+}
+
+impl RunningStack {
+    async fn shutdown(&mut self) -> Result<()> {
+        self.stop.cancel();
+        self.join_set.abort_all();
+        let Some(mut recorder) = self.recorder.take() else {
+            return Ok(());
+        };
+        match timeout(RECORDER_SHUTDOWN_TIMEOUT, &mut recorder).await {
+            Ok(result) => result.wrap_err("MCAP recorder task failed to join")?,
+            Err(_) => {
+                recorder.abort();
+                bail!(
+                    "MCAP finalization exceeded {}s. Recording may need recovery",
+                    RECORDER_SHUTDOWN_TIMEOUT.as_secs()
+                );
+            }
+        }
+    }
 }
 
 fn main() -> Result<()> {
@@ -80,16 +107,21 @@ async fn run() -> Result<()> {
     };
 
     let ctx = Arc::new(builder.build().await?);
+    let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        .wrap_err("failed to register SIGTERM handler")?;
     let mut running = spawn_all(ctx.clone(), args.log_path).await?;
 
     let result = tokio::select! {
-        result = monitor(&mut running.join_set) => result,
-        _ = tokio::signal::ctrl_c() => {
-            Ok(())
-        }
+        result = monitor(&mut running) => result,
+        result = tokio::signal::ctrl_c() => result.wrap_err("Ctrl-C handler failed"),
+        _ = terminate.recv() => Ok(()),
     };
 
-    running.join_set.abort_all();
+    let recorder_result = running.shutdown().await;
+    if let Err(error) = &recorder_result {
+        tracing::error!(?error, "MCAP recorder shutdown failed");
+    }
+    let result = result.and(recorder_result);
     if result.is_ok() {
         ctx.shutdown()?;
     }
@@ -133,6 +165,7 @@ fn derive_namespace(robot: &str) -> String {
 
 async fn spawn_all(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<RunningStack> {
     let mut join_set = JoinSet::new();
+    let stop = CancellationToken::new();
 
     join_set.spawn(active_vision::run_boxed(ctx.clone()));
     join_set.spawn(ball_filter::run_boxed(ctx.clone()));
@@ -160,7 +193,11 @@ async fn spawn_all(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<Runni
     join_set.spawn(look_around::run_boxed(ctx.clone()));
     join_set.spawn(look_at::run_boxed(ctx.clone()));
     join_set.spawn(low_state_bridge::run_boxed(ctx.clone()));
-    join_set.spawn(mcap_recorder::run_boxed(ctx.clone(), log_path));
+    let recorder = tokio::spawn(mcap_recorder::run_boxed(
+        ctx.clone(),
+        log_path,
+        stop.child_token(),
+    ));
     join_set.spawn(message_filter::run_boxed(ctx.clone()));
     join_set.spawn(message_handler::run_boxed(ctx.clone()));
     join_set.spawn(microphone_recorder::run_boxed(ctx.clone()));
@@ -184,19 +221,36 @@ async fn spawn_all(ctx: Arc<Context>, log_path: Option<PathBuf>) -> Result<Runni
     join_set.spawn(world_state_composer::run_boxed(ctx.clone()));
     join_set.spawn(world_to_field_provider::run_boxed(ctx.clone()));
 
-    Ok(RunningStack { join_set })
+    Ok(RunningStack {
+        join_set,
+        recorder: Some(recorder),
+        stop,
+    })
 }
 
-async fn monitor(join_set: &mut JoinSet<Result<()>>) -> Result<()> {
-    while let Some(result) = join_set.join_next().await {
+async fn monitor(running: &mut RunningStack) -> Result<()> {
+    loop {
+        let result = tokio::select! {
+            result = running.join_set.join_next() => {
+                let Some(result) = result else { return Ok(()); };
+                result
+            }
+            result = async {
+                match &mut running.recorder {
+                    Some(recorder) => recorder.await,
+                    None => std::future::pending().await,
+                }
+            } => {
+                running.recorder = None;
+                result
+            }
+        };
         match result {
             Ok(Ok(())) => {}
             Ok(Err(error)) => return Err(error),
             Err(join_error) => return Err(join_error).wrap_err("monitor join failed"),
         }
     }
-
-    Ok(())
 }
 
 #[cfg(test)]

@@ -14,5 +14,9 @@ ros-z = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 tracing = { workspace = true }
 zenoh = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

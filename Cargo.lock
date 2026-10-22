@@ -5579,6 +5579,8 @@ dependencies = [
  "team_ball_filter",
  "time_to_reach_kick_position",
  "tokio",
+ "tokio-util",
+ "tracing",
  "tracing-subscriber",
  "trigger",
  "visual_kick_ball_selector",
@@ -6870,7 +6872,9 @@ dependencies = [
  "ros-z",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
+ "tokio-util",
  "tracing",
  "zenoh",
 ]

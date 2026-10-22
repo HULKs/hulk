@@ -9,10 +9,10 @@ ExecStartPre=/usr/bin/jetson_clocks
 ExecStartPre=/nix/var/nix/profiles/hulks/bin/podman wait --condition running hulk
 ExecStart=/usr/bin/launch-hulk
 ExecStartPost=/bin/sleep 5
-ExecStop=/nix/var/nix/profiles/hulks/bin/podman exec hulk pkill -SIGTERM hulk
+ExecStop=/nix/var/nix/profiles/hulks/bin/podman exec hulk sh -ec 'pkill -TERM -x hulk_ros_z || [ $$? -eq 1 ]; pidwait -x hulk_ros_z || [ $$? -eq 1 ]'
 KillMode=control-group
 KillSignal=SIGTERM
-TimeoutStopSec=10
+TimeoutStopSec=15
 Restart=no
 
 [Install]

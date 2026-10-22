@@ -58,6 +58,8 @@ support_foot_estimator = { workspace = true }
 team_ball_filter = { workspace = true }
 time_to_reach_kick_position = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 trigger = { workspace = true }
 visual_kick_ball_selector = { workspace = true }
