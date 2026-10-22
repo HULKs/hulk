@@ -75,6 +75,12 @@ generate_coordinate_system!(
     /// Origin: center of the field
     /// X axis pointing towards the opponent goal
     Field,
+    /// 2D field coordinates normalized by half the field length and width.
+    ///
+    /// Origin: center of the field
+    /// Own goal-line center: (-1, 0), opponent goal-line center: (1, 0)
+    /// Y axis pointing left towards the touchline at y = 1
+    NormalizedField,
     /// 3D Intrinsic coordinate system of the camera.
     ///
     /// Origin: center of the camera model
