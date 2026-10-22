@@ -167,6 +167,19 @@
   ////
   mode: "client",
 
+  transport: {
+    shared_memory: {
+      enabled: true,
+      // Initialize SHM resources when the session opens.
+      mode: "init",
+      transport_optimization: {
+        enabled: true,
+        pool_size: 33554432,
+        message_size_threshold: 65536,
+      },
+    },
+  },
+
   ////
   //// Which endpoints to connect to. E.g. tcp/localhost:7447.
   //// By configuring the endpoints, it is possible to tell zenoh which router/peer to connect to at startup.
