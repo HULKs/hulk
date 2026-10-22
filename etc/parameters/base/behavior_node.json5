@@ -61,7 +61,7 @@
   kicking: {
     soft: false,
     quick: false,
-    target_speed: 1.0, // Desired outgoing ball speed in m/s.
+    target_speed: 3.4, // Desired outgoing ball speed in m/s.
     allow_strong_kicks: false,
     kick_activation_distance: 1.3,
     kick_activation_hysteresis: 0.3,
