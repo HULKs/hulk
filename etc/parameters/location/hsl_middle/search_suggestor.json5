@@ -1,0 +1,14 @@
+{
+  // Search the full useful sight range on the 14 x 9 m middle field.
+  heatmap_decay_range: {
+    end: 7.0,
+  },
+  // A last-seen ball should guide the search without continually refilling
+  // already scanned cells or raising the entire field to the same priority.
+  last_ball_priority_minimum: 0.1,
+  last_ball_priority_rise_time: {
+    secs: 60,
+  },
+  // Permit a new, clearly better tile before the current one is exhausted.
+  tile_switch_hysteresis: 0.85,
+}
