@@ -361,7 +361,7 @@ fn target_player_position(
         let dy_ball = point.y() - ball_y;
         let ball_distance = (dx_ball * dx_ball + dy_ball * dy_ball).sqrt();
         let support_distance_error = ball_distance - support_distance;
-        // Our goal is in negative field x, so only reward the half-circle behind the ball.
+
         let ball_term = if dx_ball <= 0.0 {
             parameters.ball_weight
                 * (-(support_distance_error * support_distance_error) * inv_two_support_sigma_sq)
