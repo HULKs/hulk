@@ -11,7 +11,8 @@ Network=host
 AddDevice=nvidia.com/gpu=all
 AddDevice=/dev/snd
 Volume=/dev/input:/dev/input:rw
-PodmanArgs=--device-cgroup-rule="c 13:* rw"
+# Share /dev/shm with the host Zenoh services.
+PodmanArgs=--device-cgroup-rule="c 13:* rw" --ipc=host --ulimit=memlock=-1:-1
 GroupAdd=101
 RunInit=true
 
@@ -23,11 +24,14 @@ Environment=LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/tegra
 Environment=ORT_DYLIB_PATH=/usr/local/lib/libonnxruntime.so
 Environment=LD_PRELOAD=/usr/local/lib/libonnxruntime.so
 Environment=GILRS_DISABLE_UDEV=1
+# Enable Zenoh SHM for ros-z sessions.
+Environment='ZENOH_CONFIG_OVERRIDE=transport/shared_memory={enabled:true,mode:"init",transport_optimization:{enabled:true,pool_size:33554432,message_size_threshold:65536}}'
 EnvironmentFile=/run/hulk-runtime.env
 
 Exec=sleep infinity
 
 [Service]
+LimitMEMLOCK=infinity
 ExecStartPre=/usr/bin/mkdir -p /dev/input
 ExecStartPre=/usr/bin/bash -c "echo HARDWARE_ID=$(/usr/local/bin/jetson_release -s | /usr/bin/grep 'Serial Number:' | /usr/bin/grep '[0-9]*$' -o) > /run/hulk-runtime.env"
 ExecStartPre=/usr/bin/jetson_clocks
