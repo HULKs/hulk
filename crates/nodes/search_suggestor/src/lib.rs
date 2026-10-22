@@ -2,20 +2,21 @@ use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
 use hsl_network_messages::PlayerNumber;
 use kinematics::joints::head::HeadJoints;
-use linear_algebra::{Isometry2, Point2};
+use linear_algebra::{Isometry2, Point2, Vector2};
 use ros_z::{
     prelude::*,
     qos::{QosDurability, QosHistory},
     time::Time,
 };
 use search_heatmap::{
-    Heatmap, SearchArea, SearchOccluder, SearchVoronoiSelection, ball_position_near_field,
+    Heatmap, SearchArea, SearchOccluder, SearchVoronoiSelection, ball_position_in_field,
 };
 use std::{boxed::Box, future::Future, num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
+    heatmap::{SEARCH_CELL_SIZE_TOPIC, grid_cell_size},
     obstacles::{Obstacle, ObstacleKind},
     parameters::SearchSuggestorParameters,
     players::Players,
@@ -143,8 +144,26 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
+    let cell_size_pub = node
+        .publisher::<Vector2<Field>>(SEARCH_CELL_SIZE_TOPIC)
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            history: QosHistory::KeepLast(NonZeroUsize::MIN),
+            ..Default::default()
+        })
+        .build()
+        .await?;
+
     let field_dimensions = field_dimensions_sub.recv().await?;
-    let mut heatmap = Heatmap::new(field_dimensions);
+    let mut heatmap = Heatmap::new(
+        field_dimensions,
+        parameters.snapshot().typed().cells_along_field_length,
+    );
+    let mut published_cell_size = grid_cell_size(
+        field_dimensions,
+        parameters.snapshot().typed().cells_along_field_length,
+    );
+    cell_size_pub.publish(&published_cell_size).await?;
     let mut last_ball_position = None;
     let mut current_ball_position = None;
     let mut latest_filtered_game_controller_state = None;
@@ -163,6 +182,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
+        let cell_size = grid_cell_size(field_dimensions, parameters.cells_along_field_length);
+        if cell_size != published_cell_size {
+            cell_size_pub.publish(&cell_size).await?;
+            published_cell_size = cell_size;
+        }
         if parameters.disable_heatmap_search {
             if was_heatmap_search_enabled {
                 last_ball_position = None;
@@ -190,8 +214,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         }
         if !was_heatmap_search_enabled {
-            heatmap = Heatmap::new(field_dimensions);
+            heatmap = Heatmap::new(field_dimensions, parameters.cells_along_field_length);
         }
+        heatmap.resize(field_dimensions, parameters.cells_along_field_length);
         was_heatmap_search_enabled = true;
         let teammate_freshness = TeammateFreshness {
             now,
@@ -214,7 +239,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         }
         was_playing = is_playing;
         let mut ball_was_seen = false;
-        let mut received_filtered_game_controller_state = false;
 
         while ball_position_sub.is_ready() {
             match (ball_position_sub.recv().await?, ground_to_field) {
@@ -226,7 +250,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     }
                     let last_seen = ball_position.last_seen;
                     let ball_position = ground_to_field * ball_position.position;
-                    if ball_position_near_field(field_dimensions, ball_position) {
+                    if ball_position_in_field(field_dimensions, ball_position) {
                         ball_was_seen = true;
                         last_ball_position = Some((ball_position, last_seen));
                         current_ball_position = Some(ball_position);
@@ -261,12 +285,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 &mut last_teammate_states,
                 parameters,
                 teammate_freshness,
-                elapsed_since_last_priority_update,
             );
         }
         while filtered_game_controller_state_sub.is_ready() {
             let filtered_game_controller_state = filtered_game_controller_state_sub.recv().await?;
-            received_filtered_game_controller_state = true;
             latest_filtered_game_controller_state = Some(filtered_game_controller_state);
         }
 
@@ -275,12 +297,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 heatmap.regenerate_restart_hypotheses(
                     filtered_game_controller_state,
                     field_dimensions,
-                    parameters.rule_ball_weight_increment,
+                    elapsed_since_last_priority_update.as_secs_f32()
+                        / parameters.rule_priority_rise_time.as_secs_f32(),
                 )
             },
         );
         if !restart_regenerated
-            && received_filtered_game_controller_state
             && let (Some(filtered_game_controller_state), Some(primary_state)) =
                 (&latest_filtered_game_controller_state, primary_state)
         {
@@ -289,6 +311,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 field_dimensions,
                 *primary_state,
                 parameters,
+                elapsed_since_last_priority_update,
             );
         }
 
@@ -328,6 +351,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     field_dimensions,
                     ground_to_field,
                     head_yaw,
+                    elapsed_since_last_priority_update,
                     parameters,
                     &occluders,
                 );
@@ -358,6 +382,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         } else if let Some((voronoi_selection, search_area)) =
             search_voronoi_selection_from_teammates(
                 field_dimensions,
+                parameters.cells_along_field_length,
                 own_voronoi_site,
                 goalkeeper_player_number_cache
                     .get_latest()
@@ -373,7 +398,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 &voronoi_selection,
                 search_area,
             );
-            let minimum_validity = search_minimum_validity(
+            let minimum_search_priority = active_minimum_search_priority(
                 &mut no_regular_target_since,
                 now,
                 current_ball_position.is_none() && is_playing,
@@ -385,7 +410,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 parameters,
                 ground_to_field,
                 &voronoi_selection,
-                minimum_validity,
+                minimum_search_priority,
                 search_area,
             );
         } else {
@@ -427,22 +452,99 @@ fn search_area_for_player(
 fn validate_search_suggestor_parameters(
     parameters: &SearchSuggestorParameters,
 ) -> std::result::Result<(), String> {
-    if !parameters.minimum_validity.is_finite()
-        || !(0.0..=1.0).contains(&parameters.minimum_validity)
+    if !parameters.minimum_search_priority.is_finite()
+        || !(0.0..=1.0).contains(&parameters.minimum_search_priority)
     {
         return Err(format!(
-            "minimum_validity must be finite and between 0 and 1 (got {})",
-            parameters.minimum_validity
+            "minimum_search_priority must be finite and between 0 and 1 (got {})",
+            parameters.minimum_search_priority
         ));
     }
-    if !parameters.exhausted_search_minimum_validity.is_finite()
-        || !(0.0..=parameters.minimum_validity)
-            .contains(&parameters.exhausted_search_minimum_validity)
+    if !parameters.fallback_minimum_search_priority.is_finite()
+        || !(0.0..=parameters.minimum_search_priority)
+            .contains(&parameters.fallback_minimum_search_priority)
     {
         return Err(format!(
-            "exhausted_search_minimum_validity must be finite and between 0 and minimum_validity (got {})",
-            parameters.exhausted_search_minimum_validity
+            "fallback_minimum_search_priority must be finite and between 0 and minimum_search_priority (got {})",
+            parameters.fallback_minimum_search_priority
         ));
+    }
+    if !(1..=512).contains(&parameters.cells_along_field_length) {
+        return Err("cells_along_field_length must be between 1 and 512".into());
+    }
+    for (name, value) in [
+        (
+            "rule_priority_rise_time",
+            parameters.rule_priority_rise_time,
+        ),
+        (
+            "unseen_priority_rise_time",
+            parameters.unseen_priority_rise_time,
+        ),
+        (
+            "last_ball_extra_priority_rise_time",
+            parameters.last_ball_extra_priority_rise_time,
+        ),
+        (
+            "observation_half_life_near",
+            parameters.observation_half_life_near,
+        ),
+        (
+            "observation_half_life_far",
+            parameters.observation_half_life_far,
+        ),
+        ("teammate_replay_step", parameters.teammate_replay_step),
+    ] {
+        if value.is_zero() {
+            return Err(format!("{name} must be positive"));
+        }
+    }
+    let range = &parameters.observation_distance_range;
+    if !range.start.is_finite()
+        || !range.end.is_finite()
+        || range.start < 0.0
+        || range.end <= range.start
+    {
+        return Err("observation_distance_range requires finite 0 <= start < end".into());
+    }
+    for (name, value) in [
+        (
+            "hypothesis_priority_scale",
+            parameters.hypothesis_priority_scale,
+        ),
+        ("team_ball_priority", parameters.team_ball_priority),
+        (
+            "teammate_observation_weight",
+            parameters.teammate_observation_weight,
+        ),
+        (
+            "occluded_observation_weight",
+            parameters.occluded_observation_weight,
+        ),
+        ("border_view_penalty", parameters.border_view_penalty),
+        (
+            "border_view_penalty_width_fraction",
+            parameters.border_view_penalty_width_fraction,
+        ),
+        ("tile_switch_hysteresis", parameters.tile_switch_hysteresis),
+        (
+            "turn_preference_priority_margin",
+            parameters.turn_preference_priority_margin,
+        ),
+    ] {
+        if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+            return Err(format!("{name} must be finite and between 0 and 1"));
+        }
+    }
+    if !parameters.last_ball_initial_half_distance.is_finite()
+        || parameters.last_ball_initial_half_distance <= 0.0
+        || !parameters.last_ball_spread_speed.is_finite()
+        || parameters.last_ball_spread_speed < 0.0
+    {
+        return Err(
+            "last-ball half distance must be positive and spread speed non-negative, both finite"
+                .into(),
+        );
     }
     Ok(())
 }
@@ -453,7 +555,7 @@ fn ground_to_field_is_finite(ground_to_field: Isometry2<Ground, Field>) -> bool 
         && ground_to_field.orientation().angle().is_finite()
 }
 
-fn search_minimum_validity(
+fn active_minimum_search_priority(
     no_regular_target_since: &mut Option<Time>,
     now: Time,
     can_use_fallback: bool,
@@ -462,7 +564,7 @@ fn search_minimum_validity(
 ) -> f32 {
     if !can_use_fallback || has_regular_target {
         *no_regular_target_since = None;
-        return parameters.minimum_validity;
+        return parameters.minimum_search_priority;
     }
 
     let since = no_regular_target_since.get_or_insert(now);
@@ -470,9 +572,9 @@ fn search_minimum_validity(
         *since = now;
     }
     if now.duration_since(*since) >= parameters.exhausted_search_delay {
-        parameters.exhausted_search_minimum_validity
+        parameters.fallback_minimum_search_priority
     } else {
-        parameters.minimum_validity
+        parameters.minimum_search_priority
     }
 }
 
@@ -500,6 +602,7 @@ fn search_occluders_from_obstacles(
 
 fn search_voronoi_selection_from_teammates(
     field_dimensions: FieldDimensions,
+    cells_x: usize,
     own_voronoi_site: Option<(Isometry2<Ground, Field>, PlayerNumber)>,
     goalkeeper_player_number: Option<PlayerNumber>,
     last_teammate_states: &Players<Option<TimeWrapper<PlayerState>>>,
@@ -529,6 +632,7 @@ fn search_voronoi_selection_from_teammates(
 
     Some(SearchVoronoiSelection::new(
         field_dimensions,
+        cells_x,
         own_player_number,
         sites,
     ))
@@ -541,7 +645,6 @@ fn update_from_player_states(
     last_teammate_states: &mut Players<Option<TimeWrapper<PlayerState>>>,
     parameters: &SearchSuggestorParameters,
     teammate_freshness: TeammateFreshness,
-    local_tick_duration: Duration,
 ) {
     for (player_number, current) in player_states.iter() {
         let Some(current) = current.as_ref().filter(|state| state.inner.is_finite()) else {
@@ -563,24 +666,16 @@ fn update_from_player_states(
             && let elapsed_since_previous_message = current.time.duration_since(previous.time)
             && elapsed_since_previous_message <= freshness_window
         {
-            let tick_count = replay_tick_count(elapsed_since_previous_message, local_tick_duration);
             heatmap.decay_tiles_from_teammate_motion(
                 field_dimensions,
                 &previous.inner,
                 &current.inner,
-                tick_count,
+                elapsed_since_previous_message,
                 parameters,
             );
         }
         last_teammate_states[player_number] = Some(current.clone());
     }
-}
-
-fn replay_tick_count(message_elapsed: Duration, local_tick_duration: Duration) -> usize {
-    let local_tick_duration = local_tick_duration.max(Duration::from_millis(1));
-    (message_elapsed.as_secs_f32() / local_tick_duration.as_secs_f32())
-        .ceil()
-        .max(1.0) as usize
 }
 
 #[cfg(test)]

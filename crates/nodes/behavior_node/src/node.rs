@@ -63,6 +63,7 @@ pub struct Blackboard {
     pub head_yaw: f32,
     pub parameters: BehaviorParameters,
     pub walking_velocity_limits: WalkingVelocityLimits,
+    pub search_cell_size: Option<Vector2<Field>>,
     pub world_state: WorldState,
     pub controller_input: Option<ControllerInput>,
     pub remote_control_enabled: bool,
@@ -153,6 +154,14 @@ fn validate_behavior_parameters(
         errors.push("kicking.target_speed must be finite and non-negative".to_owned());
     }
 
+    let search = &parameters.search;
+    if !search.position_reached_cell_fraction.is_finite()
+        || !(0.0..=1.0).contains(&search.position_reached_cell_fraction)
+        || !search.minimum_position_reached_distance.is_finite()
+        || search.minimum_position_reached_distance < 0.0
+    {
+        errors.push("search arrival fraction must be in [0, 1] and minimum distance non-negative, both finite".into());
+    }
     if errors.is_empty() {
         Ok(())
     } else {
@@ -165,6 +174,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<BehaviorParameters>("behavior_node")?;
     parameters.add_validation_hook(validate_behavior_parameters)?;
+    let search_cell_size_cache = node
+        .subscriber::<Vector2<Field>>(types::heatmap::SEARCH_CELL_SIZE_TOPIC)
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
     let field_dimensions_cache = node
         .subscriber::<FieldDimensions>("field_dimensions")
         .qos(QosProfile {
@@ -346,6 +364,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .get_latest()
             .and_then(|limits| limits.validate().is_ok().then_some(*limits))
             .unwrap_or_default(),
+        search_cell_size: search_cell_size_cache.get_latest().map(|size| *size),
         world_state: WorldState::default(),
         controller_input: None,
         remote_control_enabled: false,
@@ -418,6 +437,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         {
             blackboard.walking_velocity_limits = *limits;
         }
+        blackboard.search_cell_size = search_cell_size_cache.get_latest().map(|size| *size);
         let goalkeeper_player_number = blackboard.parameters.goalkeeper.player_number;
         if goalkeeper_player_number != published_goalkeeper_player_number {
             goalkeeper_player_number_pub
@@ -584,3 +604,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         motion_command_pub.publish(&motion_command).await?;
     }
 }
+
+#[cfg(test)]
+mod runtime_tests;

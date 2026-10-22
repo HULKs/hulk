@@ -1,6 +1,7 @@
 use coordinate_systems::Field;
 use hsl_network_messages::{SubState, Team};
 use linear_algebra::Point2;
+use std::time::Duration;
 use types::{
     field_dimensions::{FieldDimensions, Half, Side},
     filtered_game_controller_state::FilteredGameControllerState,
@@ -17,11 +18,12 @@ impl Heatmap {
         field_dimensions: FieldDimensions,
         primary_state: PrimaryState,
         parameters: &SearchSuggestorParameters,
+        elapsed: Duration,
     ) {
         if self.regenerate_restart_hypotheses(
             filtered_game_controller_state,
             field_dimensions,
-            parameters.rule_ball_weight_increment,
+            elapsed.as_secs_f32() / parameters.rule_priority_rise_time.as_secs_f32(),
         ) {
             return;
         }
@@ -32,7 +34,8 @@ impl Heatmap {
             field_dimensions,
         ) {
             let heatmap_point = self.field_to_heatmap(field_dimensions, rule_ball_hypothesis);
-            self.map[heatmap_point] += parameters.rule_ball_weight_increment;
+            self.map[heatmap_point] +=
+                elapsed.as_secs_f32() / parameters.rule_priority_rise_time.as_secs_f32();
         }
     }
 
@@ -162,5 +165,49 @@ fn kicking_team_half(kicking_team: Option<Team>) -> Option<Half> {
         Some(Team::Opponent) => Some(Half::Opponent),
         Some(Team::Hulks) => Some(Half::Own),
         None => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use types::{
+        field_dimensions::GlobalFieldSide, filtered_game_state::FilteredGameState, players::Players,
+    };
+
+    #[test]
+    fn normal_and_restart_rule_growth_use_elapsed_time() {
+        let field = FieldDimensions::SPL_2025;
+        let parameters = SearchSuggestorParameters::default();
+        for sub_state in [None, Some(SubState::CornerKick)] {
+            let state = FilteredGameControllerState {
+                game_state: FilteredGameState::Ready,
+                opponent_game_state: FilteredGameState::Ready,
+                half: hsl_network_messages::Half::First,
+                remaining_time_in_half: Duration::ZERO,
+                game_phase: hsl_network_messages::GamePhase::Normal,
+                kicking_team: Some(Team::Hulks),
+                penalties: Players::new(None),
+                remaining_number_of_messages: 100,
+                sub_state,
+                global_field_side: GlobalFieldSide::Home,
+                new_own_penalties_last_cycle: Default::default(),
+                new_opponent_penalties_last_cycle: Default::default(),
+            };
+            for steps in [1, 50] {
+                let mut map = Heatmap::new(field, 28);
+                for _ in 0..steps {
+                    map.update_with_rule_ball(
+                        &state,
+                        field,
+                        PrimaryState::Ready,
+                        &parameters,
+                        Duration::from_secs_f32(1.0 / steps as f32),
+                    );
+                }
+                let maximum = map.map.iter().copied().fold(0.0, f32::max);
+                assert!((maximum - 1.0 / 16.0).abs() < 1e-6);
+            }
+        }
     }
 }

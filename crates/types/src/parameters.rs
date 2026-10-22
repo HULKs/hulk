@@ -54,7 +54,10 @@ pub struct BehaviorControlParameters {
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct SearchParameters {
-    pub position_reached_distance: f32,
+    /// Arrival radius as a fraction of the shorter search cell edge.
+    pub position_reached_cell_fraction: f32,
+    /// Physical lower bound in metres.
+    pub minimum_position_reached_distance: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
@@ -221,33 +224,76 @@ pub struct CameraMatrixParameters {
     pub correction_in_camera: Vector3<Camera>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+#[derive(Clone, Debug, Deserialize, Serialize, ros_z::Message)]
 pub struct SearchSuggestorParameters {
+    // Raster and eligibility.
     #[serde(default)]
     pub disable_heatmap_search: bool,
-    pub minimum_validity: f32,
-    pub own_ball_weight: f32,
-    pub team_ball_weight: f32,
-    pub rule_ball_weight_increment: f32,
-    pub last_ball_priority_minimum: f32,
-    pub last_ball_priority_maximum: f32,
-    pub last_ball_priority_half_distance: f32,
-    pub last_ball_priority_rise_time: Duration,
-    /// Time after the last observation until the spatial last-ball bias disappears.
-    /// Zero disables the spatial bias immediately, retaining uniform priority growth.
-    #[serde(default)]
+    pub cells_along_field_length: usize,
+    pub minimum_search_priority: f32,
+    pub fallback_minimum_search_priority: f32,
+    pub exhausted_search_delay: Duration,
+
+    // Ball evidence.
+    pub hypothesis_priority_scale: f32,
+    pub team_ball_priority: f32,
+    /// Seconds of rule evidence required to add one priority unit.
+    pub rule_priority_rise_time: Duration,
+
+    // Temporal recovery. Each rise time describes an increase by one unit.
+    pub unseen_priority_rise_time: Duration,
+    pub last_ball_extra_priority_rise_time: Duration,
+    /// Zero disables additional last-ball influence immediately.
     pub last_ball_priority_fade_time: Duration,
+
+    // Spatial extent, in metres and metres per second.
+    pub last_ball_initial_half_distance: f32,
+    pub last_ball_spread_speed: f32,
+    pub observation_distance_range: Range<f32>,
+
+    // Observation: half-lives at the start/end of the distance range.
+    pub observation_half_life_near: Duration,
+    pub observation_half_life_far: Duration,
+    pub teammate_observation_weight: f32,
+    pub occluded_observation_weight: f32,
+    /// Maximum temporal spacing of interpolated team observations.
+    pub teammate_replay_step: Duration,
+
+    // Target preferences.
     pub turn_preference_priority_margin: f32,
     pub border_view_penalty: f32,
-    pub border_view_penalty_range: f32,
+    pub border_view_penalty_width_fraction: f32,
     pub tile_switch_hysteresis: f32,
-    pub exhausted_search_delay: Duration,
-    pub exhausted_search_minimum_validity: f32,
-    pub decay_distance_factor: f32,
-    pub occluded_decay_factor: f32,
-    pub teammate_decay_factor: f32,
-    pub teammate_replay_stride: usize,
-    pub heatmap_decay_range: Range<f32>,
+}
+
+impl Default for SearchSuggestorParameters {
+    fn default() -> Self {
+        Self {
+            disable_heatmap_search: false,
+            cells_along_field_length: 28,
+            minimum_search_priority: 0.4,
+            fallback_minimum_search_priority: 0.05,
+            exhausted_search_delay: Duration::from_secs(5),
+            hypothesis_priority_scale: 1.0,
+            team_ball_priority: 1.0,
+            rule_priority_rise_time: Duration::from_secs(16),
+            unseen_priority_rise_time: Duration::from_secs(100),
+            last_ball_extra_priority_rise_time: Duration::from_secs(25),
+            last_ball_priority_fade_time: Duration::from_secs(10),
+            last_ball_initial_half_distance: 2.0,
+            last_ball_spread_speed: 0.2,
+            observation_distance_range: 0.0..3.0,
+            observation_half_life_near: Duration::from_secs(1),
+            observation_half_life_far: Duration::from_secs(5),
+            teammate_observation_weight: 0.25,
+            occluded_observation_weight: 0.05,
+            teammate_replay_step: Duration::from_millis(400),
+            turn_preference_priority_margin: 0.1,
+            border_view_penalty: 0.15,
+            border_view_penalty_width_fraction: 1.0 / 3.0,
+            tile_switch_hysteresis: 0.7,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]

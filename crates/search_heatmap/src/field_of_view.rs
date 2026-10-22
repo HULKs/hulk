@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{ops::Range, time::Duration};
 
 use coordinate_systems::{Field, Ground};
 use geometry::{
@@ -7,7 +7,6 @@ use geometry::{
     line_segment::LineSegment,
 };
 use linear_algebra::{Isometry2, Orientation2, Pose2, Vector2, vector};
-use nalgebra::clamp;
 use types::{
     field_dimensions::FieldDimensions, parameters::SearchSuggestorParameters,
     world_state::PlayerState,
@@ -18,15 +17,17 @@ use crate::{Heatmap, heatmap_tile_center};
 pub type SearchOccluder = Circle<Field>;
 
 struct FieldOfViewDecay<'a> {
-    distance_factor: f32,
+    near_half_life: f32,
+    far_half_life: f32,
+    observation_weight: f32,
     range: Range<f32>,
-    sampled_tick_count: usize,
+    elapsed: Duration,
     occluders: &'a [SearchOccluder],
     occluded_factor: f32,
 }
 
 impl Heatmap {
-    fn decay_tiles_in_fov_for_sampled_ticks(
+    fn decay_tiles_in_fov(
         &mut self,
         field_dimensions: FieldDimensions,
         robot_position: Vector2<Field>,
@@ -34,15 +35,16 @@ impl Heatmap {
         right_edge: Vector2<Field>,
         decay: FieldOfViewDecay<'_>,
     ) {
-        let sampled_tick_count = decay.sampled_tick_count.max(1).min(i32::MAX as usize) as i32;
+        let shape = self.map.dim();
         self.map.indexed_iter_mut().for_each(|((x, y), value)| {
-            let tile_center_in_field = heatmap_tile_center(field_dimensions, (x, y)).coords();
+            let tile_center_in_field =
+                heatmap_tile_center(field_dimensions, shape, (x, y)).coords();
             let robot_to_tile = tile_center_in_field - robot_position;
             let is_inside_sight = get_direction(left_edge, robot_to_tile)
                 == Some(Direction::Counterclockwise)
                 && get_direction(right_edge, robot_to_tile) == Some(Direction::Clockwise);
             let distance_to_tile = robot_to_tile.norm();
-            let relative_distance_to_tile = clamp(distance_to_tile / decay.range.end, 0.0, 1.0);
+
             if is_inside_sight && decay.range.contains(&distance_to_tile) {
                 let occlusion_factor =
                     if is_occluded(robot_position, tile_center_in_field, decay.occluders) {
@@ -50,15 +52,18 @@ impl Heatmap {
                     } else {
                         1.0
                     };
-                let per_tick_decay =
-                    decay.distance_factor * occlusion_factor * (1.0 - relative_distance_to_tile);
-                let effective_decay = 1.0 - (1.0 - per_tick_decay).powi(sampled_tick_count);
-                *value *= 1.0 - effective_decay;
+                let u =
+                    (distance_to_tile - decay.range.start) / (decay.range.end - decay.range.start);
+                let half_life =
+                    decay.near_half_life + u * (decay.far_half_life - decay.near_half_life);
+                let exposure =
+                    decay.elapsed.as_secs_f32() * decay.observation_weight * occlusion_factor;
+                *value *= (-std::f32::consts::LN_2 * exposure / half_life).exp();
             }
         });
     }
 
-    fn decay_tiles_from_field_pose_and_heading_for_sampled_ticks(
+    fn decay_tiles_from_field_pose_and_heading(
         &mut self,
         field_dimensions: FieldDimensions,
         pose: Pose2<Field>,
@@ -82,7 +87,7 @@ impl Heatmap {
         let left_edge: Vector2<Field> = vector![left_angle.cos(), left_angle.sin()];
         let right_edge: Vector2<Field> = vector![right_angle.cos(), right_angle.sin()];
 
-        self.decay_tiles_in_fov_for_sampled_ticks(
+        self.decay_tiles_in_fov(
             field_dimensions,
             robot_position,
             left_edge,
@@ -96,24 +101,29 @@ impl Heatmap {
         field_dimensions: FieldDimensions,
         previous: &PlayerState,
         current: &PlayerState,
-        tick_count: usize,
+        elapsed: Duration,
         parameters: &SearchSuggestorParameters,
     ) {
-        let tick_count = tick_count.max(1);
-        let replay_stride = parameters.teammate_replay_stride.max(1);
-        for chunk_start in (0..tick_count).step_by(replay_stride) {
-            let sampled_tick_count = (tick_count - chunk_start).min(replay_stride);
-            let alpha = (chunk_start as f32 + sampled_tick_count as f32 * 0.5) / tick_count as f32;
+        if elapsed.is_zero() || parameters.teammate_observation_weight == 0.0 {
+            return;
+        }
+        let steps = (elapsed.as_secs_f64() / parameters.teammate_replay_step.as_secs_f64())
+            .ceil()
+            .max(1.0) as usize;
+        for step in 0..steps {
+            let alpha = (step as f32 + 0.5) / steps as f32;
             let (pose, heading_direction) =
                 interpolate_teammate_pose_and_heading(previous, current, alpha);
-            self.decay_tiles_from_field_pose_and_heading_for_sampled_ticks(
+            self.decay_tiles_from_field_pose_and_heading(
                 field_dimensions,
                 pose,
                 heading_direction,
                 FieldOfViewDecay {
-                    distance_factor: teammate_decay_factor(parameters),
-                    range: parameters.heatmap_decay_range.clone(),
-                    sampled_tick_count,
+                    near_half_life: parameters.observation_half_life_near.as_secs_f32(),
+                    far_half_life: parameters.observation_half_life_far.as_secs_f32(),
+                    observation_weight: parameters.teammate_observation_weight,
+                    range: parameters.observation_distance_range.clone(),
+                    elapsed: elapsed.div_f64(steps as f64),
                     occluders: &[],
                     occluded_factor: 1.0,
                 },
@@ -126,6 +136,7 @@ impl Heatmap {
         field_dimensions: FieldDimensions,
         ground_to_field: Isometry2<Ground, Field>,
         head_yaw: f32,
+        elapsed: Duration,
         parameters: &SearchSuggestorParameters,
         occluders: &[SearchOccluder],
     ) {
@@ -139,26 +150,20 @@ impl Heatmap {
         let view_orientation = ground_to_field.orientation().angle() + head_yaw;
         let heading_direction: Vector2<Field> =
             vector![view_orientation.cos(), view_orientation.sin()];
-        self.decay_tiles_from_field_pose_and_heading_for_sampled_ticks(
+        self.decay_tiles_from_field_pose_and_heading(
             field_dimensions,
             ground_to_field.as_pose(),
             heading_direction,
             FieldOfViewDecay {
-                distance_factor: parameters.decay_distance_factor,
-                range: parameters.heatmap_decay_range.clone(),
-                sampled_tick_count: 1,
+                near_half_life: parameters.observation_half_life_near.as_secs_f32(),
+                far_half_life: parameters.observation_half_life_far.as_secs_f32(),
+                observation_weight: 1.0,
+                range: parameters.observation_distance_range.clone(),
+                elapsed,
                 occluders,
-                occluded_factor: parameters.occluded_decay_factor,
+                occluded_factor: parameters.occluded_observation_weight,
             },
         );
-    }
-}
-
-fn teammate_decay_factor(parameters: &SearchSuggestorParameters) -> f32 {
-    if parameters.teammate_decay_factor > 0.0 {
-        parameters.teammate_decay_factor
-    } else {
-        parameters.decay_distance_factor * 0.25
     }
 }
 
@@ -224,12 +229,13 @@ mod tests {
     #[test]
     fn local_decay_uses_head_yaw() {
         let field_dimensions = FieldDimensions::SPL_2025;
-        let mut heatmap = Heatmap::new(field_dimensions);
+        let mut heatmap = Heatmap::new(field_dimensions, 18);
         heatmap.map.fill(1.0);
         let parameters = SearchSuggestorParameters {
-            decay_distance_factor: 0.5,
-            occluded_decay_factor: 1.0,
-            heatmap_decay_range: 0.0..3.0,
+            observation_half_life_near: Duration::from_secs(1),
+            observation_half_life_far: Duration::from_secs(5),
+            occluded_observation_weight: 1.0,
+            observation_distance_range: 0.0..3.0,
             ..Default::default()
         };
         let ground_to_field = Isometry2::<Ground, Field>::from_parts(vector![0.0, 0.0], 0.0);
@@ -238,6 +244,7 @@ mod tests {
             field_dimensions,
             ground_to_field,
             std::f32::consts::FRAC_PI_2,
+            Duration::from_millis(20),
             &parameters,
             &[],
         );
@@ -249,11 +256,12 @@ mod tests {
     #[test]
     fn invalid_head_yaw_does_not_change_heatmap() {
         let field_dimensions = FieldDimensions::SPL_2025;
-        let mut heatmap = Heatmap::new(field_dimensions);
+        let mut heatmap = Heatmap::new(field_dimensions, 18);
         heatmap.map.fill(1.0);
         let parameters = SearchSuggestorParameters {
-            decay_distance_factor: 0.5,
-            heatmap_decay_range: 0.0..3.0,
+            observation_half_life_near: Duration::from_secs(1),
+            observation_half_life_far: Duration::from_secs(5),
+            observation_distance_range: 0.0..3.0,
             ..Default::default()
         };
 
@@ -261,10 +269,71 @@ mod tests {
             field_dimensions,
             Isometry2::<Ground, Field>::identity(),
             f32::NAN,
+            Duration::from_millis(20),
             &parameters,
             &[],
         );
 
         assert!(heatmap.map.iter().all(|value| *value == 1.0));
+    }
+    #[test]
+    fn half_life_interpolates_in_distance_and_is_independent_of_tick_rate() {
+        let field = FieldDimensions::SPL_2025;
+        let target = crate::heatmap_tile_center(field, (18, 12), (11, 6));
+        let parameters = SearchSuggestorParameters {
+            observation_distance_range: 1.0..3.0,
+            observation_half_life_near: Duration::from_secs(1),
+            observation_half_life_far: Duration::from_secs(5),
+            ..Default::default()
+        };
+        for (distance, half_life) in [(1.0, 1.0), (2.0, 3.0), (2.9, 4.8)] {
+            for steps in [1, 10, 50] {
+                let mut map = Heatmap::new(field, 18);
+                map.map.fill(1.0);
+                let pose = Isometry2::from_parts(vector![target.x() - distance, target.y()], 0.0);
+                for _ in 0..steps {
+                    map.decay_tiles_in_robot_fov_with_occluders(
+                        field,
+                        pose,
+                        0.0,
+                        Duration::from_secs_f32(half_life / steps as f32),
+                        &parameters,
+                        &[],
+                    );
+                }
+                assert!((map.map[(11, 6)] - 0.5).abs() < 2e-6);
+            }
+        }
+    }
+
+    #[test]
+    fn team_weight_scales_exposure_and_zero_disables_it() {
+        let field = FieldDimensions::SPL_2025;
+        let state = PlayerState {
+            pose: Pose2::default(),
+            head_yaw: 0.0,
+            ball_position: None,
+        };
+        for (weight, expected) in [(0.0, 1.0), (0.5, 0.5), (1.0, 0.25)] {
+            for step in [Duration::from_millis(20), Duration::from_millis(400)] {
+                let parameters = SearchSuggestorParameters {
+                    teammate_observation_weight: weight,
+                    teammate_replay_step: step,
+                    observation_half_life_near: Duration::from_secs(1),
+                    observation_half_life_far: Duration::from_secs(1),
+                    ..Default::default()
+                };
+                let mut map = Heatmap::new(field, 18);
+                map.map.fill(1.0);
+                map.decay_tiles_from_teammate_motion(
+                    field,
+                    &state,
+                    &state,
+                    Duration::from_secs(2),
+                    &parameters,
+                );
+                assert!((map.map[(11, 6)] - expected).abs() < 2e-6);
+            }
+        }
     }
 }

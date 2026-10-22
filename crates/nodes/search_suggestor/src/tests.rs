@@ -42,6 +42,7 @@ fn search_partition_excludes_assigned_goalkeeper_and_keeps_its_search_independen
     ] {
         let selection = search_voronoi_selection_from_teammates(
             field,
+            18,
             Some((pose, number)),
             Some(PlayerNumber::Three),
             &states,
@@ -51,7 +52,7 @@ fn search_partition_excludes_assigned_goalkeeper_and_keeps_its_search_independen
             },
         )
         .unwrap();
-        let expected = SearchVoronoiSelection::new(field, number, expected_sites);
+        let expected = SearchVoronoiSelection::new(field, 18, number, expected_sites);
         for (position, ownership) in selection.grid.cells() {
             assert_eq!(Some(ownership), expected.grid.ownership_at(position));
         }
@@ -79,66 +80,66 @@ fn goalkeeper_uses_own_half_search_area() {
 fn fallback_waits_configured_delay_and_requires_an_earlier_own_ball() {
     for delay in [Duration::from_secs(2), Duration::from_secs(5)] {
         let parameters = SearchSuggestorParameters {
-            minimum_validity: 0.4,
+            minimum_search_priority: 0.4,
             exhausted_search_delay: delay,
-            exhausted_search_minimum_validity: 0.05,
+            fallback_minimum_search_priority: 0.05,
             ..Default::default()
         };
         let mut no_regular_target_since = None;
         let start = Time::from_nanos(1_000_000_000);
 
         assert_eq!(
-            search_minimum_validity(
+            active_minimum_search_priority(
                 &mut no_regular_target_since,
                 start,
                 false,
                 false,
                 &parameters,
             ),
-            parameters.minimum_validity
+            parameters.minimum_search_priority
         );
         assert_eq!(no_regular_target_since, None);
 
         assert_eq!(
-            search_minimum_validity(
+            active_minimum_search_priority(
                 &mut no_regular_target_since,
                 start,
                 true,
                 false,
                 &parameters,
             ),
-            parameters.minimum_validity
+            parameters.minimum_search_priority
         );
         assert_eq!(
-            search_minimum_validity(
+            active_minimum_search_priority(
                 &mut no_regular_target_since,
                 start + delay - Duration::from_millis(1),
                 true,
                 false,
                 &parameters,
             ),
-            parameters.minimum_validity
+            parameters.minimum_search_priority
         );
         assert_eq!(
-            search_minimum_validity(
+            active_minimum_search_priority(
                 &mut no_regular_target_since,
                 start + delay,
                 true,
                 false,
                 &parameters,
             ),
-            parameters.exhausted_search_minimum_validity
+            parameters.fallback_minimum_search_priority
         );
 
         assert_eq!(
-            search_minimum_validity(
+            active_minimum_search_priority(
                 &mut no_regular_target_since,
                 start + delay + Duration::from_secs(1),
                 true,
                 true,
                 &parameters,
             ),
-            parameters.minimum_validity
+            parameters.minimum_search_priority
         );
         assert_eq!(no_regular_target_since, None);
     }
@@ -147,18 +148,18 @@ fn fallback_waits_configured_delay_and_requires_an_earlier_own_ball() {
 #[test]
 fn rejects_invalid_fallback_thresholds() {
     let mut parameters = SearchSuggestorParameters {
-        minimum_validity: 0.4,
-        exhausted_search_minimum_validity: 0.05,
+        minimum_search_priority: 0.4,
+        fallback_minimum_search_priority: 0.05,
         ..Default::default()
     };
     assert!(validate_search_suggestor_parameters(&parameters).is_ok());
 
-    parameters.minimum_validity = -0.1;
+    parameters.minimum_search_priority = -0.1;
     assert!(validate_search_suggestor_parameters(&parameters).is_err());
-    parameters.minimum_validity = 0.4;
-    parameters.exhausted_search_minimum_validity = 0.5;
+    parameters.minimum_search_priority = 0.4;
+    parameters.fallback_minimum_search_priority = 0.5;
     assert!(validate_search_suggestor_parameters(&parameters).is_err());
-    parameters.exhausted_search_minimum_validity = f32::NAN;
+    parameters.fallback_minimum_search_priority = f32::NAN;
     assert!(validate_search_suggestor_parameters(&parameters).is_err());
 }
 
@@ -180,10 +181,10 @@ fn player_state_snapshots_are_processed_once_and_removed_when_cleared() {
 
     let field_dimensions = FieldDimensions::SPL_2025;
     let parameters = SearchSuggestorParameters {
-        team_ball_weight: 0.6,
+        team_ball_priority: 0.6,
         ..Default::default()
     };
-    let mut heatmap = Heatmap::new(field_dimensions);
+    let mut heatmap = Heatmap::new(field_dimensions, 18);
     let mut last_states = Players::new(None);
     let teammate_freshness = TeammateFreshness {
         now: Time::from_nanos(1_500_000_042),
@@ -212,7 +213,6 @@ fn player_state_snapshots_are_processed_once_and_removed_when_cleared() {
         &mut last_states,
         &parameters,
         teammate_freshness,
-        Duration::from_millis(20),
     );
     // The state remains useful after the one-second expiry of the shared behavior stream.
     assert!(heatmap.to_message().values.contains(&0.6));
@@ -225,7 +225,6 @@ fn player_state_snapshots_are_processed_once_and_removed_when_cleared() {
         &mut last_states,
         &parameters,
         teammate_freshness,
-        Duration::from_millis(20),
     );
     assert!(heatmap.to_message().values.contains(&1.0));
     assert!(last_states[PlayerNumber::Two].is_some());
@@ -237,7 +236,6 @@ fn player_state_snapshots_are_processed_once_and_removed_when_cleared() {
         &mut last_states,
         &parameters,
         teammate_freshness,
-        Duration::from_millis(20),
     );
     assert!(last_states[PlayerNumber::Two].is_none());
 }
@@ -248,10 +246,10 @@ fn stale_last_received_state_does_not_add_team_ball_priority() {
 
     let field_dimensions = FieldDimensions::SPL_2025;
     let parameters = SearchSuggestorParameters {
-        team_ball_weight: 0.6,
+        team_ball_priority: 0.6,
         ..Default::default()
     };
-    let mut heatmap = Heatmap::new(field_dimensions);
+    let mut heatmap = Heatmap::new(field_dimensions, 18);
     let mut last_states = Players::new(None);
     let states = Players {
         two: Some(TimeWrapper {
@@ -279,7 +277,6 @@ fn stale_last_received_state_does_not_add_team_ball_priority() {
             now: Time::from_nanos(2_000_000_042),
             window: Some(Duration::from_secs(1)),
         },
-        Duration::from_millis(20),
     );
 
     assert!(
@@ -290,4 +287,49 @@ fn stale_last_received_state_does_not_add_team_ball_priority() {
             .all(|value| *value == 0.0)
     );
     assert!(last_states[PlayerNumber::Two].is_some());
+}
+
+#[test]
+fn rejects_undefined_time_and_distance_parameters() {
+    let baseline = SearchSuggestorParameters::default();
+    for invalid in [
+        SearchSuggestorParameters {
+            cells_along_field_length: 0,
+            ..baseline.clone()
+        },
+        SearchSuggestorParameters {
+            observation_half_life_near: Duration::ZERO,
+            ..baseline.clone()
+        },
+        SearchSuggestorParameters {
+            teammate_replay_step: Duration::ZERO,
+            ..baseline.clone()
+        },
+        SearchSuggestorParameters {
+            unseen_priority_rise_time: Duration::ZERO,
+            ..baseline.clone()
+        },
+        SearchSuggestorParameters {
+            observation_distance_range: 3.0..3.0,
+            ..baseline.clone()
+        },
+        SearchSuggestorParameters {
+            last_ball_spread_speed: f32::NAN,
+            ..baseline.clone()
+        },
+        SearchSuggestorParameters {
+            teammate_observation_weight: -0.1,
+            ..baseline.clone()
+        },
+    ] {
+        assert!(validate_search_suggestor_parameters(&invalid).is_err());
+    }
+    assert!(
+        validate_search_suggestor_parameters(&SearchSuggestorParameters {
+            teammate_observation_weight: 0.0,
+            last_ball_priority_fade_time: Duration::ZERO,
+            ..baseline
+        })
+        .is_ok()
+    );
 }

@@ -1,6 +1,3 @@
 {
-  search: {
-    // Half-meter heatmap cells: enter the chosen cell before treating it as reached.
-    position_reached_distance: 0.2,
-  },
+  // Search arrival distance is derived from the heatmap cell dimensions.
 }

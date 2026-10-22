@@ -55,6 +55,10 @@ impl SimulatorRobotBehavior {
         input: SimulatorBehaviorTickInput,
     ) -> Result<SimulatorBehaviorTickOutput> {
         self.blackboard.field_dimensions = input.field_dimensions;
+        self.blackboard.search_cell_size = Some(types::heatmap::grid_cell_size(
+            input.field_dimensions,
+            types::parameters::SearchSuggestorParameters::default().cells_along_field_length,
+        ));
         self.blackboard.parameters = input.parameters;
         self.blackboard.world_state = input.world_state.clone();
         self.blackboard.visual_kick_ball_position = input.visual_kick_ball_position;
@@ -175,6 +179,10 @@ fn create_behavior_blackboard(
     player_number: PlayerNumber,
 ) -> BehaviorBlackboard {
     BehaviorBlackboard {
+        search_cell_size: Some(types::heatmap::grid_cell_size(
+            field_dimensions,
+            types::parameters::SearchSuggestorParameters::default().cells_along_field_length,
+        )),
         field_dimensions,
         head_yaw: 0.0,
         parameters,
@@ -408,6 +416,7 @@ mod tests {
             ball_in_ground_velocity: vector![0.0, -1.0],
             last_seen_ball: SystemTime::UNIX_EPOCH,
             field_side: Side::Left,
+            source: types::world_state::BallSource::Own,
         });
         blackboard
             .parameters
@@ -442,6 +451,7 @@ mod tests {
             velocity: vector![0.0, 0.0],
             age: ros_z::time::Time::zero(),
             field_side: Side::Left,
+            source: types::world_state::BallSource::Own,
         });
         blackboard
             .parameters
@@ -451,6 +461,63 @@ mod tests {
         assert!(!is_close_to_ball_aligned(&mut blackboard));
         blackboard.parameters.kicking.approach_ball_standoff = 1.0;
         assert!(is_close_to_ball_aligned(&mut blackboard));
+    }
+
+    #[test]
+    fn shipped_search_parameters_deserialize_with_the_new_schema() {
+        let parameters: types::parameters::SearchSuggestorParameters = json5::from_str(
+            include_str!("../../../etc/parameters/base/search_suggestor.json5"),
+        )
+        .unwrap();
+        assert!(parameters.cells_along_field_length > 0);
+        assert!(!parameters.observation_half_life_near.is_zero());
+        assert!(!parameters.observation_half_life_far.is_zero());
+    }
+
+    #[test]
+    fn search_arrival_scales_with_cells_and_respects_physical_minimum() {
+        use behavior_node::search::walk_towards_search_position;
+        use linear_algebra::point;
+        let mut blackboard = create_behavior_blackboard(
+            FieldDimensions::SPL_2025,
+            default_behavior_parameters().unwrap(),
+            PlayerNumber::One,
+        );
+        blackboard.world_state.robot.ground_to_field = Some(linear_algebra::Isometry2::identity());
+        blackboard.parameters.search.position_reached_cell_fraction = 0.4;
+        blackboard
+            .parameters
+            .search
+            .minimum_position_reached_distance = 0.1;
+        blackboard.world_state.suggested_search_position = Some(point![0.18, 0.0]);
+        blackboard.field_dimensions.length = 14.0;
+        blackboard.field_dimensions.width = 9.0;
+        blackboard.search_cell_size = Some(types::heatmap::grid_cell_size(
+            blackboard.field_dimensions,
+            28,
+        ));
+        assert_eq!(
+            walk_towards_search_position(&mut blackboard),
+            Status::Failure
+        );
+        blackboard.field_dimensions = FieldDimensions::SPL_2025;
+        blackboard.search_cell_size = Some(types::heatmap::grid_cell_size(
+            blackboard.field_dimensions,
+            28,
+        ));
+        assert_eq!(
+            walk_towards_search_position(&mut blackboard),
+            Status::Success
+        );
+        blackboard.search_cell_size = Some(types::heatmap::grid_cell_size(
+            blackboard.field_dimensions,
+            280,
+        ));
+        blackboard.world_state.suggested_search_position = Some(point![0.09, 0.0]);
+        assert_eq!(
+            walk_towards_search_position(&mut blackboard),
+            Status::Failure
+        );
     }
 
     #[test]

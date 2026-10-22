@@ -15,7 +15,15 @@ pub fn walk_towards_search_position(blackboard: &mut Blackboard) -> Status {
     };
 
     let target_in_ground = ground_to_field.inverse() * search_position;
-    let position_reached_distance = blackboard.parameters.search.position_reached_distance;
+    let cell_edge = blackboard
+        .search_cell_size
+        .filter(|size| {
+            size.x().is_finite() && size.y().is_finite() && size.x() > 0.0 && size.y() > 0.0
+        })
+        .map_or(0.0, |size| size.x().min(size.y()));
+    let search = &blackboard.parameters.search;
+    let position_reached_distance = (search.position_reached_cell_fraction * cell_edge)
+        .max(search.minimum_position_reached_distance);
     if target_in_ground.coords().norm() <= position_reached_distance.max(f32::EPSILON) {
         return Status::Failure;
     }

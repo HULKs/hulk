@@ -73,14 +73,24 @@ Rule-generated positions are provided separately and are not retained as last se
 
 ### Search
 
-The `search_suggestor` combines local, team, hypothetical, and rule-based ball information in a priority heatmap with half-meter cells and values between zero and one.
-An observed ball raises nearby cells without clearing the rest of the heatmap; ball positions well outside the field are ignored.
+The `search_suggestor` combines local, team, hypothetical, and rule-based ball information in a priority heatmap with configurable, approximately square cells and values between zero and one.
+`cells_along_field_length` fixes the longitudinal cell count; the transverse count is rounded from the field aspect ratio.
+Cell dimensions are then calculated independently to cover the field exactly.
+Changing resolution at runtime samples the old map at the new cell centres and remaps the selected target.
+An observed ball raises nearby cells without clearing the rest of the heatmap; ball positions outside the field are ignored.
 After losing a locally observed ball during `Playing`, priorities grow over time, fastest around its last position.
+The half-distance of additional last-ball growth is `last_ball_initial_half_distance + last_ball_spread_speed * observation_age`, in metres.
+The additional growth adds one unit per `last_ball_extra_priority_rise_time` at the last position before the age weighting is applied.
 The spatial bias fades linearly over `last_ball_priority_fade_time` (10 seconds by default), measured from the ball's last observation rather than reception of a predicted filter output.
 Setting this duration to zero disables the spatial bias immediately.
-Afterwards only the uniform `last_ball_priority_minimum` growth remains; previously accumulated priorities are still cleared by observed empty areas.
+Afterwards only uniform growth remains, adding one unit per `unseen_priority_rise_time`; previously accumulated priorities are still cleared by observed empty areas.
 On entering `Playing`, a map with a high average priority is scaled down while preserving differences between cells.
 Areas within the estimated field of view lose priority; obstacles reduce this decay for areas they obscure.
+Observation half-life is interpolated linearly from `observation_half_life_near` to `observation_half_life_far` across `observation_distance_range`.
+A visible cell is multiplied by `exp(-ln(2) * elapsed * weight / half_life)`; outside the range there is no observation decay.
+`teammate_observation_weight` scales reconstructed team exposure, with zero disabling it, and `occluded_observation_weight` scales locally occluded exposure.
+Team replay samples at most `teammate_replay_step` apart and uses the actual message interval.
+Rule hypotheses gain one priority unit per `rule_priority_rise_time`, using elapsed simulation time.
 Corner kicks, goal kicks, and throw-ins clear the heatmap outside their restart locations, including priorities from earlier observations.
 
 The robot's own pose and fresh teammate poses define its search Voronoi region.
@@ -89,17 +99,19 @@ The goalkeeper searches independently of the field-player partition.
 Within that region, the suggestor selects a cell above the minimum priority.
 For the configured goalkeeper, search targets are additionally restricted to the own half of the field, including fallback targets.
 The suggestor receives the goalkeeper player number from the behavior node; until that assignment is available, it does not publish a search target.
-It slightly lowers the selection score of cells within `border_view_penalty_range` of the field boundary, where more of the search view would fall outside the field, and prefers smaller turns among similarly ranked cells.
+It slightly lowers the selection score of cells within `border_view_penalty_width_fraction * field.width` of the field boundary, where more of the search view would fall outside the field, and prefers smaller turns among similarly ranked cells.
 Hysteresis stabilizes the selection.
-After a prior local ball sighting, while playing without a current ball, the fallback timer starts when no eligible cell meets `minimum_validity`.
-After `exhausted_search_delay` without a regular target, the suggestor selects the best remaining cell above `exhausted_search_minimum_validity` until a regular target becomes available again.
+After a prior local ball sighting, while playing without a current ball, the fallback timer starts when no eligible cell meets `minimum_search_priority`.
+After `exhausted_search_delay` without a regular target, the suggestor selects the best remaining cell above `fallback_minimum_search_priority` until a regular target becomes available again.
 The selected cell's center is published as `suggested_search_position`, or `None` when no valid target is available.
 A robot that is already inside the cell instead keeps its current position and scans without walking to the center.
 Setting `search_suggestor.disable_heatmap_search` to `true` stops heatmap updates and publishes no search target, so the existing search behavior turns in place (`leuchtturm`).
 Re-enabling heatmap search starts with a fresh map instead of replaying observations collected while it was disabled.
 
 The searcher uses the existing walking behavior to approach that position with `walking.speed.search`, while the head looks toward plausible ball positions or scans for the ball.
-Within `search.position_reached_distance`, the robot turns in place and continues searching.
+The suggestor publishes the physical cell dimensions on the retained `search_cell_size` topic, including after resolution changes.
+Behavior uses this geometry without binding a second parameter set.
+The arrival distance is `search.position_reached_cell_fraction` times the shorter heatmap cell edge, bounded below by `search.minimum_position_reached_distance` in metres. Within that distance, the robot turns in place and continues searching.
 It also turns in place when there is no target or no localization, continuing the previous search direction or turning toward the side where the ball was last seen.
 A changed target is used on the next behavior cycle; the heatmap remains responsible for choosing the next search area.
 A known ball returns the robot to its normal playing behavior.
@@ -162,7 +174,7 @@ Behavior parameters are loaded from `etc/parameters/base/behavior_node.json5`, w
 Parameters control details such as motion switching, kickoff poses, walking, kicking, goalkeeper positioning, search, Voronoi positioning, and message timing.
 
 Heatmap priorities, decay, and target selection are configured separately in `etc/parameters/base/search_suggestor.json5`.
-`minimum_validity` must be finite and between zero and one; `exhausted_search_minimum_validity` must be finite and between zero and `minimum_validity`.
+`minimum_search_priority` must be finite and between zero and one; `fallback_minimum_search_priority` must be finite and between zero and `minimum_search_priority`.
 
 The node publishes additional topics for inspection in Twix and recordings:
 

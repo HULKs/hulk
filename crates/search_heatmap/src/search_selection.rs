@@ -14,8 +14,13 @@ pub enum SearchArea {
 }
 
 impl SearchArea {
-    fn allows_index(self, field_dimensions: FieldDimensions, index: (usize, usize)) -> bool {
-        self == Self::WholeField || heatmap_tile_center(field_dimensions, index).x() <= 0.0
+    fn allows_index(
+        self,
+        field_dimensions: FieldDimensions,
+        shape: (usize, usize),
+        index: (usize, usize),
+    ) -> bool {
+        self == Self::WholeField || heatmap_tile_center(field_dimensions, shape, index).x() <= 0.0
     }
 
     fn allows_position(self, position: Point2<Field>) -> bool {
@@ -28,13 +33,17 @@ impl Heatmap {
         &self,
         field_dimensions: FieldDimensions,
         index: (usize, usize),
-        minimum_validity: f32,
+        minimum_search_priority: f32,
         voronoi_selection: &SearchVoronoiSelection,
         search_area: SearchArea,
     ) -> bool {
-        self.map[index] > minimum_validity
-            && search_area.allows_index(field_dimensions, index)
-            && voronoi_selection.owns_index(field_dimensions, index)
+        self.map[index] > minimum_search_priority
+            && search_area.allows_index(field_dimensions, self.map.dim(), index)
+            && voronoi_selection.owns_position(heatmap_tile_center(
+                field_dimensions,
+                self.map.dim(),
+                index,
+            ))
     }
 
     pub fn selected_position(
@@ -44,14 +53,19 @@ impl Heatmap {
         search_area: SearchArea,
     ) -> Option<Point2<Field>> {
         self.last_maximum_heatmap_position
-            .filter(|index| search_area.allows_index(field_dimensions, *index))
+            .filter(|index| search_area.allows_index(field_dimensions, self.map.dim(), *index))
             .map(|index| {
                 if search_area.allows_position(robot_position)
-                    && heatmap_tile_contains(field_dimensions, index, robot_position)
+                    && heatmap_tile_contains(
+                        field_dimensions,
+                        self.map.dim(),
+                        index,
+                        robot_position,
+                    )
                 {
                     robot_position
                 } else {
-                    heatmap_tile_center(field_dimensions, index)
+                    heatmap_tile_center(field_dimensions, self.map.dim(), index)
                 }
             })
     }
@@ -60,7 +74,7 @@ impl Heatmap {
         &self,
         field_dimensions: FieldDimensions,
         parameters: &SearchSuggestorParameters,
-        minimum_validity: f32,
+        minimum_search_priority: f32,
         voronoi_selection: &SearchVoronoiSelection,
         search_area: SearchArea,
     ) -> Option<(usize, usize)> {
@@ -70,22 +84,27 @@ impl Heatmap {
                 self.tile_is_eligible(
                     field_dimensions,
                     *index,
-                    minimum_validity,
+                    minimum_search_priority,
                     voronoi_selection,
                     search_area,
                 )
             })
             .max_by(|(a_index, a), (b_index, b)| {
-                selection_score(field_dimensions, parameters, *a_index, **a).total_cmp(
-                    &selection_score(field_dimensions, parameters, *b_index, **b),
-                )
+                selection_score(field_dimensions, self.map.dim(), parameters, *a_index, **a)
+                    .total_cmp(&selection_score(
+                        field_dimensions,
+                        self.map.dim(),
+                        parameters,
+                        *b_index,
+                        **b,
+                    ))
             })
             .map(|(index, _)| index)
     }
 
     fn get_maximum_position_with_turn_preference(
         &self,
-        minimum_validity: f32,
+        minimum_search_priority: f32,
         field_dimensions: FieldDimensions,
         parameters: &SearchSuggestorParameters,
         ground_to_field: Isometry2<Ground, Field>,
@@ -95,20 +114,22 @@ impl Heatmap {
         let robot_position = ground_to_field.as_pose().position().coords();
         let robot_heading_angle = ground_to_field.orientation().angle();
         let robot_heading = vector![robot_heading_angle.cos(), robot_heading_angle.sin()];
-        let turn_preference_priority_margin = if minimum_validity < parameters.minimum_validity {
-            0.0
-        } else {
-            parameters.turn_preference_priority_margin
-        };
+        let turn_preference_priority_margin =
+            if minimum_search_priority < parameters.minimum_search_priority {
+                0.0
+            } else {
+                parameters.turn_preference_priority_margin
+            };
         let maximum_position = self.get_maximum_position(
             field_dimensions,
             parameters,
-            minimum_validity,
+            minimum_search_priority,
             voronoi_selection,
             search_area,
         )?;
         let maximum_score = selection_score(
             field_dimensions,
+            self.map.dim(),
             parameters,
             maximum_position,
             self.map[maximum_position],
@@ -119,21 +140,47 @@ impl Heatmap {
                 self.tile_is_eligible(
                     field_dimensions,
                     *index,
-                    minimum_validity,
+                    minimum_search_priority,
                     voronoi_selection,
                     search_area,
-                ) && selection_score(field_dimensions, parameters, *index, **value)
-                    >= maximum_score - turn_preference_priority_margin.max(0.0)
+                ) && selection_score(
+                    field_dimensions,
+                    self.map.dim(),
+                    parameters,
+                    *index,
+                    **value,
+                ) >= maximum_score - turn_preference_priority_margin.max(0.0)
             })
             .max_by(|(a_index, a_value), (b_index, b_value)| {
-                let a_turn_score =
-                    turn_score(*a_index, field_dimensions, robot_position, robot_heading);
-                let b_turn_score =
-                    turn_score(*b_index, field_dimensions, robot_position, robot_heading);
+                let a_turn_score = turn_score(
+                    *a_index,
+                    field_dimensions,
+                    self.map.dim(),
+                    robot_position,
+                    robot_heading,
+                );
+                let b_turn_score = turn_score(
+                    *b_index,
+                    field_dimensions,
+                    self.map.dim(),
+                    robot_position,
+                    robot_heading,
+                );
                 a_turn_score.total_cmp(&b_turn_score).then_with(|| {
-                    selection_score(field_dimensions, parameters, *a_index, **a_value).total_cmp(
-                        &selection_score(field_dimensions, parameters, *b_index, **b_value),
+                    selection_score(
+                        field_dimensions,
+                        self.map.dim(),
+                        parameters,
+                        *a_index,
+                        **a_value,
                     )
+                    .total_cmp(&selection_score(
+                        field_dimensions,
+                        self.map.dim(),
+                        parameters,
+                        *b_index,
+                        **b_value,
+                    ))
                 })
             })
             .map(|(index, _)| index)
@@ -145,7 +192,7 @@ impl Heatmap {
         parameters: &SearchSuggestorParameters,
         ground_to_field: Option<Isometry2<Ground, Field>>,
         voronoi_selection: &SearchVoronoiSelection,
-        minimum_validity: f32,
+        minimum_search_priority: f32,
         search_area: SearchArea,
     ) -> Option<(usize, usize)> {
         ground_to_field.map_or_else(
@@ -153,14 +200,14 @@ impl Heatmap {
                 self.get_maximum_position(
                     field_dimensions,
                     parameters,
-                    minimum_validity,
+                    minimum_search_priority,
                     voronoi_selection,
                     search_area,
                 )
             },
             |ground_to_field| {
                 self.get_maximum_position_with_turn_preference(
-                    minimum_validity,
+                    minimum_search_priority,
                     field_dimensions,
                     parameters,
                     ground_to_field,
@@ -177,14 +224,14 @@ impl Heatmap {
         parameters: &SearchSuggestorParameters,
         ground_to_field: Option<Isometry2<Ground, Field>>,
         voronoi_selection: &SearchVoronoiSelection,
-        minimum_validity: f32,
+        minimum_search_priority: f32,
         search_area: SearchArea,
     ) {
         if let Some(last_maximum_heatmap_index) = self.last_maximum_heatmap_position {
             let current_tile_is_selectable = self.tile_is_eligible(
                 field_dimensions,
                 last_maximum_heatmap_index,
-                minimum_validity,
+                minimum_search_priority,
                 voronoi_selection,
                 search_area,
             );
@@ -192,15 +239,22 @@ impl Heatmap {
                 .get_maximum_position(
                     field_dimensions,
                     parameters,
-                    minimum_validity,
+                    minimum_search_priority,
                     voronoi_selection,
                     search_area,
                 )
                 .map_or(0.0, |idx| {
-                    selection_score(field_dimensions, parameters, idx, self.map[idx])
+                    selection_score(
+                        field_dimensions,
+                        self.map.dim(),
+                        parameters,
+                        idx,
+                        self.map[idx],
+                    )
                 });
             let current_tile_value = selection_score(
                 field_dimensions,
+                self.map.dim(),
                 parameters,
                 last_maximum_heatmap_index,
                 self.map[last_maximum_heatmap_index],
@@ -216,7 +270,7 @@ impl Heatmap {
                     parameters,
                     ground_to_field,
                     voronoi_selection,
-                    minimum_validity,
+                    minimum_search_priority,
                     search_area,
                 );
             }
@@ -226,7 +280,7 @@ impl Heatmap {
                 parameters,
                 ground_to_field,
                 voronoi_selection,
-                minimum_validity,
+                minimum_search_priority,
                 search_area,
             );
         }
@@ -243,7 +297,7 @@ impl Heatmap {
             self.tile_is_eligible(
                 field_dimensions,
                 index,
-                parameters.minimum_validity,
+                parameters.minimum_search_priority,
                 voronoi_selection,
                 search_area,
             )
@@ -257,15 +311,16 @@ impl Heatmap {
 
 fn selection_score(
     field_dimensions: FieldDimensions,
+    shape: (usize, usize),
     parameters: &SearchSuggestorParameters,
     index: (usize, usize),
     priority: f32,
 ) -> f32 {
-    let center = heatmap_tile_center(field_dimensions, index);
+    let center = heatmap_tile_center(field_dimensions, shape, index);
     let distance_to_border = (field_dimensions.length / 2.0 - center.x().abs())
         .min(field_dimensions.width / 2.0 - center.y().abs())
         .max(0.0);
-    let penalty_range = parameters.border_view_penalty_range;
+    let penalty_range = parameters.border_view_penalty_width_fraction * field_dimensions.width;
     if penalty_range <= 0.0 {
         return priority;
     }
@@ -276,10 +331,11 @@ fn selection_score(
 fn turn_score(
     (x, y): (usize, usize),
     field_dimensions: FieldDimensions,
+    shape: (usize, usize),
     robot_position: Vector2<Field>,
     robot_heading: Vector2<Field>,
 ) -> f32 {
-    let tile_center = heatmap_tile_center(field_dimensions, (x, y)).coords();
+    let tile_center = heatmap_tile_center(field_dimensions, shape, (x, y)).coords();
     let robot_to_tile = tile_center - robot_position;
     let robot_to_tile_norm = robot_to_tile.norm();
     let robot_heading_norm = robot_heading.norm();

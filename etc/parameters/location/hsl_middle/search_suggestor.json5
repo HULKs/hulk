@@ -1,18 +1,8 @@
 {
-  // Search the full useful sight range on the 14 x 9 m middle field.
-  heatmap_decay_range: {
-    end: 5.0,
-  },
-  // At 50 search updates per second, the old factors also cleared distant
-  // visible cells quickly. Keep unexplored targets useful while scanning.
-  decay_distance_factor: 0.025,
-  teammate_decay_factor: 0.008,
-  // A last-seen ball should guide the search without continually refilling
-  // already scanned cells or raising the entire field to the same priority.
-  last_ball_priority_minimum: 0.1,
-  last_ball_priority_rise_time: {
-    secs: 60,
-  },
-  // Hold a target until another tile is materially better at low priorities.
-  tile_switch_hysteresis: 0.7,
+  // Preserve the previous uniform and initial additional growth rates.
+  unseen_priority_rise_time: { secs: 600 },
+  last_ball_extra_priority_rise_time: { secs: 66, nanos: 666666667 },
+
+  observation_distance_range: { end: 5.0 },
+  teammate_observation_weight: 0.32,
 }

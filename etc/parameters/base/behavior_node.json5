@@ -80,7 +80,8 @@
     distance_to_goalpost: 0.15,
   },
   search: {
-    position_reached_distance: 0.4,
+    position_reached_cell_fraction: 0.4,
+    minimum_position_reached_distance: 0.1,
   },
   substates: {
     distance_for_kick: 0.4,

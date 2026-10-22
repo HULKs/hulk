@@ -9,14 +9,13 @@ use types::{
 
 use crate::{Heatmap, heatmap_tile_center};
 
-// Allow half a search cell for projection and localization error at the field edge.
-pub fn ball_position_near_field(
+// Reject outside observations instead of projecting them onto edge cells.
+pub fn ball_position_in_field(
     field_dimensions: FieldDimensions,
     ball_position: Point2<Field>,
 ) -> bool {
-    let margin = crate::CELL_SIZE / 2.0;
-    ball_position.x().abs() <= field_dimensions.length / 2.0 + margin
-        && ball_position.y().abs() <= field_dimensions.width / 2.0 + margin
+    ball_position.x().abs() <= field_dimensions.length / 2.0
+        && ball_position.y().abs() <= field_dimensions.width / 2.0
 }
 
 impl Heatmap {
@@ -25,7 +24,7 @@ impl Heatmap {
         field_dimensions: FieldDimensions,
         ball_position: Point2<Field>,
     ) {
-        if !ball_position_near_field(field_dimensions, ball_position) {
+        if !ball_position_in_field(field_dimensions, ball_position) {
             return;
         }
         let heatmap_point = self.field_to_heatmap(field_dimensions, ball_position);
@@ -56,12 +55,12 @@ impl Heatmap {
                 continue;
             }
             let ball_hypothesis_position = ground_to_field * ball_hypothesis.position;
-            if !ball_position_near_field(field_dimensions, ball_hypothesis_position) {
+            if !ball_position_in_field(field_dimensions, ball_hypothesis_position) {
                 continue;
             }
             let heatmap_point = self.field_to_heatmap(field_dimensions, ball_hypothesis_position);
             self.map[heatmap_point] = (self.map[heatmap_point]
-                + ball_hypothesis.validity * parameters.own_ball_weight)
+                + ball_hypothesis.validity * parameters.hypothesis_priority_scale)
                 / 2.0;
         }
     }
@@ -72,11 +71,11 @@ impl Heatmap {
         ball_position: Point2<Field>,
         parameters: &SearchSuggestorParameters,
     ) {
-        if !ball_position_near_field(field_dimensions, ball_position) {
+        if !ball_position_in_field(field_dimensions, ball_position) {
             return;
         }
         let heatmap_point = self.field_to_heatmap(field_dimensions, ball_position);
-        self.map[heatmap_point] = parameters.team_ball_weight;
+        self.map[heatmap_point] = parameters.team_ball_priority;
     }
 
     pub fn increase_around_last_ball(
@@ -87,34 +86,27 @@ impl Heatmap {
         observation_age: Duration,
         parameters: &SearchSuggestorParameters,
     ) {
-        let rise_time = parameters.last_ball_priority_rise_time.as_secs_f32();
-        let rise_fraction = if rise_time <= f32::EPSILON {
-            1.0
-        } else {
-            elapsed.as_secs_f32() / rise_time
-        };
-        if rise_fraction <= 0.0 {
+        let elapsed = elapsed.as_secs_f32();
+        if elapsed <= 0.0 {
             return;
         }
-
-        let half_distance = parameters
-            .last_ball_priority_half_distance
-            .max(f32::EPSILON);
+        let uniform_gain = elapsed / parameters.unseen_priority_rise_time.as_secs_f32();
+        let extra_gain = elapsed / parameters.last_ball_extra_priority_rise_time.as_secs_f32();
+        let half_distance = (parameters.last_ball_initial_half_distance
+            + parameters.last_ball_spread_speed * observation_age.as_secs_f32())
+        .max(f32::EPSILON);
         let fade_time = parameters.last_ball_priority_fade_time.as_secs_f32();
         let spatial_weight = if fade_time > 0.0 {
             (1.0 - observation_age.as_secs_f32() / fade_time).clamp(0.0, 1.0)
         } else {
             0.0
         };
+        let shape = self.map.dim();
         self.map.indexed_iter_mut().for_each(|((x, y), value)| {
-            let tile_center_in_field = heatmap_tile_center(field_dimensions, (x, y));
-            let distance_to_last_ball = (tile_center_in_field - last_ball_position).norm();
-            let gaussian = (-LN_2 * (distance_to_last_ball / half_distance).powi(2)).exp();
-            let multiplier = parameters.last_ball_priority_minimum
-                + (parameters.last_ball_priority_maximum - parameters.last_ball_priority_minimum)
-                    * gaussian
-                    * spatial_weight;
-            *value += multiplier * rise_fraction;
+            let tile_center_in_field = heatmap_tile_center(field_dimensions, shape, (x, y));
+            let squared_distance = (tile_center_in_field - last_ball_position).norm_squared();
+            let gaussian = (-LN_2 * squared_distance / half_distance.powi(2)).exp();
+            *value += uniform_gain + extra_gain * gaussian * spatial_weight;
         });
     }
 }
@@ -128,20 +120,20 @@ mod tests {
     fn last_ball_bias_fades_to_uniform_growth_without_erasing_history() {
         let field = FieldDimensions::SPL_2025;
         let parameters = SearchSuggestorParameters {
-            last_ball_priority_minimum: 0.1,
-            last_ball_priority_maximum: 1.0,
-            last_ball_priority_half_distance: 2.0,
-            last_ball_priority_rise_time: Duration::from_secs(10),
+            unseen_priority_rise_time: Duration::from_secs(100),
+            last_ball_extra_priority_rise_time: Duration::from_secs_f32(10.0 / 0.9),
+            last_ball_initial_half_distance: 2.0,
+            last_ball_spread_speed: 0.0,
             last_ball_priority_fade_time: Duration::from_secs(30),
             ..Default::default()
         };
         let mut contrasts = Vec::new();
         for age in [0, 15, 30, 60] {
-            let mut heatmap = Heatmap::new(field);
+            let mut heatmap = Heatmap::new(field, 18);
             heatmap.map.fill(0.3);
             heatmap.increase_around_last_ball(
                 field,
-                heatmap_tile_center(field, (9, 6)),
+                heatmap_tile_center(field, (18, 12), (9, 6)),
                 Duration::from_secs(1),
                 Duration::from_secs(age),
                 &parameters,
@@ -161,16 +153,15 @@ mod tests {
     #[test]
     fn zero_fade_time_disables_spatial_bias() {
         let field = FieldDimensions::SPL_2025;
-        let mut heatmap = Heatmap::new(field);
+        let mut heatmap = Heatmap::new(field, 18);
         heatmap.increase_around_last_ball(
             field,
             point![0.0, 0.0],
             Duration::from_secs(1),
             Duration::ZERO,
             &SearchSuggestorParameters {
-                last_ball_priority_minimum: 0.1,
-                last_ball_priority_maximum: 1.0,
-                last_ball_priority_rise_time: Duration::from_secs(10),
+                unseen_priority_rise_time: Duration::from_secs(100),
+                last_ball_extra_priority_rise_time: Duration::from_secs_f32(10.0 / 0.9),
                 last_ball_priority_fade_time: Duration::ZERO,
                 ..Default::default()
             },
@@ -181,7 +172,7 @@ mod tests {
     #[test]
     fn own_ball_keeps_search_history_and_current_target() {
         let field = FieldDimensions::SPL_2025;
-        let mut heatmap = Heatmap::new(field);
+        let mut heatmap = Heatmap::new(field, 18);
         heatmap.map[(2, 2)] = 0.8;
         heatmap.map[(8, 6)] = 0.7;
         heatmap.last_maximum_heatmap_position = Some((2, 2));
@@ -197,12 +188,38 @@ mod tests {
     #[test]
     fn ball_well_outside_field_does_not_create_edge_priority() {
         let field = FieldDimensions::SPL_2025;
-        let mut heatmap = Heatmap::new(field);
+        let mut heatmap = Heatmap::new(field, 18);
 
-        assert!(!ball_position_near_field(field, point![1.7, 5.3]));
+        assert!(!ball_position_in_field(field, point![1.7, 5.3]));
         heatmap.set_known_ball_position(field, point![1.7, 5.3]);
 
         assert!(heatmap.map.iter().all(|value| *value == 0.0));
-        assert!(ball_position_near_field(field, point![4.6, 0.0]));
+        assert!(!ball_position_in_field(field, point![4.6, 0.0]));
+    }
+    #[test]
+    fn last_ball_half_distance_grows_with_observation_age() {
+        let field = FieldDimensions::SPL_2025;
+        let origin = heatmap_tile_center(field, (18, 12), (9, 6));
+        let parameters = SearchSuggestorParameters {
+            last_ball_initial_half_distance: 0.5,
+            last_ball_spread_speed: 0.2,
+            last_ball_priority_fade_time: Duration::from_secs(20),
+            unseen_priority_rise_time: Duration::from_secs(100),
+            last_ball_extra_priority_rise_time: Duration::from_secs(10),
+            ..Default::default()
+        };
+        for (age, offset) in [(0, 1), (5, 3), (10, 5)] {
+            let mut map = Heatmap::new(field, 18);
+            map.increase_around_last_ball(
+                field,
+                origin,
+                Duration::from_secs(1),
+                Duration::from_secs(age),
+                &parameters,
+            );
+            let centre_extra = map.map[(9, 6)] - 0.01;
+            let half_extra = map.map[(9 + offset, 6)] - 0.01;
+            assert!((half_extra / centre_extra - 0.5).abs() < 1e-6);
+        }
     }
 }
