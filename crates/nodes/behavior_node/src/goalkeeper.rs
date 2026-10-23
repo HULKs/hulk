@@ -54,7 +54,7 @@ pub fn goalkeeper_subtree() -> Node<Blackboard> {
                 )
             ),
             sequence!(
-                condition!(is_ball_close_enough_to_goal_to_become_striker),
+                // condition!(is_ball_close_enough_to_goal_to_become_striker),
                 selection!(sequence!(
                     action!(calculate_voronoi_grid),
                     condition!(is_closest_to_ball),
