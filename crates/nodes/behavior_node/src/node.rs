@@ -9,10 +9,10 @@ use std::{
 use color_eyre::Result;
 use types::fall_detection::FallDetection;
 
-use coordinate_systems::{Field, Ground, Robot};
+use coordinate_systems::{Field, Ground};
 use hsl_network_messages::{PassIntent, PlayerNumber, SubState, Team};
 use kinematics::joints::head::HeadJoints;
-use linear_algebra::{Isometry2, Isometry3, Point2, Pose2, Vector2, point};
+use linear_algebra::{Isometry2, Point2, Pose2, Vector2, point};
 use ros_z::{
     prelude::*,
     qos::{QosDurability, QosHistory},
@@ -28,6 +28,7 @@ use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
+    localization::LocalizationEstimate,
     messages::OutgoingMessage,
     motion_command::{BodyMotion, HeadMotion, MotionCommand},
     motion_type::MotionType,
@@ -39,7 +40,6 @@ use types::{
     rule_obstacles::RuleObstacle,
     time_wrapper::TimeWrapper,
     tracked_objects::{HumanoidTrack, TrackedObjects},
-    visual_localization::LOCALIZATION_POSE_3D_TOPIC,
     walking_velocity_limits::{WALKING_VELOCITY_LIMITS_TOPIC, WalkingVelocityLimits},
     world_state::{BallSource, BallState, PlayerState, RobotState, WorldState},
 };
@@ -404,9 +404,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let localization_cache = node
-        .subscriber::<TimeWrapper<Option<Isometry3<Field, Robot>>>>(LOCALIZATION_POSE_3D_TOPIC)
+        .subscriber::<LocalizationEstimate>("localization/estimate")
         .cache(1)
-        .with_stamp(|estimate: &TimeWrapper<Option<Isometry3<Field, Robot>>>| estimate.time)
+        .with_stamp(|estimate: &LocalizationEstimate| estimate.time)
         .build()
         .await?;
     let hypothetical_ball_positions_cache = node
@@ -646,7 +646,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         blackboard.localization_time = localization_cache
             .get_latest()
-            .filter(|estimate| estimate.inner.is_some())
+            .filter(|estimate| estimate.robot_to_field.is_some())
             .map(|estimate| estimate.time);
         blackboard.world_state.robot = RobotState {
             ground_to_field: ground_to_field_cache
