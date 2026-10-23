@@ -139,7 +139,7 @@ pub enum BodyMotion {
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, Message)]
 pub enum HeadMotion {
-    ZeroAngles,
+    /// Frame the ground point half a field width straight ahead in Ground coordinates.
     Center {
         image_region_target: ImageRegion,
     },
@@ -147,16 +147,28 @@ pub enum HeadMotion {
     SearchForLostBall,
     LookAt {
         target: Point2<Ground>,
+        /// Height of the point of interest along Ground's +Z axis, in meters.
+        height_above_ground: f32,
         image_region_target: ImageRegion,
     },
-    LookLeftAndRightOf {
-        target: Point2<Ground>,
-    },
-    Unstiff,
+    Damping,
     MoveWithVelocity {
+        /// Desired yaw angular velocity in rad/s.
         yaw: f32,
+        /// Desired pitch angular velocity in rad/s.
         pitch: f32,
     },
+}
+
+impl HeadMotion {
+    pub fn validate(&self) -> Result<(), String> {
+        match self {
+            Self::MoveWithVelocity { yaw, pitch } if !yaw.is_finite() || !pitch.is_finite() => {
+                Err("head motion request contains non-finite velocities".into())
+            }
+            _ => Ok(()),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, Message)]
@@ -164,12 +176,6 @@ pub enum ImageRegion {
     Bottom,
     Center,
     Top,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum GlanceDirection {
-    LeftOfTarget,
-    RightOfTarget,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, Message)]

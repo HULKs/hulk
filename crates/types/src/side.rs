@@ -1,3 +1,5 @@
+//! Left and right sides in a caller-defined reference frame.
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ros_z::Message)]

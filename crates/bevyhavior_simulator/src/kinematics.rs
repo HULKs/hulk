@@ -275,14 +275,6 @@ fn desired_head_yaw(
         Some(HeadMotion::LookAt { target, .. }) => {
             Orientation2::from_vector(target.coords()).angle()
         }
-        Some(HeadMotion::LookLeftAndRightOf { target }) => {
-            let elapsed = now
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs_f32();
-            Orientation2::from_vector(target.coords()).angle()
-                + elapsed.sin() * config.head_glance_angle
-        }
         Some(HeadMotion::LookAround) | Some(HeadMotion::SearchForLostBall) => {
             let period = config.head_scan_period.as_secs_f32();
             if period <= f32::EPSILON {
@@ -299,10 +291,7 @@ fn desired_head_yaw(
                 (elapsed * std::f32::consts::TAU / period).sin() * amplitude
             }
         }
-        Some(HeadMotion::ZeroAngles)
-        | Some(HeadMotion::Center { .. })
-        | Some(HeadMotion::Unstiff)
-        | None => 0.0,
+        Some(HeadMotion::Center { .. }) | Some(HeadMotion::Damping) | None => 0.0,
     }
 }
 
@@ -522,7 +511,9 @@ mod tests {
             RobotFrame {
                 world_state: WorldState::default(),
                 motion_command: MotionCommand::Walk {
-                    head: HeadMotion::ZeroAngles,
+                    head: HeadMotion::Center {
+                        image_region_target: ImageRegion::Center,
+                    },
                     path: direct_path(point![0.0, 0.0], point![2.0, 0.0]),
                     orientation_mode: OrientationMode::AlignWithPath,
                     target_orientation: Orientation2::new(FRAC_PI_2),
@@ -682,6 +673,7 @@ mod tests {
             Orientation2::identity(),
             Some(HeadMotion::LookAt {
                 target: point![0.0, 1.0],
+                height_above_ground: 0.0,
                 image_region_target: ImageRegion::Center,
             }),
             SystemTime::UNIX_EPOCH,
