@@ -81,6 +81,10 @@ impl FeatureExtractor {
             .map_err(ort::Error::<()>::from)?
             .with_intra_threads(2)
             .map_err(ort::Error::<()>::from)?
+            .with_intra_op_spinning(false)
+            .map_err(ort::Error::<()>::from)?
+            .with_inter_op_spinning(false)
+            .map_err(ort::Error::<()>::from)?
             .commit_from_file(path)?;
 
         let run_options = RunOptions::new()?.with_outputs(

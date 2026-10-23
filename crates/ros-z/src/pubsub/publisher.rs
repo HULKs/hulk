@@ -446,7 +446,11 @@ where
 
     /// Return whether at least one subscriber is currently matched.
     pub fn has_subscribers(&self) -> bool {
-        self.subscriber_count() > 0
+        self.graph
+            .lock()
+            .subscriptions_on(&self.entity.topic)
+            .next()
+            .is_some()
     }
 
     /// Wait until at least `count` subscribers are matched on this publisher's topic,
@@ -665,18 +669,20 @@ where
     }
 
     /// Publish when subscribed or when transient-local history must be retained.
+    /// Lazily builds an owned or borrowed message only when needed.
     /// Returns whether a message was published.
-    pub async fn publish_if_subscribed<F, Fut>(&self, build: F) -> Result<bool>
+    pub async fn publish_if_subscribed<F, Fut, M>(&self, build: F) -> Result<bool>
     where
         F: FnOnce() -> Fut,
-        Fut: Future<Output = T>,
+        Fut: Future<Output = M>,
+        M: std::borrow::Borrow<T>,
     {
         if self.transient_local_cache.is_none() && !self.has_subscribers() {
             return Ok(false);
         }
 
         let message = build().await;
-        self.publish(&message).await?;
+        self.publish(message.borrow()).await?;
         Ok(true)
     }
 }
