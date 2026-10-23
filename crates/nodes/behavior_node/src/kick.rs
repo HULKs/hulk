@@ -91,9 +91,9 @@ pub fn kickoff_kick(blackboard: &mut Blackboard) -> Status {
             ..
         }) = blackboard.body_motion.as_mut()
     {
-        let target = ground_to_field * *ball_position + vector![1.0, 1.0];
+        let target = ground_to_field * *ball_position + vector![1.5, 1.5];
         *target_speed = 1.0;
-        *soft = true;
+        *soft = false;
         *quick = false;
         *strong = false;
         return apply_kick_target(blackboard, target);
