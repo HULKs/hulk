@@ -1,16 +1,18 @@
+use std::path::Path;
+
 use clap::Args;
 use color_eyre::{
     Result,
     eyre::{WrapErr, bail},
 };
 use repository::{Repository, location::LocationTarget};
-use tokio::io::{AsyncBufReadExt, BufReader, stdin};
+use tokio::io::{AsyncBufReadExt, BufReader, Lines, Stdin, stdin};
 
 use crate::{
     deploy_config::DeployConfig,
     git::{
-        add_all, check_revision_exists, create_and_switch_to_branch, create_commit, merge_squash,
-        reset_to_head,
+        add_all, check_clean, cherry_pick, create_and_switch_to_branch, create_commit,
+        has_conflicts, merge_squash, reset, resolve_revision, select_commits,
     },
     player_number::{Arguments as PlayerNumberArguments, player_number},
 };
@@ -22,77 +24,162 @@ pub struct Arguments {
     pub force: bool,
 }
 
+enum Operation {
+    Merge(Vec<String>),
+    CherryPick(Vec<String>),
+}
+
+async fn resolve_operation(root: &Path, text: &str) -> Result<Operation> {
+    let words: Vec<_> = text.split_whitespace().collect();
+    let (pick, mut revisions) = match words.as_slice() {
+        ["merge", revisions @ ..] => (false, revisions),
+        ["cherry-pick", revisions @ ..] => (true, revisions),
+        revisions => (false, revisions),
+    };
+    let top = if pick
+        && let Some(count) = revisions
+            .first()
+            .and_then(|word| word.strip_prefix("--top="))
+    {
+        let count: usize = count.parse().wrap_err("--top must be a positive integer")?;
+        if count == 0 {
+            bail!("--top must be a positive integer");
+        }
+        revisions = &revisions[1..];
+        if revisions.len() != 1 {
+            bail!("--top requires exactly one ref");
+        }
+        Some(count)
+    } else {
+        None
+    };
+    if revisions.is_empty() || revisions.iter().any(|revision| revision.starts_with('-')) {
+        bail!("expected refs, without Git options");
+    }
+    if pick {
+        let commits = if top.is_some() {
+            let revision = resolve_revision(root, revisions[0]).await?;
+            select_commits(root, &[&revision], top).await?
+        } else {
+            select_commits(root, revisions, None).await?
+        };
+        Ok(Operation::CherryPick(commits))
+    } else {
+        let mut commits = Vec::new();
+        for revision in revisions {
+            commits.push(resolve_revision(root, revision).await?);
+        }
+        Ok(Operation::Merge(commits))
+    }
+}
+
 pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Result<()> {
     let config = DeployConfig::read_from_file(repository)
         .await
         .wrap_err("failed to read deploy config from file")?;
 
-    let mut all_found = true;
-
-    if let Err(_error) = check_revision_exists(&config.base).await {
-        all_found = false;
-        eprintln!("can't find base branch: {}", config.base);
-    }
-    for branch in &config.branches {
-        if let Err(_error) = check_revision_exists(branch).await {
-            eprintln!("can't find revision to merge: {branch}");
-            all_found = false;
+    let root = &repository.root;
+    check_clean(root).await?;
+    let base = resolve_revision(root, &config.base)
+        .await
+        .wrap_err_with(|| format!("can't find base branch: {}", config.base))?;
+    let mut groups = Vec::new();
+    for (index, entry) in config.branches.iter().enumerate() {
+        if entry.operations().is_empty() {
+            bail!("branches[{}] is an empty group", index);
         }
-    }
-    if !all_found {
-        bail!("pre-checks failed");
+        let mut group = Vec::new();
+        for text in entry.operations() {
+            let operation = resolve_operation(root, text)
+                .await
+                .wrap_err_with(|| format!("invalid branches[{index}] operation: {text}"))?;
+            group.push((text.as_str(), operation));
+        }
+        groups.push(group);
     }
 
     let branch_name = config.branch_name();
-    create_and_switch_to_branch(&branch_name, &config.base, arguments.force)
+    create_and_switch_to_branch(root, &branch_name, &base, arguments.force)
         .await
         .wrap_err("failed to create and switch to branch")?;
 
-    'branches: for branch in &config.branches {
-        let status = merge_squash(&branch.to_string()).await;
-
-        if status.is_err() {
-            eprintln!("Automatic merge failed.");
-            let skip_prompt = format!("Do you want to skip deploying '{branch}'?");
-
-            loop {
-                let skip = confirmation_prompt(&skip_prompt)
-                    .await
-                    .wrap_err("failed to create confirmation prompt")?;
-
-                if skip {
-                    reset_to_head()
-                        .await
-                        .wrap_err("failed to reset repository to HEAD")?;
-
-                    continue 'branches;
-                } else {
-                    eprintln!("Please resolve all conflicts now.");
-
-                    let conflicts_resolved =
-                        confirmation_prompt("Were you able to resolve the conflicts?")
-                            .await
-                            .wrap_err("failed to create confirmation prompt")?;
-
-                    if conflicts_resolved {
-                        break;
-                    }
-                }
-            }
-        }
-
-        create_commit(&format!("merge-squash {branch}"))
+    let mut input = BufReader::new(stdin()).lines();
+    for (index, group) in groups.iter().enumerate() {
+        let start = resolve_revision(root, "HEAD").await?;
+        let result = apply_group(root, group, &start, &mut input)
             .await
-            .wrap_err("failed to create commit")?;
+            .wrap_err_with(|| format!("failed to apply branches[{index}]"));
+        if !matches!(&result, Ok(true)) {
+            reset(root, &start, false)
+                .await
+                .wrap_err("failed to roll back group")?;
+        }
+        result?;
     }
 
     configure_repository(repository, config).await?;
-    add_all().await?;
-    create_commit("Add player number assigments and deployment config")
+    add_all(root).await?;
+    create_commit(root, "Add player number assigments and deployment config")
         .await
         .wrap_err("failed to create commit")?;
 
     Ok(())
+}
+
+async fn apply_group(
+    root: &Path,
+    group: &[(&str, Operation)],
+    start: &str,
+    input: &mut Lines<BufReader<Stdin>>,
+) -> Result<bool> {
+    let description = group
+        .iter()
+        .map(|(text, _)| *text)
+        .collect::<Vec<_>>()
+        .join("; ");
+    for (text, operation) in group {
+        let commits = match operation {
+            Operation::Merge(commits) | Operation::CherryPick(commits) => commits,
+        };
+        for commit in commits {
+            let result = match operation {
+                Operation::Merge(_) => merge_squash(root, commit).await,
+                Operation::CherryPick(_) => cherry_pick(root, commit).await,
+            };
+            if let Err(error) = result {
+                if !has_conflicts(root).await? {
+                    return Err(error)
+                        .wrap_err_with(|| format!("operation failed: {text} ({commit})"));
+                }
+                eprintln!("Conflicts in '{text}' at {commit}.");
+                loop {
+                    if confirmation_prompt(
+                        &format!("Do you want to skip deploying the entire group '{description}'?"),
+                        input,
+                    )
+                    .await?
+                    {
+                        return Ok(false);
+                    }
+                    eprintln!("Please resolve and stage all conflicts now.");
+                    if confirmation_prompt("Were you able to resolve the conflicts?", input).await?
+                    {
+                        if !has_conflicts(root).await? {
+                            break;
+                        }
+                        eprintln!("There are still unresolved conflicts.");
+                    }
+                }
+            }
+            // Keep the index clean so subsequent merges can run after cherry-picks.
+            create_commit(root, &format!("gamebranch intermediate: {text} ({commit})")).await?;
+        }
+    }
+    reset(root, start, true).await?;
+    create_commit(root, &format!("merge-squash {description}"))
+        .await
+        .wrap_err("failed to create group commit")?;
+    Ok(true)
 }
 
 async fn configure_repository(repository: &Repository, config: DeployConfig) -> Result<()> {
@@ -118,11 +205,7 @@ async fn configure_repository(repository: &Repository, config: DeployConfig) -> 
     Ok(())
 }
 
-async fn confirmation_prompt(message: &str) -> Result<bool> {
-    let reader = BufReader::new(stdin());
-
-    let mut lines = reader.lines();
-
+async fn confirmation_prompt(message: &str, lines: &mut Lines<BufReader<Stdin>>) -> Result<bool> {
     loop {
         eprint!("{message} [y/n] ");
 
@@ -136,6 +219,8 @@ async fn confirmation_prompt(message: &str) -> Result<bool> {
                 line if line == "n" => return Ok(false),
                 _ => {}
             }
+        } else {
+            bail!("input closed while waiting for conflict resolution");
         }
     }
 }
