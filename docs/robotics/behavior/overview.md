@@ -95,6 +95,7 @@ Rule hypotheses gain one priority unit per `rule_priority_rise_time`, using elap
 Corner kicks, goal kicks, and throw-ins clear the heatmap outside their restart locations, including priorities from earlier observations.
 
 The robot's own pose and fresh teammate poses define its search Voronoi region.
+The partition is cached and recomputed only when the grid geometry, owner, or participating players' Voronoi cells change; teammate freshness is checked every cycle.
 Field players exclude the configured goalkeeper from this partition, matching the behavior's goalkeeper-free Voronoi calculation.
 The goalkeeper searches independently of the field-player partition.
 Within that region, the suggestor selects a cell above the minimum priority.

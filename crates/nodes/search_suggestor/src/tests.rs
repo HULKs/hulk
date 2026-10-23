@@ -4,7 +4,7 @@ use coordinate_systems::{Field, Ground};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::Isometry2;
 use ros_z::time::Time;
-use search_heatmap::{Heatmap, SearchArea, SearchVoronoiSelection};
+use search_heatmap::{Heatmap, SearchArea, SearchVoronoiCache, SearchVoronoiSelection};
 use types::{
     ball_position::BallPosition, field_dimensions::FieldDimensions,
     parameters::SearchSuggestorParameters, players::Players, time_wrapper::TimeWrapper,
@@ -59,7 +59,9 @@ fn search_partition_excludes_assigned_goalkeeper_and_keeps_its_search_independen
             vec![(keeper_pose.as_pose(), PlayerNumber::Three)],
         ),
     ] {
+        let mut cache = SearchVoronoiCache::default();
         let selection = search_voronoi_selection_from_teammates(
+            &mut cache,
             field,
             18,
             Some((pose, number)),

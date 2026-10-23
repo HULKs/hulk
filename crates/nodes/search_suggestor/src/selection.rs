@@ -2,7 +2,7 @@ use coordinate_systems::{Field, Ground};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Point2};
 use ros_z::time::Time;
-use search_heatmap::{Heatmap, SearchArea};
+use search_heatmap::{Heatmap, SearchArea, SearchVoronoiCache};
 use types::{
     field_dimensions::FieldDimensions, parameters::SearchSuggestorParameters, players::Players,
     time_wrapper::TimeWrapper, world_state::PlayerState,
@@ -12,6 +12,7 @@ use crate::team::{TeammateFreshness, search_voronoi_selection_from_teammates};
 
 pub(crate) struct TargetSelection<'a> {
     pub heatmap: &'a mut Heatmap,
+    pub voronoi_cache: &'a mut SearchVoronoiCache,
     pub field_dimensions: FieldDimensions,
     pub parameters: &'a SearchSuggestorParameters,
     pub ground_to_field: Option<Isometry2<Ground, Field>>,
@@ -29,6 +30,7 @@ pub(crate) struct TargetSelection<'a> {
 pub(crate) fn select_search_position(input: TargetSelection<'_>) -> Option<Point2<Field>> {
     let TargetSelection {
         heatmap,
+        voronoi_cache,
         field_dimensions,
         parameters,
         ground_to_field,
@@ -52,6 +54,7 @@ pub(crate) fn select_search_position(input: TargetSelection<'_>) -> Option<Point
         *no_regular_target_since = None;
         heatmap.clear_suggested_search_position();
     } else if let Some((voronoi_selection, search_area)) = search_voronoi_selection_from_teammates(
+        voronoi_cache,
         field_dimensions,
         parameters.cells_along_field_length,
         own_voronoi_site,
@@ -64,7 +67,7 @@ pub(crate) fn select_search_position(input: TargetSelection<'_>) -> Option<Point
         let has_regular_target = heatmap.has_regular_search_target(
             field_dimensions,
             parameters,
-            &voronoi_selection,
+            voronoi_selection,
             search_area,
         );
         let minimum_search_priority = active_minimum_search_priority(
@@ -78,7 +81,7 @@ pub(crate) fn select_search_position(input: TargetSelection<'_>) -> Option<Point
             field_dimensions,
             parameters,
             ground_to_field,
-            &voronoi_selection,
+            voronoi_selection,
             minimum_search_priority,
             search_area,
         );

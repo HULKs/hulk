@@ -2,7 +2,7 @@ mod topics;
 
 use color_eyre::Result;
 use ros_z::prelude::*;
-use search_heatmap::Heatmap;
+use search_heatmap::{Heatmap, SearchVoronoiCache};
 use std::{sync::Arc, time::Duration};
 use topics::Topics;
 use types::{
@@ -40,6 +40,7 @@ pub(crate) async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut current_ball_position = None;
     let mut latest_filtered_game_controller_state = None;
     let mut last_teammate_states = Players::new(None);
+    let mut voronoi_cache = SearchVoronoiCache::default();
     let mut no_regular_target_since = None;
     let mut was_playing = false;
     let mut was_heatmap_search_enabled = true;
@@ -168,6 +169,7 @@ pub(crate) async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let suggested_search_position = select_search_position(TargetSelection {
             heatmap: &mut heatmap,
+            voronoi_cache: &mut voronoi_cache,
             field_dimensions,
             parameters,
             ground_to_field,

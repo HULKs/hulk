@@ -4,11 +4,14 @@ use coordinate_systems::{Field, Ground};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::Isometry2;
 use ros_z::time::Time;
-use search_heatmap::{Heatmap, SearchVoronoiSelection};
+use search_heatmap::{Heatmap, SearchVoronoiCache, SearchVoronoiSelection};
 use types::{
     field_dimensions::FieldDimensions, parameters::SearchSuggestorParameters, players::Players,
     time_wrapper::TimeWrapper, world_state::PlayerState,
 };
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Clone, Copy)]
 pub(crate) struct TeammateFreshness {
@@ -25,14 +28,15 @@ impl TeammateFreshness {
     }
 }
 
-pub(crate) fn search_voronoi_selection_from_teammates(
+pub(crate) fn search_voronoi_selection_from_teammates<'a>(
+    cache: &'a mut SearchVoronoiCache,
     field_dimensions: FieldDimensions,
     cells_x: usize,
     own_voronoi_site: Option<(Isometry2<Ground, Field>, PlayerNumber)>,
     goalkeeper_player_number: Option<PlayerNumber>,
     last_teammate_states: &Players<Option<TimeWrapper<PlayerState>>>,
     teammate_freshness: TeammateFreshness,
-) -> Option<SearchVoronoiSelection> {
+) -> Option<&'a SearchVoronoiSelection> {
     let (ground_to_field, own_player_number) = own_voronoi_site?;
     let goalkeeper_player_number = goalkeeper_player_number?;
     let mut sites = vec![(ground_to_field.as_pose(), own_player_number)];
@@ -55,12 +59,7 @@ pub(crate) fn search_voronoi_selection_from_teammates(
         }
     }
 
-    Some(SearchVoronoiSelection::new(
-        field_dimensions,
-        cells_x,
-        own_player_number,
-        sites,
-    ))
+    Some(cache.get_or_update(field_dimensions, cells_x, own_player_number, sites))
 }
 
 pub(crate) fn update_from_player_states(
