@@ -14606,3 +14606,36 @@ dependencies = [
  "syn 3.0.9",
  "winnow 1.0.4",
 ]
+
+[[package]]
+name = "ball_filter"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "coordinate_systems",
+ "filtering",
+ "geometry",
+ "json5",
+ "linear_algebra",
+ "linear_sum_assignment",
+ "nalgebra 0.34.2",
+ "ndarray 0.16.1",
+ "ordered-float 4.6.0",
+ "projection",
+ "ros-z",
+ "ros-z-streams",
+ "serde",
+ "tokio",
+ "types",
+]
+
+[[package]]
+name = "ndarray-rand"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f093b3db6fd194718dcdeea6bd8c829417deae904e3fcc7732dabcd4416d25d8"
+dependencies = [
+ "ndarray 0.16.1",
+ "rand 0.8.8",
+ "rand_distr 0.4.3",
+]
