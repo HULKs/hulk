@@ -1,7 +1,4 @@
-use std::{
-    ffi::OsStr,
-    process::{ExitStatus, Stdio},
-};
+use std::{ffi::OsStr, path::Path, process::ExitStatus};
 
 use color_eyre::{
     Result,
@@ -9,14 +6,14 @@ use color_eyre::{
 };
 use tokio::process::Command;
 
-pub struct GitCommand {
+struct GitCommand {
     inner: Command,
 }
 
 impl GitCommand {
-    fn new(subcommand: impl AsRef<OsStr>) -> Self {
+    fn new(root: &Path, subcommand: impl AsRef<OsStr>) -> Self {
         let mut inner = Command::new("git");
-        inner.arg(subcommand);
+        inner.current_dir(root).arg(subcommand);
 
         Self { inner }
     }
@@ -26,10 +23,17 @@ impl GitCommand {
         self
     }
 
-    fn quiet(mut self) -> Self {
-        self.inner.stdout(Stdio::null());
-        self.inner.stderr(Stdio::null());
+    fn args(mut self, args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Self {
+        self.inner.args(args);
         self
+    }
+
+    async fn output(mut self) -> Result<String> {
+        let output = self.inner.output().await.wrap_err("failed to run git")?;
+        if !output.status.success() {
+            bail!("git failed: {}", String::from_utf8_lossy(&output.stderr));
+        }
+        String::from_utf8(output.stdout).wrap_err("git returned invalid UTF-8")
     }
 
     async fn status(mut self) -> Result<ExitStatus> {
@@ -47,10 +51,15 @@ impl GitCommand {
     }
 }
 
-pub async fn create_and_switch_to_branch(name: &str, base: &str, force: bool) -> Result<()> {
+pub async fn create_and_switch_to_branch(
+    root: &Path,
+    name: &str,
+    base: &str,
+    force: bool,
+) -> Result<()> {
     let create_flag = if force { "--force-create" } else { "--create" };
 
-    GitCommand::new("switch")
+    GitCommand::new(root, "switch")
         .arg("--no-track")
         .arg(create_flag)
         .arg(name)
@@ -59,8 +68,8 @@ pub async fn create_and_switch_to_branch(name: &str, base: &str, force: bool) ->
         .await
 }
 
-pub async fn create_commit(message: &str) -> Result<()> {
-    GitCommand::new("commit")
+pub async fn create_commit(root: &Path, message: &str) -> Result<()> {
+    GitCommand::new(root, "commit")
         .arg("--all")
         .arg("--allow-empty")
         .arg("--message")
@@ -69,32 +78,126 @@ pub async fn create_commit(message: &str) -> Result<()> {
         .await
 }
 
-pub async fn add_all() -> Result<()> {
-    GitCommand::new("add").arg(".").run().await
+pub async fn add_all(root: &Path) -> Result<()> {
+    GitCommand::new(root, "add").arg(".").run().await
 }
 
-pub async fn reset_to_head() -> Result<()> {
-    GitCommand::new("reset")
-        .arg("--hard")
-        .arg("HEAD")
+pub async fn reset(root: &Path, revision: &str, soft: bool) -> Result<()> {
+    GitCommand::new(root, "reset")
+        .arg(if soft { "--soft" } else { "--hard" })
+        .arg(revision)
         .run()
         .await
 }
 
-pub async fn merge_squash(branch: &str) -> Result<()> {
-    GitCommand::new("merge")
+pub async fn merge_squash(root: &Path, branch: &str) -> Result<()> {
+    GitCommand::new(root, "merge")
         .arg("--squash")
         .arg(branch)
         .run()
         .await
 }
 
-pub async fn check_revision_exists(revision: &str) -> Result<()> {
-    GitCommand::new("rev-parse")
-        .quiet()
+pub async fn resolve_revision(root: &Path, revision: &str) -> Result<String> {
+    let output = GitCommand::new(root, "rev-parse")
         .arg("--verify")
         .arg("--end-of-options")
         .arg(format!("{revision}^{{commit}}"))
+        .output()
+        .await?;
+    Ok(output.trim().to_owned())
+}
+
+pub async fn select_commits(
+    root: &Path,
+    revisions: &[&str],
+    top: Option<usize>,
+) -> Result<Vec<String>> {
+    let mut command = GitCommand::new(root, "rev-list");
+    if let Some(count) = top {
+        command = command
+            .arg("--first-parent")
+            .arg(format!("--max-count={count}"));
+    } else {
+        // Git expands ranges and exclusions to negative revisions, which enable a history walk.
+        let expanded = GitCommand::new(root, "rev-parse")
+            .args(["--revs-only", "--end-of-options"])
+            .args(revisions)
+            .output()
+            .await?;
+        command = command.arg("--no-walk=unsorted");
+        if expanded.lines().any(|revision| revision.starts_with('^')) {
+            command = command.args(["--topo-order", "--reverse"]);
+        }
+    }
+    let output = command.args(revisions).arg("--").output().await?;
+    let mut commits: Vec<String> = output.lines().map(str::to_owned).collect();
+    if commits.is_empty() {
+        bail!("cherry-pick selection is empty");
+    }
+    if let Some(count) = top {
+        if commits.len() != count {
+            bail!(
+                "requested top {count} commits, but found only {}",
+                commits.len()
+            );
+        }
+        commits.reverse();
+    }
+    let merges = GitCommand::new(root, "rev-list")
+        .args(["--no-walk", "--min-parents=2"])
+        .args(&commits)
+        .arg("--")
+        .output()
+        .await?;
+    if !merges.is_empty() {
+        bail!(
+            "cannot cherry-pick merge commits without a mainline: {}",
+            merges.trim()
+        );
+    }
+    Ok(commits)
+}
+
+pub async fn cherry_pick(root: &Path, commit: &str) -> Result<()> {
+    GitCommand::new(root, "cherry-pick")
+        .arg("--no-commit")
+        .arg(commit)
         .run()
         .await
+}
+
+pub async fn has_conflicts(root: &Path) -> Result<bool> {
+    Ok(!GitCommand::new(root, "ls-files")
+        .arg("--unmerged")
+        .output()
+        .await?
+        .is_empty())
+}
+
+pub async fn check_clean(root: &Path) -> Result<()> {
+    let status = GitCommand::new(root, "status")
+        .args(["--porcelain", "--untracked-files=no"])
+        .output()
+        .await?;
+    if !status.is_empty() {
+        bail!("commit or stash tracked changes before creating a game branch");
+    }
+    for state in [
+        "MERGE_HEAD",
+        "CHERRY_PICK_HEAD",
+        "REVERT_HEAD",
+        "sequencer",
+        "rebase-merge",
+        "rebase-apply",
+    ] {
+        let path = GitCommand::new(root, "rev-parse")
+            .args(["--path-format=absolute", "--git-path", state])
+            .output()
+            .await?;
+        if tokio::fs::try_exists(path.trim()).await? {
+            bail!("finish the current Git operation before creating a game branch ({state})");
+        }
+    }
+    Ok(())
 }

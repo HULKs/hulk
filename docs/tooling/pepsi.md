@@ -144,6 +144,53 @@ Services are stopped during activation.
 Package/profile rollback alone does not undo Podman database migrations.
 Network reconfiguration runs last, and robot failures are reported individually.
 
+## Game Branches
+
+`pepsi gamebranch` creates a game branch from the repository's `deploy.toml`.
+The `base` field selects the starting commit. Each outer item in `branches` produces one squash commit:
+
+```toml
+base = "main"
+branches = [
+  "existing-branch",
+  "feature-a feature-b",
+  [
+    "merge feature-c feature-d",
+    "cherry-pick 133620d1a another-commit",
+    "cherry-pick feature-e ^excluded-tip",
+    "cherry-pick --top=3 feature-f",
+  ],
+  "cherry-pick start..end",
+]
+```
+
+A string specifies one operation. A nested list combines operations into one squash commit.
+Operations and merge targets run in written order. Bare refs are shorthand for `merge`.
+Merge operations include branch history; cherry-pick operations apply only the selected commits' patches.
+Merges and cherry-picks can appear in either order within a group.
+
+Cherry-pick accepts individual commits, Git revision ranges, and exclusions:
+
+- `cherry-pick commit-a commit-b` applies those commits in written order, without their ancestors.
+- `cherry-pick start..end` applies commits reachable from `end` but not `start`, ancestors first.
+- `cherry-pick feature ^excluded-tip` excludes `excluded-tip` and all its ancestors, following Git semantics.
+- `cherry-pick --top=3 feature` selects exactly three commits along first-parent history, then applies the oldest first.
+
+`--top=N` is a Pepsi extension and requires one ref and a positive count.
+Unlike `feature~3..feature`, it does not include additional commits from merged side branches.
+Selections containing merge commits are rejected because cherry-picking them requires a mainline choice.
+Empty selections and requests exceeding the available first-parent history are also rejected.
+For example, `cherry-pick commit-a ^commit-a` selects nothing and fails validation.
+
+Operation strings use whitespace-separated arguments, without shell quoting, expansion, or arbitrary Git flags.
+All refs are resolved before switching branches, so `HEAD` refers to the initial checkout.
+Commit or stash tracked changes and finish any active Git operation before running `gamebranch`.
+
+If an operation conflicts, resolve and stage the conflicting files, then answer the prompt to continue.
+Skipping rolls back the entire current group, including earlier operations in that group, while keeping completed groups.
+Temporary intermediate commits allow mixed operations; the final history contains only one commit per completed group.
+The deployment configuration is committed separately afterward.
+
 ## Build Options
 
 For subcommands that build a binary, you can specify a target and a build profile.

@@ -25,11 +25,27 @@ pub struct DeployConfig {
     #[serde(deserialize_with = "deserialize_network")]
     pub wifi: Network,
     pub base: String,
-    pub branches: Vec<String>,
+    pub branches: Vec<BranchEntry>,
     #[serde(deserialize_with = "deserialize_assignments")]
     pub assignments: Vec<RobotAddressPlayerAssignment>,
     #[serde(deserialize_with = "deserialize_assignments")]
     pub substitutions: Vec<RobotAddressPlayerAssignment>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum BranchEntry {
+    Single(String),
+    Group(Vec<String>),
+}
+
+impl BranchEntry {
+    pub fn operations(&self) -> &[String] {
+        match self {
+            Self::Single(operation) => std::slice::from_ref(operation),
+            Self::Group(operations) => operations,
+        }
+    }
 }
 
 impl DeployConfig {
