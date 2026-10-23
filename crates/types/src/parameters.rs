@@ -256,7 +256,8 @@ pub struct SearchSuggestorParameters {
     pub observation_half_life_far: Duration,
     pub teammate_observation_weight: f32,
     pub occluded_observation_weight: f32,
-    /// Maximum temporal spacing of interpolated team observations.
+    /// Desired maximum temporal spacing of interpolated team observations.
+    /// Replay uses at most four samples per message interval, covering its full duration.
     pub teammate_replay_step: Duration,
 
     // Target preferences.

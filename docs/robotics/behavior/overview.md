@@ -89,7 +89,8 @@ Areas within the estimated field of view lose priority; obstacles reduce this de
 Observation half-life is interpolated linearly from `observation_half_life_near` to `observation_half_life_far` across `observation_distance_range`.
 A visible cell is multiplied by `exp(-ln(2) * elapsed * weight / half_life)`; outside the range there is no observation decay.
 `teammate_observation_weight` scales reconstructed team exposure, with zero disabling it, and `occluded_observation_weight` scales locally occluded exposure.
-Team replay samples at most `teammate_replay_step` apart and uses the actual message interval.
+Team replay aims for samples at most `teammate_replay_step` apart, capped at four samples per message interval.
+Longer intervals use coarser sampling; the full actual message interval is distributed across the samples.
 Rule hypotheses gain one priority unit per `rule_priority_rise_time`, using elapsed simulation time.
 Corner kicks, goal kicks, and throw-ins clear the heatmap outside their restart locations, including priorities from earlier observations.
 

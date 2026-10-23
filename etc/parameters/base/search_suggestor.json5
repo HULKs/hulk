@@ -27,6 +27,7 @@
   observation_half_life_far: { secs: 2, nanos: 500000000 },
   teammate_observation_weight: 0.75,
   occluded_observation_weight: 0.05,
+  // Desired maximum sample spacing; replay is capped at four samples per message interval.
   teammate_replay_step: { secs: 0, nanos: 400000000 },
 
   // Target preferences. Border width is a fraction of the field width.
