@@ -126,6 +126,7 @@ fn serialize_shape_value(
     writer: &mut CdrWriter<LittleEndian>,
 ) -> Result<(), DynamicError> {
     match (value, shape) {
+        (DynamicValue::Unit, TypeDef::Primitive(PrimitiveTypeDef::Unit)) => {}
         (DynamicValue::Bool(v), TypeDef::Primitive(PrimitiveTypeDef::Bool)) => {
             writer.write_bool(*v)
         }
@@ -413,6 +414,7 @@ fn skip_value(
     match shape {
         TypeDef::Primitive(primitive) => {
             let width = match primitive {
+                PrimitiveTypeDef::Unit => return Ok(()),
                 PrimitiveTypeDef::Bool => {
                     reader.read_bool()?;
                     return Ok(());
@@ -492,6 +494,7 @@ fn deserialize_shape_value(
     reader: &mut CdrReader<LittleEndian>,
 ) -> Result<DynamicValue, DynamicError> {
     match shape {
+        TypeDef::Primitive(PrimitiveTypeDef::Unit) => Ok(DynamicValue::Unit),
         TypeDef::Primitive(PrimitiveTypeDef::Bool) => Ok(DynamicValue::Bool(
             reader.read_bool().map_err(DynamicError::deserialization)?,
         )),
@@ -685,7 +688,69 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use super::*;
-    use crate::{Message, message::WireEncoder};
+    use crate::{
+        Message,
+        message::{SerdeCdrCodec, WireEncoder},
+        schema::SchemaBuilder,
+    };
+
+    #[test]
+    fn unit_root_roundtrips_without_payload() {
+        let schema = Arc::new(<()>::schema());
+        let bytes = <() as Message>::Codec::serialize(&()).unwrap();
+        assert_eq!(bytes.as_slice(), CDR_HEADER_LE);
+
+        let value = deserialize_cdr_value(&bytes, &schema).unwrap();
+        assert_eq!(value, DynamicValue::Unit);
+        assert_eq!(serialize_cdr_value(&schema, &value).unwrap(), bytes);
+        assert!(value.validate_against(&Arc::new(bool::schema())).is_err());
+    }
+
+    #[test]
+    fn unit_fields_preserve_cdr_alignment() {
+        #[derive(Serialize)]
+        struct UnitPacket {
+            leading: u8,
+            signal: (),
+            value: u8,
+            aligned: u64,
+        }
+
+        let packet = UnitPacket {
+            leading: 7,
+            signal: (),
+            value: 42,
+            aligned: 0x1234_5678_1234_5678,
+        };
+        let mut builder = SchemaBuilder::new();
+        let root = builder
+            .define_struct(TypeName::new("test::UnitPacket").unwrap(), |fields| {
+                fields.field::<u8>("leading")?;
+                fields.field::<()>("signal")?;
+                fields.field::<u8>("value")?;
+                fields.field::<u64>("aligned")?;
+                Ok(())
+            })
+            .unwrap();
+        let schema = Arc::new(builder.finish(root).unwrap());
+        let bytes = SerdeCdrCodec::<UnitPacket>::serialize(&packet).unwrap();
+
+        let value = deserialize_cdr_value(&bytes, &schema).unwrap();
+        assert_eq!(serialize_cdr_value(&schema, &value).unwrap(), bytes);
+
+        let path: ValuePath = ".signal".parse().unwrap();
+        path.select_cdr_as::<()>(&bytes, &schema).unwrap();
+        let path: ValuePath = ".value".parse().unwrap();
+        assert_eq!(
+            path.select_cdr_as::<u8>(&bytes, &schema).unwrap(),
+            packet.value
+        );
+        let path: ValuePath = ".aligned".parse().unwrap();
+        assert_eq!(
+            path.select_cdr_as::<u64>(&bytes, &schema).unwrap(),
+            packet.aligned
+        );
+    }
 
     #[derive(Serialize, Deserialize, Message)]
     enum Skipped {
