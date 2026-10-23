@@ -12,7 +12,8 @@
     is_simple: false,
   },
   ball: {
-    last_ball_timeout: { nanos: 250000000, secs: 0 },
+    last_ball_timeout: { nanos: 500000000, secs: 0 },
+    team_ball_timeout: { nanos: 0, secs: 1 },
     interception: {
       maximum_ball_distance: 4.0,
       minimum_ball_velocity: 1.0,
@@ -77,6 +78,10 @@
     kick_away_ball_maximum_robot_distance: 1.5,
     active_defense_maximum_robot_distance: 2.0,
     distance_to_goalpost: 0.15,
+  },
+  search: {
+    position_reached_cell_fraction: 0.4,
+    minimum_position_reached_distance: 0.1,
   },
   substates: {
     distance_for_kick: 0.4,

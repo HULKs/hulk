@@ -258,6 +258,7 @@ mod tests {
                 age: Duration::from_millis(500),
                 position: point![x + 1.0, y],
             }),
+            head_yaw: 0.0,
         })
     }
 
@@ -401,6 +402,7 @@ mod tests {
                     Players {
                         three: Some(PlayerState {
                             pose: Pose2::new(point![1.0, 0.5], 0.0),
+                            head_yaw: 0.0,
                             ball_position: Some(BallPosition::from_network_ball(
                                 hsl_network_messages::BallPosition {
                                     age: Duration::from_millis(500),
