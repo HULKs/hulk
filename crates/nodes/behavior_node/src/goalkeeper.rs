@@ -54,12 +54,9 @@ pub fn goalkeeper_subtree() -> Node<Blackboard> {
                 )
             ),
             sequence!(
-                condition!(is_ball_close_enough_to_goal_to_become_striker),
-                selection!(sequence!(
-                    action!(calculate_voronoi_grid),
-                    condition!(is_closest_to_ball),
-                    subtree!(striker_subtree),
-                ),),
+                action!(calculate_voronoi_grid),
+                condition!(is_closest_to_ball),
+                subtree!(striker_subtree),
             ),
             sequence!(
                 condition!(is_ball_near_own_goal),
@@ -219,15 +216,6 @@ fn is_ball_in_own_penalty_area(blackboard: &mut Blackboard) -> bool {
 
         ball.position.x() < own_penalty_area_x
             && ball.position.y().abs() < field_dimensions.penalty_area_width / 2.0
-    })
-}
-
-fn is_ball_close_enough_to_goal_to_become_striker(blackboard: &mut Blackboard) -> bool {
-    blackboard.ball.as_ref().is_some_and(|ball| {
-        let own_goal_x = -blackboard.field_dimensions.length / 2.0;
-        let maximum_ball_x = own_goal_x + blackboard.parameters.goalkeeper.striker_distance;
-
-        ball.position.x() < maximum_ball_x
     })
 }
 
