@@ -15,7 +15,10 @@ use crate::{
     },
     goalkeeper::goalkeeper_subtree,
     head::{look_around, look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
-    kick::{intercept, kick, kick_subtree, set_kick_target_beyond_ball, use_kick},
+    kick::{
+        intercept, kick, kick_alternatives_subtree, kick_subtree, kickoff_kick,
+        set_kick_target_beyond_ball, use_kick,
+    },
     negation,
     node::Blackboard,
     penalty_shootout::{is_penalty_shootout, penalty_shootout_subtree},
@@ -168,6 +171,15 @@ pub(crate) fn striker_subtree() -> Node<Blackboard> {
             sequence!(
                 negation!(condition!(is_close_to_ball)),
                 subtree!(walk_to_ball_subtree)
+            ),
+            sequence!(
+                condition!(is_kickoff),
+                condition!(hulks_is_kicking_team),
+                switch_motion_type(
+                    MotionType::Kick,
+                    action!(kickoff_kick),
+                    subtree!(kick_alternatives_subtree),
+                )
             ),
             sequence!(
                 condition!(is_ball_interception_candidate),
