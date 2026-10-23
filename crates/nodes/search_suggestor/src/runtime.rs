@@ -45,7 +45,7 @@ pub(crate) async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut was_playing = false;
     let mut was_heatmap_search_enabled = true;
     let mut last_priority_update = node.clock().now();
-    let mut tick = node.create_timer(Duration::from_millis(20));
+    let mut tick = node.create_timer(Duration::from_millis(50));
 
     loop {
         tick.tick().await;
