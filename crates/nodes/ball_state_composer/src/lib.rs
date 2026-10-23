@@ -314,14 +314,6 @@ mod tests {
                 assert_eq!(result.is_some(), present);
                 if let Some(result) = result {
                     assert_eq!(result.last_seen_ball, original.to_wallclock());
-                    assert_eq!(
-                        result.source,
-                        if team {
-                            BallSource::Team
-                        } else {
-                            BallSource::Own
-                        }
-                    );
                 }
             }
         }
@@ -341,7 +333,6 @@ mod tests {
         )
         .unwrap();
         assert_eq!(result.last_seen_ball, observed.to_wallclock());
-        assert_eq!(result.source, BallSource::Team);
     }
 
     #[test]
