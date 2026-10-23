@@ -43,6 +43,7 @@ pub mod stereo_camera_info;
 pub mod stereo_image_pair;
 pub mod support_foot;
 pub mod time_wrapper;
+pub mod tracked_objects;
 pub mod visual_localization;
 pub mod visual_odometry;
 pub mod walking_velocity_limits;

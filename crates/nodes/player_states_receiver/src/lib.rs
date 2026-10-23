@@ -119,6 +119,9 @@ fn apply_message(
     let player_state = PlayerState {
         pose: state_message.pose,
         head_yaw: state_message.head_yaw,
+        pose_age: state_message.pose_age,
+        pass: state_message.pass,
+        replacement_goalkeeper_claim: state_message.replacement_goalkeeper_claim,
         ball_position: state_message
             .ball_position
             .map(|ball| BallPosition::from_network_ball(ball, time)),
@@ -194,6 +197,12 @@ mod tests {
                     player_number: PlayerNumber::Two,
                     pose,
                     head_yaw: 0.0,
+                    pose_age: Some(Duration::from_millis(80)),
+                    pass: Some(hsl_network_messages::PassIntent {
+                        receiver: PlayerNumber::Three,
+                        target: Default::default(),
+                    }),
+                    replacement_goalkeeper_claim: true,
                     ball_position: None,
                 })),
             },
@@ -202,7 +211,10 @@ mod tests {
         let player = states[PlayerNumber::Two].as_ref().unwrap();
         assert_eq!(player.time, time);
         assert_eq!(player.inner.pose, pose);
+        assert_eq!(player.inner.pose_age, Some(Duration::from_millis(80)));
         assert_eq!(player.inner.head_yaw, 0.0);
+        assert_eq!(player.inner.pass.unwrap().receiver, PlayerNumber::Three);
+        assert!(player.inner.replacement_goalkeeper_claim);
     }
 
     #[test]
@@ -214,6 +226,9 @@ mod tests {
                 player_number: PlayerNumber::Two,
                 pose: Pose2::default(),
                 head_yaw,
+                pose_age: None,
+                pass: None,
+                replacement_goalkeeper_claim: false,
                 ball_position: None,
             })),
         };
@@ -225,12 +240,18 @@ mod tests {
                 player_number: PlayerNumber::Two,
                 pose: Pose2::new(point![f32::NAN, 0.0], 0.0),
                 head_yaw: 0.0,
+                pose_age: None,
+                pass: None,
+                replacement_goalkeeper_claim: false,
                 ball_position: None,
             },
             StateMessage {
                 player_number: PlayerNumber::Two,
                 pose: Pose2::default(),
                 head_yaw: 0.0,
+                pose_age: None,
+                pass: None,
+                replacement_goalkeeper_claim: false,
                 ball_position: Some(hsl_network_messages::BallPosition {
                     position: point![f32::NAN, 0.0],
                     age: Duration::ZERO,
@@ -259,6 +280,9 @@ mod tests {
             inner: PlayerState {
                 pose: Pose2::default(),
                 head_yaw: 0.0,
+                pose_age: None,
+                pass: None,
+                replacement_goalkeeper_claim: false,
                 ball_position: None,
             },
         });
@@ -267,6 +291,9 @@ mod tests {
             inner: PlayerState {
                 pose: Pose2::default(),
                 head_yaw: 0.0,
+                pose_age: None,
+                pass: None,
+                replacement_goalkeeper_claim: false,
                 ball_position: None,
             },
         });
@@ -305,6 +332,9 @@ mod tests {
             inner: PlayerState {
                 pose: Pose2::default(),
                 head_yaw: 0.0,
+                pose_age: None,
+                pass: None,
+                replacement_goalkeeper_claim: false,
                 ball_position: None,
             },
         });
@@ -313,6 +343,9 @@ mod tests {
             inner: PlayerState {
                 pose: Pose2::default(),
                 head_yaw: 0.0,
+                pose_age: None,
+                pass: None,
+                replacement_goalkeeper_claim: false,
                 ball_position: None,
             },
         });
@@ -336,6 +369,9 @@ mod tests {
             inner: PlayerState {
                 pose: Pose2::default(),
                 head_yaw: 0.0,
+                pose_age: None,
+                pass: None,
+                replacement_goalkeeper_claim: false,
                 ball_position: None,
             },
         });
@@ -358,6 +394,9 @@ mod tests {
             inner: PlayerState {
                 pose: Pose2::default(),
                 head_yaw: 0.0,
+                pose_age: None,
+                pass: None,
+                replacement_goalkeeper_claim: false,
                 ball_position: None,
             },
         });

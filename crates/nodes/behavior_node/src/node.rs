@@ -9,10 +9,10 @@ use std::{
 use color_eyre::Result;
 use types::fall_detection::FallDetection;
 
-use coordinate_systems::{Field, Ground};
-use hsl_network_messages::PlayerNumber;
+use coordinate_systems::{Field, Ground, Robot};
+use hsl_network_messages::{PassIntent, PlayerNumber, SubState, Team};
 use kinematics::joints::head::HeadJoints;
-use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
+use linear_algebra::{Isometry2, Isometry3, Point2, Pose2, Vector2, point};
 use ros_z::{
     prelude::*,
     qos::{QosDurability, QosHistory},
@@ -27,6 +27,7 @@ use types::{
     controller_input::{Button, ControllerInput},
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_state::FilteredGameState,
     messages::OutgoingMessage,
     motion_command::{BodyMotion, HeadMotion, MotionCommand},
     motion_type::MotionType,
@@ -37,14 +38,17 @@ use types::{
     primary_state::PrimaryState,
     rule_obstacles::RuleObstacle,
     time_wrapper::TimeWrapper,
+    tracked_objects::{HumanoidTrack, TrackedObjects},
+    visual_localization::LOCALIZATION_POSE_3D_TOPIC,
     walking_velocity_limits::{WALKING_VELOCITY_LIMITS_TOPIC, WalkingVelocityLimits},
     world_state::{BallSource, BallState, PlayerState, RobotState, WorldState},
 };
 use voronoi::VoronoiGrid;
 
 use crate::{
-    motion_assembler::assemble_motion_command, send_message::state_message_send_interval,
-    tree::create_tree,
+    kick::strategy::BallAction, motion_assembler::assemble_motion_command,
+    replacement_goalkeeper::ReplacementGoalkeeperCoordinator,
+    send_message::state_message_send_interval, tree::create_tree,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
@@ -77,14 +81,26 @@ pub struct Blackboard {
     pub visual_kick_ball_position: Option<BallPosition<Ground>>,
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
+    pub ball_recovery_side: Option<Side>,
+    pub ball_recovery_lane_cleared: bool,
     /// Target selected for this tick, used to choose kick strength.
     pub kick_target: Option<Point2<Ground>>,
+    pub ball_action: Option<BallAction>,
     pub last_kick_target: Option<Point2<Field>>,
     pub last_motion_command: Option<MotionCommand>,
     pub last_motion_switch_time: Time,
     pub last_motion_type: Option<MotionType>,
     pub last_sent_game_controller_return_message_time: Option<Time>,
     pub last_sent_hsl_message_time: Option<Time>,
+    pub last_announced_pass: Option<TimeWrapper<PassIntent>>,
+    pub replacement_goalkeeper_coordinator: ReplacementGoalkeeperCoordinator,
+    pub last_sent_replacement_goalkeeper_claim: bool,
+    pub kickoff_receiver_wait_started: Option<Time>,
+    pub restart_pass_wait_started: Option<Time>,
+    pub kickoff_prepared: bool,
+    pub kickoff_started: Option<Time>,
+    /// Acquisition time of the latest available localization estimate.
+    pub localization_time: Option<Time>,
     pub last_closest_to_ball: bool,
     pub closest_to_ball_entered_area_since: Option<Time>,
     pub closest_to_ball_left_area_since: Option<Time>,
@@ -94,6 +110,122 @@ pub struct Blackboard {
     pub body_motion: Option<BodyMotion>,
     pub head_motion: Option<HeadMotion>,
     pub voronoi_map: Option<VoronoiGrid>,
+}
+
+const PROJECTION_CUTOFF_DISTANCE: f32 = 0.75;
+pub(crate) const MAXIMUM_BALL_PREDICTION_TIME: f32 = 1.5;
+
+pub(crate) fn ball_prediction_time(speed: f32, requested_time: f32) -> f32 {
+    if !speed.is_finite() || speed <= 0.0 || !requested_time.is_finite() || requested_time <= 0.0 {
+        return 0.0;
+    }
+    // Replan from observations before a brief velocity error becomes a distant target.
+    requested_time
+        .min(MAXIMUM_BALL_PREDICTION_TIME)
+        .min(2.0 / speed)
+}
+
+impl Blackboard {
+    pub fn update_restart_pass(&mut self) {
+        if self.world_state.robot.primary_state != PrimaryState::Playing
+            || !self
+                .world_state
+                .filtered_game_controller_state
+                .as_ref()
+                .is_some_and(|game| {
+                    game.kicking_team == Some(Team::Hulks)
+                        && matches!(
+                            game.sub_state,
+                            Some(SubState::CornerKick | SubState::ThrowIn)
+                        )
+                })
+        {
+            self.restart_pass_wait_started = None;
+        }
+    }
+
+    pub fn update_kickoff(&mut self) {
+        let game = self.world_state.filtered_game_controller_state.as_ref();
+        if game
+            .is_none_or(|game| game.kicking_team != Some(Team::Hulks) || game.sub_state.is_some())
+        {
+            self.kickoff_prepared = false;
+            self.kickoff_started = None;
+            return;
+        }
+        match game.unwrap().game_state {
+            FilteredGameState::Ready | FilteredGameState::Set => {
+                self.kickoff_prepared = true;
+                self.kickoff_started = None;
+            }
+            FilteredGameState::Playing { .. } => {
+                if self.kickoff_prepared {
+                    self.kickoff_started = Some(self.world_state.now);
+                    self.kickoff_prepared = false;
+                }
+                if self.kickoff_started.is_some_and(|start| {
+                    self.world_state.now.duration_since(start) >= Duration::from_secs(10)
+                }) || self
+                    .ball
+                    .as_ref()
+                    .is_some_and(|ball| ball.position.coords().norm() >= 0.5)
+                {
+                    self.kickoff_started = None;
+                }
+            }
+            _ => {
+                self.kickoff_prepared = false;
+                self.kickoff_started = None;
+            }
+        }
+    }
+
+    pub(crate) fn projected_ball_position(
+        &self,
+        position: Point2<Field>,
+        velocity: Vector2<Field>,
+    ) -> Point2<Field> {
+        if self
+            .world_state
+            .robot
+            .ground_to_field
+            .is_some_and(|transform| {
+                (position - transform.as_pose().position()).norm() <= PROJECTION_CUTOFF_DISTANCE
+            })
+        {
+            return position;
+        }
+        self.ball_pursuit_position(position, velocity)
+    }
+
+    pub(crate) fn ball_pursuit_position(
+        &self,
+        position: Point2<Field>,
+        velocity: Vector2<Field>,
+    ) -> Point2<Field> {
+        let lookahead = self.parameters.ball.pursuit_lookahead;
+        let field = &self.field_dimensions;
+        if lookahead.is_zero()
+            || velocity.norm_squared() == 0.0
+            || crate::conditions::opponent_ball_holder(self).is_some()
+            || position.x().abs() >= field.length / 2.0
+            || position.y().abs() >= field.width / 2.0
+        {
+            return position;
+        }
+        // shortcut: bounded linear prediction; use measured friction when behavior has it.
+        let projected =
+            position + velocity * ball_prediction_time(velocity.norm(), lookahead.as_secs_f32());
+        if !projected.x().is_finite() || !projected.y().is_finite() {
+            return position;
+        }
+        let x_limit = field.length / 2.0 - field.ball_radius;
+        let y_limit = field.width / 2.0 - field.ball_radius;
+        point![
+            projected.x().clamp(-x_limit, x_limit),
+            projected.y().clamp(-y_limit, y_limit)
+        ]
+    }
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -152,6 +284,21 @@ fn validate_behavior_parameters(
 
     if !parameters.kicking.target_speed.is_finite() || parameters.kicking.target_speed < 0.0 {
         errors.push("kicking.target_speed must be finite and non-negative".to_owned());
+    }
+
+    if !parameters.kicking.dribble_target_speed.is_finite()
+        || parameters.kicking.dribble_target_speed < 0.0
+    {
+        errors.push("kicking.dribble_target_speed must be finite and non-negative".to_owned());
+    }
+    if !parameters.kicking.receiving_opponent_distance.is_finite()
+        || parameters.kicking.receiving_opponent_distance < 0.0
+    {
+        errors
+            .push("kicking.receiving_opponent_distance must be finite and non-negative".to_owned());
+    }
+    if let Err(error) = parameters.kicking.strategy.validate() {
+        errors.push(error);
     }
 
     let search = &parameters.search;
@@ -256,6 +403,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
+    let localization_cache = node
+        .subscriber::<TimeWrapper<Option<Isometry3<Field, Robot>>>>(LOCALIZATION_POSE_3D_TOPIC)
+        .cache(1)
+        .with_stamp(|estimate: &TimeWrapper<Option<Isometry3<Field, Robot>>>| estimate.time)
+        .build()
+        .await?;
     let hypothetical_ball_positions_cache = node
         .subscriber::<Vec<HypotheticalBallPosition<Ground>>>("hypothetical_ball_positions")
         .cache(1)
@@ -264,6 +417,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let obstacles_cache = node
         .subscriber::<Vec<Obstacle>>("obstacles")
         .cache(1)
+        .build()
+        .await?;
+    let humanoid_tracks_cache = node
+        .subscriber::<TrackedObjects<HumanoidTrack>>("obstacle_filter/humanoid_tracks")
+        .cache(1)
+        .with_stamp(|tracks: &TrackedObjects<HumanoidTrack>| tracks.time)
         .build()
         .await?;
     let position_of_interest_cache = node
@@ -378,13 +537,24 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         visual_kick_ball_position: None,
         last_ball: None,
         last_close_enough_to_kick: false,
+        ball_recovery_side: None,
+        ball_recovery_lane_cleared: false,
         kick_target: None,
+        ball_action: None,
         last_kick_target: None,
         last_motion_command: None,
         last_motion_switch_time: Time::zero(),
         last_motion_type: None,
         last_sent_game_controller_return_message_time: None,
         last_sent_hsl_message_time: None,
+        last_announced_pass: None,
+        replacement_goalkeeper_coordinator: ReplacementGoalkeeperCoordinator::default(),
+        last_sent_replacement_goalkeeper_claim: false,
+        kickoff_receiver_wait_started: None,
+        restart_pass_wait_started: None,
+        kickoff_prepared: false,
+        kickoff_started: None,
+        localization_time: None,
         last_closest_to_ball: false,
         closest_to_ball_entered_area_since: None,
         closest_to_ball_left_area_since: None,
@@ -463,12 +633,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let player_states = player_states_cache
             .get_latest()
-            .map(|player_states| {
-                player_states
-                    .as_ref()
-                    .clone()
-                    .map(|player_state| player_state.map(|state| state.inner))
-            })
+            .map(|player_states| player_states.as_ref().clone())
             .unwrap_or_default();
 
         let primary_state = primary_state_cache
@@ -479,6 +644,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             blackboard.remote_control_enabled = false;
         }
 
+        blackboard.localization_time = localization_cache
+            .get_latest()
+            .filter(|estimate| estimate.inner.is_some())
+            .map(|estimate| estimate.time);
         blackboard.world_state.robot = RobotState {
             ground_to_field: ground_to_field_cache
                 .get_latest()
@@ -513,6 +682,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .map(|positions| positions.as_ref().clone())
             .unwrap_or_default();
         blackboard.world_state.now = node.clock().now();
+        blackboard.world_state.humanoid_tracks = humanoid_tracks_cache
+            .get_latest()
+            .map(|tracks| tracks.as_ref().clone());
         blackboard.world_state.obstacles = obstacles_cache
             .get_latest()
             .map(|obstacles| obstacles.as_ref().clone())
@@ -550,7 +722,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             blackboard.ball = None;
         }
 
+        blackboard.update_kickoff();
+        blackboard.update_restart_pass();
         let (status, trace) = block_in_place(|| tree.tick_with_trace(&mut blackboard));
+        if blackboard.kick_target.is_none() {
+            blackboard.ball_action = None;
+        }
         let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
 
         let previous_motion_command = blackboard.last_motion_command.clone();
@@ -607,3 +784,56 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
 #[cfg(test)]
 mod runtime_tests;
+
+#[cfg(test)]
+mod prediction_tests {
+    use super::*;
+    use linear_algebra::vector;
+
+    #[test]
+    fn prediction_limits_velocity_errors_on_large_fields() {
+        let mut board = Blackboard {
+            field_dimensions: FieldDimensions {
+                length: 22.0,
+                width: 14.0,
+                ball_radius: 0.105,
+                ..FieldDimensions::SPL_2025
+            },
+            ..Default::default()
+        };
+        board.parameters.ball.pursuit_lookahead = Duration::from_secs(20);
+        let position = point![6.0, 4.0];
+        for velocity in [vector![20.0, 20.0], vector![-20.0, -20.0]] {
+            let projected = board.projected_ball_position(position, velocity);
+            assert!((projected - position).norm() <= 2.0 + 1e-5);
+            assert!((projected - position).dot(&velocity) > 0.0);
+        }
+        let edge = board.projected_ball_position(point![10.8, 6.8], vector![2.0, 2.0]);
+        approx::assert_relative_eq!(edge, point![10.895, 6.895], epsilon = 1e-5);
+        for velocity in [vector![f32::NAN, 1.0], vector![f32::INFINITY, 1.0]] {
+            assert_eq!(board.projected_ball_position(position, velocity), position);
+        }
+        assert_eq!(ball_prediction_time(0.5, 20.0), 1.5);
+        assert_eq!(ball_prediction_time(20.0, 20.0), 0.1);
+    }
+
+    #[test]
+    fn ownership_prediction_is_independent_of_close_pursuit_cutoff() {
+        let mut board = Blackboard {
+            field_dimensions: FieldDimensions::SPL_2025,
+            ..Default::default()
+        };
+        board.parameters.ball.pursuit_lookahead = Duration::from_millis(500);
+        let position = point![1.0, 0.0];
+        let velocity = vector![-1.0, 0.0];
+        let expected = point![0.5, 0.0];
+        for robot in [point![0.5, 0.0], point![-1.0, 0.0]] {
+            board.world_state.robot.ground_to_field =
+                Some(Isometry2::from_parts(robot.coords(), 0.0));
+            assert_eq!(board.ball_pursuit_position(position, velocity), expected);
+        }
+        board.world_state.robot.ground_to_field =
+            Some(Isometry2::from_parts(vector![0.5, 0.0], 0.0));
+        assert_eq!(board.projected_ball_position(position, velocity), position);
+    }
+}

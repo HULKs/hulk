@@ -42,7 +42,24 @@ pub struct StateMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,
     pub head_yaw: f32,
+    /// Age of the pose estimate when the message was sent, if known.
+    pub pose_age: Option<Duration>,
     pub ball_position: Option<BallPosition<Field>>,
+    pub pass: Option<PassIntent>,
+    #[serde(default)]
+    pub replacement_goalkeeper_claim: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize, Message)]
+pub struct PassIntent {
+    pub receiver: PlayerNumber,
+    pub target: Point2<Field>,
+}
+
+impl PassIntent {
+    /// Measured from receipt; clocks need not be synchronized.
+    /// Includes flight time for passes up to 8 m at 3.4 m/s.
+    pub const TIMEOUT: Duration = Duration::from_secs(3);
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, Message)]
@@ -88,11 +105,26 @@ mod tests {
             player_number: PlayerNumber::Five,
             pose: Pose2::default(),
             head_yaw: 0.0,
+            pose_age: Some(Duration::MAX),
             ball_position: Some(BallPosition {
                 position: Point2::origin(),
                 age: Duration::MAX,
             }),
+            pass: Some(PassIntent {
+                receiver: PlayerNumber::Two,
+                target: Point2::origin(),
+            }),
+            replacement_goalkeeper_claim: true,
         });
-        assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
+        let bytes = bincode::serialize(&test_message).unwrap();
+        assert!(bytes.len() <= 128);
+        let HulkMessage::State(decoded) = bincode::deserialize(&bytes).unwrap();
+        let HulkMessage::State(original) = test_message;
+        assert_eq!(decoded.pose_age, original.pose_age);
+        assert_eq!(decoded.pass, original.pass);
+        assert_eq!(
+            decoded.replacement_goalkeeper_claim,
+            original.replacement_goalkeeper_claim
+        );
     }
 }

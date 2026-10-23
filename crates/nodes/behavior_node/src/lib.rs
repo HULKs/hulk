@@ -7,6 +7,7 @@ pub mod kick;
 pub mod motion_assembler;
 pub mod node;
 pub mod penalty_shootout;
+pub mod replacement_goalkeeper;
 pub mod search;
 pub mod send_message;
 pub mod substates;
@@ -14,5 +15,8 @@ pub mod switch_motion_type;
 pub mod tree;
 pub mod voronoi;
 pub mod walk;
+
+#[cfg(test)]
+mod test_support;
 
 pub use node::run_boxed;

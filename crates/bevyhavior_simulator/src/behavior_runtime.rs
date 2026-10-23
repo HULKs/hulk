@@ -61,6 +61,12 @@ impl SimulatorRobotBehavior {
         ));
         self.blackboard.parameters = input.parameters;
         self.blackboard.world_state = input.world_state.clone();
+        self.blackboard.localization_time = self
+            .blackboard
+            .world_state
+            .robot
+            .ground_to_field
+            .map(|_| self.blackboard.world_state.now);
         self.blackboard.visual_kick_ball_position = input.visual_kick_ball_position;
 
         self.blackboard.path_obstacles_output.clear();
@@ -97,7 +103,18 @@ impl SimulatorRobotBehavior {
             self.blackboard.ball = None;
         }
 
+        self.blackboard.update_kickoff();
+        self.blackboard.update_restart_pass();
         let (status, trace) = self.tree.tick_with_trace(&mut self.blackboard);
+        if self.blackboard.kick_target.is_none() {
+            self.blackboard.ball_action = None;
+        }
+        if !matches!(
+            self.blackboard.ball_action,
+            Some(behavior_node::kick::strategy::BallAction::Pass { .. })
+        ) {
+            self.blackboard.last_announced_pass = None;
+        }
         let motion_command = assemble_motion_command(&self.blackboard, status)?;
         self.blackboard.last_motion_command = Some(motion_command.clone());
 
@@ -199,13 +216,24 @@ fn create_behavior_blackboard(
         visual_kick_ball_position: None,
         last_ball: None,
         last_close_enough_to_kick: false,
+        ball_recovery_side: None,
+        ball_recovery_lane_cleared: false,
         kick_target: None,
+        ball_action: None,
         last_kick_target: None,
         last_motion_command: None,
         last_motion_switch_time: ros_z::time::Time::zero(),
         last_motion_type: None,
         last_sent_game_controller_return_message_time: None,
         last_sent_hsl_message_time: None,
+        last_announced_pass: None,
+        replacement_goalkeeper_coordinator: Default::default(),
+        last_sent_replacement_goalkeeper_claim: false,
+        kickoff_receiver_wait_started: None,
+        restart_pass_wait_started: None,
+        kickoff_prepared: false,
+        kickoff_started: None,
+        localization_time: None,
         last_closest_to_ball: false,
         closest_to_ball_entered_area_since: None,
         closest_to_ball_left_area_since: None,
@@ -318,13 +346,21 @@ mod tests {
         let mut blackboard = create_behavior_blackboard(
             FieldDimensions::SPL_2025,
             default_behavior_parameters().unwrap(),
-            PlayerNumber::Three,
+            PlayerNumber::One,
         );
         blackboard.world_state.robot.ground_to_field = Some(linear_algebra::Isometry2::identity());
         blackboard.visual_kick_ball_position = Some(BallPosition {
             position: ball_position,
             velocity: Vector2::zeros(),
             last_seen: ros_z::time::Time::zero(),
+        });
+        blackboard.world_state.ball = Some(types::world_state::BallState {
+            ball_in_ground: ball_position,
+            ball_in_field: Point2::wrap(ball_position.inner),
+            ball_in_ground_velocity: Vector2::zeros(),
+            last_seen_ball: SystemTime::UNIX_EPOCH,
+            field_side: Side::Left,
+            source: types::world_state::BallSource::Own,
         });
         blackboard
     }
@@ -343,6 +379,10 @@ mod tests {
         ] {
             let mut blackboard = kick_blackboard(point![ball_x, 0.0]);
             blackboard.parameters.kicking.allow_strong_kicks = true;
+            blackboard
+                .parameters
+                .kicking
+                .strong_kick_min_target_distance = 6.0;
             blackboard.parameters.kicking.target_speed = 1.2;
             assert_eq!(kick(&mut blackboard), Status::Success);
             assert_eq!(
@@ -411,8 +451,8 @@ mod tests {
 
         let mut blackboard = kick_blackboard(point![0.5, 1.0]);
         blackboard.world_state.ball = Some(BallState {
-            ball_in_ground: Point2::origin(),
-            ball_in_field: Point2::origin(),
+            ball_in_ground: point![0.5, 1.0],
+            ball_in_field: point![0.5, 1.0],
             ball_in_ground_velocity: vector![0.0, -1.0],
             last_seen_ball: SystemTime::UNIX_EPOCH,
             field_side: Side::Left,

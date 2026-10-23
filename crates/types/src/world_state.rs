@@ -1,5 +1,6 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use hsl_network_messages::PassIntent;
 use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +16,8 @@ use crate::{
     players::Players,
     primary_state::PrimaryState,
     rule_obstacles::RuleObstacle,
+    time_wrapper::TimeWrapper,
+    tracked_objects::{HumanoidTrack, TrackedObjects},
 };
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Message)]
@@ -22,9 +25,10 @@ pub struct WorldState {
     pub ball: Option<BallState>,
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
     pub hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
+    pub humanoid_tracks: Option<TrackedObjects<HumanoidTrack>>,
     pub now: Time,
     pub obstacles: Vec<Obstacle>,
-    pub player_states: Players<Option<PlayerState>>,
+    pub player_states: Players<Option<TimeWrapper<PlayerState>>>,
     pub position_of_interest: Point2<Ground>,
     pub robot: RobotState,
     pub rule_ball: Option<BallState>,
@@ -89,7 +93,12 @@ impl Default for RobotState {
 pub struct PlayerState {
     pub pose: Pose2<Field>,
     pub head_yaw: f32,
+    /// Age of the pose estimate when the teammate sent it, relative to the message's receipt.
+    pub pose_age: Option<Duration>,
     pub ball_position: Option<BallPosition<Field>>,
+    pub pass: Option<PassIntent>,
+    #[serde(default)]
+    pub replacement_goalkeeper_claim: bool,
 }
 
 impl PlayerState {

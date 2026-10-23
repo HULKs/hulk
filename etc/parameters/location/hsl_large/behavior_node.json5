@@ -1,0 +1,19 @@
+{
+  walking: {
+    speed: { walk_to_kickoff: 0.8 },
+  },
+  kicking: {
+    strategy: {
+      // Provisional strong-pass reach; validate on the event surface.
+      passing: { maximum_distance: 14.0 },
+    },
+  },
+  kickoff: {
+    standard_positions: {
+      one: { position: [-10.7, 0.0], rotation: 0.0 },
+      two: { position: [-5.0, 3.0], rotation: -0.4 },
+      four: { position: [-2.5, -3.0], rotation: 0.4 },
+      five: { position: [-2.5, 3.0], rotation: -0.4 },
+    },
+  },
+}

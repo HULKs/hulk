@@ -6,7 +6,7 @@ use filtering::kalman_filter::KalmanFilter;
 use geometry::rectangle::Rectangle;
 use hsl_network_messages::PlayerNumber;
 use itertools::{chain, iproduct};
-use na::Matrix2;
+use na::{Matrix2, Matrix4, SMatrix};
 use nalgebra as na;
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +19,7 @@ use tokio::task::block_in_place;
 use types::fall_detection::{FallDetection, Posture};
 use types::{
     field_dimensions::FieldDimensions,
+    game_controller_state::GameControllerState,
     multivariate_normal_distribution::MultivariateNormalDistribution,
     object_detection::{Object, RobocupObjectLabel},
     obstacle_filter::Hypothesis,
@@ -27,12 +28,17 @@ use types::{
     players::Players,
     primary_state::PrimaryState,
     time_wrapper::TimeWrapper,
+    tracked_objects::{
+        HumanoidRole, HumanoidTrack, StationaryClass, StationaryTrack, TeammateProbability,
+        TrackStatus, TrackedObjects,
+    },
     world_state::PlayerState,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ObstacleFilter {
     hypotheses: Vec<Hypothesis>,
+    next_id: u64,
     last_primary_state: PrimaryState,
     ground_frame: Option<(Time, Pose2<Odometry>)>,
     last_detection_time: Option<Time>,
@@ -46,6 +52,7 @@ impl Default for ObstacleFilter {
     fn default() -> Self {
         Self {
             hypotheses: Vec::new(),
+            next_id: 0,
             last_primary_state: PrimaryState::Damping,
             ground_frame: None,
             last_detection_time: None,
@@ -61,12 +68,15 @@ struct ObstacleFilterOutput {
     time: Time,
     hypotheses: Option<Vec<Hypothesis>>,
     obstacles: Vec<Obstacle>,
+    humanoid_tracks: TrackedObjects<HumanoidTrack>,
+    stationary_tracks: TrackedObjects<StationaryTrack>,
 }
 
-#[derive(PartialEq)]
-enum MeasurementKind {
-    Own,
-    NetworkRobot,
+struct Measurement {
+    kind: ObstacleKind,
+    stationary_class: Option<StationaryClass>,
+    position: Point2<Ground>,
+    noise: Matrix2<f32>,
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -127,6 +137,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(10)
         .build()
         .await?;
+    let game_controller_state_cache = node
+        .subscriber::<Option<GameControllerState>>("game_controller_state")
+        .cache(1)
+        .build()
+        .await?;
 
     let mut detections = node
         .create_future_map_builder()
@@ -144,6 +159,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let obstacles_pub = node.publisher::<Vec<Obstacle>>("obstacles").build().await?;
+    let humanoid_tracks_pub = node
+        .publisher::<TrackedObjects<HumanoidTrack>>("obstacle_filter/humanoid_tracks")
+        .build()
+        .await?;
+    let stationary_tracks_pub = node
+        .publisher::<TrackedObjects<StationaryTrack>>("obstacle_filter/stationary_tracks")
+        .build()
+        .await?;
 
     let mut obstacle_filter = ObstacleFilter::default();
     let mut odometry_history = BTreeMap::new();
@@ -154,6 +177,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let parameters_snapshot = parameters.snapshot();
         let settings = parameters_snapshot.typed();
         let compose = |filter: &mut ObstacleFilter, now, poses: &FieldPoseHistory| {
+            if let Some(state) = game_controller_state_cache.get_latest()
+                && let Some(state) = state.as_ref()
+            {
+                filter.hypotheses.retain(|hypothesis| {
+                    hypothesis
+                        .teammate
+                        .is_none_or(|number| state.penalties[number].is_none())
+                });
+            }
             let ground_to_field = filter.ground_frame.and_then(|(time, _)| poses.at(time));
             let dimensions = field_dimensions_cache.get_latest();
             let primary_state = primary_state_cache
@@ -236,12 +268,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         && let Some(ground_to_field) = field_poses.at(frame_time)
                     {
                         let own_player_number = player_number_cache.get_latest().map(|number| *number);
-                        for (time, state) in new_network_player_states(
+                        for (player_number, time, state) in new_network_player_states(
                             &player_states, own_player_number, &mut last_processed_player_state_times,
-                            now, settings.hypothesis_timeout,
+                            now, settings.hypothesis_timeout.min(TEAM_REPORT_TIMEOUT),
                         ) {
                             obstacle_filter.process_network_player_state(
-                                time, settings, &state, &ground_to_field,
+                                time, settings, player_number, &state, &ground_to_field,
                             );
                         }
                     }
@@ -258,6 +290,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             obstacles_pub
                 .publish_with_source_time(&output.obstacles, output.time)
                 .await?;
+            humanoid_tracks_pub
+                .publish_with_source_time(&output.humanoid_tracks, output.time)
+                .await?;
+            stationary_tracks_pub
+                .publish_with_source_time(&output.stationary_tracks, output.time)
+                .await?;
         }
     }
 }
@@ -271,6 +309,9 @@ fn frame_stamp_is_recent(frame: Time, sample: Time) -> bool {
 // Persistent fusion normally trails the clock by about 50 ms. A stopped
 // odometry stream must not keep publishing that old Ground frame indefinitely.
 const MAXIMUM_OUTPUT_FRAME_AGE: Duration = Duration::from_millis(100);
+const MAXIMUM_TRACKS: usize = 64;
+const TEAM_REPORT_TIMEOUT: Duration = Duration::from_secs(3);
+const MAXIMUM_MOVING_OBSTACLE_AGE: Duration = Duration::from_millis(500);
 
 fn measurement_is_recent(now: Time, stamp: Time, maximum_age: Duration) -> bool {
     stamp <= now && now.duration_since(stamp) < maximum_age
@@ -321,28 +362,32 @@ impl ObstacleFilter {
         fall_detection: Option<&FallDetection>,
         include_hypotheses: bool,
     ) -> ObstacleFilterOutput {
-        if let (Some(time), Some(dimensions)) = (self.current_frame_time(now), field_dimensions) {
-            let obstacles = self.compose_outputs(
-                now,
-                parameters,
-                dimensions,
-                ground_to_field,
-                primary_state,
-                fall_detection,
-            );
+        if let Some(time) = self.current_frame_time(now) {
+            self.maintain(now, parameters, primary_state, fall_detection);
+            let obstacles = field_dimensions.map_or_else(Vec::new, |dimensions| {
+                self.compose_outputs(now, parameters, dimensions, ground_to_field)
+            });
+            let (humanoid_tracks, stationary_tracks) =
+                self.tracked_objects(time, ground_to_field.copied(), parameters, true);
             ObstacleFilterOutput {
                 time,
                 hypotheses: include_hypotheses.then(|| self.hypotheses.clone()),
                 obstacles,
+                humanoid_tracks,
+                stationary_tracks,
             }
         } else {
             self.maintain(now, parameters, primary_state, fall_detection);
+            let (humanoid_tracks, stationary_tracks) =
+                self.tracked_objects(now, None, parameters, false);
             ObstacleFilterOutput {
                 // No stale coordinates are relabelled as current: both lists
                 // are empty, while internal tracks can still age normally.
                 time: now,
                 hypotheses: include_hypotheses.then(Vec::new),
                 obstacles: Vec::new(),
+                humanoid_tracks,
+                stationary_tracks,
             }
         }
     }
@@ -372,19 +417,14 @@ impl ObstacleFilter {
         if let Some(camera_matrix) = camera_matrix
             && parameters.use_detected_objects
         {
-            let measured_object_positions =
-                measured_object_positions(parameters, detected_objects, camera_matrix);
-
-            for (kind, position, measurement_noise) in measured_object_positions {
-                self.update_hypotheses_with_measurement(
-                    position,
-                    kind,
-                    detection_time,
-                    parameters.object_detection_measurement_matching_distance,
-                    Matrix2::from_diagonal(&measurement_noise),
-                    MeasurementKind::Own,
-                );
-            }
+            let measurements =
+                measured_object_positions(parameters, detected_objects, camera_matrix)
+                    .collect::<Vec<_>>();
+            self.associate_measurements(
+                detection_time,
+                &measurements,
+                parameters.object_detection_measurement_matching_distance,
+            );
         }
         true
     }
@@ -409,6 +449,7 @@ impl ObstacleFilter {
             self.predict_hypotheses_with_odometry(
                 types::odometry::previous_to_current(previous_pose, odometry).inner,
                 Matrix2::from_diagonal(&process_noise),
+                time.duration_since(previous_time).as_secs_f32(),
             );
         }
         self.ground_frame = Some((time, odometry));
@@ -419,36 +460,143 @@ impl ObstacleFilter {
         &mut self,
         player_state_time: Time,
         parameters: &ObstacleFilterParameters,
+        player_number: PlayerNumber,
         player_state: &PlayerState,
         ground_to_field: &Isometry2<Ground, Field>,
     ) {
+        // Reports are correlated through localization. They identify seen robots,
+        // but must not repeatedly shrink their camera position uncertainty.
+        if player_state
+            .pose_age
+            .is_some_and(|age| age > Duration::from_secs(3))
+        {
+            return;
+        }
         let player_position = measured_player_position(player_state, ground_to_field);
-        self.update_hypotheses_with_measurement(
-            player_position,
-            ObstacleKind::Robot,
-            player_state_time,
-            parameters.network_robot_measurement_matching_distance,
-            Matrix2::from_diagonal(&parameters.network_robot_measurement_noise),
-            MeasurementKind::NetworkRobot,
-        );
+        if !player_position
+            .inner
+            .coords
+            .iter()
+            .all(|value| value.is_finite())
+        {
+            return;
+        }
+        let mut candidates: Vec<_> = self
+            .hypotheses
+            .iter()
+            .enumerate()
+            .filter(|(_, hypothesis)| {
+                hypothesis.obstacle_kind == ObstacleKind::Robot
+                    && hypothesis
+                        .teammate
+                        .is_none_or(|teammate| teammate == player_number)
+            })
+            .map(|(index, hypothesis)| {
+                (
+                    index,
+                    (hypothesis.state.mean - player_position.inner.coords).norm(),
+                )
+            })
+            .filter(|(_, distance)| {
+                *distance < parameters.network_robot_measurement_matching_distance
+            })
+            .collect();
+        candidates.sort_by(|a, b| a.1.total_cmp(&b.1));
+        // An ambiguous report cannot turn a nearby opponent into a teammate.
+        if candidates.len() > 1 && candidates[1].1 - candidates[0].1 < 0.2 {
+            return;
+        }
+        let index = if let Some((index, _)) = candidates.first() {
+            *index
+        } else {
+            if self.hypotheses.len() >= MAXIMUM_TRACKS {
+                return;
+            }
+            self.spawn_hypothesis(
+                player_position,
+                ObstacleKind::Robot,
+                player_state_time,
+                Matrix2::from_diagonal(
+                    &parameters
+                        .network_robot_measurement_noise
+                        .map(|variance| variance.max(0.09)),
+                ),
+            );
+            let index = self.hypotheses.len() - 1;
+            self.hypotheses[index].last_detection = None;
+            index
+        };
+        for (other, hypothesis) in self.hypotheses.iter_mut().enumerate() {
+            if other != index && hypothesis.teammate == Some(player_number) {
+                hypothesis.teammate = None;
+                hypothesis.teammate_evidence = 0;
+                hypothesis.last_team_report = None;
+            }
+        }
+        let hypothesis = &mut self.hypotheses[index];
+        if hypothesis
+            .last_team_report
+            .is_some_and(|last| player_state_time <= last)
+        {
+            return;
+        }
+        if hypothesis.last_detection.is_none() {
+            hypothesis.measurement_count += usize::from(hypothesis.last_team_report.is_some());
+            hypothesis.state.mean = player_position.inner.coords;
+            // Preserve the localization uncertainty floor for remote-only tracks.
+            hypothesis.state.covariance = Matrix2::from_diagonal(
+                &parameters
+                    .network_robot_measurement_noise
+                    .map(|variance| variance.max(0.09)),
+            );
+        }
+        hypothesis.teammate = Some(player_number);
+        hypothesis.teammate_evidence += 1;
+        hypothesis.last_team_report = Some(player_state_time);
+        hypothesis.last_update = hypothesis.last_update.max(player_state_time);
     }
 
     fn compose_outputs(
-        &mut self,
+        &self,
         now: Time,
         parameters: &ObstacleFilterParameters,
         field_dimensions: &FieldDimensions,
         ground_to_field: Option<&Isometry2<Ground, Field>>,
-        primary_state: PrimaryState,
-        fall_detection: Option<&FallDetection>,
     ) -> Vec<Obstacle> {
-        self.maintain(now, parameters, primary_state, fall_detection);
-
+        let goal_posts = calculate_goal_post_positions(ground_to_field, field_dimensions);
         let obstacles = self
             .hypotheses
             .iter()
             .filter(|hypothesis| {
                 hypothesis.measurement_count > parameters.measurement_count_threshold
+                    && hypothesis
+                        .stationary_class
+                        .is_none_or(StationaryClass::is_obstacle)
+                    && (!hypothesis.is_moving()
+                        || (hypothesis
+                            .last_detection
+                            .or(hypothesis.last_team_report)
+                            .is_some_and(|stamp| {
+                                measurement_is_recent(
+                                    now,
+                                    stamp,
+                                    parameters
+                                        .hypothesis_timeout
+                                        .min(MAXIMUM_MOVING_OBSTACLE_AGE),
+                                )
+                            })
+                            && hypothesis
+                                .state
+                                .covariance
+                                .symmetric_eigen()
+                                .eigenvalues
+                                .max()
+                                <= 1.0))
+                    && !(hypothesis.obstacle_kind == ObstacleKind::GoalPost
+                        && goal_posts.iter().any(|position| {
+                            (hypothesis.state.mean - position.inner.coords).norm()
+                                < parameters.object_detection_measurement_matching_distance
+                        }))
             })
             .map(|hypothesis| {
                 let (radius_at_hip_height, radius_at_foot_height) = match hypothesis.obstacle_kind {
@@ -477,80 +625,250 @@ impl ObstacleFilter {
                     radius_at_foot_height,
                 }
             });
-        let goal_posts = calculate_goal_post_positions(ground_to_field, field_dimensions);
         let goal_post_obstacles = goal_posts
-            .into_iter()
+            .iter()
+            .copied()
             .map(|goal_post| Obstacle::goal_post(goal_post, parameters.goal_post_obstacle_radius));
 
         chain!(obstacles, goal_post_obstacles).collect()
+    }
+
+    fn tracked_objects(
+        &self,
+        time: Time,
+        ground_to_field: Option<Isometry2<Ground, Field>>,
+        parameters: &ObstacleFilterParameters,
+        include_tracks: bool,
+    ) -> (
+        TrackedObjects<HumanoidTrack>,
+        TrackedObjects<StationaryTrack>,
+    ) {
+        let ground_to_odometry = self
+            .ground_frame
+            .map_or_else(Isometry2::identity, |(_, pose)| {
+                pose.as_transform::<Ground>()
+            });
+        let rotation = *ground_to_odometry
+            .inner
+            .rotation
+            .to_rotation_matrix()
+            .matrix();
+        let mut rotation4 = Matrix4::zeros();
+        rotation4.fixed_view_mut::<2, 2>(0, 0).copy_from(&rotation);
+        rotation4.fixed_view_mut::<2, 2>(2, 2).copy_from(&rotation);
+        let mut humanoids = Vec::new();
+        let mut stationary = Vec::new();
+        for hypothesis in self.hypotheses.iter().filter(|_| include_tracks) {
+            let position_in_ground = hypothesis.state.mean.framed().as_point();
+            let position_in_odometry = ground_to_odometry * position_in_ground;
+            let position_in_field = ground_to_field.map(|transform| transform * position_in_ground);
+            let time_since_detection = hypothesis
+                .last_detection
+                .map(|last| time.duration_since(last));
+            let confirmed = hypothesis.measurement_count > parameters.measurement_count_threshold;
+            let existence = (hypothesis.measurement_count as f32
+                / (parameters.measurement_count_threshold as f32 + 1.0))
+                .min(1.0);
+            let status = if !confirmed {
+                TrackStatus::Tentative
+            } else if time_since_detection.is_none_or(|age| age > Duration::from_secs(1)) {
+                TrackStatus::Dormant
+            } else {
+                TrackStatus::Confirmed
+            };
+            let detection_probability = if hypothesis.last_detection.is_some()
+                && hypothesis.last_detection == self.last_detection_time
+            {
+                1.0
+            } else {
+                0.0
+            };
+            if hypothesis.is_moving() {
+                let mut state = hypothesis.state_with_velocity();
+                state.mean = rotation4 * state.mean;
+                state
+                    .mean
+                    .fixed_rows_mut::<2>(0)
+                    .copy_from(&position_in_odometry.inner.coords);
+                state.covariance = rotation4 * state.covariance * rotation4.transpose();
+                let role = if hypothesis.obstacle_kind == ObstacleKind::Person {
+                    HumanoidRole::Human
+                } else {
+                    hypothesis
+                        .teammate
+                        .filter(|_| hypothesis.teammate_evidence >= 2)
+                        .map_or(HumanoidRole::Opponent, HumanoidRole::Teammate)
+                };
+                humanoids.push(HumanoidTrack {
+                    id: hypothesis.id,
+                    existence,
+                    status,
+                    robot_probability: if hypothesis.obstacle_kind == ObstacleKind::Robot {
+                        1.0
+                    } else {
+                        0.0
+                    },
+                    human_probability: if hypothesis.obstacle_kind == ObstacleKind::Person {
+                        1.0
+                    } else {
+                        0.0
+                    },
+                    role,
+                    teammate_probabilities: hypothesis
+                        .teammate
+                        .into_iter()
+                        .map(|player_number| TeammateProbability {
+                            player_number,
+                            probability: if hypothesis.teammate_evidence >= 2 {
+                                1.0
+                            } else {
+                                0.5
+                            },
+                        })
+                        .collect(),
+                    remote_only: hypothesis.last_detection.is_none(),
+                    detection_probability,
+                    time_since_detection,
+                    state,
+                    position_in_ground,
+                    velocity_in_ground: hypothesis.velocity.mean.framed(),
+                    position_in_field,
+                });
+            } else if let Some(class) = hypothesis.stationary_class {
+                stationary.push(StationaryTrack {
+                    id: hypothesis.id,
+                    existence,
+                    status,
+                    class,
+                    class_probabilities: StationaryClass::ALL
+                        .into_iter()
+                        .map(|candidate| if candidate == class { 1.0 } else { 0.0 })
+                        .collect(),
+                    is_obstacle: class.is_obstacle(),
+                    detection_probability,
+                    time_since_detection,
+                    state: MultivariateNormalDistribution {
+                        mean: position_in_odometry.inner.coords,
+                        covariance: rotation * hypothesis.state.covariance * rotation.transpose(),
+                    },
+                    position_in_ground,
+                    position_in_field,
+                });
+            }
+        }
+        (
+            TrackedObjects {
+                time,
+                ground_to_odometry,
+                ground_to_field,
+                tracks: humanoids,
+            },
+            TrackedObjects {
+                time,
+                ground_to_odometry,
+                ground_to_field,
+                tracks: stationary,
+            },
+        )
     }
 
     fn predict_hypotheses_with_odometry(
         &mut self,
         last_odometry_to_current_odometry: na::Isometry2<f32>,
         process_noise: Matrix2<f32>,
+        delta_time: f32,
     ) {
         for hypothesis in &mut self.hypotheses {
-            let state_prediction = last_odometry_to_current_odometry
+            let rotation = *last_odometry_to_current_odometry
                 .rotation
-                .to_rotation_matrix();
-            let control_input_model = Matrix2::identity();
-            let odometry_translation = last_odometry_to_current_odometry.translation.vector;
-            hypothesis.state.predict(
-                *state_prediction.matrix(),
-                control_input_model,
-                odometry_translation,
-                process_noise,
-            )
+                .to_rotation_matrix()
+                .matrix();
+            let mut transition = Matrix4::zeros();
+            transition.fixed_view_mut::<2, 2>(0, 0).copy_from(&rotation);
+            transition.fixed_view_mut::<2, 2>(2, 2).copy_from(&rotation);
+            if hypothesis.is_moving() {
+                transition
+                    .fixed_view_mut::<2, 2>(0, 2)
+                    .copy_from(&(rotation * delta_time));
+            }
+            let mut noise = Matrix4::zeros();
+            noise.fixed_view_mut::<2, 2>(0, 0).copy_from(&process_noise);
+            if hypothesis.is_moving() {
+                noise.fixed_view_mut::<2, 2>(2, 2).copy_from(&process_noise);
+            }
+            let mut state = hypothesis.state_with_velocity();
+            state.predict(
+                transition,
+                SMatrix::<f32, 4, 2>::new(1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0),
+                last_odometry_to_current_odometry.translation.vector,
+                noise,
+            );
+            hypothesis.set_state_with_velocity(state);
         }
     }
 
-    fn update_hypotheses_with_measurement(
+    fn associate_measurements(
         &mut self,
-        detected_position: Point2<Ground>,
-        detected_obstacle_kind: ObstacleKind,
-        detection_time: Time,
+        time: Time,
+        measurements: &[Measurement],
         matching_distance: f32,
-        measurement_noise: Matrix2<f32>,
-        kind: MeasurementKind,
     ) {
-        self.merge_required = true;
-        let mut matching_hypotheses = self
-            .hypotheses
-            .iter_mut()
-            .filter(|hypothesis| {
-                (hypothesis.state.mean - detected_position.inner.coords).norm() < matching_distance
-            })
-            .peekable();
-        if matching_hypotheses.peek().is_none() {
-            self.spawn_hypothesis(
-                detected_position,
-                detected_obstacle_kind,
-                detection_time,
-                measurement_noise,
-            );
-            return;
-        }
-        matching_hypotheses.for_each(|hypothesis| {
-            hypothesis.state.update(
-                Matrix2::identity(),
-                detected_position.inner.coords,
-                if kind == MeasurementKind::NetworkRobot {
-                    measurement_noise
-                } else {
-                    measurement_noise * (detected_position.coords().norm_squared() + f32::EPSILON)
-                },
-            );
-            hypothesis.obstacle_kind = match hypothesis.obstacle_kind {
-                ObstacleKind::Robot | ObstacleKind::GoalPost | ObstacleKind::Person => {
-                    hypothesis.obstacle_kind
+        // Resolve all pairs before updating: neither detector order nor an early
+        // state update may cause several detections to update the same track.
+        let mut pairs = Vec::new();
+        for (measurement_index, measurement) in measurements.iter().enumerate() {
+            for (hypothesis_index, hypothesis) in self.hypotheses.iter().enumerate() {
+                if hypothesis.obstacle_kind != measurement.kind
+                    || hypothesis.stationary_class != measurement.stationary_class
+                {
+                    continue;
                 }
-                ObstacleKind::Unknown => detected_obstacle_kind,
-                _ => panic!("Unexpected obstacle kind"),
-            };
-            hypothesis.measurement_count += 1;
-            hypothesis.last_update = detection_time;
-        });
+                let distance = (hypothesis.state.mean - measurement.position.inner.coords).norm();
+                if distance < matching_distance {
+                    pairs.push((distance, measurement_index, hypothesis_index));
+                }
+            }
+        }
+        pairs.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let mut used_measurements = vec![false; measurements.len()];
+        let mut used_hypotheses = vec![false; self.hypotheses.len()];
+        for (_, measurement_index, hypothesis_index) in pairs {
+            if used_measurements[measurement_index] || used_hypotheses[hypothesis_index] {
+                continue;
+            }
+            used_measurements[measurement_index] = true;
+            used_hypotheses[hypothesis_index] = true;
+            self.update_hypothesis(hypothesis_index, &measurements[measurement_index], time);
+        }
+        for (index, measurement) in measurements.iter().enumerate() {
+            if !used_measurements[index] && self.hypotheses.len() < MAXIMUM_TRACKS {
+                self.spawn_hypothesis(
+                    measurement.position,
+                    measurement.kind,
+                    time,
+                    measurement.noise,
+                );
+                self.hypotheses
+                    .last_mut()
+                    .expect("just spawned")
+                    .stationary_class = measurement.stationary_class;
+            }
+        }
+    }
+
+    fn update_hypothesis(&mut self, index: usize, measurement: &Measurement, time: Time) {
+        let hypothesis = &mut self.hypotheses[index];
+        let mut state = hypothesis.state_with_velocity();
+        state.update(
+            SMatrix::<f32, 2, 4>::new(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+            measurement.position.inner.coords,
+            measurement.noise,
+        );
+        hypothesis.set_state_with_velocity(state);
+        hypothesis.measurement_count += 1;
+        hypothesis.last_update = hypothesis.last_update.max(time);
+        hypothesis.last_detection = Some(time);
+        self.merge_required = true;
     }
 
     fn spawn_hypothesis(
@@ -561,14 +879,31 @@ impl ObstacleFilter {
         initial_covariance: Matrix2<f32>,
     ) {
         let new_hypothesis = Hypothesis {
+            id: self.next_id,
             state: MultivariateNormalDistribution {
                 mean: detected_position.inner.coords,
                 covariance: initial_covariance,
             },
+            velocity: MultivariateNormalDistribution {
+                mean: na::Vector2::zeros(),
+                covariance: if matches!(obstacle_kind, ObstacleKind::Robot | ObstacleKind::Person) {
+                    Matrix2::identity() * 0.35_f32.powi(2)
+                } else {
+                    Matrix2::zeros()
+                },
+            },
+            position_velocity_covariance: Matrix2::zeros(),
             obstacle_kind,
+            stationary_class: (obstacle_kind == ObstacleKind::GoalPost)
+                .then_some(StationaryClass::GoalPost),
             measurement_count: 1,
             last_update: detection_time,
+            last_detection: Some(detection_time),
+            teammate: None,
+            teammate_evidence: 0,
+            last_team_report: None,
         };
+        self.next_id += 1;
         self.hypotheses.push(new_hypothesis);
         self.merge_required = true;
     }
@@ -587,18 +922,37 @@ impl ObstacleFilter {
         fall_detection: Option<&FallDetection>,
     ) {
         self.prune_hypotheses(now, parameters.hypothesis_timeout);
+        self.hypotheses.retain(|hypothesis| {
+            hypothesis.last_detection.is_some()
+                || hypothesis
+                    .last_team_report
+                    .is_some_and(|stamp| measurement_is_recent(now, stamp, TEAM_REPORT_TIMEOUT))
+        });
+        for hypothesis in &mut self.hypotheses {
+            if hypothesis
+                .last_team_report
+                .is_some_and(|stamp| !measurement_is_recent(now, stamp, TEAM_REPORT_TIMEOUT))
+            {
+                hypothesis.teammate = None;
+                hypothesis.teammate_evidence = 0;
+                hypothesis.last_team_report = None;
+            }
+        }
         let became_unpenalized = self.last_primary_state == PrimaryState::Penalized
             && primary_state != PrimaryState::Penalized;
         self.last_primary_state = primary_state;
         if became_unpenalized {
             self.hypotheses.clear();
         }
-        let is_upright = fall_detection.is_some_and(|fall_detection| {
-            fall_detection.is_valid(now) && fall_detection.posture == Posture::Upright
-        });
+        // Retain main's existing SDK posture policy; timestamp-safe obstacle
+        // tracking does not introduce the separate physical fall detector.
+        let is_upright = fall_detection
+            .is_some_and(|state| state.is_valid(now) && state.posture == Posture::Upright);
         if !is_upright {
-            self.hypotheses
-                .retain(|hypothesis| hypothesis.obstacle_kind != ObstacleKind::Unknown);
+            self.hypotheses.retain(|hypothesis| {
+                hypothesis.obstacle_kind != ObstacleKind::Unknown
+                    || hypothesis.stationary_class.is_some()
+            });
         }
         self.merge_hypotheses_if_needed(parameters.hypothesis_merge_distance);
     }
@@ -624,8 +978,11 @@ impl ObstacleFilter {
                 deduplicated_hypotheses
                     .iter_mut()
                     .find(|existing_hypothesis| {
-                        (existing_hypothesis.state.mean - hypothesis.state.mean).norm()
-                            < merge_distance
+                        !hypothesis.is_moving()
+                            && existing_hypothesis.obstacle_kind == hypothesis.obstacle_kind
+                            && existing_hypothesis.stationary_class == hypothesis.stationary_class
+                            && (existing_hypothesis.state.mean - hypothesis.state.mean).norm()
+                                < merge_distance
                     });
             match hypothesis_in_merge_distance {
                 Some(existing_hypothesis) => {
@@ -634,13 +991,14 @@ impl ObstacleFilter {
                         hypothesis.state.mean,
                         hypothesis.state.covariance,
                     );
-                    existing_hypothesis.obstacle_kind = match existing_hypothesis.obstacle_kind {
-                        ObstacleKind::Robot | ObstacleKind::GoalPost | ObstacleKind::Person => {
-                            existing_hypothesis.obstacle_kind
-                        }
-                        ObstacleKind::Unknown => hypothesis.obstacle_kind,
-                        _ => panic!("Unexpected obstacle kind"),
-                    };
+                    existing_hypothesis.measurement_count = existing_hypothesis
+                        .measurement_count
+                        .max(hypothesis.measurement_count);
+                    existing_hypothesis.last_update =
+                        existing_hypothesis.last_update.max(hypothesis.last_update);
+                    existing_hypothesis.last_detection = existing_hypothesis
+                        .last_detection
+                        .max(hypothesis.last_detection);
                 }
                 None => deduplicated_hypotheses.push(hypothesis),
             }
@@ -653,13 +1011,21 @@ fn measured_object_positions(
     parameters: &ObstacleFilterParameters,
     detected_objects: &[Object<RobocupObjectLabel>],
     camera_matrix: &CameraMatrix,
-) -> impl Iterator<Item = (ObstacleKind, Point2<Ground>, na::Vector2<f32>)> {
+) -> impl Iterator<Item = Measurement> {
     detected_objects.iter().filter_map(|detected_object| {
         let Object {
             label,
             bounding_box,
         } = detected_object;
 
+        let stationary_class = match label {
+            RobocupObjectLabel::GoalPost => Some(StationaryClass::GoalPost),
+            RobocupObjectLabel::LSpot => Some(StationaryClass::LSpot),
+            RobocupObjectLabel::TSpot => Some(StationaryClass::TSpot),
+            RobocupObjectLabel::XSpot => Some(StationaryClass::XSpot),
+            RobocupObjectLabel::PenaltySpot => Some(StationaryClass::PenaltySpot),
+            _ => None,
+        };
         let (kind, measurement_noise, confidence_threshold) = match label {
             RobocupObjectLabel::GoalPost => (
                 ObstacleKind::GoalPost,
@@ -671,23 +1037,61 @@ fn measured_object_positions(
                 parameters.robot_measurement_noise,
                 parameters.robot_confidence_threshold,
             ),
-            _ => return None,
+            RobocupObjectLabel::LSpot
+            | RobocupObjectLabel::TSpot
+            | RobocupObjectLabel::XSpot
+            | RobocupObjectLabel::PenaltySpot => (
+                ObstacleKind::Unknown,
+                parameters.goal_post_measurement_noise,
+                parameters.goal_post_confidence_threshold,
+            ),
+            RobocupObjectLabel::Ball => return None,
         };
 
-        if bounding_box.confidence < confidence_threshold {
+        let Rectangle { min, max } = bounding_box.area;
+        if ![min.x(), min.y(), max.x(), max.y(), bounding_box.confidence]
+            .iter()
+            .all(|value| value.is_finite())
+            || bounding_box.confidence < confidence_threshold
+            || min.x() >= max.x()
+            || min.y() >= max.y()
+            || min.x() < 0.0
+            || max.x() > camera_matrix.image_size.x()
+        {
             return None;
         }
-
-        let bottom_center_position = {
-            let Rectangle { min, max } = bounding_box.area;
-
-            point![min.x() + (max.x() - min.x()) / 2.0, max.y()]
-        };
-
+        let is_marking = stationary_class.is_some_and(|class| !class.is_obstacle());
+        // Clipped feet do not provide ground contact. Wait for a full detection
+        // rather than creating a confidently wrong range from the image border.
+        if !is_marking && max.y() >= camera_matrix.image_size.y() - 2.0 {
+            return None;
+        }
+        let bottom_center_position = point![
+            (min.x() + max.x()) / 2.0,
+            if is_marking {
+                (min.y() + max.y()) / 2.0
+            } else {
+                max.y()
+            }
+        ];
+        if bottom_center_position.y() < 0.0
+            || bottom_center_position.y() > camera_matrix.image_size.y()
+        {
+            return None;
+        }
         let obstacle_center: Point2<Ground> =
             camera_matrix.pixel_to_ground(bottom_center_position).ok()?;
-
-        Some((kind, obstacle_center, measurement_noise))
+        let range = obstacle_center.coords().norm();
+        if !range.is_finite() || range > if is_marking { 5.0 } else { 15.0 } {
+            return None;
+        }
+        Some(Measurement {
+            kind,
+            stationary_class,
+            position: obstacle_center,
+            noise: Matrix2::from_diagonal(&measurement_noise.map(|variance| variance.max(0.0001)))
+                * range.powi(2).max(0.01),
+        })
     })
 }
 
@@ -697,7 +1101,7 @@ fn new_network_player_states(
     last_processed_player_state_times: &mut Players<Option<Time>>,
     now: Time,
     maximum_age: Duration,
-) -> Vec<(Time, PlayerState)> {
+) -> Vec<(PlayerNumber, Time, PlayerState)> {
     let Some(own_player_number) = own_player_number else {
         return Vec::new();
     };
@@ -707,6 +1111,15 @@ fn new_network_player_states(
         .filter_map(|(player_number, player_state)| {
             let player_state = player_state.as_ref()?;
             if !measurement_is_recent(now, player_state.time, maximum_age) {
+                return None;
+            }
+            if player_state
+                .inner
+                .pose_age
+                .unwrap_or(Duration::from_millis(300))
+                .saturating_add(now.duration_since(player_state.time))
+                > TEAM_REPORT_TIMEOUT
+            {
                 return None;
             }
             if last_processed_player_state_times[player_number]
@@ -720,7 +1133,7 @@ fn new_network_player_states(
                 return None;
             }
 
-            Some((player_state.time, player_state.inner))
+            Some((player_number, player_state.time, player_state.inner))
         })
         .collect()
 }
@@ -760,7 +1173,439 @@ fn calculate_goal_post_positions(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use linear_algebra::{IntoTransform, Isometry3, vector};
+    use ros_z_streams::CreateAnnouncingPublisher;
     use types::obstacles::ObstacleKind;
+
+    fn camera() -> CameraMatrix {
+        let head_to_camera = (na::Isometry3::rotation(na::Vector3::x() * 0.4)
+            * na::Isometry3::rotation(na::Vector3::y() * -std::f32::consts::FRAC_PI_2)
+            * na::Isometry3::rotation(na::Vector3::x() * std::f32::consts::FRAC_PI_2))
+        .framed_transform();
+        CameraMatrix::from_normalized_focal_and_center(
+            na::vector![0.5, 0.5 * 640.0 / 480.0],
+            na::point![0.5, 0.5],
+            vector![640.0, 480.0],
+            na::Isometry3::translation(0.0, 0.0, -0.8).framed_transform(),
+            Isometry3::identity(),
+            head_to_camera,
+        )
+    }
+
+    fn detection(
+        camera: &CameraMatrix,
+        label: RobocupObjectLabel,
+        position: Point2<Ground>,
+    ) -> Object<RobocupObjectLabel> {
+        let pixel = camera.ground_to_pixel(position).unwrap();
+        let marking = !matches!(
+            label,
+            RobocupObjectLabel::Robot | RobocupObjectLabel::GoalPost
+        );
+        Object {
+            label,
+            bounding_box: types::bounding_box::BoundingBox {
+                area: Rectangle {
+                    min: point![
+                        pixel.x() - 3.0,
+                        pixel.y() - if marking { 3.0 } else { 30.0 }
+                    ],
+                    max: point![pixel.x() + 3.0, pixel.y() + if marking { 3.0 } else { 0.0 }],
+                },
+                confidence: 0.9,
+            },
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn live_node_publishes_confirmed_opponent_velocity() -> Result<()> {
+        let context = Arc::new(
+            ContextBuilder::default()
+                .with_mode("peer")
+                .disable_multicast_scouting()
+                .with_connect_endpoints(std::iter::empty::<&str>())
+                .with_listen_endpoints(["tcp/127.0.0.1:0"])
+                .with_parameter_layers([std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../../etc/parameters/base")])
+                .build()
+                .await?,
+        );
+        let fixture = context.create_node("opponent_track_test").build().await?;
+        let retained = QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        };
+        let field = fixture
+            .publisher::<FieldDimensions>("field_dimensions")
+            .qos(retained.clone())
+            .build()
+            .await?;
+        let primary = fixture
+            .publisher::<PrimaryState>("primary_state")
+            .qos(retained)
+            .build()
+            .await?;
+        let pose = fixture
+            .publisher::<Isometry2<Ground, Field>>("ground_to_field")
+            .build()
+            .await?;
+        let odometry = fixture
+            .announcing_publisher::<Pose2<Odometry>>("inputs/odometry")
+            .await?;
+        let cameras = fixture
+            .publisher::<TimeWrapper<CameraMatrix>>("camera_matrix")
+            .build()
+            .await?;
+        let detections = fixture
+            .announcing_publisher::<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>(
+                "detected_objects",
+            )
+            .await?;
+        let tracks = fixture
+            .subscriber::<TrackedObjects<HumanoidTrack>>("obstacle_filter/humanoid_tracks")
+            .build()
+            .await?;
+        field.publish(&FieldDimensions::SPL_2025).await?;
+        primary.publish(&PrimaryState::Playing).await?;
+        let mut nodes = tokio::task::JoinSet::new();
+        nodes.spawn(run(context));
+        // A timer output confirms that all of the real filter's inputs are registered.
+        tokio::time::timeout(Duration::from_secs(5), tracks.recv()).await??;
+        let camera = camera();
+        let start = fixture.clock().now();
+        let mut tick = tokio::time::interval(Duration::from_millis(10));
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                tokio::select! {
+                    _ = tick.tick() => {
+                        let time = fixture.clock().now();
+                        let seconds = time.duration_since(start).as_secs_f32();
+                        pose.publish_with_source_time(&Isometry2::identity(), time).await?;
+                        cameras.publish(&TimeWrapper { time, inner: camera.clone() }).await?;
+                        odometry.announce(time).await?.publish(&Pose2::default()).await?;
+                        detections.announce(time).await?.publish(&TimeWrapper {
+                            time,
+                            inner: vec![detection(&camera, RobocupObjectLabel::Robot,
+                                point![3.0, 0.4 - seconds * 0.3])],
+                        }).await?;
+                    }
+                    output = tracks.recv() => {
+                        let output = output?;
+                        if output.tracks.iter().any(|track| {
+                            track.status == TrackStatus::Confirmed
+                                && track.role == HumanoidRole::Opponent
+                                && track.position_in_field.is_some()
+                                && track.velocity_in_ground.y() < -0.05
+                        }) {
+                            break Ok::<(), color_eyre::Report>(());
+                        }
+                    }
+                    exited = nodes.join_next() => panic!("obstacle filter exited: {exited:?}"),
+                }
+            }
+        })
+        .await??;
+        nodes.abort_all();
+        while nodes.join_next().await.is_some() {}
+        Ok(())
+    }
+
+    #[test]
+    fn mixed_detections_keep_ids_velocity_and_stationary_classes_while_robot_moves() {
+        let mut filter = ObstacleFilter::default();
+        let parameters = ObstacleFilterParameters {
+            use_detected_objects: true,
+            hypothesis_timeout: Duration::from_secs(30),
+            object_detection_measurement_matching_distance: 1.0,
+            robot_measurement_noise: na::vector![0.002, 0.002],
+            goal_post_measurement_noise: na::vector![0.002, 0.002],
+            process_noise: na::vector![0.0001, 0.0001],
+            measurement_count_threshold: 2,
+            ..Default::default()
+        };
+        let camera = camera();
+        let start = Time::from_nanos(1_000_000_000);
+        let mut first_ids = Vec::new();
+        for frame in 0..90 {
+            let seconds = frame as f32 / 30.0;
+            let now = start + Duration::from_secs_f32(seconds);
+            let pose = Pose2::new(point![seconds * 0.1, 0.0], seconds * 0.08);
+            let odometry_to_ground = pose.as_transform::<Ground>().inverse();
+            let measurements = [
+                (RobocupObjectLabel::Robot, point![3.0, 0.4 - seconds * 0.3]),
+                (RobocupObjectLabel::GoalPost, point![3.1, 0.4]),
+                (RobocupObjectLabel::LSpot, point![3.0, -0.5]),
+            ]
+            .map(|(label, position)| detection(&camera, label, odometry_to_ground * position));
+            assert!(filter.process_detection(
+                now,
+                &parameters,
+                &measurements,
+                Some(&camera),
+                Some(pose)
+            ));
+            assert_eq!(filter.hypotheses.len(), 3);
+            let ids: Vec<_> = filter.hypotheses.iter().map(|track| track.id).collect();
+            if frame == 0 {
+                first_ids = ids;
+            } else {
+                assert_eq!(ids, first_ids);
+            }
+        }
+        let now = filter.ground_frame.unwrap().0;
+        let pose = filter.ground_frame.unwrap().1;
+        let (humanoids, stationary) = filter.tracked_objects(now, None, &parameters, true);
+        assert_eq!(humanoids.time, now);
+        assert_eq!(humanoids.tracks.len(), 1);
+        assert_eq!(stationary.tracks.len(), 2);
+        let robot = &humanoids.tracks[0];
+        assert_eq!(robot.role, HumanoidRole::Opponent);
+        assert_eq!(robot.status, TrackStatus::Confirmed);
+        assert_eq!(robot.time_since_detection, Some(Duration::ZERO));
+        assert!((robot.state.mean.fixed_rows::<2>(2) - na::vector![0.0, -0.3]).norm() < 0.05);
+        assert!(
+            (robot.state.mean.fixed_rows::<2>(0) - na::vector![3.0, 0.4 - 89.0 / 30.0 * 0.3])
+                .norm()
+                < 0.05
+        );
+        let velocity_in_odometry =
+            humanoids.ground_to_odometry.inner.rotation * robot.velocity_in_ground.inner;
+        assert!((velocity_in_odometry - na::vector![0.0, -0.3]).norm() < 0.05);
+        let post = stationary
+            .tracks
+            .iter()
+            .find(|track| track.class == StationaryClass::GoalPost)
+            .unwrap();
+        assert!((post.state.mean - na::vector![3.1, 0.4]).norm() < 0.001);
+        assert!(post.is_obstacle);
+        assert!(
+            !stationary
+                .tracks
+                .iter()
+                .find(|track| track.class == StationaryClass::LSpot)
+                .unwrap()
+                .is_obstacle
+        );
+        let obstacles = filter.compose_outputs(now, &parameters, &FieldDimensions::SPL_2025, None);
+        assert_eq!(obstacles.len(), 2);
+        // Predictions in a fresh frame carry physical velocity, without claiming new evidence.
+        let later = now + Duration::from_millis(200);
+        filter.advance_ground_frame(later, pose, na::Vector2::zeros());
+        let (predicted, _) = filter.tracked_objects(later, None, &parameters, true);
+        assert_eq!(predicted.tracks[0].id, robot.id);
+        assert_eq!(
+            predicted.tracks[0].time_since_detection,
+            Some(Duration::from_millis(200))
+        );
+        assert!((predicted.tracks[0].state.mean.y - (robot.state.mean.y - 0.06)).abs() < 0.02);
+    }
+
+    #[test]
+    fn nearby_robots_receive_one_measurement_each_and_keep_distinct_ids() {
+        let mut filter = ObstacleFilter::default();
+        let time = Time::from_nanos(1_000_000_000);
+        for x in [2.0, 2.4] {
+            filter.spawn_hypothesis(
+                point![x, 0.0],
+                ObstacleKind::Robot,
+                time,
+                Matrix2::identity(),
+            );
+        }
+        let measurements = [2.35, 2.05].map(|x| Measurement {
+            kind: ObstacleKind::Robot,
+            stationary_class: None,
+            position: point![x, 0.0],
+            noise: Matrix2::identity(),
+        });
+        filter.associate_measurements(time + Duration::from_millis(30), &measurements, 1.0);
+        filter.merge_hypotheses_if_needed(1.0);
+        assert_eq!(filter.hypotheses.len(), 2);
+        assert_ne!(filter.hypotheses[0].id, filter.hypotheses[1].id);
+        assert!(
+            filter
+                .hypotheses
+                .iter()
+                .all(|track| track.measurement_count == 2)
+        );
+        assert!(filter.hypotheses[0].state.mean.x < filter.hypotheses[1].state.mean.x);
+    }
+
+    #[test]
+    fn dormant_moving_track_keeps_identity_without_remaining_a_blocking_obstacle() {
+        let mut filter = ObstacleFilter::default();
+        let start = Time::from_nanos(1_000_000_000);
+        let parameters = ObstacleFilterParameters {
+            hypothesis_timeout: Duration::from_secs(30),
+            ..Default::default()
+        };
+        filter.advance_ground_frame(start, Pose2::zero(), na::Vector2::zeros());
+        for kind in [ObstacleKind::Robot, ObstacleKind::GoalPost] {
+            filter.spawn_hypothesis(point![3.0, 0.0], kind, start, Matrix2::identity() * 0.01);
+        }
+        let robot_id = filter.hypotheses[0].id;
+        for (age, expected_obstacles) in [(499, 2), (501, 1), (1100, 1)] {
+            let now = start + Duration::from_millis(age);
+            filter.advance_ground_frame(now, Pose2::zero(), na::Vector2::zeros());
+            let output = filter.output(
+                now,
+                &parameters,
+                Some(&FieldDimensions::SPL_2025),
+                None,
+                PrimaryState::Playing,
+                None,
+                false,
+            );
+            assert_eq!(output.obstacles.len(), expected_obstacles);
+            assert_eq!(output.humanoid_tracks.tracks[0].id, robot_id);
+            if age > 1000 {
+                assert_eq!(
+                    output.humanoid_tracks.tracks[0].status,
+                    TrackStatus::Dormant
+                );
+            }
+        }
+        // A team association may renew identity, but not stale visual coordinates.
+        filter.hypotheses[0].last_team_report = Some(start + Duration::from_millis(1100));
+        let obstacles = filter.compose_outputs(
+            start + Duration::from_millis(1100),
+            &parameters,
+            &FieldDimensions::SPL_2025,
+            None,
+        );
+        assert_eq!(obstacles.len(), 1);
+        let now = start + Duration::from_millis(1200);
+        filter.advance_ground_frame(now, Pose2::zero(), na::Vector2::zeros());
+        filter.associate_measurements(
+            now,
+            &[Measurement {
+                kind: ObstacleKind::Robot,
+                stationary_class: None,
+                position: point![3.0, 0.0],
+                noise: Matrix2::identity() * 0.01,
+            }],
+            1.0,
+        );
+        let output = filter.output(
+            now,
+            &parameters,
+            Some(&FieldDimensions::SPL_2025),
+            None,
+            PrimaryState::Playing,
+            None,
+            false,
+        );
+        assert_eq!(output.obstacles.len(), 2);
+        assert_eq!(output.humanoid_tracks.tracks[0].id, robot_id);
+        assert_eq!(
+            output.humanoid_tracks.tracks[0].status,
+            TrackStatus::Confirmed
+        );
+    }
+
+    #[test]
+    fn team_reports_need_unique_repeated_evidence_and_expire_without_reclassifying_remote_tracks() {
+        let mut filter = ObstacleFilter::default();
+        let time = Time::from_nanos(1_000_000_000);
+        let parameters = ObstacleFilterParameters {
+            network_robot_measurement_matching_distance: 0.75,
+            hypothesis_timeout: Duration::from_secs(30),
+            ..Default::default()
+        };
+        filter.advance_ground_frame(time, Pose2::zero(), na::Vector2::zeros());
+        for y in [-0.3, 0.3] {
+            filter.spawn_hypothesis(
+                point![3.0, y],
+                ObstacleKind::Robot,
+                time,
+                Matrix2::identity(),
+            );
+        }
+        let mut report = PlayerState {
+            pose: point![3.0, 0.0].into(),
+            head_yaw: 0.0,
+            pose_age: None,
+            ball_position: None,
+            pass: None,
+            replacement_goalkeeper_claim: false,
+        };
+        filter.process_network_player_state(
+            time,
+            &parameters,
+            PlayerNumber::Three,
+            &report,
+            &Isometry2::identity(),
+        );
+        assert!(
+            filter
+                .hypotheses
+                .iter()
+                .all(|track| track.teammate.is_none())
+        );
+        report.pose = point![3.0, 0.3].into();
+        for tick in 0..2 {
+            filter.process_network_player_state(
+                time + Duration::from_millis(tick * 20),
+                &parameters,
+                PlayerNumber::Three,
+                &report,
+                &Isometry2::identity(),
+            );
+            let (tracks, _) = filter.tracked_objects(time, None, &parameters, true);
+            assert_eq!(tracks.tracks[0].role, HumanoidRole::Opponent);
+            assert_eq!(
+                tracks.tracks[1].role,
+                if tick == 0 {
+                    HumanoidRole::Opponent
+                } else {
+                    HumanoidRole::Teammate(PlayerNumber::Three)
+                }
+            );
+        }
+        // Replayed reports cannot promote a track or collapse camera covariance.
+        assert_eq!(filter.hypotheses[1].state.covariance, Matrix2::identity());
+        filter.process_network_player_state(
+            time + Duration::from_millis(20),
+            &parameters,
+            PlayerNumber::Three,
+            &report,
+            &Isometry2::identity(),
+        );
+        assert_eq!(filter.hypotheses[1].teammate_evidence, 2);
+        report.pose = point![-3.0, 0.0].into();
+        report.pose_age = Some(Duration::MAX);
+        filter.process_network_player_state(
+            time,
+            &parameters,
+            PlayerNumber::Four,
+            &report,
+            &Isometry2::identity(),
+        );
+        assert_eq!(filter.hypotheses.len(), 2);
+        report.pose_age = None;
+        filter.process_network_player_state(
+            time,
+            &parameters,
+            PlayerNumber::Four,
+            &report,
+            &Isometry2::identity(),
+        );
+        assert_eq!(filter.hypotheses.len(), 3);
+        assert!(filter.hypotheses[2].last_detection.is_none());
+        filter.maintain(
+            time + Duration::from_secs(4),
+            &parameters,
+            PrimaryState::Playing,
+            None,
+        );
+        assert_eq!(filter.hypotheses.len(), 2);
+        assert!(
+            filter
+                .hypotheses
+                .iter()
+                .all(|track| track.teammate.is_none())
+        );
+    }
 
     #[test]
     fn field_pose_lookup_uses_source_metadata_despite_delayed_transport() {
@@ -782,7 +1627,11 @@ mod tests {
         let selected = history.at(source_time).unwrap();
         let teammate = PlayerState {
             pose: point![3.0, 5.0].into(),
+            head_yaw: 0.0,
+            pose_age: None,
             ball_position: None,
+            pass: None,
+            replacement_goalkeeper_claim: false,
         };
         assert_eq!(
             measured_player_position(&teammate, &selected),
@@ -889,7 +1738,11 @@ mod tests {
         let now = Time::from_nanos(1_000_000_000);
         let state = PlayerState {
             pose: point![1.0, 2.0].into(),
+            head_yaw: 0.0,
+            pose_age: None,
             ball_position: None,
+            pass: None,
+            replacement_goalkeeper_claim: false,
         };
         let mut players = Players::new(None);
         players.four = Some(TimeWrapper {
@@ -939,7 +1792,7 @@ mod tests {
         for x in [1.0, 1.2] {
             filter.spawn_hypothesis(
                 point![x, 0.0],
-                ObstacleKind::Robot,
+                ObstacleKind::GoalPost,
                 start,
                 Matrix2::identity(),
             );
@@ -982,13 +1835,15 @@ mod tests {
         );
         assert_eq!(filter.merge_passes, 2);
         assert_eq!(output.hypotheses.unwrap().len(), 1);
-        filter.update_hypotheses_with_measurement(
-            point![3.0, 0.0],
-            ObstacleKind::Robot,
+        filter.associate_measurements(
             time,
+            &[Measurement {
+                position: point![3.0, 0.0],
+                kind: ObstacleKind::GoalPost,
+                stationary_class: None,
+                noise: Matrix2::identity(),
+            }],
             0.1,
-            Matrix2::identity(),
-            MeasurementKind::Own,
         );
         filter.output(
             time,
@@ -1009,7 +1864,7 @@ mod tests {
         filter.advance_ground_frame(start, Pose2::default(), na::Vector2::zeros());
         filter.spawn_hypothesis(
             point![3.0, 1.0],
-            ObstacleKind::Robot,
+            ObstacleKind::GoalPost,
             start,
             Matrix2::identity(),
         );
@@ -1124,14 +1979,8 @@ mod tests {
             Pose2::new(point![0.1, 0.0], 0.0),
             na::Vector2::zeros(),
         );
-        let obstacles = filter.compose_outputs(
-            time,
-            &parameters,
-            &FieldDimensions::SPL_2025,
-            None,
-            PrimaryState::Damping,
-            None,
-        );
+        filter.maintain(time, &parameters, PrimaryState::Damping, None);
+        let obstacles = filter.compose_outputs(time, &parameters, &FieldDimensions::SPL_2025, None);
         assert!(obstacles.is_empty());
         assert!(filter.hypotheses.is_empty());
         assert_eq!(filter.ground_frame.unwrap().0, time);
@@ -1195,11 +2044,16 @@ mod tests {
         );
         let teammate = PlayerState {
             pose: point![3.0, 1.0].into(),
+            head_yaw: 0.0,
+            pose_age: None,
             ball_position: None,
+            pass: None,
+            replacement_goalkeeper_claim: false,
         };
         filter.process_network_player_state(
             frame_time + Duration::from_millis(50),
             &ObstacleFilterParameters::default(),
+            PlayerNumber::Four,
             &teammate,
             &frame_to_field,
         );
@@ -1247,7 +2101,10 @@ mod tests {
         let player_state = PlayerState {
             pose: linear_algebra::point![3.0, 5.0].into(),
             head_yaw: 0.0,
+            pose_age: None,
             ball_position: None,
+            pass: None,
+            replacement_goalkeeper_claim: false,
         };
 
         let position = measured_player_position(&player_state, &ground_to_field);
@@ -1262,12 +2119,18 @@ mod tests {
         let own_player_state = PlayerState {
             pose: linear_algebra::point![1.0, 2.0].into(),
             head_yaw: 0.0,
+            pose_age: None,
             ball_position: None,
+            pass: None,
+            replacement_goalkeeper_claim: false,
         };
         let teammate_state = PlayerState {
             pose: linear_algebra::point![3.0, 4.0].into(),
             head_yaw: 0.0,
+            pose_age: None,
             ball_position: None,
+            pass: None,
+            replacement_goalkeeper_claim: false,
         };
         let players = Players {
             two: Some(TimeWrapper {
@@ -1291,8 +2154,8 @@ mod tests {
         );
 
         assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].0, Time::from_nanos(4));
-        assert_eq!(entries[0].1.pose.position(), teammate_state.pose.position());
+        assert_eq!(entries[0].1, Time::from_nanos(4));
+        assert_eq!(entries[0].2.pose.position(), teammate_state.pose.position());
         assert_eq!(
             last_processed_player_state_times[PlayerNumber::Two],
             Some(Time::from_nanos(2))
@@ -1314,7 +2177,10 @@ mod tests {
         let newer_teammate_state = PlayerState {
             pose: linear_algebra::point![5.0, 6.0].into(),
             head_yaw: 0.0,
+            pose_age: None,
             ball_position: None,
+            pass: None,
+            replacement_goalkeeper_claim: false,
         };
         let updated_players = Players {
             four: Some(TimeWrapper {
@@ -1333,9 +2199,9 @@ mod tests {
         );
 
         assert_eq!(newer_entries.len(), 1);
-        assert_eq!(newer_entries[0].0, Time::from_nanos(6));
+        assert_eq!(newer_entries[0].1, Time::from_nanos(6));
         assert_eq!(
-            newer_entries[0].1.pose.position(),
+            newer_entries[0].2.pose.position(),
             newer_teammate_state.pose.position()
         );
     }

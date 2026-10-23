@@ -14,9 +14,11 @@
   ball: {
     last_ball_timeout: { nanos: 500000000, secs: 0 },
     team_ball_timeout: { nanos: 0, secs: 1 },
+    // Experiment: pursue the ball 0.5 s ahead. Zero restores current-position pursuit.
+    pursuit_lookahead: { nanos: 500000000, secs: 0 },
     interception: {
       maximum_ball_distance: 4.0,
-      minimum_ball_velocity: 1.0,
+      minimum_ball_velocity: 0.3,
       minimum_ball_velocity_towards_robot: 0.7,
       minimum_ball_velocity_towards_own_half: 0.7,
       maximum_intercept_distance: 1.5,
@@ -53,21 +55,46 @@
     speed: {
       kicking: 1.8,
       search: 0.8,
-      blocking: 0.8,
+      blocking: 1.0,
       minimum_speed: 0.2,
       velocity_fade_distance: 3.0,
       walk_to_kickoff: 0.5,
     },
   },
   kicking: {
+    strategy: {
+      // Initial tuning; verify maximum range on the robot before deployment.
+      maximum_shot_distance: 12.0,
+      // Provisional travel bound including uncertainty; calibrate for target_speed and surface.
+      maximum_dribble_distance: 3.0,
+      obstacle_clearance: 0.05,
+      minimum_shot_angle: 0.02,
+      preferred_shot_angle: 0.06,
+      shot_angle_hysteresis: 0.05,
+      pressure_distance: 0.8,
+      clear_goal_distance: 1.5,
+      clear_distance_hysteresis: 0.2,
+      passing: {
+        // Provisional regular-kick reach; calibrate at target_speed before deployment.
+        maximum_distance: 8.0,
+        minimum_distance: 4.0,
+        minimum_progress: 0.25,
+        receiver_standoff: 0.5,
+        target_half_width: 0.3,
+        selection_hysteresis: 0.25,
+        maximum_receiver_age: { secs: 3, nanos: 0 },
+      },
+    },
     soft: false,
     quick: false,
     target_speed: 3.4, // Desired outgoing ball speed in m/s.
-    allow_strong_kicks: false,
+    dribble_target_speed: 0.5,
+    allow_strong_kicks: true,
     kick_activation_distance: 1.3,
     kick_activation_hysteresis: 0.3,
-    strong_kick_min_target_distance: 6.0,
+    strong_kick_min_target_distance: 3.0,
     approach_ball_standoff: 0.3,
+    receiving_opponent_distance: 2.0,
     minimum_interception_forward_distance: 0.3,
   },
   goalkeeper: {
@@ -107,12 +134,21 @@
       [-0.45, -0.5],
       [-0.6, 0.0],
     ],
+    pass_to_left: false,
+    striker_position: [-1.5, 0.0],
+    standard_positions: {
+      one: { position: [-4.2, 0.0], rotation: 0 },
+      two: { position: [-3, -0.5], rotation: 0 },
+      three: { position: [-2, 0], rotation: 0 },
+      four: { position: [-2.5, -1.5], rotation: 0.4 },
+      five: { position: [-2.5, 1.5], rotation: -0.4 },
+    },
   },
   voronoi: {
     grid_resolution: 0.5,
     padding: 0.5,
     forward_weight: 0.2,
-    ball_weight: 1.0,
+    ball_weight: 2.5,
     // Support distance is the center-circle radius; sigma scales use field width.
     relative_ball_support_sigma: 0.05,
     centroid_anchor_weight: 0.6,
