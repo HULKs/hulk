@@ -1,18 +1,13 @@
-use std::{
-    boxed::Box,
-    future::Future,
-    pin::{Pin, pin},
-    sync::Arc,
-};
+use std::{boxed::Box, future::Future, pin::Pin, sync::Arc};
 
 use color_eyre::Result;
 
 use coordinate_systems::{Camera, Ground, Robot};
-use futures_util::future::{Either, select};
 use kinematics::{forward::head_to_camera, robot_kinematics::RobotKinematics};
 use linear_algebra::{Isometry3, Rotation3, vector};
 use projection::{camera_matrix::CameraMatrix, intrinsic::Intrinsic};
 use ros_z::prelude::*;
+use ros_z::qos::QosDurability;
 use ros2::sensor_msgs::camera_info::CameraInfo;
 use types::{
     camera_geometry::CameraGeometry, parameters::CameraMatrixParameters, time_wrapper::TimeWrapper,
@@ -27,23 +22,40 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters =
         node.bind_parameter_as::<CameraMatrixParameters>("camera_matrix_calculator")?;
+    let capacities = parameters.snapshot().typed.synchronization.clone();
+    let startup = capacities.clone();
+    parameters.add_validation_hook(move |candidate| {
+        let p = &candidate.synchronization;
+        if p.max_ground_time_distance.is_zero()
+            || p.ground_cache_capacity == 0
+            || p.camera_info_cache_capacity == 0
+        {
+            return Err("camera synchronization gap and capacities must be positive".into());
+        }
+        if p.ground_cache_capacity != startup.ground_cache_capacity
+            || p.camera_info_cache_capacity != startup.camera_info_cache_capacity
+        {
+            return Err("camera cache capacity changes require restart".into());
+        }
+        Ok(())
+    })?;
     let robot_kinematics_sub = node
         .subscriber::<TimeWrapper<RobotKinematics>>("robot_kinematics")
         .build()
         .await?;
-    let robot_kinematics_cache = node
-        .subscriber::<TimeWrapper<RobotKinematics>>("robot_kinematics")
-        .cache(10)
-        .with_stamp(|w: &TimeWrapper<RobotKinematics>| w.time)
-        .build()
-        .await?;
-    let robot_to_ground_sub = node
+    let robot_to_ground_cache = node
         .subscriber::<TimeWrapper<Option<Isometry3<Robot, Ground>>>>("robot_to_ground")
+        .cache(capacities.ground_cache_capacity)
+        .with_stamp(|w| w.time)
         .build()
         .await?;
     let camera_info_cache = node
         .subscriber::<CameraInfo>("inputs/camera_info")
-        .cache(1)
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(capacities.camera_info_cache_capacity)
         .build()
         .await?;
 
@@ -57,91 +69,73 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     loop {
-        let kinematics = pin!(robot_kinematics_sub.recv());
-        let ground = pin!(robot_to_ground_sub.recv());
-        let received = select(kinematics, ground).await;
-
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
 
-        match received {
-            Either::Left((kinematics, _)) => {
-                let kinematics = kinematics?;
-                let Some(camera_info) = camera_info_cache.get_latest() else {
-                    continue;
-                };
+        let timed_robot_kinematics = robot_kinematics_sub.recv().await?;
+        let time_stamp = timed_robot_kinematics.time;
+        let Some(camera_info) = camera_info_cache.get_latest() else {
+            continue;
+        };
+        let ground = robot_to_ground_cache
+            .get_nearest(time_stamp)
+            .filter(|ground| {
+                ground.time.abs_diff(time_stamp)
+                    <= parameters.synchronization.max_ground_time_distance
+            });
+        let (geometry, matrix) = compute_cameras(
+            parameters,
+            &timed_robot_kinematics.inner,
+            &camera_info,
+            ground.as_ref().and_then(|ground| ground.inner.as_ref()),
+        );
+        camera_geometry_pub
+            .publish(&TimeWrapper {
+                time: time_stamp,
+                inner: geometry,
+            })
+            .await?;
 
-                let geometry = compute_camera_geometry(parameters, &kinematics.inner, &camera_info);
+        let Some(camera_matrix) = matrix else {
+            continue;
+        };
 
-                camera_geometry_pub
-                    .publish(&TimeWrapper {
-                        time: kinematics.time,
-                        inner: geometry,
-                    })
-                    .await?;
-            }
-            Either::Right((ground, _)) => {
-                let ground = ground?;
-                let Some(robot_to_ground) = ground.inner else {
-                    continue;
-                };
-                let Some((kinematics, camera_info)) = robot_kinematics_cache
-                    .get_nearest(ground.time)
-                    .zip(camera_info_cache.get_nearest(ground.time))
-                else {
-                    continue;
-                };
-
-                let matrix = compute_camera_matrix(
-                    parameters,
-                    &kinematics.inner,
-                    &robot_to_ground,
-                    &camera_info,
-                );
-
-                camera_matrix_pub
-                    .publish(&TimeWrapper {
-                        time: ground.time,
-                        inner: matrix,
-                    })
-                    .await?;
-            }
-        }
+        camera_matrix_pub
+            .publish(&TimeWrapper {
+                time: time_stamp,
+                inner: camera_matrix,
+            })
+            .await?;
     }
 }
 
-fn compute_camera_matrix(
+fn compute_cameras(
     parameters: &CameraMatrixParameters,
     robot_kinematics: &RobotKinematics,
-    robot_to_ground: &Isometry3<Robot, Ground>,
     camera_info: &CameraInfo,
-) -> CameraMatrix {
+    robot_to_ground: Option<&Isometry3<Robot, Ground>>,
+) -> (CameraGeometry, Option<CameraMatrix>) {
     let image_size = vector![camera_info.width as f32, camera_info.height as f32];
     let (correction_in_robot, correction_in_camera) = camera_corrections(parameters);
 
-    CameraMatrix::from_camera_info(
-        camera_info,
-        image_size,
-        robot_to_ground.inverse(),
-        robot_kinematics.head.head_to_robot.inverse(),
-        head_to_camera(parameters.camera_to_head_pitch.to_radians()),
-    )
-    .to_corrected(correction_in_robot, correction_in_camera)
-}
-
-fn compute_camera_geometry(
-    parameters: &CameraMatrixParameters,
-    robot_kinematics: &RobotKinematics,
-    camera_info: &CameraInfo,
-) -> CameraGeometry {
-    let (correction_in_robot, correction_in_camera) = camera_corrections(parameters);
-    let robot_to_head = robot_kinematics.head.head_to_robot.inverse() * correction_in_robot;
-    let head_to_camera =
-        correction_in_camera * head_to_camera(parameters.camera_to_head_pitch.to_radians());
-    CameraGeometry {
-        robot_to_camera: head_to_camera * robot_to_head,
+    let robot_to_head = robot_kinematics.head.head_to_robot.inverse();
+    let head_to_camera = head_to_camera(parameters.camera_to_head_pitch.to_radians());
+    let geometry = CameraGeometry {
+        robot_to_camera: (correction_in_camera * head_to_camera)
+            * (robot_to_head * correction_in_robot),
         intrinsics: Intrinsic::from(camera_info),
-    }
+    };
+    let matrix = robot_to_ground.map(|ground| {
+        CameraMatrix::from_camera_info(
+            camera_info,
+            image_size,
+            ground.inverse(),
+            robot_to_head,
+            head_to_camera,
+        )
+        .to_corrected(correction_in_robot, correction_in_camera)
+    });
+    (geometry, matrix)
 }
 
 fn camera_corrections(
@@ -175,40 +169,48 @@ mod tests {
             camera_to_head_pitch: 0.0,
             correction_in_robot: vector![0.1, -0.2, 0.3],
             correction_in_camera: vector![-0.4, 0.5, -0.6],
+            ..Default::default()
         };
         let mut robot_kinematics = RobotKinematics::default();
         robot_kinematics.head.head_to_robot = Isometry3::from_translation(0.02, -0.03, 0.3);
         let robot_to_ground = Isometry3::from_translation(0.1, -0.2, 0.5);
         let camera_info = camera_info();
 
-        let camera_matrix = compute_camera_matrix(
+        let (geometry, camera_matrix) = compute_cameras(
             &parameters,
             &robot_kinematics,
-            &robot_to_ground,
             &camera_info,
+            Some(&robot_to_ground),
         );
-        let geometry = compute_camera_geometry(&parameters, &robot_kinematics, &camera_info);
+        let camera_matrix = camera_matrix.unwrap();
+        let (without_ground, missing_matrix) =
+            compute_cameras(&parameters, &robot_kinematics, &camera_info, None);
+        assert_eq!(without_ground, geometry);
+        assert!(missing_matrix.is_none());
         assert_eq!(CameraGeometry::from(&camera_matrix), geometry);
-        assert_eq!(geometry.intrinsics, Intrinsic::from(&camera_info));
 
         let zero_parameters = CameraMatrixParameters {
             correction_in_robot: vector![0.0, 0.0, 0.0],
             correction_in_camera: vector![0.0, 0.0, 0.0],
             ..parameters
         };
-        let uncorrected_camera_matrix = compute_camera_matrix(
+        let (_, uncorrected_camera_matrix) = compute_cameras(
             &zero_parameters,
             &robot_kinematics,
-            &robot_to_ground,
             &camera_info,
+            Some(&robot_to_ground),
         );
-        let expected = uncorrected_camera_matrix.to_corrected(
+        let expected = uncorrected_camera_matrix.unwrap().to_corrected(
             Rotation3::from_euler_angles(0.1, -0.2, 0.3),
             Rotation3::from_euler_angles(-0.4, 0.5, -0.6),
         );
 
         assert_isometry_near(camera_matrix.ground_to_robot, expected.ground_to_robot);
         assert_isometry_near(camera_matrix.robot_to_head, expected.robot_to_head);
+        assert_eq!(
+            camera_matrix.correction_in_robot,
+            expected.correction_in_robot
+        );
         assert_isometry_near(camera_matrix.head_to_camera, expected.head_to_camera);
         assert_isometry_near(camera_matrix.ground_to_camera, expected.ground_to_camera);
     }

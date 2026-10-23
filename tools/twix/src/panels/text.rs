@@ -358,6 +358,7 @@ mod tests {
                 backend: Arc::clone(&backend),
                 value: Some(&saved),
                 egui_context: Context::default(),
+                render_state: None,
             });
             assert_eq!(panel.source.topic(), "/output/text");
             assert_eq!(panel.source.field_path(), field_path.unwrap_or_default());
