@@ -11,8 +11,9 @@ use tokio::io::{AsyncBufReadExt, BufReader, Lines, Stdin, stdin};
 use crate::{
     deploy_config::DeployConfig,
     git::{
-        add_all, check_clean, cherry_pick, create_and_switch_to_branch, create_commit,
-        has_conflicts, merge_squash, reset, resolve_revision, select_commits,
+        add_all, check_clean, cherry_pick, conflicted_files, create_and_switch_to_branch,
+        create_commit, merge_squash, reset, resolve_revision, select_commits,
+        stage_resolved_conflicts,
     },
     player_number::{Arguments as PlayerNumberArguments, player_number},
 };
@@ -147,7 +148,8 @@ async fn apply_group(
                 Operation::CherryPick(_) => cherry_pick(root, commit).await,
             };
             if let Err(error) = result {
-                if !has_conflicts(root).await? {
+                let conflicts = conflicted_files(root).await?;
+                if conflicts.is_empty() {
                     return Err(error)
                         .wrap_err_with(|| format!("operation failed: {text} ({commit})"));
                 }
@@ -161,10 +163,12 @@ async fn apply_group(
                     {
                         return Ok(false);
                     }
-                    eprintln!("Please resolve and stage all conflicts now.");
+                    eprintln!(
+                        "Please resolve all conflicts now. Resolved files will be staged automatically."
+                    );
                     if confirmation_prompt("Were you able to resolve the conflicts?", input).await?
                     {
-                        if !has_conflicts(root).await? {
+                        if stage_resolved_conflicts(root, &conflicts).await? {
                             break;
                         }
                         eprintln!("There are still unresolved conflicts.");
