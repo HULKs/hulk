@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     net::SocketAddr,
     num::NonZeroUsize,
     pin::Pin,
@@ -43,7 +44,8 @@ use types::{
 use voronoi::VoronoiGrid;
 
 use crate::{
-    motion_assembler::assemble_motion_command, send_message::state_message_send_interval,
+    motion_assembler::assemble_motion_command,
+    send_message::{recent_game_controller_address, state_message_send_interval},
     tree::create_tree,
 };
 
@@ -241,8 +243,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-    let game_controller_address_cache = node
-        .subscriber::<Option<SocketAddr>>("game_controller_address")
+    let game_controller_contacts_cache = node
+        .subscriber::<HashMap<SocketAddr, Time>>("game_controller_address_contacts_times")
         .cache(1)
         .build()
         .await?;
@@ -582,9 +584,19 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             blackboard.last_motion_type = motion_type;
         }
 
-        let game_controller_address = game_controller_address_cache
-            .get_latest()
-            .and_then(|address| *address);
+        let game_controller_address =
+            game_controller_contacts_cache
+                .get_latest()
+                .and_then(|contacts| {
+                    recent_game_controller_address(
+                        &contacts,
+                        blackboard.world_state.now,
+                        blackboard
+                            .parameters
+                            .network
+                            .game_controller_message_receive_timeout,
+                    )
+                });
         if let Some(message) =
             blackboard.game_controller_return_message(game_controller_address.as_ref())
         {

@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, time::Duration};
+use std::{collections::HashMap, net::SocketAddr, time::Duration};
 
 use hsl_network_messages::{
     GameControllerReturnMessage, GamePhase, Half, HulkMessage, StateMessage,
@@ -105,6 +105,18 @@ impl Blackboard {
             None
         }
     }
+}
+
+pub(crate) fn recent_game_controller_address(
+    contacts: &HashMap<SocketAddr, Time>,
+    now: Time,
+    timeout: Duration,
+) -> Option<SocketAddr> {
+    contacts
+        .iter()
+        .max_by_key(|(_, time)| *time)
+        .filter(|(_, time)| now.duration_since(**time) < timeout)
+        .map(|(address, _)| *address)
 }
 
 pub(crate) fn state_message_send_interval(
