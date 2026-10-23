@@ -436,16 +436,21 @@ fn advance_all_hypotheses(
     // leaves that history intact and lets the percept spawn its own hypothesis.
     let reacquisition_distance = filter_parameters.reacquisition_matching_distance;
     {
-        for ((row, column), score) in match_matrix.indexed_iter_mut() {
-            let hypothesis = &ball_filter.hypotheses[row];
-            if reacquisition::protect_prior(hypothesis, time, obstacles, filter_parameters)
-                && !(reacquisition_distance >= 0.0
-                    && (ball_percepts[column].percept_in_ground.mean
-                        - hypothesis.position().position.inner.coords)
-                        .norm_squared()
-                        <= reacquisition_distance.powi(2))
+        let maximum_squared = reacquisition_distance.powi(2);
+        for (hypothesis, mut scores) in ball_filter.hypotheses.iter().zip(match_matrix.rows_mut()) {
+            if scores.is_empty()
+                || !reacquisition::protect_prior(hypothesis, time, obstacles, filter_parameters)
             {
-                *score = f32::NEG_INFINITY;
+                continue;
+            }
+            let position = hypothesis.position().position.inner.coords;
+            for (percept, score) in ball_percepts.iter().zip(scores.iter_mut()) {
+                if !(reacquisition_distance >= 0.0
+                    && (percept.percept_in_ground.mean - position).norm_squared()
+                        <= maximum_squared)
+                {
+                    *score = f32::NEG_INFINITY;
+                }
             }
         }
     }
@@ -1681,6 +1686,12 @@ mod tests {
             (1000.0, 200, false),
             (0.1, 40, false),
             (0.1, 200, true),
+            (0.5, 200, false),
+            (-0.5, 200, true),
+            (f32::NAN, 200, true),
+            (f32::INFINITY, 200, false),
+            (-0.5, 40, false),
+            (f32::NAN, 40, false),
         ] {
             let mut parameters = crate::test_parameters();
             parameters.reacquisition_matching_distance = gate;
