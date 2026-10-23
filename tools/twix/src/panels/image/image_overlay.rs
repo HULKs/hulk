@@ -1,6 +1,10 @@
 use super::{
     inputs::{OverlayInput, OverlayInputs},
-    overlays::{HorizonOverlay, ObjectDetectionOverlay, PoseDetectionOverlay},
+    overlays::{
+        BallDetectionConfidenceOverlay, BallFilterConfidenceOverlay, BallFilterOverlay,
+        BallPerceptsOverlay, BallPositionOverlay, HorizonOverlay, ObjectDetectionOverlay,
+        PoseDetectionOverlay,
+    },
 };
 use color_eyre::Report;
 use coordinate_systems::Pixel;
@@ -15,6 +19,10 @@ pub(super) trait ImageOverlay {
     fn inputs(&self) -> Vec<OverlayInput>;
     fn prepare(&mut self, time: Time, inputs: &mut OverlayInputs) -> Result<(), Report>;
     fn paint(&self, painter: &TwixPainter<Pixel>);
+
+    fn status(&self) -> Option<String> {
+        None
+    }
 }
 
 struct OverlayEntry {
@@ -68,6 +76,31 @@ impl ImageOverlays {
                 "pose_detection",
                 "Pose Detection",
                 PoseDetectionOverlay::default(),
+            ),
+            OverlayEntry::new(
+                "ball_percepts",
+                "Ball Percepts",
+                BallPerceptsOverlay::default(),
+            ),
+            OverlayEntry::new(
+                "ball_percept_confidence",
+                "Ball Percept Confidence",
+                BallDetectionConfidenceOverlay::default(),
+            ),
+            OverlayEntry::new(
+                "selected_ball_filter",
+                "Ball Filter",
+                BallPositionOverlay::default(),
+            ),
+            OverlayEntry::new(
+                "ball_filter_candidates",
+                "Ball Filter Candidates",
+                BallFilterOverlay::default(),
+            ),
+            OverlayEntry::new(
+                "ball_filter_confidence",
+                "Ball Filter Confidence",
+                BallFilterConfidenceOverlay::default(),
             ),
         ];
         for entry in &mut entries {
@@ -157,6 +190,11 @@ impl ImageOverlays {
                     if let Some(error) = &entry.error {
                         ui.colored_label(ui.visuals().error_fg_color, error);
                     }
+                    if entry.enabled
+                        && let Some(status) = entry.overlay.status()
+                    {
+                        ui.small(status);
+                    }
                 }
             });
     }
@@ -168,5 +206,26 @@ impl ImageOverlays {
                 .map(|entry| (entry.id.into(), json!({"active":entry.enabled})))
                 .collect(),
         )
+    }
+
+    pub(super) fn legend(&self, ui: &mut Ui) {
+        let active = |id| {
+            self.entries
+                .iter()
+                .any(|entry| entry.id == id && entry.enabled)
+        };
+        crate::panels::ball_visualization::BallLegend {
+            percepts: active("ball_percepts"),
+            position: active("selected_ball_filter"),
+            filter: active("ball_filter_candidates"),
+        }
+        .show(ui);
+        if let Some(status) = self
+            .entries
+            .iter()
+            .find_map(|entry| entry.enabled.then(|| entry.overlay.status()).flatten())
+        {
+            ui.small(status);
+        }
     }
 }

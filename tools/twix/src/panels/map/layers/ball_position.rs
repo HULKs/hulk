@@ -1,3 +1,4 @@
+use crate::repaint::{ObservationContext, ObservationRepaint, RepaintOnUpdates};
 use std::{sync::Arc, time::Duration};
 
 use color_eyre::{Result, eyre::OptionExt};
@@ -8,6 +9,7 @@ use linear_algebra::Isometry2;
 use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
 use types::field_dimensions::FieldDimensions;
 
+use crate::panels::ball_visualization::TEAM_BALL_COLOR;
 use crate::{backend::RobotBackend, panels::map::layer::Layer};
 use twix_visualization::twix_painter::TwixPainter;
 
@@ -18,7 +20,8 @@ pub struct BallPosition {
 }
 
 impl Layer<Field> for BallPosition {
-    const NAME: &'static str = "Ball Position";
+    const NAME: &'static str = "Ball Filter";
+    const STORAGE_KEY: Option<&'static str> = Some("selected_ball_filter");
 
     fn new(backend: Arc<RobotBackend>) -> Self {
         let _runtime_handle = backend.runtime_handle().enter();
@@ -50,6 +53,14 @@ impl Layer<Field> for BallPosition {
         }
     }
 
+    fn repaint_on_updates(&self, context: &impl ObservationContext) -> Vec<ObservationRepaint> {
+        vec![
+            self.ground_to_field.repaint_on_updates(context),
+            self.ball_position.repaint_on_updates(context),
+            self.team_ball.repaint_on_updates(context),
+        ]
+    }
+
     fn paint(
         &self,
         painter: &TwixPainter<Field>,
@@ -74,7 +85,7 @@ impl Layer<Field> for BallPosition {
             painter.circle_filled(
                 ground_to_field * ball.position,
                 field_dimensions.ball_radius,
-                Color32::from_white_alpha(10),
+                Color32::BLUE.gamma_multiply(10.0 / 255.0),
             );
         }
 
@@ -82,7 +93,7 @@ impl Layer<Field> for BallPosition {
             value: Some(ball), ..
         }) = self.team_ball.latest().as_deref()
         {
-            painter.ball(ball.position, field_dimensions.ball_radius, Color32::RED);
+            painter.ball(ball.position, field_dimensions.ball_radius, TEAM_BALL_COLOR);
         }
 
         if let Some(SampleRecord {
@@ -96,7 +107,7 @@ impl Layer<Field> for BallPosition {
             painter.ball(
                 ground_to_field * ball.position,
                 field_dimensions.ball_radius,
-                Color32::WHITE,
+                Color32::BLUE,
             );
         }
         Ok(())

@@ -11659,7 +11659,7 @@ dependencies = [
 
 [[package]]
 name = "twix"
-version = "0.19.1"
+version = "0.20.0"
 dependencies = [
  "ball_filter",
  "behavior_node",

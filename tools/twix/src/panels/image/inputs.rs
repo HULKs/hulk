@@ -70,6 +70,12 @@ impl OverlayInput {
         self
     }
 
+    pub fn source_time<T: Message>(topic: &str, selection: Selection) -> Self {
+        let mut input = Self::new::<T>(topic, selection);
+        input.source.projection = TimeProjection::SourceTime;
+        input
+    }
+
     pub fn into_spec(mut self, namespace: &str) -> Result<InputSpec, Report> {
         self.source.topic =
             TopicReference::new(&self.source.topic)?.resolve(&TargetIdentity::new(namespace)?)?;
@@ -121,6 +127,24 @@ impl OverlayInputs {
                 State::Failed(error) => Some(error.as_str()),
                 _ => None,
             }))
+    }
+
+    pub fn records<T: Message>(
+        &mut self,
+        slot: usize,
+    ) -> Result<Vec<Arc<SampleRecord<T>>>, Report> {
+        let result = (|| match self.states.get(slot) {
+            None | Some(State::Pending) => Ok(vec![]),
+            Some(State::Failed(error)) => bail!(error.clone()),
+            Some(State::Ready(records)) => records
+                .iter()
+                .map(|sample| decode_record(&sample.record, &sample.topic).map_err(Report::from))
+                .collect(),
+        })();
+        if let Err(error) = &result {
+            self.errors.push(format!("{error:#}"));
+        }
+        result
     }
 
     pub fn decode<T: Message>(
