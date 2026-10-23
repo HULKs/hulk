@@ -13,7 +13,7 @@ use std::{
 use std::os::unix::fs::MetadataExt;
 
 use color_eyre::eyre::{Context as _, OptionExt, Result};
-use notify::{Event, EventKind, RecursiveMode, Watcher, recommended_watcher};
+use notify::{Event, EventKind, RecursiveMode, Watcher, event::ModifyKind, recommended_watcher};
 use ros_z::context::Context;
 use ros_z_debug::TargetIdentity;
 use tokio::{
@@ -198,13 +198,56 @@ impl Directory<'_> {
                 Err(error) => {
                     let error = format!("{error:#}");
                     if self.failures.get(&path) != Some(&error) {
-                        tracing::warn!(path = %path.display(), %error, "cannot serve recording; retrying on filesystem changes");
+                        tracing::warn!(path = %path.display(), %error, "cannot serve recording: retrying on filesystem changes");
                     }
                     self.failures.insert(path, error);
                 }
             }
         }
         Ok(())
+    }
+
+    async fn run_notifier(&mut self) -> Result<()> {
+        let root = self.root.clone();
+        let (changed, mut changes) = watch::channel(false);
+        let mut watcher = recommended_watcher(move |event: notify::Result<Event>| {
+            let restart = match event {
+                Ok(event) if matches!(event.kind, EventKind::Access(_)) => return,
+                Ok(event) => {
+                    event.need_rescan()
+                        || (event.paths.contains(&root)
+                            && matches!(
+                                event.kind,
+                                EventKind::Remove(_) | EventKind::Modify(ModifyKind::Name(_))
+                            ))
+                }
+                Err(error) => {
+                    tracing::error!(%error, "directory watcher failed: restarting");
+                    true
+                }
+            };
+            // Preserve invalidation even if ordinary events arrive before the loop wakes.
+            changed.send_modify(|invalidated| *invalidated |= restart);
+        })?;
+        if let Err(error) = watcher.watch(&self.root, RecursiveMode::Recursive) {
+            if matches!(&error.kind, notify::ErrorKind::PathNotFound)
+                || matches!(&error.kind, notify::ErrorKind::Io(error) if error.kind() == ErrorKind::NotFound)
+            {
+                return Ok(());
+            }
+            return Err(error).wrap_err("watching replay directory");
+        }
+        tracing::info!(path = %self.root.display(), "watching recordings recursively");
+        loop {
+            self.reconcile().await?;
+            changes.changed().await?;
+            // Fixed batching window also makes progress under continuous writes.
+            sleep(Duration::from_millis(250)).await;
+            if *changes.borrow_and_update() {
+                tracing::warn!(path = %self.root.display(), "directory watcher invalidated: retrying");
+                return Ok(());
+            }
+        }
     }
 }
 
@@ -218,20 +261,6 @@ pub async fn watch(
     let root = root
         .canonicalize()
         .wrap_err("resolving watched directory")?;
-    let (changed, mut changes) = watch::channel(());
-    let mut watcher = recommended_watcher(move |event: notify::Result<Event>| {
-        match event {
-            Ok(event) if matches!(event.kind, EventKind::Access(_)) => return,
-            Err(error) => tracing::error!(%error, "directory watcher failed; rescanning"),
-            _ => {}
-        }
-        changed.send_replace(());
-    })?;
-    watcher
-        .watch(&root, RecursiveMode::Recursive)
-        .wrap_err("watching replay directory")?;
-    tracing::info!(path = %root.display(), "watching recordings recursively");
-
     let mut directory = Directory {
         root,
         base,
@@ -243,11 +272,9 @@ pub async fn watch(
     };
     let run = async {
         loop {
+            directory.run_notifier().await?;
             directory.reconcile().await?;
-            changes.changed().await?;
-            // Fixed batching window also makes progress under continuous writes.
-            sleep(Duration::from_millis(250)).await;
-            changes.borrow_and_update();
+            sleep(Duration::from_secs(1)).await;
         }
     };
     let result = tokio::select! {
@@ -255,7 +282,6 @@ pub async fn watch(
         result = ctrl_c() => result.wrap_err("waiting for shutdown signal"),
     };
 
-    drop(watcher);
     stop_recordings(directory.serving).await;
     result
 }
