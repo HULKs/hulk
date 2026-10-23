@@ -1,7 +1,7 @@
 {
   // Angles in radians, velocities in radians per second, lengths in metres.
   maximum_observation_age: { secs: 0, nanos: 50000000 },
-  detection_lifetime: { secs: 0, nanos: 100000000 },
+  detection_lifetime: { secs: 0, nanos: 1000000000 },
   upright: {
     maximum_torso_tilt: 0.349066,
     maximum_torso_angular_velocity: 2.5,
