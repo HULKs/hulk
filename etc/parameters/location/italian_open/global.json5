@@ -5,7 +5,7 @@
     width: 13.93,
     goal_depth: 1.0,
     goal_inner_width: 3.0,
-    goal_post_diameter: 0.04,
+    goal_post_diameter: 0.1,
     goal_box_area_length: 1.92,
     goal_box_area_width: 4.9,
     penalty_area_length: 4.91,
