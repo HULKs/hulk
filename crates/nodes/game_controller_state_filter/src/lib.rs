@@ -262,7 +262,8 @@ impl GameControllerStateFilter {
             did_receive_motion_in_set_penalty,
         );
 
-        if let State::WhistleInSet { .. } = self.state
+        let kick_off = game_controller_state.is_kick_off();
+        if (matches!(self.state, State::WhistleInSet { .. }) || kick_off)
             && self.whistle_in_set_ball_position.is_none()
             && let Some(ball_state) = current_ball_state.as_ref()
         {
@@ -273,7 +274,7 @@ impl GameControllerStateFilter {
             game_controller_state.penalties[*player_number],
             Some(Penalty::MotionInSet { .. })
         );
-        if matches!(self.state, State::Playing) || motion_in_set {
+        if (matches!(self.state, State::Playing) && !kick_off) || motion_in_set {
             self.whistle_in_set_ball_position = None;
         }
 

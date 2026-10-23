@@ -5,7 +5,7 @@
   },
   playing_message_delay: {
     nanos: 0,
-    secs: 15,
+    secs: 10,
   },
   ready_message_delay: {
     nanos: 0,
