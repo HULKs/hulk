@@ -205,12 +205,7 @@ impl Tracker {
                     dimensions,
                     ground_to_field,
                 )?;
-                let covariance_trace = tracker
-                    .filter
-                    .best_hypothesis_for_output(time, &alternate, dimensions, ground_to_field)?
-                    .position_covariance()
-                    .trace();
-                Some((ball, covariance_trace))
+                Some((ball, tracker, alternate))
             });
         let valid_pose = ground_to_field.is_some_and(|pose| {
             pose.inner
@@ -245,6 +240,15 @@ impl Tracker {
         if hypothesis.last_observation_size_plausible != Some(false) {
             return Some(baseline);
         }
+        // Selection is read-only; defer this second auxiliary pass until a correction is needed.
+        let alternate = alternate.and_then(|(ball, tracker, alternate)| {
+            let covariance_trace = tracker
+                .filter
+                .best_hypothesis_for_output(time, &alternate, dimensions, ground_to_field)?
+                .position_covariance()
+                .trace();
+            Some((ball, covariance_trace))
+        });
         let alternate = alternate.filter(|(ball, covariance_trace)| {
             // Retained history can survive long after its motion prediction
             // becomes less certain than a newly observed primary track.

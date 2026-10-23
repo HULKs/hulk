@@ -221,19 +221,27 @@ impl BallFilter {
         merge_criterion: impl Fn(&BallHypothesis, &BallHypothesis) -> bool,
         endpoint_minimum_distance: f32,
     ) -> Vec<BallHypothesis> {
-        let (valid, removed): (Vec<_>, Vec<_>) = self.hypotheses.drain(..).partition(is_valid);
+        // Keep the filter empty on unwind, as with the former drain-based pass.
+        let mut hypotheses = std::mem::take(&mut self.hypotheses);
+        let removed = hypotheses
+            .extract_if(.., |hypothesis| !is_valid(hypothesis))
+            .collect();
 
-        let mut deduplicated: Vec<BallHypothesis> = Vec::new();
-        for hypothesis in valid {
+        let mut index = 0;
+        while index < hypotheses.len() {
+            let (deduplicated, remaining) = hypotheses.split_at_mut(index);
+            let hypothesis = &remaining[0];
             let merged = deduplicated.iter_mut().any(|existing| {
-                merge_criterion(existing, &hypothesis)
-                    && existing.merge(&hypothesis, endpoint_minimum_distance)
+                merge_criterion(existing, hypothesis)
+                    && existing.merge(hypothesis, endpoint_minimum_distance)
             });
-            if !merged {
-                deduplicated.push(hypothesis);
+            if merged {
+                hypotheses.remove(index);
+            } else {
+                index += 1;
             }
         }
-        self.hypotheses = deduplicated;
+        self.hypotheses = hypotheses;
 
         removed
     }

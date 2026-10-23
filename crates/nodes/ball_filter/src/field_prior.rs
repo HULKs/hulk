@@ -90,7 +90,12 @@ pub(crate) fn decay_stored_validity(
     for hypothesis in hypotheses {
         let weight = confidence_weight(hypothesis, ground_to_field, dimensions, parameters);
         let rate = maximum_rate * (1.0 - weight.clamp(0.0, 1.0));
-        hypothesis.validity *= (-rate * elapsed.as_secs_f32()).exp();
+        let decay = if rate == 0.0 {
+            1.0
+        } else {
+            (-rate * elapsed.as_secs_f32()).exp()
+        };
+        hypothesis.validity *= decay;
     }
 }
 
@@ -124,7 +129,15 @@ pub(crate) fn confidence_weight(
     // rectangle. Border strips are outside the playing field, too.
     let dx = (position.x().abs() - dimensions.length / 2.0).max(0.0);
     let dy = (position.y().abs() - dimensions.width / 2.0).max(0.0);
-    let whole_ball_distance = (dx.hypot(dy) - dimensions.ball_radius).max(0.0);
+    // Axis-aligned distances need no hypot; abs preserves its positive zero.
+    let distance = if dx == 0.0 {
+        dy.abs()
+    } else if dy == 0.0 {
+        dx
+    } else {
+        dx.hypot(dy)
+    };
+    let whole_ball_distance = (distance - dimensions.ball_radius).max(0.0);
     // Allow localization/radius uncertainty beyond the existing whole-ball
     // clearance. The margin delays both ranking and stored-validity penalties;
     // their exponential shape remains unchanged outside that buffer.
