@@ -1,1 +1,4 @@
-{}
+{
+  // Independent ceiling for cached local or team observations, including input silence.
+  maximum_ball_age: { secs: 4, nanos: 500000000 },
+}
