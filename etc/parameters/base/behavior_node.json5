@@ -96,7 +96,7 @@
     relative_striker_position: [-0.05, 0.0],
     /// Own-kickoff support slots, filled in order by descending active player number.
     relative_aggressive_positions: [
-      [-0.3, 0.5],
+      [-0.1, 0.3],
       [-0.3, -0.5],
       [-0.6, 0.0],
     ],
