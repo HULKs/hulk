@@ -38,6 +38,7 @@ site/
 
 deploy.toml
 logs
+*.mcap
 
 notes*
 .worktrees/

@@ -4,10 +4,7 @@ use std::{
     fs::File,
     io::{Read, Seek},
     path::Path,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::Arc,
 };
 
 use color_eyre::eyre::{Context, OptionExt, Result, bail, ensure};
@@ -22,6 +19,7 @@ use mcap::{
 };
 use ros_z::{TypeInfo, dynamic::Schema, topic_name::qualify_topic_name};
 use ros_z_schema::{SchemaBundle, TypeDef, compute_hash};
+use tokio_util::sync::CancellationToken;
 
 #[cfg(unix)]
 use std::os::unix::fs::FileExt;
@@ -29,7 +27,7 @@ use std::os::unix::fs::FileExt;
 use std::os::windows::fs::FileExt;
 
 mod query;
-pub use query::{DEFAULT_INDEX_BYTES, QueryRecording};
+pub use query::{IndexCache, PendingQuery, QueryRecording};
 
 const MAX_CHUNK: usize = 64 * 1024 * 1024;
 const CACHE_BYTES: usize = 32 * 1024 * 1024;
@@ -244,11 +242,11 @@ impl Recording {
     fn scan_chunk(
         &mut self,
         index: u32,
-        cancel: &AtomicBool,
+        cancel: &CancellationToken,
         visit: impl FnMut(u32, u8, &[u8]) -> Result<()>,
     ) -> Result<()> {
         let chunk = &self.summary.chunk_indexes[index as usize];
-        Self::scan_chunk_at(&self.file, chunk, || cancel.load(Ordering::Relaxed), visit)?;
+        Self::scan_chunk_at(&self.file, chunk, || cancel.is_cancelled(), visit)?;
         self.decoded_chunks += 1;
         Ok(())
     }
@@ -306,7 +304,11 @@ impl Recording {
         Ok(())
     }
 
-    fn snapshot_chunk(&mut self, index: u32, cancel: &AtomicBool) -> Result<Arc<SnapshotChunk>> {
+    fn snapshot_chunk(
+        &mut self,
+        index: u32,
+        cancel: &CancellationToken,
+    ) -> Result<Arc<SnapshotChunk>> {
         if let Some(slot) = self.chunks.iter().position(|(cached, _)| *cached == index) {
             let chunk = self.chunks.remove(slot).expect("existing chunk");
             let result = Arc::clone(&chunk.1);
@@ -349,15 +351,15 @@ mod tests {
         let recording = Recording::open(file.path(), "/replay").unwrap();
         #[cfg(unix)]
         let before = (&recording.file).stream_position().unwrap();
-        let cancel = AtomicBool::new(false);
+        let cancel = CancellationToken::new();
         let mut visits = 0;
         let result = Recording::scan_chunk_at(
             &recording.file,
             &recording.summary.chunk_indexes[0],
-            || cancel.load(Ordering::Relaxed),
+            || cancel.is_cancelled(),
             |_, _, _| {
                 visits += 1;
-                cancel.store(true, Ordering::Relaxed);
+                cancel.cancel();
                 Ok(())
             },
         );

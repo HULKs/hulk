@@ -1,6 +1,9 @@
-use std::sync::{
-    Arc, Mutex, MutexGuard,
-    atomic::{AtomicU64, Ordering},
+use std::{
+    collections::BTreeSet,
+    sync::{
+        Arc, Mutex, MutexGuard,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use crate::replay::ReplaySession;
@@ -130,6 +133,18 @@ impl RobotBackend {
             .lock()
             .expect("namespace mutex should not be poisoned")
             .clone()
+    }
+
+    pub fn namespaces(&self) -> Vec<String> {
+        let graph = self.graph().lock();
+        graph
+            .nodes()
+            .map(|node| node.namespace.trim_matches('/'))
+            .filter(|namespace| *namespace != "_twix")
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .map(|namespace| format!("/{namespace}"))
+            .collect()
     }
 
     pub fn set_namespace(&self, namespace: String) -> Result<()> {

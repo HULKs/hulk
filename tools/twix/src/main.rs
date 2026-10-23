@@ -16,6 +16,7 @@ use eframe::{
     emath::Align,
     run_native,
 };
+use hulk_widgets::CompletionEdit;
 use layout::{FocusDirection, TwixLayout};
 use log::{error, warn};
 use panels::{
@@ -26,7 +27,7 @@ use repository::{Repository, inspect_version::check_for_update};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use visuals::Visuals;
 
-use crate::backend::RobotBackend;
+use crate::{backend::RobotBackend, repaint::ObservationRepaint};
 
 mod backend;
 mod configuration;
@@ -73,6 +74,7 @@ struct Arguments {
 struct TwixApp {
     layout: TwixLayout,
     namespace_editor: String,
+    _graph_repaint: ObservationRepaint,
     visual: Visuals,
     backend: Arc<RobotBackend>,
     runtime: tokio::runtime::Runtime,
@@ -87,6 +89,7 @@ impl TwixApp {
         configuration: Configuration,
     ) -> Self {
         let namespace_editor = backend.namespace();
+        let graph_repaint = ObservationRepaint::graph(&backend, creation_context.egui_ctx.clone());
 
         let layout = TwixLayout::load(
             creation_context.storage,
@@ -110,6 +113,7 @@ impl TwixApp {
         Self {
             layout,
             namespace_editor,
+            _graph_repaint: graph_repaint,
             visual,
             backend,
             runtime,
@@ -127,11 +131,24 @@ impl App for TwixApp {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                     ui.label("Namespace:");
-                    let namespace_response = ui.text_edit_singleline(&mut self.namespace_editor);
-                    if shortcuts_enabled && context.keybind_pressed(KeybindAction::FocusNamespace) {
-                        namespace_response.request_focus();
-                    }
-                    if namespace_response.lost_focus()
+                    let namespaces = self.backend.namespaces();
+                    let namespace_response = ui
+                        .add(
+                            CompletionEdit::new(
+                                ui.id().with("namespace"),
+                                &namespaces,
+                                &mut self.namespace_editor,
+                            )
+                            .request_focus(
+                                shortcuts_enabled
+                                    && context.keybind_pressed(KeybindAction::FocusNamespace),
+                            ),
+                        )
+                        .on_hover_text(
+                            "Discovered namespaces. You can also enter a namespace manually.",
+                        );
+
+                    if (namespace_response.changed() || namespace_response.lost_focus())
                         && self.namespace_editor != self.backend.namespace()
                         && let Err(error) =
                             self.backend.set_namespace(self.namespace_editor.clone())

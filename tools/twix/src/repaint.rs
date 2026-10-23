@@ -42,6 +42,17 @@ pub struct ObservationRepaint {
 }
 
 impl ObservationRepaint {
+    pub fn graph(backend: &RobotBackend, egui: Context) -> Self {
+        let mut updates = backend.graph().watch_revisions();
+        let task = backend.runtime_handle().spawn(async move {
+            while updates.changed().await.is_some() {
+                egui.request_repaint();
+            }
+        });
+
+        Self { task }
+    }
+
     fn watch<T: Send + Sync + 'static>(
         context: &impl ObservationContext,
         mut updates: watch::Receiver<T>,
