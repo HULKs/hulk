@@ -123,6 +123,10 @@
       nanos: 0,
       secs: 1,
     },
+    game_controller_message_receive_timeout: {
+      nanos: 0,
+      secs: 5,
+    },
     half_duration: {
       nanos: 0,
       secs: 600,
