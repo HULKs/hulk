@@ -3,7 +3,7 @@ use std::{boxed::Box, future::Future, pin::Pin};
 
 use color_eyre::Result;
 
-use hsl_network_messages::{HulkMessage, PlayerNumber, StateMessage};
+use hsl_network_messages::{HulkMessage, PlayerNumber, StateMessage, WhistleMessage};
 use ros_z::{prelude::*, qos::QosDurability};
 use types::{messages::IncomingMessage, time_wrapper::TimeWrapper};
 
@@ -39,9 +39,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let Some(current_player_number) = player_number else {continue;};
                 let time_wrapped_message = received_time_wrapped_message?;
 
-                let should_filter_message_out = matches!(time_wrapped_message.inner, IncomingMessage::Hsl(
-                        HulkMessage::State(StateMessage { player_number, .. }),
-                    ) if player_number == current_player_number);
+                let should_filter_message_out = is_own_message(&time_wrapped_message.inner, current_player_number);
 
                 if !should_filter_message_out {
                     filtered_message_pub.publish(
@@ -56,5 +54,26 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 player_number = Some(received_player_number?);
             }
         }
+    }
+}
+
+fn is_own_message(message: &IncomingMessage, own_player_number: PlayerNumber) -> bool {
+    matches!(message, IncomingMessage::Hsl(
+        HulkMessage::State(StateMessage { player_number, .. })
+        | HulkMessage::Whistle(WhistleMessage { player_number }),
+    ) if *player_number == own_player_number)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_teammate_whistles_and_discards_own_broadcasts() {
+        let message = IncomingMessage::Hsl(HulkMessage::Whistle(WhistleMessage {
+            player_number: PlayerNumber::One,
+        }));
+        assert!(is_own_message(&message, PlayerNumber::One));
+        assert!(!is_own_message(&message, PlayerNumber::Two));
     }
 }

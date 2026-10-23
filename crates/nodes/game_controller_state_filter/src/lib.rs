@@ -1,5 +1,5 @@
 use std::{boxed::Box, future::Future, pin::Pin};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::SystemTime};
 
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -76,6 +76,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let mut latest_known_ball_state = None;
     let mut game_controller_state_filter = GameControllerStateFilter::default();
+    let mut last_processed_whistle = None;
 
     loop {
         let parameters_snapshot = parameters.snapshot();
@@ -92,7 +93,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         };
 
-        let filtered_whistle = filtered_whistle_cache.get_latest().unwrap_or_default();
+        let filtered_whistle = take_new_whistle(
+            *filtered_whistle_cache.get_latest().unwrap_or_default(),
+            &mut last_processed_whistle,
+            game_controller_state_filter.state,
+            game_controller_state.game_state,
+            game_controller_state.stopped,
+        );
 
         let current_ball_state_time = ball_state_cache.latest_stamp();
         let current_ball_state = ball_state_cache.get_latest().and_then(|maybe| *maybe);
@@ -118,6 +125,38 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         filtered_game_controller_state_pub
             .publish(&filtered_game_controller_state)
             .await?;
+    }
+}
+
+// Whistle pulses can end between GameController packets.
+fn take_new_whistle(
+    whistle: FilteredWhistle,
+    last_processed: &mut Option<SystemTime>,
+    current_state: State,
+    game_state: GameState,
+    stopped: bool,
+) -> FilteredWhistle {
+    let defer_detection = match game_state {
+        GameState::Set => !matches!(current_state, State::Set | State::WhistleInSet { .. }),
+        GameState::Playing => !matches!(
+            current_state,
+            State::Playing | State::WhistleInPlaying { .. }
+        ),
+        _ => false,
+    };
+    // Let the state machine enter Set or Playing before consuming the whistle.
+    if defer_detection && !stopped {
+        return FilteredWhistle {
+            is_detected: false,
+            ..whistle
+        };
+    }
+    let is_detected =
+        !stopped && whistle.last_detection.is_some() && whistle.last_detection != *last_processed;
+    *last_processed = whistle.last_detection;
+    FilteredWhistle {
+        is_detected,
+        ..whistle
     }
 }
 
@@ -561,4 +600,61 @@ fn penalty_diff(
             }
             map
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::*;
+
+    #[test]
+    fn consumes_short_cached_whistles_once() {
+        let mut last_processed = None;
+        let whistle = FilteredWhistle {
+            is_detected: false,
+            last_detection: Some(SystemTime::UNIX_EPOCH),
+        };
+        for (state, expected) in [
+            (State::Ready, false),
+            (State::Set, true),
+            (State::Set, false),
+        ] {
+            let result =
+                take_new_whistle(whistle, &mut last_processed, state, GameState::Set, false);
+            assert_eq!(result.is_detected, expected);
+        }
+        let whistle_during_stop = FilteredWhistle {
+            last_detection: Some(SystemTime::UNIX_EPOCH + Duration::from_secs(1)),
+            ..whistle
+        };
+        for (state, stopped) in [
+            (State::Stop, true),
+            (State::Stop, false),
+            (State::Set, false),
+        ] {
+            let result = take_new_whistle(
+                whistle_during_stop,
+                &mut last_processed,
+                state,
+                GameState::Set,
+                stopped,
+            );
+            assert!(!result.is_detected);
+        }
+        let fresh = FilteredWhistle {
+            last_detection: Some(SystemTime::UNIX_EPOCH + Duration::from_secs(2)),
+            ..whistle
+        };
+        assert!(
+            take_new_whistle(
+                fresh,
+                &mut last_processed,
+                State::Set,
+                GameState::Set,
+                false
+            )
+            .is_detected
+        );
+    }
 }
