@@ -113,6 +113,23 @@ pub async fn select_commits(
     revisions: &[&str],
     top: Option<usize>,
 ) -> Result<Vec<String>> {
+    let mut missing = Vec::new();
+    for revision in revisions {
+        if GitCommand::new(root, "rev-list")
+            .args(["--no-walk=unsorted", "--max-count=0", revision, "--"])
+            .output()
+            .await
+            .is_err()
+        {
+            missing.push(*revision);
+        }
+    }
+    if !missing.is_empty() {
+        bail!(
+            "can't find revisions to cherry-pick: {}",
+            missing.join(", ")
+        );
+    }
     let mut command = GitCommand::new(root, "rev-list");
     if let Some(count) = top {
         command = command

@@ -59,7 +59,11 @@ async fn resolve_operation(root: &Path, text: &str) -> Result<Operation> {
     }
     if pick {
         let commits = if top.is_some() {
-            let revision = resolve_revision(root, revisions[0]).await?;
+            let revision = resolve_revision(root, revisions[0])
+                .await
+                .wrap_err_with(|| {
+                    format!("can't find revision to cherry-pick: {}", revisions[0])
+                })?;
             select_commits(root, &[&revision], top).await?
         } else {
             select_commits(root, revisions, None).await?
@@ -67,8 +71,15 @@ async fn resolve_operation(root: &Path, text: &str) -> Result<Operation> {
         Ok(Operation::CherryPick(commits))
     } else {
         let mut commits = Vec::new();
+        let mut missing = Vec::new();
         for revision in revisions {
-            commits.push(resolve_revision(root, revision).await?);
+            match resolve_revision(root, revision).await {
+                Ok(commit) => commits.push(commit),
+                Err(_) => missing.push(*revision),
+            }
+        }
+        if !missing.is_empty() {
+            bail!("can't find revisions to merge: {}", missing.join(", "));
         }
         Ok(Operation::Merge(commits))
     }
@@ -81,23 +92,35 @@ pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Resul
 
     let root = &repository.root;
     check_clean(root).await?;
-    let base = resolve_revision(root, &config.base)
-        .await
-        .wrap_err_with(|| format!("can't find base branch: {}", config.base))?;
+    let base = resolve_revision(root, &config.base).await;
+    let mut all_found = true;
+    if base.is_err() {
+        eprintln!("can't find base branch: {}", config.base);
+        all_found = false;
+    }
     let mut groups = Vec::new();
     for (index, entry) in config.branches.iter().enumerate() {
         if entry.operations().is_empty() {
-            bail!("branches[{}] is an empty group", index);
+            eprintln!("branches[{index}] is an empty group");
+            all_found = false;
+            continue;
         }
         let mut group = Vec::new();
         for text in entry.operations() {
-            let operation = resolve_operation(root, text)
-                .await
-                .wrap_err_with(|| format!("invalid branches[{index}] operation: {text}"))?;
-            group.push((text.as_str(), operation));
+            match resolve_operation(root, text).await {
+                Ok(operation) => group.push((text.as_str(), operation)),
+                Err(error) => {
+                    eprintln!("branches[{index}]: {error}");
+                    all_found = false;
+                }
+            }
         }
         groups.push(group);
     }
+    if !all_found {
+        bail!("pre-checks failed");
+    }
+    let base = base?;
 
     let branch_name = config.branch_name();
     create_and_switch_to_branch(root, &branch_name, &base, arguments.force)
