@@ -136,7 +136,7 @@ impl WhistleFilter {
 
         (
             FilteredWhistle {
-                is_detected,
+                is_detected: false,
                 last_detection: self.last_detection,
             },
             started && parameters.broadcast,
@@ -146,7 +146,7 @@ impl WhistleFilter {
     fn receive_whistle(&mut self, now: SystemTime) -> FilteredWhistle {
         self.last_detection = Some(now);
         FilteredWhistle {
-            is_detected: true,
+            is_detected: false,
             last_detection: self.last_detection,
         }
     }
