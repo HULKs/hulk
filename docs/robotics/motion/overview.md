@@ -20,6 +20,26 @@ Motion finishes by collecting and optimizing all motor commands in the `motor_co
 
 ## ROS-Z Booster Path
 
+### CPU isolation
+
+`--motion-cpus 4,5` runs motion, low-state input, fall/pose checks, and
+operator-input/state nodes on a separate Tokio runtime. The general runtime and
+shared transport exclude those CPUs. Behavior, including Voronoi and planning,
+stays on the general runtime; safety command selection still depends on it.
+Without the flag, all nodes share one runtime.
+
+Threads are individually pinned across the selected CPUs, which remain shared
+with vendor processes. Tokio scheduler handoffs can leave both async workers on
+one CPU without breaking isolation; preserving their distribution is a future
+improvement.
+
+Deploy both the binary and `/usr/bin/launch-hulk`, which supplies the flag.
+Verify `Cpus_allowed_list` is `4` or `5` for each `hulk-motion` thread in
+`/proc/<pid>/task/<tid>/status`, and measure timing and stop-response latency
+under perception load.
+
+### Command path
+
 The ROS-Z Booster stack bypasses the legacy `commands_sender` path. Behavior publishes `behavior/motion_command`, and `hardware_interface` owns Booster Zenoh RPC mode changes, walking commands, head rotation, stand-up requests, LED forwarding, and `rt/kick_ball` publishing.
 
 Head motion runs in `crates/nodes/head_motion`.

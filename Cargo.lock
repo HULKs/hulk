@@ -5582,6 +5582,7 @@ dependencies = [
  "motion",
  "motion_inference",
  "motor_commands_collector",
+ "nix 0.31.3",
  "obstacle_filter",
  "odometer_bridge",
  "odometry",
