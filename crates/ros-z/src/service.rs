@@ -4,6 +4,7 @@ use std::{
     time::Duration,
 };
 
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info, trace, warn};
 use zenoh::{
     Wait, bytes, key_expr::KeyExpr, liveliness::LivelinessToken, query::Query, sample::Sample,
@@ -605,7 +606,7 @@ where
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize, crate::Message)]
 pub struct RequestId {
     pub sequence_number: i64,
     pub writer_global_id: EndpointGlobalId,

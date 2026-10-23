@@ -1,0 +1,53 @@
+use kinematics::joints::Joints;
+use ros_z::time::Time;
+use types::motor_command::MotorCommand;
+
+use crate::{
+    config::{JOINT_COUNT, Parameters, Policy},
+    inference::position_targets,
+    observation::SensorFrame,
+};
+
+pub mod observation;
+
+pub struct GetUp {
+    parameters: std::sync::Arc<Parameters>,
+    start: Time,
+    reference_duration_seconds: f32,
+    previous_action: Joints<f32>,
+}
+
+impl GetUp {
+    pub fn new(sensor: &SensorFrame, now: Time, parameters: std::sync::Arc<Parameters>) -> Self {
+        let front = sensor.rotation().euler_angles().1 > 0.0;
+        Self {
+            reference_duration_seconds: if front {
+                parameters.get_up.front_duration_seconds
+            } else {
+                parameters.get_up.back_duration_seconds
+            },
+            parameters,
+            start: now,
+            previous_action: Joints::fill(0.0),
+        }
+    }
+
+    pub fn progress(&self, now: Time) -> f32 {
+        (now.duration_since(self.start).as_secs_f32() * self.parameters.get_up.progress_rate
+            / self.reference_duration_seconds)
+            .clamp(0.0, 1.0)
+    }
+
+    pub fn decode(&mut self, actions: &[f32; JOINT_COUNT]) -> Joints<MotorCommand> {
+        let policy = Policy::GetUp;
+        let reference_position = policy.offset(&self.parameters);
+        let action_limit = policy.action_limit(&self.parameters);
+        self.previous_action = actions
+            .iter()
+            .map(|action| action.clamp(-action_limit, action_limit))
+            .collect();
+        let position = self.previous_action + reference_position;
+        let (kp, kd) = policy.gains(&self.parameters);
+        position_targets(position, kp, kd)
+    }
+}

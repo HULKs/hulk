@@ -25,21 +25,16 @@ pub mod report;
 /// Error returned when CDR bytes cannot be decoded into the requested type.
 #[derive(Debug, thiserror::Error)]
 pub enum CdrError {
-    #[error("CDR deserialization error: {message}")]
-    Message { message: String },
+    #[error("CDR deserialization error: {0}")]
+    Message(String),
 
-    #[error("CDR deserialization error: {source}")]
-    Cdr {
-        #[from]
-        source: ros_z_cdr::Error,
-    },
+    #[error("CDR deserialization error: {0}")]
+    Cdr(#[from] ros_z_cdr::Error),
 }
 
 impl CdrError {
     fn message(message: impl Into<String>) -> Self {
-        Self::Message {
-            message: message.into(),
-        }
+        Self::Message(message.into())
     }
 }
 
