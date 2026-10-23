@@ -56,7 +56,7 @@
       blocking: 0.8,
       minimum_speed: 0.2,
       velocity_fade_distance: 3.0,
-      walk_to_kickoff: 0.5,
+      walk_to_kickoff: 1.5,
     },
   },
   kicking: {
