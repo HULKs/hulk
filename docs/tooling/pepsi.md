@@ -186,7 +186,8 @@ Operation strings use whitespace-separated arguments, without shell quoting, exp
 All refs are resolved before switching branches, so `HEAD` refers to the initial checkout.
 Commit or stash tracked changes and finish any active Git operation before running `gamebranch`.
 
-If an operation conflicts, resolve and stage the conflicting files, then answer the prompt to continue.
+If an operation conflicts, edit the conflicting files, then answer the prompt to continue.
+Pepsi checks that conflict markers are gone and stages the resolutions automatically; you do not need to run `git add`.
 Skipping rolls back the entire current group, including earlier operations in that group, while keeping completed groups.
 Temporary intermediate commits allow mixed operations; the final history contains only one commit per completed group.
 The deployment configuration is committed separately afterward.

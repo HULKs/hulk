@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, path::Path, process::ExitStatus};
+use std::{ffi::OsStr, io::ErrorKind, path::Path, process::ExitStatus};
 
 use color_eyre::{
     Result,
@@ -167,12 +167,32 @@ pub async fn cherry_pick(root: &Path, commit: &str) -> Result<()> {
         .await
 }
 
-pub async fn has_conflicts(root: &Path) -> Result<bool> {
-    Ok(!GitCommand::new(root, "ls-files")
-        .arg("--unmerged")
+pub async fn conflicted_files(root: &Path) -> Result<Vec<String>> {
+    let output = GitCommand::new(root, "diff")
+        .args(["--name-only", "--diff-filter=U", "-z"])
         .output()
-        .await?
-        .is_empty())
+        .await?;
+    Ok(output.split_terminator('\0').map(str::to_owned).collect())
+}
+
+pub async fn stage_resolved_conflicts(root: &Path, files: &[String]) -> Result<bool> {
+    for file in files {
+        let content = match tokio::fs::read(root.join(file)).await {
+            Ok(content) => content,
+            Err(error) if error.kind() == ErrorKind::NotFound => continue,
+            Err(error) => return Err(error).wrap_err_with(|| format!("failed to read {file}")),
+        };
+        if content.split(|byte| *byte == b'\n').any(|line| {
+            [b"<<<<<<<", b"|||||||", b"=======", b">>>>>>>"]
+                .iter()
+                .any(|marker| line.starts_with(*marker))
+        }) {
+            eprintln!("Conflict markers remain in {file}.");
+            return Ok(false);
+        }
+    }
+    GitCommand::new(root, "add").arg("--update").run().await?;
+    Ok(true)
 }
 
 pub async fn check_clean(root: &Path) -> Result<()> {
