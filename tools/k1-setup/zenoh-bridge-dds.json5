@@ -57,6 +57,7 @@
         "fall_down",
         "button_event",
         "remote_controller_state",
+        "joint_ctrl",
         "LocoApiTopicReq",
         "LocoApiTopicResp",
         "LightControlApiTopicReq",

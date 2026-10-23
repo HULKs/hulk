@@ -18,6 +18,7 @@ pub struct LocoClient {
     rpc: Arc<ZenohRpcClient>,
 }
 
+#[allow(unused)]
 impl LocoClient {
     pub async fn new(session: &zenoh::Session) -> Result<Self> {
         Ok(Self {
