@@ -9,12 +9,14 @@ homepage.workspace = true
 [dependencies]
 ball_filter = { workspace = true }
 behavior_node = { workspace = true }
+bevy = { workspace = true, features = ["3d_bevy_render"] }
 clap = { workspace = true }
 color-eyre = { workspace = true }
 convert_case = { workspace = true }
 coordinate_systems = { workspace = true }
 dirs = { workspace = true }
 eframe = { workspace = true }
+egui_bevy = { workspace = true }
 egui_extras = { workspace = true }
 egui_material_icons = { workspace = true }
 egui_plot = { workspace = true }
@@ -24,6 +26,7 @@ hsl_network_messages = { workspace = true }
 hulk_widgets = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
+kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
