@@ -18,7 +18,7 @@ use crate::{
     negation,
     node::Blackboard,
     penalty_shootout::{is_penalty_shootout, penalty_shootout_subtree},
-    search::leuchtturm,
+    search::{leuchtturm, walk_towards_search_position},
     selection, sequence,
     substates::{is_in_sub_state, is_sub_state, sub_state_subtree},
     subtree,
@@ -139,11 +139,7 @@ pub fn search_subtree() -> Node<Blackboard> {
         subtree!(search_for_lost_ball_subtree),
         switch_motion_type(
             MotionType::Walk,
-            // selection!(
-            // condition!(has_suggested_search_position),
-            // action!(walk_to_search_position),
-            action!(leuchtturm),
-            // ),
+            selection!(action!(walk_towards_search_position), action!(leuchtturm)),
             subtree!(walk_alternatives_subtree),
         )
     )

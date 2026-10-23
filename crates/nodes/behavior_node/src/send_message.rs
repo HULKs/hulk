@@ -70,6 +70,7 @@ impl Blackboard {
         if self.world_state.robot.primary_state != PrimaryState::Playing {
             return None;
         }
+
         let now = self.world_state.now;
         let game_controller_state = self.world_state.filtered_game_controller_state.as_ref()?;
         let send_interval =
@@ -94,11 +95,11 @@ impl Blackboard {
             let message = HulkMessage::State(StateMessage {
                 player_number: self.player_number,
                 pose,
+                head_yaw: self.head_yaw,
                 ball_position,
             });
 
             self.last_sent_hsl_message_time = Some(now);
-
             Some(OutgoingMessage::Hsl(message))
         } else {
             None
@@ -106,7 +107,7 @@ impl Blackboard {
     }
 }
 
-fn state_message_send_interval(
+pub(crate) fn state_message_send_interval(
     game_controller_state: &FilteredGameControllerState,
     parameters: &HslNetworkParameters,
 ) -> Option<Duration> {

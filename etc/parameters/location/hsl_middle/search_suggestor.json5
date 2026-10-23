@@ -1,0 +1,8 @@
+{
+  // Preserve the previous uniform and initial additional growth rates.
+  unseen_priority_rise_time: { secs: 600 },
+  last_ball_extra_priority_rise_time: { secs: 66, nanos: 666666667 },
+
+  observation_distance_range: { end: 5.0 },
+  teammate_observation_weight: 0.32,
+}
