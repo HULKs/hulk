@@ -28,7 +28,6 @@ fn search_partition_excludes_assigned_goalkeeper_and_keeps_its_search_independen
     let field_pose = Isometry2::<Ground, Field>::from_parts(vector![-1.0, 0.0], 0.0);
     let keeper_pose = Isometry2::<Ground, Field>::from_parts(vector![-4.0, 0.0], 0.0);
     let other_pose = Isometry2::<Ground, Field>::from_parts(vector![3.0, 0.0], 0.0);
-    // Use a non-default keeper number to exercise the actual role assignment.
     let mut states = Players::new(None);
     for (number, pose) in [
         (PlayerNumber::Two, field_pose),

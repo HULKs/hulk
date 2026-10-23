@@ -226,7 +226,6 @@ pub struct CameraMatrixParameters {
 
 #[derive(Clone, Debug, Deserialize, Serialize, ros_z::Message)]
 pub struct SearchSuggestorParameters {
-    // Raster and eligibility.
     #[serde(default)]
     pub disable_heatmap_search: bool,
     pub cells_along_field_length: usize,
@@ -234,24 +233,20 @@ pub struct SearchSuggestorParameters {
     pub fallback_minimum_search_priority: f32,
     pub exhausted_search_delay: Duration,
 
-    // Ball evidence.
     pub hypothesis_priority_scale: f32,
     pub team_ball_priority: f32,
     /// Seconds of rule evidence required to add one priority unit.
     pub rule_priority_rise_time: Duration,
 
-    // Temporal recovery. Each rise time describes an increase by one unit.
     pub unseen_priority_rise_time: Duration,
     pub last_ball_extra_priority_rise_time: Duration,
     /// Zero disables additional last-ball influence immediately.
     pub last_ball_priority_fade_time: Duration,
 
-    // Spatial extent, in metres and metres per second.
     pub last_ball_initial_half_distance: f32,
     pub last_ball_spread_speed: f32,
     pub observation_distance_range: Range<f32>,
 
-    // Observation: half-lives at the start/end of the distance range.
     pub observation_half_life_near: Duration,
     pub observation_half_life_far: Duration,
     pub teammate_observation_weight: f32,
@@ -260,7 +255,6 @@ pub struct SearchSuggestorParameters {
     /// Replay uses at most four samples per message interval, covering its full duration.
     pub teammate_replay_step: Duration,
 
-    // Target preferences.
     pub turn_preference_priority_margin: f32,
     pub border_view_penalty: f32,
     pub border_view_penalty_width_fraction: f32,

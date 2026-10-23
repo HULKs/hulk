@@ -76,7 +76,6 @@ fn cache_invalidates_for_geometry_owner_and_membership_changes() {
     field.width = 13.93;
     assert_partition(&mut cache, field, 44, PlayerNumber::Three, &sites, 8);
 
-    // Leaving and re-entering the grid must also update the partition.
     sites[1] = site(100.0, 0.0, 0.0, PlayerNumber::Three);
     assert_partition(&mut cache, field, 44, PlayerNumber::Three, &sites, 9);
     sites[1] = site(2.0, 0.0, 0.0, PlayerNumber::Three);

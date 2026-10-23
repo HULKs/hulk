@@ -74,6 +74,7 @@ Rule-generated positions are provided separately and are not retained as last se
 ### Search
 
 The `search_suggestor` combines local, team, hypothetical, and rule-based ball information in a priority heatmap with configurable, approximately square cells and values between zero and one.
+It updates the heatmap and search target every 50 ms (20 Hz); temporal growth and decay use the actual elapsed time.
 `cells_along_field_length` fixes the longitudinal cell count; the transverse count is rounded from the field aspect ratio.
 Cell dimensions are then calculated independently to cover the field exactly.
 Changing resolution at runtime samples the old map at the new cell centres and remaps the selected target.

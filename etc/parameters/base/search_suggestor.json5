@@ -1,17 +1,17 @@
 {
-  // Raster and eligibility. The transverse count follows the field aspect ratio.
   disable_heatmap_search: false,
+  // The transverse cell count follows the field aspect ratio.
   cells_along_field_length: 28,
   minimum_search_priority: 0.4,
   fallback_minimum_search_priority: 0.05,
   exhausted_search_delay: { secs: 5, nanos: 0 },
 
-  // Ball evidence. Rule rise time means seconds to add one priority unit.
   hypothesis_priority_scale: 1.0,
   team_ball_priority: 1.0,
+  // Rule rise time means seconds to add one priority unit.
   rule_priority_rise_time: { secs: 16, nanos: 0 },
 
-  // Recovery: seconds to add one unit without observation or saturation.
+  // Rise times describe seconds to add one priority unit.
   unseen_priority_rise_time: { secs: 100, nanos: 0 },
   last_ball_extra_priority_rise_time: { secs: 25, nanos: 0 },
   last_ball_priority_fade_time: { secs: 10, nanos: 0 },
@@ -22,7 +22,6 @@
   observation_distance_range: { start: 0.0, end: 6.0 },
 
   // Half-lives are interpolated linearly between the range endpoints.
-  // These are initial tuning values for the new observation model.
   observation_half_life_near: { secs: 0, nanos: 300000000 },
   observation_half_life_far: { secs: 2, nanos: 500000000 },
   teammate_observation_weight: 0.75,
@@ -30,7 +29,6 @@
   // Desired maximum sample spacing; replay is capped at four samples per message interval.
   teammate_replay_step: { secs: 0, nanos: 400000000 },
 
-  // Target preferences. Border width is a fraction of the field width.
   turn_preference_priority_margin: 0.1,
   border_view_penalty: 0.15,
   border_view_penalty_width_fraction: 0.33333334,
