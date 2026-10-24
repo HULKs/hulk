@@ -1,5 +1,5 @@
 use eframe::{
-    egui::{AsId, Event, Id, PointerButton, Response, RichText, Ui, Widget},
+    egui::{AsIdSalt, Event, Id, PointerButton, Response, RichText, Ui, Widget},
     emath::{Align2, Vec2b},
     epaint::{Color32, Stroke, TextureHandle, Vec2},
 };
@@ -18,7 +18,7 @@ pub struct BoundingBoxAnnotator<'a> {
 
 impl<'a> BoundingBoxAnnotator<'a> {
     pub fn new(
-        id_source: impl AsId,
+        id_source: impl AsIdSalt,
         image: TextureHandle,
         image_size: [f32; 2],
         bounding_boxes: &'a mut Vec<BoundingBox>,
@@ -26,7 +26,7 @@ impl<'a> BoundingBoxAnnotator<'a> {
         selected_class: &'a mut Class,
     ) -> Self {
         Self {
-            id: Id::new(id_source),
+            id: Id::unique(id_source),
             texture_handle: image,
             image_size,
             bounding_boxes,

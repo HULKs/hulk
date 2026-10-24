@@ -1,4 +1,4 @@
-use eframe::egui::{AsId, ComboBox, Id, Response, Ui, Widget};
+use eframe::egui::{AsIdSalt, ComboBox, Id, Response, Ui, Widget};
 
 use crate::classes::Class;
 pub trait EnumIter {
@@ -13,9 +13,9 @@ pub struct ClassSelector<'a> {
 }
 
 impl<'a> ClassSelector<'a> {
-    pub fn new(id_source: impl AsId, currently_selected: &'a mut Class) -> Self {
+    pub fn new(id_source: impl AsIdSalt, currently_selected: &'a mut Class) -> Self {
         Self {
-            id: Id::new(id_source),
+            id: Id::unique(id_source),
             currently_selected,
         }
     }

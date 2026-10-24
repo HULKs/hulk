@@ -135,7 +135,7 @@ impl App for TwixApp {
                     let namespace_response = ui
                         .add(
                             CompletionEdit::new(
-                                ui.id().with("namespace"),
+                                ui.scope_id().with("namespace"),
                                 &namespaces,
                                 &mut self.namespace_editor,
                             )

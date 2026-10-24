@@ -355,10 +355,7 @@ fn process_egui_input(world: &mut World, ui: &mut Ui, response: &Response) {
                 //     force,
                 // } => todo!(),
                 Event::MouseWheel {
-                    unit,
-                    delta,
-                    phase,
-                    modifiers: _,
+                    unit, delta, phase, ..
                 } => {
                     let unit = match unit {
                         MouseWheelUnit::Point => MouseScrollUnit::Pixel,
