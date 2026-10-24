@@ -76,10 +76,16 @@ impl State {
                         && (opponent_is_kicking_team || !ball_detected_far_from_kick_off_point),
                 }
             }
-            State::Playing => FilteredGameState::Playing {
-                ball_is_free: !(is_in_sub_state && opponent_is_kicking_team),
-                kick_off: false,
-            },
+            State::Playing => {
+                let kick_off = game_controller_state.is_kick_off();
+                let opponent_kick_off =
+                    opponent_is_kicking_team && kick_off && !ball_detected_far_from_kick_off_point;
+                FilteredGameState::Playing {
+                    ball_is_free: !opponent_kick_off
+                        && !(is_in_sub_state && opponent_is_kicking_team),
+                    kick_off,
+                }
+            }
             State::WhistleInPlaying { .. } => FilteredGameState::Ready,
             State::Finished => match game_controller_state.game_phase {
                 GamePhase::PenaltyShootout { .. } => FilteredGameState::Set,
