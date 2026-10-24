@@ -279,6 +279,15 @@ pub enum Team {
     Opponent,
 }
 
+impl Team {
+    pub fn other(self) -> Self {
+        match self {
+            Self::Hulks => Self::Opponent,
+            Self::Opponent => Self::Hulks,
+        }
+    }
+}
+
 impl TryFrom<u8> for Team {
     type Error = Report;
 
