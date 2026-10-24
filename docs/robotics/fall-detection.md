@@ -125,9 +125,12 @@ Its preparation and upright-confirmation waits follow the configured durations; 
 | Posture | Behavior action |
 | --- | --- |
 | Missing, stale, future, or `Falling` | `Damping` |
+| `StandingUp` | `StandUp` |
+| `Fallen` where a stand up is not allowed | `Damping` |
 | `Fallen { ready_for_standup: false }` | `Prepare` |
-| `Fallen { ready_for_standup: true }` or `StandingUp` | `StandUp` |
+| `Fallen { ready_for_standup: true }` | `StandUp` |
 | `Upright` | Ordinary behavior |
 
-Explicit primary states retain their existing priority.
-Recovery runs after `Initial` and within remote control, so `Stop`, `Finished`, and `Penalized` do not initiate a new recovery.
+A stand up may only be started in `Ready`, `Set`, and `Playing`, or in `Initial`, `Penalized`, and `Finished` with remote control enabled.
+An active stand up is continued in every state, because the rules allow finishing a get-up but not restarting one.
+Explicit `Damping` and `Prepare` primary states retain their priority.

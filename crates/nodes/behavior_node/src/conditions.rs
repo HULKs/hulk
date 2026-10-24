@@ -158,12 +158,24 @@ pub fn is_fallen(blackboard: &mut Blackboard) -> bool {
 pub fn is_ready_for_stand_up(blackboard: &mut Blackboard) -> bool {
     matches!(
         posture(blackboard),
-        Some(
-            Posture::Fallen {
-                is_ready_for_standup: true
-            } | Posture::StandingUp
-        )
+        Some(Posture::Fallen {
+            is_ready_for_standup: true
+        })
     )
+}
+
+pub fn is_standing_up(blackboard: &mut Blackboard) -> bool {
+    matches!(posture(blackboard), Some(Posture::StandingUp))
+}
+
+pub fn is_stand_up_allowed(blackboard: &mut Blackboard) -> bool {
+    match blackboard.world_state.robot.primary_state {
+        PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing => true,
+        PrimaryState::Initial | PrimaryState::Penalized | PrimaryState::Finished => {
+            blackboard.remote_control_enabled
+        }
+        PrimaryState::Damping | PrimaryState::Prepare | PrimaryState::Stop => false,
+    }
 }
 
 pub fn is_goalkeeper(blackboard: &mut Blackboard) -> bool {
