@@ -106,6 +106,7 @@ impl GameControllerFilter {
             game_phase: message.game_phase,
             half: message.half,
             remaining_time_in_half: message.remaining_time_in_half,
+            secondary_time: message.secondary_time,
             kicking_team: message.kicking_team,
             last_game_state_change: self.last_game_state_change.unwrap().to_wallclock(),
             penalties: message.hulks_team.clone().into(),
