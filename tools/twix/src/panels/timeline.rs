@@ -1,6 +1,6 @@
 use eframe::egui::{
     Align, Button, CursorIcon, DragValue, Id, Key, Layout, PointerButton, Popup,
-    PopupCloseBehavior, Rect, Response, RichText, Sense, Ui, Vec2, WidgetInfo, WidgetType, vec2,
+    PopupCloseBehavior, Rect, Response, RichText, Role, Sense, Ui, Vec2, WidgetInfo, vec2,
 };
 use egui_material_icons::icons;
 use serde_json::{Value, json};
@@ -262,7 +262,7 @@ impl TimelinePanel {
             format!("{label} ({shortcut})")
         };
         let response = ui.add_enabled(enabled, button).on_hover_text(tooltip);
-        response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, enabled, label));
+        response.widget_info(|| WidgetInfo::labeled(Role::Button, enabled, label));
         if response.clicked() {
             response.request_focus();
             self.apply_action(action, replay);
@@ -438,11 +438,13 @@ fn timeline_has_focus(ui: &Ui) -> bool {
     let Some(focused) = ui.memory(|memory| memory.focused()) else {
         return false;
     };
-    ui.stack().iter().any(|scope| scope.id == focused)
+    ui.stack()
+        .iter()
+        .any(|scope| scope.scope_id == focused || scope.unique_id == focused)
         || ui
             .ctx()
             .read_response(focused)
-            .is_some_and(|response| response.parent_id() == ui.id())
+            .is_some_and(|response| response.parent_id() == ui.unique_id())
 }
 
 fn retry_button(ui: &mut Ui, replay: &mut ReplaySession) {
