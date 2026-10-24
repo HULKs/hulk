@@ -2,13 +2,41 @@ use coordinate_systems::Pixel;
 use linear_algebra::{Point2, point};
 use types::object_detection::{Object, RobocupObjectLabel};
 
-/// Extracts goalpost image points from object detections.
-pub fn find_detected_goalposts(detections: &[Object<RobocupObjectLabel>]) -> Vec<Point2<Pixel>> {
-    find_detected_visual_features(detections)
-        .goalposts
-        .into_iter()
-        .map(|feature| feature.pixel)
-        .collect()
+use crate::{GlobalLocalizerParameters, map::LandmarkMap};
+
+pub(crate) const FEATURE_CLASSES: [VisualFeatureClass; 5] = [
+    VisualFeatureClass::GoalPost,
+    VisualFeatureClass::LSpot,
+    VisualFeatureClass::TSpot,
+    VisualFeatureClass::XSpot,
+    VisualFeatureClass::PenaltySpot,
+];
+
+/// Field-feature classes supported by association.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum VisualFeatureClass {
+    /// Upright goalpost landmark detected at its field-contact point.
+    GoalPost,
+    /// L-shaped line crossing landmark.
+    LSpot,
+    /// T-shaped line crossing landmark.
+    TSpot,
+    /// X-shaped line crossing landmark.
+    XSpot,
+    /// Penalty marker landmark.
+    PenaltySpot,
+}
+
+impl VisualFeatureClass {
+    pub(crate) const fn index(self) -> usize {
+        match self {
+            Self::GoalPost => 0,
+            Self::LSpot => 1,
+            Self::TSpot => 2,
+            Self::XSpot => 3,
+            Self::PenaltySpot => 4,
+        }
+    }
 }
 
 /// Field-feature detection used by global localization.
@@ -18,12 +46,6 @@ pub struct DetectedVisualFeature {
     pub pixel: Point2<Pixel>,
     /// Detector confidence in `[0, 1]`; invalid or low-confidence detections are ignored later.
     pub confidence: f32,
-}
-
-impl DetectedVisualFeature {
-    fn new(pixel: Point2<Pixel>, confidence: f32) -> Self {
-        Self { pixel, confidence }
-    }
 }
 
 /// Field-feature detections grouped by the landmark class used by global localization.
@@ -52,47 +74,85 @@ impl DetectedVisualFeatures {
     }
 }
 
+/// Iterates class-grouped detections in the same order used by association.
+pub fn raw_detections(
+    features: &DetectedVisualFeatures,
+) -> impl Iterator<Item = (VisualFeatureClass, DetectedVisualFeature)> + '_ {
+    [
+        (VisualFeatureClass::GoalPost, features.goalposts.as_slice()),
+        (VisualFeatureClass::LSpot, features.l_spots.as_slice()),
+        (VisualFeatureClass::TSpot, features.t_spots.as_slice()),
+        (VisualFeatureClass::XSpot, features.x_spots.as_slice()),
+        (
+            VisualFeatureClass::PenaltySpot,
+            features.penalty_spots.as_slice(),
+        ),
+    ]
+    .into_iter()
+    .flat_map(|(class, features)| features.iter().map(move |f| (class, *f)))
+}
+
+/// Filter and deduplicate before ray pruning, so pruning cannot weaken consensus.
+pub(crate) fn filter_detections(
+    features: &DetectedVisualFeatures,
+    map: &LandmarkMap,
+    config: GlobalLocalizerParameters,
+) -> Option<Vec<(usize, VisualFeatureClass, DetectedVisualFeature)>> {
+    let mut detections = raw_detections(features)
+        .enumerate()
+        .filter(|(_, (_, feature))| {
+            (config.confidence_threshold..=1.0).contains(&feature.confidence)
+                && feature.pixel.coords().inner.iter().all(|x| x.is_finite())
+        })
+        .map(|(id, (class, feature))| (id, class, feature))
+        .collect::<Vec<_>>();
+    detections.sort_by(|(_, a, x), (_, b, y)| {
+        (y.confidence * map.rarity_weight(*b)).total_cmp(&(x.confidence * map.rarity_weight(*a)))
+    });
+    let mut retained: Vec<(usize, VisualFeatureClass, DetectedVisualFeature)> = Vec::new();
+    for (id, class, detection) in detections {
+        if retained.iter().any(|(_, other_class, other)| {
+            *other_class == class
+                && (other.pixel - detection.pixel).inner.norm() <= config.duplicate_pixel_distance
+        }) {
+            continue;
+        }
+        if retained.len() == config.max_retained_detections {
+            return None;
+        }
+        retained.push((id, class, detection));
+    }
+    Some(retained)
+}
+
 /// Extracts all field-feature detections supported by global localization.
 pub fn find_detected_visual_features(
     detections: &[Object<RobocupObjectLabel>],
 ) -> DetectedVisualFeatures {
-    detections
-        .iter()
-        .fold(DetectedVisualFeatures::default(), |mut features, object| {
-            let confidence = object.bounding_box.confidence;
-            match object.label {
-                RobocupObjectLabel::GoalPost => features.goalposts.push(
-                    DetectedVisualFeature::new(pixel_bottom_center(object), confidence),
-                ),
-                RobocupObjectLabel::LSpot => features
-                    .l_spots
-                    .push(DetectedVisualFeature::new(pixel_center(object), confidence)),
-                RobocupObjectLabel::TSpot => features
-                    .t_spots
-                    .push(DetectedVisualFeature::new(pixel_center(object), confidence)),
-                RobocupObjectLabel::PenaltySpot => features
-                    .penalty_spots
-                    .push(DetectedVisualFeature::new(pixel_center(object), confidence)),
-                RobocupObjectLabel::XSpot => features
-                    .x_spots
-                    .push(DetectedVisualFeature::new(pixel_center(object), confidence)),
-                _ => {}
-            }
-            features
-        })
+    let mut features = DetectedVisualFeatures::default();
+    for object in detections {
+        let confidence = object.bounding_box.confidence;
+        let destination = match object.label {
+            RobocupObjectLabel::GoalPost => &mut features.goalposts,
+            RobocupObjectLabel::LSpot => &mut features.l_spots,
+            RobocupObjectLabel::TSpot => &mut features.t_spots,
+            RobocupObjectLabel::PenaltySpot => &mut features.penalty_spots,
+            RobocupObjectLabel::XSpot => &mut features.x_spots,
+            _ => continue,
+        };
+        let pixel = if object.label == RobocupObjectLabel::GoalPost {
+            pixel_bottom_center(object)
+        } else {
+            object.bounding_box.area.center()
+        };
+        destination.push(DetectedVisualFeature { pixel, confidence });
+    }
+    features
 }
 
 fn pixel_bottom_center(object: &Object<RobocupObjectLabel>) -> Point2<Pixel> {
     let area = object.bounding_box.area;
     point![(area.min.x() + area.max.x()) * 0.5, area.max.y()]
-}
-
-fn pixel_center(object: &Object<RobocupObjectLabel>) -> Point2<Pixel> {
-    let area = object.bounding_box.area;
-    point![
-        (area.min.x() + area.max.x()) * 0.5,
-        (area.min.y() + area.max.y()) * 0.5
-    ]
 }
 
 #[cfg(test)]
@@ -115,46 +175,38 @@ mod tests {
             },
         }];
 
-        let goalposts = find_detected_goalposts(&detections);
+        let goalposts = find_detected_visual_features(&detections).goalposts;
 
         assert_eq!(goalposts.len(), 1);
-        assert_eq!(goalposts[0], point![20.0, 50.0]);
+        assert_eq!(goalposts[0].pixel, point![20.0, 50.0]);
     }
 
     #[test]
     fn spot_detections_use_pixel_center() {
-        let detections = vec![
-            Object {
-                label: RobocupObjectLabel::LSpot,
-                bounding_box: BoundingBox {
-                    area: Rectangle {
-                        min: point![10.0, 20.0],
-                        max: point![30.0, 50.0],
-                    },
-                    confidence: 1.0,
-                },
+        let detections = [
+            (
+                RobocupObjectLabel::LSpot,
+                point![10.0, 20.0],
+                point![30.0, 50.0],
+            ),
+            (
+                RobocupObjectLabel::TSpot,
+                point![40.0, 60.0],
+                point![60.0, 80.0],
+            ),
+            (
+                RobocupObjectLabel::PenaltySpot,
+                point![70.0, 90.0],
+                point![90.0, 110.0],
+            ),
+        ]
+        .map(|(label, min, max)| Object {
+            label,
+            bounding_box: BoundingBox {
+                area: Rectangle { min, max },
+                confidence: 1.0,
             },
-            Object {
-                label: RobocupObjectLabel::TSpot,
-                bounding_box: BoundingBox {
-                    area: Rectangle {
-                        min: point![40.0, 60.0],
-                        max: point![60.0, 80.0],
-                    },
-                    confidence: 1.0,
-                },
-            },
-            Object {
-                label: RobocupObjectLabel::PenaltySpot,
-                bounding_box: BoundingBox {
-                    area: Rectangle {
-                        min: point![70.0, 90.0],
-                        max: point![90.0, 110.0],
-                    },
-                    confidence: 1.0,
-                },
-            },
-        ];
+        });
 
         let features = find_detected_visual_features(&detections);
 

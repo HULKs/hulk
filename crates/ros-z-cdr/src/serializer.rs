@@ -18,6 +18,9 @@ pub struct SerdeCdrSerializer<'a, BO, B: CdrBuffer = Vec<u8>> {
 }
 
 impl<'a, BO: ByteOrder, B: CdrBuffer> SerdeCdrSerializer<'a, BO, B> {
+    pub fn from_writer(writer: CdrWriter<'a, BO, B>) -> Self {
+        Self { writer }
+    }
     /// Create a new serializer writing to the given buffer.
     pub fn new(buffer: &'a mut B) -> Self {
         Self {

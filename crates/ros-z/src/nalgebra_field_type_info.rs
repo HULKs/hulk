@@ -4,12 +4,23 @@ use nalgebra::{
 };
 use ros_z_schema::{PrimitiveTypeDef, SchemaError, SequenceLengthDef, TypeDef, TypeName};
 
-use crate::{Message, SerdeCdrCodec};
+use crate::{CdrCodec, Message};
+use ros_z_cdr::{CdrBuffer, CdrReader, CdrWriter, LittleEndian};
 
 macro_rules! impl_fixed_sequence_message {
     ($ty:ty, $type_name:literal, $primitive:ident, $len:expr) => {
         impl Message for $ty {
-            type Codec = SerdeCdrCodec<Self>;
+            type Codec = CdrCodec<Self>;
+            fn encode_cdr<B: CdrBuffer>(
+                &self,
+                writer: &mut CdrWriter<'_, LittleEndian, B>,
+            ) -> ros_z_cdr::Result<()> {
+                crate::serde_bridge::encode_serde(self, writer)
+            }
+
+            fn decode_cdr(reader: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+                crate::serde_bridge::decode_serde(reader)
+            }
 
             fn type_name() -> String {
                 $type_name.to_string()
@@ -62,7 +73,17 @@ impl_fixed_sequence_message!(UnitQuaternion<f64>, "nalgebra::UnitQuaternion<f64>
 macro_rules! impl_isometry_message {
     ($ty:ty, $type_name:literal, $rotation:ty, $translation:ty) => {
         impl Message for $ty {
-            type Codec = SerdeCdrCodec<Self>;
+            type Codec = CdrCodec<Self>;
+            fn encode_cdr<B: CdrBuffer>(
+                &self,
+                writer: &mut CdrWriter<'_, LittleEndian, B>,
+            ) -> ros_z_cdr::Result<()> {
+                crate::serde_bridge::encode_serde(self, writer)
+            }
+
+            fn decode_cdr(reader: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+                crate::serde_bridge::decode_serde(reader)
+            }
 
             fn type_name() -> String {
                 $type_name.to_string()

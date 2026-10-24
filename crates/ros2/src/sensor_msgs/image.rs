@@ -1,9 +1,9 @@
 use crate::std_msgs::header::Header;
 use color_eyre::{Result, eyre::eyre};
 use image::{ImageError, RgbImage, error::DecodingError};
-use ros_z::Message;
+use ros_z::{Message, ZSlice};
 use serde::{Deserialize, Serialize};
-use std::{path::Path, sync::Arc};
+use std::path::Path;
 use yuv::{
     YuvBiPlanarImage, YuvConversionMode, YuvRange, YuvStandardMatrix, bgr_to_rgb, yuv_nv12_to_rgb,
 };
@@ -15,7 +15,7 @@ use pyo3::{pyclass, pymethods};
 /// (0, 0) is at top-left corner of image
 #[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[repr(C)]
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Message)]
+#[derive(Clone, Debug, Serialize, Deserialize, Message)]
 pub struct Image {
     /// Header timestamp should be acquisition time of image
     /// Header frame_id should be optical frame of camera
@@ -46,7 +46,22 @@ pub struct Image {
     /// Full row length in bytes
     pub step: u32,
     /// actual matrix data, size is (step * rows)
-    pub data: Arc<[u8]>,
+    #[serde(with = "ros_z::serde_zslice")]
+    pub data: ZSlice,
+}
+
+impl Default for Image {
+    fn default() -> Self {
+        Self {
+            header: Header::default(),
+            height: 0,
+            width: 0,
+            encoding: String::new(),
+            is_bigendian: 0,
+            step: 0,
+            data: Vec::new().into(),
+        }
+    }
 }
 
 #[cfg(feature = "pyo3")]

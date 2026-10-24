@@ -1,6 +1,8 @@
 use super::{
     inputs::{OverlayInput, OverlayInputs},
-    overlays::{HorizonOverlay, ObjectDetectionOverlay, PoseDetectionOverlay},
+    overlays::{
+        HorizonOverlay, ObjectDetectionOverlay, PoseDetectionOverlay, ProjectedFieldLinesOverlay,
+    },
 };
 use color_eyre::Report;
 use coordinate_systems::Pixel;
@@ -68,6 +70,11 @@ impl ImageOverlays {
                 "pose_detection",
                 "Pose Detection",
                 PoseDetectionOverlay::default(),
+            ),
+            OverlayEntry::new(
+                "projected_field_lines",
+                "Projected Field Lines",
+                ProjectedFieldLinesOverlay::default(),
             ),
         ];
         for entry in &mut entries {

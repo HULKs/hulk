@@ -28,7 +28,7 @@ fn dynamic_json_default_distinguishes_non_finite_floats_from_absent_optionals() 
 fn dynamic_json_policy_can_preserve_cli_byte_and_float_shape() {
     let value = dynamic_value_to_json(
         &DynamicValue::Sequence(vec![
-            DynamicValue::Bytes(vec![1, 2, 3]),
+            DynamicValue::Bytes(vec![1, 2, 3].into()),
             DynamicValue::Float64(f64::INFINITY),
         ]),
         DynamicJsonRenderPolicy {

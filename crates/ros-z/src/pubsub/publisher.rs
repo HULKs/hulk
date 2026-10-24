@@ -34,7 +34,9 @@ pub(super) fn validate_dynamic_publish_schema(
         return Ok(());
     };
 
-    if advertised_schema.as_ref() == message.schema.as_ref() {
+    if Arc::ptr_eq(advertised_schema, &message.schema)
+        || advertised_schema.as_ref() == message.schema.as_ref()
+    {
         return Ok(());
     }
 
@@ -665,18 +667,20 @@ where
     }
 
     /// Publish when subscribed or when transient-local history must be retained.
+    /// Lazily builds an owned or borrowed message only when needed.
     /// Returns whether a message was published.
-    pub async fn publish_if_subscribed<F, Fut>(&self, build: F) -> Result<bool>
+    pub async fn publish_if_subscribed<F, Fut, M>(&self, build: F) -> Result<bool>
     where
         F: FnOnce() -> Fut,
-        Fut: Future<Output = T>,
+        Fut: Future<Output = M>,
+        M: std::borrow::Borrow<T>,
     {
         if self.transient_local_cache.is_none() && !self.has_subscribers() {
             return Ok(false);
         }
 
         let message = build().await;
-        self.publish(&message).await?;
+        self.publish(message.borrow()).await?;
         Ok(true)
     }
 }

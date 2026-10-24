@@ -7,9 +7,9 @@ use std::{
 
 use approx::{AbsDiffEq, RelativeEq};
 use num_traits::Num;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 
-use ros_z::{Message, MessageSchema, SchemaBuilder, SerdeCdrCodec};
+use ros_z::{CdrCodec, Message, MessageSchema, SchemaBuilder};
 
 #[derive(Debug)]
 // `repr(transparent)` ensures this struct has the same memory layout as `inner`.
@@ -52,9 +52,21 @@ where
 impl<Frame, Inner> Message for Framed<Frame, Inner>
 where
     Frame: Send + Sync + 'static,
-    Inner: Message + Serialize + DeserializeOwned,
+    Inner: Message,
 {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = CdrCodec<Self>;
+    fn encode_cdr<B: ros_z::cdr::CdrBuffer>(
+        &self,
+        writer: &mut ros_z::cdr::CdrWriter<'_, ros_z::cdr::LittleEndian, B>,
+    ) -> ros_z::cdr::Result<()> {
+        self.inner.encode_cdr(writer)
+    }
+
+    fn decode_cdr(
+        reader: &mut ros_z::cdr::CdrReader<'_, ros_z::cdr::LittleEndian>,
+    ) -> ros_z::cdr::Result<Self> {
+        Inner::decode_cdr(reader).map(Self::wrap)
+    }
 
     fn type_name() -> String {
         Inner::type_name()
@@ -64,7 +76,7 @@ where
 impl<Frame, Inner> MessageSchema for Framed<Frame, Inner>
 where
     Frame: Send + Sync + 'static,
-    Inner: Message + Serialize + DeserializeOwned,
+    Inner: Message,
 {
     fn build_schema(
         builder: &mut SchemaBuilder,

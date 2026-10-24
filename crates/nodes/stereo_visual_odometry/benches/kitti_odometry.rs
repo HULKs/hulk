@@ -4,7 +4,6 @@ use std::{
     hint::black_box,
     io::{Cursor, Read},
     path::{Path, PathBuf},
-    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -15,8 +14,7 @@ use color_eyre::{
 use nalgebra as na;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use stereo_visual_odometry::{
-    OdometryDiagnostics, parameters::StereoVisualOdometryPoseEstimationParameters,
-    pipeline::VisualOdometryPipeline,
+    OdometryDiagnostics, StereoVisualOdometryPoseEstimationParameters, VisualOdometryPipeline,
 };
 use types::{stereo_camera_info::StereoCameraInfo, stereo_image_pair::StereoImagePair};
 use zip::ZipArchive;
@@ -171,8 +169,8 @@ fn run_sequence(
         metrics.prepare_durations.push(prepare_start.elapsed());
 
         let process_start = Instant::now();
-        let estimated_previous_to_current =
-            pipeline.process(&stereo_image_pair, pose_estimation_parameters)?;
+        let output = pipeline.process(&stereo_image_pair, pose_estimation_parameters);
+        let estimated_previous_to_current = output.previous_to_current();
         let process_duration = process_start.elapsed();
         metrics.process_durations.push(process_duration);
         black_box(&estimated_previous_to_current);
@@ -277,7 +275,7 @@ fn kitti_image_to_nv12(image: GrayImage) -> Image {
         encoding: "nv12".to_string(),
         is_bigendian: 0,
         step: MODEL_WIDTH,
-        data: Arc::from(nv12.into_boxed_slice()),
+        data: nv12.into(),
         ..Default::default()
     }
 }
@@ -597,14 +595,8 @@ struct DiagnosticsMetrics {
     lm_delta_rotation_deg: Vec<f32>,
     left_rmse_before_lm: Vec<f32>,
     right_rmse_before_lm: Vec<f32>,
-    stereo_rmse_before_lm: Vec<f32>,
-    weighted_cost_before_lm: Vec<f32>,
     left_rmse_after_lm: Vec<f32>,
     right_rmse_after_lm: Vec<f32>,
-    stereo_rmse_after_lm: Vec<f32>,
-    weighted_cost_after_lm: Vec<f32>,
-    right_bad_fraction_before_lm: Vec<f32>,
-    right_bad_fraction_after_lm: Vec<f32>,
 }
 
 impl DiagnosticsMetrics {
@@ -635,34 +627,10 @@ impl DiagnosticsMetrics {
             &mut self.right_rmse_before_lm,
             diagnostics.right_rmse_before_lm,
         );
-        push_some(
-            &mut self.stereo_rmse_before_lm,
-            diagnostics.stereo_rmse_before_lm,
-        );
-        push_some(
-            &mut self.weighted_cost_before_lm,
-            diagnostics.weighted_cost_before_lm,
-        );
         push_some(&mut self.left_rmse_after_lm, diagnostics.left_rmse_after_lm);
         push_some(
             &mut self.right_rmse_after_lm,
             diagnostics.right_rmse_after_lm,
-        );
-        push_some(
-            &mut self.stereo_rmse_after_lm,
-            diagnostics.stereo_rmse_after_lm,
-        );
-        push_some(
-            &mut self.weighted_cost_after_lm,
-            diagnostics.weighted_cost_after_lm,
-        );
-        push_some(
-            &mut self.right_bad_fraction_before_lm,
-            diagnostics.right_bad_fraction_before_lm,
-        );
-        push_some(
-            &mut self.right_bad_fraction_after_lm,
-            diagnostics.right_bad_fraction_after_lm,
         );
     }
 
@@ -685,22 +653,10 @@ impl DiagnosticsMetrics {
             .append(&mut other.left_rmse_before_lm);
         self.right_rmse_before_lm
             .append(&mut other.right_rmse_before_lm);
-        self.stereo_rmse_before_lm
-            .append(&mut other.stereo_rmse_before_lm);
-        self.weighted_cost_before_lm
-            .append(&mut other.weighted_cost_before_lm);
         self.left_rmse_after_lm
             .append(&mut other.left_rmse_after_lm);
         self.right_rmse_after_lm
             .append(&mut other.right_rmse_after_lm);
-        self.stereo_rmse_after_lm
-            .append(&mut other.stereo_rmse_after_lm);
-        self.weighted_cost_after_lm
-            .append(&mut other.weighted_cost_after_lm);
-        self.right_bad_fraction_before_lm
-            .append(&mut other.right_bad_fraction_before_lm);
-        self.right_bad_fraction_after_lm
-            .append(&mut other.right_bad_fraction_after_lm);
     }
 
     fn print(&self) {

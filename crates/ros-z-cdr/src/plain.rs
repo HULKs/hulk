@@ -33,7 +33,10 @@
 /// This trait should only be implemented by codegen for generated message types, or
 /// manually for well-known primitive types defined in this crate.
 #[cfg(target_endian = "little")]
-pub unsafe trait CdrPlain: Copy + 'static {}
+pub unsafe trait CdrPlain: Copy + 'static {
+    /// Wire alignment can exceed native alignment, notably for u64 on 32-bit hosts.
+    const CDR_ALIGNMENT: usize = std::mem::align_of::<Self>();
+}
 
 // ── Primitive impls ──────────────────────────────────────────────────────────
 // bool is excluded: bytemuck::Pod is not impl'd for bool (only 0/1 are valid).
@@ -42,7 +45,9 @@ pub unsafe trait CdrPlain: Copy + 'static {}
 #[cfg(target_endian = "little")]
 unsafe impl CdrPlain for f32 {}
 #[cfg(target_endian = "little")]
-unsafe impl CdrPlain for f64 {}
+unsafe impl CdrPlain for f64 {
+    const CDR_ALIGNMENT: usize = 8;
+}
 #[cfg(target_endian = "little")]
 unsafe impl CdrPlain for i8 {}
 #[cfg(target_endian = "little")]
@@ -56,10 +61,16 @@ unsafe impl CdrPlain for i32 {}
 #[cfg(target_endian = "little")]
 unsafe impl CdrPlain for u32 {}
 #[cfg(target_endian = "little")]
-unsafe impl CdrPlain for i64 {}
+unsafe impl CdrPlain for i64 {
+    const CDR_ALIGNMENT: usize = 8;
+}
 #[cfg(target_endian = "little")]
-unsafe impl CdrPlain for u64 {}
+unsafe impl CdrPlain for u64 {
+    const CDR_ALIGNMENT: usize = 8;
+}
 
 // Fixed arrays of plain types are themselves plain.
 #[cfg(target_endian = "little")]
-unsafe impl<T: CdrPlain, const N: usize> CdrPlain for [T; N] {}
+unsafe impl<T: CdrPlain, const N: usize> CdrPlain for [T; N] {
+    const CDR_ALIGNMENT: usize = T::CDR_ALIGNMENT;
+}

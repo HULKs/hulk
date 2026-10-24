@@ -11,7 +11,8 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Notify;
 
-use crate::{Message, SerdeCdrCodec};
+use crate::{CdrCodec, Message};
+use ros_z_cdr::{CdrBuffer, CdrReader, CdrWriter, LittleEndian};
 use ros_z_schema::{SchemaError, TypeDef, TypeName};
 
 /// A clock-relative instant used throughout ros-z.
@@ -26,7 +27,17 @@ pub struct Time {
 }
 
 impl Message for Time {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        writer: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        crate::serde_bridge::encode_serde(self, writer)
+    }
+
+    fn decode_cdr(reader: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        crate::serde_bridge::decode_serde(reader)
+    }
 
     fn type_name() -> String {
         "ros_z::Time".to_string()

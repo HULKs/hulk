@@ -1,5 +1,6 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
+use ros_z::ZSlice;
 use ros2::{
     builtin_interfaces::time::Time,
     sensor_msgs::{camera_info::CameraInfo, image::Image, region_of_interest::RegionOfInterest},
@@ -24,7 +25,7 @@ pub struct X5CameraFrameHeader {
 #[derive(Debug, Clone)]
 pub struct X5CameraFrame {
     pub header: X5CameraFrameHeader,
-    pub nv12_data: Arc<[u8]>,
+    pub nv12_data: ZSlice,
 }
 
 impl From<X5CameraFrame> for Image {

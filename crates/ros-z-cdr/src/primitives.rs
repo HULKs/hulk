@@ -7,8 +7,10 @@
 
 #[cfg(target_endian = "little")]
 use bytemuck;
-use byteorder::{ByteOrder, ReadBytesExt};
+use byteorder::ByteOrder;
+use std::borrow::Cow;
 use std::marker::PhantomData;
+use zenoh_buffers::{ZBuf, ZSlice};
 
 use crate::buffer::CdrBuffer;
 use crate::error::{Error, Result};
@@ -60,6 +62,15 @@ impl<'a, BO: ByteOrder, B: CdrBuffer> CdrWriter<'a, BO, B> {
     #[inline]
     pub fn buffer_mut(&mut self) -> &mut B {
         self.buffer
+    }
+
+    /// Reborrow without changing the alignment origin (for field-level adapters).
+    pub fn reborrow(&mut self) -> CdrWriter<'_, BO, B> {
+        CdrWriter {
+            buffer: self.buffer,
+            start_offset: self.start_offset,
+            _phantom: PhantomData,
+        }
     }
 
     // Primitive write operations
@@ -175,7 +186,7 @@ impl<'a, BO: ByteOrder, B: CdrBuffer> CdrWriter<'a, BO, B> {
     #[inline]
     pub fn write_pod_slice<T: CdrPlain + bytemuck::Pod>(&mut self, slice: &[T]) {
         debug_assert!(!slice.is_empty());
-        self.align(std::mem::align_of::<T>());
+        self.align(T::CDR_ALIGNMENT);
         self.buffer.extend_from_slice(bytemuck::cast_slice(slice));
     }
 }
@@ -186,9 +197,26 @@ impl<'a, BO: ByteOrder, B: CdrBuffer> CdrWriter<'a, BO, B> {
 /// Used internally by `CdrDeserializer` and available for direct use with
 /// dynamic/schema-driven message deserialization.
 pub struct CdrReader<'a, BO> {
-    input: &'a [u8],
+    backing: ReaderBacking<'a>,
+    length: usize,
     position: usize,
     _phantom: PhantomData<BO>,
+}
+
+enum ReaderBacking<'a> {
+    Borrowed {
+        input: &'a [u8],
+        offset: usize,
+    },
+    Owned {
+        slice: ZSlice,
+        offset: usize,
+    },
+    Segmented {
+        slices: Vec<ZSlice>,
+        index: usize,
+        offset: usize,
+    },
 }
 
 impl<'a, BO: ByteOrder> CdrReader<'a, BO> {
@@ -196,10 +224,110 @@ impl<'a, BO: ByteOrder> CdrReader<'a, BO> {
     #[inline]
     pub fn new(input: &'a [u8]) -> Self {
         Self {
-            input,
+            backing: ReaderBacking::Borrowed { input, offset: 0 },
+            length: input.len(),
             position: 0,
             _phantom: PhantomData,
         }
+    }
+
+    /// Retain payload owners; individual contiguous byte fields can be shared.
+    pub fn from_zbuf(input: &ZBuf) -> Result<Self> {
+        let mut slices = input.zslices().filter(|s| !s.is_empty()).peekable();
+        let Some(first) = slices.next() else {
+            return Ok(Self::new(&[]));
+        };
+        if slices.peek().is_none() {
+            return Ok(Self {
+                length: first.len(),
+                position: 0,
+                backing: ReaderBacking::Owned {
+                    slice: first.clone(),
+                    offset: 0,
+                },
+                _phantom: PhantomData,
+            });
+        }
+        let slices: Vec<_> = std::iter::once(first).chain(slices).cloned().collect();
+        let length = slices.iter().try_fold(0usize, |length, slice| {
+            length
+                .checked_add(slice.len())
+                .ok_or(Error::LengthOverflow {
+                    kind: "payload",
+                    len: usize::MAX,
+                })
+        })?;
+        Ok(Self {
+            backing: ReaderBacking::Segmented {
+                slices,
+                index: 0,
+                offset: 0,
+            },
+            length,
+            position: 0,
+            _phantom: PhantomData,
+        })
+    }
+
+    /// Reset alignment after the encapsulation header, retaining the payload owners.
+    pub fn reset_origin(&mut self) {
+        self.length -= self.position;
+        self.position = 0;
+    }
+
+    // Call only after checking remaining(); backing cursors are absolute, position is logical.
+    fn advance(&mut self, mut count: usize) {
+        self.position += count;
+        match &mut self.backing {
+            ReaderBacking::Borrowed { offset, .. } | ReaderBacking::Owned { offset, .. } => {
+                *offset += count
+            }
+            ReaderBacking::Segmented {
+                slices,
+                index,
+                offset,
+            } => {
+                while count > 0 {
+                    let available = slices[*index].len() - *offset;
+                    let consumed = count.min(available);
+                    *offset += consumed;
+                    count -= consumed;
+                    if *offset == slices[*index].len() {
+                        *index += 1;
+                        *offset = 0;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Read one owned field. Only fields spanning segments need a bulk copy.
+    pub fn read_zslice(&mut self, count: usize) -> Result<ZSlice> {
+        if count > self.remaining() {
+            return Err(Error::UnexpectedEof);
+        }
+        if count == 0 {
+            return Ok(ZSlice::from(Vec::new()));
+        }
+        let contiguous = match &self.backing {
+            ReaderBacking::Owned { slice, offset } => Some((slice, *offset)),
+            ReaderBacking::Segmented {
+                slices,
+                index,
+                offset,
+            } => slices.get(*index).map(|slice| (slice, *offset)),
+            ReaderBacking::Borrowed { .. } => None,
+        };
+        if let Some((slice, offset)) = contiguous
+            && count <= slice.len() - offset
+        {
+            let result = slice
+                .subslice(offset..offset + count)
+                .ok_or(Error::UnexpectedEof)?;
+            self.advance(count);
+            return Ok(result);
+        }
+        Ok(ZSlice::from(self.read_bytes(count)?.into_owned()))
     }
 
     /// Current read position.
@@ -211,7 +339,7 @@ impl<'a, BO: ByteOrder> CdrReader<'a, BO> {
     /// Remaining bytes available.
     #[inline]
     pub fn remaining(&self) -> usize {
-        self.input.len() - self.position
+        self.length - self.position
     }
 
     /// Align to the given boundary.
@@ -223,19 +351,66 @@ impl<'a, BO: ByteOrder> CdrReader<'a, BO> {
             if self.remaining() < padding {
                 return Err(Error::UnexpectedEof);
             }
-            self.position += padding;
+            self.advance(padding);
         }
         Ok(())
     }
 
     /// Read raw bytes without alignment.
     #[inline]
-    pub fn read_bytes(&mut self, count: usize) -> Result<&'a [u8]> {
+    pub fn read_bytes(&mut self, count: usize) -> Result<Cow<'a, [u8]>> {
         if self.remaining() < count {
             return Err(Error::UnexpectedEof);
         }
-        let bytes = &self.input[self.position..self.position + count];
-        self.position += count;
+        if let ReaderBacking::Borrowed { input, offset } = &self.backing {
+            let bytes = &input[*offset..*offset + count];
+            self.advance(count);
+            return Ok(Cow::Borrowed(bytes));
+        }
+        let mut bytes = vec![0; count];
+        self.read_into(&mut bytes)?;
+        Ok(Cow::Owned(bytes))
+    }
+
+    /// Copy a primitive or fragmented field without allocating scratch storage.
+    pub fn read_into(&mut self, output: &mut [u8]) -> Result<()> {
+        if output.len() > self.remaining() {
+            return Err(Error::UnexpectedEof);
+        }
+        match &self.backing {
+            ReaderBacking::Borrowed { input, offset } => {
+                output.copy_from_slice(&input[*offset..*offset + output.len()]);
+            }
+            ReaderBacking::Owned { slice, offset } => {
+                output.copy_from_slice(&slice[*offset..*offset + output.len()]);
+            }
+            ReaderBacking::Segmented {
+                slices,
+                index,
+                offset,
+            } => {
+                let mut skip = *offset;
+                let mut written = 0;
+                for slice in &slices[*index..] {
+                    let offset = skip.min(slice.len());
+                    skip -= offset;
+                    let count = (output.len() - written).min(slice.len() - offset);
+                    output[written..written + count]
+                        .copy_from_slice(&slice.as_slice()[offset..offset + count]);
+                    written += count;
+                    if written == output.len() {
+                        break;
+                    }
+                }
+            }
+        }
+        self.advance(output.len());
+        Ok(())
+    }
+
+    fn read_array<const N: usize>(&mut self) -> Result<[u8; N]> {
+        let mut bytes = [0; N];
+        self.read_into(&mut bytes)?;
         Ok(bytes)
     }
 
@@ -243,7 +418,7 @@ impl<'a, BO: ByteOrder> CdrReader<'a, BO> {
 
     #[inline]
     pub fn read_bool(&mut self) -> Result<bool> {
-        let byte = self.read_bytes(1)?[0];
+        let byte = self.read_u8()?;
         match byte {
             0 => Ok(false),
             1 => Ok(true),
@@ -253,90 +428,91 @@ impl<'a, BO: ByteOrder> CdrReader<'a, BO> {
 
     #[inline]
     pub fn read_i8(&mut self) -> Result<i8> {
-        Ok(self.read_bytes(1)?[0] as i8)
+        Ok(self.read_u8()? as i8)
     }
 
     #[inline]
     pub fn read_u8(&mut self) -> Result<u8> {
-        Ok(self.read_bytes(1)?[0])
+        Ok(self.read_array::<1>()?[0])
     }
 
     #[inline]
     pub fn read_i16(&mut self) -> Result<i16> {
         self.align(2)?;
-        let bytes = self.read_bytes(2)?;
-        Ok((&bytes[..]).read_i16::<BO>().unwrap())
+        Ok(BO::read_i16(&self.read_array::<2>()?))
     }
 
     #[inline]
     pub fn read_u16(&mut self) -> Result<u16> {
         self.align(2)?;
-        let bytes = self.read_bytes(2)?;
-        Ok((&bytes[..]).read_u16::<BO>().unwrap())
+        Ok(BO::read_u16(&self.read_array::<2>()?))
     }
 
     #[inline]
     pub fn read_i32(&mut self) -> Result<i32> {
         self.align(4)?;
-        let bytes = self.read_bytes(4)?;
-        Ok((&bytes[..]).read_i32::<BO>().unwrap())
+        Ok(BO::read_i32(&self.read_array::<4>()?))
     }
 
     #[inline]
     pub fn read_u32(&mut self) -> Result<u32> {
         self.align(4)?;
-        let bytes = self.read_bytes(4)?;
-        Ok((&bytes[..]).read_u32::<BO>().unwrap())
+        Ok(BO::read_u32(&self.read_array::<4>()?))
     }
 
     #[inline]
     pub fn read_i64(&mut self) -> Result<i64> {
         self.align(8)?;
-        let bytes = self.read_bytes(8)?;
-        Ok((&bytes[..]).read_i64::<BO>().unwrap())
+        Ok(BO::read_i64(&self.read_array::<8>()?))
     }
 
     #[inline]
     pub fn read_u64(&mut self) -> Result<u64> {
         self.align(8)?;
-        let bytes = self.read_bytes(8)?;
-        Ok((&bytes[..]).read_u64::<BO>().unwrap())
+        Ok(BO::read_u64(&self.read_array::<8>()?))
     }
 
     #[inline]
     pub fn read_f32(&mut self) -> Result<f32> {
         self.align(4)?;
-        let bytes = self.read_bytes(4)?;
-        Ok((&bytes[..]).read_f32::<BO>().unwrap())
+        Ok(BO::read_f32(&self.read_array::<4>()?))
     }
 
     #[inline]
     pub fn read_f64(&mut self) -> Result<f64> {
         self.align(8)?;
-        let bytes = self.read_bytes(8)?;
-        Ok((&bytes[..]).read_f64::<BO>().unwrap())
+        Ok(BO::read_f64(&self.read_array::<8>()?))
     }
 
     /// Read a CDR string (length-prefixed with null terminator).
     #[inline]
     pub fn read_string(&mut self) -> Result<String> {
-        let len = self.read_u32()? as usize;
-        let bytes = self.read_bytes(len)?;
-        let str_bytes = bytes
-            .strip_suffix(&[0])
-            .ok_or(Error::InvalidStringTerminator)?;
-        String::from_utf8(str_bytes.to_vec()).map_err(|e| Error::Utf8(e.utf8_error()))
+        Ok(self.read_str()?.into_owned())
     }
 
     /// Read a CDR string as a borrowed slice (zero-copy when possible).
     #[inline]
-    pub fn read_str(&mut self) -> Result<&'a str> {
+    pub fn read_str(&mut self) -> Result<Cow<'a, str>> {
         let len = self.read_u32()? as usize;
         let bytes = self.read_bytes(len)?;
-        let str_bytes = bytes
-            .strip_suffix(&[0])
-            .ok_or(Error::InvalidStringTerminator)?;
-        std::str::from_utf8(str_bytes).map_err(Error::Utf8)
+        match bytes {
+            Cow::Borrowed(bytes) => {
+                let bytes = bytes
+                    .strip_suffix(&[0])
+                    .ok_or(Error::InvalidStringTerminator)?;
+                Ok(Cow::Borrowed(
+                    std::str::from_utf8(bytes).map_err(Error::Utf8)?,
+                ))
+            }
+            Cow::Owned(mut bytes) => {
+                if bytes.pop() != Some(0) {
+                    return Err(Error::InvalidStringTerminator);
+                }
+                Ok(Cow::Owned(
+                    String::from_utf8(bytes).map_err(|e| Error::Utf8(e.utf8_error()))?,
+                ))
+            }
+        }
     }
 
     /// Read a sequence length prefix.
@@ -359,12 +535,12 @@ impl<'a, BO: ByteOrder> CdrReader<'a, BO> {
 
     /// Read raw bytes with length prefix.
     #[inline]
-    pub fn read_byte_sequence(&mut self) -> Result<&'a [u8]> {
+    pub fn read_byte_sequence(&mut self) -> Result<Cow<'a, [u8]>> {
         let len = self.read_u32()? as usize;
         self.read_bytes(len)
     }
 
-    /// Bulk-read `count` plain (POD) values as a zero-copy borrowed slice.
+    /// Bulk-read `count` plain (POD) values into an aligned owned allocation.
     ///
     /// The caller must have already read the sequence length prefix.
     /// Alignment is handled internally based on `T`'s alignment requirement.
@@ -376,14 +552,29 @@ impl<'a, BO: ByteOrder> CdrReader<'a, BO> {
         if count == 0 {
             return Ok(vec![]);
         }
-        self.align(std::mem::align_of::<T>())?;
+        self.align(T::CDR_ALIGNMENT)?;
         let byte_count = count
             .checked_mul(std::mem::size_of::<T>())
             .ok_or(Error::UnexpectedEof)?;
-        let bytes = self.read_bytes(byte_count)?;
-        // `pod_collect_to_vec` handles misaligned input buffers safely (copies into
-        // a freshly aligned allocation). `cast_slice` would panic on misaligned network data.
-        Ok(bytemuck::pod_collect_to_vec(bytes))
+        if byte_count > self.remaining() {
+            return Err(Error::UnexpectedEof);
+        }
+        let mut values = vec![T::zeroed(); count];
+        self.read_into(bytemuck::cast_slice_mut(&mut values))?;
+        Ok(values)
+    }
+
+    #[cfg(target_endian = "little")]
+    /// Bulk-read a fixed array without a temporary allocation.
+    pub fn read_pod_array<T: CdrPlain + bytemuck::Pod, const N: usize>(
+        &mut self,
+    ) -> Result<[T; N]> {
+        let mut values = [T::zeroed(); N];
+        if N != 0 {
+            self.align(T::CDR_ALIGNMENT)?;
+            self.read_into(bytemuck::cast_slice_mut(&mut values))?;
+        }
+        Ok(values)
     }
 }
 
@@ -391,6 +582,73 @@ impl<'a, BO: ByteOrder> CdrReader<'a, BO> {
 mod tests {
     use super::*;
     use byteorder::LittleEndian;
+
+    #[test]
+    fn empty_segmented_reader_and_zero_length_reads() {
+        let mut buffer = ZBuf::empty();
+        buffer.push_zslice(Vec::<u8>::new().into());
+        let mut reader = CdrReader::<LittleEndian>::from_zbuf(&buffer).unwrap();
+        assert_eq!(reader.remaining(), 0);
+        assert!(matches!(reader.backing, ReaderBacking::Borrowed { .. }));
+        assert!(reader.read_bytes(0).unwrap().is_empty());
+        assert!(reader.read_zslice(0).unwrap().is_empty());
+        reader.reset_origin();
+        assert!(reader.read_u8().is_err());
+        assert_eq!(reader.position(), 0);
+    }
+
+    #[test]
+    fn reader_backings_preserve_alignment_and_bridge_cursor() {
+        use serde::Deserialize;
+        let mut bytes = vec![0, 1, 0, 0];
+        let mut writer = CdrWriter::<LittleEndian>::new(&mut bytes);
+        writer.write_u8(3);
+        writer.write_u64(17);
+        writer.write_bytes(&[5, 6, 7]);
+        writer.write_u32(99);
+
+        fn check(mut reader: CdrReader<'_, LittleEndian>) {
+            assert_eq!(reader.read_bytes(4).unwrap().as_ref(), &[0, 1, 0, 0]);
+            reader.reset_origin();
+            assert_eq!(reader.read_u8().unwrap(), 3);
+            let mut deserializer = crate::CdrDeserializer::from_reader(reader);
+            assert_eq!(u64::deserialize(&mut deserializer).unwrap(), 17);
+            let mut reader = deserializer.into_reader();
+            let count = reader.read_sequence_length().unwrap();
+            assert_eq!(reader.read_zslice(count).unwrap().as_slice(), &[5, 6, 7]);
+            assert_eq!(reader.read_u32().unwrap(), 99);
+            assert_eq!(reader.remaining(), 0);
+            reader.reset_origin();
+            assert_eq!(reader.position(), 0);
+            assert!(reader.read_u8().is_err());
+        }
+        check(CdrReader::new(&bytes));
+        for split in 0..=bytes.len() {
+            let mut buffer = ZBuf::empty();
+            buffer.push_zslice(bytes[..split].to_vec().into());
+            buffer.push_zslice(Vec::<u8>::new().into());
+            buffer.push_zslice(bytes[split..].to_vec().into());
+            check(CdrReader::from_zbuf(&buffer).unwrap());
+        }
+    }
+
+    #[test]
+    fn reset_origin_keeps_segment_owner_and_absolute_cursor() {
+        let slice = ZSlice::from(vec![1, 2, 3, 4, 5, 6]);
+        let pointer = slice.as_ptr();
+        let buffer = ZBuf::from(slice);
+        let mut reader = CdrReader::<LittleEndian>::from_zbuf(&buffer).unwrap();
+        assert!(matches!(reader.backing, ReaderBacking::Owned { .. }));
+        drop(buffer);
+        reader.read_bytes(2).unwrap();
+        reader.reset_origin();
+        reader.read_bytes(1).unwrap();
+        reader.reset_origin();
+        let tail = reader.read_zslice(3).unwrap();
+        assert_eq!(tail.as_ptr(), pointer.wrapping_add(3));
+        drop(reader);
+        assert_eq!(tail.as_slice(), &[4, 5, 6]);
+    }
 
     #[test]
     fn test_reader_primitives() {
