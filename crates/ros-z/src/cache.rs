@@ -42,7 +42,7 @@ use std::sync::Arc;
 use tracing::{debug, warn};
 
 use crate::Result;
-use crate::message::{SerdeCdrCodec, WireDecoder};
+use crate::message::{CdrCodec, WireDecoder};
 use crate::pubsub::SubscriberBuilder;
 use crate::time::Time;
 
@@ -400,7 +400,7 @@ impl<T> Cache<T> {
 /// Created by `node.subscriber::<T>(topic).cache(capacity)`.
 /// Use [`with_stamp`](CacheBuilder::with_stamp) to switch from the default
 /// Zenoh transport timestamp to an application-level extractor.
-pub struct CacheBuilder<T, S = SerdeCdrCodec<T>, Stamp = ZenohStamp> {
+pub struct CacheBuilder<T, S = CdrCodec<T>, Stamp = ZenohStamp> {
     pub(crate) sub_builder: SubscriberBuilder<T, S>,
     capacity: usize,
     stamp: Stamp,
@@ -500,8 +500,7 @@ where
                         break;
                     }
                 };
-                let payload = sample.payload().to_bytes();
-                match S::deserialize(&payload) {
+                match S::deserialize_payload(sample.payload()) {
                     Ok(message) => {
                         let stamp = match sample.timestamp() {
                             Some(ts) => Time::from_wallclock(ts.get_time().to_system_time()),
@@ -578,8 +577,7 @@ where
                         break;
                     }
                 };
-                let payload = sample.payload().to_bytes();
-                match S::deserialize(&payload) {
+                match S::deserialize_payload(sample.payload()) {
                     Ok(message) => {
                         let stamp = extractor(&message).into();
                         inner_cb.write().insert(stamp, message);

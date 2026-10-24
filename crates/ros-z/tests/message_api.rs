@@ -1,4 +1,4 @@
-use ros_z::message::{SerdeCdrCodec, WireDecoder, WireEncoder};
+use ros_z::message::{CdrCodec, WireDecoder, WireEncoder};
 use ros_z::schema::{MessageSchema, SchemaBuilder};
 use ros_z::{ENDPOINT_GLOBAL_ID_SIZE, EndpointGlobalId, Message};
 use ros_z_schema::{
@@ -49,7 +49,19 @@ impl MessageSchema for ManualCommand {
 }
 
 impl Message for ManualCommand {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = CdrCodec<Self>;
+    fn encode_cdr<B: ros_z::cdr::CdrBuffer>(
+        &self,
+        writer: &mut ros_z::cdr::CdrWriter<'_, ros_z::cdr::LittleEndian, B>,
+    ) -> ros_z::cdr::Result<()> {
+        ros_z::serde_bridge::encode_serde(self, writer)
+    }
+
+    fn decode_cdr(
+        reader: &mut ros_z::cdr::CdrReader<'_, ros_z::cdr::LittleEndian>,
+    ) -> ros_z::cdr::Result<Self> {
+        ros_z::serde_bridge::decode_serde(reader)
+    }
 
     fn type_name() -> String {
         "test::ManualCommand".to_string()
@@ -88,7 +100,19 @@ impl MessageSchema for ManualMode {
 }
 
 impl Message for ManualMode {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = CdrCodec<Self>;
+    fn encode_cdr<B: ros_z::cdr::CdrBuffer>(
+        &self,
+        writer: &mut ros_z::cdr::CdrWriter<'_, ros_z::cdr::LittleEndian, B>,
+    ) -> ros_z::cdr::Result<()> {
+        ros_z::serde_bridge::encode_serde(self, writer)
+    }
+
+    fn decode_cdr(
+        reader: &mut ros_z::cdr::CdrReader<'_, ros_z::cdr::LittleEndian>,
+    ) -> ros_z::cdr::Result<Self> {
+        ros_z::serde_bridge::decode_serde(reader)
+    }
 
     fn type_name() -> String {
         "test::ManualMode".to_string()
@@ -106,7 +130,19 @@ impl MessageSchema for ManualRecursiveNode {
 }
 
 impl Message for ManualRecursiveNode {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = CdrCodec<Self>;
+    fn encode_cdr<B: ros_z::cdr::CdrBuffer>(
+        &self,
+        writer: &mut ros_z::cdr::CdrWriter<'_, ros_z::cdr::LittleEndian, B>,
+    ) -> ros_z::cdr::Result<()> {
+        ros_z::serde_bridge::encode_serde(self, writer)
+    }
+
+    fn decode_cdr(
+        reader: &mut ros_z::cdr::CdrReader<'_, ros_z::cdr::LittleEndian>,
+    ) -> ros_z::cdr::Result<Self> {
+        ros_z::serde_bridge::decode_serde(reader)
+    }
 
     fn type_name() -> String {
         "test::ManualRecursiveNode".to_string()
@@ -114,7 +150,19 @@ impl Message for ManualRecursiveNode {
 }
 
 impl Message for ApiSmokeMessage {
-    type Codec = ros_z::message::SerdeCdrCodec<Self>;
+    type Codec = CdrCodec<Self>;
+    fn encode_cdr<B: ros_z::cdr::CdrBuffer>(
+        &self,
+        writer: &mut ros_z::cdr::CdrWriter<'_, ros_z::cdr::LittleEndian, B>,
+    ) -> ros_z::cdr::Result<()> {
+        ros_z::serde_bridge::encode_serde(self, writer)
+    }
+
+    fn decode_cdr(
+        reader: &mut ros_z::cdr::CdrReader<'_, ros_z::cdr::LittleEndian>,
+    ) -> ros_z::cdr::Result<Self> {
+        ros_z::serde_bridge::decode_serde(reader)
+    }
 
     fn type_name() -> String {
         "ros_z_tests::ApiSmokeMessage".to_string()
@@ -148,8 +196,8 @@ fn handwritten_message_constructs_static_pubsub_builders_without_legacy_type_inf
 #[test]
 fn wire_message_uses_codec_vocabulary() {
     let original = ApiSmokeMessage { value: 7 };
-    let encoded = SerdeCdrCodec::<ApiSmokeMessage>::serialize_to_zbuf(&original).unwrap();
-    let decoded = SerdeCdrCodec::<ApiSmokeMessage>::deserialize(&encoded.contiguous())
+    let encoded = CdrCodec::<ApiSmokeMessage>::serialize_to_zbuf(&original).unwrap();
+    let decoded = CdrCodec::<ApiSmokeMessage>::deserialize(&encoded.contiguous())
         .expect("wire codec should decode encoded message");
 
     assert_eq!(decoded, original);

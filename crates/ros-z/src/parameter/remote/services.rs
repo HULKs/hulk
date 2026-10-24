@@ -409,7 +409,7 @@ where
     let payload = query
         .payload()
         .ok_or_else(|| "missing request payload".to_string())?;
-    <<T as Message>::Codec as WireDecoder>::deserialize(payload.to_bytes().as_ref())
+    <<T as Message>::Codec as WireDecoder>::deserialize_payload(payload)
         .map_err(|err| format!("{err}"))
 }
 

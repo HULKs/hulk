@@ -62,10 +62,10 @@
 //!
 //! # How It Works
 //!
-//! 1. Message is serialized to determine size
+//! 1. Typed message encoding is counted to determine size (without a payload allocation)
 //! 2. If size ≥ threshold and SHM configured:
 //!    - Allocate SHM buffer
-//!    - Copy serialized data to SHM
+//!    - Encode directly into SHM
 //!    - Publish SHM reference (zero-copy!)
 //! 3. If size < threshold or SHM unavailable:
 //!    - Use regular memory (standard path)
@@ -84,7 +84,7 @@
 
 use std::sync::Arc;
 use zenoh::Wait;
-use zenoh::shm::{BlockOn, GarbageCollect, PosixShmProviderBackend, ShmProvider, ZShmMut};
+use zenoh::shm::{GarbageCollect, PosixShmProviderBackend, ShmProvider, ZShmMut};
 use zenoh_buffers::ZBuf;
 
 /// Default shared memory pool size (10 MB).
@@ -340,6 +340,7 @@ pub struct ShmWriter {
     buffer: ZShmMut,
     /// Current write position
     position: usize,
+    overflow: bool,
 }
 
 impl ShmWriter {
@@ -352,14 +353,15 @@ impl ShmWriter {
     ///
     /// # Errors
     ///
-    /// Returns an error if SHM allocation fails.
+    /// Attempts garbage collection once, returning an error rather than waiting for
+    /// retained messages to release allocations. Publishers can then fall back to heap.
     pub fn new(
         provider: &ShmProvider<PosixShmProviderBackend>,
         capacity: usize,
     ) -> crate::Result<Self> {
         let buffer = provider
             .alloc(capacity)
-            .with_policy::<BlockOn<GarbageCollect>>()
+            .with_policy::<GarbageCollect>()
             .wait()
             .map_err(|source| crate::error::ShmError::Allocation {
                 capacity,
@@ -369,6 +371,7 @@ impl ShmWriter {
         Ok(Self {
             buffer,
             position: 0,
+            overflow: false,
         })
     }
 
@@ -376,6 +379,10 @@ impl ShmWriter {
     #[inline]
     pub fn position(&self) -> usize {
         self.position
+    }
+
+    pub(crate) fn overflowed(&self) -> bool {
+        self.overflow
     }
 
     /// Convert the writer into a ZBuf containing the serialized data.
@@ -387,28 +394,36 @@ impl ShmWriter {
     ///
     /// Returns an error if the buffer cannot be converted to ZBuf.
     pub fn into_zbuf(self) -> crate::Result<ZBuf> {
-        // Create a ZBuf from the SHM buffer
-        // Note: The entire allocated buffer is used, not just the written portion
-        // This is acceptable as Zenoh will handle the actual data length separately
-        Ok(ZBuf::from(self.buffer))
+        if self.overflow {
+            return Err(crate::Error::encode(
+                "shared-memory payload",
+                ros_z_cdr::Error::Custom("SHM buffer capacity exceeded".into()),
+            ));
+        }
+        let buffer = ZBuf::from(self.buffer);
+        let mut written = ZBuf::empty();
+        let mut remaining = self.position;
+        for slice in buffer.zslices() {
+            let count = remaining.min(slice.len());
+            if count > 0 {
+                written.push_zslice(slice.subslice(..count).expect("count within slice"));
+            }
+            remaining -= count;
+        }
+        Ok(written)
     }
 
     /// Write bytes directly to the SHM buffer.
     ///
-    /// # Panics
-    ///
-    /// Panics if writing would exceed the allocated buffer size.
+    /// Records overflow for into_zbuf() to report without publishing partial data.
     #[inline]
     fn write_bytes(&mut self, bytes: &[u8]) {
-        let end = self.position + bytes.len();
-        assert!(
-            end <= self.buffer.len(),
-            "SHM buffer overflow: tried to write {} bytes at position {} but buffer size is {}",
-            bytes.len(),
-            self.position,
-            self.buffer.len()
-        );
-        self.buffer[self.position..end].copy_from_slice(bytes);
+        let end = self.position.saturating_add(bytes.len());
+        if end <= self.buffer.len() && !self.overflow {
+            self.buffer[self.position..end].copy_from_slice(bytes);
+        } else {
+            self.overflow = true;
+        }
         self.position = end;
     }
 }
@@ -439,12 +454,13 @@ impl ros_z_cdr::CdrBuffer for ShmWriter {
     #[inline(always)]
     fn clear(&mut self) {
         self.position = 0;
+        self.overflow = false;
     }
 
     fn append_zbuf(&mut self, zbuf: &ZBuf) {
-        use zenoh_buffers::buffer::SplitBuffer;
-        let bytes = zbuf.contiguous();
-        self.write_bytes(&bytes);
+        for slice in zbuf.zslices() {
+            self.write_bytes(slice.as_slice());
+        }
     }
 }
 
@@ -452,6 +468,22 @@ impl ros_z_cdr::CdrBuffer for ShmWriter {
 mod tests {
     use super::*;
     use serial_test::serial;
+
+    #[test]
+    fn shm_writer_truncates_capacity_and_reports_overflow() {
+        use ros_z_cdr::CdrBuffer;
+        use zenoh_buffers::buffer::SplitBuffer;
+        let provider = ShmProviderBuilder::new(64 * 1024).build().unwrap();
+        let mut writer = ShmWriter::new(&provider, 128).unwrap();
+        writer.extend_from_slice(&[1, 2, 3]);
+        assert_eq!(
+            writer.into_zbuf().unwrap().contiguous().as_ref(),
+            &[1, 2, 3]
+        );
+        let mut writer = ShmWriter::new(&provider, 1).unwrap();
+        writer.extend_from_slice(&[0; 256]);
+        assert!(writer.into_zbuf().is_err());
+    }
 
     #[test]
     fn test_shm_provider_builder() {

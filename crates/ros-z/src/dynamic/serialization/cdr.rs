@@ -3,7 +3,9 @@
 //! This module uses the low-level primitives from `ros-z-cdr` for CDR
 //! serialization and deserialization of dynamic messages.
 
-use ros_z_cdr::{CdrDeserializer, CdrReader, CdrWriter, Error as CdrError, LittleEndian};
+use ros_z_cdr::{
+    CdrBuffer, CdrDeserializer, CdrReader, CdrWriter, Error as CdrError, LittleEndian,
+};
 use serde::de::DeserializeOwned;
 use zenoh_buffers::ZBuf;
 
@@ -21,51 +23,62 @@ use ros_z_schema::{
 
 /// Serialize a dynamic message to CDR bytes.
 pub fn serialize_cdr(message: &DynamicStruct) -> Result<Vec<u8>, DynamicError> {
-    let schema = message.schema_arc();
-    serialize_cdr_value(&schema, &DynamicValue::Struct(Box::new(message.clone())))
+    let mut buffer = Vec::with_capacity(256);
+    serialize_cdr_into(message, &mut buffer)?;
+    Ok(buffer)
+}
+
+pub(super) fn serialize_cdr_into<B: CdrBuffer>(
+    message: &DynamicStruct,
+    buffer: &mut B,
+) -> Result<(), DynamicError> {
+    let schema = message.schema_ref();
+    let definition = crate::dynamic::value::validate_struct(message, &schema.root, schema)?;
+    buffer.extend_from_slice(&CDR_HEADER_LE);
+    serialize_struct_fields(
+        message,
+        &definition.fields,
+        schema,
+        &mut CdrWriter::new(buffer),
+    )
 }
 
 /// Serialize a dynamic root value to CDR bytes.
 pub fn serialize_cdr_value(schema: &Schema, value: &DynamicValue) -> Result<Vec<u8>, DynamicError> {
-    value.validate_against(schema)?;
     let mut buffer = Vec::with_capacity(256);
-    buffer.extend_from_slice(&CDR_HEADER_LE);
-
-    let mut writer = CdrWriter::<LittleEndian>::new(&mut buffer);
-    serialize_root_value(value, schema, &mut writer)?;
-
+    serialize_cdr_value_into(schema, value, &mut buffer)?;
     Ok(buffer)
+}
+
+pub(crate) fn serialize_cdr_value_into<B: CdrBuffer>(
+    schema: &Schema,
+    value: &DynamicValue,
+    buffer: &mut B,
+) -> Result<(), DynamicError> {
+    value.validate_against(schema)?;
+    write_cdr_value(schema, value, buffer)
+}
+
+pub(crate) fn write_cdr_value<B: CdrBuffer>(
+    schema: &Schema,
+    value: &DynamicValue,
+    buffer: &mut B,
+) -> Result<(), DynamicError> {
+    buffer.extend_from_slice(&CDR_HEADER_LE);
+    let mut writer = CdrWriter::<LittleEndian, B>::new(buffer);
+    serialize_root_value(value, schema, &mut writer)
 }
 
 /// Serialize a dynamic message to a ZBuf.
 pub fn serialize_cdr_to_zbuf(message: &DynamicStruct) -> Result<ZBuf, DynamicError> {
-    let bytes = serialize_cdr(message)?;
-    Ok(ZBuf::from(bytes))
+    let mut buffer = ros_z_cdr::ZBufWriter::with_capacity(256);
+    serialize_cdr_into(message, &mut buffer)?;
+    Ok(buffer.into_zbuf())
 }
 
 /// Deserialize a dynamic message from CDR bytes.
 pub fn deserialize_cdr(data: &[u8], schema: &Schema) -> Result<DynamicStruct, DynamicError> {
-    schema
-        .validate()
-        .map_err(|error| DynamicError::schema("deserializing dynamic CDR struct", error))?;
-    if data.len() < 4 {
-        return Err(DynamicError::DeserializationError(
-            "CDR data too short for header".into(),
-        ));
-    }
-    let header = &data[0..4];
-    let representation_identifier = &header[0..2];
-    if representation_identifier != [0x00, 0x01] {
-        return Err(DynamicError::DeserializationError(format!(
-            "Expected CDR_LE encapsulation ({:?}), found {:?}",
-            [0x00, 0x01],
-            representation_identifier
-        )));
-    }
-
-    let payload = &data[4..];
-    let mut reader = CdrReader::<LittleEndian>::new(payload);
-    match deserialize_shape_value(&schema.root, schema, &mut reader)? {
+    match deserialize_cdr_value(data, schema)? {
         DynamicValue::Struct(value) => Ok(*value),
         _ => Err(DynamicError::DeserializationError(
             "root schema did not deserialize to a struct".into(),
@@ -78,12 +91,17 @@ pub fn deserialize_cdr_value(data: &[u8], schema: &Schema) -> Result<DynamicValu
     schema
         .validate()
         .map_err(|error| DynamicError::schema("deserializing dynamic CDR value", error))?;
-    if data.len() < 4 {
-        return Err(DynamicError::DeserializationError(
-            "CDR data too short for header".into(),
-        ));
-    }
-    let header = &data[0..4];
+    deserialize_cdr_reader(CdrReader::new(data), schema)
+}
+
+pub(crate) fn deserialize_cdr_reader(
+    mut reader: CdrReader<LittleEndian>,
+    schema: &Schema,
+) -> Result<DynamicValue, DynamicError> {
+    let mut header = [0; 4];
+    reader
+        .read_into(&mut header)
+        .map_err(DynamicError::deserialization)?;
     let representation_identifier = &header[0..2];
     if representation_identifier != [0x00, 0x01] {
         return Err(DynamicError::DeserializationError(format!(
@@ -93,37 +111,36 @@ pub fn deserialize_cdr_value(data: &[u8], schema: &Schema) -> Result<DynamicValu
         )));
     }
 
-    let payload = &data[4..];
-    let mut reader = CdrReader::<LittleEndian>::new(payload);
+    reader.reset_origin();
     deserialize_root_value(schema, &mut reader)
 }
 
-fn serialize_root_value(
+fn serialize_root_value<B: CdrBuffer>(
     value: &DynamicValue,
     schema: &Schema,
-    writer: &mut CdrWriter<LittleEndian>,
+    writer: &mut CdrWriter<LittleEndian, B>,
 ) -> Result<(), DynamicError> {
     serialize_shape_value(value, &schema.root, schema, writer)
 }
 
-fn serialize_struct_fields(
+// Both public serialization entry points validate the full tree before encoding.
+fn serialize_struct_fields<B: CdrBuffer>(
     value: &DynamicStruct,
     fields: &[FieldDef],
     schema: &Schema,
-    writer: &mut CdrWriter<LittleEndian>,
+    writer: &mut CdrWriter<LittleEndian, B>,
 ) -> Result<(), DynamicError> {
-    value.validate_fields(fields, schema)?;
     for (field, field_value) in fields.iter().zip(value.values().iter()) {
         serialize_shape_value(field_value, &field.shape, schema, writer)?;
     }
     Ok(())
 }
 
-fn serialize_shape_value(
+fn serialize_shape_value<B: CdrBuffer>(
     value: &DynamicValue,
     shape: &TypeDef,
     schema: &Schema,
-    writer: &mut CdrWriter<LittleEndian>,
+    writer: &mut CdrWriter<LittleEndian, B>,
 ) -> Result<(), DynamicError> {
     match (value, shape) {
         (DynamicValue::Unit, TypeDef::Primitive(PrimitiveTypeDef::Unit)) => {}
@@ -167,14 +184,10 @@ fn serialize_shape_value(
         (DynamicValue::Bytes(bytes), TypeDef::Sequence { element, length })
             if matches!(element.as_ref(), TypeDef::Primitive(PrimitiveTypeDef::U8)) =>
         {
-            match length {
-                SequenceLengthDef::Dynamic => writer.write_bytes(bytes),
-                SequenceLengthDef::Fixed(_) => {
-                    for byte in bytes {
-                        writer.write_u8(*byte);
-                    }
-                }
+            if matches!(length, SequenceLengthDef::Dynamic) {
+                writer.write_sequence_length(bytes.len());
             }
+            writer.buffer_mut().append_zbuf(&ZBuf::from(bytes.clone()));
         }
         (DynamicValue::Struct(value), TypeDef::Named(name)) => match schema.definitions.get(name) {
             Some(TypeDefinition::Struct(definition)) => {
@@ -488,6 +501,10 @@ fn skip_payload(
     Ok(())
 }
 
+fn collection_capacity<T>(len: usize) -> usize {
+    len.min(1024 * 1024 / std::mem::size_of::<T>().max(1))
+}
+
 fn deserialize_shape_value(
     shape: &TypeDef,
     schema: &Schema,
@@ -548,25 +565,25 @@ fn deserialize_shape_value(
             SequenceLengthDef::Dynamic
                 if matches!(element.as_ref(), TypeDef::Primitive(PrimitiveTypeDef::U8)) =>
             {
-                Ok(DynamicValue::Bytes(
+                Ok(DynamicValue::Bytes({
+                    let len = reader.read_u32().map_err(DynamicError::deserialization)? as usize;
                     reader
-                        .read_byte_sequence()
+                        .read_zslice(len)
                         .map_err(DynamicError::deserialization)?
-                        .to_vec(),
-                ))
+                }))
             }
             SequenceLengthDef::Dynamic => {
                 let len = reader
                     .read_sequence_length()
                     .map_err(DynamicError::deserialization)?;
-                let mut values = Vec::with_capacity(len);
+                let mut values = Vec::with_capacity(collection_capacity::<DynamicValue>(len));
                 for _ in 0..len {
                     values.push(deserialize_shape_value(element, schema, reader)?);
                 }
                 Ok(DynamicValue::Sequence(values))
             }
             SequenceLengthDef::Fixed(len) => {
-                let mut values = Vec::with_capacity(*len);
+                let mut values = Vec::with_capacity(collection_capacity::<DynamicValue>(*len));
                 for _ in 0..*len {
                     values.push(deserialize_shape_value(element, schema, reader)?);
                 }
@@ -612,7 +629,8 @@ fn deserialize_shape_value(
             let len = reader
                 .read_sequence_length()
                 .map_err(DynamicError::deserialization)?;
-            let mut entries = Vec::with_capacity(len);
+            let mut entries =
+                Vec::with_capacity(collection_capacity::<(DynamicValue, DynamicValue)>(len));
             for _ in 0..len {
                 entries.push((
                     deserialize_shape_value(key, schema, reader)?,
@@ -624,11 +642,11 @@ fn deserialize_shape_value(
     }
 }
 
-fn serialize_runtime_enum_payload(
+fn serialize_runtime_enum_payload<B: CdrBuffer>(
     payload: &EnumPayloadValue,
     schema: &EnumPayloadDef,
     bundle: &Schema,
-    writer: &mut CdrWriter<LittleEndian>,
+    writer: &mut CdrWriter<LittleEndian, B>,
 ) -> Result<(), DynamicError> {
     match (payload, schema) {
         (EnumPayloadValue::Unit, EnumPayloadDef::Unit) => Ok(()),
@@ -688,11 +706,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use super::*;
-    use crate::{
-        Message,
-        message::{SerdeCdrCodec, WireEncoder},
-        schema::SchemaBuilder,
-    };
+    use crate::{Message, message::WireEncoder, schema::SchemaBuilder};
 
     #[test]
     fn unit_root_roundtrips_without_payload() {
@@ -733,7 +747,8 @@ mod tests {
             })
             .unwrap();
         let schema = Arc::new(builder.finish(root).unwrap());
-        let bytes = SerdeCdrCodec::<UnitPacket>::serialize(&packet).unwrap();
+        let mut bytes = CDR_HEADER_LE.to_vec();
+        bytes.extend(ros_z_cdr::to_vec::<_, LittleEndian>(&packet, 256).unwrap());
 
         let value = deserialize_cdr_value(&bytes, &schema).unwrap();
         assert_eq!(serialize_cdr_value(&schema, &value).unwrap(), bytes);
@@ -777,6 +792,223 @@ mod tests {
         prefix: Prefix,
         value: u64,
         trailing: Vec<u8>,
+    }
+
+    #[derive(Serialize, Deserialize, Message)]
+    struct SerializationNested {
+        fixed: [u16; 2],
+    }
+
+    #[derive(Serialize, Deserialize, Message)]
+    enum SerializationEnum {
+        Tuple(SerializationNested, u8),
+        Named { nested: SerializationNested },
+    }
+
+    #[derive(Serialize, Deserialize, Message)]
+    struct SerializationRoot {
+        nested: SerializationNested,
+        variant: SerializationEnum,
+    }
+
+    fn serialization_fixture(named: bool) -> (DynamicStruct, Vec<u8>) {
+        let packet = SerializationRoot {
+            nested: SerializationNested { fixed: [1, 2] },
+            variant: if named {
+                SerializationEnum::Named {
+                    nested: SerializationNested { fixed: [3, 4] },
+                }
+            } else {
+                SerializationEnum::Tuple(SerializationNested { fixed: [5, 6] }, 7)
+            },
+        };
+        let schema = Arc::new(SerializationRoot::schema());
+        let bytes = <SerializationRoot as Message>::Codec::serialize(&packet).unwrap();
+        (deserialize_cdr(&bytes, &schema).unwrap(), bytes.to_vec())
+    }
+
+    fn assert_serialization_rejected(message: DynamicStruct, expected: &str) {
+        let schema = message.schema_arc();
+        let struct_error = serialize_cdr(&message).unwrap_err().to_string();
+        let mut buffer = vec![1, 2, 3];
+        let buffer_error = message
+            .serialize_to_buf(super::super::SerializationFormat::Cdr, &mut buffer)
+            .unwrap_err()
+            .to_string();
+        assert_eq!(struct_error, buffer_error);
+        assert!(buffer.is_empty());
+        let value_error = serialize_cdr_value(&schema, &DynamicValue::Struct(Box::new(message)))
+            .unwrap_err()
+            .to_string();
+        assert!(struct_error.contains(expected), "{struct_error}");
+        assert_eq!(struct_error, value_error);
+    }
+
+    #[test]
+    fn borrowed_struct_serialization_matches_root_value_and_typed_bytes() {
+        for named in [false, true] {
+            let (message, expected) = serialization_fixture(named);
+            assert_eq!(serialize_cdr(&message).unwrap(), expected);
+            let mut buffer = Vec::with_capacity(expected.len() + 128);
+            let allocation = buffer.as_ptr();
+            for _ in 0..2 {
+                message
+                    .serialize_to_buf(super::super::SerializationFormat::Cdr, &mut buffer)
+                    .unwrap();
+                assert_eq!(buffer.as_ptr(), allocation);
+                assert_eq!(buffer, expected);
+            }
+            assert_eq!(
+                serialize_cdr_value(
+                    &message.schema_arc(),
+                    &DynamicValue::Struct(Box::new(message.clone())),
+                )
+                .unwrap(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn dynamic_collection_reservations_are_bounded_and_can_grow() {
+        const BUDGET: usize = 1024 * 1024;
+        assert_eq!(collection_capacity::<DynamicValue>(3), 3);
+        assert_eq!(
+            collection_capacity::<DynamicValue>(usize::MAX),
+            BUDGET / std::mem::size_of::<DynamicValue>()
+        );
+        assert_eq!(
+            collection_capacity::<(DynamicValue, DynamicValue)>(usize::MAX),
+            BUDGET / std::mem::size_of::<(DynamicValue, DynamicValue)>()
+        );
+        let element = TypeDef::Primitive(PrimitiveTypeDef::U32);
+        let mut truncated = CDR_HEADER_LE.to_vec();
+        truncated.extend_from_slice(&100_000_000u32.to_le_bytes());
+        for shape in [
+            TypeDef::Sequence {
+                element: Box::new(element.clone()),
+                length: SequenceLengthDef::Dynamic,
+            },
+            TypeDef::Sequence {
+                element: Box::new(element.clone()),
+                length: SequenceLengthDef::Fixed(100_000_000),
+            },
+            TypeDef::Map {
+                key: Box::new(element.clone()),
+                value: Box::new(element),
+            },
+        ] {
+            let schema = Arc::new(ros_z_schema::SchemaBundle::new(shape).unwrap());
+            assert!(deserialize_cdr_value(&truncated[..4], &schema).is_err());
+            assert!(deserialize_cdr_value(&truncated, &schema).is_err());
+        }
+        let values = vec![42u32; collection_capacity::<DynamicValue>(usize::MAX) + 1];
+        let wire = <Vec<u32> as Message>::Codec::serialize(&values).unwrap();
+        let schema = Arc::new(Vec::<u32>::schema());
+        let decoded = deserialize_cdr_value(&wire, &schema).unwrap();
+        let DynamicValue::Sequence(items) = &decoded else {
+            panic!("expected sequence")
+        };
+        assert_eq!(items.len(), values.len());
+        assert_eq!(serialize_cdr_value(&schema, &decoded).unwrap(), wire);
+    }
+
+    #[test]
+    fn serialization_rejects_mutated_nested_structs_and_fixed_lengths() {
+        for len in [0, 2] {
+            let (mut message, _) = serialization_fixture(false);
+            let DynamicValue::Struct(nested) = &mut message.values_mut()[0] else {
+                panic!("expected nested struct");
+            };
+            nested.values_mut().resize(len, DynamicValue::Bool(false));
+            assert_serialization_rejected(message, "struct field count mismatch");
+        }
+
+        let (mut message, _) = serialization_fixture(false);
+        let DynamicValue::Struct(nested) = &mut message.values_mut()[0] else {
+            panic!("expected nested struct");
+        };
+        nested.values_mut()[0] = DynamicValue::Bool(false);
+        assert_serialization_rejected(message, "dynamic value does not match schema");
+
+        for len in [1, 3] {
+            let (mut message, _) = serialization_fixture(false);
+            let DynamicValue::Struct(nested) = &mut message.values_mut()[0] else {
+                panic!("expected nested struct");
+            };
+            nested.values_mut()[0] = DynamicValue::Sequence(vec![DynamicValue::Uint16(1); len]);
+            assert_serialization_rejected(message, "fixed sequence expected 2 values");
+        }
+    }
+
+    #[test]
+    fn serialization_rejects_mutated_enum_payload_lengths_and_nested_types() {
+        for named in [false, true] {
+            for extra in [false, true] {
+                let (mut message, _) = serialization_fixture(named);
+                let DynamicValue::Enum(value) = &mut message.values_mut()[1] else {
+                    panic!("expected enum");
+                };
+                match &mut value.payload {
+                    EnumPayloadValue::Tuple(values) => {
+                        if extra {
+                            values.push(DynamicValue::Bool(false));
+                        } else {
+                            values.pop();
+                        }
+                    }
+                    EnumPayloadValue::Struct(values) => {
+                        if extra {
+                            values.push(values[0].clone());
+                        } else {
+                            values.pop();
+                        }
+                    }
+                    _ => panic!("expected tuple or struct payload"),
+                }
+                assert_serialization_rejected(message, "payload length mismatch");
+            }
+
+            let (mut message, _) = serialization_fixture(named);
+            let DynamicValue::Enum(value) = &mut message.values_mut()[1] else {
+                panic!("expected enum");
+            };
+            let nested = match &mut value.payload {
+                EnumPayloadValue::Tuple(values) => &mut values[0],
+                EnumPayloadValue::Struct(values) => &mut values[0].value,
+                _ => panic!("expected tuple or struct payload"),
+            };
+            let DynamicValue::Struct(nested) = nested else {
+                panic!("expected nested struct");
+            };
+            nested.values_mut()[0] = DynamicValue::Bool(false);
+            assert_serialization_rejected(message, "dynamic value does not match schema");
+        }
+    }
+
+    #[test]
+    fn serialization_rejects_root_name_mismatch_even_with_matching_fields() {
+        use ros_z_schema::{SchemaBundle, StructDef};
+
+        let root_name = TypeName::new("test::Root").unwrap();
+        let other_name = TypeName::new("test::OtherRoot").unwrap();
+        let definition = TypeDefinition::Struct(StructDef {
+            fields: vec![FieldDef::new(
+                "next",
+                TypeDef::Optional(Box::new(TypeDef::Named(other_name.clone()))),
+            )],
+        });
+        let schema = Arc::new(SchemaBundle {
+            root: TypeDef::Named(root_name.clone()),
+            definitions: [
+                (root_name, definition.clone()),
+                (other_name.clone(), definition),
+            ]
+            .into(),
+        });
+        let other =
+            DynamicStruct::new(schema, other_name, vec![DynamicValue::Optional(None)]).unwrap();
+        assert_serialization_rejected(other, "struct type mismatch: expected");
     }
 
     #[test]

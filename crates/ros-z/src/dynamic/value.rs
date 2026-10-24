@@ -30,8 +30,8 @@ pub enum DynamicValue {
     Float64(f64),
     String(String),
 
-    /// Optimized byte array (for uint8[] / byte[])
-    Bytes(Vec<u8>),
+    /// Shared contiguous bytes (uint8[] / byte[]); construct from a Vec with `.into()`.
+    Bytes(zenoh_buffers::ZSlice),
 
     /// Nested or root struct value.
     Struct(Box<DynamicStruct>),
@@ -238,8 +238,13 @@ impl DynamicValue {
             | (Self::Int64(_), TypeDef::Primitive(PrimitiveTypeDef::I64))
             | (Self::Uint64(_), TypeDef::Primitive(PrimitiveTypeDef::U64))
             | (Self::Float32(_), TypeDef::Primitive(PrimitiveTypeDef::F32))
-            | (Self::Float64(_), TypeDef::Primitive(PrimitiveTypeDef::F64))
-            | (Self::String(_), TypeDef::String) => Ok(()),
+            | (Self::Float64(_), TypeDef::Primitive(PrimitiveTypeDef::F64)) => Ok(()),
+            (Self::String(value), TypeDef::String) => {
+                let len = value.len().checked_add(1).ok_or_else(|| {
+                    DynamicError::SerializationError("string length overflow".into())
+                })?;
+                validate_dynamic_len(len)
+            }
             (Self::Bytes(bytes), TypeDef::Sequence { element, length })
                 if matches!(element.as_ref(), TypeDef::Primitive(PrimitiveTypeDef::U8)) =>
             {
@@ -260,21 +265,11 @@ impl DynamicValue {
                 }
                 Ok(())
             }
-            (Self::Struct(value), TypeDef::Named(name)) => match schema.definitions.get(name) {
-                Some(TypeDefinition::Struct(definition)) => {
-                    if value.type_name() != name {
-                        return Err(DynamicError::SerializationError(format!(
-                            "struct type mismatch: expected {name}, got {}",
-                            value.type_name()
-                        )));
-                    }
-                    value.validate_fields(&definition.fields, schema)
-                }
-                _ => Err(DynamicError::SerializationError(format!(
-                    "named struct definition {name} not found"
-                ))),
-            },
+            (Self::Struct(value), TypeDef::Named(_)) => {
+                validate_struct(value, shape, schema).map(|_| ())
+            }
             (Self::Map(entries), TypeDef::Map { key, value }) => {
+                validate_dynamic_len(entries.len())?;
                 for (entry_key, entry_value) in entries {
                     entry_key.validate_against_shape(key, schema)?;
                     entry_value.validate_against_shape(value, schema)?;
@@ -311,7 +306,35 @@ impl DynamicValue {
     }
 }
 
+pub(crate) fn validate_struct<'a>(
+    value: &DynamicStruct,
+    shape: &TypeDef,
+    schema: &'a Schema,
+) -> Result<&'a ros_z_schema::StructDef, DynamicError> {
+    let TypeDef::Named(name) = shape else {
+        return Err(DynamicError::SerializationError(
+            "dynamic value does not match schema".into(),
+        ));
+    };
+    let Some(TypeDefinition::Struct(definition)) = schema.definitions.get(name) else {
+        return Err(DynamicError::SerializationError(format!(
+            "named struct definition {name} not found"
+        )));
+    };
+    if value.type_name() != name {
+        return Err(DynamicError::SerializationError(format!(
+            "struct type mismatch: expected {name}, got {}",
+            value.type_name()
+        )));
+    }
+    value.validate_fields(&definition.fields, schema)?;
+    Ok(definition)
+}
+
 fn validate_sequence_len(actual: usize, length: &SequenceLengthDef) -> Result<(), DynamicError> {
+    if matches!(length, SequenceLengthDef::Dynamic) {
+        validate_dynamic_len(actual)?;
+    }
     if let SequenceLengthDef::Fixed(expected) = length
         && actual != *expected
     {
@@ -320,6 +343,12 @@ fn validate_sequence_len(actual: usize, length: &SequenceLengthDef) -> Result<()
         )));
     }
     Ok(())
+}
+
+fn validate_dynamic_len(len: usize) -> Result<(), DynamicError> {
+    u32::try_from(len)
+        .map(|_| ())
+        .map_err(|_| DynamicError::SerializationError(format!("CDR length {len} exceeds u32")))
 }
 
 fn validate_enum_payload(
@@ -606,6 +635,18 @@ fn default_enum_value_with_bundle(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn cdr_dynamic_lengths_must_fit_u32() {
+        assert!(super::validate_dynamic_len(u32::MAX as usize).is_ok());
+        #[cfg(target_pointer_width = "64")]
+        {
+            assert!(super::validate_dynamic_len(u32::MAX as usize + 1).is_err());
+            assert!(
+                super::validate_sequence_len(usize::MAX, &ros_z_schema::SequenceLengthDef::Dynamic)
+                    .is_err()
+            );
+        }
+    }
     use std::sync::Arc;
 
     use ros_z_schema::{

@@ -71,10 +71,19 @@ Choose a panel from the **+** picker.
 | Text | Display a topic's latest payload or a selected field as JSON. |
 | Image | Display the latest raw camera frame from a `TimeWrapper<ros2::sensor_msgs::image::Image>` topic, defaulting to `inputs/left_image`. |
 | Map | Display field or ground views with selectable layers for robot pose, balls, obstacles, and paths. |
+| [3D Map](#3d-map) | Display the field, articulated K1 robot, camera, and field-mark associations. |
 | Parameter | Discover nodes with remote parameter services, display snapshots or selected paths as JSON, and write selected paths to active layers with revision checks. |
 | Audio | Display microphone spectra and a waterfall for the selected channel, defaulting to `audio_spectrums`. |
 | [Plot](#plot-panel) | Compare numeric topics or fields over time. |
 | [Timeline](#mcap-timeline) | Seek and play back an MCAP recording. |
+
+## 3D Map
+
+Select **3D Map** in the panel selector. Its **Layers** menu independently toggles the field, articulated K1 robot, camera frustum/image plane, and field-mark associations. Drag with the left mouse button to orbit, drag with the right button to pan, and scroll to zoom. Layer settings and the selected pose source are saved with the layout.
+
+Robot and camera placement can use localization or visual odometry. Visual odometry has its own coordinate frame, so it is not aligned with the displayed field; field-mark associations are only drawn with localization selected. Localization uses the latest pose. Camera matrices and kinematics are matched to the displayed frame within 100 ms using payload timestamps. Associations require the current localization epoch and generation and, when images are available, an exact image timestamp. Frame timestamps never move backward within a namespace and localization generation, except when seeking. Without camera or association frames, the robot uses the latest kinematics.
+
+K1 meshes are compiled into Twix; no mesh files or source checkout are needed at runtime. The panel requires a WGPU-capable graphics adapter.
 
 ## Topic and field selection
 
@@ -167,6 +176,8 @@ Replay selects the newest image at or before the timeline cursor, independently 
 Each overlay prepares and draws independently. Empty detections are valid data; missing, invalid, or failed inputs suppress only the affected overlay. Late results can populate a still-displayed frame, but cannot paint on another frame.
 Image-topic, namespace, backend, or overlay-selection changes rebuild the plan observation. Compatible Live feeds remain shared, and overlay-only changes retain the image render cache.
 The Horizon overlay interpolates compatible camera matrices over brackets spanning at most 100 ms.
+
+Enable **Overlays > Projected Field Lines** to project the field using `localization/estimate` and camera transforms at the displayed image time. Projection requires bracketing camera and pose samples, matching localization epoch and generation, and compatible camera calibration; it never extrapolates. Missing geometry suppresses only this overlay. Field associations at the exact image timestamp add optional magenta residuals. Curves use at most 256 segments and skip pieces behind the camera.
 
 Live ingestion is independent of the UI frame rate. Shared histories are bounded by sample count and bytes; observations report when retention limits their coverage. Replay uses server-side indexes instead of accumulating panel histories. Image and overlay timestamp projections are developer-owned query declarations; legacy saved projection overrides are ignored. The Text panel always uses source time, as do other observations unless explicitly configured by code.
 

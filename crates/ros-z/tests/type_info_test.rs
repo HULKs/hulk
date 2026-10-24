@@ -48,7 +48,19 @@ fn schema_hash_zero_round_trips() {
 struct MockMessage;
 
 impl Message for MockMessage {
-    type Codec = ros_z::SerdeCdrCodec<Self>;
+    type Codec = ros_z::CdrCodec<Self>;
+    fn encode_cdr<B: ros_z::cdr::CdrBuffer>(
+        &self,
+        writer: &mut ros_z::cdr::CdrWriter<'_, ros_z::cdr::LittleEndian, B>,
+    ) -> ros_z::cdr::Result<()> {
+        ros_z::serde_bridge::encode_serde(self, writer)
+    }
+
+    fn decode_cdr(
+        reader: &mut ros_z::cdr::CdrReader<'_, ros_z::cdr::LittleEndian>,
+    ) -> ros_z::cdr::Result<Self> {
+        ros_z::serde_bridge::decode_serde(reader)
+    }
 
     fn type_name() -> String {
         "mock::StaticMessage".to_string()
@@ -71,7 +83,19 @@ fn schema_hash_defaults_to_the_message_schema_hash() {
     struct SimpleMessage;
 
     impl Message for SimpleMessage {
-        type Codec = ros_z::SerdeCdrCodec<Self>;
+        type Codec = ros_z::CdrCodec<Self>;
+        fn encode_cdr<B: ros_z::cdr::CdrBuffer>(
+            &self,
+            writer: &mut ros_z::cdr::CdrWriter<'_, ros_z::cdr::LittleEndian, B>,
+        ) -> ros_z::cdr::Result<()> {
+            ros_z::serde_bridge::encode_serde(self, writer)
+        }
+
+        fn decode_cdr(
+            reader: &mut ros_z::cdr::CdrReader<'_, ros_z::cdr::LittleEndian>,
+        ) -> ros_z::cdr::Result<Self> {
+            ros_z::serde_bridge::decode_serde(reader)
+        }
 
         fn type_name() -> String {
             "simple::Message".to_string()
@@ -97,7 +121,19 @@ fn schema_hash_defaults_to_the_message_schema_hash() {
 struct InvalidStaticSchemaMessage;
 
 impl Message for InvalidStaticSchemaMessage {
-    type Codec = ros_z::SerdeCdrCodec<Self>;
+    type Codec = ros_z::CdrCodec<Self>;
+    fn encode_cdr<B: ros_z::cdr::CdrBuffer>(
+        &self,
+        writer: &mut ros_z::cdr::CdrWriter<'_, ros_z::cdr::LittleEndian, B>,
+    ) -> ros_z::cdr::Result<()> {
+        ros_z::serde_bridge::encode_serde(self, writer)
+    }
+
+    fn decode_cdr(
+        reader: &mut ros_z::cdr::CdrReader<'_, ros_z::cdr::LittleEndian>,
+    ) -> ros_z::cdr::Result<Self> {
+        ros_z::serde_bridge::decode_serde(reader)
+    }
 
     fn type_name() -> String {
         "invalid::StaticSchemaMessage".to_string()

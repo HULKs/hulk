@@ -194,7 +194,9 @@ mod tests {
         let publisher = node.publisher::<i32>("lazy").build().await?;
         assert!(
             !publisher
-                .publish_if_subscribed(|| async { panic!("no subscriber needs this value") })
+                .publish_if_subscribed(|| -> std::future::Ready<i32> {
+                    panic!("no subscriber needs this value")
+                })
                 .await?
         );
 
@@ -207,6 +209,45 @@ mod tests {
         assert!(publisher.publish_if_subscribed(|| async { 42 }).await?);
         let received = tokio::time::timeout(Duration::from_secs(2), subscriber.recv()).await??;
         assert_eq!(received, 42);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn publish_if_subscribed_borrows_lazily_and_delivers() -> Result<()> {
+        let context = ContextBuilder::default()
+            .disable_multicast_scouting()
+            .with_connect_endpoints(Vec::<String>::new())
+            .with_listen_endpoints(Vec::<String>::new())
+            .build()
+            .await?;
+        let node = context.create_node("borrowed_publish").build().await?;
+        let publisher = node.publisher::<String>("borrowed").build().await?;
+        let source = String::from("unchanged");
+        let mut built = false;
+        assert!(
+            !publisher
+                .publish_if_subscribed(|| {
+                    built = true;
+                    std::future::ready(&source)
+                })
+                .await?
+        );
+        assert!(!built);
+
+        let subscriber = node.subscriber::<String>("borrowed").build().await?;
+        assert!(
+            publisher
+                .wait_for_subscribers(1, Duration::from_secs(2))
+                .await
+        );
+        assert!(
+            publisher
+                .publish_if_subscribed(|| std::future::ready(&source))
+                .await?
+        );
+        assert_eq!(source, "unchanged");
+        let received = tokio::time::timeout(Duration::from_secs(2), subscriber.recv()).await??;
+        assert_eq!(received, source);
         Ok(())
     }
 
@@ -224,7 +265,21 @@ mod tests {
         };
 
         let publisher = pub_node.publisher::<String>(topic).qos(qos).build().await?;
-        publisher.publish(&"cached".into()).await?;
+        assert!(!publisher.has_subscribers());
+        let mut source = String::from("cached");
+        let mut built = false;
+        assert!(
+            publisher
+                .publish_if_subscribed(|| {
+                    built = true;
+                    std::future::ready(&source)
+                })
+                .await?
+        );
+        assert!(built);
+        assert_eq!(source, "cached");
+        source.clear();
+        drop(source);
 
         let subscriber = sub_node
             .subscriber::<String>(topic)

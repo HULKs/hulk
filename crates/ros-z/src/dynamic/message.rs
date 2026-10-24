@@ -105,6 +105,10 @@ impl DynamicStruct {
         Arc::clone(&self.schema)
     }
 
+    pub(crate) fn schema_ref(&self) -> &Schema {
+        &self.schema
+    }
+
     /// Get the named struct definition this value represents.
     pub fn type_name(&self) -> &TypeName {
         &self.type_name
@@ -255,8 +259,9 @@ impl DynamicStruct {
             )));
         }
 
+        let value_fields = self.fields();
         for (index, (field, value)) in fields.iter().zip(self.values.iter()).enumerate() {
-            let Some(value_field) = self.fields().get(index) else {
+            let Some(value_field) = value_fields.get(index) else {
                 return Err(DynamicError::SerializationError(format!(
                     "struct field mismatch at index {index}: missing value field for {}",
                     field.name

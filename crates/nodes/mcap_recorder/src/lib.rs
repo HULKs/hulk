@@ -391,6 +391,8 @@ where
             .map(|timestamp| Time::from_wallclock(timestamp.get_time().to_system_time()))
             .unwrap_or(source_time);
         let sequence = u32::try_from(attachment.sequence_number).unwrap_or(u32::MAX);
+        // shortcut: MCAP requires contiguous bytes, use chunked writes if its API supports them.
+        // This recording-only copy does not affect typed subscriber decoding.
         let payload = sample.payload().to_bytes();
 
         let channel_id = match self.channel_mapping.get(&channel.topic).copied() {

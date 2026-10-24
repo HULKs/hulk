@@ -5,7 +5,7 @@ use ros_z::{
     attachment::Attachment,
     context::ContextBuilder,
     entity::{EndpointEntity, EndpointKind, SchemaHash, TypeInfo},
-    message::{SerdeCdrCodec, WireEncoder},
+    message::{CdrCodec, WireEncoder},
     qos::{QosDurability, QosHistory, QosProfile, QosReliability},
     schema::SchemaBuilder,
     time::{Clock, Time},
@@ -699,7 +699,7 @@ async fn typed_subscriber_errors_when_sample_has_no_attachment() {
     node.session()
         .put(
             key_expr,
-            SerdeCdrCodec::<TestMessage>::serialize(&message).unwrap(),
+            CdrCodec::<TestMessage>::serialize(&message).unwrap(),
         )
         .await
         .expect("raw put should succeed");
