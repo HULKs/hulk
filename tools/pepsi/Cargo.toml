@@ -1,6 +1,6 @@
 [package]
 name = "pepsi"
-version = "7.40.1"
+version = "7.40.3"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true

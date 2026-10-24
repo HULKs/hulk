@@ -87,7 +87,7 @@
 
       packages.aarch64-linux.hulk-runtime = pkgs.buildEnv {
         name = "hulk-runtime";
-        paths = with robotPkgs; [ podman zenoh robotBridge catatonit nftables ];
+        paths = with robotPkgs; [ podman zenoh robotBridge catatonit nftables sshpass ];
         pathsToLink = [ "/bin" "/libexec" "/lib/systemd" ];
       };
 
