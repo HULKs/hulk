@@ -98,8 +98,10 @@ For a topic whose root is an array, use `topic[2]`.
 Press **Ctrl+F** to focus and select the topic input in the active Text, Image, Audio, or live Plot panel.
 In Plot, this focuses the first line; adding a line focuses its own input.
 Press **Ctrl+Space** or **Arrow Down** in a completion input to open its dropdown, including when the input is empty.
+Clicking the input or typing also opens suggestions; tabbing into it does not.
 Arrow Down also highlights the first suggestion.
 Use the arrow keys to choose a completion and Enter to apply it.
+**Tab** and **Shift+Tab** move between controls without accepting a suggestion; **Escape** dismisses suggestions.
 The input keeps focus with the cursor after the completion, so you can continue typing the path.
 
 Present optionals are unwrapped when continuing through a path.
@@ -180,7 +182,6 @@ Overlays are supported for the selected namespace's `inputs/left_image`, their p
 ## Keybindings
 
 ROS-Z Twix reads keybindings from `hulks/twix-ros-z.toml`.
-Legacy Twix keeps using `hulks/twix.toml`, so the two tools do not share incompatible keybinding schemas.
 The default ROS-Z keybindings are:
 
 | Key | Action |

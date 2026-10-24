@@ -7,7 +7,10 @@ use color_eyre::{
     Result,
     eyre::{ContextCompat, WrapErr as _, bail, ensure},
 };
-use eframe::{Storage, egui::Context};
+use eframe::{
+    Storage,
+    egui::{Context, Id},
+};
 use egui_tiles::{Container, Tile, TileId, Tiles, Tree};
 use log::error;
 use serde::{Deserialize, Serialize};
@@ -44,7 +47,7 @@ impl LoadedLayout {
     pub(super) fn blank() -> Self {
         Self {
             tree: Tree::new_tabs(
-                "saved-layout",
+                Id::unique("saved-layout"),
                 vec![serde_json::json!({"kind": TextPanel::STORAGE_ID, "state": {}})],
             ),
             focused: None,
@@ -137,7 +140,7 @@ impl TwixLayout {
             .map(|(id, name)| (*id, name.clone()))
             .collect();
         Ok(serde_json::to_value(LoadedLayout {
-            tree: Tree::new("saved-layout", root, tiles),
+            tree: Tree::new(Id::unique("saved-layout"), root, tiles),
             focused,
             names,
         })?)
@@ -424,7 +427,7 @@ mod tests {
             root = tiles.insert_tab_tile(vec![root]);
         }
         assert!(
-            validate_tree(&Tree::new("deep", root, tiles))
+            validate_tree(&Tree::new(Id::unique("deep"), root, tiles))
                 .unwrap_err()
                 .to_string()
                 .contains("depth")
@@ -432,7 +435,7 @@ mod tests {
         let mut tiles = Tiles::default();
         let root = TileId(MAX_RESTORED_TILE_ID + 1);
         tiles.insert(root, Tile::Pane(json!({"kind": "text", "state": {}})));
-        assert!(validate_tree(&Tree::new("large-id", root, tiles)).is_err());
+        assert!(validate_tree(&Tree::new(Id::unique("large-id"), root, tiles)).is_err());
     }
 
     #[tokio::test(flavor = "multi_thread")]

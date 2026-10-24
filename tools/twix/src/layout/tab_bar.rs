@@ -61,6 +61,20 @@ pub(super) fn tab_ui(
     let tab_response = ui
         .interact(tab_rect, id, Sense::click_and_drag())
         .on_hover_cursor(eframe::egui::CursorIcon::Grab);
+    if *behavior.tab_to_reveal == Some(tile_id) {
+        // Scroll arrows can change the viewport after the initial reveal request.
+        if tab_response.interact_rect.contains_rect(tab_rect)
+            || (tab_response.interact_rect.is_positive()
+                && (tab_response.interact_rect.right() - tab_rect.right()).abs() <= 1.0)
+        {
+            *behavior.tab_to_reveal = None;
+        } else {
+            tab_response.scroll_to_me_animation(
+                Some(eframe::egui::Align::RIGHT),
+                eframe::egui::style::ScrollAnimation::none(),
+            );
+        }
+    }
     if tab_response.drag_started() {
         Popup::close_all(ui.ctx());
     }
@@ -317,31 +331,36 @@ mod tests {
                 .await
                 .unwrap(),
         );
-        for width in [140.0, 240.0, 640.0] {
+        for width in [140.0, 240.0, 640.0, 1200.0] {
             let context = Context::default();
             let mut layout = TwixLayout::new(&context, &backend);
             for _ in 0..10 {
                 layout.open_tab(&backend, &context);
             }
             // Check both first-frame overflow and insertion into an established tab bar.
-            for frame in 0..10 {
-                if frame == 5 {
+            for frame in 0..20 {
+                if frame == 10 {
                     layout.open_tab(&backend, &context);
                     assert_eq!(layout.tab_to_reveal, layout.focused);
                 }
                 let input = RawInput {
+                    time: Some(frame as f64 / 60.0),
                     screen_rect: Some(Rect::from_min_size(Default::default(), vec2(width, 200.0))),
                     ..Default::default()
                 };
                 let _ = context.run_ui(input, |ui| {
                     CentralPanel::default().show(ui, |ui| layout.ui(ui, &backend));
                 });
-                if frame == 4 || frame == 9 {
+                if frame == 9 || frame == 19 {
                     let response = context
                         .read_response(layout.focused.unwrap().egui_id(layout.tree.id()))
                         .unwrap();
                     assert_eq!(layout.tab_to_reveal, None);
                     assert!(response.interact_rect.is_positive());
+                    assert!(
+                        (response.interact_rect.right() - response.rect.right()).abs() <= 1.0,
+                        "width={width} frame={frame} {response:?}"
+                    );
                     assert_eq!(
                         response.interact_rect.contains_rect(response.rect),
                         width >= 240.0,

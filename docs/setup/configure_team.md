@@ -19,7 +19,6 @@ Change this to your own team number before continuing.
     You may also wish to rename this constant.
 -   `tools/pepsi` contains a bunch of `24`s, however most of them are in comments or CLI command help text.
     -   `tools/pepsi/src/parsers.rs` has a default and a check value that use 24 literals.
--   `tools/twix-legacy/src/main.rs` still packages the legacy Twix address suggestions with team number `24` hardcoded.
 
 ### Set up Hardware IDs
 
