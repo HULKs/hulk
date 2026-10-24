@@ -19,7 +19,6 @@ use types::{
 pub struct Parameters {
     pub center_circle_obstacle_radius_increase: f32,
     pub center_circle_ballspace_free_obstacle_radius: f32,
-    pub free_kick_obstacle_radius: f32,
     pub penaltykick_box_extension: f32,
 }
 
@@ -100,7 +99,7 @@ fn compose_rule_obstacles(
         ) => {
             let free_kick_obstacle = RuleObstacle::Circle(Circle::new(
                 ball.ball_in_field,
-                parameters.free_kick_obstacle_radius,
+                field_dimensions.center_circle_diameter / 2.0,
             ));
             rule_obstacles.push(free_kick_obstacle);
         }
@@ -116,20 +115,20 @@ fn compose_rule_obstacles(
             if let Some(ball) = possible_ball {
                 let goal_kick_obstacle = RuleObstacle::Circle(Circle::new(
                     ball.ball_in_field,
-                    parameters.free_kick_obstacle_radius,
+                    field_dimensions.center_circle_diameter / 2.0,
                 ));
                 rule_obstacles.push(goal_kick_obstacle);
             }
 
-            let goal_box_obstacle = RuleObstacle::Rectangle(Rectangle {
-                min: FieldDimensions::goal_box_corner(field_dimensions, Opponent, Right),
-                max: FieldDimensions::goal_box_goal_line_intersection(
+            let penalty_area_obstacle = RuleObstacle::Rectangle(Rectangle {
+                min: FieldDimensions::penalty_box_corner(field_dimensions, Opponent, Right),
+                max: FieldDimensions::penalty_box_goal_line_intersection(
                     field_dimensions,
                     Opponent,
                     Left,
                 ),
             });
-            rule_obstacles.push(goal_box_obstacle);
+            rule_obstacles.push(penalty_area_obstacle);
         }
         (
             FilteredGameControllerState {
