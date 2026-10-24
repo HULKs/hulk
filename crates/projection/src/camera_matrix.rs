@@ -73,10 +73,14 @@ impl CameraMatrix {
         ground_to_robot: Isometry3<Ground, Robot>,
         robot_to_head: Isometry3<Robot, Head>,
         head_to_camera: Isometry3<Head, Camera>,
+        correction_in_robot: Rotation3<Robot, Robot>,
+        correction_in_camera: Rotation3<Camera, Camera>,
     ) -> Self {
         let intrinsics = Intrinsic::from(camera_info);
         let field_of_view = Intrinsic::calculate_field_of_view(intrinsics.focals, image_size);
 
+        let robot_to_head = robot_to_head * correction_in_robot;
+        let head_to_camera = correction_in_camera * head_to_camera;
         let ground_to_camera = head_to_camera * robot_to_head * ground_to_robot;
         let horizon = Horizon::from_parameters(ground_to_camera, &intrinsics);
 
@@ -86,7 +90,7 @@ impl CameraMatrix {
             horizon,
             ground_to_robot,
             robot_to_head,
-            correction_in_robot: Rotation3::default(),
+            correction_in_robot,
             head_to_camera,
             image_size,
             // Precomputed values
