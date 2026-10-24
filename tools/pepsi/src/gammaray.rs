@@ -549,6 +549,8 @@ interface-name=wlP1p1s0
 
 [wifi]
 mode=infrastructure
+# 2: disabled
+powersave=2
 ssid={ssid}
 
 [wifi-security]
