@@ -173,7 +173,7 @@ impl AutoRefereeRule for ScoredGoalRule {
             return;
         }
 
-        context.set_kicking_team(Some(opponent_of(scoring_team)));
+        context.set_kicking_team(Some(scoring_team.other()));
         context.set_sub_state(None);
         context.auto_referee.restart_reason =
             Some(SimulatorRestartReason::KickOffAfterGoal { scoring_team });
@@ -321,7 +321,7 @@ impl AutoRefereeRule for BallOutOfFieldRule {
             .ball
             .last_touched_by
             .unwrap_or_else(|| fallback_last_touched_by(context));
-        let kicking_team = opponent_of(last_touched_by);
+        let kicking_team = last_touched_by.other();
         let sub_state = restart_sub_state(ball_in_field, last_touched_by, context.field_dimensions);
         let restart_position = restart_position_for(
             ball_in_field,
@@ -479,19 +479,12 @@ fn apply_referee_command(command: SimulatorRefereeCommand, context: &mut AutoRef
     }
 }
 
-fn opponent_of(team: Team) -> Team {
-    match team {
-        Team::Hulks => Team::Opponent,
-        Team::Opponent => Team::Hulks,
-    }
-}
-
 fn fallback_last_touched_by(context: &AutoRefereeContext<'_>) -> Team {
     context
         .game_state
         .game_controller_state
         .kicking_team
-        .map(opponent_of)
+        .map(Team::other)
         .unwrap_or(Team::Opponent)
 }
 

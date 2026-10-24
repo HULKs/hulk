@@ -13,7 +13,6 @@ pub struct GameControllerState {
     pub game_phase: GamePhase,
     pub half: Half,
     pub remaining_time_in_half: Duration,
-    #[serde(default)]
     pub secondary_time: Duration,
     pub kicking_team: Option<Team>,
     pub last_game_state_change: SystemTime,
