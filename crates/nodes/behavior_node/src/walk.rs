@@ -10,7 +10,7 @@ use types::{
     motion_command::{BodyMotion, MotionCommand, OrientationMode},
     motion_type::MotionType,
     parameters::{KickoffParameters, VoronoiParameters},
-    path::{Path, direct_path},
+    path::Path,
 };
 use voronoi::{Ownership, VoronoiGrid};
 
@@ -19,7 +19,7 @@ use crate::{
     actions::stand,
     behavior_tree::Node,
     condition,
-    kick::{kick, select_kick_target, use_last_kick_settings},
+    kick::{kick, select_fallback_kick_target, strategy::BallAction, use_last_kick_settings},
     node::Blackboard,
     selection, sequence, subtree,
     switch_motion_type::{is_last_motion_type, switch_motion_type},
@@ -29,7 +29,7 @@ pub fn plan(
     blackboard: &mut Blackboard,
     target_in_ground: Point2<Ground>,
     ground_to_field: Isometry2<Ground, Field>,
-) -> Path {
+) -> Option<Path> {
     let parameters: &types::parameters::PathPlanningParameters =
         &blackboard.parameters.walking.path_planning;
     let field_dimensions = blackboard.field_dimensions;
@@ -75,11 +75,12 @@ pub fn plan(
             target_in_field.y().clamp(-y_max, y_max)
         ];
 
-    let path = planner
-        .plan(Point::origin(), clamped_target_in_robot)
-        .unwrap();
+    let path = planner.plan(Point::origin(), clamped_target_in_robot);
     blackboard.path_obstacles_output = planner.obstacles;
-    path.unwrap_or_else(|| direct_path(Point::origin(), target_in_ground))
+    path.unwrap_or_else(|error| {
+        tracing::warn!(%error, "Walking path planning failed");
+        None
+    })
 }
 
 pub fn walk_to(
@@ -122,7 +123,9 @@ pub fn walk_to(
             blackboard.body_motion = Some(BodyMotion::Stand);
             Status::Success
         } else {
-            let path = plan(blackboard, target_pose.position(), ground_to_field);
+            let Some(path) = plan(blackboard, target_pose.position(), ground_to_field) else {
+                return Status::Failure;
+            };
             blackboard.body_motion = Some(BodyMotion::Walk {
                 path,
                 orientation_mode,
@@ -144,7 +147,11 @@ pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
     ) {
         let field_to_ground = ground_to_field.inverse();
         let ball_in_ground = field_to_ground * ball.position;
-        let goal_position = field_to_ground * point!(blackboard.field_dimensions.length / 2.0, 0.0);
+        let target = match blackboard.ball_action {
+            Some(BallAction::Shoot { opening }) => opening.center(),
+            _ => point!(blackboard.field_dimensions.length / 2.0, 0.0),
+        };
+        let goal_position = field_to_ground * target;
         let orientation = Orientation2::from_vector(goal_position - ball_in_ground);
         let walk_and_stand = blackboard.parameters.walking.walk_and_stand;
         let kicking_speed = blackboard.parameters.walking.speed.kicking;
@@ -179,7 +186,7 @@ pub fn walk_alternatives_subtree() -> Node<Blackboard> {
             condition!(is_last_motion_type, MotionType::Kick),
             sequence!(
                 action!(kick),
-                action!(select_kick_target),
+                action!(select_fallback_kick_target),
                 action!(use_last_kick_settings),
             )
         ),

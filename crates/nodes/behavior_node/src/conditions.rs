@@ -44,7 +44,11 @@ pub fn is_close_to_ball(blackboard: &mut Blackboard) -> bool {
         &blackboard.ball,
         &blackboard.world_state.robot.ground_to_field,
     ) {
-        let distance_to_ball = (ground_to_field.inverse() * ball.position).coords().norm();
+        let ball_in_ground = blackboard.visual_kick_ball_position.as_ref().map_or_else(
+            || ground_to_field.inverse() * ball.position,
+            |ball| ball.position,
+        );
+        let distance_to_ball = ball_in_ground.coords().norm();
         let parameters = &blackboard.parameters.kicking;
         is_close = less_than_with_hysteresis(
             blackboard.last_close_enough_to_kick,

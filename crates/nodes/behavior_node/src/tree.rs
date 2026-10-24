@@ -15,8 +15,10 @@ use crate::{
     goalkeeper::goalkeeper_subtree,
     head::{look_around, look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
     kick::{
-        intercept, kick, kick_alternatives_subtree, kick_subtree, kickoff_kick,
-        set_kick_target_beyond_ball, use_kick,
+        intercept, kick, kick_alternatives_subtree, kick_subtree, kickoff_kick, quick_kick_subtree,
+        set_kick_target_beyond_ball,
+        strategy::{begin_ball_action_cycle, is_quick_kick_selected, select_ball_action},
+        use_kick,
     },
     negation,
     node::Blackboard,
@@ -34,7 +36,7 @@ use crate::{
 };
 
 pub fn create_tree() -> Node<Blackboard> {
-    selection!(
+    let tree = selection!(
         sequence!(
             condition!(is_primary_state, PrimaryState::Damping),
             action!(damping)
@@ -85,7 +87,8 @@ pub fn create_tree() -> Node<Blackboard> {
             subtree!(playing_subtree)
         ),
         Node::Failure
-    )
+    );
+    sequence!(action!(begin_ball_action_cycle), tree)
 }
 
 fn ready_subtree() -> Node<Blackboard> {
@@ -154,24 +157,28 @@ pub(crate) fn striker_subtree() -> Node<Blackboard> {
         selection!(
             sequence!(condition!(is_in_sub_state), subtree!(sub_state_subtree),),
             sequence!(
-                negation!(condition!(is_close_to_ball)),
-                subtree!(walk_to_ball_subtree)
-            ),
-            sequence!(
-                condition!(is_kickoff),
-                condition!(hulks_is_kicking_team),
-                switch_motion_type(
-                    MotionType::Kick,
-                    action!(kickoff_kick),
-                    subtree!(kick_alternatives_subtree),
+                negation!(condition!(is_in_sub_state)),
+                action!(select_ball_action),
+                selection!(
+                    sequence!(
+                        condition!(is_quick_kick_selected),
+                        subtree!(quick_kick_subtree)
+                    ),
+                    sequence!(
+                        condition!(is_close_to_ball),
+                        selection!(
+                            sequence!(
+                                condition!(is_ball_interception_candidate),
+                                subtree!(kick_subtree),
+                                selection!(condition!(is_quick_kick_selected), action!(intercept)),
+                            ),
+                            subtree!(kick_subtree)
+                        )
+                    ),
+                    subtree!(walk_to_ball_subtree)
                 )
             ),
-            sequence!(
-                condition!(is_ball_interception_candidate),
-                subtree!(kick_subtree),
-                action!(intercept),
-            ),
-            subtree!(kick_subtree)
+            action!(stand)
         )
     )
 }

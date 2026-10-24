@@ -456,6 +456,8 @@ pub struct WalkSpeedParameters {
 
 #[derive(Clone, Debug, Deserialize, Serialize, ros_z::Message)]
 pub struct KickingParameters {
+    #[serde(default)]
+    pub strategy: KickStrategyParameters,
     pub soft: bool,
     pub quick: bool,
     /// Desired outgoing ball speed in m/s.
@@ -465,7 +467,8 @@ pub struct KickingParameters {
     pub kick_activation_distance: f32,
     /// Total width of the handoff hysteresis band, in metres.
     pub kick_activation_hysteresis: f32,
-    /// Minimum ball-to-target distance for a strong striker kick, in metres.
+    /// Strong-kick minimum distance in metres. Goal targets use ball-to-goal-mouth
+    /// distance (strictly greater); other targets use ball-to-target distance.
     pub strong_kick_min_target_distance: f32,
     /// Distance behind the ball for walking and set-play alignment, in metres.
     pub approach_ball_standoff: f32,
@@ -476,17 +479,31 @@ pub struct KickingParameters {
 impl Default for KickingParameters {
     fn default() -> Self {
         Self {
+            strategy: KickStrategyParameters::default(),
             soft: false,
-            quick: false,
+            quick: true,
             target_speed: 3.4,
-            allow_strong_kicks: false,
+            allow_strong_kicks: true,
             kick_activation_distance: 0.0,
             kick_activation_hysteresis: 0.0,
-            strong_kick_min_target_distance: 0.0,
+            strong_kick_min_target_distance: 2.0,
             approach_ball_standoff: 0.0,
             minimum_interception_forward_distance: 0.0,
         }
     }
+}
+
+/// Distances are meters, angles radians. Values must be finite and nonnegative.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+pub struct KickStrategyParameters {
+    /// Conservative reach of supported kicks; zero disables shooting.
+    pub maximum_shot_distance: f32,
+    pub obstacle_clearance: f32,
+    pub minimum_shot_angle: f32,
+    pub shot_angle_hysteresis: f32,
+    pub pressure_distance: f32,
+    pub clear_goal_distance: f32,
+    pub clear_distance_hysteresis: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]

@@ -44,9 +44,8 @@ use types::{
 use voronoi::VoronoiGrid;
 
 use crate::{
-    motion_assembler::assemble_motion_command,
-    send_message::{recent_game_controller_address, state_message_send_interval},
-    tree::create_tree,
+    kick::strategy::BallAction, motion_assembler::assemble_motion_command,
+    send_message::{recent_game_controller_address, state_message_send_interval}, tree::create_tree,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
@@ -79,6 +78,8 @@ pub struct Blackboard {
     pub visual_kick_ball_position: Option<BallPosition<Ground>>,
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
+    pub ball_action: Option<BallAction>,
+    pub last_ball_action: Option<BallAction>,
     /// Target selected for this tick, used to choose kick strength.
     pub kick_target: Option<Point2<Ground>>,
     pub last_kick_target: Option<Point2<Field>>,
@@ -380,6 +381,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         visual_kick_ball_position: None,
         last_ball: None,
         last_close_enough_to_kick: false,
+        ball_action: None,
+        last_ball_action: None,
         kick_target: None,
         last_kick_target: None,
         last_motion_command: None,

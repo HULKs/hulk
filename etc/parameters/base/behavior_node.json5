@@ -60,13 +60,24 @@
     },
   },
   kicking: {
+    strategy: {
+      // Initial tuning; verify maximum range on the robot before execution integration.
+      maximum_shot_distance: 3.0,
+      obstacle_clearance: 0.05,
+      minimum_shot_angle: 0.02,
+      shot_angle_hysteresis: 0.05,
+      pressure_distance: 0.8,
+      clear_goal_distance: 1.5,
+      clear_distance_hysteresis: 0.2,
+    },
     soft: false,
-    quick: false,
+    quick: true,
     target_speed: 3.4, // Desired outgoing ball speed in m/s.
-    allow_strong_kicks: false,
+    allow_strong_kicks: true,
     kick_activation_distance: 1.3,
     kick_activation_hysteresis: 0.3,
-    strong_kick_min_target_distance: 6.0,
+    // Goal shots: strong only while the ball is more than 2 m from the goal mouth.
+    strong_kick_min_target_distance: 2.0,
     approach_ball_standoff: 0.3,
     minimum_interception_forward_distance: 0.3,
   },
