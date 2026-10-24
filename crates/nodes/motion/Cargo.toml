@@ -15,7 +15,6 @@ kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 motion_inference = { workspace = true }
 ros-z = { workspace = true }
-ros-z-schema = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
 tracing = { workspace = true }
