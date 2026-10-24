@@ -60,9 +60,9 @@ members = [
   "crates/nodes/rule_obstacle_composer",
   "crates/nodes/safe_pose_checker",
   "crates/nodes/search_suggestor",
-  "crates/search_heatmap",
   "crates/nodes/stereo_visual_odometry",
   "crates/nodes/support_foot_estimator",
+  "crates/nodes/system_info",
   "crates/nodes/team_ball_filter",
   "crates/nodes/time_to_reach_kick_position",
   "crates/nodes/trigger",
@@ -82,6 +82,7 @@ members = [
   "crates/ros-z-schema",
   "crates/ros-z-streams",
   "crates/ros2",
+  "crates/search_heatmap",
   "crates/simulation_message",
   "crates/twix_visualization",
   "crates/types",
@@ -217,8 +218,8 @@ nalgebra = { version = "0.34.2", features = [
 ] }
 ndarray = { version = "0.16.1", features = ["serde"] }
 ndarray-conv = "0.4.1"
-notify = "8"
 nix = { version = "0.31.3", features = ["sched"] }
+notify = "8"
 nucleo-matcher = "0.3.1"
 num-traits = "0.2"
 obstacle_filter = { path = "crates/nodes/obstacle_filter" }
@@ -248,6 +249,7 @@ png = "0.18.1"
 primary_state_filter = { path = "crates/nodes/primary_state_filter" }
 proc-macro-error = "1.0.4"
 proc-macro2 = { version = "1.0.93", features = ["span-locations"] }
+procfs = { version = "0.18.0", default-features = false }
 projection = { path = "crates/projection" }
 proptest = "1.6.0"
 pyo3 = { version = "0.27.1", features = ["abi3-py313", "extension-module"] }
@@ -287,6 +289,7 @@ splines = { version = "=4.2.0", features = ["serde"] }
 stereo_visual_odometry = { path = "crates/nodes/stereo_visual_odometry" }
 support_foot_estimator = { path = "crates/nodes/support_foot_estimator" }
 syn = { version = "2.0.98", features = ["extra-traits", "full"] }
+system_info = { path = "crates/nodes/system_info" }
 team_ball_filter = { path = "crates/nodes/team_ball_filter" }
 tempfile = "3.17.0"
 thiserror = "2.0.11"
