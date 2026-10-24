@@ -41,7 +41,6 @@ pub fn sub_state_subtree() -> Node<Blackboard> {
                         condition!(is_sub_state, SubState::ThrowIn),
                         condition!(is_sub_state, SubState::IndirectFreeKick),
                         condition!(is_sub_state, SubState::DirectFreeKick),
-                        condition!(is_sub_state, SubState::GoalKick),
                     ),
                     action!(set_block_position_field),
                 ),
@@ -52,7 +51,11 @@ pub fn sub_state_subtree() -> Node<Blackboard> {
                 sequence!(
                     condition!(is_sub_state, SubState::PenaltyKick),
                     action!(set_block_position_penalty_kick),
-                )
+                ),
+                sequence!(
+                    condition!(is_sub_state, SubState::GoalKick),
+                    action!(set_block_position_goal_kick),
+                ),
             ),
             action!(walk_to_block_position)
         )
@@ -156,6 +159,33 @@ pub fn set_block_position_penalty_kick(blackboard: &mut Blackboard) -> Status {
 
         blackboard.walk_position =
             Some(ground_to_field.inverse() * point!(penalty_area_x, side_sign * line_position));
+
+        Status::Success
+    } else {
+        Status::Failure
+    }
+}
+
+pub fn set_block_position_goal_kick(blackboard: &mut Blackboard) -> Status {
+    if let (Some(ball), Some(ground_to_field)) = (
+        &blackboard.ball,
+        &blackboard.world_state.robot.ground_to_field,
+    ) {
+        let field_dimensions = blackboard.field_dimensions;
+        let ball_position = ball.position;
+        let goal_position = point!(-field_dimensions.length / 2.0, 0.0);
+        let direction = goal_position - ball_position;
+        if direction.x().abs() <= f32::EPSILON {
+            return Status::Failure;
+        }
+
+        let blocking_x = field_dimensions.length / 2.0
+            - field_dimensions.penalty_area_length
+            - blackboard.parameters.walking.path_planning.robot_radius;
+        let distance_along_line = (blocking_x - ball_position.x()) / direction.x();
+        let blocking_position = ball_position + direction * distance_along_line;
+
+        blackboard.walk_position = Some(ground_to_field.inverse() * blocking_position);
 
         Status::Success
     } else {
