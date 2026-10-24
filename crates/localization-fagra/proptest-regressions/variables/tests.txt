@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 014e04604c5acab73737007d7af79a0f7b9dcc45b6f77099977afb293c1b7755 # shrinks to (CameraIntrinsics { focal_lengths: Framed { frame: PhantomData<coordinate_systems::Pixel>, inner: [[0.0, 0.0]] }, optical_center: Framed { frame: PhantomData<coordinate_systems::Pixel>, inner: [0.0, 802.47894] } }, CameraIntrinsics { focal_lengths: Framed { frame: PhantomData<coordinate_systems::Pixel>, inner: [[0.0, 0.0]] }, optical_center: Framed { frame: PhantomData<coordinate_systems::Pixel>, inner: [0.0, 0.0] } }, [[0.0, 0.0, 0.0, -0.47537172]])
+cc fe5b4b9c9e0cd08a24891e3a76ee5b2ae6788e53d38442dd0fda51d20dbdc04b # shrinks to (CameraIntrinsics { focal_lengths: Framed { frame: PhantomData<coordinate_systems::Pixel>, inner: [[0.0, 0.0]] }, optical_center: Framed { frame: PhantomData<coordinate_systems::Pixel>, inner: [0.0, -708.32904] } }, CameraIntrinsics { focal_lengths: Framed { frame: PhantomData<coordinate_systems::Pixel>, inner: [[0.0, 0.0]] }, optical_center: Framed { frame: PhantomData<coordinate_systems::Pixel>, inner: [0.0, 0.0] } }, [[0.0, 0.0, 0.0, 0.52755636]])

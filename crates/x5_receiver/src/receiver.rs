@@ -1,4 +1,4 @@
-use std::{io, net::SocketAddr, sync::Arc, time::Duration};
+use std::{io, net::SocketAddr, time::Duration};
 
 use futures_util::TryFutureExt;
 use tokio::{io::AsyncReadExt, net::TcpStream, sync::watch};
@@ -178,14 +178,14 @@ impl X5ReceiverTask {
         }
         header.timestamp_nanoseconds += EXPOSURE_TIME.as_nanos() as u64 / 2;
 
-        let nv12_data = Arc::<[u8]>::new_zeroed_slice(header.payload_size as usize);
-        let mut nv12_data = unsafe { nv12_data.assume_init() };
+        let mut nv12_data = vec![0; header.payload_size as usize];
 
-        self.connection
-            .read_exact(Arc::get_mut(&mut nv12_data).expect("no other reference"))
-            .await?;
+        self.connection.read_exact(&mut nv12_data).await?;
 
-        Ok(X5CameraFrame { header, nv12_data })
+        Ok(X5CameraFrame {
+            header,
+            nv12_data: nv12_data.into(),
+        })
     }
 
     #[cfg(target_endian = "big")]

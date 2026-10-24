@@ -25,15 +25,15 @@ use zenoh::sample::Sample;
 
 type ChannelId = u16;
 type RecorderTasks = FuturesUnordered<BoxFuture<'static, Result<RecordedSample>>>;
-const RAW_IMAGE_TOPIC: &str = "inputs/stereo_image_pair";
+const IMAGE_TOPIC: &str = "inputs/left_image";
 
 #[derive(Clone, Debug, Deserialize, Serialize, Message)]
 #[serde(deny_unknown_fields)]
 pub struct McapRecorderParameters {
     pub enable: bool,
     pub max_duration: Option<Duration>,
-    pub include_raw_images: bool,
-    pub raw_image_min_interval: Option<Duration>,
+    pub include_images: bool,
+    pub image_min_interval: Option<Duration>,
     pub queue_depth: usize,
     pub schema_discovery_timeout: Duration,
     pub topics: Vec<String>,
@@ -77,7 +77,7 @@ async fn run(ctx: Arc<Context>, log_path: Option<PathBuf>, stop: CancellationTok
     let (write_sender, write_receiver) = mpsc::channel(write_queue_depth);
     let writer_task = spawn_writer_task(
         mcap_path.clone(),
-        parameters.raw_image_min_interval,
+        parameters.image_min_interval,
         write_receiver,
         stop.clone(),
     );
@@ -95,21 +95,21 @@ async fn run(ctx: Arc<Context>, log_path: Option<PathBuf>, stop: CancellationTok
             .await?;
         }
 
-        if parameters.include_raw_images {
+        if parameters.include_images {
             subscribe_topic(
                 &node,
                 &mut recorders,
                 parameters.queue_depth,
                 parameters.schema_discovery_timeout,
-                RAW_IMAGE_TOPIC,
+                IMAGE_TOPIC,
             )
             .await?;
         }
 
         tracing::info!(
             path = %mcap_path.display(),
-            include_raw_images = parameters.include_raw_images,
-            raw_image_min_interval = ?parameters.raw_image_min_interval,
+            include_images = parameters.include_images,
+            image_min_interval = ?parameters.image_min_interval,
             queue_depth = parameters.queue_depth,
             topics = parameters.topics.len(),
             compression = "lz4",
@@ -144,16 +144,16 @@ async fn run(ctx: Arc<Context>, log_path: Option<PathBuf>, stop: CancellationTok
 
 fn spawn_writer_task(
     mcap_path: PathBuf,
-    raw_image_min_interval: Option<Duration>,
+    left_image_min_interval: Option<Duration>,
     write_receiver: mpsc::Receiver<WriteRequest>,
     stop: CancellationToken,
 ) -> JoinHandle<Result<usize>> {
-    spawn_blocking(move || write_samples(mcap_path, raw_image_min_interval, write_receiver, stop))
+    spawn_blocking(move || write_samples(mcap_path, left_image_min_interval, write_receiver, stop))
 }
 
 fn write_samples(
     mcap_path: PathBuf,
-    raw_image_min_interval: Option<Duration>,
+    left_image_min_interval: Option<Duration>,
     mut write_receiver: mpsc::Receiver<WriteRequest>,
     stop: CancellationToken,
 ) -> Result<usize> {
@@ -163,7 +163,7 @@ fn write_samples(
             mcap_path.display()
         )
     })?;
-    let mut writer = McapWriter::new(BufWriter::new(file), raw_image_min_interval)?;
+    let mut writer = McapWriter::new(BufWriter::new(file), left_image_min_interval)?;
     let mut samples_written = 0;
 
     while let Some(WriteRequest { channel, sample }) = write_receiver.blocking_recv() {
@@ -345,21 +345,22 @@ struct McapWriter<W: std::io::Write + std::io::Seek> {
     writer: Writer<W>,
     channel_mapping: BTreeMap<String, ChannelId>,
     last_written_source_time_by_topic: BTreeMap<String, Time>,
-    raw_image_min_interval: Option<Duration>,
+    left_image_min_interval: Option<Duration>,
 }
 
 impl<W> McapWriter<W>
 where
     W: std::io::Write + std::io::Seek,
 {
-    fn new(writer: W, raw_image_min_interval: Option<Duration>) -> Result<Self> {
+    fn new(writer: W, left_image_min_interval: Option<Duration>) -> Result<Self> {
         Ok(Self {
             writer: WriteOptions::new()
                 .compression(Some(Compression::Lz4))
+                .chunk_size(Some(16 * 1024 * 1024))
                 .create(writer)?,
             channel_mapping: BTreeMap::new(),
             last_written_source_time_by_topic: BTreeMap::new(),
-            raw_image_min_interval,
+            left_image_min_interval,
         })
     }
 
@@ -391,6 +392,8 @@ where
             .map(|timestamp| Time::from_wallclock(timestamp.get_time().to_system_time()))
             .unwrap_or(source_time);
         let sequence = u32::try_from(attachment.sequence_number).unwrap_or(u32::MAX);
+        // shortcut: MCAP requires contiguous bytes, use chunked writes if its API supports them.
+        // This recording-only copy does not affect typed subscriber decoding.
         let payload = sample.payload().to_bytes();
 
         let channel_id = match self.channel_mapping.get(&channel.topic).copied() {
@@ -430,18 +433,18 @@ where
     }
 
     fn should_write_sample(&self, topic: &str, source_time: Time) -> bool {
-        if topic != RAW_IMAGE_TOPIC {
+        if topic != IMAGE_TOPIC {
             return true;
         }
 
-        let Some(raw_image_min_interval) = self.raw_image_min_interval else {
+        let Some(image_min_interval) = self.left_image_min_interval else {
             return true;
         };
 
         self.last_written_source_time_by_topic
             .get(topic)
             .is_none_or(|last_written_source_time| {
-                source_time.duration_since(*last_written_source_time) >= raw_image_min_interval
+                source_time.duration_since(*last_written_source_time) >= image_min_interval
             })
     }
 

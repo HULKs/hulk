@@ -5,6 +5,7 @@
 
 mod cdr;
 pub(crate) use cdr::deserialize_cdr_selection;
+pub(crate) use cdr::{deserialize_cdr_reader, serialize_cdr_value_into, write_cdr_value};
 
 pub use cdr::{
     deserialize_cdr, deserialize_cdr_value, serialize_cdr, serialize_cdr_to_zbuf,
@@ -42,9 +43,9 @@ impl DynamicStruct {
         buffer: &mut Vec<u8>,
     ) -> Result<(), DynamicError> {
         buffer.clear();
-        let data = self.serialize(format)?;
-        buffer.extend_from_slice(&data);
-        Ok(())
+        match format {
+            SerializationFormat::Cdr => cdr::serialize_cdr_into(self, buffer),
+        }
     }
 
     /// Serialize the message to a ZBuf (zero-copy where possible).

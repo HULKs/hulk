@@ -14,7 +14,7 @@ use crate::ServiceTypeInfo;
 use crate::attachment::Attachment;
 use crate::endpoint_builder::{EndpointBuilderContext, service_endpoint_type};
 use crate::entity::{SchemaHash, TypeInfo};
-use crate::message::{SerdeCdrCodec, Service, WireDecoder, WireEncoder};
+use crate::message::{CdrCodec, Service, WireDecoder, WireEncoder};
 use crate::schema::{MessageSchema, SchemaBuilder};
 use crate::service::{ServiceServer, ServiceServerBuilder};
 
@@ -81,7 +81,19 @@ pub struct GetSchemaRequest {
 }
 
 impl Message for GetSchemaRequest {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = CdrCodec<Self>;
+    fn encode_cdr<B: crate::cdr::CdrBuffer>(
+        &self,
+        writer: &mut crate::cdr::CdrWriter<'_, crate::cdr::LittleEndian, B>,
+    ) -> crate::cdr::Result<()> {
+        crate::serde_bridge::encode_serde(self, writer)
+    }
+
+    fn decode_cdr(
+        reader: &mut crate::cdr::CdrReader<'_, crate::cdr::LittleEndian>,
+    ) -> crate::cdr::Result<Self> {
+        crate::serde_bridge::decode_serde(reader)
+    }
 
     fn type_name() -> String {
         "ros_z::GetSchemaRequest".to_string()
@@ -118,7 +130,19 @@ impl Default for GetSchemaResponse {
 }
 
 impl Message for GetSchemaResponse {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = CdrCodec<Self>;
+    fn encode_cdr<B: crate::cdr::CdrBuffer>(
+        &self,
+        writer: &mut crate::cdr::CdrWriter<'_, crate::cdr::LittleEndian, B>,
+    ) -> crate::cdr::Result<()> {
+        crate::serde_bridge::encode_serde(self, writer)
+    }
+
+    fn decode_cdr(
+        reader: &mut crate::cdr::CdrReader<'_, crate::cdr::LittleEndian>,
+    ) -> crate::cdr::Result<Self> {
+        crate::serde_bridge::decode_serde(reader)
+    }
 
     fn type_name() -> String {
         "ros_z::GetSchemaResponse".to_string()
@@ -424,7 +448,7 @@ impl SchemaService {
 
     fn handle_query(schemas: &Arc<RwLock<SchemaRegistry>>, query: Query) {
         let request: GetSchemaRequest = match query.payload() {
-            Some(payload) => match SerdeCdrCodec::deserialize(payload.to_bytes().as_ref()) {
+            Some(payload) => match CdrCodec::deserialize(payload.to_bytes().as_ref()) {
                 Ok(req) => req,
                 Err(error) => {
                     warn!("[SCH] Failed to deserialize request: {error}");
@@ -438,7 +462,7 @@ impl SchemaService {
         };
 
         let response = Self::build_response(schemas, &request);
-        let bytes = match SerdeCdrCodec::serialize(&response) {
+        let bytes = match CdrCodec::serialize(&response) {
             Ok(bytes) => bytes,
             Err(error) => {
                 warn!(error = ?error, "[SCH] Failed to serialize response");

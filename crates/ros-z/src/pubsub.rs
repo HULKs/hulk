@@ -156,6 +156,18 @@ mod tests {
     }
 
     #[test]
+    fn dynamic_publish_accepts_shared_and_equivalent_schemas() {
+        let schema = Arc::new(SchemaBundle::new(TypeDef::Primitive(PrimitiveTypeDef::U8)).unwrap());
+        let message =
+            DynamicPayload::new(Arc::clone(&schema), crate::dynamic::DynamicValue::Uint8(7))
+                .unwrap();
+        publisher::validate_dynamic_publish_schema(Some(&schema), &message).unwrap();
+        let equivalent = Arc::new(schema.as_ref().clone());
+        assert!(!Arc::ptr_eq(&schema, &equivalent));
+        publisher::validate_dynamic_publish_schema(Some(&equivalent), &message).unwrap();
+    }
+
+    #[test]
     fn dynamic_publish_schema_validation_rejects_mismatched_message_schema() {
         let advertised_schema =
             Arc::new(SchemaBundle::new(TypeDef::Primitive(PrimitiveTypeDef::U8)).unwrap());

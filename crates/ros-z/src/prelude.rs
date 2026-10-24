@@ -42,7 +42,7 @@ pub use crate::service::{RequestId, ServiceClient, ServiceReply, ServiceRequest,
 pub use crate::qos::QosProfile;
 
 /// Trait bounds and codecs for custom messages and services.
-pub use crate::{Message, SerdeCdrCodec, Service};
+pub use crate::{CdrCodec, Message, Service};
 
 /// Type metadata traits for custom message and service definitions.
 pub use crate::{SchemaHash, ServiceTypeInfo, TypeInfo};

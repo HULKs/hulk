@@ -80,7 +80,7 @@ impl StereoTriangulator {
         let mut disparity_checks = 0;
         let mut disparity_failures = 0;
 
-        for (left_index, right_index, _score) in matches.left_to_right() {
+        for (left_index, right_index) in matches.matched_pairs() {
             let Some(left_keypoint) = left.keypoint(left_index) else {
                 continue;
             };

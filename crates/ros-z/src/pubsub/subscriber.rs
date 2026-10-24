@@ -588,6 +588,14 @@ where
         !self.queue.is_empty()
     }
 
+    /// Return the number of messages currently waiting in the local receive queue.
+    ///
+    /// Use this to drain a bounded snapshot without chasing messages that arrive
+    /// concurrently with processing.
+    pub fn queued_len(&self) -> usize {
+        self.queue.len()
+    }
+
     /// Wait until at least `count` publishers are matched on this subscriber's topic,
     /// or until `timeout` elapses.
     ///
@@ -639,8 +647,7 @@ where
     /// Receive and deserialize the next message together with metadata.
     pub async fn recv_with_metadata(&self) -> Result<Received<C::Output>> {
         let sample = self.queue.recv_async().await;
-        let payload = sample.payload().to_bytes();
-        let message = C::deserialize(&payload)
+        let message = C::deserialize_payload(sample.payload())
             .map_err(|source| crate::Error::decode(std::any::type_name::<C::Output>(), source))?;
         Received::try_from_sample(&sample, message)
     }
@@ -675,9 +682,7 @@ impl Subscriber<DynamicPayload, DynamicCdrCodec> {
         })?;
 
         let sample = self.queue.recv_async().await;
-        let payload = sample.payload().to_bytes();
-
-        let message = DynamicCdrCodec::deserialize((&payload, schema))
+        let message = DynamicCdrCodec::decode_payload(sample.payload(), schema)
             .map_err(|source| crate::Error::decode("ros_z::dynamic::DynamicPayload", source))?;
         Received::try_from_sample(&sample, message)
     }

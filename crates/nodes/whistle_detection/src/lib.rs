@@ -4,10 +4,9 @@ use std::{f32::consts::PI, sync::Arc};
 use color_eyre::{Result, eyre::ensure};
 use filtering::statistics::{mean, standard_deviation};
 use log::warn;
-use rustfft::{
-    Fft, FftPlanner,
+use realfft::{
+    RealFftPlanner, RealToComplex,
     num_complex::{Complex32, ComplexFloat},
-    num_traits::Zero,
 };
 
 use ros_z::prelude::*;
@@ -119,16 +118,34 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 }
 
 pub struct WhistleDetection {
-    fft: Arc<dyn Fft<f32>>,
+    fft: Arc<dyn RealToComplex<f32>>,
+    input: Vec<f32>,
+    output: Vec<Complex32>,
     scratch: Vec<Complex32>,
+    hann_window: Vec<f32>,
 }
 
 impl WhistleDetection {
     pub fn new(detection_parameters: &WhistleDetectionParameters) -> Result<Self> {
-        let mut planner = FftPlanner::new();
+        let mut planner = RealFftPlanner::new();
         let fft = planner.plan_fft_forward(detection_parameters.number_audio_samples);
-        let scratch = vec![Complex32::zero(); fft.get_inplace_scratch_len()];
-        Ok(Self { fft, scratch })
+        let input = fft.make_input_vec();
+        let output = fft.make_output_vec();
+        let scratch = fft.make_scratch_vec();
+        let hann_window = (0..detection_parameters.number_audio_samples)
+            .map(|i| {
+                (PI * i as f32 / detection_parameters.number_audio_samples as f32)
+                    .sin()
+                    .powi(2)
+            })
+            .collect();
+        Ok(Self {
+            fft,
+            input,
+            output,
+            scratch,
+            hann_window,
+        })
     }
 
     fn is_whistle_detected_in_buffer(
@@ -153,21 +170,22 @@ impl WhistleDetection {
 
         let frequency_resolution = detection_parameters.audio_sample_rate as f32
             / detection_parameters.number_audio_samples as f32;
-        let mut buffer: Vec<_> = buffer
-            .iter()
-            .enumerate()
-            .map(|(i, &sample)| {
-                let hann = (PI * i as f32 / detection_parameters.number_audio_samples as f32)
-                    .sin()
-                    .powi(2);
-                Complex32::new(hann * sample, 0.0)
-            })
-            .collect();
-        self.fft
-            .process_with_scratch(&mut buffer, &mut self.scratch);
+        for ((input, &sample), &hann) in self.input.iter_mut().zip(buffer).zip(&self.hann_window) {
+            *input = hann * sample;
+        }
+        if let Err(error) =
+            self.fft
+                .process_with_scratch(&mut self.input, &mut self.output, &mut self.scratch)
+        {
+            warn!("ignoring audio buffer: real FFT failed: {error}");
+            audio_spectrums.push(Vec::new());
+            return (false, DetectionInfo::default());
+        }
 
+        // Keep the original N/2 bins and normalization, excluding realfft's final bin even for odd N.
         let number_frequency_samples = detection_parameters.number_audio_samples / 2;
-        let absolute_values: Vec<_> = buffer
+        let absolute_values: Vec<_> = self
+            .output
             .iter()
             .take(number_frequency_samples)
             .map(|sample| {

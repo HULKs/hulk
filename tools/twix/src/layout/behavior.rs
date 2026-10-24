@@ -263,6 +263,7 @@ mod tests {
             backend: backend.clone(),
             value: None,
             egui_context: context.clone(),
+            render_state: None,
         });
         *layout.tree.tiles.get_mut(focused).unwrap() =
             Tile::Pane(SelectablePanel::TimelinePanel(Box::new(timeline)));

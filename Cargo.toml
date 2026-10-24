@@ -19,7 +19,7 @@ members = [
   "crates/kinematics",
   "crates/linear_algebra",
   "crates/linear_sum_assignment",
-  "crates/localization-factrs",
+  "crates/localization-fagra",
   "crates/microphones",
   "crates/nodes/active_vision",
   "crates/nodes/ball_filter",
@@ -94,7 +94,6 @@ members = [
   "tools/mcap-replay",
   "tools/mujoco-simulator/mujoco-rust-server",
   "tools/pepsi",
-  "tools/robot_viewer",
   "tools/tensorrt-compile",
   "tools/twix",
   "tools/widget_gallery",
@@ -130,6 +129,7 @@ bat = { version = "0.25.0", default-features = false, features = [
 behavior_node = { path = "crates/nodes/behavior_node" }
 bevy = { version = "0.20", default-features = false }
 bevy_mujoco = { path = "crates/bevy_mujoco" }
+fagra = { git = "https://github.com/oleflb/fagra", rev = "7b37df61ed615c85f5d59265f5df53ff5d5dc1be" }
 bincode = "1.3.3"
 bindgen = "0.71.1"
 booster = { path = "crates/booster" }
@@ -199,7 +199,7 @@ linear_algebra = { path = "crates/linear_algebra" }
 linear_sum_assignment = { path = "crates/linear_sum_assignment" }
 localization-2d = { path = "crates/nodes/localization-2d" }
 localization-3d = { path = "crates/nodes/localization-3d" }
-localization-factrs = { path = "crates/localization-factrs" }
+localization-fagra = { path = "crates/localization-fagra" }
 log = "0.4.25"
 low_state_bridge = { path = "crates/nodes/low_state_bridge" }
 mcap = "0.25.0"
@@ -259,6 +259,7 @@ quote = "1.0.38"
 rand = "0.9.0"
 rand_chacha = { version = "0.9.0", features = ["serde"] }
 rand_distr = "0.5.0"
+realfft = "3.5.0"
 regex = "1.11.1"
 repository = { path = "crates/repository" }
 reqwest = { version = "0.12.28", features = ["blocking"] }
@@ -272,7 +273,6 @@ ros-z-schema = { path = "crates/ros-z-schema" }
 ros-z-streams = { path = "crates/ros-z-streams" }
 ros2 = { path = "crates/ros2" }
 rule_obstacle_composer = { path = "crates/nodes/rule_obstacle_composer" }
-rustfft = "6.4.1"
 safe_pose_checker = { path = "crates/nodes/safe_pose_checker" }
 scenario = { path = "crates/scenario" }
 search_heatmap = { path = "crates/search_heatmap" }

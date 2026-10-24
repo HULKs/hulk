@@ -475,11 +475,13 @@ mod tests {
             backend,
             value: Some(&saved),
             egui_context: Context::default(),
+            render_state: None,
         };
         let mut panel = ImagePanel::new(PanelCreationContext {
             backend: context.backend.clone(),
             value: Some(&saved),
             egui_context: context.egui_context.clone(),
+            render_state: None,
         });
         tokio::time::timeout(Duration::from_secs(5), async {
             loop {
@@ -545,11 +547,13 @@ mod tests {
             backend: backend.clone(),
             value: Some(&saved),
             egui_context: Context::default(),
+            render_state: None,
         };
         let mut panel = ImagePanel::new(PanelCreationContext {
             backend: backend.clone(),
             value: Some(&saved),
             egui_context: context.egui_context.clone(),
+            render_state: None,
         });
         let paused = Arc::new(AtomicBool::new(false));
         let published = Arc::new(AtomicU64::new(0));

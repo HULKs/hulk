@@ -49,6 +49,61 @@ let server = node.service_server::<AddTwoInts>("add_two_ints").build().await?;
 let client = node.service_client::<AddTwoInts>("add_two_ints").build().await?;
 ```
 
+## Native CDR byte fields
+
+`Message` derives field-level CDR encoding and decoding, composing through nested
+structs, enums and containers without changing their alignment origin or schema.
+Use `ros_z::ZSlice` for immutable owned byte sequences:
+
+```rust
+use ros_z::{Message, ZSlice};
+use serde::{Deserialize, Serialize};
+
+#[derive(Message, Serialize, Deserialize)]
+struct Frame {
+    sequence: u64,
+    #[serde(with = "ros_z::serde_zslice")]
+    data: ZSlice,
+}
+```
+
+Move a `Vec<u8>` into a `ZSlice` with `.into()`. Ordinary `publish(&frame)` and
+`recv()` retain pixel owners when the byte field occupies one payload segment;
+fragmented byte fields are copied individually. Decoding borrowed bytes must
+copy `ZSlice` fields. Explicit SHM publishing and contiguous serialization copy
+bytes into their destination; SHM is not enabled by default.
+
+`CdrCodec<T>` is the single typed CDR codec (also exported by the prelude).
+Field composition lives on the required `Message::encode_cdr` and `decode_cdr`
+methods, not codec defaults. Foreign-type implementations (including nalgebra
+and ndarray) use internal Serde field bridges without violating orphan rules.
+Bridges preserve the enclosing alignment origin and consume exactly their fields.
+Custom `WireEncoder`/`WireDecoder` implementations remain supported.
+
+Wire-affecting Serde attributes generate a whole-value bridge automatically,
+still using `CdrCodec<T>`. For hand-written Serde implementations, add
+`#[message(serde)]` to retain their custom wire semantics. Serde-only fields do not retain
+`ZSlice` owners. The field adapter above also supports JSON tooling.
+For a field that implements `MessageSchema` and Serde but not `Message`, put
+`#[message(serde)]` on that field to bridge only it; neighboring native byte
+fields still retain their owners.
+Generic bridged fields require `MessageSchema`, `Serialize`, and `DeserializeOwned`,
+not `Message`; their generic type names use Rust's `type_name`. Native fields
+require `Message`. Field-type bounds support const-generic matrices wherever the
+concrete nalgebra dimensions implement `Message`; recursive fields do not add
+self-referential bounds.
+
+SHM publishing counts encoded size without copying payloads, then encodes directly
+into an exact-sized allocation, reusing the size calculated for threshold selection.
+Explicit calls with inaccurate size hints retry when necessary. Heap/ZSlice publishing
+does not copy byte fields. Exhausted SHM pools attempt garbage collection without waiting,
+then publishers fall back to heap encoding, so retained cache entries cannot stall
+pool allocation indefinitely.
+
+Dynamic subscriptions also retain contiguous byte fields as `DynamicValue::Bytes(ZSlice)`;
+construct these with `DynamicValue::Bytes(vec.into())`. Fragmented fields require a copy.
+Their JSON rendering is unchanged, including compact byte previews.
+
 ## Name Rules
 
 `ros-z` uses Zenoh-native concrete graph names.

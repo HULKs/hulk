@@ -2,4 +2,10 @@
   camera_to_head_pitch: -0.2125811028,
   correction_in_robot: [0.0, 0.0, 0.0],
   correction_in_camera: [0.0, 0.0, 0.0],
+  synchronization: {
+    max_ground_time_distance: { secs: 0, nanos: 20000000 },
+    // Cache capacity changes require a node restart.
+    ground_cache_capacity: 32,
+    camera_info_cache_capacity: 1,
+  },
 }
