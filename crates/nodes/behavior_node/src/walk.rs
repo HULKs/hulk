@@ -19,6 +19,7 @@ use crate::{
     actions::stand,
     behavior_tree::Node,
     condition,
+    conditions::has_more_than_unpenalized_players,
     kick::{kick, select_kick_target, use_last_kick_settings},
     node::Blackboard,
     selection, sequence, subtree,
@@ -234,6 +235,7 @@ pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
     }
 
     let kickoff_pose = select_kickoff_pose(
+        blackboard,
         player_number,
         game_controller_state,
         blackboard.parameters.goalkeeper.player_number,
@@ -254,6 +256,7 @@ pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
 }
 
 fn select_kickoff_pose(
+    blackboard: &Blackboard,
     player_number: PlayerNumber,
     game_controller_state: &FilteredGameControllerState,
     goalkeeper_player_number: PlayerNumber,
@@ -281,6 +284,9 @@ fn select_kickoff_pose(
 
     let relative_position = if game_controller_state.kicking_team == Some(Team::Hulks) {
         match field_player_rank {
+            0 if has_more_than_unpenalized_players(blackboard, 2) => {
+                kickoff_parameters.relative_striker_side_kick_position
+            }
             0 => kickoff_parameters.relative_striker_position,
             rank => kickoff_parameters.relative_aggressive_positions[rank - 1],
         }

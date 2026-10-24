@@ -1,5 +1,5 @@
 use coordinate_systems::{Field, Ground};
-use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, point};
+use linear_algebra::{Isometry2, Orientation2, Point2, Vector2, point, vector};
 use types::{
     behavior_tree::Status,
     motion_command::{BodyMotion, HeadMotion, ImageRegion, MotionCommand},
@@ -75,6 +75,30 @@ pub fn select_kick_target(blackboard: &mut Blackboard) -> Status {
     let goal_position: Point2<Field> = point!(blackboard.field_dimensions.length / 2.0, 0.0);
 
     apply_kick_target(blackboard, goal_position)
+}
+
+pub fn kickoff_kick(blackboard: &mut Blackboard) -> Status {
+    if kick(blackboard) == Status::Failure {
+        return Status::Failure;
+    }
+    if let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field
+        && let Some(BodyMotion::Kick {
+            ball_position,
+            target_speed,
+            soft,
+            quick,
+            strong,
+            ..
+        }) = blackboard.body_motion.as_mut()
+    {
+        let target = ground_to_field * *ball_position + vector![-1.0, 5.0];
+        *target_speed = 1.0;
+        *soft = false;
+        *quick = true;
+        *strong = false;
+        return apply_kick_target(blackboard, target);
+    }
+    Status::Failure
 }
 
 pub fn apply_kick_target(

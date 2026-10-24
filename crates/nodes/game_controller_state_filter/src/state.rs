@@ -72,7 +72,8 @@ impl State {
 
                 FilteredGameState::Playing {
                     ball_is_free: !opponent_kick_off && !opponent_sub_state,
-                    kick_off: !is_in_sub_state,
+                    kick_off: !is_in_sub_state
+                        && (opponent_is_kicking_team || !ball_detected_far_from_kick_off_point),
                 }
             }
             State::Playing => FilteredGameState::Playing {
