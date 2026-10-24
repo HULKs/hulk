@@ -137,6 +137,12 @@ impl SimulatorRobotBehavior {
         head_yaw: f32,
     ) -> Vec<OutgoingMessage> {
         self.blackboard.world_state = world_state;
+        self.blackboard.local_ball_position =
+            self.blackboard.world_state.ball.map(|ball| BallPosition {
+                position: ball.ball_in_ground,
+                velocity: ball.ball_in_ground_velocity,
+                last_seen: ros_z::time::Time::from_wallclock(ball.last_seen_ball),
+            });
         self.blackboard.parameters.network = hsl_network_parameters;
         self.blackboard.head_yaw = head_yaw;
 
@@ -196,6 +202,7 @@ fn create_behavior_blackboard(
         direction_difference: 0.0,
         voronoi_inputs: Vec::new(),
         ball: None,
+        local_ball_position: None,
         visual_kick_ball_position: None,
         last_ball: None,
         last_close_enough_to_kick: false,
