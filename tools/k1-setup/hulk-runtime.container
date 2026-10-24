@@ -16,6 +16,7 @@ GroupAdd=101
 RunInit=true
 
 Volume=/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra
+Volume=/usr/bin/tegrastats:/usr/bin/tegrastats:ro
 Volume=/home/booster:/home/booster
 WorkingDir=/home/booster/hulk
 

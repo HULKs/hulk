@@ -259,6 +259,7 @@ async fn spawn_all(
     join_set.spawn(search_suggestor::run_boxed(ctx.clone()));
     join_set.spawn(stereo_visual_odometry::run_boxed(ctx.clone()));
     join_set.spawn(support_foot_estimator::run_boxed(ctx.clone()));
+    join_set.spawn(system_info::run_boxed(ctx.clone()));
     join_set.spawn(team_ball_filter::run_boxed(ctx.clone()));
     join_set.spawn(time_to_reach_kick_position::run_boxed(ctx.clone()));
     join_set.spawn(trigger::run_boxed(ctx.clone()));
