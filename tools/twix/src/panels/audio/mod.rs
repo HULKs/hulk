@@ -119,7 +119,7 @@ impl Panel for AudioPanel {
 
         let response = ui.add(
             CompletionEdit::new(
-                ui.id().with("audio_spectrum_topic"),
+                ui.scope_id().with("audio_spectrum_topic"),
                 &completions,
                 &mut self.topic_editor,
             )
@@ -268,7 +268,7 @@ impl Panel for AudioPanel {
 
         let tree = self.tree.get_or_insert_with(|| {
             egui_tiles::Tree::new_vertical(
-                ui.id().with("audio_tiles"),
+                ui.scope_id().with("audio_tiles"),
                 vec![AudioPane::Spectrum(HashSet::new()), AudioPane::Waterfall],
             )
         });
@@ -489,7 +489,7 @@ impl egui_tiles::Behavior<AudioPane> for AudioBehavior<'_> {
                         let combo_size =
                             Vec2::new(ui.spacing().combo_width, ui.spacing().interact_size.y);
                         ui.allocate_ui(combo_size, |ui| {
-                            eframe::egui::ComboBox::from_id_salt(ui.id().with("waterfall_channel"))
+                            eframe::egui::ComboBox::from_id_salt(ui.scope_id().with("waterfall_channel"))
                                 .selected_text(format!(
                                     "Channel {}",
                                     self.selected_waterfall_channel

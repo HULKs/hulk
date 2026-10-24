@@ -94,7 +94,7 @@ impl LabelWidget {
                 (self.texture_handle.clone(), self.image_size)
             {
                 ui.add(BoundingBoxAnnotator::new(
-                    Id::new(texture_handle.id()).with("image-plot"),
+                    Id::unique(texture_handle.id()).with("image-plot"),
                     texture_handle,
                     image_size,
                     &mut self.bounding_boxes,
