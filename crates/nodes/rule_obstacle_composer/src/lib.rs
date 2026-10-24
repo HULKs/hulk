@@ -110,7 +110,7 @@ fn compose_rule_obstacles(
                 game_state: FilteredGameState::Playing { .. },
                 ..
             },
-            possible_ball,
+            _,
         ) => {
             let penalty_area_obstacle = RuleObstacle::Rectangle(Rectangle {
                 min: FieldDimensions::penalty_box_corner(field_dimensions, Opponent, Right),
