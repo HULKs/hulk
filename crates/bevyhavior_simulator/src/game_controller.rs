@@ -82,6 +82,7 @@ pub fn default_game_controller_state() -> GameControllerState {
         game_phase: GamePhase::Normal,
         half: Half::First,
         remaining_time_in_half: Duration::ZERO,
+        secondary_time: Duration::ZERO,
         kicking_team: Some(Team::Hulks),
         last_game_state_change: SystemTime::UNIX_EPOCH,
         penalties: Players::new(None),
@@ -139,8 +140,14 @@ pub fn filtered_game_controller_state_for_team(
     };
 
     FilteredGameControllerState {
-        game_state: filtered_game_state_from(game_controller_state),
-        opponent_game_state: filtered_game_state_from(game_controller_state),
+        game_state: filtered_game_state_for_team(game_controller_state, team),
+        opponent_game_state: filtered_game_state_for_team(
+            game_controller_state,
+            match team {
+                Team::Hulks => Team::Opponent,
+                Team::Opponent => Team::Hulks,
+            },
+        ),
         half: game_controller_state.half,
         remaining_time_in_half: game_controller_state.remaining_time_in_half,
         game_phase: game_controller_state.game_phase,
@@ -165,6 +172,13 @@ fn local_team_for(own_team: Team, canonical_team: Team) -> Team {
 }
 
 pub fn filtered_game_state_from(game_controller_state: &GameControllerState) -> FilteredGameState {
+    filtered_game_state_for_team(game_controller_state, Team::Hulks)
+}
+
+fn filtered_game_state_for_team(
+    game_controller_state: &GameControllerState,
+    team: Team,
+) -> FilteredGameState {
     if game_controller_state.stopped {
         return FilteredGameState::Stop;
     }
@@ -174,8 +188,9 @@ pub fn filtered_game_state_from(game_controller_state: &GameControllerState) -> 
         GameState::Ready => FilteredGameState::Ready,
         GameState::Set => FilteredGameState::Set,
         GameState::Playing => FilteredGameState::Playing {
-            ball_is_free: true,
-            kick_off: false,
+            ball_is_free: !game_controller_state.is_kick_off()
+                || game_controller_state.kicking_team == Some(team),
+            kick_off: game_controller_state.is_kick_off(),
         },
         GameState::Finished => FilteredGameState::Finished,
     }

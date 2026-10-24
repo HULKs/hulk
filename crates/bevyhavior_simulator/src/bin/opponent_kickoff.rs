@@ -16,8 +16,8 @@ use hsl_network_messages::{GameState, PlayerNumber, Team};
 use linear_algebra::{Isometry2, Point2, point, vector};
 use scenario::scenario;
 use types::{
-    field_dimensions::Side, filtered_game_state::FilteredGameState, motion_command::MotionCommand,
-    primary_state::PrimaryState, rule_obstacles::RuleObstacle,
+    field_dimensions::Side, motion_command::MotionCommand, primary_state::PrimaryState,
+    rule_obstacles::RuleObstacle,
 };
 
 const PLAYER: PlayerNumber = PlayerNumber::Two;
@@ -50,7 +50,7 @@ fn opponent_kickoff(app: &mut App) {
     app.add_systems(Startup, startup)
         .add_systems(
             Update,
-            supply_kickoff_restriction.in_set(BehaviorTreeSimulatorSet::AfterWorldState),
+            supply_kickoff_obstacles.in_set(BehaviorTreeSimulatorSet::AfterWorldState),
         )
         .add_systems(
             Update,
@@ -117,7 +117,7 @@ fn startup(
     markers.add(clock.now, Color32::YELLOW, "Opponent kickoff: Ready");
 }
 
-fn supply_kickoff_restriction(
+fn supply_kickoff_obstacles(
     scenario: Res<KickoffScenario>,
     dimensions: Res<SimulatorFieldDimensions>,
     mut worlds: ResMut<SimulatorWorldStates>,
@@ -125,24 +125,10 @@ fn supply_kickoff_restriction(
     if !matches!(scenario.phase, Phase::Restricted | Phase::Released) {
         return;
     }
-    // The simulator's simplified GC conversion always frees the ball in Playing.
-    // Supply the filtered state seen in recover2.mcap before behavior ticks.
     let world = worlds
         .0
         .get_mut(&SimulatorRobotId::new(Team::Hulks, PLAYER))
         .expect("scenario robot must have a world state");
-    let filtered = world
-        .filtered_game_controller_state
-        .as_mut()
-        .expect("scenario must have a game controller");
-    filtered.game_state = FilteredGameState::Playing {
-        ball_is_free: scenario.phase == Phase::Released,
-        kick_off: true,
-    };
-    filtered.opponent_game_state = FilteredGameState::Playing {
-        ball_is_free: true,
-        kick_off: true,
-    };
     if scenario.phase == Phase::Restricted {
         // Include the center-circle and opponent-half obstacles present in the log.
         world.rule_obstacles = vec![
@@ -229,12 +215,15 @@ fn check_and_advance(
             } else if scenario.phase == Phase::Set && elapsed >= SET_DURATION {
                 scenario.phase = Phase::Restricted;
                 scenario.since = clock.now;
+                game.game_controller_state.secondary_time = RESTRICTED_DURATION;
                 game.set_game_state(GameState::Playing, clock.now);
                 markers.add(clock.now, Color32::LIGHT_RED, "Playing: ball is NOT free");
                 None
             } else if scenario.phase == Phase::Restricted && elapsed >= RESTRICTED_DURATION {
                 scenario.phase = Phase::Released;
                 scenario.since = clock.now;
+                game.game_controller_state.secondary_time = Duration::ZERO;
+                game.set_kicking_team(None);
                 markers.add(clock.now, Color32::LIGHT_GREEN, "Playing: ball is free");
                 None
             } else {
