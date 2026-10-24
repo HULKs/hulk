@@ -264,6 +264,21 @@ pub fn is_last_hulk_standing(blackboard: &mut Blackboard) -> bool {
         })
 }
 
+pub fn has_more_than_unpenalized_players(blackboard: &mut Blackboard, count: usize) -> bool {
+    blackboard
+        .world_state
+        .filtered_game_controller_state
+        .as_ref()
+        .is_some_and(|game_controller_state| {
+            game_controller_state
+                .penalties
+                .iter()
+                .filter(|(_, penalty)| penalty.is_none())
+                .count()
+                > count
+        })
+}
+
 pub fn is_simple(blackboard: &mut Blackboard) -> bool {
     blackboard.parameters.control.is_simple
 }
