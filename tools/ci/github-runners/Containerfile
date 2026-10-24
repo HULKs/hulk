@@ -1,4 +1,4 @@
-FROM docker.io/rust:1.98.1
+FROM docker.io/rust:1.99.1
 
 RUN apt-get update && apt-get install --no-install-recommends --yes \
     buildah \
@@ -37,6 +37,8 @@ RUN curl --fail --location https://dl.google.com/android/repository/android-ndk-
     rm /tmp/android-ndk.zip
 
 ENV CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=/opt/android-ndk-r27d/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang
+ENV CC_aarch64_linux_android=/opt/android-ndk-r27d/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang
+ENV AR_aarch64_linux_android=/opt/android-ndk-r27d/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
 
 RUN --mount=type=cache,target=/cargo_home \
     CARGO_HOME=/cargo_home cargo install --locked taplo-cli --root /usr/local
