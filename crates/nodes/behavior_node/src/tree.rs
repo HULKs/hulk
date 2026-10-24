@@ -15,7 +15,7 @@ use crate::{
     goalkeeper::goalkeeper_subtree,
     head::{look_around, look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
     kick::{
-        intercept, kick, kick_alternatives_subtree, kick_subtree, kickoff_kick, quick_kick_subtree,
+        intercept, kick, kick_alternatives_subtree, kick_subtree, quick_kick_subtree,
         set_kick_target_beyond_ball,
         strategy::{begin_ball_action_cycle, is_quick_kick_selected, select_ball_action},
         use_kick,
