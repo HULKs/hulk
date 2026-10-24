@@ -4,6 +4,7 @@ Requires=zenohd.service
 After=zenohd.service
 
 [Service]
+CPUAffinity=4 5
 User=zenohd
 Group=zenohd
 Environment=ZENOH_HOME=/var/lib/zenoh
