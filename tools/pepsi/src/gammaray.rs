@@ -303,6 +303,15 @@ async fn gammaray_robot(
     // Stop replaced DDS publishers before starting the bridge.
     robot
         .ssh_to_overlay()?
+        .arg(format!(
+            "SSHPASS='br{}' /nix/var/nix/profiles/hulks/bin/sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 -o NumberOfPasswordPrompts=1 root@192.168.127.10 'systemctl disable --now cam_rectify_stream.service'",
+            password.replace('\'', "'\\''")
+        ))
+        .ssh_with_log("disabling x5 camera rectify service", &progress_bar)
+        .await?;
+
+    robot
+        .ssh_to_overlay()?
         .arg(manufacturer_services_command("disable"))
         .ssh_with_log("disabling Booster services", &progress_bar)
         .await?;
