@@ -104,6 +104,7 @@ pub struct GoalkeeperParameters {
 pub struct KickoffParameters {
     pub relative_goalkeeper_position: Point2<NormalizedField>,
     pub relative_striker_position: Point2<NormalizedField>,
+    pub relative_striker_side_kick_position: Point2<NormalizedField>,
     /// Own-kickoff support slots, filled in order by descending active player number.
     pub relative_aggressive_positions: [Point2<NormalizedField>; 3],
     /// Opponent-kickoff slots, filled in order by descending active player number.

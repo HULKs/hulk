@@ -264,7 +264,7 @@ pub fn is_last_hulk_standing(blackboard: &mut Blackboard) -> bool {
         })
 }
 
-pub fn has_more_than_unpenalized_players(blackboard: &mut Blackboard, count: usize) -> bool {
+pub fn has_more_than_unpenalized_players(blackboard: &Blackboard, count: usize) -> bool {
     blackboard
         .world_state
         .filtered_game_controller_state
