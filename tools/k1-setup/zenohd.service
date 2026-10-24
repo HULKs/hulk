@@ -4,9 +4,12 @@ Wants=network-online.target
 After=network-online.target
 
 [Service]
-User=zenohd
-Group=zenohd
-Environment=ZENOH_HOME=/var/lib/zenoh
+# Zenoh SHM objects are accessible only to their owner; match HULK's UID.
+User=booster
+Group=booster
+Environment=ZENOH_HOME=/home/booster/.zenoh
+# Zenoh locks its SHM pools and mapped buffers into memory.
+LimitMEMLOCK=infinity
 ExecStart=/nix/var/nix/profiles/hulks/bin/zenohd -c /etc/zenohd/zenohd.json5
 Restart=on-failure
 
