@@ -2,7 +2,7 @@
   enable: true,
   max_duration: { secs: 3600, nanos: 0 },
   include_images: true,
-  image_min_interval: { secs: 0, nanos: 100000000 },
+  image_min_interval: { secs: 0, nanos: 33333333 },
   queue_depth: 8,
   schema_discovery_timeout: { secs: 15, nanos: 0 },
   topics: [
