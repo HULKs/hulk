@@ -97,18 +97,22 @@ impl SimulatorRobotBehavior {
             self.blackboard.ball = None;
         }
 
+        self.blackboard.update_kickoff();
+        self.blackboard.update_restart_pass();
+
         let (status, trace) = self.tree.tick_with_trace(&mut self.blackboard);
         let motion_command = assemble_motion_command(&self.blackboard, status)?;
         self.blackboard.last_motion_command = Some(motion_command.clone());
 
         let motion_type = match motion_command.clone() {
             MotionCommand::Kick { .. } => Some(types::motion_type::MotionType::Kick),
-            MotionCommand::Walk { .. } => Some(types::motion_type::MotionType::Walk),
+            MotionCommand::Walk { .. } | MotionCommand::WalkWithVelocity { .. } => {
+                Some(types::motion_type::MotionType::Walk)
+            }
             MotionCommand::Stand { .. } => Some(types::motion_type::MotionType::Stand),
             MotionCommand::StandUp => Some(types::motion_type::MotionType::StandUp),
             MotionCommand::Prepare => Some(types::motion_type::MotionType::Prepare),
             MotionCommand::Damping => Some(types::motion_type::MotionType::Damping),
-            _ => None,
         };
 
         if motion_type != self.blackboard.last_motion_type {
@@ -199,6 +203,8 @@ fn create_behavior_blackboard(
         visual_kick_ball_position: None,
         last_ball: None,
         last_close_enough_to_kick: false,
+        ball_action: None,
+        last_ball_action: None,
         kick_target: None,
         last_kick_target: None,
         last_motion_command: None,
@@ -206,6 +212,11 @@ fn create_behavior_blackboard(
         last_motion_type: None,
         last_sent_game_controller_return_message_time: None,
         last_sent_hsl_message_time: None,
+        last_announced_pass: None,
+        kickoff_receiver_wait_started: None,
+        restart_pass_wait_started: None,
+        kickoff_prepared: false,
+        kickoff_started: None,
         last_closest_to_ball: false,
         closest_to_ball_entered_area_since: None,
         closest_to_ball_left_area_since: None,
@@ -330,23 +341,27 @@ mod tests {
     }
 
     #[test]
-    fn strong_kick_selection_uses_ball_to_target_distance() {
+    fn strong_kick_selection_uses_ball_to_target_distance_for_non_goal_targets() {
         use behavior_node::kick::{apply_kick_target, kick, kick_strength_subtree};
         use linear_algebra::point;
         use types::motion_command::BodyMotion;
 
         for (ball_x, target_x, expected_strong) in [
             (1.0, 6.0, false), // Robot-to-target distance alone would enable strong.
-            (-1.0, 5.0, true), // Ball-to-target distance reaches the threshold.
+            (-1.0, 5.0, true), // Ball-to-target distance exceeds the threshold.
             (1.0, 7.0, true),
             (1.0, 6.9, false),
         ] {
             let mut blackboard = kick_blackboard(point![ball_x, 0.0]);
+            blackboard
+                .parameters
+                .kicking
+                .strong_kick_min_target_distance = 6.0;
             blackboard.parameters.kicking.allow_strong_kicks = true;
             blackboard.parameters.kicking.target_speed = 1.2;
             assert_eq!(kick(&mut blackboard), Status::Success);
             assert_eq!(
-                apply_kick_target(&mut blackboard, point![target_x, 0.0]),
+                apply_kick_target(&mut blackboard, point![target_x, 1.0]),
                 Status::Success
             );
             let (status, _) = kick_strength_subtree().tick_with_trace(&mut blackboard);
@@ -362,8 +377,8 @@ mod tests {
             };
             assert_eq!(strong, expected_strong);
             assert_eq!(target_speed, 1.2);
-            assert_eq!(blackboard.kick_target, Some(point![target_x, 0.0]));
-            assert_eq!(kick_direction.angle(), 0.0);
+            assert_eq!(blackboard.kick_target, Some(point![target_x, 1.0]));
+            assert_eq!(kick_direction.angle(), 1.0_f32.atan2(target_x - ball_x));
 
             blackboard.parameters.kicking.allow_strong_kicks = false;
             kick_strength_subtree().tick_with_trace(&mut blackboard);
@@ -418,6 +433,11 @@ mod tests {
             field_side: Side::Left,
             source: types::world_state::BallSource::Own,
         });
+        blackboard
+            .visual_kick_ball_position
+            .as_mut()
+            .unwrap()
+            .velocity = vector![0.0, -1.0];
         blackboard
             .parameters
             .ball

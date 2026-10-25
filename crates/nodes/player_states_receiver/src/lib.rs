@@ -117,6 +117,7 @@ fn apply_message(
     };
 
     let player_state = PlayerState {
+        pass: state_message.pass,
         pose: state_message.pose,
         head_yaw: state_message.head_yaw,
         ball_position: state_message
@@ -195,6 +196,10 @@ mod tests {
                     pose,
                     head_yaw: 0.0,
                     ball_position: None,
+                    pass: Some(hsl_network_messages::PassIntent {
+                        receiver: PlayerNumber::Three,
+                        target: point![1.0, 2.0],
+                    }),
                 })),
             },
         );
@@ -203,6 +208,7 @@ mod tests {
         assert_eq!(player.time, time);
         assert_eq!(player.inner.pose, pose);
         assert_eq!(player.inner.head_yaw, 0.0);
+        assert_eq!(player.inner.pass.unwrap().target, point![1.0, 2.0]);
     }
 
     #[test]
@@ -215,6 +221,7 @@ mod tests {
                 pose: Pose2::default(),
                 head_yaw,
                 ball_position: None,
+                pass: None,
             })),
         };
 
@@ -223,14 +230,26 @@ mod tests {
         for state in [
             StateMessage {
                 player_number: PlayerNumber::Two,
+                pose: Pose2::default(),
+                head_yaw: 0.0,
+                ball_position: None,
+                pass: Some(hsl_network_messages::PassIntent {
+                    receiver: PlayerNumber::Three,
+                    target: point![f32::NAN, 0.0],
+                }),
+            },
+            StateMessage {
+                player_number: PlayerNumber::Two,
                 pose: Pose2::new(point![f32::NAN, 0.0], 0.0),
                 head_yaw: 0.0,
                 ball_position: None,
+                pass: None,
             },
             StateMessage {
                 player_number: PlayerNumber::Two,
                 pose: Pose2::default(),
                 head_yaw: 0.0,
+                pass: None,
                 ball_position: Some(hsl_network_messages::BallPosition {
                     position: point![f32::NAN, 0.0],
                     age: Duration::ZERO,
@@ -260,6 +279,7 @@ mod tests {
                 pose: Pose2::default(),
                 head_yaw: 0.0,
                 ball_position: None,
+                pass: None,
             },
         });
         states[PlayerNumber::Three] = Some(TimeWrapper {
@@ -268,6 +288,7 @@ mod tests {
                 pose: Pose2::default(),
                 head_yaw: 0.0,
                 ball_position: None,
+                pass: None,
             },
         });
 
@@ -306,6 +327,7 @@ mod tests {
                 pose: Pose2::default(),
                 head_yaw: 0.0,
                 ball_position: None,
+                pass: None,
             },
         });
         states[PlayerNumber::Three] = Some(TimeWrapper {
@@ -314,6 +336,7 @@ mod tests {
                 pose: Pose2::default(),
                 head_yaw: 0.0,
                 ball_position: None,
+                pass: None,
             },
         });
 
@@ -337,6 +360,7 @@ mod tests {
                 pose: Pose2::default(),
                 head_yaw: 0.0,
                 ball_position: None,
+                pass: None,
             },
         });
 
@@ -359,6 +383,7 @@ mod tests {
                 pose: Pose2::default(),
                 head_yaw: 0.0,
                 ball_position: None,
+                pass: None,
             },
         });
 

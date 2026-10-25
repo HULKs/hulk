@@ -102,6 +102,8 @@ pub struct GoalkeeperParameters {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct KickoffParameters {
+    #[serde(default)]
+    pub pass_to_left: bool,
     pub relative_goalkeeper_position: Point2<NormalizedField>,
     pub relative_striker_position: Point2<NormalizedField>,
     pub relative_striker_side_kick_position: Point2<NormalizedField>,
@@ -457,19 +459,28 @@ pub struct WalkSpeedParameters {
 
 #[derive(Clone, Debug, Deserialize, Serialize, ros_z::Message)]
 pub struct KickingParameters {
+    #[serde(default)]
+    pub strategy: KickStrategyParameters,
     pub soft: bool,
     pub quick: bool,
     /// Desired outgoing ball speed in m/s.
     pub target_speed: f32,
+    /// Desired outgoing ball speed for a controlled dribble, in m/s.
+    #[serde(default = "default_dribble_target_speed")]
+    pub dribble_target_speed: f32,
     pub allow_strong_kicks: bool,
     /// Ball distance at the centre of the walk-to-kick handoff band, in metres.
     pub kick_activation_distance: f32,
     /// Total width of the handoff hysteresis band, in metres.
     pub kick_activation_hysteresis: f32,
-    /// Minimum ball-to-target distance for a strong striker kick, in metres.
+    /// Strong-kick minimum distance in metres. Goal targets use ball-to-goal-mouth
+    /// distance (strictly greater); other targets use ball-to-target distance.
     pub strong_kick_min_target_distance: f32,
     /// Distance behind the ball for walking and set-play alignment, in metres.
     pub approach_ball_standoff: f32,
+    /// Opponent distance below which a receiver releases the ball immediately.
+    #[serde(default = "default_receiving_opponent_distance")]
+    pub receiving_opponent_distance: f32,
     /// Minimum Ground x coordinate of a predicted interception point, in metres.
     pub minimum_interception_forward_distance: f32,
 }
@@ -477,16 +488,101 @@ pub struct KickingParameters {
 impl Default for KickingParameters {
     fn default() -> Self {
         Self {
+            strategy: KickStrategyParameters::default(),
             soft: false,
-            quick: false,
+            quick: true,
             target_speed: 3.4,
-            allow_strong_kicks: false,
+            dribble_target_speed: default_dribble_target_speed(),
+            allow_strong_kicks: true,
             kick_activation_distance: 0.0,
             kick_activation_hysteresis: 0.0,
-            strong_kick_min_target_distance: 0.0,
+            strong_kick_min_target_distance: 2.0,
             approach_ball_standoff: 0.0,
+            receiving_opponent_distance: default_receiving_opponent_distance(),
             minimum_interception_forward_distance: 0.0,
         }
+    }
+}
+
+fn default_receiving_opponent_distance() -> f32 {
+    2.0
+}
+
+fn default_dribble_target_speed() -> f32 {
+    0.5
+}
+
+/// Distances are meters, angles radians. Values must be finite and nonnegative.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+pub struct KickStrategyParameters {
+    /// Conservative reach of supported kicks; zero disables shooting.
+    pub maximum_shot_distance: f32,
+    /// Upper bound on dribble travel, including uncertainty. Zero disables dribbling.
+    #[serde(default)]
+    pub maximum_dribble_distance: f32,
+    pub obstacle_clearance: f32,
+    pub minimum_shot_angle: f32,
+    pub shot_angle_hysteresis: f32,
+    pub pressure_distance: f32,
+    pub clear_goal_distance: f32,
+    pub clear_distance_hysteresis: f32,
+    #[serde(default)]
+    pub passing: PassingParameters,
+}
+
+impl KickStrategyParameters {
+    pub fn validate(&self) -> Result<(), String> {
+        for (name, value) in [
+            ("maximum_shot_distance", self.maximum_shot_distance),
+            ("maximum_dribble_distance", self.maximum_dribble_distance),
+            ("obstacle_clearance", self.obstacle_clearance),
+            ("minimum_shot_angle", self.minimum_shot_angle),
+            ("shot_angle_hysteresis", self.shot_angle_hysteresis),
+            ("pressure_distance", self.pressure_distance),
+            ("clear_goal_distance", self.clear_goal_distance),
+            ("clear_distance_hysteresis", self.clear_distance_hysteresis),
+        ] {
+            if !value.is_finite() || value < 0.0 {
+                return Err(format!(
+                    "kicking.strategy.{name} must be finite and non-negative (got {value})"
+                ));
+            }
+        }
+        self.passing.validate()
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+pub struct PassingParameters {
+    /// Conservative pass reach in meters; zero disables passing.
+    pub maximum_distance: f32,
+    /// Minimum ball travel to the reception region, in meters.
+    #[serde(default)]
+    pub minimum_distance: f32,
+    /// Reception region sits this far in front of the receiver, toward the ball.
+    pub receiver_standoff: f32,
+    pub target_half_width: f32,
+    /// Required improvement in forward progress, in meters, to change receivers.
+    pub selection_hysteresis: f32,
+    pub maximum_receiver_age: Duration,
+}
+
+impl PassingParameters {
+    pub fn validate(&self) -> Result<(), String> {
+        for (name, value) in [
+            ("maximum_distance", self.maximum_distance),
+            ("minimum_distance", self.minimum_distance),
+            ("receiver_standoff", self.receiver_standoff),
+            ("target_half_width", self.target_half_width),
+            ("selection_hysteresis", self.selection_hysteresis),
+        ] {
+            if !value.is_finite() || value < 0.0 {
+                return Err(format!(
+                    "kicking.strategy.passing.{name} must be finite and non-negative (got {value})"
+                ));
+            }
+        }
+        Ok(())
     }
 }
 

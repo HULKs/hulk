@@ -15,4 +15,7 @@ pub mod tree;
 pub mod voronoi;
 pub mod walk;
 
+#[cfg(test)]
+mod test_support;
+
 pub use node::run_boxed;

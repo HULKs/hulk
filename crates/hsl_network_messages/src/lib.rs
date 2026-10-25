@@ -37,6 +37,17 @@ pub struct StateMessage {
     pub pose: Pose2<Field>,
     pub head_yaw: f32,
     pub ball_position: Option<BallPosition<Field>>,
+    pub pass: Option<PassIntent>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize, Message)]
+pub struct PassIntent {
+    pub receiver: PlayerNumber,
+    pub target: Point2<Field>,
+}
+
+impl PassIntent {
+    pub const TIMEOUT: Duration = Duration::from_secs(3);
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, Message)]
@@ -82,11 +93,24 @@ mod tests {
             player_number: PlayerNumber::Five,
             pose: Pose2::default(),
             head_yaw: 0.0,
+            pass: Some(PassIntent {
+                receiver: PlayerNumber::Two,
+                target: Point2::origin(),
+            }),
             ball_position: Some(BallPosition {
                 position: Point2::origin(),
                 age: Duration::MAX,
             }),
         });
-        assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
+        let bytes = bincode::serialize(&test_message).unwrap();
+        assert!(bytes.len() <= 128);
+        let HulkMessage::State(decoded) = bincode::deserialize(&bytes).unwrap();
+        assert_eq!(
+            decoded.pass,
+            Some(PassIntent {
+                receiver: PlayerNumber::Two,
+                target: Point2::origin(),
+            })
+        );
     }
 }

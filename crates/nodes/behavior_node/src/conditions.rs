@@ -1,14 +1,48 @@
+use coordinate_systems::Field;
 use filtering::hysteresis::less_than_with_hysteresis;
 use hsl_network_messages::Team;
-use linear_algebra::{point, vector};
+use linear_algebra::{Point2, point, vector};
 use types::{
-    controller_input::Button, fall_detection::Posture,
+    controller_input::Button,
+    fall_detection::Posture,
     filtered_game_controller_state::FilteredGameControllerState,
-    filtered_game_state::FilteredGameState, primary_state::PrimaryState,
+    filtered_game_state::FilteredGameState,
+    obstacles::{Obstacle, ObstacleKind},
+    primary_state::PrimaryState,
 };
 use voronoi::Ownership;
 
 use crate::node::Blackboard;
+
+pub(crate) fn opponent_near_ball(blackboard: &Blackboard, distance: f32) -> bool {
+    blackboard
+        .ball
+        .as_ref()
+        .is_some_and(|ball| opponent_near_position(blackboard, ball.position, distance))
+}
+
+pub(crate) fn opponent_near_position(
+    blackboard: &Blackboard,
+    target: Point2<Field>,
+    distance: f32,
+) -> bool {
+    let Some(transform) = blackboard.world_state.robot.ground_to_field else {
+        return false;
+    };
+    enemy_obstacles(blackboard).any(|obstacle| {
+        (transform * obstacle.position - target).norm() - obstacle.radius_at_foot_height <= distance
+    })
+}
+
+pub(crate) fn enemy_obstacles(blackboard: &Blackboard) -> impl Iterator<Item = &Obstacle> {
+    // Affiliation is unknown: nearby humanoids conservatively count as pressure.
+    blackboard.world_state.obstacles.iter().filter(|obstacle| {
+        matches!(
+            obstacle.kind,
+            ObstacleKind::Robot | ObstacleKind::Person | ObstacleKind::Unknown
+        )
+    })
+}
 
 pub fn is_ball_interception_candidate(blackboard: &mut Blackboard) -> bool {
     if let (Some(ball), Some(ground_to_field)) = (
@@ -44,7 +78,11 @@ pub fn is_close_to_ball(blackboard: &mut Blackboard) -> bool {
         &blackboard.ball,
         &blackboard.world_state.robot.ground_to_field,
     ) {
-        let distance_to_ball = (ground_to_field.inverse() * ball.position).coords().norm();
+        let ball_in_ground = blackboard.visual_kick_ball_position.as_ref().map_or_else(
+            || ground_to_field.inverse() * ball.position,
+            |ball| ball.position,
+        );
+        let distance_to_ball = ball_in_ground.coords().norm();
         let parameters = &blackboard.parameters.kicking;
         is_close = less_than_with_hysteresis(
             blackboard.last_close_enough_to_kick,
@@ -95,6 +133,12 @@ pub fn is_close_to_ball_aligned(blackboard: &mut Blackboard) -> bool {
 }
 
 pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
+    if crate::kick::passing::outgoing_pass_in_flight(blackboard) {
+        blackboard.last_closest_to_ball = false;
+        blackboard.closest_to_ball_entered_area_since = None;
+        blackboard.closest_to_ball_left_area_since = None;
+        return false;
+    }
     let own_player_number = blackboard.player_number;
 
     let raw_is_closest =

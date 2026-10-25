@@ -1,17 +1,21 @@
 use hsl_network_messages::GamePhase;
 use linear_algebra::point;
 use rand::{Rng, SeedableRng, rngs::StdRng};
-use types::{behavior_tree::Status, motion_type::MotionType};
+use types::{
+    behavior_tree::Status, filtered_game_state::FilteredGameState, motion_type::MotionType,
+};
 
 use crate::{
     action,
     actions::stand,
     behavior_tree::Node,
     condition,
-    conditions::hulks_is_kicking_team,
-    kick::{allow_strong_kicks, apply_kick_target, disable_strong_kick, kick, use_strong_kick},
+    conditions::{has_ball_position, hulks_is_kicking_team, is_close_to_ball},
+    kick::{apply_kick_target, kick, kick_alternatives_subtree, kick_strength_subtree},
     node::Blackboard,
     selection, sequence, subtree,
+    switch_motion_type::switch_motion_type,
+    walk::walk_to_ball_subtree,
 };
 
 pub fn is_penalty_shootout(blackboard: &mut Blackboard) -> bool {
@@ -25,6 +29,7 @@ pub fn is_penalty_shootout(blackboard: &mut Blackboard) -> bool {
 pub fn penalty_shootout_subtree() -> Node<Blackboard> {
     selection!(
         sequence!(
+            condition!(is_shootout_playing),
             condition!(hulks_is_kicking_team),
             subtree!(penalty_kick_striker_subtree),
         ),
@@ -32,14 +37,36 @@ pub fn penalty_shootout_subtree() -> Node<Blackboard> {
     )
 }
 
+fn is_shootout_playing(blackboard: &mut Blackboard) -> bool {
+    blackboard
+        .world_state
+        .filtered_game_controller_state
+        .as_ref()
+        .is_some_and(|state| {
+            matches!(state.game_state, FilteredGameState::Playing { .. })
+                && state.penalties[blackboard.player_number].is_none()
+        })
+}
+
 pub fn penalty_kick_striker_subtree() -> Node<Blackboard> {
-    sequence!(
-        action!(kick),
-        action!(set_penalty_kick_target),
-        selection!(
-            sequence!(condition!(allow_strong_kicks), action!(use_strong_kick),),
-            action!(disable_strong_kick),
-        )
+    selection!(
+        sequence!(
+            condition!(is_close_to_ball),
+            switch_motion_type(
+                MotionType::Kick,
+                sequence!(
+                    action!(kick),
+                    action!(set_penalty_kick_target),
+                    subtree!(kick_strength_subtree),
+                ),
+                subtree!(kick_alternatives_subtree),
+            )
+        ),
+        sequence!(
+            condition!(has_ball_position),
+            subtree!(walk_to_ball_subtree)
+        ),
+        action!(stand),
     )
 }
 

@@ -313,6 +313,7 @@ mod tests {
             pose: Pose2::default(),
             head_yaw: 0.0,
             ball_position: None,
+            pass: None,
         };
         for (weight, expected) in [(0.0, 1.0), (0.5, 0.5), (1.0, 0.25)] {
             for step in [Duration::from_millis(20), Duration::from_millis(400)] {

@@ -11,7 +11,7 @@ use color_eyre::Result;
 use types::fall_detection::FallDetection;
 
 use coordinate_systems::{Field, Ground};
-use hsl_network_messages::PlayerNumber;
+use hsl_network_messages::{PassIntent, PlayerNumber, SubState, Team};
 use kinematics::joints::head::HeadJoints;
 use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
 use ros_z::{
@@ -28,6 +28,7 @@ use types::{
     controller_input::{Button, ControllerInput},
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_state::FilteredGameState,
     messages::OutgoingMessage,
     motion_command::{BodyMotion, HeadMotion, MotionCommand},
     motion_type::MotionType,
@@ -44,6 +45,7 @@ use types::{
 use voronoi::VoronoiGrid;
 
 use crate::{
+    kick::strategy::BallAction,
     motion_assembler::assemble_motion_command,
     send_message::{recent_game_controller_address, state_message_send_interval},
     tree::create_tree,
@@ -79,6 +81,8 @@ pub struct Blackboard {
     pub visual_kick_ball_position: Option<BallPosition<Ground>>,
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
+    pub ball_action: Option<BallAction>,
+    pub last_ball_action: Option<BallAction>,
     /// Target selected for this tick, used to choose kick strength.
     pub kick_target: Option<Point2<Ground>>,
     pub last_kick_target: Option<Point2<Field>>,
@@ -87,6 +91,11 @@ pub struct Blackboard {
     pub last_motion_type: Option<MotionType>,
     pub last_sent_game_controller_return_message_time: Option<Time>,
     pub last_sent_hsl_message_time: Option<Time>,
+    pub last_announced_pass: Option<TimeWrapper<PassIntent>>,
+    pub kickoff_receiver_wait_started: Option<Time>,
+    pub restart_pass_wait_started: Option<Time>,
+    pub kickoff_prepared: bool,
+    pub kickoff_started: Option<Time>,
     pub last_closest_to_ball: bool,
     pub closest_to_ball_entered_area_since: Option<Time>,
     pub closest_to_ball_left_area_since: Option<Time>,
@@ -96,6 +105,62 @@ pub struct Blackboard {
     pub body_motion: Option<BodyMotion>,
     pub head_motion: Option<HeadMotion>,
     pub voronoi_map: Option<VoronoiGrid>,
+}
+
+impl Blackboard {
+    pub fn update_restart_pass(&mut self) {
+        if self.world_state.robot.primary_state != PrimaryState::Playing
+            || !self
+                .world_state
+                .filtered_game_controller_state
+                .as_ref()
+                .is_some_and(|game| {
+                    game.kicking_team == Some(Team::Hulks)
+                        && matches!(
+                            game.sub_state,
+                            Some(SubState::CornerKick | SubState::ThrowIn)
+                        )
+                })
+        {
+            self.restart_pass_wait_started = None;
+        }
+    }
+
+    pub fn update_kickoff(&mut self) {
+        let game = self.world_state.filtered_game_controller_state.as_ref();
+        if game
+            .is_none_or(|game| game.kicking_team != Some(Team::Hulks) || game.sub_state.is_some())
+        {
+            self.kickoff_prepared = false;
+            self.kickoff_started = None;
+            return;
+        }
+        match game.unwrap().game_state {
+            FilteredGameState::Ready | FilteredGameState::Set => {
+                self.kickoff_prepared = true;
+                self.kickoff_started = None;
+            }
+            FilteredGameState::Playing { .. } => {
+                if self.kickoff_prepared {
+                    self.kickoff_started = Some(self.world_state.now);
+                    self.kickoff_prepared = false;
+                }
+                if self.kickoff_started.is_some_and(|start| {
+                    self.world_state.now.duration_since(start) >= Duration::from_secs(10)
+                }) || self
+                    .ball
+                    .as_ref()
+                    .is_some_and(|ball| ball.position.coords().norm() >= 0.5)
+                {
+                    self.kickoff_started = None;
+                }
+            }
+            _ => {
+                self.kickoff_prepared = false;
+                self.kickoff_started = None;
+            }
+        }
+    }
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -380,6 +445,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         visual_kick_ball_position: None,
         last_ball: None,
         last_close_enough_to_kick: false,
+        ball_action: None,
+        last_ball_action: None,
         kick_target: None,
         last_kick_target: None,
         last_motion_command: None,
@@ -387,6 +454,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         last_motion_type: None,
         last_sent_game_controller_return_message_time: None,
         last_sent_hsl_message_time: None,
+        last_announced_pass: None,
+        kickoff_receiver_wait_started: None,
+        restart_pass_wait_started: None,
+        kickoff_prepared: false,
+        kickoff_started: None,
         last_closest_to_ball: false,
         closest_to_ball_entered_area_since: None,
         closest_to_ball_left_area_since: None,
@@ -465,12 +537,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let player_states = player_states_cache
             .get_latest()
-            .map(|player_states| {
-                player_states
-                    .as_ref()
-                    .clone()
-                    .map(|player_state| player_state.map(|state| state.inner))
-            })
+            .map(|player_states| player_states.as_ref().clone())
             .unwrap_or_default();
 
         let primary_state = primary_state_cache
@@ -551,6 +618,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         {
             blackboard.ball = None;
         }
+
+        blackboard.update_kickoff();
+        blackboard.update_restart_pass();
 
         let record_trace = additional_behavior_trace_pub.has_subscribers();
         let (status, trace) = block_in_place(|| tree.tick(&mut blackboard, record_trace));

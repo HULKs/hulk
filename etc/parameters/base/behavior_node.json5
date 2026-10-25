@@ -16,7 +16,7 @@
     team_ball_timeout: { nanos: 0, secs: 1 },
     interception: {
       maximum_ball_distance: 4.0,
-      minimum_ball_velocity: 1.0,
+      minimum_ball_velocity: 0.3,
       minimum_ball_velocity_towards_robot: 0.7,
       minimum_ball_velocity_towards_own_half: 0.7,
       maximum_intercept_distance: 1.5,
@@ -60,14 +60,38 @@
     },
   },
   kicking: {
+    strategy: {
+      // Initial tuning; verify maximum range on the robot before execution integration.
+      maximum_shot_distance: 3.0,
+      // Provisional travel bound; calibrate for dribble_target_speed and surface.
+      maximum_dribble_distance: 3.0,
+      obstacle_clearance: 0.05,
+      minimum_shot_angle: 0.02,
+      shot_angle_hysteresis: 0.05,
+      pressure_distance: 0.8,
+      clear_goal_distance: 1.5,
+      clear_distance_hysteresis: 0.2,
+      passing: {
+        // Provisional restart-kick reach; calibrate at target_speed on the field.
+        maximum_distance: 8.0,
+        minimum_distance: 4.0,
+        receiver_standoff: 0.5,
+        target_half_width: 0.3,
+        selection_hysteresis: 0.25,
+        maximum_receiver_age: { secs: 3, nanos: 0 },
+      },
+    },
     soft: false,
-    quick: false,
+    quick: true,
     target_speed: 3.4, // Desired outgoing ball speed in m/s.
-    allow_strong_kicks: false,
+    dribble_target_speed: 0.5,
+    allow_strong_kicks: true,
     kick_activation_distance: 1.3,
     kick_activation_hysteresis: 0.3,
-    strong_kick_min_target_distance: 6.0,
+    // Goal shots: strong only while the ball is more than 2 m from the goal mouth.
+    strong_kick_min_target_distance: 2.0,
     approach_ball_standoff: 0.3,
+    receiving_opponent_distance: 2.0,
     minimum_interception_forward_distance: 0.3,
   },
   goalkeeper: {
@@ -89,9 +113,10 @@
     alignment_angle_threshold: 0.4,
     blocking_distance_offset: 0.2,
     corner_kick_blocking_angle: 0.78,
-    penalty_kick_target_y_scale: 0.7,
+    penalty_kick_target_y_scale: 0.4,
   },
   kickoff: {
+    pass_to_left: true,
     relative_goalkeeper_position: [-1.0, 0.0],
     relative_striker_position: [-0.05, 0.0],
     relative_striker_side_kick_position: [0.02, -0.08],

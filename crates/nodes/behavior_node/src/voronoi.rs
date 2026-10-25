@@ -66,7 +66,7 @@ fn collect_sites(
         if let Some(player_state) = player_state
             && player_number != robot_player_number
         {
-            sites.push((player_state.pose, player_number));
+            sites.push((player_state.inner.pose, player_number));
         }
     }
 

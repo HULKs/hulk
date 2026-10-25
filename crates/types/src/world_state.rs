@@ -15,6 +15,7 @@ use crate::{
     players::Players,
     primary_state::PrimaryState,
     rule_obstacles::RuleObstacle,
+    time_wrapper::TimeWrapper,
 };
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Message)]
@@ -24,7 +25,7 @@ pub struct WorldState {
     pub hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
     pub now: Time,
     pub obstacles: Vec<Obstacle>,
-    pub player_states: Players<Option<PlayerState>>,
+    pub player_states: Players<Option<TimeWrapper<PlayerState>>>,
     pub position_of_interest: Point2<Ground>,
     pub robot: RobotState,
     pub rule_ball: Option<BallState>,
@@ -90,11 +91,14 @@ pub struct PlayerState {
     pub pose: Pose2<Field>,
     pub head_yaw: f32,
     pub ball_position: Option<BallPosition<Field>>,
+    pub pass: Option<hsl_network_messages::PassIntent>,
 }
 
 impl PlayerState {
     pub fn is_finite(&self) -> bool {
-        self.pose.position().x().is_finite()
+        self.pass
+            .is_none_or(|pass| pass.target.x().is_finite() && pass.target.y().is_finite())
+            && self.pose.position().x().is_finite()
             && self.pose.position().y().is_finite()
             && self.pose.angle().is_finite()
             && self.head_yaw.is_finite()

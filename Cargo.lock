@@ -865,6 +865,7 @@ dependencies = [
  "filtering",
  "geometry",
  "hsl_network_messages",
+ "json5",
  "kinematics",
  "linear_algebra",
  "log",

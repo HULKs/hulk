@@ -22,6 +22,7 @@ fn search_partition_excludes_assigned_goalkeeper_and_keeps_its_search_independen
                 pose: pose.as_pose(),
                 head_yaw: 0.0,
                 ball_position: None,
+                pass: None,
             },
         });
     }
@@ -196,6 +197,7 @@ fn player_state_snapshots_are_processed_once_and_removed_when_cleared() {
             inner: PlayerState {
                 pose: Pose2::default(),
                 head_yaw: 0.0,
+                pass: None,
                 ball_position: Some(BallPosition {
                     position: point![0.0, 0.0],
                     velocity: Default::default(),
@@ -257,6 +259,7 @@ fn stale_last_received_state_does_not_add_team_ball_priority() {
             inner: PlayerState {
                 pose: Pose2::default(),
                 head_yaw: 0.0,
+                pass: None,
                 ball_position: Some(BallPosition {
                     position: point![0.0, 0.0],
                     velocity: Default::default(),

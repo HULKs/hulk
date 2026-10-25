@@ -8,6 +8,7 @@ use types::{
     messages::{IncomingMessage, OutgoingMessage},
     parameters::HslNetworkParameters,
     players::Players,
+    time_wrapper::TimeWrapper,
     world_state::PlayerState,
 };
 
@@ -30,7 +31,8 @@ pub struct SimulatorOutgoingMessages {
 pub struct SimulatorReceivedHslMessages {
     pub messages_by_receiver:
         BTreeMap<SimulatorRobotId, BTreeMap<SimulatorRobotId, SimulatorReceivedHslMessage>>,
-    pub player_states_by_receiver: BTreeMap<SimulatorRobotId, Players<Option<PlayerState>>>,
+    pub player_states_by_receiver:
+        BTreeMap<SimulatorRobotId, Players<Option<TimeWrapper<PlayerState>>>>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -111,6 +113,7 @@ pub fn apply_incoming_hsl_messages(
 
         let HulkMessage::State(state_message) = message;
         let player_state = PlayerState {
+            pass: state_message.pass,
             pose: state_message.pose,
             head_yaw: state_message.head_yaw,
             ball_position: state_message.ball_position.map(|ball| {
@@ -120,10 +123,16 @@ pub fn apply_incoming_hsl_messages(
                 )
             }),
         };
+        if !player_state.is_finite() {
+            continue;
+        }
         received_hsl_messages
             .player_states_by_receiver
             .entry(incoming_message.receiver)
-            .or_default()[state_message.player_number] = Some(player_state);
+            .or_default()[state_message.player_number] = Some(TimeWrapper {
+            time: ros_z::time::Time::from_wallclock(incoming_message.received_at),
+            inner: player_state,
+        });
 
         received_hsl_messages
             .messages_by_receiver
@@ -192,11 +201,11 @@ pub fn route_outgoing_communication(
 pub fn player_states_from_received_hsl_messages(
     receiver: SimulatorRobotId,
     received_hsl_messages: &SimulatorReceivedHslMessages,
-) -> Players<Option<PlayerState>> {
+) -> Players<Option<TimeWrapper<PlayerState>>> {
     received_hsl_messages
         .player_states_by_receiver
         .get(&receiver)
-        .copied()
+        .cloned()
         .unwrap_or_default()
 }
 
@@ -222,6 +231,7 @@ mod tests {
                 position: point![x + 1.0, y],
             }),
             head_yaw: 0.0,
+            pass: None,
         })
     }
 
