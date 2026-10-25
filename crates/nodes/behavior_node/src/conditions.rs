@@ -282,3 +282,19 @@ pub fn has_more_than_unpenalized_players(blackboard: &Blackboard, count: usize) 
 pub fn is_simple(blackboard: &mut Blackboard) -> bool {
     blackboard.parameters.control.is_simple
 }
+
+pub fn is_inside_rule_obstacles(blackboard: &mut Blackboard) -> bool {
+    blackboard
+        .world_state
+        .robot
+        .ground_to_field
+        .map(|ground_to_field| {
+            let robot_position = ground_to_field * point!(0.0, 0.0);
+            blackboard
+                .world_state
+                .rule_obstacles
+                .iter()
+                .any(|obstacle| obstacle.contains(robot_position))
+        })
+        .unwrap_or(false)
+}
