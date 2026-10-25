@@ -26,6 +26,7 @@
           ./crates/hsl_network_messages/headers/RoboCupGameControlData.hpp
           ./tools/pepsi/src/install-hulks-bundle.sh
           ./tools/pepsi/src/gammaray
+          ./tools/mujoco-simulator/mujoco-simulator/K1/meshes
         ];
       };
 

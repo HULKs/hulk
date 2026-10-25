@@ -1,31 +1,25 @@
-use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+use std::{future::Future, num::NonZeroUsize, pin::Pin, sync::Arc};
 
-use color_eyre::Result;
-use projection::camera_matrix::CameraMatrix;
+use color_eyre::{Result, eyre::OptionExt as _};
 use ros_z::{
     context::Context,
     parameter::NodeParametersExt,
-    qos::{QosDurability, QosProfile},
+    qos::{QosDurability, QosHistory, QosProfile},
 };
-use ros_z_streams::CreateFutureMapBuilder;
 use types::{
+    camera_geometry::CameraGeometry,
     field_dimensions::FieldDimensions,
     object_detection::{Object, RobocupObjectLabel},
-    primary_state::PrimaryState,
     time_wrapper::TimeWrapper,
-    visual_localization::{
-        ASSOCIATION_POSE_HINT_TOPIC, AssociationPoseHint, GLOBAL_LOCALIZATION_DEBUG_TOPIC,
-        GlobalLocalizationDebug, VISUAL_LOCALIZATION_TOPIC, VisualLocalizationFrame,
-    },
+    visual_localization::{GlobalLocalizationDebug, VisualLocalizationFrame},
 };
 
 use crate::{
-    FieldMarkAssociationState,
-    frame_processing::{DetectionProcessingContext, process_detected_objects},
+    frame_processing::{
+        DetectionProcessingContext, keep_latest_detection, process_detected_objects,
+    },
     parameters::FieldMarkAssociationParameters,
 };
-
-const DETECTED_OBJECTS_SAFETY_LAG: Duration = Duration::from_millis(50);
 
 /// Starts the field-mark association node and erases the concrete future type for node runners.
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -36,11 +30,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("field_mark_association").build().await?;
     let parameters =
         node.bind_parameter_as::<FieldMarkAssociationParameters>("field_mark_association")?;
-    parameters.add_validation_hook(FieldMarkAssociationParameters::validate)?;
+    let capacities = parameters.snapshot().typed.capacities;
+    parameters.add_validation_hook(move |candidate| candidate.validate_update(capacities))?;
 
-    let camera_matrix_cache = node
-        .subscriber::<TimeWrapper<CameraMatrix>>("camera_matrix")
-        .cache(128)
+    let camera_geometry_cache = node
+        .subscriber::<TimeWrapper<CameraGeometry>>("camera_geometry")
+        .cache(capacities.camera_geometry)
         .with_stamp(|message| message.time)
         .build()
         .await?;
@@ -51,77 +46,106 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
-        .cache(1)
+        .cache(capacities.field_dimensions)
         .build()
         .await?;
 
-    let localization_cache = node
-        .subscriber::<TimeWrapper<Option<AssociationPoseHint>>>(ASSOCIATION_POSE_HINT_TOPIC)
-        .cache(128)
+    let estimates = node
+        .subscriber::<types::localization::LocalizationEstimate>("localization/estimate")
+        .cache(capacities.estimates)
         .with_stamp(|message| message.time)
         .build()
         .await?;
-
-    let primary_state_cache = node
-        .subscriber::<PrimaryState>("primary_state")
+    let status = node
+        .subscriber::<types::localization::LocalizationStatus>("localization/status")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
-        .cache(1)
+        .cache(capacities.status)
         .build()
         .await?;
 
-    let primary_state_subscriber = node
-        .subscriber::<PrimaryState>("primary_state")
+    // Consume only payloads, without joining the announcement protocol or its KeepAll queue.
+    let detected_objects = node
+        .subscriber::<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>("detected_objects")
         .qos(QosProfile {
-            durability: QosDurability::TransientLocal,
+            history: QosHistory::KeepLast(
+                NonZeroUsize::new(capacities.detections_queue)
+                    .ok_or_eyre("field_mark_association.capacities.detections_queue must be > 0")?,
+            ),
             ..Default::default()
         })
         .build()
         .await?;
-
-    let mut detected_objects = node
-        .create_future_map_builder()
-        .create_future_subscriber::<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>(
-            "detected_objects",
-            DETECTED_OBJECTS_SAFETY_LAG,
-        )
-        .await?
-        .build();
 
     let associations_publisher = node
-        .publisher::<TimeWrapper<VisualLocalizationFrame>>(VISUAL_LOCALIZATION_TOPIC)
+        .publisher::<TimeWrapper<VisualLocalizationFrame>>(
+            "field_mark_association/visual_localization_local",
+        )
         .build()
         .await?;
     let global_localization_publisher = node
-        .publisher::<Option<GlobalLocalizationDebug>>(GLOBAL_LOCALIZATION_DEBUG_TOPIC)
+        .publisher::<Option<GlobalLocalizationDebug>>("debug/global_localization")
         .build()
         .await?;
-    let mut association_state = FieldMarkAssociationState::default();
-
+    let processing_context = DetectionProcessingContext {
+        parameters: &parameters,
+        camera_geometry_cache: &camera_geometry_cache,
+        field_dimensions_cache: &field_dimensions_cache,
+        estimates: &estimates,
+        status: &status,
+        attitudes: std::sync::Mutex::new(ros_z::cache::CacheInner::new(capacities.attitudes)),
+        associations_publisher: Arc::new(associations_publisher),
+        global_localization_publisher: Arc::new(global_localization_publisher),
+        clock: node.clock(),
+    };
+    let imu = node
+        .subscriber::<booster::ImuState>("inputs/imu_state")
+        .queue_capacity(
+            NonZeroUsize::new(capacities.imu_queue)
+                .ok_or_eyre("field_mark_association.capacities.imu_queue must be > 0")?,
+        )
+        .build()
+        .await?;
+    let mut pending_frame = None;
     loop {
-        tokio::select! {
-            primary_state = primary_state_subscriber.recv() => {
-                if primary_state? == PrimaryState::Damping {
-                    association_state.reset_for_damping();
+        // A completion may win select while a newer payload is already in the subscriber queue.
+        // This loop is the sole receiver, so a ready queue cannot be drained by another task.
+        if pending_frame.is_some() && detected_objects.is_ready() {
+            keep_latest_detection(&mut pending_frame, detected_objects.recv().await?);
+        }
+        let objects = match pending_frame.take() {
+            Some(frame) => frame,
+            None => tokio::select! {
+                sample = imu.recv_with_metadata() => {
+                    let sample = sample?;
+                    processing_context.record_attitude(sample.source_time, &sample.message);
+                    continue;
                 }
-            }
-            item = detected_objects.recv() => {
-                let item = item?;
-                process_detected_objects(
-                    item,
-                    DetectionProcessingContext {
-                        parameters: &parameters,
-                        camera_matrix_cache: &camera_matrix_cache,
-                        field_dimensions_cache: &field_dimensions_cache,
-                        localization_cache: &localization_cache,
-                        primary_state_cache: &primary_state_cache,
-                        association_state: &mut association_state,
-                        associations_publisher: &associations_publisher,
-                        global_localization_publisher: &global_localization_publisher,
-                    },
-                ).await?;
+                objects = detected_objects.recv() => objects?,
+            },
+        };
+        let image_time = objects.time;
+        let processing = process_detected_objects(objects, &processing_context);
+        tokio::pin!(processing);
+        // Keep receiving even while the solver or either publisher is waiting.
+        loop {
+            tokio::select! {
+                sample = imu.recv_with_metadata() => {
+                    let sample = sample?;
+                    processing_context.record_attitude(sample.source_time, &sample.message);
+                }
+                result = &mut processing => {
+                    result?;
+                    break;
+                }
+                objects = detected_objects.recv() => {
+                    let objects = objects?;
+                    if objects.time > image_time {
+                        keep_latest_detection(&mut pending_frame, objects);
+                    }
+                }
             }
         }
     }

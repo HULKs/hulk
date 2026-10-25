@@ -67,6 +67,13 @@ pub mod error;
 pub mod graph;
 /// Typed message wrappers and helpers.
 pub mod message;
+mod native_cdr;
+pub mod serde_bridge;
+pub mod serde_zslice;
+pub use native_cdr::CdrCodec;
+/// CDR field reader/writer types for implementing [`Message`].
+pub use ros_z_cdr as cdr;
+pub use zenoh_buffers::ZSlice;
 #[cfg(feature = "nalgebra")]
 mod nalgebra_field_type_info;
 #[cfg(feature = "ndarray")]
@@ -103,7 +110,7 @@ pub mod utils;
 pub use attachment::{ENDPOINT_GLOBAL_ID_SIZE, EndpointGlobalId};
 pub use entity::{SchemaHash, TypeInfo};
 pub use error::{Error, Result};
-pub use message::{Message, SerdeCdrCodec, Service};
+pub use message::{Message, Service};
 pub use ros_z_derive::Message;
 pub use schema::{
     EnumSchemaBuilder, MessageSchema, SchemaBuilder, StructSchemaBuilder, TupleVariantSchemaBuilder,
@@ -113,5 +120,7 @@ pub use zbuf::ZBuf;
 
 #[doc(hidden)]
 pub mod __private {
+    pub use crate::serde_bridge::{decode_serde, encode_serde};
+    pub use ros_z_cdr;
     pub use ros_z_schema;
 }

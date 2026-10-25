@@ -34,7 +34,9 @@ pub(super) fn validate_dynamic_publish_schema(
         return Ok(());
     };
 
-    if advertised_schema.as_ref() == message.schema.as_ref() {
+    if Arc::ptr_eq(advertised_schema, &message.schema)
+        || advertised_schema.as_ref() == message.schema.as_ref()
+    {
         return Ok(());
     }
 

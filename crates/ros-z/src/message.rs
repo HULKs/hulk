@@ -1,12 +1,10 @@
 use byteorder::LittleEndian;
-use ros_z_cdr::{CdrBuffer, SerdeCdrSerializer, ZBufWriter};
+use ros_z_cdr::{CdrBuffer, CdrReader, CdrWriter};
 use ros_z_schema::{
     PrimitiveTypeDef, SchemaBundle, SchemaError, SchemaHash, SequenceLengthDef, TypeDef, TypeName,
 };
-use serde::{Serialize, de::DeserializeOwned};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
-use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::ops::{Range, RangeInclusive};
 use std::path::PathBuf;
@@ -15,10 +13,10 @@ use std::time::{Duration, SystemTime};
 use zenoh::shm::{PosixShmProviderBackend, ShmProvider};
 use zenoh_buffers::ZBuf;
 
+pub use crate::CdrCodec;
 use crate::attachment::{ENDPOINT_GLOBAL_ID_SIZE, EndpointGlobalId};
 use crate::entity::TypeInfo;
 use crate::schema::{MessageSchema, SchemaBuilder};
-use crate::shm::ShmWriter;
 
 pub mod report;
 
@@ -30,12 +28,6 @@ pub enum CdrError {
 
     #[error("CDR deserialization error: {0}")]
     Cdr(#[from] ros_z_cdr::Error),
-}
-
-impl CdrError {
-    fn message(message: impl Into<String>) -> Self {
-        Self::Message(message.into())
-    }
 }
 
 /// Error returned when CDR bytes cannot be encoded from the requested type.
@@ -76,15 +68,15 @@ pub trait WireEncoder {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use ros_z::message::{WireEncoder, SerdeCdrCodec};
+    /// use ros_z::message::{WireEncoder, CdrCodec};
     /// use serde::Serialize;
     ///
-    /// #[derive(Serialize)]
+    /// #[derive(Serialize, serde::Deserialize, ros_z::Message)]
     /// struct LargeMsg { data: Vec<u8> }
     ///
     /// let message = LargeMsg { data: vec![0; 1_000_000] };
     /// let hint = 4 + 4 + 1_000_000;  // header + length + data
-    /// let zbuf = SerdeCdrCodec::<LargeMsg>::serialize_to_zbuf_with_hint(&message, hint)?;
+    /// let zbuf = CdrCodec::<LargeMsg>::serialize_to_zbuf_with_hint(&message, hint)?;
     /// # Ok::<(), ros_z::message::CdrEncodeError>(())
     /// ```
     fn serialize_to_zbuf_with_hint(
@@ -121,18 +113,18 @@ pub trait WireEncoder {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use ros_z::message::{WireEncoder, SerdeCdrCodec};
+    /// use ros_z::message::{WireEncoder, CdrCodec};
     /// use ros_z::shm::ShmProviderBuilder;
     /// use serde::Serialize;
     ///
     /// # fn main() -> ros_z::Result<()> {
-    /// #[derive(Serialize)]
+    /// #[derive(Serialize, serde::Deserialize, ros_z::Message)]
     /// struct MyMsg { value: u32 }
     ///
     /// let message = MyMsg { value: 42 };
     /// let provider = ShmProviderBuilder::new(1024 * 1024).build()?;
     ///
-    /// let (zbuf, size) = SerdeCdrCodec::<MyMsg>::serialize_to_shm(&message, 128, &provider)?;
+    /// let (zbuf, size) = CdrCodec::<MyMsg>::serialize_to_shm(&message, 128, &provider)?;
     /// println!("Serialized {} bytes to SHM", size);
     /// # Ok(())
     /// # }
@@ -174,6 +166,59 @@ pub trait WireEncoder {
 
 /// Typed message contract for ros-z publishers, subscribers, services, and schemas.
 pub trait Message: MessageSchema + Send + Sync + 'static {
+    /// Field-level CDR encoding, without an encapsulation header.
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        writer: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()>;
+
+    /// Field-level decoding; the reader retains any owned payload segments.
+    fn decode_cdr(reader: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self>
+    where
+        Self: Sized;
+    /// Encode consecutive elements, without a sequence length prefix.
+    fn encode_cdr_slice<B: CdrBuffer>(
+        values: &[Self],
+        writer: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()>
+    where
+        Self: Sized,
+    {
+        for value in values {
+            value.encode_cdr(writer)?;
+        }
+        Ok(())
+    }
+
+    /// Decode consecutive elements after the caller has read the length.
+    fn decode_cdr_vec(
+        reader: &mut CdrReader<'_, LittleEndian>,
+        count: usize,
+    ) -> ros_z_cdr::Result<Vec<Self>>
+    where
+        Self: Sized,
+    {
+        let mut values =
+            Vec::with_capacity(count.min(1024 * 1024 / std::mem::size_of::<Self>().max(1)));
+        for _ in 0..count {
+            values.push(Self::decode_cdr(reader)?);
+        }
+        Ok(values)
+    }
+
+    /// Decode a fixed array without a sequence length prefix.
+    fn decode_cdr_array<const N: usize>(
+        reader: &mut CdrReader<'_, LittleEndian>,
+    ) -> ros_z_cdr::Result<[Self; N]>
+    where
+        Self: Sized,
+    {
+        let mut values = std::array::from_fn::<_, N, _>(|_| None);
+        for value in &mut values {
+            *value = Some(Self::decode_cdr(reader)?);
+        }
+        Ok(values.map(|value| value.expect("all array elements decoded")))
+    }
     /// Codec used to encode and decode this message type.
     type Codec: for<'a> WireEncoder<Input<'a> = &'a Self>
         + for<'a> WireDecoder<Input<'a> = &'a [u8], Output = Self>;
@@ -245,8 +290,37 @@ where
     type_info
 }
 
+macro_rules! impl_bulk_cdr {
+    () => {};
+    (bulk) => {
+        #[cfg(target_endian = "little")]
+        fn encode_cdr_slice<B: CdrBuffer>(
+            values: &[Self],
+            writer: &mut CdrWriter<'_, LittleEndian, B>,
+        ) -> ros_z_cdr::Result<()> {
+            if !values.is_empty() {
+                writer.write_pod_slice(values);
+            }
+            Ok(())
+        }
+        #[cfg(target_endian = "little")]
+        fn decode_cdr_vec(
+            reader: &mut CdrReader<'_, LittleEndian>,
+            count: usize,
+        ) -> ros_z_cdr::Result<Vec<Self>> {
+            reader.read_pod_slice(count)
+        }
+        #[cfg(target_endian = "little")]
+        fn decode_cdr_array<const N: usize>(
+            reader: &mut CdrReader<'_, LittleEndian>,
+        ) -> ros_z_cdr::Result<[Self; N]> {
+            reader.read_pod_array()
+        }
+    };
+}
+
 macro_rules! impl_primitive_message {
-    ($ty:ty, $name:literal, $primitive:ident) => {
+    ($ty:ty, $name:literal, $primitive:ident $(, $bulk:ident)?) => {
         impl MessageSchema for $ty {
             fn build_schema(_builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
                 Ok(TypeDef::Primitive(PrimitiveTypeDef::$primitive))
@@ -254,7 +328,18 @@ macro_rules! impl_primitive_message {
         }
 
         impl Message for $ty {
-            type Codec = SerdeCdrCodec<Self>;
+            impl_bulk_cdr!($($bulk)?);
+            type Codec = CdrCodec<Self>;
+            fn encode_cdr<B: CdrBuffer>(
+                &self,
+                writer: &mut CdrWriter<'_, LittleEndian, B>,
+            ) -> ros_z_cdr::Result<()> {
+                crate::serde_bridge::encode_serde(self, writer)
+            }
+
+            fn decode_cdr(reader: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+                crate::serde_bridge::decode_serde(reader)
+            }
 
             fn type_name() -> String {
                 $name.to_string()
@@ -264,24 +349,33 @@ macro_rules! impl_primitive_message {
 }
 
 impl_primitive_message!(bool, "bool", Bool);
-impl_primitive_message!(i8, "i8", I8);
-impl_primitive_message!(u8, "u8", U8);
-impl_primitive_message!(i16, "i16", I16);
-impl_primitive_message!(u16, "u16", U16);
-impl_primitive_message!(i32, "i32", I32);
-impl_primitive_message!(u32, "u32", U32);
-impl_primitive_message!(i64, "i64", I64);
-impl_primitive_message!(u64, "u64", U64);
+impl_primitive_message!(i8, "i8", I8, bulk);
+impl_primitive_message!(u8, "u8", U8, bulk);
+impl_primitive_message!(i16, "i16", I16, bulk);
+impl_primitive_message!(u16, "u16", U16, bulk);
+impl_primitive_message!(i32, "i32", I32, bulk);
+impl_primitive_message!(u32, "u32", U32, bulk);
+impl_primitive_message!(i64, "i64", I64, bulk);
+impl_primitive_message!(u64, "u64", U64, bulk);
 impl_primitive_message!(usize, "usize", U64);
-impl_primitive_message!(f32, "f32", F32);
-impl_primitive_message!(f64, "f64", F64);
+impl_primitive_message!(f32, "f32", F32, bulk);
+impl_primitive_message!(f64, "f64", F64, bulk);
 impl_primitive_message!((), "()", Unit);
 
 impl<T> Message for Box<T>
 where
-    T: Message + Serialize + DeserializeOwned,
+    T: Message,
 {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = crate::CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        w: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        (**self).encode_cdr(w)
+    }
+    fn decode_cdr(r: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        Ok(Box::new(T::decode_cdr(r)?))
+    }
 
     fn type_name() -> String {
         format!("Box<{}>", T::type_name())
@@ -299,9 +393,18 @@ where
 
 impl<T> Message for Arc<T>
 where
-    T: Message + Serialize + DeserializeOwned,
+    T: Message,
 {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = crate::CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        w: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        (**self).encode_cdr(w)
+    }
+    fn decode_cdr(r: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        Ok(Arc::new(T::decode_cdr(r)?))
+    }
 
     fn type_name() -> String {
         format!("Arc<{}>", T::type_name())
@@ -317,8 +420,52 @@ where
     }
 }
 
+impl<T: Message> Message for Arc<[T]> {
+    type Codec = crate::CdrCodec<Self>;
+    fn type_name() -> String {
+        format!("Arc<[{}]>", T::type_name())
+    }
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        w: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        crate::native_cdr::write_len(w, self.len())?;
+        T::encode_cdr_slice(self, w)
+    }
+    fn decode_cdr(r: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        Ok(Vec::<T>::decode_cdr(r)?.into())
+    }
+}
+
+impl<T: Message> Message for Box<[T]> {
+    type Codec = crate::CdrCodec<Self>;
+    fn type_name() -> String {
+        format!("Box<[{}]>", T::type_name())
+    }
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        w: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        crate::native_cdr::write_len(w, self.len())?;
+        T::encode_cdr_slice(self, w)
+    }
+    fn decode_cdr(r: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        Ok(Vec::<T>::decode_cdr(r)?.into())
+    }
+}
+
 impl Message for Duration {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        writer: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        crate::serde_bridge::encode_serde(self, writer)
+    }
+
+    fn decode_cdr(reader: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        crate::serde_bridge::decode_serde(reader)
+    }
 
     fn type_name() -> String {
         "std::time::Duration".to_string()
@@ -336,7 +483,17 @@ impl MessageSchema for Duration {
 }
 
 impl Message for SystemTime {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        writer: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        crate::serde_bridge::encode_serde(self, writer)
+    }
+
+    fn decode_cdr(reader: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        crate::serde_bridge::decode_serde(reader)
+    }
 
     fn type_name() -> String {
         "std::time::SystemTime".to_string()
@@ -355,9 +512,19 @@ impl MessageSchema for SystemTime {
 
 impl<T> Message for Range<T>
 where
-    T: Message + Serialize + DeserializeOwned,
+    T: Message,
 {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = crate::CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        w: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        self.start.encode_cdr(w)?;
+        self.end.encode_cdr(w)
+    }
+    fn decode_cdr(r: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        Ok(T::decode_cdr(r)?..T::decode_cdr(r)?)
+    }
 
     fn type_name() -> String {
         format!("Range<{}>", T::type_name())
@@ -380,9 +547,19 @@ where
 
 impl<T> Message for RangeInclusive<T>
 where
-    T: Message + Serialize + DeserializeOwned,
+    T: Message,
 {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = crate::CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        w: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        self.start().encode_cdr(w)?;
+        self.end().encode_cdr(w)
+    }
+    fn decode_cdr(r: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        Ok(T::decode_cdr(r)?..=T::decode_cdr(r)?)
+    }
 
     fn type_name() -> String {
         format!("RangeInclusive<{}>", T::type_name())
@@ -404,7 +581,17 @@ where
 }
 
 impl Message for SocketAddr {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        writer: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        crate::serde_bridge::encode_serde(self, writer)
+    }
+
+    fn decode_cdr(reader: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        crate::serde_bridge::decode_serde(reader)
+    }
 
     fn type_name() -> String {
         "std::net::SocketAddr".to_string()
@@ -450,7 +637,17 @@ impl MessageSchema for SocketAddr {
 }
 
 impl Message for String {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        writer: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        crate::serde_bridge::encode_serde(self, writer)
+    }
+
+    fn decode_cdr(reader: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        crate::serde_bridge::decode_serde(reader)
+    }
 
     fn type_name() -> String {
         "String".to_string()
@@ -465,10 +662,36 @@ impl MessageSchema for String {
 
 impl<T, E> Message for Result<T, E>
 where
-    T: Message + Serialize + DeserializeOwned,
-    E: Message + Serialize + DeserializeOwned,
+    T: Message,
+    E: Message,
 {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = CdrCodec<Self>;
+
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        writer: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        match self {
+            Ok(value) => {
+                writer.write_u32(0);
+                value.encode_cdr(writer)
+            }
+            Err(error) => {
+                writer.write_u32(1);
+                error.encode_cdr(writer)
+            }
+        }
+    }
+
+    fn decode_cdr(reader: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        match reader.read_u32()? {
+            0 => Ok(Ok(T::decode_cdr(reader)?)),
+            1 => Ok(Err(E::decode_cdr(reader)?)),
+            tag => Err(ros_z_cdr::Error::Custom(format!(
+                "invalid Result tag {tag}"
+            ))),
+        }
+    }
 
     fn type_name() -> String {
         format!("Result<{},{}>", T::type_name(), E::type_name())
@@ -492,9 +715,26 @@ where
 
 impl<T> Message for Option<T>
 where
-    T: Message + Serialize + DeserializeOwned,
+    T: Message,
 {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = crate::CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        w: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        w.write_u32(u32::from(self.is_some()));
+        if let Some(value) = self {
+            value.encode_cdr(w)?;
+        }
+        Ok(())
+    }
+    fn decode_cdr(r: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        match r.read_u32()? {
+            0 => Ok(None),
+            1 => Ok(Some(T::decode_cdr(r)?)),
+            tag => Err(ros_z_cdr::Error::InvalidOptionTag(tag)),
+        }
+    }
 
     fn type_name() -> String {
         format!("Option<{}>", T::type_name())
@@ -512,9 +752,20 @@ where
 
 impl<T> Message for Vec<T>
 where
-    T: Message + Serialize + DeserializeOwned,
+    T: Message,
 {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = crate::CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        w: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        crate::native_cdr::write_len(w, self.len())?;
+        T::encode_cdr_slice(self, w)
+    }
+    fn decode_cdr(r: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        let count = r.read_sequence_length()?;
+        T::decode_cdr_vec(r, count)
+    }
 
     fn type_name() -> String {
         format!("Vec<{}>", T::type_name())
@@ -535,10 +786,18 @@ where
 
 impl<T, const N: usize> Message for [T; N]
 where
-    T: Message + Serialize + DeserializeOwned,
-    [T; N]: Serialize + DeserializeOwned,
+    T: Message,
 {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = crate::CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        w: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        T::encode_cdr_slice(self, w)
+    }
+    fn decode_cdr(r: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        T::decode_cdr_array(r)
+    }
 
     fn type_name() -> String {
         format!("[{};{}]", T::type_name(), N)
@@ -554,18 +813,6 @@ where
             element: Box::new(T::build_schema(builder)?),
             length: SequenceLengthDef::Fixed(N),
         })
-    }
-}
-
-impl<T> Message for [T]
-where
-    T: Message + Serialize + DeserializeOwned,
-    [T]: Serialize + DeserializeOwned,
-{
-    type Codec = SerdeCdrCodec<Self>;
-
-    fn type_name() -> String {
-        format!("[{}]", T::type_name())
     }
 }
 
@@ -587,11 +834,46 @@ impl MessageSchema for EndpointGlobalId {
     }
 }
 
+impl Message for EndpointGlobalId {
+    type Codec = CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        writer: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        crate::serde_bridge::encode_serde(self, writer)
+    }
+
+    fn decode_cdr(reader: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        crate::serde_bridge::decode_serde(reader)
+    }
+    fn type_name() -> String {
+        "ros_z_protocol::EndpointGlobalId".into()
+    }
+}
+
 impl<T> Message for HashSet<T>
 where
-    T: Message + Eq + Hash + Serialize + DeserializeOwned,
+    T: Message + Eq + Hash,
 {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = crate::CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        w: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        crate::native_cdr::write_len(w, self.len())?;
+        for value in self {
+            value.encode_cdr(w)?;
+        }
+        Ok(())
+    }
+    fn decode_cdr(r: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        let count = r.read_sequence_length()?;
+        let mut values = HashSet::new();
+        for _ in 0..count {
+            values.insert(T::decode_cdr(r)?);
+        }
+        Ok(values)
+    }
 
     fn type_name() -> String {
         format!("HashSet<{}>", T::type_name())
@@ -612,10 +894,29 @@ where
 
 impl<K, V> Message for HashMap<K, V>
 where
-    K: Message + Eq + Hash + Serialize + DeserializeOwned,
-    V: Message + Serialize + DeserializeOwned,
+    K: Message + Eq + Hash,
+    V: Message,
 {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = crate::CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        w: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        crate::native_cdr::write_len(w, self.len())?;
+        for (key, value) in self {
+            key.encode_cdr(w)?;
+            value.encode_cdr(w)?;
+        }
+        Ok(())
+    }
+    fn decode_cdr(r: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        let count = r.read_sequence_length()?;
+        let mut values = HashMap::new();
+        for _ in 0..count {
+            values.insert(K::decode_cdr(r)?, V::decode_cdr(r)?);
+        }
+        Ok(values)
+    }
 
     fn type_name() -> String {
         format!("HashMap<{},{}>", K::type_name(), V::type_name())
@@ -637,10 +938,29 @@ where
 
 impl<K, V> Message for BTreeMap<K, V>
 where
-    K: Message + Ord + Serialize + DeserializeOwned,
-    V: Message + Serialize + DeserializeOwned,
+    K: Message + Ord,
+    V: Message,
 {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = crate::CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        w: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        crate::native_cdr::write_len(w, self.len())?;
+        for (key, value) in self {
+            key.encode_cdr(w)?;
+            value.encode_cdr(w)?;
+        }
+        Ok(())
+    }
+    fn decode_cdr(r: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        let count = r.read_sequence_length()?;
+        let mut values = BTreeMap::new();
+        for _ in 0..count {
+            values.insert(K::decode_cdr(r)?, V::decode_cdr(r)?);
+        }
+        Ok(values)
+    }
 
     fn type_name() -> String {
         format!("BTreeMap<{},{}>", K::type_name(), V::type_name())
@@ -661,7 +981,17 @@ where
 }
 
 impl Message for PathBuf {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = CdrCodec<Self>;
+    fn encode_cdr<B: CdrBuffer>(
+        &self,
+        writer: &mut CdrWriter<'_, LittleEndian, B>,
+    ) -> ros_z_cdr::Result<()> {
+        crate::serde_bridge::encode_serde(self, writer)
+    }
+
+    fn decode_cdr(reader: &mut CdrReader<'_, LittleEndian>) -> ros_z_cdr::Result<Self> {
+        crate::serde_bridge::decode_serde(reader)
+    }
 
     fn type_name() -> String {
         "PathBuf".to_string()
@@ -674,11 +1004,15 @@ impl MessageSchema for PathBuf {
     }
 }
 
-/// Serde-backed CDR codec for message types deriving `Serialize` and `Deserialize`.
-pub struct SerdeCdrCodec<T>(PhantomData<T>);
-
 /// Codec-side decoder used by subscribers and service handlers.
 pub trait WireDecoder {
+    /// Owned-payload entry point; byte-input codecs retain their existing fallback.
+    fn deserialize_payload(payload: &zenoh::bytes::ZBytes) -> Result<Self::Output, Self::Error>
+    where
+        for<'a> &'a [u8]: Into<Self::Input<'a>>,
+    {
+        Self::deserialize(payload.to_bytes().as_ref().into())
+    }
     /// Input accepted by the decoder, usually bytes or a Zenoh buffer.
     type Input<'a>;
     /// Decoded output type.
@@ -689,88 +1023,8 @@ pub trait WireDecoder {
     fn deserialize(input: Self::Input<'_>) -> Result<Self::Output, Self::Error>;
 }
 
-// ── Serde-backed CDR serialization for typed messages ─────────────────────────────────────
-
 /// CDR encapsulation header for little-endian encoding
 pub const CDR_HEADER_LE: [u8; 4] = [0x00, 0x01, 0x00, 0x00];
-
-impl<T> WireEncoder for SerdeCdrCodec<T>
-where
-    T: Serialize,
-{
-    type Input<'a>
-        = &'a T
-    where
-        T: 'a;
-    type Error = CdrEncodeError;
-
-    fn serialize_to_zbuf(input: &T) -> Result<ZBuf, Self::Error> {
-        Self::serialize_to_zbuf_with_hint(input, 256)
-    }
-
-    fn serialize_to_zbuf_with_hint(input: &T, capacity_hint: usize) -> Result<ZBuf, Self::Error> {
-        let mut writer = ZBufWriter::with_capacity(capacity_hint);
-        writer.extend_from_slice(&CDR_HEADER_LE);
-        let mut serializer = SerdeCdrSerializer::<LittleEndian, ZBufWriter>::new(&mut writer);
-        input.serialize(&mut serializer)?;
-        Ok(writer.into_zbuf())
-    }
-
-    fn serialized_size_hint(_input: &T) -> usize {
-        std::mem::size_of::<T>() * 2 + 4
-    }
-
-    fn serialize_to_shm(
-        input: &T,
-        estimated_size: usize,
-        provider: &ShmProvider<PosixShmProviderBackend>,
-    ) -> crate::Result<(ZBuf, usize)> {
-        let mut writer = ShmWriter::new(provider, estimated_size)?;
-        writer.extend_from_slice(&CDR_HEADER_LE);
-        let mut serializer = SerdeCdrSerializer::<LittleEndian, ShmWriter>::new(&mut writer);
-        input.serialize(&mut serializer).map_err(|source| {
-            crate::Error::encode(std::any::type_name::<T>(), CdrEncodeError::from(source))
-        })?;
-        let actual_size = writer.position();
-        let zbuf = writer.into_zbuf()?;
-        Ok((zbuf, actual_size))
-    }
-
-    fn serialize_to_buf(input: &T, buffer: &mut Vec<u8>) -> Result<(), Self::Error> {
-        buffer.clear();
-        buffer.extend_from_slice(&CDR_HEADER_LE);
-        let mut fast_ser = SerdeCdrSerializer::<LittleEndian>::new(buffer);
-        input.serialize(&mut fast_ser)?;
-        Ok(())
-    }
-}
-
-impl<T> WireDecoder for SerdeCdrCodec<T>
-where
-    T: DeserializeOwned,
-{
-    type Input<'a> = &'a [u8];
-    type Output = T;
-    type Error = CdrError;
-
-    fn deserialize(input: Self::Input<'_>) -> Result<Self::Output, Self::Error> {
-        if input.len() < 4 {
-            return Err(CdrError::message("CDR data too short for header"));
-        }
-        let representation_identifier = &input[0..2];
-        if representation_identifier != [0x00, 0x01] {
-            return Err(CdrError::message(format!(
-                "Expected CDR_LE encapsulation ({:?}), found {:?}",
-                [0x00, 0x01],
-                representation_identifier
-            )));
-        }
-        let payload = &input[4..];
-        let x =
-            ros_z_cdr::from_bytes::<T, byteorder::LittleEndian>(payload).map_err(CdrError::from)?;
-        Ok(x.0)
-    }
-}
 
 /// Service contract pairing request and response wire message types.
 pub trait Service {
@@ -783,16 +1037,16 @@ pub trait Service {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde::Deserialize;
+    use serde::{Deserialize, Serialize};
     use zenoh_buffers::buffer::SplitBuffer;
 
-    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, crate::Message)]
     struct SimpleMessage {
         value: u32,
         text: String,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, crate::Message)]
     struct LargeMessage {
         data: Vec<u8>,
         count: u64,
@@ -806,14 +1060,14 @@ mod tests {
             text: "Hello, ZBuf!".to_string(),
         };
 
-        let zbuf = SerdeCdrCodec::<SimpleMessage>::serialize_to_zbuf(&message).unwrap();
+        let zbuf = CdrCodec::<SimpleMessage>::serialize_to_zbuf(&message).unwrap();
         let bytes = zbuf.contiguous();
 
         // Verify CDR header
         assert_eq!(&bytes[0..4], &CDR_HEADER_LE);
 
         // Verify roundtrip
-        let deserialized = SerdeCdrCodec::<SimpleMessage>::deserialize(&bytes).unwrap();
+        let deserialized = CdrCodec::<SimpleMessage>::deserialize(&bytes).unwrap();
         assert_eq!(deserialized, message);
     }
 
@@ -825,8 +1079,8 @@ mod tests {
         };
 
         // Both methods should produce identical bytes
-        let zbuf = SerdeCdrCodec::<SimpleMessage>::serialize_to_zbuf(&message).unwrap();
-        let vec = SerdeCdrCodec::<SimpleMessage>::serialize(&message).unwrap();
+        let zbuf = CdrCodec::<SimpleMessage>::serialize_to_zbuf(&message).unwrap();
+        let vec = CdrCodec::<SimpleMessage>::serialize(&message).unwrap();
 
         let zbuf_bytes = zbuf.contiguous();
         assert_eq!(&*zbuf_bytes, &vec[..]);
@@ -846,21 +1100,19 @@ mod tests {
         let mut buffer = Vec::with_capacity(1024);
 
         // First serialization
-        let zbuf1 =
-            SerdeCdrCodec::<SimpleMessage>::serialize_to_zbuf_reuse(&msg1, &mut buffer).unwrap();
+        let zbuf1 = CdrCodec::<SimpleMessage>::serialize_to_zbuf_reuse(&msg1, &mut buffer).unwrap();
         let bytes1 = zbuf1.contiguous();
 
         // Buffer should be empty after take
         assert!(buffer.is_empty());
 
         // Second serialization (buffer will be reallocated)
-        let zbuf2 =
-            SerdeCdrCodec::<SimpleMessage>::serialize_to_zbuf_reuse(&msg2, &mut buffer).unwrap();
+        let zbuf2 = CdrCodec::<SimpleMessage>::serialize_to_zbuf_reuse(&msg2, &mut buffer).unwrap();
         let bytes2 = zbuf2.contiguous();
 
         // Verify roundtrips
-        let decoded1 = SerdeCdrCodec::<SimpleMessage>::deserialize(&bytes1).unwrap();
-        let decoded2 = SerdeCdrCodec::<SimpleMessage>::deserialize(&bytes2).unwrap();
+        let decoded1 = CdrCodec::<SimpleMessage>::deserialize(&bytes1).unwrap();
+        let decoded2 = CdrCodec::<SimpleMessage>::deserialize(&bytes2).unwrap();
 
         assert_eq!(decoded1, msg1);
         assert_eq!(decoded2, msg2);
@@ -874,16 +1126,16 @@ mod tests {
         };
 
         // Codec provides serialize_to_zbuf with a size hint.
-        let zbuf = SerdeCdrCodec::<SimpleMessage>::serialize_to_zbuf_with_hint(
+        let zbuf = CdrCodec::<SimpleMessage>::serialize_to_zbuf_with_hint(
             &message,
-            SerdeCdrCodec::<SimpleMessage>::serialized_size_hint(&message),
+            CdrCodec::<SimpleMessage>::serialized_size_hint(&message),
         )
         .unwrap();
         let bytes = zbuf.contiguous();
 
         assert_eq!(&bytes[0..4], &CDR_HEADER_LE);
 
-        let deserialized = SerdeCdrCodec::<SimpleMessage>::deserialize(&bytes).unwrap();
+        let deserialized = CdrCodec::<SimpleMessage>::deserialize(&bytes).unwrap();
         assert_eq!(deserialized, message);
     }
 
@@ -895,9 +1147,9 @@ mod tests {
         };
 
         // Serialize using both methods
-        let vec1 = SerdeCdrCodec::<SimpleMessage>::serialize(&message).unwrap();
+        let vec1 = CdrCodec::<SimpleMessage>::serialize(&message).unwrap();
         let mut vec2 = Vec::new();
-        SerdeCdrCodec::<SimpleMessage>::serialize_to_buf(&message, &mut vec2).unwrap();
+        CdrCodec::<SimpleMessage>::serialize_to_buf(&message, &mut vec2).unwrap();
 
         // Results should be identical
         assert_eq!(vec1, vec2);
@@ -921,12 +1173,12 @@ mod tests {
         let mut buffer = Vec::new();
 
         // Serialize large message
-        SerdeCdrCodec::<LargeMessage>::serialize_to_buf(&msg1, &mut buffer).unwrap();
+        CdrCodec::<LargeMessage>::serialize_to_buf(&msg1, &mut buffer).unwrap();
         let len1 = buffer.len();
         assert!(len1 > 100);
 
         // Serialize small message - should clear buffer first
-        SerdeCdrCodec::<SimpleMessage>::serialize_to_buf(&msg2, &mut buffer).unwrap();
+        CdrCodec::<SimpleMessage>::serialize_to_buf(&msg2, &mut buffer).unwrap();
         let len2 = buffer.len();
         assert!(len2 < len1);
 
@@ -953,11 +1205,11 @@ mod tests {
 
         // Serialize using serialize_to_buf
         let mut buffer = Vec::new();
-        SerdeCdrCodec::<LargeMessage>::serialize_to_buf(&original, &mut buffer).unwrap();
+        CdrCodec::<LargeMessage>::serialize_to_buf(&original, &mut buffer).unwrap();
 
         // Deserialize
         let deserialized =
-            SerdeCdrCodec::<LargeMessage>::deserialize(&buffer).expect("Failed to deserialize");
+            CdrCodec::<LargeMessage>::deserialize(&buffer).expect("Failed to deserialize");
 
         // Should match original
         assert_eq!(deserialized, original);
@@ -984,12 +1236,12 @@ mod tests {
         let mut all_serialized = Vec::new();
 
         for message in &messages {
-            SerdeCdrCodec::<SimpleMessage>::serialize_to_buf(message, &mut buffer).unwrap();
+            CdrCodec::<SimpleMessage>::serialize_to_buf(message, &mut buffer).unwrap();
             all_serialized.push(buffer.clone());
 
             // Verify each serialization is correct
-            let deserialized = SerdeCdrCodec::<SimpleMessage>::deserialize(&buffer)
-                .expect("Failed to deserialize");
+            let deserialized =
+                CdrCodec::<SimpleMessage>::deserialize(&buffer).expect("Failed to deserialize");
             assert_eq!(&deserialized, message);
         }
 
@@ -1006,13 +1258,13 @@ mod tests {
         };
 
         // Codec provides serialize method.
-        let serialized = SerdeCdrCodec::<SimpleMessage>::serialize(&message).unwrap();
+        let serialized = CdrCodec::<SimpleMessage>::serialize(&message).unwrap();
         assert!(!serialized.is_empty());
         assert_eq!(&serialized[0..4], &CDR_HEADER_LE);
 
         // Codec provides deserialize method.
-        let deserialized = SerdeCdrCodec::<SimpleMessage>::deserialize(&serialized[..])
-            .expect("Failed to deserialize");
+        let deserialized =
+            CdrCodec::<SimpleMessage>::deserialize(&serialized[..]).expect("Failed to deserialize");
         assert_eq!(deserialized, message);
     }
 }

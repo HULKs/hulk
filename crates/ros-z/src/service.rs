@@ -271,8 +271,7 @@ where
         for<'a> <T::Response as Message>::Codec:
             WireDecoder<Output = T::Response, Input<'a> = &'a [u8]>,
     {
-        let payload_bytes = sample.payload().to_bytes();
-        <<T::Response as Message>::Codec as WireDecoder>::deserialize(&payload_bytes[..])
+        <<T::Response as Message>::Codec as WireDecoder>::deserialize_payload(sample.payload())
             .map_err(|source| crate::Error::decode(<T::Response as Message>::type_name(), source))
     }
 
@@ -286,8 +285,10 @@ where
         for<'a> <T::Response as Message>::Codec:
             WireDecoder<Output = T::Response, Input<'a> = &'a [u8]>,
     {
-        let payload = <<T::Request as Message>::Codec as WireEncoder>::serialize(message)
-            .map_err(|source| crate::Error::encode(<T::Request as Message>::type_name(), source))?;
+        let payload = <<T::Request as Message>::Codec as WireEncoder>::serialize_to_zbuf(message)
+            .map_err(|source| {
+            crate::Error::encode(<T::Request as Message>::type_name(), source)
+        })?;
         let sample = self.call_sample_blocking(payload, None)?;
         self.decode_response(sample)
     }
@@ -299,8 +300,10 @@ where
         for<'a> <T::Response as Message>::Codec:
             WireDecoder<Output = T::Response, Input<'a> = &'a [u8]>,
     {
-        let payload = <<T::Request as Message>::Codec as WireEncoder>::serialize(message)
-            .map_err(|source| crate::Error::encode(<T::Request as Message>::type_name(), source))?;
+        let payload = <<T::Request as Message>::Codec as WireEncoder>::serialize_to_zbuf(message)
+            .map_err(|source| {
+            crate::Error::encode(<T::Request as Message>::type_name(), source)
+        })?;
         let sample = self.call_sample_async(payload).await?;
         self.decode_response(sample)
     }
@@ -315,8 +318,10 @@ where
         for<'a> <T::Response as Message>::Codec:
             WireDecoder<Output = T::Response, Input<'a> = &'a [u8]>,
     {
-        let payload = <<T::Request as Message>::Codec as WireEncoder>::serialize(message)
-            .map_err(|source| crate::Error::encode(<T::Request as Message>::type_name(), source))?;
+        let payload = <<T::Request as Message>::Codec as WireEncoder>::serialize_to_zbuf(message)
+            .map_err(|source| {
+            crate::Error::encode(<T::Request as Message>::type_name(), source)
+        })?;
         let sample = self.call_sample_blocking(payload, Some(timeout))?;
         self.decode_response(sample)
     }
@@ -332,8 +337,10 @@ where
         for<'a> <T::Response as Message>::Codec:
             WireDecoder<Output = T::Response, Input<'a> = &'a [u8]>,
     {
-        let payload = <<T::Request as Message>::Codec as WireEncoder>::serialize(message)
-            .map_err(|source| crate::Error::encode(<T::Request as Message>::type_name(), source))?;
+        let payload = <<T::Request as Message>::Codec as WireEncoder>::serialize_to_zbuf(message)
+            .map_err(|source| {
+            crate::Error::encode(<T::Request as Message>::type_name(), source)
+        })?;
         let sample_result = tokio::time::timeout(timeout, self.call_sample_async(payload)).await;
 
         let sample = match sample_result {
@@ -638,7 +645,7 @@ impl<T: Service> ServiceReply<T> {
     where
         for<'a> <T::Response as Message>::Codec: WireEncoder<Input<'a> = &'a T::Response>,
     {
-        let payload = <<T::Response as Message>::Codec as WireEncoder>::serialize(message)
+        let payload = <<T::Response as Message>::Codec as WireEncoder>::serialize_to_zbuf(message)
             .map_err(|source| {
                 crate::Error::encode(<T::Response as Message>::type_name(), source)
             })?;
@@ -658,7 +665,7 @@ impl<T: Service> ServiceReply<T> {
     where
         for<'a> <T::Response as Message>::Codec: WireEncoder<Input<'a> = &'a T::Response>,
     {
-        let payload = <<T::Response as Message>::Codec as WireEncoder>::serialize(message)
+        let payload = <<T::Response as Message>::Codec as WireEncoder>::serialize_to_zbuf(message)
             .map_err(|source| {
                 crate::Error::encode(<T::Response as Message>::type_name(), source)
             })?;
@@ -732,15 +739,10 @@ where
         };
         let request_id = RequestId::from(attachment);
 
-        let payload_bytes = query
-            .payload()
-            .map(|payload| payload.to_bytes())
-            .unwrap_or_default();
-        let message =
-            <<T::Request as Message>::Codec as WireDecoder>::deserialize(&payload_bytes[..])
-                .map_err(|source| {
-                    crate::Error::decode(<T::Request as Message>::type_name(), source)
-                })?;
+        let empty_payload = zenoh::bytes::ZBytes::default();
+        let payload = query.payload().unwrap_or(&empty_payload);
+        let message = <<T::Request as Message>::Codec as WireDecoder>::deserialize_payload(payload)
+            .map_err(|source| crate::Error::decode(<T::Request as Message>::type_name(), source))?;
 
         Ok(ServiceRequest {
             message,
@@ -852,7 +854,7 @@ mod tests {
     use std::time::Duration;
 
     use crate::{
-        Message, SerdeCdrCodec, ServiceTypeInfo,
+        CdrCodec, Message, ServiceTypeInfo,
         context::ContextBuilder,
         entity::{Entity, TypeInfo},
         message::{Service, WireEncoder},
@@ -1007,7 +1009,7 @@ mod tests {
             .session()
             .get(key_expr)
             .payload(
-                SerdeCdrCodec::<AddTwoIntsRequest>::serialize(&AddTwoIntsRequest { a: 10, b: 32 })
+                CdrCodec::<AddTwoIntsRequest>::serialize(&AddTwoIntsRequest { a: 10, b: 32 })
                     .unwrap(),
             )
             .callback(|_| panic!("raw request should not receive a reply"))

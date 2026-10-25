@@ -36,6 +36,10 @@ where
         Self { reader }
     }
 
+    pub fn into_reader(self) -> CdrReader<'de, BO> {
+        self.reader
+    }
+
     /// How many bytes of input stream have been consumed.
     #[inline]
     pub fn bytes_consumed(&self) -> usize {
@@ -181,7 +185,10 @@ where
         V: Visitor<'de>,
     {
         let s = self.reader.read_str()?;
-        visitor.visit_borrowed_str(s)
+        match s {
+            std::borrow::Cow::Borrowed(s) => visitor.visit_borrowed_str(s),
+            std::borrow::Cow::Owned(s) => visitor.visit_string(s),
+        }
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
@@ -200,7 +207,10 @@ where
         V: Visitor<'de>,
     {
         let bytes = self.reader.read_byte_sequence()?;
-        visitor.visit_borrowed_bytes(bytes)
+        match bytes {
+            std::borrow::Cow::Borrowed(bytes) => visitor.visit_borrowed_bytes(bytes),
+            std::borrow::Cow::Owned(bytes) => visitor.visit_byte_buf(bytes),
+        }
     }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
@@ -208,7 +218,7 @@ where
         V: Visitor<'de>,
     {
         let bytes = self.reader.read_byte_sequence()?;
-        visitor.visit_byte_buf(bytes.to_vec())
+        visitor.visit_byte_buf(bytes.into_owned())
     }
 
     #[inline]
@@ -437,6 +447,11 @@ where
     type Error = Error;
 
     #[inline]
+    fn size_hint(&self) -> Option<usize> {
+        Some(self.expected_count - self.element_counter)
+    }
+
+    #[inline]
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
     where
         T: DeserializeSeed<'de>,
@@ -457,6 +472,11 @@ where
     type Error = Error;
 
     #[inline]
+    fn size_hint(&self) -> Option<usize> {
+        Some(self.expected_count - self.element_counter)
+    }
+
+    #[inline]
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
     where
         K: DeserializeSeed<'de>,
@@ -475,5 +495,79 @@ where
         V: DeserializeSeed<'de>,
     {
         seed.deserialize(&mut *self.de)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use byteorder::LittleEndian;
+
+    use super::*;
+
+    #[test]
+    fn sequence_size_hint_tracks_remaining_elements() {
+        let mut de = CdrDeserializer::<LittleEndian>::new(&[10, 20]);
+        let mut seq = SequenceHelper::new(&mut de, 2);
+        assert_eq!(SeqAccess::size_hint(&seq), Some(2));
+        assert_eq!(seq.next_element::<u8>().unwrap(), Some(10));
+        assert_eq!(SeqAccess::size_hint(&seq), Some(1));
+        assert_eq!(seq.next_element::<u8>().unwrap(), Some(20));
+        assert_eq!(SeqAccess::size_hint(&seq), Some(0));
+        assert_eq!(seq.next_element::<u8>().unwrap(), None);
+        assert_eq!(SeqAccess::size_hint(&seq), Some(0));
+
+        let mut empty = SequenceHelper::new(&mut de, 0);
+        assert_eq!(SeqAccess::size_hint(&empty), Some(0));
+        assert_eq!(empty.next_element::<u8>().unwrap(), None);
+    }
+
+    #[test]
+    fn map_size_hint_tracks_remaining_entries() {
+        let mut de = CdrDeserializer::<LittleEndian>::new(&[1, 10, 2, 20]);
+        let mut map = SequenceHelper::new(&mut de, 2);
+        assert_eq!(MapAccess::size_hint(&map), Some(2));
+        assert_eq!(map.next_key::<u8>().unwrap(), Some(1));
+        assert_eq!(MapAccess::size_hint(&map), Some(1));
+        assert_eq!(map.next_value::<u8>().unwrap(), 10);
+        assert_eq!(MapAccess::size_hint(&map), Some(1));
+        assert_eq!(map.next_key::<u8>().unwrap(), Some(2));
+        assert_eq!(MapAccess::size_hint(&map), Some(0));
+        assert_eq!(map.next_value::<u8>().unwrap(), 20);
+        assert_eq!(MapAccess::size_hint(&map), Some(0));
+        assert_eq!(map.next_key::<u8>().unwrap(), None);
+        assert_eq!(MapAccess::size_hint(&map), Some(0));
+
+        let mut empty = SequenceHelper::new(&mut de, 0);
+        assert_eq!(MapAccess::size_hint(&empty), Some(0));
+        assert_eq!(empty.next_key::<u8>().unwrap(), None);
+    }
+
+    #[test]
+    fn truncated_collections_still_error() {
+        assert!(matches!(
+            from_bytes::<Vec<u8>, LittleEndian>(&[2, 0, 0, 0, 10]),
+            Err(Error::UnexpectedEof)
+        ));
+        for input in [&[1, 0, 0, 0][..], &[1, 0, 0, 0, 10][..]] {
+            assert!(matches!(
+                from_bytes::<BTreeMap<u8, u8>, LittleEndian>(input),
+                Err(Error::UnexpectedEof)
+            ));
+        }
+    }
+
+    #[test]
+    fn excessive_collection_lengths_still_error() {
+        let input = u32::MAX.to_le_bytes();
+        assert!(matches!(
+            from_bytes::<Vec<u8>, LittleEndian>(&input),
+            Err(Error::Custom(_))
+        ));
+        assert!(matches!(
+            from_bytes::<BTreeMap<u8, u8>, LittleEndian>(&input),
+            Err(Error::Custom(_))
+        ));
     }
 }

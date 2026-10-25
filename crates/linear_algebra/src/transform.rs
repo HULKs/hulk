@@ -1,8 +1,8 @@
 use std::{marker::PhantomData, ops::Mul};
 
 use approx::{AbsDiffEq, RelativeEq};
-use ros_z::{Message, MessageSchema, SchemaBuilder, SerdeCdrCodec};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use ros_z::{CdrCodec, Message, MessageSchema, SchemaBuilder};
+use serde::{Deserialize, Serialize};
 
 use crate::framed::Framed;
 
@@ -47,9 +47,21 @@ impl<From, To, Inner> Message for Transform<From, To, Inner>
 where
     From: Send + Sync + 'static,
     To: Send + Sync + 'static,
-    Inner: Message + Serialize + DeserializeOwned,
+    Inner: Message,
 {
-    type Codec = SerdeCdrCodec<Self>;
+    type Codec = CdrCodec<Self>;
+    fn encode_cdr<B: ros_z::cdr::CdrBuffer>(
+        &self,
+        writer: &mut ros_z::cdr::CdrWriter<'_, ros_z::cdr::LittleEndian, B>,
+    ) -> ros_z::cdr::Result<()> {
+        self.inner.encode_cdr(writer)
+    }
+
+    fn decode_cdr(
+        reader: &mut ros_z::cdr::CdrReader<'_, ros_z::cdr::LittleEndian>,
+    ) -> ros_z::cdr::Result<Self> {
+        Inner::decode_cdr(reader).map(Self::wrap)
+    }
 
     fn type_name() -> String {
         Inner::type_name()
@@ -60,7 +72,7 @@ impl<From, To, Inner> MessageSchema for Transform<From, To, Inner>
 where
     From: Send + Sync + 'static,
     To: Send + Sync + 'static,
-    Inner: Message + Serialize + DeserializeOwned,
+    Inner: Message,
 {
     fn build_schema(
         builder: &mut SchemaBuilder,
