@@ -44,10 +44,8 @@ use tracker::{InputStamp, Tracker, UpdateSchedule, camera_is_recent};
 struct BallFilterOutput {
     time: Option<Time>,
     ball_percepts: Vec<TimeWrapper<Vec<BallPercept>>>,
-    filter_state: BallFilter,
     best_hypothesis: Option<BallHypothesis>,
     filtered_ball: Option<BallPosition<Ground>>,
-    filtered_balls_in_image: Vec<Circle<Pixel>>,
     hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
     schedule: UpdateSchedule,
     field_prior_pose: Option<Isometry2<Ground, Field>>,
@@ -163,7 +161,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         };
 
-        let output = block_in_place(|| -> Result<BallFilterOutput> {
+        let (output, projection_camera, projection_time) = block_in_place(|| -> Result<_> {
             let output_time = future_map_item
                 .persistent
                 .last_key_value()
@@ -233,7 +231,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             });
             let ball_filter = &tracker.filter;
 
-            let filter_state = ball_filter.clone();
             let best_hypothesis = output_time
                 .and_then(|time| {
                     ball_filter.best_hypothesis_for_output(
@@ -244,39 +241,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     )
                 })
                 .cloned();
-            let output_balls: Vec<_> = ball_filter
-                .hypotheses
-                .iter()
-                .filter_map(|hypothesis| {
-                    if field_prior::effective_validity(
-                        hypothesis,
-                        field_prior_pose,
-                        &field_dimensions,
-                        parameters,
-                    ) >= parameters.validity_output_threshold
-                        && projection_time.is_some_and(|time| {
-                            hypothesis.has_recent_observation(time, parameters.maximum_output_age)
-                        })
-                    {
-                        Some(hypothesis.position())
-                    } else {
-                        None
-                    }
-                })
-                .collect();
 
-            let ball_radius = field_dimensions.ball_radius;
-            let filtered_balls_in_image = if let Some(time) = projection_time
-                && let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time)
-                && camera_is_recent(
-                    time,
-                    timed_camera_matrix.time,
-                    parameters.maximum_camera_matrix_age,
-                ) {
-                project_to_image(&output_balls, &timed_camera_matrix.inner, ball_radius)
-            } else {
-                vec![]
-            };
+            let projection_camera = projection_time.and_then(|time| {
+                camera_matrix_cache.get_nearest(time).filter(|camera| {
+                    camera_is_recent(time, camera.time, parameters.maximum_camera_matrix_age)
+                })
+            });
             let hypothetical_ball_positions = hypothetical_ball_positions(
                 projection_time.unwrap_or_else(Time::zero),
                 ball_filter,
@@ -285,18 +255,20 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 field_prior_pose,
             );
 
-            Ok(BallFilterOutput {
-                time: output_time,
-                ball_percepts,
-                filter_state,
-                best_hypothesis,
-                filtered_ball,
-                filtered_balls_in_image,
-                hypothetical_ball_positions,
-                schedule,
-                field_prior_pose,
-                obstacle_inputs,
-            })
+            Ok((
+                BallFilterOutput {
+                    time: output_time,
+                    ball_percepts,
+                    best_hypothesis,
+                    filtered_ball,
+                    hypothetical_ball_positions,
+                    schedule,
+                    field_prior_pose,
+                    obstacle_inputs,
+                },
+                projection_camera,
+                projection_time,
+            ))
         })?;
 
         for obstacles in &output.obstacle_inputs {
@@ -310,18 +282,45 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 .await?;
         }
         best_ball_hypothesis_pub
-            .publish(&output.best_hypothesis)
+            .publish_if_subscribed(|| async { &output.best_hypothesis })
             .await?;
         filtered_balls_in_image_pub
-            .publish(&output.filtered_balls_in_image)
+            .publish_if_subscribed(|| async {
+                block_in_place(|| {
+                    let Some(camera) = projection_camera else {
+                        return vec![];
+                    };
+                    let output_balls: Vec<_> = tracker
+                        .filter
+                        .hypotheses
+                        .iter()
+                        .filter(|hypothesis| {
+                            field_prior::effective_validity(
+                                hypothesis,
+                                output.field_prior_pose,
+                                &field_dimensions,
+                                parameters,
+                            ) >= parameters.validity_output_threshold
+                                && projection_time.is_some_and(|time| {
+                                    hypothesis
+                                        .has_recent_observation(time, parameters.maximum_output_age)
+                                })
+                        })
+                        .map(|hypothesis| hypothesis.position())
+                        .collect();
+                    project_to_image(&output_balls, &camera.inner, field_dimensions.ball_radius)
+                })
+            })
             .await?;
 
         // Preserve the state timestamp: publication happens after the fusion safety lag.
         // Consumers comparing estimates with sensor truth must not use delivery time.
         if let Some(time) = output.time {
-            filter_state_pub
-                .publish_with_source_time(&output.filter_state, time)
-                .await?;
+            if filter_state_pub.has_subscribers() {
+                filter_state_pub
+                    .publish_with_source_time(&tracker.filter, time)
+                    .await?;
+            }
             last_field_prior_pose = output.field_prior_pose;
             field_prior_pose_pub
                 .publish_with_source_time(

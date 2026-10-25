@@ -448,7 +448,11 @@ where
 
     /// Return whether at least one subscriber is currently matched.
     pub fn has_subscribers(&self) -> bool {
-        self.subscriber_count() > 0
+        self.graph
+            .lock()
+            .subscriptions_on(&self.entity.topic)
+            .next()
+            .is_some()
     }
 
     /// Wait until at least `count` subscribers are matched on this publisher's topic,
