@@ -110,16 +110,8 @@ fn compose_rule_obstacles(
                 game_state: FilteredGameState::Playing { .. },
                 ..
             },
-            possible_ball,
+            _,
         ) => {
-            if let Some(ball) = possible_ball {
-                let goal_kick_obstacle = RuleObstacle::Circle(Circle::new(
-                    ball.ball_in_field,
-                    field_dimensions.center_circle_diameter / 2.0,
-                ));
-                rule_obstacles.push(goal_kick_obstacle);
-            }
-
             let penalty_area_obstacle = RuleObstacle::Rectangle(Rectangle {
                 min: FieldDimensions::penalty_box_corner(field_dimensions, Opponent, Right),
                 max: FieldDimensions::penalty_box_goal_line_intersection(
