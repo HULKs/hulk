@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::future::ready;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
@@ -63,14 +64,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let stereo_image_pair = tokio::select! {
             left_image = left_frame_receiver.recv() => {
                 let frame_identifier = left_image.header.frame_identifier;
-                let image: Image = left_image.clone().into();
+                let image: Image = left_image.into();
                 left_image_pub.publish(&image).await?;
                 stereo_image_pairer.insert(CameraSide::Left, frame_identifier, image)
             }
             right_image = right_frame_receiver.recv() => {
                 let frame_identifier = right_image.header.frame_identifier;
-                let image: Image = right_image.clone().into();
-                right_image_pub.publish(&image).await?;
+                let image: Image = right_image.into();
+                right_image_pub.publish_if_subscribed(|| ready(&image)).await?;
                 stereo_image_pairer.insert(CameraSide::Right, frame_identifier, image)
             }
             _ = camera_info_timer.tick() => {

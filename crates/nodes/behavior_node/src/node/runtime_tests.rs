@@ -31,12 +31,12 @@ async fn real_search_and_behavior_nodes_start_and_share_live_cell_geometry() -> 
     };
     let field_pub = fixture
         .publisher::<FieldDimensions>("field_dimensions")
-        .qos(retained.clone())
+        .qos(retained)
         .build()
         .await?;
     let player_pub = fixture
         .publisher::<PlayerNumber>("player_number")
-        .qos(retained.clone())
+        .qos(retained)
         .build()
         .await?;
     let sizes = fixture
