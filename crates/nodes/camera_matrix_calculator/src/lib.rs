@@ -132,8 +132,9 @@ fn compute_cameras(
             ground.inverse(),
             robot_kinematics.head.head_to_robot.inverse(),
             kinematics::forward::head_to_camera(parameters.camera_to_head_pitch.to_radians()),
+            correction_in_robot,
+            correction_in_camera,
         )
-        .to_corrected(correction_in_robot, correction_in_camera)
     });
     (geometry, matrix)
 }
@@ -209,6 +210,15 @@ mod tests {
         assert_isometry_near(camera_matrix.robot_to_head, expected.robot_to_head);
         assert_isometry_near(camera_matrix.head_to_camera, expected.head_to_camera);
         assert_isometry_near(camera_matrix.ground_to_camera, expected.ground_to_camera);
+        assert_eq!(
+            camera_matrix.correction_in_robot,
+            expected.correction_in_robot
+        );
+        assert_eq!(camera_matrix.intrinsics, expected.intrinsics);
+        assert_eq!(camera_matrix.field_of_view, expected.field_of_view);
+        assert_eq!(camera_matrix.horizon, expected.horizon);
+        assert_eq!(camera_matrix.ground_to_pixel, expected.ground_to_pixel);
+        assert_eq!(camera_matrix.pixel_to_ground, expected.pixel_to_ground);
     }
 
     fn camera_info() -> CameraInfo {
