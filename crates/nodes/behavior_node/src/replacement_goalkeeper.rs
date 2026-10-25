@@ -154,7 +154,7 @@ pub(crate) fn is_closest_available_field_player_to_own_goal(
             continue;
         };
 
-        let other_distance_squared = (player_state.pose.position() - own_goal).norm_squared();
+        let other_distance_squared = (player_state.inner.pose.position() - own_goal).norm_squared();
 
         if other_distance_squared < own_distance_squared
             || (other_distance_squared == own_distance_squared && number < own_number)
@@ -222,7 +222,7 @@ pub(crate) fn find_lowest_numbered_available_other_claiming_player(
 
             let has_claim = player_state
                 .as_ref()
-                .is_some_and(|state| state.replacement_goalkeeper_claim);
+                .is_some_and(|state| state.inner.replacement_goalkeeper_claim);
 
             has_claim.then_some(number)
         })
