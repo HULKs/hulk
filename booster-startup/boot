@@ -1,0 +1,537 @@
+#!/bin/bash
+
+export LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=/opt/booster/lib:${LD_LIBRARY_PATH}
+
+DEFAULT_CAMERA="RealsenseD455"
+ORBBEC_GEMINI_335L_CAMERA="OrbbecGemini335L"
+ZED2I_CAMERA="Zed2i"
+BOOSTER_MIPI_CAMERA="BoosterMipi"
+
+containerd_pid=""
+shutdown_requested="false"
+private_port=""
+management_http_port=""
+gateway_port=""
+gateway_relay_port=""
+containerd_env="/opt/booster/env/containerd.env"
+robot_info_file="/opt/booster/robot_info.txt"
+activate_env="/opt/booster/env/activate"
+config_wait_seconds=30
+
+if [[ ! -r "${containerd_env}" ]]; then
+    echo "Missing mandatory containerd environment: ${containerd_env}" >&2
+    exit 1
+fi
+
+if ! source "${containerd_env}"; then
+    echo "Failed to load mandatory containerd environment: ${containerd_env}" >&2
+    exit 1
+fi
+
+private_port="${BOOSTER_CONTAINERD_PRIVATE_PORT:-}"
+management_http_port="${BOOSTER_CONTAINERD_MANAGEMENT_HTTP_PORT:-}"
+gateway_port="${BOOSTER_CONTAINERD_GATEWAY_PORT:-}"
+gateway_relay_port="${BOOSTER_CONTAINERD_GATEWAY_RELAY_PORT:-}"
+
+usage() {
+    cat <<EOF
+Usage: $0
+EOF
+}
+
+require_port() {
+    local name="$1"
+    local value="$2"
+
+    if [[ ! "${value}" =~ ^[0-9]+$ ]] || (( value < 1 || value > 65535 )); then
+        echo "Invalid ${name}: ${value}" >&2
+        usage >&2
+        exit 1
+    fi
+}
+
+require_distinct_ports() {
+    local names=("$@")
+    local i
+    local j
+    local left_name
+    local right_name
+    local left_value
+    local right_value
+
+    for ((i = 0; i < ${#names[@]}; i++)); do
+        left_name="${names[i]}"
+        left_value="${!left_name}"
+        for ((j = i + 1; j < ${#names[@]}; j++)); do
+            right_name="${names[j]}"
+            right_value="${!right_name}"
+            if [[ "${left_value}" == "${right_value}" ]]; then
+                echo "Conflicting port configuration: ${left_name} and ${right_name} both use ${left_value}" >&2
+                exit 1
+            fi
+        done
+    done
+}
+
+if [[ $# -gt 0 ]]; then
+    echo "containerd boot no longer accepts CLI port arguments" >&2
+    usage >&2
+    exit 1
+fi
+
+if [[ -z "${private_port}" || -z "${management_http_port}" || -z "${gateway_port}" || -z "${gateway_relay_port}" ]]; then
+    echo "Missing mandatory port configuration in ${containerd_env}" >&2
+    usage >&2
+    exit 1
+fi
+
+require_port "BOOSTER_CONTAINERD_PRIVATE_PORT" "${private_port}"
+require_port "BOOSTER_CONTAINERD_MANAGEMENT_HTTP_PORT" "${management_http_port}"
+require_port "BOOSTER_CONTAINERD_GATEWAY_PORT" "${gateway_port}"
+require_port "BOOSTER_CONTAINERD_GATEWAY_RELAY_PORT" "${gateway_relay_port}"
+require_distinct_ports \
+    BOOSTER_CONTAINERD_PRIVATE_PORT \
+    BOOSTER_CONTAINERD_MANAGEMENT_HTTP_PORT \
+    BOOSTER_CONTAINERD_GATEWAY_PORT \
+    BOOSTER_CONTAINERD_GATEWAY_RELAY_PORT
+
+detect_ros_suffix() {
+    local system_name=""
+
+    system_name="$(hostnamectl --json=pretty 2>/dev/null | jq -r .OperatingSystemPrettyName 2>/dev/null || true)"
+    case "${system_name}" in
+        *"24.04"*)
+            echo "kilted"
+            return 0
+            ;;
+        *"22.04"*)
+            echo "humble"
+            return 0
+            ;;
+    esac
+
+    if [[ -e /opt/ros/kilted/setup.bash ]]; then
+        echo "kilted"
+    else
+        echo "humble"
+    fi
+}
+
+load_camera_type() {
+    local perception_info_file="/opt/booster/perception_info.yaml"
+    local camera=""
+
+    if [[ -f "${perception_info_file}" ]]; then
+        camera="$(
+            sed -n 's/^[[:space:]]*Camera:[[:space:]]*//p' "${perception_info_file}" | \
+            sed 's/[[:space:]]*#.*$//' | \
+            sed 's/^["'\'']//; s/["'\'']$//' | \
+            head -n 1
+        )"
+    fi
+
+    if [[ -z "${camera}" ]]; then
+        camera="${DEFAULT_CAMERA}"
+    fi
+
+    echo "${camera}"
+}
+
+prepare_camera_env() {
+    local ros_suffix="$1"
+    local camera_type="$2"
+    local tros_setup="/opt/tros/${ros_suffix}/setup.bash"
+
+    case "${camera_type}" in
+        "${ORBBEC_GEMINI_335L_CAMERA}")
+            if [[ ! -e /home/booster/ThirdParty/OrbbecSDK_ROS2/install/setup.bash ]]; then
+                return 1
+            fi
+            source /home/booster/ThirdParty/OrbbecSDK_ROS2/install/setup.bash
+            ;;
+        "${ZED2I_CAMERA}")
+            if [[ ! -e /home/booster/ThirdParty/zed-ros/install/setup.bash ]]; then
+                return 1
+            fi
+            source /home/booster/ThirdParty/zed-ros/install/setup.bash
+            ;;
+        "${BOOSTER_MIPI_CAMERA}")
+            export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+            export RMW_FASTRTPS_USE_QOS_FROM_XML=0
+            if [[ ! -e "${tros_setup}" ]]; then
+                tros_setup="/opt/tros/humble/setup.bash"
+            fi
+            if [[ ! -e "${tros_setup}" || ! -e /root/install/setup.bash ]]; then
+                return 1
+            fi
+            source "${tros_setup}"
+            source /root/install/setup.bash
+            echo device > /sys/class/usb_role/35100000.usb-role-switch/role
+            ;;
+        *)
+            if [[ ! -e /home/booster/ThirdParty/realsense-ros/install/setup.bash ]]; then
+                return 1
+            fi
+            export LD_LIBRARY_PATH=/home/booster/ThirdParty/realsense-ros/install/realsense2_camera/lib:${LD_LIBRARY_PATH}
+            export LD_LIBRARY_PATH=/home/booster/Workspace/realsense-ros/install/realsense2_camera_msgs/lib:${LD_LIBRARY_PATH}
+            export LD_LIBRARY_PATH=/opt/ros/${ros_suffix}/opt/rviz_ogre_vendor/lib:${LD_LIBRARY_PATH}
+            export LD_LIBRARY_PATH=/opt/ros/${ros_suffix}/lib/aarch64-linux-gnu:${LD_LIBRARY_PATH}
+            export LD_LIBRARY_PATH=/opt/ros/${ros_suffix}/lib:${LD_LIBRARY_PATH}
+            source /home/booster/ThirdParty/realsense-ros/install/setup.bash
+            ;;
+    esac
+
+    return 0
+}
+
+prepare_camera_boot() {
+    local ros_suffix="$1"
+    local camera_type=""
+
+    camera_type="$(load_camera_type)"
+    if ! prepare_camera_env "${ros_suffix}" "${camera_type}"; then
+        return 0
+    fi
+
+    /bin/sleep 2
+    modprobe -rv xhci_pci
+    sleep 1
+    modprobe -v xhci_pci
+    sleep 1
+}
+
+robot_info_has() {
+    local key="$1"
+    local value="$2"
+
+    [[ -f "${robot_info_file}" ]] && grep -q "${key}.*${value}" "${robot_info_file}"
+}
+
+wait_for_config_service() {
+    local deadline=$((SECONDS + config_wait_seconds))
+
+    until bdb config status >/dev/null 2>&1; do
+        if (( SECONDS >= deadline )); then
+            echo "Config service is not ready after ${config_wait_seconds}s" >&2
+            return 1
+        fi
+        sleep 1
+    done
+}
+
+reload_config_template() {
+    if ! bdb config reload-template; then
+        echo "Config template reload staged an invalid draft; continuing with platform setup" >&2
+    fi
+    return 0
+}
+
+set_container_config() {
+    local spec="$1"
+    local name=""
+    local enable_assignment=""
+    local enable_property=""
+    local enable_value=""
+    local assignments_text=""
+    local property=""
+    local value=""
+    local assignment=""
+    local assignments=()
+    local endpoint_value=""
+    local dynamic_assignments=()
+
+    IFS=: read -r name enable_assignment assignments_text <<< "${spec}"
+
+    enable_property="${enable_assignment%%=*}"
+    enable_value="${enable_assignment#*=}"
+    if [[ -z "${name}" || "${enable_property}" != "enable" || "${enable_assignment}" != *"="* ]]; then
+        echo "Invalid container config spec for ${name}: ${enable_assignment}" >&2
+        return 1
+    fi
+
+    bdb config set container "${name}" enable "${enable_value}"
+    if [[ "${enable_value}" != "true" ]]; then
+        return 0
+    fi
+
+    IFS=, read -ra assignments <<< "${assignments_text}"
+    for assignment in "${assignments[@]}"; do
+        property="${assignment%%=*}"
+        value="${assignment#*=}"
+        if [[ -z "${property}" || "${assignment}" != *"="* ]]; then
+            echo "Invalid container config spec for ${name}: ${assignment}" >&2
+            return 1
+        fi
+        if [[ "${property}" == "endpoint" ]]; then
+            endpoint_value="${value}"
+        else
+            dynamic_assignments+=("${assignment}")
+        fi
+    done
+
+    if [[ -z "${endpoint_value}" ]]; then
+        echo "Missing endpoint for enabled container ${name}" >&2
+        return 1
+    fi
+
+    bdb config set container "${name}" endpoint "${endpoint_value}"
+    for assignment in "${dynamic_assignments[@]}"; do
+        property="${assignment%%=*}"
+        value="${assignment#*=}"
+        bdb config set container "${name}" "${property}" "${value}"
+    done
+}
+
+set_container_configs() {
+    local spec=""
+
+    for spec in "$@"; do
+        set_container_config "${spec}"
+    done
+}
+
+apply_platform_config() {
+    local camera_type=""
+
+    bdb config set container perception x5_camera_head_args none
+    bdb config set container perception x5_camera_waist_args none
+    bdb config set container perception x5_camera_head_cpus none
+    bdb config set container perception x5_camera_waist_cpus none
+    bdb config set service ros.hand_ros2_bridge_left enable false
+    bdb config set service ros.hand_ros2_bridge_right enable false
+
+    if robot_info_has Model "Booster T1 7DOF"; then
+        set_container_configs \
+            motion:enable=true:endpoint=dual_board_motion,dds_config=dual-board_configs,robot_model=T1 \
+            perception:enable=true:endpoint=dual_board_perception,dds_config=dual-board_configs,robot_model=T1,urdf_name=T1_29dof.urdf,x5_camera_engine=none \
+            camera:enable=true:endpoint=dual_board_perception,dds_config=dual-board_configs,robot_model=T1 \
+            agent:enable=true:endpoint=dual_board_perception,dds_config=dual-board_configs
+    elif robot_info_has Edition "T1 Standard" ||
+         robot_info_has Edition "T1 Customized-Gripper" ||
+         robot_info_has Edition "T1 Customized-DexHand"; then
+        set_container_configs \
+            motion:enable=true:endpoint=dual_board_motion,dds_config=dual-board_configs,robot_model=T1 \
+            perception:enable=true:endpoint=dual_board_perception,dds_config=dual-board_configs,robot_model=T1,urdf_name=T1_23dof.urdf,x5_camera_engine=none \
+            camera:enable=true:endpoint=dual_board_perception,dds_config=dual-board_configs,robot_model=T1 \
+            agent:enable=true:endpoint=dual_board_perception,dds_config=dual-board_configs
+    elif robot_info_has Edition "T1 Basic"; then
+        set_container_configs \
+            motion:enable=true:endpoint=loopback,dds_config=single-board_configs,robot_model=T1 \
+            perception:enable=true:endpoint=loopback,dds_config=single-board_configs,robot_model=T1,urdf_name=T1_23dof.urdf,x5_camera_engine=none \
+            camera:enable=true:endpoint=loopback,dds_config=single-board_configs,robot_model=T1 \
+            agent:enable=true:endpoint=loopback,dds_config=single-board_configs
+    elif robot_info_has Model "Booster K1"; then
+        bdb config set service booster.x5.wrist_camera_receiver enable false
+        if robot_info_has Edition "K1 Geek"; then
+            bdb config set service ros.booster.vision_detection enable false
+        fi
+
+        camera_type="$(load_camera_type)"
+        if [[ "${camera_type}" == "${BOOSTER_MIPI_CAMERA}" ]]; then
+            if robot_info_has Edition "K1 Geek"; then
+                bdb config set service ros.booster.x5_camera.head enable false
+            else
+                bdb config set service ros.booster.x5_camera.head enable true
+                bdb config set service ros.booster.x5_camera.head cpu_cores '0,1,2,3'
+                bdb config set container perception x5_camera_head_args -- '--extract-left --compute-depth --depth-mode async --depth-interval 1 --rgb-interval 1 --engine stereo_k1_v1.0.0.trt'
+            fi
+            set_container_configs \
+                motion:enable=true:endpoint=x5_single_board,dds_config=single-board_configs,robot_model=K1 \
+                perception:enable=true:endpoint=x5_single_board,dds_config=single-board_configs,robot_model=K1,urdf_name=K1_22dof.urdf,x5_camera_engine=stereo_k1_v1.0.0.trt \
+                camera:enable=false \
+                agent:enable=true:endpoint=x5_single_board,dds_config=single-board_configs
+        else
+            set_container_configs \
+                motion:enable=true:endpoint=loopback,dds_config=single-board_configs,robot_model=K1 \
+                perception:enable=true:endpoint=loopback,dds_config=single-board_configs,robot_model=K1,urdf_name=K1_22dof.urdf,x5_camera_engine=none \
+                camera:enable=true:endpoint=loopback,dds_config=single-board_configs,robot_model=K1 \
+                agent:enable=true:endpoint=loopback,dds_config=single-board_configs
+        fi
+    elif robot_info_has Model "Booster T2 Hand"; then
+        bdb config set service booster.host.x5_net_config enable true
+        bdb config set service booster.x5.wrist_camera_receiver enable true
+        bdb config set service ros.hand_ros2_bridge_left enable true
+        bdb config set service ros.hand_ros2_bridge_right enable true
+        bdb config set service ros.booster.x5_camera.head enable true
+        bdb config set service ros.booster.x5_camera.head cpu_cores '8,9,10'
+        bdb config set container perception x5_camera_head_args -- '--extract-left --compute-depth --depth-mode async --depth-interval 1 --rgb-interval 1 --engine stereo_t2_v1.0.0.trt'
+        bdb config set service ros.booster.x5_camera.waist enable true
+        bdb config set service ros.booster.x5_camera.waist cpu_cores '11,12,13'
+        bdb config set container perception x5_camera_waist_args -- '--extract-left --compute-depth --depth-mode async --depth-interval 1 --rgb-interval 1 --engine stereo_t2_v1.0.0.trt'
+        bdb config set service ros.booster.vision_detection enable false
+        set_container_configs \
+            motion:enable=true:endpoint=loopback,dds_config=single-board_configs,robot_model=T2_Hand \
+            perception:enable=true:endpoint=loopback,dds_config=single-board_configs,robot_model=T2,urdf_name=T2_31dof.urdf,x5_camera_engine=stereo_t2_v1.0.0.trt \
+            camera:enable=false \
+            agent:enable=true:endpoint=loopback,dds_config=single-board_configs
+    elif robot_info_has Model "Booster T2"; then
+        bdb config set service booster.host.x5_net_config enable true
+        bdb config set service booster.x5.wrist_camera_receiver enable false
+        bdb config set service ros.hand_ros2_bridge_left enable false
+        bdb config set service ros.hand_ros2_bridge_right enable false
+        bdb config set service ros.booster.x5_camera.head enable true
+        bdb config set service ros.booster.x5_camera.head cpu_cores '8,9,10'
+        bdb config set container perception x5_camera_head_args -- '--extract-left --compute-depth --depth-mode async --depth-interval 1 --rgb-interval 1 --engine stereo_t2_v1.0.0.trt'
+        bdb config set service ros.booster.x5_camera.waist enable true
+        bdb config set service ros.booster.x5_camera.waist cpu_cores '11,12,13'
+        bdb config set container perception x5_camera_waist_args -- '--extract-left --compute-depth --depth-mode async --depth-interval 1 --rgb-interval 1 --engine stereo_t2_v1.0.0.trt'
+        bdb config set service ros.booster.vision_detection enable false
+        set_container_configs \
+            motion:enable=true:endpoint=loopback,dds_config=single-board_configs,robot_model=T2 \
+            perception:enable=true:endpoint=loopback,dds_config=single-board_configs,robot_model=T2,urdf_name=T2_31dof.urdf,x5_camera_engine=stereo_t2_v1.0.0.trt \
+            camera:enable=false \
+            agent:enable=true:endpoint=loopback,dds_config=single-board_configs
+    else
+        echo "Unsupport platform"
+        return 1
+    fi
+
+    bdb config validate
+    bdb config apply
+}
+
+apply_master_config_if_needed() {
+    if [[ "${endpoint_name}" != "${master_endpoint}" ]]; then
+        echo "Skip master config setup on slave endpoint ${endpoint_name}"
+        return 0
+    fi
+    if [[ ! -r "${activate_env}" ]]; then
+        echo "Skip config setup: ${activate_env} is not readable" >&2
+        return 0
+    fi
+
+    source "${activate_env}"
+    wait_for_config_service || return 1
+    rm -f /etc/booster/config/containerd/config.yaml
+    reload_config_template
+    apply_platform_config
+}
+
+forward_signal() {
+    local signal_name="$1"
+    shutdown_requested="true"
+    if [[ -z "${containerd_pid}" ]]; then
+        return
+    fi
+    if ! kill -0 "${containerd_pid}" 2>/dev/null; then
+        return
+    fi
+
+    kill -"${signal_name}" -- -"${containerd_pid}" 2>/dev/null || \
+        kill -"${signal_name}" "${containerd_pid}" 2>/dev/null || true
+}
+
+wait_for_containerd() {
+    local exit_code=0
+    while true; do
+        wait "${containerd_pid}"
+        exit_code=$?
+        if [[ "${shutdown_requested}" != "true" ]]; then
+            return "${exit_code}"
+        fi
+        if ! kill -0 "${containerd_pid}" 2>/dev/null; then
+            return "${exit_code}"
+        fi
+    done
+}
+
+trap 'forward_signal INT' INT
+trap 'forward_signal TERM' TERM
+
+ros_suffix="$(detect_ros_suffix)"
+
+[[ -e /opt/ros/${ros_suffix}/setup.bash ]] && source /opt/ros/${ros_suffix}/setup.bash
+[[ -e /opt/booster/ros2/setup.bash ]] && source /opt/booster/ros2/setup.bash
+[[ -e /opt/booster/BoosterRos2Interface/install/setup.bash ]] && source /opt/booster/BoosterRos2Interface/install/setup.bash
+
+log_dir="/var/log/booster/$(date +%Y%m%d_%H%M%S)"
+[[ ! -d ${log_dir} ]] && mkdir -p ${log_dir}
+echo "Log directory for booster containers: ${log_dir}"
+
+debug_mode_flag=""
+system_settings_config="/opt/booster/configs/system_settings_config.yaml"
+if [[ -f "${system_settings_config}" ]]; then
+    debug_mode_value="$(sed -n 's/^[[:space:]]*enable_debug_mode:[[:space:]]*//p' "${system_settings_config}" | head -n1 | sed "s/[\"'[:space:]]//g" | tr '[:upper:]' '[:lower:]')"
+    if [[ "${debug_mode_value}" == "true" ]]; then
+        debug_mode_flag="--debug-mode"
+    fi
+fi
+
+endpoint_name=""
+master_endpoint=""
+if ! cat "${robot_info_file}"; then
+    # perception board of dual-board T1
+    endpoint_name="dual_board_perception"
+    master_endpoint="dual_board_motion"
+elif robot_info_has Model "Booster T1 7DOF"; then
+    # dual-board T1 7DOF
+    endpoint_name="dual_board_motion"
+    master_endpoint="dual_board_motion"
+elif robot_info_has Edition "T1 Standard" ||
+     robot_info_has Edition "T1 Customized-Gripper" ||
+     robot_info_has Edition "T1 Customized-DexHand"; then
+    # motion board of dual-board T1
+    endpoint_name="dual_board_motion"
+    master_endpoint="dual_board_motion"
+elif robot_info_has Edition "T1 Basic"; then
+    # single-board T1
+    endpoint_name="loopback"
+    master_endpoint="loopback"
+elif robot_info_has Model "Booster K1"; then
+    # K1
+    camera_type="$(load_camera_type)"
+    if [[ "${camera_type}" == "${BOOSTER_MIPI_CAMERA}" ]]; then
+        # X5
+        endpoint_name="x5_single_board"
+        master_endpoint="x5_single_board"
+    else
+        # non-X5
+        endpoint_name="loopback"
+        master_endpoint="loopback"
+    fi
+elif robot_info_has Model "Booster T2 Hand"; then
+    # T2 Hand
+    endpoint_name="loopback"
+    master_endpoint="loopback"
+elif robot_info_has Model "Booster T2"; then
+    # T2
+    endpoint_name="loopback"
+    master_endpoint="loopback"
+else
+    echo "Unsupport platform"
+    exit 1
+fi
+
+prepare_camera_boot "${ros_suffix}"
+
+# HULKs: check before containerd can create a default runtime config.
+hulks_initialize_config=false
+if [[ ! -s /etc/booster/config/containerd/config.yaml ]]; then
+    hulks_initialize_config=true
+fi
+
+/opt/booster/bin/containerd \
+--endpoint-name ${endpoint_name} \
+--master-endpoint ${master_endpoint} \
+--log-level info \
+--container-log-dir ${log_dir} \
+--rpc-timeout 100000 \
+--management-http-port "${management_http_port}" \
+--private-port "${private_port}" \
+--gateway-port "${gateway_port}" \
+--doctor-dedup-similarity-threshold 0.97 \
+--enable-system-snapshot-builder true \
+--auto-boot-all \
+${debug_mode_flag} \
+>${log_dir}/containerd.log 2>&1 &
+containerd_pid=$!
+
+if [[ "${hulks_initialize_config}" == true ]] && ! apply_master_config_if_needed; then
+    echo "Config setup failed; containerd is still running" >&2
+fi
+
+wait_for_containerd
+exit_code=$?
+trap - INT TERM
+exit "${exit_code}"

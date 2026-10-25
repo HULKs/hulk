@@ -1,0 +1,557 @@
+# Booster containerd dynamic configuration, schema version 1.
+#
+# This file replaces the previous per-platform containers.ini/nodes.ini files
+# with a platform-decoupled service model and dynamic container placement.
+
+version: 1
+
+# Endpoint choices. Containers select one of these names with their endpoint field.
+endpoints:
+  - name: loopback
+    host: 127.0.0.1
+
+  - name: dual_board_motion
+    host: 192.168.10.101
+
+  - name: dual_board_perception
+    host: 192.168.10.102
+
+  - name: x5_single_board
+    host: 192.168.127.101
+
+  - name: x5_camera
+    host: 192.168.127.10
+
+# Containers are placement groups. They are disabled until explicitly enabled
+# and assigned dynamically by a UI/API/runtime config revision.
+containers:
+  - name: motion
+    enable: false
+    endpoint: null
+    properties_list:
+      - dds_config
+      - robot_model
+    properties:
+        dds_config: null
+        robot_model: null
+
+  - name: perception
+    enable: false
+    endpoint: null
+    properties_list:
+      - dds_config
+      - robot_model
+      - urdf_name
+      - x5_camera_head_args
+      - x5_camera_waist_args
+    properties:
+        dds_config: null
+        robot_model: null
+        urdf_name: null
+        x5_camera_head_args: null
+        x5_camera_waist_args: null
+
+  - name: camera
+    enable: false
+    endpoint: null
+    properties_list:
+      - dds_config
+      - robot_model
+    properties:
+        dds_config: null
+        robot_model: null
+
+  - name: agent
+    enable: false
+    endpoint: null
+    properties_list:
+      - dds_config
+    properties:
+        dds_config: null
+
+# Dynamic property choices. Runtime/UI config chooses one value for each
+# property and applies it to service templates.
+container_properties:
+  dds_config:
+    - single-board_configs
+    - dual-board_configs
+
+  robot_model:
+    - T1
+    - K1
+    - T2
+    - T2_Hand
+
+  urdf_name:
+    - K1_22dof.urdf
+    - T1_23dof.urdf
+    - T1_29dof.urdf
+    - T2_31dof.urdf
+
+  x5_camera_head_args:
+    - none
+    - '--extract-left --compute-depth --depth-mode async --depth-interval 3 --rgb-interval 2 --engine stereo_k1_v1.0.0.trt'
+    - '--extract-left --compute-depth --depth-mode async --depth-interval 1 --rgb-interval 1 --engine stereo_k1_v1.0.0.trt'
+    - '--extract-left --compute-depth --depth-mode async --depth-interval 3 --rgb-interval 2 --engine stereo_t2_v1.0.0.trt'
+    - '--extract-left --compute-depth --depth-mode async --depth-interval 1 --rgb-interval 1 --engine stereo_t2_v1.0.0.trt'
+    - '--extract-left --compute-depth --depth-mode async --depth-interval 2 --rgb-interval 2 --engine stereo_t2_v1.0.0.trt'
+    - '--extract-left  --rgb-interval 1 --engine stereo_t2_v1.0.0.trt'
+
+  x5_camera_waist_args:
+    - none
+    - '--extract-left --compute-depth --depth-mode async --depth-interval 3 --rgb-interval 2 --engine stereo_k1_v1.0.0.trt'
+    - '--extract-left --compute-depth --depth-mode async --depth-interval 1 --rgb-interval 1 --engine stereo_k1_v1.0.0.trt'
+    - '--extract-left --compute-depth --depth-mode async --depth-interval 3 --rgb-interval 2 --engine stereo_t2_v1.0.0.trt'
+    - '--extract-left --compute-depth --depth-mode async --depth-interval 1 --rgb-interval 1 --engine stereo_t2_v1.0.0.trt'
+    - '--extract-left --compute-depth --depth-mode async --depth-interval 2 --rgb-interval 2 --engine stereo_t2_v1.0.0.trt'
+
+services:
+  - name: ros.robot_state_publisher
+    enable: true
+    container: motion
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: 'ros2 launch /opt/booster/bin/script/launch/robot_state_publisher.launch.py'
+    envs:
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile_udp_only.xml
+    cwd: /opt/booster/BoosterRos2
+    user: root
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps: []
+
+  - name: ros.booster.rpc_bridge.motion
+    enable: true
+    container: motion
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: 'ros2 launch booster_rpc_bridge rpc_bridge_launch_motion.py'
+    envs:
+      LD_LIBRARY_PATH: /opt/booster/ros2/booster_interface/lib
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile_udp_only.xml
+    cwd: /opt/booster/BoosterRos2
+    user: root
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps:
+      - motion
+
+  - name: ros.hand_ros2_bridge_left
+    enable: true
+    container: motion
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: 'bash -c "/opt/booster/booster-x5-host-tools/ros-bridge-client/run.sh"'
+    envs:
+      X5_ROS_DISTRO: humble
+      ROS_DOMAIN_ID: 0
+      ROS_LOCALHOST_ONLY: 0
+      CYCLONEDDS_URI: <CycloneDDS><Domain><General><Interfaces><NetworkInterface address="192.168.125.101"/></Interfaces></General></Domain></CycloneDDS>
+      ZENOH_CONNECT_ENDPOINT: tcp/192.168.125.10:7447
+      ZENOH_BRIDGE_CONFIG: /opt/booster/booster-x5-host-tools/ros-bridge-client/zenoh-left.json5
+      X5_SSH_HOST: 192.168.125.10
+      X5_TIME_SYNC_ENABLED: 1
+      X5_TIME_SYNC_THRESHOLD_MS: 500
+      X5_TIME_SYNC_INTERVAL_SEC: 1
+      RUST_LOG: info
+    cwd: /
+    user: booster
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps: []
+
+  - name: ros.hand_ros2_bridge_right
+    enable: true
+    container: motion
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: 'bash -c "/opt/booster/booster-x5-host-tools/ros-bridge-client/run.sh"'
+    envs:
+      X5_ROS_DISTRO: humble
+      ROS_DOMAIN_ID: 0
+      ROS_LOCALHOST_ONLY: 0
+      CYCLONEDDS_URI: <CycloneDDS><Domain><General><Interfaces><NetworkInterface address="192.168.126.101"/></Interfaces></General></Domain></CycloneDDS>
+      ZENOH_CONNECT_ENDPOINT: tcp/192.168.126.10:7447
+      ZENOH_BRIDGE_CONFIG: /opt/booster/booster-x5-host-tools/ros-bridge-client/zenoh-right.json5
+      X5_SSH_HOST: 192.168.126.10
+      X5_TIME_SYNC_ENABLED: 1
+      X5_TIME_SYNC_THRESHOLD_MS: 500
+      X5_TIME_SYNC_INTERVAL_SEC: 1
+      RUST_LOG: info
+    cwd: /
+    user: booster
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps: []
+
+  - name: ros.booster.rpc_bridge.perception
+    enable: true
+    container: perception
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: 'ros2 launch booster_rpc_bridge rpc_bridge_launch_perception.py'
+    envs:
+      LD_LIBRARY_PATH: /opt/booster/ros2/booster_interface/lib
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile_udp_only.xml
+    cwd: /opt/booster/BoosterRos2
+    user: root
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps:
+      - rtc_client
+      - audio
+      - lui
+
+  - name: ros.booster.video_stream
+    enable: true
+    container: perception
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: 'ros2 launch /opt/booster/bin/script/launch/booster_video_stream.launch.py'
+    envs:
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile.xml
+    cwd: /opt/booster/BoosterRos2
+    user: booster
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps: []
+
+  - name: booster.shell
+    enable: true
+    container: motion
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: '/opt/booster/bin/script/booster_shell_boot --log-dir /var/log/booster/booster_shell'
+    envs: {}
+    cwd: /opt/booster/BoosterShell
+    user: root
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps: []
+
+  - name: rtc_client
+    enable: true
+    container: perception
+    exe: /opt/booster/bin/container/rtc_client
+    args: ""
+    envs:
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile_udp_only.xml
+    cwd: /opt/booster/RTCCli/bin
+    user: booster
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps:
+      - audio
+
+  - name: ros.booster.vision_detection
+    enable: true
+    container: perception
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: 'bash -c "source install/setup.bash && source src/detection/person_face/bin/activate && python3 src/detection/yolo_detection.py --robot_model ${robot_model}"'
+    envs:
+      LD_LIBRARY_PATH: /opt/booster/BoosterFaceDetection/src/detection/person_face/lib/python3.10/site-packages/torch/lib
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile.xml
+    cwd: /opt/booster/BoosterFaceDetection
+    user: booster
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps: []
+
+  - name: ros.booster.auto_handeye_calib
+    enable: true
+    container: perception
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: 'bash -c "source install/setup.bash && install/auto_handeye_calib/lib/auto_handeye_calib/ros_service_node_venv.sh --urdf_name ${urdf_name} --ros-args -p output_root:=/var/log/booster/auto_handeye_calib_runs -p publish_feedback:=true -p feedback_topic:=/handeye_calib/feedback/image -p image_topic:=/boostercamera/head/rgb -p camera_info_topic:=/boostercamera/head/rgb/camera_info -p use_camera_info:=true"'
+    envs:
+      AUTO_HANDEYE_CALIB_VENV: /opt/booster/BoosterAutoHandeyeCalib/install/auto_handeye_calib/share/auto_handeye_calib/handeye_calib
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile_udp_only.xml
+    cwd: /opt/booster/BoosterAutoHandeyeCalib
+    user: root
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps: []
+
+  - name: rs_message
+    enable: true
+    container: motion
+    exe: /opt/booster/bin/container/rs_message
+    args: '-autoPowerOnFlag 1'
+    envs:
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile_udp_only.xml
+    cwd: /
+    user: root
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "5"
+    deps: []
+
+  - name: server.motion
+    enable: true
+    container: motion
+    exe: /opt/booster/bin/container/server_motion
+    args: ""
+    envs:
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile_udp_only.xml
+    cwd: /
+    user: root
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps:
+      - server.perception
+
+  - name: server.perception
+    enable: true
+    container: perception
+    exe: /opt/booster/bin/container/server_perception
+    args: ""
+    envs:
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile_udp_only.xml
+    cwd: /
+    user: root
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps:
+      - audio
+
+  - name: remote_controller
+    enable: true
+    container: motion
+    exe: /opt/booster/bin/container/remote_controller
+    args: ""
+    envs: {}
+    cwd: /
+    user: root
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps: []
+
+  - name: device_gateway
+    enable: true
+    container: motion
+    exe: /opt/booster/bin/container/device_gateway
+    args: ""
+    envs:
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile_udp_only.xml
+    cwd: /opt/booster/DeviceGateway/bin
+    user: root
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "5"
+    deps:
+      - rs_message
+      - robot_core
+
+  - name: robot_core
+    enable: true
+    container: motion
+    exe: /opt/booster/bin/container/robot_core
+    args: ""
+    envs: {}
+    cwd: /opt/booster/RobotCore/bin
+    user: root
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "5"
+    deps:
+      - rs_message
+
+  - name: motion
+    enable: true
+    container: motion
+    exe: /opt/booster/bin/container/motion
+    args: ""
+    envs:
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile_udp_only.xml
+      LD_LIBRARY_PATH: /opt/booster/lib/motion
+    cwd: /opt/booster/Gait/bin
+    user: root
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "5"
+    deps:
+      - rs_message
+      - robot_core
+      - device_gateway
+
+  - name: rerun_logger
+    enable: true
+    container: motion
+    exe: /opt/booster/bin/container/rerun_logger
+    args: ""
+    envs: {}
+    cwd: /
+    user: root
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps: []
+
+  - name: ros.camera
+    enable: true
+    container: camera
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: 'ros2 launch /opt/booster/bin/script/launch/booster_camera.launch.py'
+    envs:
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile.xml
+    cwd: /home/booster
+    user: booster
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps: []
+
+  - name: lui
+    enable: true
+    container: perception
+    exe: /opt/booster/bin/container/lui
+    args: ""
+    envs:
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile.xml
+    cwd: /home/booster
+    user: booster
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps:
+      - audio
+
+  - name: audio
+    enable: true
+    container: perception
+    exe: /opt/booster/bin/container/audio
+    args: ""
+    envs:
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile_udp_only.xml
+    cwd: /opt/booster/BoosterAudio/bin
+    user: booster
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps: []
+
+  - name: battery_daemon
+    enable: true
+    container: perception
+    exe: /opt/booster/bin/container/battery_daemon
+    args: ""
+    envs:
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile_udp_only.xml
+    cwd: /home/booster
+    user: root
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps:
+      - audio
+
+  - name: ros.booster.x5_camera.head
+    enable: false
+    container: perception
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: 'bash -c "source setup.bash && ros2 run cam_stream_receiver_ros2 cam_stream_receiver_ros2 --host 192.168.127.10 --namespace head ${x5_camera_head_args}"'
+    envs:
+      LD_LIBRARY_PATH: /opt/booster/ros2/booster_interface/lib
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile_udp_only.xml
+    cwd: /opt/booster/BoosterRos2/install/booster-x5-camera
+    user: booster
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores:
+    deps: []
+
+  - name: ros.booster.x5_camera.waist
+    enable: false
+    container: perception
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: 'bash -c "source setup.bash && ros2 run cam_stream_receiver_ros2 cam_stream_receiver_ros2 --host 192.168.128.10 --namespace waist ${x5_camera_waist_args}"'
+    envs:
+      LD_LIBRARY_PATH: /opt/booster/ros2/booster_interface/lib
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile_udp_only.xml
+    cwd: /opt/booster/BoosterRos2/install/booster-x5-camera
+    user: booster
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores:
+    deps: []
+
+  - name: booster_camera
+    enable: true
+    container: perception
+    exe: /opt/booster/bin/container/booster_camera
+    args: ""
+    envs:
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile.xml
+    cwd: /
+    user: booster
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps: []
+
+  - name: booster.x5_debug_web.console
+    enable: false
+    container: perception
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: /bin/bash /opt/booster/BoosterRos2/install/booster-x5-host-tools/start-bdb-web-console
+    envs:
+      HOME: /home/booster
+      USER: booster
+      LOGNAME: booster
+    cwd: /opt/booster/BoosterRos2/install/booster-x5-host-tools
+    user: booster
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps: []
+
+  - name: booster.host.x5_net_config
+    enable: false
+    container: perception
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: /usr/bin/python3 /opt/booster/BoosterRos2/install/booster-x5-host-tools/web-server/net-config.py --watch --interval 1 --allow-missing
+    envs:
+      HOME: /root
+    cwd: /opt/booster/BoosterRos2/install/booster-x5-host-tools
+    user: root
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps: []
+
+  - name: booster.x5.wrist_camera_receiver
+    enable: false
+    container: perception
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: /bin/bash /opt/booster/BoosterRos2/install/booster-x5-wrist-camera-receiver/start.sh
+    envs:
+      HOME: /home/booster
+      ROS_DOMAIN_ID: "0"
+    cwd: /opt/booster/BoosterRos2/install/booster-x5-wrist-camera-receiver
+    user: booster
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "0,1,2,3"
+    deps: []
+
+  - name: ros.agent_manager
+    enable: true
+    container: agent
+    exe: /opt/booster/bin/container/cli_wrapper
+    args: 'bash -c "source install/setup.bash && source install/local_setup.bash && ros2 launch booster_agent_manager launch.py"'
+    envs:
+      PATH: /opt/ros/humble/bin:${PATH}
+      ROS_DOMAIN_ID: 0
+      FASTRTPS_DEFAULT_PROFILES_FILE: /opt/booster/config/dds_configs/${dds_config}/fastdds_profile.xml
+    cwd: /opt/booster/BoosterAgent
+    user: booster
+    keepalive: true
+    max_boot_retry: 3
+    cpu_cores: "all"
+    deps:
+      - ros.booster.rpc_bridge.motion
