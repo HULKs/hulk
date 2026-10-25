@@ -13,7 +13,7 @@ use crate::{
     git::{
         add_all, check_clean, cherry_pick, conflicted_files, create_and_switch_to_branch,
         create_commit, merge_squash, reset, resolve_revision, select_commits,
-        stage_resolved_conflicts,
+        squash_consecutive_commits, stage_resolved_conflicts,
     },
     player_number::{Arguments as PlayerNumberArguments, player_number},
 };
@@ -162,8 +162,13 @@ async fn apply_group(
         .collect::<Vec<_>>()
         .join("; ");
     for (text, operation) in group {
+        let squashed_commits;
         let commits = match operation {
-            Operation::Merge(commits) | Operation::CherryPick(commits) => commits,
+            Operation::Merge(commits) => commits,
+            Operation::CherryPick(commits) => {
+                squashed_commits = squash_consecutive_commits(root, commits).await?;
+                &squashed_commits
+            }
         };
         for commit in commits {
             let result = match operation {

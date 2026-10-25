@@ -176,6 +176,49 @@ pub async fn select_commits(
     Ok(commits)
 }
 
+pub async fn squash_consecutive_commits(root: &Path, commits: &[String]) -> Result<Vec<String>> {
+    if commits.len() < 2 {
+        return Ok(commits.to_vec());
+    }
+    let ancestry = GitCommand::new(root, "rev-list")
+        .args(["--no-walk=unsorted", "--parents"])
+        .args(commits)
+        .arg("--")
+        .output()
+        .await?;
+    let commits: Vec<_> = ancestry
+        .lines()
+        .map(|line| line.split_once(' ').unwrap_or((line, "")))
+        .collect();
+    let mut squashed = Vec::new();
+    let mut start = 0;
+    while start < commits.len() {
+        let mut end = start;
+        while end + 1 < commits.len() && commits[end + 1].1 == commits[end].0 {
+            end += 1;
+        }
+        if start == end {
+            squashed.push(commits[start].0.to_owned());
+        } else {
+            // Apply the range's net change once, using its original parent as the merge base.
+            // This writes an unreferenced commit without changing the index or source branches.
+            let mut command = GitCommand::new(root, "commit-tree")
+                .arg(format!("{}^{{tree}}", commits[end].0))
+                .arg("-m")
+                .arg(format!(
+                    "gamebranch cherry-pick {}..{}",
+                    commits[start].0, commits[end].0
+                ));
+            if !commits[start].1.is_empty() {
+                command = command.args(["-p", commits[start].1]);
+            }
+            squashed.push(command.output().await?.trim().to_owned());
+        }
+        start = end + 1;
+    }
+    Ok(squashed)
+}
+
 pub async fn cherry_pick(root: &Path, commit: &str) -> Result<()> {
     GitCommand::new(root, "cherry-pick")
         .arg("--no-commit")

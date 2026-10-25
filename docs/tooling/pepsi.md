@@ -176,6 +176,10 @@ Cherry-pick accepts individual commits, Git revision ranges, and exclusions:
 - `cherry-pick feature ^excluded-tip` excludes `excluded-tip` and all its ancestors, following Git semantics.
 - `cherry-pick --top=3 feature` selects exactly three commits along first-parent history, then applies the oldest first.
 
+Within a cherry-pick operation, consecutive source commits are squashed before applying their combined changes.
+A continuous range therefore needs only one conflict-resolution pass, against the range's final result.
+Gaps in the selection and separate operations are applied separately, preserving exclusions and operation order.
+
 `--top=N` is a Pepsi extension and requires one ref and a positive count.
 Unlike `feature~3..feature`, it does not include additional commits from merged side branches.
 Selections containing merge commits are rejected because cherry-picking them requires a mainline choice.
