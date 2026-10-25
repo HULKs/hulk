@@ -118,13 +118,13 @@ impl PresetUi {
 
     pub fn dialogs(&mut self, context: &Context) {
         if let Some(mut dialog) = self.save_dialog.take() {
-            let response = Modal::new(Id::new("save-preset")).show(context, |ui| {
+            let response = Modal::new(Id::unique("save-preset")).show(context, |ui| {
                 ui.set_width(320.0);
                 ui.heading(format!("{}  Save preset", icons::ICON_SAVE.codepoint));
                 ui.add_space(8.0);
                 ui.label("Name");
                 let editor = TextEdit::singleline(&mut dialog.name)
-                    .id(Id::new("preset-name"))
+                    .id(Id::unique("preset-name"))
                     .desired_width(f32::INFINITY)
                     .show(ui);
                 let refresh_overwrite = dialog.focus || editor.response.changed();
@@ -183,7 +183,7 @@ impl PresetUi {
             }
         }
         if let Some(path) = self.delete.take() {
-            let response = Modal::new(Id::new("delete-preset")).show(context, |ui| {
+            let response = Modal::new(Id::unique("delete-preset")).show(context, |ui| {
                 ui.set_width(320.0);
                 ui.heading(format!("{}  Delete preset?", icons::ICON_DELETE.codepoint));
                 ui.add_space(8.0);
@@ -280,7 +280,7 @@ fn show_choices(
                         )
                         .on_hover_text("Delete preset");
                     button.widget_info(|| {
-                        egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Delete preset")
+                        egui::WidgetInfo::labeled(egui::Role::Button, true, "Delete preset")
                     });
                     if button.clicked() {
                         *delete = Some(path.clone());
@@ -366,7 +366,7 @@ mod tests {
         for _ in 0..2 {
             ui.save("Old name".into(), Value::Null);
             frame(&context, vec![], |_| ui.dialogs(&context));
-            assert!(context.memory(|memory| memory.has_focus(Id::new("preset-name"))));
+            assert!(context.memory(|memory| memory.has_focus(Id::unique("preset-name"))));
             frame(&context, vec![egui::Event::Text("New name".into())], |_| {
                 ui.dialogs(&context)
             });
@@ -393,7 +393,7 @@ mod tests {
             ),
         ];
         let mut delete = None;
-        let id = Id::new("picker-test");
+        let id = Id::unique("picker-test");
         frame(&context, vec![], |ui| {
             assert_eq!(show_choices(ui, id, &choices, true, &mut delete), None);
         });

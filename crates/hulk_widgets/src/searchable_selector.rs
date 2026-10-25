@@ -2,9 +2,7 @@ use egui::{Id, Response, ScrollArea, TextEdit, Ui};
 
 use crate::{
     matcher::fuzzy_match_indices,
-    selection_list::{
-        BoundaryBehavior, ListInput, SelectionListState, lock_text_edit_navigation, show_results,
-    },
+    selection_list::{ListInput, SelectionListState, lock_text_edit_navigation, show_results},
 };
 
 /// Searchable content for use inside an existing popup or menu.
@@ -109,9 +107,7 @@ impl<'a, T> SearchableSelector<'a, T> {
         }
 
         state.update_matches(self.items, search_text, reappeared);
-        state
-            .selection
-            .navigate(list_input, state.matches.len(), BoundaryBehavior::Wrap);
+        state.selection.navigate(list_input, state.matches.len());
 
         let mut selected = list_input
             .accepted()

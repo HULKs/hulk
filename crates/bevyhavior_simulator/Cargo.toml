@@ -14,7 +14,7 @@ booster = { workspace = true }
 color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
 eframe = { workspace = true }
-egui_dock = { workspace = true }
+egui_tiles = { workspace = true }
 geometry = { workspace = true }
 hsl_network_messages = { workspace = true }
 json5 = { workspace = true }

@@ -181,8 +181,8 @@ fn pane_focus_supports_shortcuts_without_stealing_text_input() {
         mut replay,
         ..
     } = TimelineTest::new(vec2(600.0, 300.0));
-    let pane = Id::new("timeline-pane");
-    let editor = Id::new("other-panel-editor");
+    let pane = Id::unique("timeline-pane");
+    let editor = Id::unique("other-panel-editor");
     let mut text = String::new();
     let mut render = |events| {
         let _ = context.run_ui(
@@ -195,7 +195,7 @@ fn pane_focus_supports_shortcuts_without_stealing_text_input() {
                 ui.add(TextEdit::singleline(&mut text).id(editor));
                 ui.scope_builder(
                     UiBuilder::new()
-                        .id(pane)
+                        .scope_id(pane)
                         .sense(Sense::focusable_noninteractive()),
                     |ui| {
                         ui.horizontal(|ui| panel.toolbar(ui, &mut replay));
