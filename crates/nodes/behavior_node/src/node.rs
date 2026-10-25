@@ -557,7 +557,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             blackboard.ball = None;
         }
 
-        let (status, trace) = block_in_place(|| tree.tick_with_trace(&mut blackboard));
+        let record_trace = additional_behavior_trace_pub.has_subscribers();
+        let (status, trace) = block_in_place(|| tree.tick(&mut blackboard, record_trace));
         let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
 
         let previous_motion_command = blackboard.last_motion_command.clone();
@@ -612,11 +613,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             outgoing_message_pub.publish(&message).await?;
         }
 
-        additional_behavior_trace_pub
-            .publish_if_subscribed(|| async { trace })
-            .await?;
+        if let Some(trace) = trace {
+            additional_behavior_trace_pub.publish(&trace).await?;
+        }
         additional_black_board_pub
-            .publish_if_subscribed(|| async { blackboard.clone() })
+            .publish_if_subscribed(|| async { &blackboard })
             .await?;
         motion_command_pub.publish(&motion_command).await?;
     }
