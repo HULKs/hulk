@@ -47,6 +47,7 @@ use voronoi::VoronoiGrid;
 use crate::{
     kick::strategy::BallAction,
     motion_assembler::assemble_motion_command,
+    replacement_goalkeeper::ReplacementGoalkeeperCoordinator,
     send_message::{recent_game_controller_address, state_message_send_interval},
     tree::create_tree,
 };
@@ -71,6 +72,7 @@ pub struct Blackboard {
     pub world_state: WorldState,
     pub controller_input: Option<ControllerInput>,
     pub remote_control_enabled: bool,
+    pub replacement_goalkeeper_coordinator: ReplacementGoalkeeperCoordinator,
 
     pub path_obstacles_output: Vec<PathObstacle>,
     pub time_since_last_switch: Duration,
@@ -435,6 +437,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         world_state: WorldState::default(),
         controller_input: None,
         remote_control_enabled: false,
+        replacement_goalkeeper_coordinator: Default::default(),
 
         path_obstacles_output: Vec::new(),
         time_since_last_switch: Duration::ZERO,

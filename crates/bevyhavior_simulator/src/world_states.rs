@@ -260,6 +260,7 @@ mod tests {
             }),
             head_yaw: 0.0,
             pass: None,
+            replacement_goalkeeper_claim: false,
         })
     }
 
@@ -414,6 +415,7 @@ mod tests {
                                     },
                                     ros_z::time::Time::from_wallclock(received_at),
                                 )),
+                                replacement_goalkeeper_claim: false,
                             },
                         }),
                         ..Default::default()

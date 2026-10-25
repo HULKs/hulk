@@ -38,6 +38,7 @@ pub struct StateMessage {
     pub head_yaw: f32,
     pub ball_position: Option<BallPosition<Field>>,
     pub pass: Option<PassIntent>,
+    pub replacement_goalkeeper_claim: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize, Message)]
@@ -101,6 +102,7 @@ mod tests {
                 position: Point2::origin(),
                 age: Duration::MAX,
             }),
+            replacement_goalkeeper_claim: true,
         });
         let bytes = bincode::serialize(&test_message).unwrap();
         assert!(bytes.len() <= 128);

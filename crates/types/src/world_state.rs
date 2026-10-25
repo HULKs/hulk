@@ -92,6 +92,7 @@ pub struct PlayerState {
     pub head_yaw: f32,
     pub ball_position: Option<BallPosition<Field>>,
     pub pass: Option<hsl_network_messages::PassIntent>,
+    pub replacement_goalkeeper_claim: bool,
 }
 
 impl PlayerState {

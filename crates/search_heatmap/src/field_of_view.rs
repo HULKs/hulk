@@ -314,6 +314,7 @@ mod tests {
             head_yaw: 0.0,
             ball_position: None,
             pass: None,
+            replacement_goalkeeper_claim: false,
         };
         for (weight, expected) in [(0.0, 1.0), (0.5, 0.5), (1.0, 0.25)] {
             for step in [Duration::from_millis(20), Duration::from_millis(400)] {

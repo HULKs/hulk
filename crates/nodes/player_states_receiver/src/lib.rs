@@ -123,6 +123,7 @@ fn apply_message(
         ball_position: state_message
             .ball_position
             .map(|ball| BallPosition::from_network_ball(ball, time)),
+        replacement_goalkeeper_claim: state_message.replacement_goalkeeper_claim,
     };
     if !player_state.is_finite() {
         return;
@@ -200,6 +201,7 @@ mod tests {
                         receiver: PlayerNumber::Three,
                         target: point![1.0, 2.0],
                     }),
+                    replacement_goalkeeper_claim: false,
                 })),
             },
         );
@@ -222,6 +224,7 @@ mod tests {
                 head_yaw,
                 ball_position: None,
                 pass: None,
+                replacement_goalkeeper_claim: false,
             })),
         };
 
@@ -244,6 +247,7 @@ mod tests {
                 head_yaw: 0.0,
                 ball_position: None,
                 pass: None,
+                replacement_goalkeeper_claim: false,
             },
             StateMessage {
                 player_number: PlayerNumber::Two,
@@ -254,6 +258,7 @@ mod tests {
                     position: point![f32::NAN, 0.0],
                     age: Duration::ZERO,
                 }),
+                replacement_goalkeeper_claim: false,
             },
         ] {
             apply_message(
@@ -280,6 +285,7 @@ mod tests {
                 head_yaw: 0.0,
                 ball_position: None,
                 pass: None,
+                replacement_goalkeeper_claim: false,
             },
         });
         states[PlayerNumber::Three] = Some(TimeWrapper {
@@ -289,6 +295,7 @@ mod tests {
                 head_yaw: 0.0,
                 ball_position: None,
                 pass: None,
+                replacement_goalkeeper_claim: false,
             },
         });
 
@@ -328,6 +335,7 @@ mod tests {
                 head_yaw: 0.0,
                 ball_position: None,
                 pass: None,
+                replacement_goalkeeper_claim: false,
             },
         });
         states[PlayerNumber::Three] = Some(TimeWrapper {
@@ -337,6 +345,7 @@ mod tests {
                 head_yaw: 0.0,
                 ball_position: None,
                 pass: None,
+                replacement_goalkeeper_claim: false,
             },
         });
 
@@ -361,6 +370,7 @@ mod tests {
                 head_yaw: 0.0,
                 ball_position: None,
                 pass: None,
+                replacement_goalkeeper_claim: false,
             },
         });
 
@@ -384,6 +394,7 @@ mod tests {
                 head_yaw: 0.0,
                 ball_position: None,
                 pass: None,
+                replacement_goalkeeper_claim: false,
             },
         });
 

@@ -202,6 +202,7 @@ impl Blackboard {
                 head_yaw: self.head_yaw,
                 ball_position,
                 pass,
+                replacement_goalkeeper_claim: self.replacement_goalkeeper_coordinator.claims_role(),
             });
 
             self.last_sent_hsl_message_time = Some(now);

@@ -454,6 +454,7 @@ mod tests {
             world_state: Default::default(),
             controller_input: None,
             remote_control_enabled: false,
+            replacement_goalkeeper_coordinator: Default::default(),
             path_obstacles_output: Vec::new(),
             time_since_last_switch: Default::default(),
             direction_difference: 0.0,

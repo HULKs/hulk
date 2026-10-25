@@ -46,6 +46,7 @@ fn blackboard(robot_x: f32, robot_y: f32, yaw: f32) -> Blackboard {
         world_state: Default::default(),
         controller_input: None,
         remote_control_enabled: false,
+        replacement_goalkeeper_coordinator: Default::default(),
         path_obstacles_output: Vec::new(),
         time_since_last_switch: Duration::ZERO,
         direction_difference: 0.0,
@@ -361,6 +362,7 @@ fn teammate_pressure_is_transformed_and_excludes_our_own_broadcast() {
             head_yaw: 0.0,
             ball_position: None,
             pass: None,
+            replacement_goalkeeper_claim: false,
         };
         blackboard.world_state.player_states[PlayerNumber::Two] = Some(TimeWrapper {
             time: blackboard.world_state.now,
@@ -397,6 +399,7 @@ fn each_urgent_trigger_precedes_target_planning_and_interception_in_the_live_tre
                         head_yaw: 0.0,
                         ball_position: None,
                         pass: None,
+                        replacement_goalkeeper_claim: false,
                     },
                 })
             }

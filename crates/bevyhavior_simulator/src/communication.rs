@@ -122,6 +122,7 @@ pub fn apply_incoming_hsl_messages(
                     ros_z::time::Time::from_wallclock(incoming_message.received_at),
                 )
             }),
+            replacement_goalkeeper_claim: state_message.replacement_goalkeeper_claim,
         };
         if !player_state.is_finite() {
             continue;
@@ -232,6 +233,7 @@ mod tests {
             }),
             head_yaw: 0.0,
             pass: None,
+            replacement_goalkeeper_claim: false,
         })
     }
 
