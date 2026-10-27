@@ -92,6 +92,7 @@ impl<CargoArguments: Args + CargoCommand> Arguments<CargoArguments> {
                 CargoArguments::SUB_COMMAND,
                 self.cargo.selected_packages(),
                 self.cargo.workspace_requested(),
+                self.environment.remote,
             )
             .await
             .wrap_err("failed to read requested environment")?,
@@ -209,6 +210,7 @@ async fn read_requested_environment(
     cargo_subcommand: &str,
     selected_packages: &[String],
     workspace_requested: bool,
+    remote: bool,
 ) -> Result<Environment> {
     let manifest_path = match manifest_path {
         Some(path) => path.to_path_buf(),
@@ -222,15 +224,15 @@ async fn read_requested_environment(
     let manifest: Table = toml::from_str(&manifest).wrap_err("failed to parse manifest")?;
 
     if manifest_requests_cross_compile(&manifest)
-        || (workspace_requested && workspace_command_uses_sdk(cargo_subcommand))
+        || (workspace_requested && workspace_command_uses_sdk(cargo_subcommand, remote))
     {
-        return Ok(sdk_environment_for_host());
+        return Ok(sdk_environment(remote));
     }
 
     if !selected_packages.is_empty() {
         return Ok(
             if selected_packages_request_cross_compile(selected_packages, &manifest_path).await? {
-                sdk_environment_for_host()
+                sdk_environment(remote)
             } else {
                 Environment::Native
             },
@@ -239,9 +241,9 @@ async fn read_requested_environment(
 
     if manifest.get("package").is_none()
         && manifest.get("workspace").is_some()
-        && workspace_command_uses_sdk(cargo_subcommand)
+        && workspace_command_uses_sdk(cargo_subcommand, remote)
     {
-        return Ok(sdk_environment_for_host());
+        return Ok(sdk_environment(remote));
     }
 
     Ok(Environment::Native)
@@ -272,8 +274,9 @@ fn manifest_requests_cross_compile(manifest: &Table) -> bool {
         .unwrap_or(false)
 }
 
-fn workspace_command_uses_sdk(cargo_subcommand: &str) -> bool {
-    cfg!(target_os = "macos")
+fn workspace_command_uses_sdk(cargo_subcommand: &str, remote: bool) -> bool {
+    !remote
+        && cfg!(target_os = "macos")
         && matches!(
             cargo_subcommand,
             "build" | "check" | "clippy" | "nextest run" | "test"
@@ -288,7 +291,18 @@ struct CargoMetadata {
 #[derive(Deserialize)]
 struct CargoMetadataPackage {
     id: String,
+    name: String,
     metadata: serde_json::Value,
+}
+
+impl CargoMetadataPackage {
+    fn requests_cross_compile(&self) -> bool {
+        self.metadata
+            .get("pepsi")
+            .and_then(|metadata| metadata.get("cross-compile"))
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false)
+    }
 }
 
 async fn selected_packages_request_cross_compile(
@@ -319,6 +333,19 @@ async fn selected_packages_request_cross_compile(
         .wrap_err("failed to parse Cargo workspace metadata")?;
 
     for spec in selected_packages {
+        if spec.contains(['*', '?', '[', ']']) {
+            let pattern = glob::Pattern::new(spec)
+                .wrap_err_with(|| format!("invalid Cargo package pattern {spec}"))?;
+            if metadata
+                .packages
+                .iter()
+                .any(|package| pattern.matches(&package.name) && package.requests_cross_compile())
+            {
+                return Ok(true);
+            }
+            continue;
+        }
+
         let output = Command::new("cargo")
             .args(["pkgid", "--manifest-path"])
             .arg(manifest_path)
@@ -335,15 +362,11 @@ async fn selected_packages_request_cross_compile(
         }
         let id = String::from_utf8(output.stdout)
             .wrap_err_with(|| format!("invalid package ID for {spec}"))?;
-        if metadata.packages.iter().any(|package| {
-            package.id == id.trim()
-                && package
-                    .metadata
-                    .get("pepsi")
-                    .and_then(|metadata| metadata.get("cross-compile"))
-                    .and_then(serde_json::Value::as_bool)
-                    .unwrap_or(false)
-        }) {
+        if metadata
+            .packages
+            .iter()
+            .any(|package| package.id == id.trim() && package.requests_cross_compile())
+        {
             return Ok(true);
         }
     }
@@ -351,7 +374,12 @@ async fn selected_packages_request_cross_compile(
     Ok(false)
 }
 
-fn sdk_environment_for_host() -> Environment {
+fn sdk_environment(remote: bool) -> Environment {
+    // The remote compiler uses Podman, independently of the client's OS.
+    if remote {
+        return Environment::Podman { image: None };
+    }
+
     match ContainerRuntime::default_for_host() {
         ContainerRuntime::Podman => Environment::Podman { image: None },
         ContainerRuntime::Docker => Environment::Docker { image: None },
@@ -419,7 +447,7 @@ mod tests {
         let workspace_manifest = repository.root.join("Cargo.toml");
         let selected = vec!["hulk_ros_z@0.1.0".to_string()];
         let environment =
-            read_requested_environment(Some(&workspace_manifest), "run", &selected, false)
+            read_requested_environment(Some(&workspace_manifest), "run", &selected, false, false)
                 .await
                 .expect("environment resolves");
         assert!(matches!(
@@ -429,7 +457,7 @@ mod tests {
 
         let member_manifest = repository.root.join("tools/pepsi/Cargo.toml");
         let environment =
-            read_requested_environment(Some(&member_manifest), "build", &selected, false)
+            read_requested_environment(Some(&member_manifest), "build", &selected, false, false)
                 .await
                 .expect("package selection from member manifest resolves");
         assert!(matches!(
@@ -439,7 +467,7 @@ mod tests {
 
         let selected = vec!["pepsi".to_string()];
         let environment =
-            read_requested_environment(Some(&workspace_manifest), "build", &selected, false)
+            read_requested_environment(Some(&workspace_manifest), "build", &selected, false, false)
                 .await
                 .expect("environment resolves");
         assert!(matches!(environment, Environment::Native));
@@ -449,13 +477,94 @@ mod tests {
     async fn workspace_selection_from_member_manifest_uses_sdk_on_macos() {
         let repository = repository();
         let manifest = repository.root.join("tools/pepsi/Cargo.toml");
-        let environment = read_requested_environment(Some(&manifest), "build", &[], true)
+        let environment = read_requested_environment(Some(&manifest), "build", &[], true, false)
             .await
             .expect("environment resolves");
         assert_eq!(
             matches!(environment, Environment::Docker { .. }),
             cfg!(target_os = "macos"),
         );
+    }
+
+    #[tokio::test]
+    async fn package_patterns_select_environment_for_all_matches() {
+        let repository = repository();
+        let manifest = repository.root.join("Cargo.toml");
+
+        for (specs, uses_sdk) in [
+            (vec!["ros-z-*"], false),
+            (vec!["peps?"], false),
+            (vec!["hulk_ros_[xz]"], true),
+            (vec!["*"], true),
+            (vec!["peps*", "hulk*"], true),
+        ] {
+            let selected = specs
+                .iter()
+                .map(|spec| spec.to_string())
+                .collect::<Vec<_>>();
+            let environment =
+                read_requested_environment(Some(&manifest), "build", &selected, false, false)
+                    .await
+                    .expect("package patterns resolve");
+            assert_eq!(
+                !matches!(environment, Environment::Native),
+                uses_sdk,
+                "package patterns: {specs:?}",
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn remote_package_build_uses_podman_unless_environment_is_explicit() {
+        let repository = repository();
+        let manifest = repository.root.join("Cargo.toml");
+        let mut arguments = Arguments {
+            manifest: None,
+            environment: EnvironmentArguments {
+                env: None,
+                remote: true,
+            },
+            cargo: build::Arguments {
+                packages: vec!["hulk_ros_z@0.1.0".to_string()],
+                ..Default::default()
+            },
+        };
+        let environment = arguments
+            .resolve_environment(Some(&manifest), &repository)
+            .await
+            .expect("remote package environment resolves");
+        assert!(matches!(
+            environment,
+            repository::cargo::Environment::Podman { .. }
+        ));
+
+        arguments.environment.env = Some(Environment::Docker { image: None });
+        let environment = arguments
+            .resolve_environment(Some(&manifest), &repository)
+            .await
+            .expect("explicit environment resolves");
+        assert!(matches!(
+            environment,
+            repository::cargo::Environment::Docker { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn remote_build_ignores_local_workspace_defaults() {
+        let repository = repository();
+        for manifest in ["Cargo.toml", "tools/pepsi/Cargo.toml"] {
+            let manifest = repository.root.join(manifest);
+            let environment = read_requested_environment(Some(&manifest), "build", &[], true, true)
+                .await
+                .expect("remote workspace environment resolves");
+            assert!(matches!(environment, Environment::Native));
+        }
+
+        let manifest = repository.root.join("crates/hulk_ros_z/Cargo.toml");
+        let environment = read_requested_environment(Some(&manifest), "build", &[], false, true)
+            .await
+            .expect("remote SDK manifest environment resolves");
+        assert!(matches!(environment, Environment::Podman { .. }));
     }
 
     #[tokio::test]

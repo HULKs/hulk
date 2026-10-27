@@ -152,6 +152,7 @@ However `upload` and `pregame` only supports a profiles, since it doesn't make s
 
 Pepsi selects the SDK for packages marked `cross-compile = true`.
 On macOS, workspace `build`, `check`, `clippy`, and `test` commands use the SDK by default; `nextest run` does too.
+These macOS defaults apply to local builds; remote builds use Podman when a package requests the SDK.
 Use `--env native` to build a local macOS tool without the SDK, or `--env docker` to select the SDK explicitly.
 
 ### Build directories
