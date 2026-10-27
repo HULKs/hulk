@@ -151,8 +151,12 @@ These include `build`, `run`, `check`, and `clippy`.
 However `upload` and `pregame` only supports a profiles, since it doesn't make sense to upload a webots binary to the booster.
 
 Pepsi selects the SDK for packages marked `cross-compile = true`.
-On macOS, workspace `build`, `check`, `clippy`, and `test` commands use the SDK by default; `nextest run` does too.
+An explicit `--package` selection takes precedence over the current package's SDK metadata.
+On Apple Silicon macOS, workspace `build`, `check`, `clippy`, and `test` commands use the SDK by default; `nextest run` does too.
 These macOS defaults apply to local builds; remote builds use Podman when a package requests the SDK.
+Commands that execute binaries (`run`, `test`, and `nextest`) automatically use the SDK only on local AArch64 hosts, where its target can run directly.
+Otherwise, they use the native toolchain; `test --no-run` can still use the SDK for cross-compilation.
+`install` without an explicit local manifest uses the native environment, independently of the current package.
 Use `--env native` to build a local macOS tool without the SDK, or `--env docker` to select the SDK explicitly.
 
 ### Build directories

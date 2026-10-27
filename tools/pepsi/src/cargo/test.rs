@@ -231,4 +231,8 @@ impl CargoCommand for Arguments {
     fn workspace_requested(&self) -> bool {
         self.workspace || self.all
     }
+
+    fn executes_target(&self) -> bool {
+        !self.no_run && !self.unit_graph
+    }
 }

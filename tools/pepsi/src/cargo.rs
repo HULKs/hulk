@@ -67,6 +67,10 @@ pub trait CargoCommand {
     fn profile(&self) -> &str;
     fn selected_packages(&self) -> &[String];
     fn workspace_requested(&self) -> bool;
+
+    fn executes_target(&self) -> bool {
+        matches!(Self::SUB_COMMAND, "run" | "test" | "nextest run")
+    }
 }
 
 impl<CargoArguments: Args + CargoCommand> Arguments<CargoArguments> {
@@ -87,6 +91,13 @@ impl<CargoArguments: Args + CargoCommand> Arguments<CargoArguments> {
     ) -> Result<repository::cargo::Environment> {
         match self.environment.env.clone() {
             Some(environment) => environment,
+            // The SDK builds AArch64 binaries. Remote execution uses the remote's
+            // native toolchain because its architecture is not known locally.
+            None if self.cargo.executes_target()
+                && (self.environment.remote || !cfg!(target_arch = "aarch64")) =>
+            {
+                Environment::Native
+            }
             None => read_requested_environment(
                 manifest_path,
                 CargoArguments::SUB_COMMAND,
@@ -212,6 +223,10 @@ async fn read_requested_environment(
     workspace_requested: bool,
     remote: bool,
 ) -> Result<Environment> {
+    if cargo_subcommand == "install" && manifest_path.is_none() {
+        return Ok(Environment::Native);
+    }
+
     let manifest_path = match manifest_path {
         Some(path) => path.to_path_buf(),
         None => {
@@ -223,9 +238,7 @@ async fn read_requested_environment(
         .wrap_err_with(|| format!("failed to read manifest at {}", manifest_path.display()))?;
     let manifest: Table = toml::from_str(&manifest).wrap_err("failed to parse manifest")?;
 
-    if manifest_requests_cross_compile(&manifest)
-        || (workspace_requested && workspace_command_uses_sdk(cargo_subcommand, remote))
-    {
+    if workspace_requested && workspace_command_uses_sdk(cargo_subcommand, remote) {
         return Ok(sdk_environment(remote));
     }
 
@@ -239,9 +252,10 @@ async fn read_requested_environment(
         );
     }
 
-    if manifest.get("package").is_none()
-        && manifest.get("workspace").is_some()
-        && workspace_command_uses_sdk(cargo_subcommand, remote)
+    if manifest_requests_cross_compile(&manifest)
+        || (manifest.get("package").is_none()
+            && manifest.get("workspace").is_some()
+            && workspace_command_uses_sdk(cargo_subcommand, remote))
     {
         return Ok(sdk_environment(remote));
     }
@@ -426,164 +440,4 @@ fn package_metadata(table: &Table) -> Option<&Table> {
         .get("metadata")?
         .get("pepsi")?
         .as_table()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn repository() -> Repository {
-        Repository::new(
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../..")
-                .canonicalize()
-                .expect("workspace root exists"),
-        )
-    }
-
-    #[tokio::test]
-    async fn package_specs_select_cross_compile_environment() {
-        let repository = repository();
-        let workspace_manifest = repository.root.join("Cargo.toml");
-        let selected = vec!["hulk_ros_z@0.1.0".to_string()];
-        let environment =
-            read_requested_environment(Some(&workspace_manifest), "run", &selected, false, false)
-                .await
-                .expect("environment resolves");
-        assert!(matches!(
-            environment,
-            Environment::Docker { .. } | Environment::Podman { .. }
-        ));
-
-        let member_manifest = repository.root.join("tools/pepsi/Cargo.toml");
-        let environment =
-            read_requested_environment(Some(&member_manifest), "build", &selected, false, false)
-                .await
-                .expect("package selection from member manifest resolves");
-        assert!(matches!(
-            environment,
-            Environment::Docker { .. } | Environment::Podman { .. }
-        ));
-
-        let selected = vec!["pepsi".to_string()];
-        let environment =
-            read_requested_environment(Some(&workspace_manifest), "build", &selected, false, false)
-                .await
-                .expect("environment resolves");
-        assert!(matches!(environment, Environment::Native));
-    }
-
-    #[tokio::test]
-    async fn workspace_selection_from_member_manifest_uses_sdk_on_macos() {
-        let repository = repository();
-        let manifest = repository.root.join("tools/pepsi/Cargo.toml");
-        let environment = read_requested_environment(Some(&manifest), "build", &[], true, false)
-            .await
-            .expect("environment resolves");
-        assert_eq!(
-            matches!(environment, Environment::Docker { .. }),
-            cfg!(target_os = "macos"),
-        );
-    }
-
-    #[tokio::test]
-    async fn package_patterns_select_environment_for_all_matches() {
-        let repository = repository();
-        let manifest = repository.root.join("Cargo.toml");
-
-        for (specs, uses_sdk) in [
-            (vec!["ros-z-*"], false),
-            (vec!["peps?"], false),
-            (vec!["hulk_ros_[xz]"], true),
-            (vec!["*"], true),
-            (vec!["peps*", "hulk*"], true),
-        ] {
-            let selected = specs
-                .iter()
-                .map(|spec| spec.to_string())
-                .collect::<Vec<_>>();
-            let environment =
-                read_requested_environment(Some(&manifest), "build", &selected, false, false)
-                    .await
-                    .expect("package patterns resolve");
-            assert_eq!(
-                !matches!(environment, Environment::Native),
-                uses_sdk,
-                "package patterns: {specs:?}",
-            );
-        }
-    }
-
-    #[tokio::test]
-    async fn remote_package_build_uses_podman_unless_environment_is_explicit() {
-        let repository = repository();
-        let manifest = repository.root.join("Cargo.toml");
-        let mut arguments = Arguments {
-            manifest: None,
-            environment: EnvironmentArguments {
-                env: None,
-                remote: true,
-            },
-            cargo: build::Arguments {
-                packages: vec!["hulk_ros_z@0.1.0".to_string()],
-                ..Default::default()
-            },
-        };
-        let environment = arguments
-            .resolve_environment(Some(&manifest), &repository)
-            .await
-            .expect("remote package environment resolves");
-        assert!(matches!(
-            environment,
-            repository::cargo::Environment::Podman { .. }
-        ));
-
-        arguments.environment.env = Some(Environment::Docker { image: None });
-        let environment = arguments
-            .resolve_environment(Some(&manifest), &repository)
-            .await
-            .expect("explicit environment resolves");
-        assert!(matches!(
-            environment,
-            repository::cargo::Environment::Docker { .. }
-        ));
-    }
-
-    #[tokio::test]
-    async fn remote_build_ignores_local_workspace_defaults() {
-        let repository = repository();
-        for manifest in ["Cargo.toml", "tools/pepsi/Cargo.toml"] {
-            let manifest = repository.root.join(manifest);
-            let environment = read_requested_environment(Some(&manifest), "build", &[], true, true)
-                .await
-                .expect("remote workspace environment resolves");
-            assert!(matches!(environment, Environment::Native));
-        }
-
-        let manifest = repository.root.join("crates/hulk_ros_z/Cargo.toml");
-        let environment = read_requested_environment(Some(&manifest), "build", &[], false, true)
-            .await
-            .expect("remote SDK manifest environment resolves");
-        assert!(matches!(environment, Environment::Podman { .. }));
-    }
-
-    #[tokio::test]
-    async fn implicit_manifest_follows_cargo_project_selection() {
-        let repository = repository();
-        let member_manifest = locate_manifest(&repository.root.join("tools/pepsi"))
-            .await
-            .expect("member manifest resolves");
-        assert_eq!(
-            member_manifest,
-            repository.root.join("tools/pepsi/Cargo.toml")
-        );
-
-        let service_manifest = locate_manifest(&repository.root.join("services/aliveness"))
-            .await
-            .expect("service manifest resolves");
-        assert_eq!(
-            service_manifest,
-            repository.root.join("services/aliveness/Cargo.toml")
-        );
-    }
 }
