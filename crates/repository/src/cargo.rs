@@ -183,7 +183,6 @@ fn build_container_command_string(
     arguments: OsString,
 ) -> Result<OsString> {
     let cargo_home = format!("$({data_home_script})/container-cargo-home/");
-    // TODO: Make image generic over SDK/native by modifying entry point; source SDK not here
     let pwd = Path::new("/hulk").join(&repository.root_to_current_dir()?);
     let root = repository.current_dir_to_root()?;
     let tagged_image_name = sdk_image.name_tagged();
