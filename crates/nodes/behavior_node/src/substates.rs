@@ -184,7 +184,8 @@ pub fn set_block_position_goal_kick(blackboard: &mut Blackboard) -> Status {
             - blackboard.parameters.walking.path_planning.robot_radius
             - blackboard
                 .parameters
-                .substates
+                .walking
+                .path_planning
                 .goal_kick_striker_safty_margin;
         let distance_along_line = (blocking_x - ball_position.x()) / direction.x();
         let blocking_position = ball_position + direction * distance_along_line;
