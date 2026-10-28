@@ -7,8 +7,11 @@ use serde::{Deserialize, Serialize};
 use hsl_network_messages::GameControllerStateMessage;
 use ros_z::{prelude::*, time::Time};
 use types::{
-    field_dimensions::GlobalFieldSide, game_controller_state::GameControllerState,
-    messages::IncomingMessage, time_wrapper::TimeWrapper,
+    audio::{SOUND_REQUEST_TOPIC, SOUNDBOARD_TOPIC, Sound, Soundboard, SpeakerRequest},
+    field_dimensions::GlobalFieldSide,
+    game_controller_state::GameControllerState,
+    messages::IncomingMessage,
+    time_wrapper::TimeWrapper,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
@@ -26,6 +29,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("game_controller_filter").build().await?;
 
     let parameters = node.bind_parameter_as::<Parameters>("game_controller_filter")?;
+    let soundboard_cache = node
+        .subscriber::<Soundboard>(SOUNDBOARD_TOPIC)
+        .qos(QosProfile {
+            durability: ros_z::qos::QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
     let network_message_sub = node
         .subscriber::<TimeWrapper<IncomingMessage>>("filtered_message")
         .build()
@@ -40,6 +52,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let game_controller_address_pub = node
         .publisher::<Option<SocketAddr>>("game_controller_address")
+        .build()
+        .await?;
+    let sound_pub = node
+        .publisher::<SpeakerRequest>(SOUND_REQUEST_TOPIC)
         .build()
         .await?;
 
@@ -60,11 +76,19 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         };
 
         game_controller_filter.update_game_controller_state(&time, &message);
-        game_controller_filter.alert_if_multiple_game_controllers(
-            &time,
-            parameters,
-            source_address,
-        );
+        game_controller_filter
+            .last_contact
+            .insert(source_address, time);
+        if soundboard_cache
+            .get_latest()
+            .is_some_and(|soundboard| soundboard.is_enabled(Sound::GameControllerCollision))
+            && let Some(sound) =
+                game_controller_filter.alert_if_multiple_game_controllers(&time, parameters)
+        {
+            sound_pub
+                .publish(&SpeakerRequest::PlaySound { sound })
+                .await?;
+        }
 
         last_contact_pub
             .publish(&game_controller_filter.last_contact)
@@ -126,10 +150,7 @@ impl GameControllerFilter {
         &mut self,
         time: &Time,
         parameters: &Parameters,
-        source_address: SocketAddr,
-    ) {
-        self.last_contact.insert(source_address, *time);
-
+    ) -> Option<Sound> {
         let recent_contacts = self.last_contact.iter().filter(|(_address, last_contact)| {
             time.duration_since(**last_contact)
                 < parameters.time_since_last_message_to_consider_ip_active
@@ -144,12 +165,9 @@ impl GameControllerFilter {
                 });
 
         if collision_detected && !alert_is_on_cooldown {
-            // TODO: We currently do not have audio output implemented
-            //     hardware_interface
-            //     .write_to_speakers(SpeakerRequest::PlaySound {
-            //         sound: Sound::GameControllerCollision,
-            //     });
             self.last_collision_warning = Some(*time);
+            return Some(Sound::GameControllerCollision);
         }
+        None
     }
 }

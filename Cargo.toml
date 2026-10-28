@@ -60,6 +60,7 @@ members = [
   "crates/nodes/rule_obstacle_composer",
   "crates/nodes/safe_pose_checker",
   "crates/nodes/search_suggestor",
+  "crates/nodes/sound_handler",
   "crates/nodes/stereo_visual_odometry",
   "crates/nodes/support_foot_estimator",
   "crates/nodes/system_info",
@@ -172,6 +173,7 @@ global_parameter_provider = { path = "crates/nodes/global_parameter_provider" }
 ground_provider = { path = "crates/nodes/ground_provider" }
 hardware_interface = { path = "crates/nodes/hardware_interface" }
 head_motion = { path = "crates/nodes/head_motion" }
+hound = "3.5.1"
 hex = "0.4"
 hsl_network = { path = "crates/hsl_network" }
 hsl_network_messages = { path = "crates/hsl_network_messages" }
@@ -280,6 +282,7 @@ sha2 = "0.10.8"
 simba = "0.9.0"
 simulation_message = { path = "crates/simulation_message" }
 smallvec = "1.14.0"
+sound_handler = { path = "crates/nodes/sound_handler" }
 splines = { version = "=4.2.0", features = ["serde"] }
 stereo_visual_odometry = { path = "crates/nodes/stereo_visual_odometry" }
 support_foot_estimator = { path = "crates/nodes/support_foot_estimator" }
