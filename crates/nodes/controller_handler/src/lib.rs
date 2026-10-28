@@ -2,10 +2,13 @@ use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use color_eyre::Result;
 use gilrs::{Gilrs, ev::AxisOrBtn};
-use ros_z::prelude::*;
+use ros_z::{prelude::*, qos::QosDurability};
 use tokio::time::{MissedTickBehavior, interval};
 use tracing::warn;
-use types::controller_input::{Axis, Button, ControllerAxis, ControllerButton, ControllerInput};
+use types::{
+    audio::{SOUND_REQUEST_TOPIC, SOUNDBOARD_TOPIC, Sound, Soundboard, SpeakerRequest},
+    controller_input::{Axis, Button, ControllerAxis, ControllerButton, ControllerInput},
+};
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -14,6 +17,19 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("controller_handler").build().await?;
 
+    let soundboard_cache = node
+        .subscriber::<Soundboard>(SOUNDBOARD_TOPIC)
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
+    let sound_pub = node
+        .publisher::<SpeakerRequest>(SOUND_REQUEST_TOPIC)
+        .build()
+        .await?;
     let controller_input_pub = node
         .publisher::<ControllerInput>("inputs/controller_input")
         .build()
@@ -28,12 +44,39 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     };
     let mut ticker = interval(Duration::from_millis(20));
     ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    let mut emergency_button_was_pressed = false;
 
     loop {
         ticker.tick().await;
         let controller_input = read_controller_input(&mut gilrs);
         controller_input_pub.publish(&controller_input).await?;
+        let sound_enabled = soundboard_cache
+            .get_latest()
+            .is_some_and(|soundboard| soundboard.is_enabled(Sound::MetalBar));
+        if let Some(sound) = sound_for_controller_input(
+            sound_enabled,
+            &controller_input,
+            &mut emergency_button_was_pressed,
+        ) && let Err(error) = sound_pub
+            .publish(&SpeakerRequest::PlaySound { sound })
+            .await
+        {
+            warn!(%sound, "failed to publish controller sound request: {error:#}");
+        }
     }
+}
+
+fn sound_for_controller_input(
+    enabled: bool,
+    input: &ControllerInput,
+    was_pressed: &mut bool,
+) -> Option<Sound> {
+    // West is controller X, the same button used for emergency damping.
+    let pressed = input.connected && input.is_pressed(Button::West);
+    let play_sound = enabled && pressed && !*was_pressed;
+    // Track the edge even when disabled, so enabling while held does not replay it.
+    *was_pressed = pressed;
+    play_sound.then_some(Sound::MetalBar)
 }
 
 fn read_controller_input(gilrs: &mut Gilrs) -> ControllerInput {
