@@ -16,5 +16,4 @@ nalgebra = { workspace = true }
 ros-z = { workspace = true }
 ros-z-streams = { workspace = true }
 serde = { workspace = true }
-tokio = { workspace = true }
 types = { workspace = true }
