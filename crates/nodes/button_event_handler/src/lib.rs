@@ -5,7 +5,6 @@ use color_eyre::Result;
 
 use booster::{ButtonEventMsg, ButtonEventType};
 use ros_z::{prelude::*, qos::QosDurability};
-use tracing::warn;
 use types::{
     audio::{SOUND_REQUEST_TOPIC, SOUNDBOARD_TOPIC, Sound, Soundboard, SpeakerRequest},
     buttons::{ButtonPressType, Buttons},
@@ -55,11 +54,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         buttons_pub.publish(&buttons).await?;
         if let Some(soundboard) = soundboard_cache.get_latest()
             && let Some(sound) = sound_for_buttons(&soundboard, &buttons)
-            && let Err(error) = sound_pub
-                .publish(&SpeakerRequest::PlaySound { sound })
-                .await
         {
-            warn!(%sound, "failed to publish button sound request: {error:#}");
+            sound_pub
+                .publish(&SpeakerRequest::PlaySound { sound })
+                .await?;
         }
     }
 }
