@@ -6,7 +6,7 @@ use repository::{Repository, cargo::Environment as RepositoryEnvironment, sdk::S
 
 #[derive(Args, Debug, Clone)]
 pub struct EnvironmentArguments {
-    /// The execution environment (default: native)
+    /// The execution environment (automatically selected unless specified)
     #[arg(long, visible_alias = "umgebung", visible_alias = "umg")]
     pub env: Option<Environment>,
     /// Use a remote machine for execution, see ./scripts/remote for details

@@ -150,6 +150,15 @@ For subcommands that build a binary, you can specify a target and a build profil
 These include `build`, `run`, `check`, and `clippy`.
 However `upload` and `pregame` only supports a profiles, since it doesn't make sense to upload a webots binary to the booster.
 
+Pepsi selects the SDK for packages marked `cross-compile = true`.
+An explicit `--package` selection takes precedence over the current package's SDK metadata.
+On Apple Silicon macOS, workspace `build`, `check`, `clippy`, and `test` commands use the SDK by default; `nextest run` does too.
+These macOS defaults apply to local builds; remote builds use Podman when a package requests the SDK.
+Commands that execute binaries (`run`, `test`, and `nextest`) automatically use the SDK only on local AArch64 hosts, where its target can run directly.
+Otherwise, they use the native toolchain; `test --no-run` can still use the SDK for cross-compilation.
+`install` without an explicit local manifest uses the native environment, independently of the current package.
+Use `--env native` to build a local macOS tool without the SDK, or `--env docker` to select the SDK explicitly.
+
 ### Build directories
 
 Native builds, including the `./pepsi` launcher, keep Cargo's default `target` directory.
@@ -167,6 +176,25 @@ Choosing the same directory for both environments can bring back the invalidatio
 Use the same environment, profile, and target directory as the build that produced the binary.
 Remote container builds return binaries from the selected container directory to the matching path in your local repository.
 For remote native builds that retrieve binaries, use a relative `--target-dir`; absolute paths can refer to different locations on the two machines.
+
+### VS Code on Apple Silicon macOS
+
+By default, VS Code's local rust-analyzer runs Cargo on macOS, where Linux SDK libraries such as ALSA are unavailable.
+Build the image with `./pepsi sdk build` before configuring the editor.
+
+To keep VS Code, your shell, and your other extensions on macOS, configure the local rust-analyzer extension to launch its server through the SDK:
+
+```json
+{
+  "rust-analyzer.server.path": "${workspaceFolder}/scripts/rust_analyzer_sdk",
+  "rust-analyzer.check.workspace": false
+}
+```
+
+Place this in your workspace's `.vscode/settings.json`, reopen the folder locally, and restart rust-analyzer.
+The script mounts this checkout at the same absolute path in the container, so language-server file paths still refer to the files on your Mac.
+It also shares Pepsi's Cargo registry cache and `target/container` build directory.
+The `.vscode` directory is ignored by Git, so this setting remains local to your checkout.
 
 ## Aliveness
 
