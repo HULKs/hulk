@@ -29,8 +29,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let sound_sub = node
         .subscriber::<SpeakerRequest>(SOUND_REQUEST_TOPIC)
         .qos(QosProfile {
-            // Finish the current sound, keeping only the latest pending request.
-            // Volatile durability prevents replaying old events on startup.
             history: QosHistory::from_depth(1),
             ..Default::default()
         })
@@ -45,8 +43,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         }
 
-        // File reads and ALSA I/O stay on a blocking worker, not the executor.
-        // Audio errors must never stop the robot's other nodes.
         if let Err(error) = play_sound(parameters.clone(), sound).await {
             warn!(%sound, "failed to play sound: {error:#}");
         }
@@ -60,8 +56,6 @@ fn sound_path(parameters: &Parameters, sound: Sound) -> PathBuf {
 async fn play_sound(parameters: Parameters, sound: Sound) -> Result<()> {
     let path = sound_path(&parameters, sound);
     let stop = CancellationToken::new();
-    // Dropping a spawn_blocking handle does not stop its thread. Signal the
-    // worker explicitly if the node is aborted while awaiting playback.
     let _cancel_on_drop = stop.clone().drop_guard();
     spawn_blocking(move || {
         player::play_wav(
