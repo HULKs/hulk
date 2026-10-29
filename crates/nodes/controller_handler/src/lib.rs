@@ -57,11 +57,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             sound_enabled,
             &controller_input,
             &mut emergency_button_was_pressed,
-        ) && let Err(error) = sound_pub
-            .publish(&SpeakerRequest::PlaySound { sound })
-            .await
-        {
-            warn!(%sound, "failed to publish controller sound request: {error:#}");
+        ) {
+            sound_pub
+                .publish(&SpeakerRequest::PlaySound { sound })
+                .await?;
         }
     }
 }
