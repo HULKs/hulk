@@ -1,4 +1,23 @@
-use super::*;
+use std::time::Duration;
+
+use coordinate_systems::{Field, Ground};
+use hsl_network_messages::PlayerNumber;
+use linear_algebra::Isometry2;
+use ros_z::time::Time;
+use search_heatmap::{Heatmap, SearchArea, SearchVoronoiCache, SearchVoronoiSelection};
+use types::{
+    ball_position::BallPosition, field_dimensions::FieldDimensions,
+    parameters::SearchSuggestorParameters, players::Players, time_wrapper::TimeWrapper,
+    world_state::PlayerState,
+};
+
+use crate::{
+    selection::{
+        active_minimum_search_priority, ground_to_field_is_finite, search_area_for_player,
+    },
+    team::{TeammateFreshness, search_voronoi_selection_from_teammates, update_from_player_states},
+    validation::validate_search_suggestor_parameters,
+};
 
 #[test]
 fn search_partition_excludes_assigned_goalkeeper_and_keeps_its_search_independent() {
@@ -9,7 +28,6 @@ fn search_partition_excludes_assigned_goalkeeper_and_keeps_its_search_independen
     let field_pose = Isometry2::<Ground, Field>::from_parts(vector![-1.0, 0.0], 0.0);
     let keeper_pose = Isometry2::<Ground, Field>::from_parts(vector![-4.0, 0.0], 0.0);
     let other_pose = Isometry2::<Ground, Field>::from_parts(vector![3.0, 0.0], 0.0);
-    // Use a non-default keeper number to exercise the actual role assignment.
     let mut states = Players::new(None);
     for (number, pose) in [
         (PlayerNumber::Two, field_pose),
@@ -40,7 +58,9 @@ fn search_partition_excludes_assigned_goalkeeper_and_keeps_its_search_independen
             vec![(keeper_pose.as_pose(), PlayerNumber::Three)],
         ),
     ] {
+        let mut cache = SearchVoronoiCache::default();
         let selection = search_voronoi_selection_from_teammates(
+            &mut cache,
             field,
             18,
             Some((pose, number)),

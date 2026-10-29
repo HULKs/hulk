@@ -14,7 +14,7 @@ mod search_voronoi;
 pub use ball_observations::ball_position_in_field;
 pub use field_of_view::SearchOccluder;
 pub use search_selection::SearchArea;
-pub use search_voronoi::SearchVoronoiSelection;
+pub use search_voronoi::{SearchVoronoiCache, SearchVoronoiSelection};
 
 pub use types::heatmap::grid_dimensions;
 

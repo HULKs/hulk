@@ -295,7 +295,8 @@ impl VoronoiGrid {
         None
     }
 
-    fn point_to_index(&self, p: Point2<Field>) -> Option<usize> {
+    /// Returns the cell containing the point, or `None` outside the grid.
+    pub fn point_to_index(&self, p: Point2<Field>) -> Option<usize> {
         let resolution = self.geometry.resolution;
         let min_cell = self
             .geometry
