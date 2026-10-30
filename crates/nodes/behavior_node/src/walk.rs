@@ -533,7 +533,6 @@ fn rule_obstacle_escape_point(
             ball_obstacle.is_none_or(|ball| {
                 let direction = (*escape_point - robot_position).normalize();
                 let target = *escape_point + direction;
-                // Include the approach to the virtual start, not just the virtual segment.
                 !ball.intersects_line_segment(&LineSegment(robot_position, target))
             })
         })
