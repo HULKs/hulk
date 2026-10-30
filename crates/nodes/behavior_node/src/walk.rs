@@ -438,8 +438,6 @@ fn target_player_position(
     best_target.map(|(_, point)| point)
 }
 
-const ESCAPE_PATH_LENGTH: f32 = 1.0;
-
 pub fn walk_out_off_rule_obstacles(blackboard: &mut Blackboard) -> Status {
     let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field else {
         return Status::Failure;
@@ -474,12 +472,11 @@ pub fn walk_out_off_rule_obstacles(blackboard: &mut Blackboard) -> Status {
     };
 
     let escape_direction = (escape_point - robot_position).normalize();
-    let target_position = escape_point + escape_direction * ESCAPE_PATH_LENGTH;
+    let target_position = escape_point + escape_direction;
     let field_to_ground = ground_to_field.inverse();
     let target_direction = field_to_ground * escape_direction;
 
     blackboard.body_motion = Some(BodyMotion::Walk {
-        // Use a virtual start outside the obstacle so the segment points outward.
         path: direct_path(
             field_to_ground * escape_point,
             field_to_ground * target_position,
@@ -535,7 +532,7 @@ fn rule_obstacle_escape_point(
         .filter(|escape_point| {
             ball_obstacle.is_none_or(|ball| {
                 let direction = (*escape_point - robot_position).normalize();
-                let target = *escape_point + direction * ESCAPE_PATH_LENGTH;
+                let target = *escape_point + direction;
                 // Include the approach to the virtual start, not just the virtual segment.
                 !ball.intersects_line_segment(&LineSegment(robot_position, target))
             })
