@@ -9,6 +9,7 @@ use eframe::egui::{
     Tooltip, Ui, emath::format_with_decimals_in_range,
 };
 use egui_plot::{HoverPosition, Line, Plot, PlotMemory, PlotPoints, Points};
+use ros_z::time::Time;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -227,9 +228,7 @@ impl Panel for PlotPanel {
         // The backend changes relative-topic namespaces globally. Drop the old
         // snapshots, including paused data, before displaying the new target.
         self.reconcile(&context);
-        if !self.paused {
-            self.history.refresh();
-        }
+        self.history.refresh(self.paused);
         let paused = self.paused;
         let mut remove = None;
         ScrollArea::vertical()
@@ -372,9 +371,8 @@ impl Panel for PlotPanel {
             for line in self.lines.iter().filter(|line| line.visible) {
                 let label = line.source.source();
                 for segment in &line.data.segments {
-                    let points: PlotPoints = segment
+                    let points: PlotPoints = visible_segment(segment, start, end)
                         .iter()
-                        .filter(|(time, _)| *time >= start && *time <= end)
                         .map(|(time, value)| [seconds_from(*time, end), *value])
                         .collect();
                     match (line.style, points.points().len()) {
@@ -438,6 +436,15 @@ fn valid_history_seconds(value: f64) -> f64 {
     } else {
         30.0
     }
+}
+
+fn visible_segment(segment: &[(Time, f64)], start: Time, end: Time) -> &[(Time, f64)] {
+    let last = segment.partition_point(|(time, _)| *time <= end);
+    let first = segment[..last].partition_point(|(time, _)| *time < start);
+    if first == last {
+        return &[];
+    }
+    &segment[first.saturating_sub(1)..last]
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -561,7 +568,17 @@ fn format_seconds(seconds: f64) -> String {
 mod tests {
     use serde_json::json;
 
-    use super::{DrawStyle, SavedLine};
+    use super::{DrawStyle, SavedLine, Time, visible_segment};
+
+    #[test]
+    fn visible_lines_keep_a_predecessor_without_bridging_gaps() {
+        let segment = [(Time::from_nanos(0), 1.0), (Time::from_nanos(10), 2.0)];
+        let start = Time::from_nanos(5);
+        let end = Time::from_nanos(15);
+        assert_eq!(visible_segment(&segment, start, end), segment);
+        assert!(visible_segment(&segment[..1], start, end).is_empty());
+        assert!(visible_segment(&segment[1..], start, Time::from_nanos(8)).is_empty());
+    }
 
     #[test]
     fn layouts_without_a_style_draw_lines() {

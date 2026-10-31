@@ -22,6 +22,7 @@ pub(super) struct PlotHistory {
     topics: BTreeMap<String, Result<TopicHistory, String>>,
     namespace: String,
     duration: Duration,
+    presentation: Option<(u64, u64)>,
 }
 
 struct TopicHistory {
@@ -29,12 +30,13 @@ struct TopicHistory {
     _repaint: ObservationRepaint,
     updates: TopicObservationUpdateReceiver,
     records: Records,
+    pending: Option<Records>,
     dirty: bool,
 }
 
 impl PlotHistory {
     /// Reconcile subscriptions with the configured sources. Returns true when
-    /// switching namespace or retention has discarded the displayed history.
+    /// changing targets, seeking, or changing retention discards the history.
     pub fn reconcile<'a>(
         &mut self,
         context: &impl ObservationContext,
@@ -42,11 +44,15 @@ impl PlotHistory {
         duration: Duration,
     ) -> bool {
         let namespace = context.backend().namespace();
-        let reset = self.namespace != namespace || self.duration != duration;
+        let presentation = context.backend().presentation_identity();
+        let reset = self.namespace != namespace
+            || self.duration != duration
+            || self.presentation != Some(presentation);
         if reset {
             self.topics.clear();
             self.namespace = namespace;
             self.duration = duration;
+            self.presentation = Some(presentation);
         }
         let topics: std::collections::BTreeSet<_> =
             topics.filter(|topic| !topic.is_empty()).collect();
@@ -60,7 +66,8 @@ impl PlotHistory {
         reset
     }
 
-    pub fn refresh(&mut self) {
+    /// Collect even while paused, leaving the displayed snapshot frozen.
+    pub fn refresh(&mut self, paused: bool) {
         for history in self
             .topics
             .values_mut()
@@ -70,11 +77,17 @@ impl PlotHistory {
                 history.dirty = true;
             }
             if history.dirty {
-                history.records = history
-                    .observation
-                    .window(Time::zero(), Time::from_nanos(i64::MAX))
-                    .into();
+                history.pending = Some(retain_window(
+                    history.pending.as_ref().unwrap_or(&history.records),
+                    history
+                        .observation
+                        .window(Time::zero(), Time::from_nanos(i64::MAX)),
+                    self.duration,
+                ));
                 history.dirty = false;
+            }
+            if !paused && let Some(records) = history.pending.take() {
+                history.records = records;
             }
         }
     }
@@ -150,9 +163,29 @@ impl TopicHistory {
             _repaint: repaint,
             updates,
             records: Arc::from([]),
+            pending: None,
             dirty: true,
         })
     }
+}
+
+/// Query snapshots can drop old rows before the plot's time window ends.
+/// Merge by publication identity, preserving existing allocations for conversions.
+fn retain_window(
+    previous: &Records,
+    incoming: Vec<Arc<SampleRecord<DynamicPayload>>>,
+    duration: Duration,
+) -> Records {
+    let mut records: Vec<_> = previous.iter().cloned().chain(incoming).collect();
+    records.sort_by_key(|record| (record.source_time, record.publication_id));
+    records.dedup_by_key(|record| (record.source_time, record.publication_id));
+    if let Some(latest) = records.last() {
+        let start = latest.source_time.saturating_sub(duration);
+        // Keep one predecessor so lines can be clipped at the left border.
+        let first = records.partition_point(|record| record.source_time < start);
+        records.drain(..first.saturating_sub(1));
+    }
+    records.into()
 }
 
 /// Projection of one retained snapshot into numeric segments or
@@ -492,5 +525,147 @@ mod tests {
         series.states.clear();
         series.project_samples(&ValuePath::default(), std::iter::empty());
         assert!(series.is_state());
+    }
+}
+
+#[cfg(test)]
+mod history_window_tests {
+    use super::*;
+    use crate::{backend::RobotBackend, panel::PanelCreationContext};
+    use ros_z::context::ContextBuilder;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn scrolling_history_preserves_samples_beyond_query_limit() {
+        let router = ContextBuilder::default()
+            .with_mode("router")
+            .disable_multicast_scouting()
+            .with_connect_endpoints(std::iter::empty::<&str>())
+            .with_listen_endpoints(["tcp/127.0.0.1:0"])
+            .build()
+            .await
+            .unwrap();
+        let endpoint = router.session().info().locators().await[0].to_string();
+        let backend = Arc::new(
+            RobotBackend::new(
+                tokio::runtime::Handle::current(),
+                Some(endpoint),
+                "/plot_history_test".into(),
+            )
+            .await
+            .unwrap(),
+        );
+        let context = PanelCreationContext {
+            backend: backend.clone(),
+            value: None,
+            egui_context: Default::default(),
+        };
+        let step_nanos = 4_000_000;
+        let stamp = |i: u64| Time::from_nanos(100_000_000_000 + (i as i64) * step_nanos);
+        let cursor = backend.query_connection().cursor;
+        cursor.set(ros_z_debug::query::Cursor::At(stamp(0)));
+        let mut history = PlotHistory::default();
+        history.reconcile(&context, std::iter::once("signal"), Duration::from_secs(20));
+        let publisher = backend
+            .node()
+            .publisher::<u64>("/plot_history_test/signal")
+            .build()
+            .await
+            .unwrap();
+        // Establish the observation before sending unique, timestamped samples.
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                publisher
+                    .publish_with_source_time(&0, stamp(0))
+                    .await
+                    .unwrap();
+                history.refresh(false);
+                if history.latest("signal").is_some() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        let mut frozen = None;
+        for batch in 0..2020_u64 {
+            for i in batch * 5 + 1..=batch * 5 + 5 {
+                publisher
+                    .publish_with_source_time(&i, stamp(i))
+                    .await
+                    .unwrap();
+            }
+            let end = (batch + 1) * 5;
+            cursor.advance(stamp(end));
+            let paused = end > 5100 && end < 10100;
+            tokio::time::timeout(Duration::from_secs(5), async {
+                loop {
+                    assert!(!history.reconcile(
+                        &context,
+                        std::iter::once("signal"),
+                        Duration::from_secs(20)
+                    ));
+                    history.refresh(paused);
+                    let topic = history.topics["signal"].as_ref().unwrap();
+                    let collected = topic.pending.as_ref().unwrap_or(&topic.records);
+                    if collected
+                        .last()
+                        .is_some_and(|r| r.source_time == stamp(end))
+                    {
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(1)).await;
+                }
+            })
+            .await
+            .unwrap();
+            if paused {
+                assert!(Arc::ptr_eq(
+                    frozen.as_ref().unwrap(),
+                    &history.topics["signal"].as_ref().unwrap().records
+                ));
+                assert_eq!(history.latest("signal").unwrap().source_time, stamp(5100));
+            }
+            if end == 5000 || end == 5100 || end == 10100 {
+                let records = &history.topics["signal"].as_ref().unwrap().records;
+                assert!(
+                    records.iter().all(|record| {
+                        let expected = (record.source_time.as_nanos() - 100_000_000_000) / step_nanos;
+                        matches!(ValuePath::default().select(&record.value),
+                            Ok(SelectedValue::Value(DynamicValue::Uint64(value))) if *value == expected as u64)
+                    }),
+                    "a retained sample changed value"
+                );
+                let oldest = records.first().unwrap().source_time;
+                let age = seconds_from(oldest, stamp(end));
+                assert!(
+                    records.len() >= 5001,
+                    "the displayed window lost retained samples"
+                );
+                if end > 5000 {
+                    assert_eq!(
+                        records.len(),
+                        5002,
+                        "keep only the time window and its predecessor"
+                    );
+                    assert!(
+                        (age + 20.004).abs() < 1e-9,
+                        "20-second history stops early at {age:.3}s"
+                    );
+                }
+            }
+            if end == 5100 {
+                frozen = Some(history.topics["signal"].as_ref().unwrap().records.clone());
+            }
+        }
+        cursor.set(ros_z_debug::query::Cursor::At(stamp(10000)));
+        assert!(history.reconcile(&context, std::iter::once("signal"), Duration::from_secs(20)));
+        assert!(
+            history.latest("signal").is_none(),
+            "seeks must discard accumulated samples"
+        );
+        backend.use_live();
+        assert!(history.reconcile(&context, std::iter::once("signal"), Duration::from_secs(20)));
+        assert!(history.latest("signal").is_none());
     }
 }
