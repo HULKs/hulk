@@ -4,7 +4,10 @@ use super::{
 };
 use color_eyre::Report;
 use coordinate_systems::Pixel;
-use eframe::egui::{Popup, PopupCloseBehavior, Ui};
+use eframe::egui::{
+    PopupCloseBehavior, Ui,
+    containers::menu::{MenuButton, MenuConfig},
+};
 use ros_z::time::Time;
 use ros_z_debug::query::plan::{Frame, InputSpec, Source};
 use serde_json::{Value, json};
@@ -12,9 +15,11 @@ use std::ops::Range;
 use twix_visualization::twix_painter::TwixPainter;
 
 pub(super) trait ImageOverlay {
+    fn dropdown_ui(&mut self, _ui: &mut Ui) {}
+    fn reset_settings(&mut self) {}
     fn inputs(&self) -> Vec<OverlayInput>;
     fn prepare(&mut self, time: Time, inputs: &mut OverlayInputs) -> Result<(), Report>;
-    fn paint(&self, painter: &TwixPainter<Pixel>);
+    fn image_overlay(&self, painter: &TwixPainter<Pixel>);
 }
 
 struct OverlayEntry {
@@ -141,18 +146,22 @@ impl ImageOverlays {
     pub(super) fn paint(&self, painter: &TwixPainter<Pixel>, time: Time) {
         for entry in &self.entries {
             if entry.enabled && entry.frame == Some(time) {
-                entry.overlay.paint(painter);
+                entry.overlay.image_overlay(painter);
             }
         }
     }
 
     pub(super) fn ui(&mut self, ui: &mut Ui) {
-        Popup::menu(&ui.button("Overlays"))
-            .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
-            .show(|ui| {
+        MenuButton::new("Overlays")
+            .config(MenuConfig::new().close_behavior(PopupCloseBehavior::CloseOnClickOutside))
+            .ui(ui, |ui| {
                 for entry in &mut self.entries {
                     if ui.checkbox(&mut entry.enabled, entry.name).changed() {
+                        entry.overlay.reset_settings();
                         self.revision = self.revision.wrapping_add(1);
+                    }
+                    if entry.enabled {
+                        ui.indent(entry.id, |ui| entry.overlay.dropdown_ui(ui));
                     }
                     if let Some(error) = &entry.error {
                         ui.colored_label(ui.visuals().error_fg_color, error);

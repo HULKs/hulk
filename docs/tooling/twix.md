@@ -69,7 +69,7 @@ Choose a panel from the **+** picker.
 | Panel | Purpose |
 | --- | --- |
 | Text | Display a topic's latest payload or a selected field as JSON. |
-| Image | Display the latest raw camera frame from a `TimeWrapper<ros2::sensor_msgs::image::Image>` topic, defaulting to `inputs/left_image`. |
+| Image | Display the latest raw camera frame from a `ros2::sensor_msgs::image::Image` topic, defaulting to `inputs/left_image`. |
 | Map | Display field or ground views with selectable layers for robot pose, balls, obstacles, and paths. |
 | Parameter | Discover nodes with remote parameter services, display snapshots or selected paths as JSON, and write selected paths to active layers with revision checks. |
 | Audio | Display microphone spectra and a waterfall for the selected channel, defaulting to `audio_spectrums`. |
@@ -170,9 +170,22 @@ The Horizon overlay interpolates compatible camera matrices over brackets spanni
 
 Live ingestion is independent of the UI frame rate. Shared histories are bounded by sample count and bytes; observations report when retention limits their coverage. Replay uses server-side indexes instead of accumulating panel histories. Image and overlay timestamp projections are developer-owned query declarations; legacy saved projection overrides are ignored. The Text panel always uses source time, as do other observations unless explicitly configured by code.
 
+The Image panel's Overlays menu offers confidence controls for object and pose detections.
+Bounding boxes default to `0.5` confidence and pose keypoints to `0.8`.
+Values range from `0` to `1` and reset to their defaults when the overlay is toggled off and on or Twix is reopened.
+These controls only filter the visualization; they do not change the detector or its published results.
+
 ### Adding an image overlay
 
-Implement `ImageOverlay` in `tools/twix/src/panels/image/overlays/` and register an instance in `ImageOverlays::new`. `inputs()` declares relative topics, projections, query selections, subscription policy, and optional frame preferences. The image panel compiles these declarations into a single query plan. `prepare(time, &mut inputs)` clears old prepared state, decodes its already-matched slots through `OverlayInputs::decode` in `image/inputs.rs`, and computes drawing data. Decoding retains diagnostics even when optional-input failures use fallback geometry; errors appear in the overlay menu. `paint()` draws that state when available. The registry owns enablement, persistence, input ranges, and preparation caching; concrete overlays do not access the backend. Shared camera/interpolation helpers live in `overlays/camera.rs`. The texture cache retains sample identity and pixels, not successful or failed wire payloads. Clearing the image topic releases the plan observation. Both Live and replay use the same overlay declarations and preparation code.
+Implement `ImageOverlay` in `tools/twix/src/panels/image/overlays/` and register an instance in `ImageOverlays::new`. `inputs()` declares relative topics, projections, query selections, subscription policy, and optional frame preferences.
+The image panel compiles these declarations into a single query plan. `prepare(time, &mut inputs)` clears old prepared state, decodes its already-matched slots through `OverlayInputs::decode` in `image/inputs.rs`, and computes drawing data.
+Decoding retains diagnostics even when optional-input failures use fallback geometry; errors appear in the overlay menu.
+`image_overlay()` draws that state when available.
+Optional `dropdown_ui()` controls appear beneath the overlay in the Overlays menu.
+The registry owns enablement, persistence, input ranges, and preparation caching; concrete overlays do not access the backend.
+Shared camera/interpolation helpers live in `overlays/camera.rs`.
+The texture cache retains sample identity and pixels, not successful or failed wire payloads. Clearing the image topic releases the plan observation.
+Both Live and replay use the same overlay declarations and preparation code.
 
 Use the object-detection overlay for bounding boxes, class labels, and confidence values, and pose detection for human skeletons.
 Overlays are supported for the selected namespace's `inputs/left_image`, their producer's camera.

@@ -41,7 +41,7 @@ impl ImageOverlay for HorizonOverlay {
         Ok(())
     }
 
-    fn paint(&self, painter: &TwixPainter<Pixel>) {
+    fn image_overlay(&self, painter: &TwixPainter<Pixel>) {
         let Some(camera_matrix) = &self.sample else {
             return;
         };
