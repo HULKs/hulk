@@ -15,7 +15,7 @@
       rustVersion = workspace.workspace.package.rust-version;
       pkgs = import nixpkgs { inherit system; overlays = [ (import rust-overlay) ]; };
       robotPkgs = import nixpkgs { system = "aarch64-linux"; };
-      robotZenoh = robotPkgs.zenoh.overrideAttrs (old: {
+      robotZenoh = pkgs.pkgsCross.aarch64-multiplatform.zenoh.overrideAttrs (old: {
         cargoBuildFeatures = (old.cargoBuildFeatures or [ ]) ++ [ "zenohd/shared-memory" ];
       });
       robotBridge = pkgs.pkgsCross.aarch64-multiplatform.callPackage ./nix/zenoh-bridge-dds/package.nix { };
