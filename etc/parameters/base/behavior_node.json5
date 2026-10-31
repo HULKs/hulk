@@ -93,13 +93,21 @@
   },
   kickoff: {
     relative_goalkeeper_position: [-1.0, 0.0],
-    relative_striker_position: [-0.05, 0.0],
-    relative_striker_side_kick_position: [0.02, -0.08],
+    goalkeeper_position_offset: [0.0, 0.0],
+    relative_striker_position: [0.0, 0.0],
+    striker_position_offset: [-0.2, 0.0],
+    relative_striker_side_kick_position: [0.0, 0.0],
+    striker_side_kick_position_offset: [0.2, -0.4],
     /// Own-kickoff support slots, filled in order by descending active player number.
     relative_aggressive_positions: [
       [-0.1, 0.7],
       [-0.3, -0.5],
       [-0.6, 0.0],
+    ],
+    agressive_positions_offset: [
+      [0.0, 0.0],
+      [0.0, 0.0],
+      [0.0, 0.3],
     ],
     /// Opponent-kickoff slots, filled in order by descending active player number.
     relative_defensive_positions: [
@@ -107,6 +115,12 @@
       [-0.45, 0.5],
       [-0.45, -0.5],
       [-0.6, 0.0],
+    ],
+    defensive_positions_offset: [
+      [0.0, -0.3],
+      [0.0, 0.0],
+      [0.0, 0.0],
+      [0.0, 0.3],
     ],
   },
   voronoi: {
