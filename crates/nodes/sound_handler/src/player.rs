@@ -33,13 +33,9 @@ pub(super) fn play_wav(
     validate_spec(spec)?;
     control.check()?;
 
-    // Nonblocking mode bounds waits so cancellation and timeouts remain
-    // observable even if the output device stops consuming samples.
     let device = create_device(hardware_device_name, spec)?;
     let result = stream_wav(reader, &device, &control);
     if result.is_err() {
-        // Best-effort stop: preserve the original error if dropping queued
-        // frames also fails. Closing the PCM below releases the device.
         let _ = device.drop();
     }
     result
@@ -69,8 +65,6 @@ fn create_device(name: &str, spec: WavSpec) -> Result<PCM> {
         parameters
             .set_channels(u32::from(spec.channels))
             .wrap_err("failed to set playback channels")?;
-        // Require the file's rate, rather than silently playing at a different
-        // speed. ALSA's default/plughw devices can perform rate conversion.
         parameters
             .set_rate(spec.sample_rate, ValueOr::Nearest)
             .wrap_err("failed to set playback sample rate")?;
@@ -97,7 +91,6 @@ fn stream_wav<R: Read>(
     let mut samples = reader.samples::<i16>();
     loop {
         control.check()?;
-        // Bound memory usage independently of file size.
         let buffer = samples
             .by_ref()
             .take(FRAMES_PER_CHUNK * channels)
