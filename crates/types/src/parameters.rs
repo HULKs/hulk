@@ -139,6 +139,7 @@ pub struct PathPlanningParameters {
     pub rotation_penalty_factor: f32,
     pub robot_radius: f32,
     pub half_rotation: Duration,
+    pub goal_kick_striker_safty_margin: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
