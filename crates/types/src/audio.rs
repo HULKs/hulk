@@ -3,7 +3,6 @@ use std::fmt::{self, Display, Formatter};
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
-/// Robot-local, event-only topic shared by sound request publishers and the sound handler.
 pub const SOUND_REQUEST_TOPIC: &str = "commands/speaker_request";
 pub const SOUNDBOARD_TOPIC: &str = "soundboard";
 

@@ -70,10 +70,8 @@ fn sound_for_controller_input(
     input: &ControllerInput,
     was_pressed: &mut bool,
 ) -> Option<Sound> {
-    // West is controller X, the same button used for emergency damping.
     let pressed = input.connected && input.is_pressed(Button::West);
     let play_sound = enabled && pressed && !*was_pressed;
-    // Track the edge even when disabled, so enabling while held does not replay it.
     *was_pressed = pressed;
     play_sound.then_some(Sound::MetalBar)
 }
