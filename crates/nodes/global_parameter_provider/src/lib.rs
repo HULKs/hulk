@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use ros_z::{prelude::*, qos::QosDurability};
 use types::{
+    audio::{SOUNDBOARD_TOPIC, Soundboard},
     field_dimensions::FieldDimensions,
     joint_limits::JointLimits,
     walking_velocity_limits::{WALKING_VELOCITY_LIMITS_TOPIC, WalkingVelocityLimits},
@@ -18,6 +19,7 @@ pub struct Parameters {
     pub player_number: PlayerNumber,
     pub field_dimensions: FieldDimensions,
     pub walking_velocity_limits: WalkingVelocityLimits,
+    pub soundboard: Soundboard,
 }
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -69,6 +71,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
+    let soundboard_pub = node
+        .publisher::<Soundboard>(SOUNDBOARD_TOPIC)
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await?;
 
     let mut parameters_receiver = node_parameters.subscribe();
 
@@ -83,6 +93,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         walking_velocity_limits_pub
             .publish(&parameters.walking_velocity_limits)
             .await?;
+        soundboard_pub.publish(&parameters.soundboard).await?;
 
         parameters_receiver.changed().await?;
     }

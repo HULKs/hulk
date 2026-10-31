@@ -1,11 +1,45 @@
 use color_eyre::eyre::{Result, eyre};
 use types::{
+    audio::{Sound, Soundboard},
     behavior_tree::Status,
     motion_command::{BodyMotion, HeadMotion, ImageRegion, MotionCommand},
     walking_velocity_limits::WalkingVelocityLimits,
 };
 
 use crate::node::Blackboard;
+
+pub(crate) fn sound_for_motion_transition(
+    soundboard: &Soundboard,
+    previous: Option<&MotionCommand>,
+    current: &MotionCommand,
+) -> Option<Sound> {
+    match (previous, current) {
+        (Some(previous), current)
+            if soundboard.drift
+                && matches!(
+                    previous,
+                    MotionCommand::Walk { .. } | MotionCommand::WalkWithVelocity { .. }
+                )
+                && !is_stationary_command(previous)
+                && is_stationary_command(current) =>
+        {
+            Some(Sound::Drift)
+        }
+        _ => None,
+    }
+}
+
+fn is_stationary_command(command: &MotionCommand) -> bool {
+    match command {
+        MotionCommand::Stand { .. } => true,
+        MotionCommand::WalkWithVelocity {
+            velocity,
+            angular_velocity,
+            ..
+        } => velocity.x() == 0.0 && velocity.y() == 0.0 && *angular_velocity == 0.0,
+        _ => false,
+    }
+}
 
 pub fn assemble_motion_command(blackboard: &Blackboard, status: Status) -> Result<MotionCommand> {
     let command = match status {

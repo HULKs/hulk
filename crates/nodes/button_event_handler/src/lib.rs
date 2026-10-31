@@ -4,8 +4,11 @@ use std::{boxed::Box, future::Future, pin::Pin};
 use color_eyre::Result;
 
 use booster::{ButtonEventMsg, ButtonEventType};
-use ros_z::prelude::*;
-use types::buttons::{ButtonPressType, Buttons};
+use ros_z::{prelude::*, qos::QosDurability};
+use types::{
+    audio::{SOUND_REQUEST_TOPIC, SOUNDBOARD_TOPIC, Sound, Soundboard, SpeakerRequest},
+    buttons::{ButtonPressType, Buttons},
+};
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -13,6 +16,19 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("button_event_handler").build().await?;
+    let soundboard_cache = node
+        .subscriber::<Soundboard>(SOUNDBOARD_TOPIC)
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
+    let sound_pub = node
+        .publisher::<SpeakerRequest>(SOUND_REQUEST_TOPIC)
+        .build()
+        .await?;
     let button_event_message_sub = node
         .subscriber::<ButtonEventMsg>("inputs/button_event_message")
         .build()
@@ -36,5 +52,19 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         last_button_event_types[button_event_message.button] = Some(button_event_message.event);
 
         buttons_pub.publish(&buttons).await?;
+        if let Some(soundboard) = soundboard_cache.get_latest()
+            && let Some(sound) = sound_for_buttons(&soundboard, &buttons)
+        {
+            sound_pub
+                .publish(&SpeakerRequest::PlaySound { sound })
+                .await?;
+        }
     }
+}
+
+fn sound_for_buttons(
+    soundboard: &Soundboard,
+    buttons: &Buttons<Option<ButtonPressType>>,
+) -> Option<Sound> {
+    (soundboard.sigh && matches!(buttons.f1, Some(ButtonPressType::Short))).then_some(Sound::Sigh)
 }
