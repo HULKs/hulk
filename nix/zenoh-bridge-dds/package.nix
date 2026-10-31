@@ -26,7 +26,8 @@ rustPlatform.buildRustPackage {
   postPatch = ''
     substituteInPlace Cargo.toml \
       --replace-fail 'members = ["zenoh-bridge-dds", "zenoh-plugin-dds"]' 'members = ["zenoh-bridge-dds"]' \
-      --replace-fail 'version = "1.9.0", path = "zenoh-plugin-dds/"' 'version = "=1.9.0"'
+      --replace-fail 'version = "1.9.0", path = "zenoh-plugin-dds/"' 'version = "=1.9.0"' \
+      --replace-fail '"plugins",' '"plugins", "shared-memory",'
     cat >> Cargo.toml <<'EOF'
     [patch.crates-io]
     cyclors = { git = "https://github.com/IntelligentRoboticsLab/cyclors.git", rev = "8f58b83ac0f1c601d9fe9694cfe665b439a24dc8" }
