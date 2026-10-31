@@ -454,7 +454,7 @@ pub fn walk_out_off_rule_obstacles(blackboard: &mut Blackboard) -> Status {
     };
 
     let parameters = &blackboard.parameters.walking.path_planning;
-    let clearance = parameters.robot_radius + 0.05;
+    let clearance = parameters.robot_radius;
     let ball_obstacle = blackboard.world_state.ball.map(|ball| {
         Circle::new(
             ground_to_field * ball.ball_in_ground,
