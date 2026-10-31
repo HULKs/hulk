@@ -170,18 +170,19 @@ fn detection_label_rect(
     // A label larger than the visible image is clipped to the available area.
     let size = label_size.min(image_rect.size().max(Vec2::ZERO));
     let min = inside_min.max(image_rect.min).min(image_rect.max - size);
-    let mut rect = Rect::from_min_size(min, size);
-    if let Some(occupied) = occupied_rect
-        && occupied.intersect(rect).is_positive()
-    {
-        for y in [occupied.bottom(), occupied.top() - size.y] {
-            let candidate = Rect::from_min_size(pos2(min.x, y), size);
-            if image_rect.contains_rect(candidate) && !occupied.intersect(candidate).is_positive() {
-                rect = candidate;
-                break;
-            }
-        }
-    }
+    let rect = Rect::from_min_size(min, size);
+    let rect = occupied_rect
+        .filter(|occupied| occupied.intersect(rect).is_positive())
+        .and_then(|occupied| {
+            [occupied.bottom(), occupied.top() - size.y]
+                .into_iter()
+                .map(|y| Rect::from_min_size(pos2(min.x, y), size))
+                .find(|candidate| {
+                    image_rect.contains_rect(*candidate)
+                        && !occupied.intersect(*candidate).is_positive()
+                })
+        })
+        .unwrap_or(rect);
     (rect, DetectionLabelPlacement::Clamped)
 }
 
@@ -247,9 +248,7 @@ fn colored_polygon_mesh(points: &[Pos2], color: Color32) -> Mesh {
 }
 
 fn contrast_text_color(background_color: Color32) -> Color32 {
-    let [red, green, blue, _] = background_color.to_srgba_unmultiplied();
-    let luminance = 0.299 * red as f32 + 0.587 * green as f32 + 0.114 * blue as f32;
-    if luminance > 150.0 {
+    if background_color.to_opaque().intensity() > 150.0 / 255.0 {
         Color32::BLACK
     } else {
         Color32::WHITE

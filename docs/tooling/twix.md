@@ -177,7 +177,15 @@ These controls only filter the visualization; they do not change the detector or
 
 ### Adding an image overlay
 
-Implement `ImageOverlay` in `tools/twix/src/panels/image/overlays/` and register an instance in `ImageOverlays::new`. `inputs()` declares relative topics, projections, query selections, subscription policy, and optional frame preferences. The image panel compiles these declarations into a single query plan. `prepare(time, &mut inputs)` clears old prepared state, decodes its already-matched slots through `OverlayInputs::decode` in `image/inputs.rs`, and computes drawing data. Decoding retains diagnostics even when optional-input failures use fallback geometry; errors appear in the overlay menu. `paint()` draws that state when available. The registry owns enablement, persistence, input ranges, and preparation caching; concrete overlays do not access the backend. Shared camera/interpolation helpers live in `overlays/camera.rs`. The texture cache retains sample identity and pixels, not successful or failed wire payloads. Clearing the image topic releases the plan observation. Both Live and replay use the same overlay declarations and preparation code.
+Implement `ImageOverlay` in `tools/twix/src/panels/image/overlays/` and register an instance in `ImageOverlays::new`. `inputs()` declares relative topics, projections, query selections, subscription policy, and optional frame preferences.
+The image panel compiles these declarations into a single query plan. `prepare(time, &mut inputs)` clears old prepared state, decodes its already-matched slots through `OverlayInputs::decode` in `image/inputs.rs`, and computes drawing data.
+Decoding retains diagnostics even when optional-input failures use fallback geometry; errors appear in the overlay menu.
+`image_overlay()` draws that state when available.
+Optional `dropdown_ui()` controls appear beneath the overlay in the Overlays menu.
+The registry owns enablement, persistence, input ranges, and preparation caching; concrete overlays do not access the backend.
+Shared camera/interpolation helpers live in `overlays/camera.rs`.
+The texture cache retains sample identity and pixels, not successful or failed wire payloads. Clearing the image topic releases the plan observation.
+Both Live and replay use the same overlay declarations and preparation code.
 
 Use the object-detection overlay for bounding boxes, class labels, and confidence values, and pose detection for human skeletons.
 Overlays are supported for the selected namespace's `inputs/left_image`, their producer's camera.

@@ -69,7 +69,7 @@ impl ImageOverlay for PoseDetectionOverlay {
         Ok(())
     }
 
-    fn ui(&mut self, ui: &mut Ui) {
+    fn dropdown_ui(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.label("Bounding box confidence");
             ui.add(
@@ -94,7 +94,7 @@ impl ImageOverlay for PoseDetectionOverlay {
         *self = Self::default();
     }
 
-    fn paint(&self, painter: &TwixPainter<Pixel>) {
+    fn image_overlay(&self, painter: &TwixPainter<Pixel>) {
         let Some(poses) = &self.sample else {
             return;
         };

@@ -47,7 +47,7 @@ impl ImageOverlay for ObjectDetectionOverlay {
         Ok(())
     }
 
-    fn ui(&mut self, ui: &mut Ui) {
+    fn dropdown_ui(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.label("Confidence");
             ui.add(
@@ -63,7 +63,7 @@ impl ImageOverlay for ObjectDetectionOverlay {
         *self = Self::default();
     }
 
-    fn paint(&self, painter: &TwixPainter<Pixel>) {
+    fn image_overlay(&self, painter: &TwixPainter<Pixel>) {
         let Some(object_detections) = &self.sample else {
             return;
         };

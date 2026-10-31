@@ -15,11 +15,11 @@ use std::ops::Range;
 use twix_visualization::twix_painter::TwixPainter;
 
 pub(super) trait ImageOverlay {
-    fn ui(&mut self, _ui: &mut Ui) {}
+    fn dropdown_ui(&mut self, _ui: &mut Ui) {}
     fn reset_settings(&mut self) {}
     fn inputs(&self) -> Vec<OverlayInput>;
     fn prepare(&mut self, time: Time, inputs: &mut OverlayInputs) -> Result<(), Report>;
-    fn paint(&self, painter: &TwixPainter<Pixel>);
+    fn image_overlay(&self, painter: &TwixPainter<Pixel>);
 }
 
 struct OverlayEntry {
@@ -146,7 +146,7 @@ impl ImageOverlays {
     pub(super) fn paint(&self, painter: &TwixPainter<Pixel>, time: Time) {
         for entry in &self.entries {
             if entry.enabled && entry.frame == Some(time) {
-                entry.overlay.paint(painter);
+                entry.overlay.image_overlay(painter);
             }
         }
     }
@@ -161,7 +161,7 @@ impl ImageOverlays {
                         self.revision = self.revision.wrapping_add(1);
                     }
                     if entry.enabled {
-                        ui.indent(entry.id, |ui| entry.overlay.ui(ui));
+                        ui.indent(entry.id, |ui| entry.overlay.dropdown_ui(ui));
                     }
                     if let Some(error) = &entry.error {
                         ui.colored_label(ui.visuals().error_fg_color, error);
