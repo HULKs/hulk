@@ -41,6 +41,7 @@ pub(crate) enum JointTarget {
     MoveWithVelocity {
         velocity: HeadJoints<f32>,
     },
+    Unstiff,
     Damping,
 }
 
@@ -79,6 +80,7 @@ impl JointTarget {
                         parameters.kd[joint],
                     )
                 }
+                Self::Unstiff => (start, 0.0, parameters.damping_kd[joint]),
                 Self::Damping => (start, 0.0, parameters.damping_kd[joint]),
             };
             commands[joint] = MotorCommand {

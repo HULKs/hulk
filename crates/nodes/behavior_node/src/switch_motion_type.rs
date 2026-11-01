@@ -10,6 +10,7 @@ pub fn switch_motion_type(
     let is_last_motion_type = match motion_type {
         MotionType::Kick => condition!(is_last_motion_type, MotionType::Kick),
         MotionType::Prepare => condition!(is_last_motion_type, MotionType::Prepare),
+        MotionType::Unstiff => condition!(is_last_motion_type, MotionType::Unstiff),
         MotionType::Damping => condition!(is_last_motion_type, MotionType::Damping),
         MotionType::Stand => condition!(is_last_motion_type, MotionType::Stand),
         MotionType::StandUp => condition!(is_last_motion_type, MotionType::StandUp),
@@ -34,6 +35,7 @@ pub fn is_allowed_to_switch(blackboard: &mut Blackboard) -> bool {
 
     blackboard.time_since_last_switch = time_since_last_switch;
     match blackboard.last_motion_type {
+        Some(MotionType::Unstiff) => parameters.unstiff < time_since_last_switch,
         Some(MotionType::Damping) => parameters.damping < time_since_last_switch,
         Some(MotionType::Kick) => parameters.kick < time_since_last_switch,
         Some(MotionType::Prepare) => parameters.prepare < time_since_last_switch,

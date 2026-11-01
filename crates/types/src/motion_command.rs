@@ -22,6 +22,7 @@ pub enum OrientationMode {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Message)]
 pub enum MotionCommand {
+    Unstiff,
     Damping,
     Prepare,
     Stand {
@@ -66,12 +67,13 @@ impl MotionCommand {
             MotionCommand::Prepare => Some(HeadMotion::Center {
                 image_region_target: ImageRegion::Top,
             }),
-            MotionCommand::Damping | MotionCommand::StandUp => None,
+            MotionCommand::Unstiff | MotionCommand::Damping | MotionCommand::StandUp => None,
         }
     }
 
     pub fn from_partial_motions(body: BodyMotion, head: HeadMotion) -> Self {
         match body {
+            BodyMotion::Unstiff => MotionCommand::Unstiff,
             BodyMotion::Damping => MotionCommand::Damping,
             BodyMotion::Prepare => MotionCommand::Prepare,
             BodyMotion::Stand => MotionCommand::Stand { head },
@@ -122,6 +124,7 @@ impl MotionCommand {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Message)]
 pub enum BodyMotion {
+    Unstiff,
     Damping,
     Prepare,
     Stand,
@@ -165,6 +168,7 @@ pub enum HeadMotion {
         height_above_ground: f32,
         image_region_target: ImageRegion,
     },
+    Unstiff,
     Damping,
     MoveWithVelocity {
         /// Desired yaw angular velocity in rad/s.

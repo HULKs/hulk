@@ -47,6 +47,7 @@ enum Mode {
     Direct,
     Velocity,
     Scan(ScanKind),
+    Unstiff,
     Damping,
     Injected,
 }
@@ -178,6 +179,7 @@ impl HeadController {
             return HeadTarget::new(move_to(position, parameters.direct_travel_speed));
         }
         let look_at_target = match *request {
+            HeadMotion::Unstiff => return HeadTarget::new(JointTarget::Unstiff),
             HeadMotion::Damping => return HeadTarget::new(JointTarget::Damping),
             HeadMotion::LookAround | HeadMotion::SearchForLostBall => {
                 let kind = if matches!(request, HeadMotion::LookAround) {
@@ -303,6 +305,7 @@ fn mode_for(request: &HeadMotion, injected: bool) -> Mode {
     match request {
         HeadMotion::LookAround => Mode::Scan(ScanKind::LookAround),
         HeadMotion::SearchForLostBall => Mode::Scan(ScanKind::SearchForLostBall),
+        HeadMotion::Unstiff => Mode::Unstiff,
         HeadMotion::Damping => Mode::Damping,
         HeadMotion::Center { .. } | HeadMotion::LookAt { .. } => Mode::Direct,
         HeadMotion::MoveWithVelocity { .. } => Mode::Velocity,

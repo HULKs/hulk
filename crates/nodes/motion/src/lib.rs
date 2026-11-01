@@ -308,6 +308,7 @@ struct MotionState {
 }
 
 enum MotionPlan {
+    Unstiff,
     Damping,
     Prepare,
     GetUp {
@@ -349,6 +350,7 @@ impl MotionPlan {
         walking_velocity_limits: WalkingVelocityLimits,
     ) -> Self {
         match motion_command {
+            MotionCommand::Unstiff => Self::Unstiff,
             MotionCommand::Damping => Self::Damping,
             MotionCommand::Prepare => Self::Prepare,
             MotionCommand::Stand { head } => Self::Walk {
@@ -452,6 +454,7 @@ impl MotionState {
         let block_get_up = motion_plan.blocks_failed_get_up(&mut self.get_up_failed);
 
         let robot_command = match motion_plan {
+            MotionPlan::Unstiff => RobotCommand::Unstiff,
             MotionPlan::Damping => RobotCommand::Damping,
             MotionPlan::Prepare => RobotCommand::Prepare,
             MotionPlan::GetUp { .. } if block_get_up => RobotCommand::Damping,

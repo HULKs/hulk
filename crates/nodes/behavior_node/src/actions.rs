@@ -13,6 +13,11 @@ pub fn damping(blackboard: &mut Blackboard) -> Status {
     Status::Success
 }
 
+pub fn unstiff(blackboard: &mut Blackboard) -> Status {
+    blackboard.body_motion = Some(BodyMotion::Unstiff);
+    Status::Success
+}
+
 pub fn injected_motion_command(blackboard: &mut Blackboard) -> Status {
     if blackboard
         .parameters

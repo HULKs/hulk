@@ -1,9 +1,15 @@
 use hsl_network_messages::SubState;
-use types::{controller_input::Button, motion_type::MotionType, primary_state::PrimaryState};
+use types::{
+    controller_input::Button,
+    motion_type::MotionType,
+    primary_state::PrimaryState::{self},
+};
 
 use crate::{
     action,
-    actions::{damping, injected_motion_command, prepare, remote_control, stand, stand_up},
+    actions::{
+        damping, injected_motion_command, prepare, remote_control, stand, stand_up, unstiff,
+    },
     behavior_tree::Node,
     condition,
     conditions::{
@@ -39,6 +45,10 @@ pub fn create_tree() -> Node<Blackboard> {
         sequence!(
             condition!(is_primary_state, PrimaryState::Damping),
             action!(damping)
+        ),
+        sequence!(
+            condition!(is_primary_state, PrimaryState::Unstiff),
+            action!(unstiff)
         ),
         sequence!(
             condition!(is_primary_state, PrimaryState::Prepare),
