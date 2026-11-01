@@ -168,7 +168,6 @@ pub enum HeadMotion {
         height_above_ground: f32,
         image_region_target: ImageRegion,
     },
-    Unstiff,
     Damping,
     MoveWithVelocity {
         /// Desired yaw angular velocity in rad/s.

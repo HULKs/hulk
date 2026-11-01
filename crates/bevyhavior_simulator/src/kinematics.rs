@@ -311,7 +311,6 @@ fn desired_head_yaw(
             }
         }
         Some(HeadMotion::Center { .. })
-        | Some(HeadMotion::Unstiff)
         | Some(HeadMotion::Damping)
         | None => 0.0,
     }
