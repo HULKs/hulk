@@ -172,7 +172,7 @@ pub struct HslNetworkParameters {
     pub hsl_striker_message_receive_timeout: Duration,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
+#[derive(Clone, Debug, Deserialize, Serialize, Message)]
 pub struct BallFilterNoise {
     pub detection_noise: Vector2<Pixel>,
     pub process_noise_moving: nalgebra::Vector4<f32>,
@@ -180,22 +180,113 @@ pub struct BallFilterNoise {
     pub initial_covariance: nalgebra::Vector4<f32>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, Message)]
+#[derive(Clone, Debug, Deserialize, Serialize, Message)]
 pub struct BallFilterParameters {
-    pub hypothesis_timeout: Duration,
+    /// Trust fresh localization for field-boundary confidence weighting and decay.
+    /// Set false when localization is uncertain; this is an operator assertion,
+    /// not an automatically estimated localization-quality signal.
+    pub good_localization: bool,
+    /// Maximum absolute offset between image exposure and camera geometry.
     pub maximum_camera_matrix_age: Duration,
+    /// Additional clearance in metres after the whole ball crosses the playing
+    /// field boundary, before either confidence weighting or stored decay starts.
+    /// Invalid/negative values act as zero.
+    pub field_boundary_margin: f32,
+    /// Distance beyond the boundary margin for an e-fold reduction. Zero gives a
+    /// hard boundary; a large distance makes the confidence reduction gradual.
+    pub field_boundary_confidence_decay_distance: f32,
+    /// Maximum additional confidence decay per second outside the field.
+    /// Zero preserves historical recordings without time-based field decay.
+    pub field_boundary_validity_decay_rate: f32,
+    /// Maximum projected detection distance in Ground metres, including zero.
+    pub maximum_detection_distance: f32,
+    pub hypothesis_timeout: Duration,
+    /// Maximum age of visual support for current output, independent of storage.
+    /// None preserves historical recording replay; zero requires a current observation.
+    #[serde(default)]
+    pub maximum_output_age: Option<Duration>,
+    /// Confirmed clear-view miss time before deleting a hypothesis. Zero deletes
+    /// on the first confirmed clear miss; a large timeout delays this expiry.
+    pub visible_missed_detection_timeout: Duration,
+    /// Continuous clear-view miss time for a nearby ball. Zero expires immediately.
+    pub near_visible_missed_detection_timeout: Duration,
+    /// Apply the fast near-ball miss rule strictly below this Ground distance.
+    /// Zero describes an empty region, since distances cannot be negative.
+    pub near_visible_missed_detection_distance: f32,
+    /// Maximum age of the obstacle model used to establish a clear camera view.
+    pub maximum_obstacle_time_difference: Duration,
     pub maximum_number_of_hypotheses: usize,
     pub ball_confidence_threshold: f32,
     pub log_likelihood_of_zero_velocity_threshold: f32,
+    /// Switch a moving hypothesis to rest strictly below this speed in m/s.
+    /// Zero never triggers this rule; likelihood-based resting remains separate.
+    pub resting_velocity_threshold: f32,
     pub hypothesis_merge_distance: f32,
     pub visible_validity_exponential_decay_factor: f32,
     pub hidden_validity_exponential_decay_factor: f32,
+    /// Unmatched hidden-track decay per second. None preserves the legacy factor.
+    pub hidden_validity_decay_rate: Option<f32>,
+    /// Clear-view unmatched-track decay per second. None preserves the legacy factor.
+    pub visible_missed_validity_decay_rate: Option<f32>,
+    /// Additional decay per second for clearly missed balls in kick range.
+    /// None preserves historical behavior; zero applies no extra near-ball decay.
+    pub near_visible_missed_validity_decay_rate: Option<f32>,
+    /// Extra decay per second for unmatched competitors of a persistently observed,
+    /// confident leader. None preserves legacy behavior; zero disables the penalty.
+    pub competing_hypothesis_validity_decay_rate: Option<f32>,
+    /// Fraction of bounded confidence inherited when spawning near a recent track.
+    /// None preserves legacy spawn confidence; zero disables the bonus.
+    pub nearby_spawn_validity_factor: Option<f32>,
+    /// Maximum accumulated hypothesis support, applied before retention/merging.
+    /// None preserves unbounded historical support; zero caps support at zero.
+    /// Negative/NaN values act as zero. This is separate from the ranking cap.
+    #[serde(default)]
+    pub maximum_confidence: Option<f32>,
     pub validity_output_threshold: f32,
     pub validity_discard_threshold: f32,
     pub velocity_decay_factor: f32,
     pub noise: BallFilterNoise,
     pub maximum_matching_cost: f32,
-    pub maximum_matching_cost_validity_penalty_factor: f32,
+    /// Maximum physical association distance in metres. Zero requires coincident
+    /// positions; a large value leaves the covariance gate as the limiting test.
+    pub maximum_matching_distance: f32,
+    /// Maximum physical association distance after a gap for quiet balls outside
+    /// kicking reach. Zero requires coincident positions.
+    pub reacquisition_matching_distance: f32,
+    /// Maximum ratio between observed and projected ball radii, in either
+    /// direction. One requires equal radii; below one rejects positive radii.
+    /// A large ratio makes this geometry check permissive.
+    pub maximum_detection_radius_ratio: f32,
+    /// Apply size consistency within this Ground distance. Zero covers only the
+    /// origin; use a large distance to cover the entire playing field.
+    pub radius_consistency_maximum_distance: f32,
+    /// Ranking penalty per square metre of position covariance trace. Does not
+    /// change output eligibility, stored confidence, or hypothesis retention.
+    pub hypothesis_uncertainty_weight: f32,
+    /// Cap accumulated support for selection only. Zero caps ranking support at
+    /// zero; a large cap preserves ordinary confidence ranking.
+    pub selection_confidence_cap: f32,
+    /// Blend a separate geometry-filtered position estimate; baseline gates availability.
+    pub publication_filter_blend: f32,
+    /// Relative pixel noise for the optional position estimator.
+    pub publication_detection_noise: f32,
+    /// Maximum age of the alternate observation used for correction. Zero requires
+    /// a current observation; a large duration permits retained observations.
+    pub publication_maximum_age: Duration,
+    /// Maximum alternate ball distance for correction. Zero admits only the origin.
+    pub publication_maximum_distance: f32,
+    /// Maximum auxiliary/main position-covariance trace ratio for correction.
+    /// Zero permits only zero auxiliary covariance; a large ratio is permissive.
+    pub publication_maximum_covariance_ratio: f32,
+    /// Additional field-boundary uncertainty buffer for the auxiliary history.
+    /// The main filter's existing margin remains a lower bound.
+    pub publication_field_boundary_margin: f32,
+    /// Bounded uncertainty penalty for choosing between feasible associations.
+    /// Zero preserves legacy assignment; does not change the matching gate.
+    pub association_uncertainty_weight: f32,
+    /// Position-standard-deviation margin for clear missed-detection evidence.
+    /// Zero preserves center-only visibility. Uncertain visibility pauses misses.
+    pub visibility_uncertainty_scale: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]

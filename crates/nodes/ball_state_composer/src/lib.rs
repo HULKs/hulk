@@ -1,5 +1,8 @@
 use std::{boxed::Box, future::Future, pin::Pin};
-use std::{sync::Arc, time::SystemTime};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use color_eyre::Result;
 
@@ -7,7 +10,8 @@ use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::greater_than_with_hysteresis;
 use hsl_network_messages::{GamePhase, SubState, Team};
 use linear_algebra::{Isometry2, Point2, Vector2, point};
-use ros_z::{prelude::*, qos::QosDurability};
+use ros_z::{prelude::*, qos::QosDurability, time::Time};
+use serde::{Deserialize, Serialize};
 use types::{
     ball_position::BallPosition,
     field_dimensions::{FieldDimensions, Side},
@@ -16,12 +20,20 @@ use types::{
     world_state::{BallSource, BallState, LastBallState},
 };
 
+#[derive(Clone, Debug, Deserialize, Serialize, Message)]
+#[serde(deny_unknown_fields)]
+struct Parameters {
+    /// Reject stale cached observations even when an upstream publisher stops.
+    pub maximum_ball_age: Duration,
+}
+
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
 }
 
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("ball_state_composer").build().await?;
+    let parameters = node.bind_parameter_as::<Parameters>("ball_state_composer")?;
 
     let field_dimensions_cache = node
         .subscriber::<FieldDimensions>("field_dimensions")
@@ -75,15 +87,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut last_ball_state = None;
     let mut ball_position = None;
     let mut team_ball = None;
+    let mut tick = node.create_timer(Duration::from_millis(100));
 
     loop {
-        let now = node.clock().now().to_wallclock();
-
         additional_last_ball_state_pub
             .publish_if_subscribed(|| async { last_ball_state })
             .await?;
 
         tokio::select! {
+            _ = tick.tick() => {},
             received_ball_position = ball_position_sub.recv() => {
                 ball_position = received_ball_position?;
             }
@@ -109,7 +121,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     ground_to_field,
                     Some(&filtered_game_controller_state),
                     field_dimensions,
-                    now,
+                    node.clock().now().to_wallclock(),
                     &mut last_ball_field_side,
                 );
 
@@ -118,6 +130,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             }
         }
 
+        let now = node.clock().now();
+        let parameter_snapshot = parameters.snapshot();
         let ball = ground_to_field_cache
             .get_latest()
             .and_then(|ground_to_field| {
@@ -125,11 +139,16 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     ball_position,
                     team_ball,
                     *ground_to_field,
+                    now,
+                    parameter_snapshot.typed().maximum_ball_age,
                     &mut last_ball_field_side,
                 )
             });
         ball_state_pub.publish(&ball).await?;
-        last_ball_state = ball.map(|ball| LastBallState { time: now, ball });
+        last_ball_state = ball.map(|ball| LastBallState {
+            time: now.to_wallclock(),
+            ball,
+        });
     }
 }
 
@@ -137,8 +156,13 @@ fn compose_ball_state(
     ball_position: Option<BallPosition<Ground>>,
     team_ball: Option<BallPosition<Field>>,
     ground_to_field: Isometry2<Ground, Field>,
+    now: Time,
+    maximum_age: Duration,
     last_ball_field_side: &mut Side,
 ) -> Option<BallState> {
+    let ball_position =
+        ball_position.filter(|ball| ball.age_at(now).is_some_and(|age| age <= maximum_age));
+    let team_ball = team_ball.filter(|ball| ball.age_at(now).is_some_and(|age| age <= maximum_age));
     let (ball_position, ball_in_field, source) = match (ball_position, team_ball) {
         (Some(ball_position), _) => (
             ball_position,
@@ -263,5 +287,67 @@ mod tests {
         .unwrap();
 
         assert_eq!(ball.source, BallSource::Rule);
+    }
+
+    fn ball<Frame>(time: Time) -> BallPosition<Frame> {
+        BallPosition {
+            position: point![1.0, 0.0],
+            velocity: Vector2::zeros(),
+            last_seen: time,
+        }
+    }
+
+    #[test]
+    fn cached_local_and_team_balls_expire_without_new_messages() {
+        let age = Duration::from_millis(4_500);
+        let original = Time::zero();
+        for team in [false, true] {
+            for (millis, present) in [(0, true), (4_500, true), (4_501, false), (60_000, false)] {
+                let result = compose_ball_state(
+                    (!team).then(|| ball(original)),
+                    team.then(|| ball(original)),
+                    Isometry2::identity(),
+                    Time::from_nanos(millis * 1_000_000),
+                    age,
+                    &mut Side::Left,
+                );
+                assert_eq!(result.is_some(), present);
+                if let Some(result) = result {
+                    assert_eq!(result.last_seen_ball, original.to_wallclock());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn stale_local_ball_does_not_hide_a_recent_team_observation() {
+        let now = Time::from_nanos(6_000_000_000);
+        let observed = Time::from_nanos(5_900_000_000);
+        let result = compose_ball_state(
+            Some(ball(Time::zero())),
+            Some(ball(observed)),
+            Isometry2::identity(),
+            now,
+            Duration::from_millis(4_500),
+            &mut Side::Left,
+        )
+        .unwrap();
+        assert_eq!(result.last_seen_ball, observed.to_wallclock());
+    }
+
+    #[test]
+    fn future_observation_is_not_a_current_ball() {
+        let future = Time::from_nanos(1_000_000_000);
+        assert!(
+            compose_ball_state(
+                Some(ball(future)),
+                Some(ball(future)),
+                Isometry2::identity(),
+                Time::zero(),
+                Duration::from_millis(4_500),
+                &mut Side::Left,
+            )
+            .is_none()
+        );
     }
 }
