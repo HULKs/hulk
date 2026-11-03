@@ -23,20 +23,21 @@ Motion finishes by collecting and optimizing all motor commands in the `motor_co
 ### CPU isolation
 
 `--motion-cpus 4,5` runs motion, low-state input, fall/pose checks, and
-operator-input/state nodes on a separate Tokio runtime. The general runtime and
-shared transport exclude those CPUs. Behavior, including Voronoi and planning,
-stays on the general runtime; safety command selection still depends on it.
+operator-input/state nodes on separate Tokio runtimes, one worker per CPU. The
+general runtime and process-wide transport threads exclude those CPUs.
+Behavior, including Voronoi and planning, stays on the general runtime; safety
+command selection still depends on it.
 Without the flag, all nodes share one runtime.
 
-Threads are individually pinned across the selected CPUs, which remain shared
-with vendor processes. Tokio scheduler handoffs can leave both async workers on
-one CPU without breaking isolation; preserving their distribution is a future
-improvement.
+Nodes are assigned round robin across those runtimes at startup. Each runtime's
+async and blocking threads use its single CPU, so nested tasks and scheduler
+handoffs retain the node's placement. The selected CPUs remain shared with vendor
+processes. Different node workloads can still produce unequal CPU utilization.
 
 Deploy both the binary and `/usr/bin/launch-hulk`, which supplies the flag.
-Verify `Cpus_allowed_list` is `4` or `5` for each `hulk-motion` thread in
-`/proc/<pid>/task/<tid>/status`, and measure timing and stop-response latency
-under perception load.
+Verify `Cpus_allowed_list` matches the CPU in each `hulk-motion-4` or
+`hulk-motion-5` thread name in `/proc/<pid>/task/<tid>/status`, and measure
+timing and stop-response latency under perception load.
 
 ### Command path
 
