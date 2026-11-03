@@ -45,11 +45,6 @@ impl Default for ObstacleFilter {
     }
 }
 
-struct ObstacleFilterOutput {
-    hypotheses: Vec<Hypothesis>,
-    obstacles: Vec<Obstacle>,
-}
-
 #[derive(PartialEq)]
 enum MeasurementKind {
     Own,
@@ -139,17 +134,17 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut obstacle_filter = ObstacleFilter::default();
     let mut last_processed_player_state_times = Players::new(None);
     loop {
-        tokio::select! {
+        let obstacles = tokio::select! {
             received_detections = detections.recv() => {
                 let parameters_snapshot = parameters.snapshot();
                 let parameters = parameters_snapshot.typed();
                 let item = received_detections?;
-
-                let outputs = block_in_place(|| {
-                    let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
-                        return Vec::new();
-                    };
-                    let mut outputs = Vec::new();
+                block_in_place(|| {
+                    let field_dimensions = field_dimensions_cache.get_latest()?;
+                    if item.persistent.is_empty() {
+                        return None;
+                    }
+                    let mut last_ground_to_field = None;
                     for (detection_time, (detected_objects,)) in item.persistent {
                         let detected_objects = detected_objects
                             .map(|detected_objects| detected_objects.inner)
@@ -157,7 +152,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         let camera_matrix = camera_matrix_cache.get_nearest(detection_time);
                         let current_odometry_to_last_odometry =
                             current_odometry_to_last_odometry_cache.get_nearest(detection_time);
-                        let ground_to_field = ground_to_field_cache.get_nearest(detection_time);
+                        last_ground_to_field = ground_to_field_cache.get_nearest(detection_time);
 
                         obstacle_filter.process_detection(
                             detection_time,
@@ -173,44 +168,34 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                             .unwrap_or(PrimaryState::Damping);
                         let fall_detection = fall_detection_cache.get_latest();
 
-                        let obstacles = obstacle_filter.compose_outputs(
+                        obstacle_filter.maintain_hypotheses(
                             node.clock().now(),
                             parameters,
-                            field_dimensions.as_ref(),
-                            ground_to_field.as_ref().map(Arc::as_ref),
                             primary_state,
                             fall_detection.as_ref().map(Arc::as_ref),
                         );
-                        outputs.push(ObstacleFilterOutput {
-                            hypotheses: obstacle_filter.hypotheses.clone(),
-                            obstacles,
-                        });
                     }
-                    outputs
-                });
-
-                for output in outputs {
-                    obstacle_filter_hypotheses_pub
-                        .publish(&output.hypotheses)
-                        .await?;
-                    obstacles_pub.publish(&output.obstacles).await?;
-                }
+                    Some(obstacle_filter.obstacles(
+                        parameters,
+                        field_dimensions.as_ref(),
+                        last_ground_to_field.as_ref().map(Arc::as_ref),
+                    ))
+                })
             }
             received_player_states = player_states_subscriber.recv() => {
                 let parameters_snapshot = parameters.snapshot();
                 let parameters = parameters_snapshot.typed();
                 let player_states = received_player_states?;
-                let output = block_in_place(|| {
+                block_in_place(|| {
                     let own_player_number = player_number_cache
                         .get_latest()
                         .map(|player_number| *player_number);
-                    let network_player_states = new_network_player_states(
+                    let network_player_states = take_new_network_player_states(
                         &player_states,
                         own_player_number,
                         &mut last_processed_player_state_times,
                     );
                     let mut last_ground_to_field = None;
-                    let mut processed_player_state = false;
 
                     for (player_state_time, player_state) in network_player_states {
                         let Some(ground_to_field) =
@@ -226,13 +211,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                             ground_to_field.as_ref(),
                         );
                         last_ground_to_field = Some(ground_to_field);
-                        processed_player_state = true;
                     }
 
-                    if !processed_player_state {
-                        return None;
-                    }
-
+                    let ground_to_field = last_ground_to_field?;
                     let field_dimensions = field_dimensions_cache.get_latest()?;
                     let primary_state = primary_state_cache
                         .get_latest()
@@ -240,28 +221,27 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         .unwrap_or(PrimaryState::Damping);
                     let fall_detection = fall_detection_cache.get_latest();
 
-                    let obstacles = obstacle_filter.compose_outputs(
+                    obstacle_filter.maintain_hypotheses(
                         node.clock().now(),
                         parameters,
-                        field_dimensions.as_ref(),
-                        last_ground_to_field.as_ref().map(Arc::as_ref),
                         primary_state,
                         fall_detection.as_ref().map(Arc::as_ref),
                     );
 
-                    Some(ObstacleFilterOutput {
-                        hypotheses: obstacle_filter.hypotheses.clone(),
-                        obstacles,
-                    })
-                });
-
-                if let Some(output) = output {
-                    obstacle_filter_hypotheses_pub
-                        .publish(&output.hypotheses)
-                        .await?;
-                    obstacles_pub.publish(&output.obstacles).await?;
-                }
+                    Some(obstacle_filter.obstacles(
+                        parameters,
+                        field_dimensions.as_ref(),
+                        Some(ground_to_field.as_ref()),
+                    ))
+                })
             }
+        };
+
+        if let Some(obstacles) = obstacles {
+            obstacle_filter_hypotheses_pub
+                .publish_if_subscribed(|| async { &obstacle_filter.hypotheses })
+                .await?;
+            obstacles_pub.publish(&obstacles).await?;
         }
     }
 }
@@ -320,20 +300,17 @@ impl ObstacleFilter {
         );
     }
 
-    fn compose_outputs(
+    fn maintain_hypotheses(
         &mut self,
         now: Time,
         parameters: &ObstacleFilterParameters,
-        field_dimensions: &FieldDimensions,
-        ground_to_field: Option<&Isometry2<Ground, Field>>,
         primary_state: PrimaryState,
         fall_detection: Option<&FallDetection>,
-    ) -> Vec<Obstacle> {
-        self.remove_hypotheses(
-            now,
-            parameters.hypothesis_timeout,
-            parameters.hypothesis_merge_distance,
-        );
+    ) {
+        self.hypotheses.retain(|hypothesis| {
+            now.duration_since(hypothesis.last_update) < parameters.hypothesis_timeout
+        });
+        self.merge_hypotheses(parameters.hypothesis_merge_distance);
 
         let became_unpenalized = self.last_primary_state == PrimaryState::Penalized
             && primary_state != PrimaryState::Penalized;
@@ -351,7 +328,14 @@ impl ObstacleFilter {
             self.hypotheses
                 .retain(|obstacle| obstacle.obstacle_kind != ObstacleKind::Unknown);
         }
+    }
 
+    fn obstacles(
+        &self,
+        parameters: &ObstacleFilterParameters,
+        field_dimensions: &FieldDimensions,
+        ground_to_field: Option<&Isometry2<Ground, Field>>,
+    ) -> Vec<Obstacle> {
         let obstacles = self
             .hypotheses
             .iter()
@@ -438,26 +422,22 @@ impl ObstacleFilter {
             );
             return;
         }
-        matching_hypotheses.for_each(|hypothesis| {
+        let measurement_noise = if kind == MeasurementKind::NetworkRobot {
+            measurement_noise
+        } else {
+            measurement_noise * (detected_position.coords().norm_squared() + f32::EPSILON)
+        };
+        for hypothesis in matching_hypotheses {
             hypothesis.state.update(
                 Matrix2::identity(),
                 detected_position.inner.coords,
-                if kind == MeasurementKind::NetworkRobot {
-                    measurement_noise
-                } else {
-                    measurement_noise * (detected_position.coords().norm_squared() + f32::EPSILON)
-                },
+                measurement_noise,
             );
-            hypothesis.obstacle_kind = match hypothesis.obstacle_kind {
-                ObstacleKind::Robot | ObstacleKind::GoalPost | ObstacleKind::Person => {
-                    hypothesis.obstacle_kind
-                }
-                ObstacleKind::Unknown => detected_obstacle_kind,
-                _ => panic!("Unexpected obstacle kind"),
-            };
+            hypothesis.obstacle_kind =
+                refine_obstacle_kind(hypothesis.obstacle_kind, detected_obstacle_kind);
             hypothesis.measurement_count += 1;
             hypothesis.last_update = detection_time;
-        });
+        }
     }
 
     fn spawn_hypothesis(
@@ -479,10 +459,7 @@ impl ObstacleFilter {
         self.hypotheses.push(new_hypothesis);
     }
 
-    fn remove_hypotheses(&mut self, now: Time, hypothesis_timeout: Duration, merge_distance: f32) {
-        self.hypotheses
-            .retain(|hypothesis| now.duration_since(hypothesis.last_update) < hypothesis_timeout);
-
+    fn merge_hypotheses(&mut self, merge_distance: f32) {
         let mut deduplicated_hypotheses = Vec::<Hypothesis>::new();
         for hypothesis in self.hypotheses.drain(..) {
             let hypothesis_in_merge_distance =
@@ -492,25 +469,29 @@ impl ObstacleFilter {
                         (existing_hypothesis.state.mean - hypothesis.state.mean).norm()
                             < merge_distance
                     });
-            match hypothesis_in_merge_distance {
-                Some(existing_hypothesis) => {
-                    existing_hypothesis.state.update(
-                        Matrix2::identity(),
-                        hypothesis.state.mean,
-                        hypothesis.state.covariance,
-                    );
-                    existing_hypothesis.obstacle_kind = match existing_hypothesis.obstacle_kind {
-                        ObstacleKind::Robot | ObstacleKind::GoalPost | ObstacleKind::Person => {
-                            existing_hypothesis.obstacle_kind
-                        }
-                        ObstacleKind::Unknown => hypothesis.obstacle_kind,
-                        _ => panic!("Unexpected obstacle kind"),
-                    };
-                }
-                None => deduplicated_hypotheses.push(hypothesis),
+            if let Some(existing_hypothesis) = hypothesis_in_merge_distance {
+                existing_hypothesis.state.update(
+                    Matrix2::identity(),
+                    hypothesis.state.mean,
+                    hypothesis.state.covariance,
+                );
+                existing_hypothesis.obstacle_kind = refine_obstacle_kind(
+                    existing_hypothesis.obstacle_kind,
+                    hypothesis.obstacle_kind,
+                );
+            } else {
+                deduplicated_hypotheses.push(hypothesis);
             }
         }
         self.hypotheses = deduplicated_hypotheses;
+    }
+}
+
+fn refine_obstacle_kind(existing: ObstacleKind, incoming: ObstacleKind) -> ObstacleKind {
+    match existing {
+        ObstacleKind::Robot | ObstacleKind::GoalPost | ObstacleKind::Person => existing,
+        ObstacleKind::Unknown => incoming,
+        _ => panic!("Unexpected obstacle kind"),
     }
 }
 
@@ -556,7 +537,7 @@ fn measured_object_positions(
     })
 }
 
-fn new_network_player_states(
+fn take_new_network_player_states(
     players: &Players<Option<TimeWrapper<PlayerState>>>,
     own_player_number: Option<PlayerNumber>,
     last_processed_player_state_times: &mut Players<Option<Time>>,
@@ -565,24 +546,23 @@ fn new_network_player_states(
         return Vec::new();
     };
 
-    players
-        .iter()
-        .filter_map(|(player_number, player_state)| {
-            let player_state = player_state.as_ref()?;
-            if last_processed_player_state_times[player_number]
-                .is_some_and(|last_processed| player_state.time <= last_processed)
-            {
-                return None;
-            }
-            last_processed_player_state_times[player_number] = Some(player_state.time);
+    let mut updates = Vec::new();
+    for (player_number, player_state) in players.iter() {
+        let Some(player_state) = player_state else {
+            continue;
+        };
+        if last_processed_player_state_times[player_number]
+            .is_some_and(|last_processed| player_state.time <= last_processed)
+        {
+            continue;
+        }
+        last_processed_player_state_times[player_number] = Some(player_state.time);
 
-            if player_number == own_player_number {
-                return None;
-            }
-
-            Some((player_state.time, player_state.inner))
-        })
-        .collect()
+        if player_number != own_player_number {
+            updates.push((player_state.time, player_state.inner));
+        }
+    }
+    updates
 }
 
 fn measured_player_position(
@@ -630,22 +610,103 @@ mod tests {
     }
 
     #[test]
-    fn spawn_hypothesis_records_measurement_time_and_kind() {
+    fn measurements_spawn_then_update_every_matching_hypothesis() {
         let mut filter = ObstacleFilter::default();
         let detection_time = ros_z::time::Time::from_nanos(1);
         let position = linear_algebra::point![1.0, 2.0];
 
-        filter.spawn_hypothesis(
+        filter.update_hypotheses_with_measurement(
             position,
             ObstacleKind::Robot,
             detection_time,
+            0.5,
             nalgebra::Matrix2::identity(),
+            MeasurementKind::Own,
         );
 
         assert_eq!(filter.hypotheses.len(), 1);
         assert_eq!(filter.hypotheses[0].obstacle_kind, ObstacleKind::Robot);
         assert_eq!(filter.hypotheses[0].measurement_count, 1);
         assert_eq!(filter.hypotheses[0].last_update, detection_time);
+
+        filter.spawn_hypothesis(
+            point!(1.1, 2.0),
+            ObstacleKind::Unknown,
+            detection_time,
+            Matrix2::identity(),
+        );
+        let next_time = detection_time + Duration::from_millis(1);
+        filter.update_hypotheses_with_measurement(
+            position,
+            ObstacleKind::GoalPost,
+            next_time,
+            0.5,
+            Matrix2::identity(),
+            MeasurementKind::Own,
+        );
+        assert_eq!(filter.hypotheses.len(), 2);
+        for hypothesis in &filter.hypotheses {
+            assert_eq!(hypothesis.measurement_count, 2);
+            assert_eq!(hypothesis.last_update, next_time);
+        }
+        assert_eq!(filter.hypotheses[0].obstacle_kind, ObstacleKind::Robot);
+        assert_eq!(filter.hypotheses[1].obstacle_kind, ObstacleKind::GoalPost);
+    }
+
+    #[test]
+    fn maintenance_expires_and_merges_before_following_measurements() {
+        let parameters = ObstacleFilterParameters {
+            hypothesis_timeout: Duration::from_secs(1),
+            hypothesis_merge_distance: 0.5,
+            network_robot_measurement_matching_distance: 0.5,
+            network_robot_measurement_noise: na::Vector2::repeat(1.0),
+            ..Default::default()
+        };
+        let mut filter = ObstacleFilter::default();
+        let now = Time::from_nanos(2_000_000_000);
+        for (position, time) in [
+            (point!(5.0, 0.0), Time::from_nanos(0)),
+            (point!(1.0, 0.0), now),
+            (point!(1.2, 0.0), now),
+        ] {
+            filter.spawn_hypothesis(position, ObstacleKind::Robot, time, Matrix2::identity());
+        }
+        filter.maintain_hypotheses(now, &parameters, PrimaryState::Damping, None);
+        assert_eq!(filter.hypotheses.len(), 1);
+
+        let player_state = PlayerState {
+            pose: point!(1.1, 0.0).into(),
+            head_yaw: 0.0,
+            ball_position: None,
+        };
+        filter.process_network_player_state(
+            now,
+            &parameters,
+            &player_state,
+            &Isometry2::identity(),
+        );
+        filter.maintain_hypotheses(now, &parameters, PrimaryState::Damping, None);
+        assert_eq!(filter.hypotheses.len(), 1);
+        assert_eq!(filter.hypotheses[0].measurement_count, 2);
+        let obstacles = filter.obstacles(&parameters, &FieldDimensions::SPL_2025, None);
+        assert_eq!(obstacles.len(), 1);
+        assert_eq!(
+            obstacles[0].position.inner.coords,
+            filter.hypotheses[0].state.mean
+        );
+
+        filter.last_primary_state = PrimaryState::Penalized;
+        filter.maintain_hypotheses(now, &parameters, PrimaryState::Damping, None);
+        assert!(filter.hypotheses.is_empty());
+        filter.process_network_player_state(
+            now,
+            &parameters,
+            &player_state,
+            &Isometry2::identity(),
+        );
+        filter.maintain_hypotheses(now, &parameters, PrimaryState::Damping, None);
+        assert_eq!(filter.hypotheses.len(), 1);
+        assert_eq!(filter.hypotheses[0].measurement_count, 1);
     }
 
     #[test]
@@ -693,7 +754,7 @@ mod tests {
         };
         let mut last_processed_player_state_times = Players::new(None);
 
-        let entries = new_network_player_states(
+        let entries = take_new_network_player_states(
             &players,
             Some(PlayerNumber::Two),
             &mut last_processed_player_state_times,
@@ -711,7 +772,7 @@ mod tests {
             Some(Time::from_nanos(4))
         );
 
-        let repeated_entries = new_network_player_states(
+        let repeated_entries = take_new_network_player_states(
             &players,
             Some(PlayerNumber::Two),
             &mut last_processed_player_state_times,
@@ -731,7 +792,7 @@ mod tests {
             ..players.clone()
         };
 
-        let newer_entries = new_network_player_states(
+        let newer_entries = take_new_network_player_states(
             &updated_players,
             Some(PlayerNumber::Two),
             &mut last_processed_player_state_times,
