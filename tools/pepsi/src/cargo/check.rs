@@ -198,4 +198,12 @@ impl CargoCommand for Arguments {
     fn profile(&self) -> &str {
         self.common.profile.as_deref().unwrap_or("dev")
     }
+
+    fn selected_packages(&self) -> &[String] {
+        &self.check.packages
+    }
+
+    fn workspace_requested(&self) -> bool {
+        self.check.workspace || self.check.all
+    }
 }

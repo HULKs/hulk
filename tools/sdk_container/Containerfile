@@ -63,9 +63,17 @@ RUN curl --proto '=https' --tlsv1.2 -sSf --retry 3 https://sh.rustup.rs -o rustu
     && sh rustup.sh -y \
         --default-toolchain ${RUSTUP_TOOLCHAIN} \
         --profile minimal \
+        --component clippy \
         --target aarch64-unknown-linux-gnu \
     && rm rustup.sh \
     && rm -rf /root/.rustup/downloads /root/.rustup/tmp
+
+ENV CARGO_NEXTEST_VERSION=0.9.137
+RUN curl --proto '=https' --tlsv1.2 -sSfL --retry 3 \
+        https://get.nexte.st/${CARGO_NEXTEST_VERSION}/linux \
+        -o cargo-nextest.tar.gz \
+    && tar -xzf cargo-nextest.tar.gz -C /root/.cargo/bin \
+    && rm cargo-nextest.tar.gz
 
 COPY cargo-config.toml /root/.cargo/config.toml
 
