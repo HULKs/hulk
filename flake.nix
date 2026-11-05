@@ -15,6 +15,9 @@
       rustVersion = workspace.workspace.package.rust-version;
       pkgs = import nixpkgs { inherit system; overlays = [ (import rust-overlay) ]; };
       robotPkgs = import nixpkgs { system = "aarch64-linux"; };
+      robotZenoh = pkgs.pkgsCross.aarch64-multiplatform.zenoh.overrideAttrs (old: {
+        cargoBuildFeatures = (old.cargoBuildFeatures or [ ]) ++ [ "zenohd/shared-memory" ];
+      });
       robotBridge = pkgs.pkgsCross.aarch64-multiplatform.callPackage ./nix/zenoh-bridge-dds/package.nix { };
       craneLibrary =
         (crane.mkLib pkgs).overrideToolchain pkgs.rust-bin.stable.${rustVersion}.default;
@@ -87,7 +90,7 @@
 
       packages.aarch64-linux.hulk-runtime = pkgs.buildEnv {
         name = "hulk-runtime";
-        paths = with robotPkgs; [ podman zenoh robotBridge catatonit nftables sshpass ];
+        paths = with robotPkgs; [ podman robotZenoh robotBridge catatonit nftables sshpass ];
         pathsToLink = [ "/bin" "/libexec" "/lib/systemd" ];
       };
 
