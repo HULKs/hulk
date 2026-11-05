@@ -17,6 +17,8 @@ use crate::{
     },
 };
 
+use super::conversion::Conversion;
+
 const RETRY_DELAY: Duration = Duration::from_secs(1);
 /// Revisions restart when a parameter node restarts, so events alone cannot
 /// tell whether the last snapshot is still current.
@@ -29,6 +31,7 @@ pub(super) struct SavedThreshold {
     path: String,
     color: Color32,
     visible: bool,
+    conversion: Conversion,
 }
 
 impl Default for SavedThreshold {
@@ -38,6 +41,7 @@ impl Default for SavedThreshold {
             path: String::new(),
             color: Color32::GRAY,
             visible: true,
+            conversion: Conversion::default(),
         }
     }
 }
@@ -58,6 +62,7 @@ pub(super) struct Threshold {
     pub source: ParameterSource,
     pub color: Color32,
     pub visible: bool,
+    pub conversion: Conversion,
 }
 
 impl Threshold {
@@ -67,6 +72,7 @@ impl Threshold {
             source: ParameterSource::new(saved.node, saved.path),
             color: saved.color,
             visible: saved.visible,
+            conversion: saved.conversion,
         }
     }
 
@@ -76,15 +82,41 @@ impl Threshold {
             path: self.source.path.clone(),
             color: self.color,
             visible: self.visible,
+            conversion: self.conversion.clone(),
         }
     }
 
     pub fn label(&self) -> String {
-        format!("{}: {}", self.source.node, self.source.path)
+        let source = format!("{}: {}", self.source.node, self.source.path);
+        match self.conversion.label() {
+            Some(conversion) => format!("{source} ({conversion})"),
+            None => source,
+        }
     }
 
+    /// Converted values of the selected parameter.
     pub fn values(&self) -> Result<Vec<f64>, String> {
-        self.source.numbers()
+        self.source
+            .numbers()?
+            .into_iter()
+            .map(|value| {
+                let value = self.conversion.apply_number(value)?;
+                if value.is_finite() {
+                    Ok(value)
+                } else {
+                    Err("Converted value is NaN or infinite.".to_owned())
+                }
+            })
+            .collect()
+    }
+
+    /// The first unconverted value, which previews the conversion. Arrays
+    /// convert each value in the same way.
+    pub fn preview_input(&self) -> Option<Result<Value, String>> {
+        match self.source.numbers() {
+            Ok(values) => Some(Ok(values.first()?.to_owned().into())),
+            Err(error) => Some(Err(error)),
+        }
     }
 }
 
