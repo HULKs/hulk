@@ -34,6 +34,8 @@ async and blocking threads use its single CPU, so nested tasks and scheduler
 handoffs retain the node's placement. The selected CPUs remain shared with vendor
 processes. Different node workloads can still produce unequal CPU utilization.
 
+The DDS bridge uses CPU4 to reduce contention with Booster motion on CPU5.
+
 Deploy both the binary and `/usr/bin/launch-hulk`, which supplies the flag.
 Verify `Cpus_allowed_list` matches the CPU in each `hulk-motion-4` or
 `hulk-motion-5` thread name in `/proc/<pid>/task/<tid>/status`, and measure
