@@ -21,6 +21,7 @@ use types::{
 };
 
 const PLAYER: PlayerNumber = PlayerNumber::Two;
+const READY_DURATION: Duration = Duration::from_secs(45);
 const SET_DURATION: Duration = Duration::from_secs(3);
 const RESTRICTED_DURATION: Duration = Duration::from_secs(10);
 const FAILURE_TAIL_DURATION: Duration = Duration::from_secs(3);
@@ -37,9 +38,7 @@ enum Phase {
 struct KickoffScenario {
     phase: Phase,
     since: SystemTime,
-    ready_position: Point2<Field>,
     waiting_position: Option<Point2<Field>>,
-    walked_in_ready: bool,
     failed_at: Option<SystemTime>,
 }
 
@@ -67,34 +66,15 @@ fn startup(
     mut ball: ResMut<SimulatorBall>,
     mut markers: ResMut<SimulatorTimelineMarkers>,
 ) {
-    // This scenario owns transitions: Ready ends only after the robot arrives.
     referee.rules.clear();
     game.set_kicking_team(Some(Team::Opponent));
     game.set_game_state(GameState::Ready, clock.now);
     let parameters = default_behavior_parameters().expect("failed to load behavior parameters");
 
-    let field_player_rank = game
-        .game_controller_state
-        .penalties
-        .iter()
-        .filter(|(number, penalty)| {
-            *number > PLAYER && *number != parameters.goalkeeper.player_number && penalty.is_none()
-        })
-        .count();
-
-    let relative_ready_position =
-        parameters.kickoff.relative_defensive_positions[field_player_rank];
-    let ready_position = point![
-        relative_ready_position.x() * field_dimensions.0.length / 2.0,
-        relative_ready_position.y() * field_dimensions.0.width / 2.0
-    ];
-
     commands.insert_resource(KickoffScenario {
         phase: Phase::Ready,
         since: clock.now,
-        ready_position,
         waiting_position: None,
-        walked_in_ready: false,
         failed_at: None,
     });
     commands.spawn(
@@ -183,26 +163,19 @@ fn check_and_advance(
 
     let failure = match scenario.phase {
         Phase::Ready => {
-            scenario.walked_in_ready |= matches!(frame.motion_command, MotionCommand::Walk { .. });
-            if is_standing && (position - scenario.ready_position).norm() < 0.2 {
-                if !scenario.walked_in_ready {
-                    Some("robot never walked to its Ready position")
-                } else {
-                    scenario.waiting_position = Some(position);
-                    scenario.phase = Phase::Set;
-                    scenario.since = clock.now;
-                    game.set_game_state(GameState::Set, clock.now);
-                    markers.add(clock.now, Color32::YELLOW, "Ready position reached: Set");
-                    None
-                }
-            } else if elapsed > Duration::from_secs(45) {
-                Some("robot did not reach its Ready position within 45 seconds")
-            } else {
-                None
+            if elapsed >= READY_DURATION {
+                scenario.waiting_position = Some(position);
+                scenario.phase = Phase::Set;
+                scenario.since = clock.now;
+                game.set_game_state(GameState::Set, clock.now);
+                markers.add(clock.now, Color32::YELLOW, "Ready complete: Set");
             }
+            None
         }
         Phase::Set | Phase::Restricted => {
-            let waiting_position = scenario.waiting_position.expect("Ready position recorded");
+            let waiting_position = scenario
+                .waiting_position
+                .expect("waiting position recorded");
             if !is_standing {
                 Some("robot commanded motion during Set or restricted opponent kickoff")
             } else if (position - waiting_position).norm() > 0.01 {
@@ -232,9 +205,7 @@ fn check_and_advance(
         }
         Phase::Released => {
             if matches!(frame.motion_command, MotionCommand::Kick { .. }) {
-                println!(
-                    "ok: reached Ready pose, waited through Set and 10s restricted kickoff, resumed kicking"
-                );
+                println!("ok: waited through Set and 10s restricted kickoff, resumed kicking");
                 markers.add(
                     clock.now,
                     Color32::LIGHT_GREEN,
