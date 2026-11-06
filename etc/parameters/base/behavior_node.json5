@@ -7,6 +7,7 @@
       stand_up: { nanos: 500000000, secs: 0 },
       walk: { nanos: 500000000, secs: 0 },
       damping: { secs: 0, nanos: 0 },
+      unstiff: { secs: 0, nanos: 0 },
     },
     injected_motion_command: null,
     is_simple: false,

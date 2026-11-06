@@ -44,6 +44,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 }
 
                 state_color = match primary_state {
+                    PrimaryState::Unstiff => LedColor::PINK,
                     PrimaryState::Damping => LedColor::BLUE,
                     PrimaryState::Prepare => LedColor::YELLOW,
                     PrimaryState::Stop => state_color,
@@ -79,6 +80,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 }
 
 pub trait DefaultLEDColors {
+    const PINK: Self;
     const BLUE: Self;
     const LIGHT_BLUE: Self;
     const RED: Self;
@@ -100,6 +102,11 @@ impl DefaultLEDColors for LedColor {
         r: 0,
         g: 255,
         b: 50,
+    };
+    const PINK: Self = LedColor {
+        r: 255,
+        g: 192,
+        b: 203,
     };
     const LIGHT_BLUE: Self = LedColor {
         r: 128,

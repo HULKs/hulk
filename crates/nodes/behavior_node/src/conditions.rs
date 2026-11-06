@@ -174,7 +174,10 @@ pub fn is_stand_up_allowed(blackboard: &mut Blackboard) -> bool {
         PrimaryState::Initial | PrimaryState::Penalized | PrimaryState::Finished => {
             blackboard.remote_control_enabled
         }
-        PrimaryState::Damping | PrimaryState::Prepare | PrimaryState::Stop => false,
+        PrimaryState::Unstiff
+        | PrimaryState::Damping
+        | PrimaryState::Prepare
+        | PrimaryState::Stop => false,
     }
 }
 
