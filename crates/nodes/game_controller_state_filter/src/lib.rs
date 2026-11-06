@@ -1,5 +1,5 @@
 use std::{boxed::Box, future::Future, pin::Pin};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::SystemTime};
 
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -131,6 +131,7 @@ pub struct GameControllerStateFilter {
     state: State,
     opponent_state: State,
     last_game_controller_state: Option<GameControllerState>,
+    last_whistle_detection: Option<SystemTime>,
     whistle_in_set_ball_position: Option<Point2<Field>>,
     last_time_hulk_was_penalized: Option<Time>,
     last_time_opponent_was_penalized: Option<Time>,
@@ -149,6 +150,13 @@ impl GameControllerStateFilter {
         filtered_whistle: &FilteredWhistle,
         current_ball_state: &Option<BallState>,
     ) -> FilteredGameControllerState {
+        let filtered_whistle = FilteredWhistle {
+            is_detected: filtered_whistle.last_detection.is_some()
+                && filtered_whistle.last_detection != self.last_whistle_detection,
+            ..*filtered_whistle
+        };
+        self.last_whistle_detection = filtered_whistle.last_detection;
+
         let (new_own_penalties_last_cycle, new_opponent_penalties_last_cycle) = self
             .last_game_controller_state
             .as_ref()
@@ -191,7 +199,7 @@ impl GameControllerStateFilter {
             &new_opponent_penalties_last_cycle,
             // detected_free_kick_kicking_team,
             fake_detected_free_kick_kicking_team,
-            filtered_whistle,
+            &filtered_whistle,
         );
 
         let game_states = self.filter_game_states(
@@ -201,7 +209,7 @@ impl GameControllerStateFilter {
             player_number,
             game_controller_state,
             current_ball_state,
-            filtered_whistle,
+            &filtered_whistle,
             // visual_referee_proceed_to_ready,
             did_receive_motion_in_set_penalty,
             kicking_team,
