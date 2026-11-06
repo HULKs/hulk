@@ -14,6 +14,7 @@ use ros_z::{context::Context, prelude::*, time::Time};
 use ros_z_streams::CreateFutureMapBuilder;
 use tokio::task::block_in_place;
 use types::{
+    audio::{SOUND_REQUEST_TOPIC, SOUNDBOARD_TOPIC, Sound, Soundboard, SpeakerRequest},
     ball_percept::BallPercept,
     ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::FieldDimensions,
@@ -49,6 +50,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("ball_filter").build().await?;
 
     let parameters = node.bind_parameter_as::<BallFilterParameters>("ball_filter")?;
+    let soundboard_cache = node
+        .subscriber::<Soundboard>(SOUNDBOARD_TOPIC)
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
     let field_dimensions_sub = node
         .subscriber::<FieldDimensions>("field_dimensions")
         .qos(QosProfile {
@@ -92,6 +102,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let ball_position_pub = node
         .publisher::<Option<BallPosition<Ground>>>("ball_filter/ball_position")
+        .build()
+        .await?;
+    let sound_pub = node
+        .publisher::<SpeakerRequest>(SOUND_REQUEST_TOPIC)
         .build()
         .await?;
     let hypothetical_ball_positions_pub = node
@@ -231,6 +245,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         })?;
 
         ball_percepts_pub.publish(&output.ball_percepts).await?;
+        if soundboard_cache
+            .get_latest()
+            .is_some_and(|soundboard| soundboard.is_enabled(Sound::Ball))
+            && !output.ball_percepts.is_empty()
+        {
+            sound_pub
+                .publish(&SpeakerRequest::PlaySound { sound: Sound::Ball })
+                .await?;
+        }
         filter_state_pub.publish(&output.filter_state).await?;
         best_ball_hypothesis_pub
             .publish(&output.best_hypothesis)

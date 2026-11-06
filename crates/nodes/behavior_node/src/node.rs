@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use tokio::task::block_in_place;
 use tracing::info;
 use types::{
+    audio::{SOUND_REQUEST_TOPIC, SOUNDBOARD_TOPIC, Soundboard, SpeakerRequest},
     ball_position::{BallPosition, HypotheticalBallPosition},
     behavior_tree::NodeTrace,
     controller_input::{Button, ControllerInput},
@@ -44,7 +45,7 @@ use types::{
 use voronoi::VoronoiGrid;
 
 use crate::{
-    motion_assembler::assemble_motion_command,
+    motion_assembler::{assemble_motion_command, sound_for_motion_transition},
     send_message::{recent_game_controller_address, state_message_send_interval},
     tree::create_tree,
 };
@@ -176,6 +177,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<BehaviorParameters>("behavior_node")?;
     parameters.add_validation_hook(validate_behavior_parameters)?;
+    let soundboard_cache = node
+        .subscriber::<Soundboard>(SOUNDBOARD_TOPIC)
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .cache(1)
+        .build()
+        .await?;
     let search_cell_size_cache = node
         .subscriber::<Vector2<Field>>(types::heatmap::SEARCH_CELL_SIZE_TOPIC)
         .qos(QosProfile {
@@ -337,6 +347,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let motion_command_pub = node
         .publisher::<MotionCommand>("behavior/motion_command")
+        .build()
+        .await?;
+    let sound_pub = node
+        .publisher::<SpeakerRequest>(SOUND_REQUEST_TOPIC)
         .build()
         .await?;
 
@@ -614,6 +628,18 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .publish_if_subscribed(|| async { blackboard.clone() })
             .await?;
         motion_command_pub.publish(&motion_command).await?;
+        if let Some(soundboard) = soundboard_cache.get_latest()
+            && soundboard.drift
+            && let Some(sound) = sound_for_motion_transition(
+                &soundboard,
+                previous_motion_command.as_ref(),
+                &motion_command,
+            )
+        {
+            sound_pub
+                .publish(&SpeakerRequest::PlaySound { sound })
+                .await?;
+        }
     }
 }
 
