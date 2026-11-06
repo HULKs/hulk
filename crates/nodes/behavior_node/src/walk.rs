@@ -282,21 +282,31 @@ fn select_kickoff_pose(
         })
         .count();
 
-    let relative_position = if game_controller_state.kicking_team == Some(Team::Hulks) {
+    let (relative_position, offset) = if game_controller_state.kicking_team == Some(Team::Hulks) {
         match field_player_rank {
-            0 if has_more_than_unpenalized_players(blackboard, 2) => {
-                kickoff_parameters.relative_striker_side_kick_position
-            }
-            0 => kickoff_parameters.relative_striker_position,
-            rank => kickoff_parameters.relative_aggressive_positions[rank - 1],
+            0 if has_more_than_unpenalized_players(blackboard, 2) => (
+                kickoff_parameters.relative_striker_side_kick_position,
+                kickoff_parameters.striker_side_kick_position_offset,
+            ),
+            0 => (
+                kickoff_parameters.relative_striker_position,
+                kickoff_parameters.striker_position_offset,
+            ),
+            rank => (
+                kickoff_parameters.relative_aggressive_positions[rank - 1],
+                kickoff_parameters.agressive_positions_offset[rank - 1],
+            ),
         }
     } else {
-        kickoff_parameters.relative_defensive_positions[field_player_rank]
+        (
+            kickoff_parameters.relative_defensive_positions[field_player_rank],
+            kickoff_parameters.defensive_positions_offset[field_player_rank],
+        )
     };
 
     let position = point![
-        relative_position.x() * field_dimensions.length / 2.0,
-        relative_position.y() * field_dimensions.width / 2.0
+        (relative_position.x() * field_dimensions.length / 2.0) + offset.x(),
+        (relative_position.y() * field_dimensions.width / 2.0) + offset.y()
     ];
     let orientation = Orientation2::from_vector(field_center - position);
     Pose2::from_parts(position, orientation)
