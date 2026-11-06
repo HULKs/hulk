@@ -14,6 +14,7 @@ hsl_network_messages = { workspace = true }
 kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
+geometry = { workspace = true }
 path_planner = { workspace = true }
 rand = { workspace = true }
 ros-z = { workspace = true }

@@ -9,9 +9,10 @@ use crate::{
     conditions::{
         has_ball_position, has_more_than_unpenalized_players, hulks_is_kicking_team, is_ball_free,
         is_ball_interception_candidate, is_close_to_ball, is_closest_to_ball,
-        is_controller_connected, is_fallen, is_goalkeeper, is_kickoff, is_last_hulk_standing,
-        is_primary_state, is_ready_for_stand_up, is_remote_control_enabled, is_remote_kick_mode,
-        is_simple, is_stand_up_allowed, is_standing_up, should_do_fall_protection,
+        is_controller_connected, is_fallen, is_goalkeeper, is_inside_rule_obstacles, is_kickoff,
+        is_last_hulk_standing, is_primary_state, is_ready_for_stand_up, is_remote_control_enabled,
+        is_remote_kick_mode, is_simple, is_stand_up_allowed, is_standing_up,
+        should_do_fall_protection,
     },
     goalkeeper::goalkeeper_subtree,
     head::{look_around, look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
@@ -29,8 +30,8 @@ use crate::{
     switch_motion_type::switch_motion_type,
     voronoi::{calculate_voronoi_grid, calculate_voronoi_grid_without_goalkeeper},
     walk::{
-        walk_alternatives_subtree, walk_to_ball_subtree, walk_to_kickoff_pose,
-        walk_to_voronoi_position,
+        walk_alternatives_subtree, walk_out_off_rule_obstacles, walk_to_ball_subtree,
+        walk_to_kickoff_pose, walk_to_voronoi_position,
     },
 };
 
@@ -195,7 +196,14 @@ pub(crate) fn striker_subtree() -> Node<Blackboard> {
 fn supporter_subtree() -> Node<Blackboard> {
     sequence!(
         subtree!(look_at_ball_subtree),
-        selection!(action!(walk_to_voronoi_position), action!(stand)),
+        selection!(
+            action!(walk_to_voronoi_position),
+            sequence!(
+                condition!(is_inside_rule_obstacles),
+                action!(walk_out_off_rule_obstacles)
+            ),
+            action!(stand)
+        ),
     )
 }
 
