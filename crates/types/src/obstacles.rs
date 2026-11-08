@@ -1,6 +1,8 @@
+use std::ops::Mul;
+
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::Point2;
+use linear_algebra::{Isometry2, Point2};
 
 use coordinate_systems::Ground;
 
@@ -19,6 +21,18 @@ pub struct Obstacle {
     pub position: Point2<Ground>,
     pub radius_at_foot_height: f32,
     pub radius_at_hip_height: f32,
+}
+
+/// The same obstacle seen from another ground frame.
+impl Mul<Obstacle> for Isometry2<Ground, Ground> {
+    type Output = Obstacle;
+
+    fn mul(self, rhs: Obstacle) -> Self::Output {
+        Obstacle {
+            position: self * rhs.position,
+            ..rhs
+        }
+    }
 }
 
 impl Obstacle {

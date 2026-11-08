@@ -47,9 +47,14 @@ pub struct OdometryEstimator {
     last_time: Option<Time>,
     support_side: Option<SoleSide>,
     previous_support_contact: Option<Vector2<Robot>>,
+    previous_ground_origin: Option<Vector2<Robot>>,
 }
 
 impl OdometryEstimator {
+    /// Integrates the pose of Ground, the point between the feet.
+    ///
+    /// Contacts measure motion of the robot origin. Ground also moves relative to that origin
+    /// during each step, so its change of offset must be included in the published pose.
     pub fn update(
         &mut self,
         input: EstimatorInput<'_>,
@@ -105,13 +110,33 @@ impl OdometryEstimator {
             SoleSide::Right => right_contact.contact_xy_in_leveled_robot,
         };
 
-        let Some(previous_contact) = self.previous_support_contact else {
-            self.anchor(support_side, current_contact, yaw, input.time);
+        let ground_origin = kinematics::sole_contact::ground_origin_in_leveled_robot(
+            robot_kinematics.left_leg.sole_to_robot,
+            robot_kinematics.right_leg.sole_to_robot,
+            input.imu_state.roll_pitch_yaw.x(),
+            input.imu_state.roll_pitch_yaw.y(),
+        );
+        let (Some(previous_contact), Some(previous_ground_origin)) =
+            (self.previous_support_contact, self.previous_ground_origin)
+        else {
+            self.anchor(
+                support_side,
+                current_contact,
+                ground_origin,
+                yaw,
+                input.time,
+            );
             return Some(self.pose);
         };
 
         if self.support_side != Some(support_side) {
-            self.anchor(support_side, current_contact, yaw, input.time);
+            self.anchor(
+                support_side,
+                current_contact,
+                ground_origin,
+                yaw,
+                input.time,
+            );
             return Some(self.pose);
         }
 
@@ -122,17 +147,28 @@ impl OdometryEstimator {
         translation.inner.y *= parameters.translation_scale.y();
 
         if self.delta_exceeds_limits(input.time, translation, yaw_delta, parameters) {
-            self.anchor(support_side, current_contact, yaw, input.time);
+            self.anchor(
+                support_side,
+                current_contact,
+                ground_origin,
+                yaw,
+                input.time,
+            );
             return Some(self.pose);
         }
 
-        let current_to_previous =
-            Isometry2::<Ground, Ground>::from_parts(Vector2::wrap(translation.inner), yaw_delta);
+        let current_to_previous = Isometry2::<Ground, Ground>::from_parts(
+            Vector2::wrap(
+                translation.inner + rotation * ground_origin.inner - previous_ground_origin.inner,
+            ),
+            yaw_delta,
+        );
         let previous_to_odometry = self.pose.as_transform::<Ground>();
         let current_to_odometry = previous_to_odometry * current_to_previous;
         self.pose = pose_with_yaw(current_to_odometry.as_pose(), yaw);
 
         self.previous_support_contact = Some(current_contact);
+        self.previous_ground_origin = Some(ground_origin);
         self.last_yaw = Some(yaw);
         self.last_time = Some(input.time);
 
@@ -142,12 +178,21 @@ impl OdometryEstimator {
     fn clear_contact_tracking(&mut self) {
         self.support_side = None;
         self.previous_support_contact = None;
+        self.previous_ground_origin = None;
         self.last_yaw = None;
     }
 
-    fn anchor(&mut self, support_side: SoleSide, contact: Vector2<Robot>, yaw: f32, time: Time) {
+    fn anchor(
+        &mut self,
+        support_side: SoleSide,
+        contact: Vector2<Robot>,
+        ground_origin: Vector2<Robot>,
+        yaw: f32,
+        time: Time,
+    ) {
         self.support_side = Some(support_side);
         self.previous_support_contact = Some(contact);
+        self.previous_ground_origin = Some(ground_origin);
         self.last_yaw = Some(yaw);
         self.last_time = Some(time);
         self.pose = pose_with_yaw(self.pose, yaw);
@@ -194,6 +239,7 @@ fn is_upright(fall_detection: Option<&FallDetection>) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use approx::assert_relative_eq;
     use booster::ImuState;
     use coordinate_systems::{LeftSole, RightSole};
     use kinematics::robot_kinematics::{
@@ -330,7 +376,86 @@ mod tests {
             )
             .expect("second frame publishes");
 
-        assert!(pose.position().x() < -0.049);
+        assert_relative_eq!(pose.position().x(), -0.025, epsilon = 1e-5);
+    }
+
+    /// Feet standing in the odometry frame, seen from a robot at `body` facing along `yaw`.
+    fn kinematics_of_feet(
+        body: nalgebra::Vector2<f32>,
+        yaw: f32,
+        left: nalgebra::Vector2<f32>,
+        right: nalgebra::Vector2<f32>,
+        left_height: f32,
+        right_height: f32,
+    ) -> RobotKinematics {
+        let to_robot = nalgebra::Rotation2::new(-yaw);
+        let left = to_robot * (left - body);
+        let right = to_robot * (right - body);
+        kinematics_with_positions(left, left_height, right, right_height)
+    }
+
+    fn kinematics_with_positions(
+        left: nalgebra::Vector2<f32>,
+        left_z: f32,
+        right: nalgebra::Vector2<f32>,
+        right_z: f32,
+    ) -> RobotKinematics {
+        RobotKinematics {
+            left_leg: RobotLeftLegKinematics {
+                sole_to_robot: nalgebra::Isometry3::translation(left.x, left.y, left_z)
+                    .framed_transform(),
+                ..Default::default()
+            },
+            right_leg: RobotRightLegKinematics {
+                sole_to_robot: nalgebra::Isometry3::translation(right.x, right.y, right_z)
+                    .framed_transform(),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    /// One support phase: the left foot stands while the robot sways sideways and turns, and the
+    /// right foot swings forward.
+    #[test]
+    fn published_pose_follows_the_point_between_the_feet() {
+        let mut estimator = OdometryEstimator::default();
+        let mut parameters = parameters();
+        parameters.max_angular_speed = 100.0;
+        let left = nalgebra::vector![0.0, 0.1];
+        let right_start = nalgebra::vector![-0.1, -0.1];
+        let state_at = |index: usize| {
+            let progress = index as f32 / 50.0;
+            let body = nalgebra::vector![0.1 * progress, 0.04 * progress];
+            let yaw = 0.3 * progress;
+            let right = right_start + nalgebra::vector![0.3 * progress, 0.0];
+            (body, yaw, right)
+        };
+        let mut first_ground = None;
+        for index in 0..=50 {
+            let (body, yaw, right) = state_at(index);
+            let feet = kinematics_of_feet(body, yaw, left, right, -0.5, -0.45);
+            let imu = imu(yaw);
+            let pose = estimator
+                .update(
+                    EstimatorInput {
+                        time: Time::from_nanos(1_000_000_000 + index as i64 * 2_000_000),
+                        imu_state: &imu,
+                        robot_kinematics: Some(&feet),
+                        fall_detection: Some(&upright()),
+                    },
+                    &parameters,
+                )
+                .expect("valid frame publishes");
+
+            // The odometry frame of the estimator starts at the ground frame of the first sample.
+            let ground = (left + right) / 2.0;
+            let first_ground = *first_ground.get_or_insert(ground);
+            let expected = ground - first_ground;
+            assert_relative_eq!(pose.position().x(), expected.x, epsilon = 1.0e-5);
+            assert_relative_eq!(pose.position().y(), expected.y, epsilon = 1.0e-5);
+            assert_relative_eq!(pose.angle(), yaw, epsilon = 1.0e-5);
+        }
     }
 
     #[test]

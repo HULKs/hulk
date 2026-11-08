@@ -14,9 +14,11 @@ hsl_network_messages = { workspace = true }
 kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
+ground_frames = { workspace = true }
 path_planner = { workspace = true }
 rand = { workspace = true }
 ros-z = { workspace = true }
+ros-z-streams = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true }
 tracing = { workspace = true }
@@ -24,5 +26,6 @@ types = { workspace = true }
 voronoi = { workspace = true }
 
 [dev-dependencies]
+ball_state_composer = { workspace = true }
 search_suggestor = { workspace = true }
 tempfile = { workspace = true }

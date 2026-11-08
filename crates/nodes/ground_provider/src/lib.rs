@@ -149,3 +149,65 @@ fn compute_ground_to_robot(
 
     Some(ground_to_robot)
 }
+
+#[cfg(test)]
+mod tests {
+    use coordinate_systems::{LeftSole, RightSole};
+    use kinematics::robot_kinematics::{RobotLeftLegKinematics, RobotRightLegKinematics};
+    use linear_algebra::{IntoTransform, nalgebra, vector};
+
+    use super::*;
+
+    /// The odometry node reports the pose of Ground from the sole origins alone, so they have to
+    /// locate Ground like this node does, whichever foot supports the robot.
+    #[test]
+    fn ground_origin_of_the_odometry_is_the_origin_of_this_ground_frame() {
+        let (roll, pitch) = (0.08, -0.12);
+        let imu_state = ImuState {
+            roll_pitch_yaw: vector![roll, pitch, 1.0],
+            angular_velocity: vector![0.0, 0.0, 0.0],
+            linear_acceleration: vector![0.0, 0.0, 0.0],
+        };
+        let left_sole_to_robot: Isometry3<LeftSole, Robot> =
+            nalgebra::Isometry3::translation(0.07, 0.11, -0.52).framed_transform();
+        let right_sole_to_robot: Isometry3<RightSole, Robot> =
+            nalgebra::Isometry3::translation(-0.05, -0.09, -0.48).framed_transform();
+        let robot_kinematics = RobotKinematics {
+            left_leg: RobotLeftLegKinematics {
+                sole_to_robot: left_sole_to_robot,
+                ..Default::default()
+            },
+            right_leg: RobotRightLegKinematics {
+                sole_to_robot: right_sole_to_robot,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let origin = kinematics::sole_contact::ground_origin_in_leveled_robot(
+            left_sole_to_robot,
+            right_sole_to_robot,
+            roll,
+            pitch,
+        );
+
+        for support in [
+            SupportFootState::Left,
+            SupportFootState::Right,
+            SupportFootState::Both,
+        ] {
+            let robot_to_ground =
+                compute_ground_to_robot(&imu_state, &robot_kinematics, Some(support))
+                    .unwrap()
+                    .inverse();
+            let robot_in_ground = robot_to_ground.translation();
+            assert!(
+                (robot_in_ground.x() + origin.x()).abs() < 1e-5,
+                "{support:?}"
+            );
+            assert!(
+                (robot_in_ground.y() + origin.y()).abs() < 1e-5,
+                "{support:?}"
+            );
+        }
+    }
+}

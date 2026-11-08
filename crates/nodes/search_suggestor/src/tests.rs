@@ -1,9 +1,9 @@
+use linear_algebra::{point, vector};
+
 use super::*;
 
 #[test]
 fn search_partition_excludes_assigned_goalkeeper_and_keeps_its_search_independent() {
-    use linear_algebra::vector;
-
     let field = FieldDimensions::SPL_2025;
     let now = Time::from_nanos(10_000_000_000);
     let field_pose = Isometry2::<Ground, Field>::from_parts(vector![-1.0, 0.0], 0.0);
@@ -332,4 +332,240 @@ fn rejects_undefined_time_and_distance_parameters() {
         })
         .is_ok()
     );
+}
+
+fn millisecond(milliseconds: i64) -> Time {
+    Time::from_nanos((1_000 + milliseconds) * 1_000_000)
+}
+
+/// The robot walks and turns; its odometry is the same as the field at the start.
+fn walking_pose(milliseconds: i64) -> Pose2<Odometry> {
+    let seconds = milliseconds as f32 * 1e-3;
+    Pose2::new(point![0.5 * seconds, 0.0], 2.0 * seconds)
+}
+
+/// The obstacle stands still in the field, and its snapshot is held by the filter between images
+/// and delayed by the fusion lag, while the only localization is about the image of 120 ms ago.
+#[test]
+fn occluders_of_held_obstacles_stay_in_the_field_while_the_robot_moves() {
+    let odometry_to_field = Isometry2::<Odometry, Field>::from_parts(vector![-1.0, 2.0], 0.4);
+    let ground_to_field_at =
+        |milliseconds| odometry_to_field * walking_pose(milliseconds).as_transform::<Ground>();
+    let obstacle_in_field = point![<Field>, 2.0, 1.0];
+    let snapshot_time = 300;
+    let snapshot = [Obstacle::robot(
+        ground_to_field_at(snapshot_time).inverse() * obstacle_in_field,
+        0.2,
+        0.25,
+    )];
+
+    let mut alignment = GroundAlignment::default();
+    let mut checked = 0;
+    for milliseconds in (0..=1_000).step_by(2) {
+        alignment.push_pose(millisecond(milliseconds), walking_pose(milliseconds));
+        let image_time = milliseconds - 120;
+        if image_time >= 0 && image_time % 32 == 0 {
+            alignment.push_ground_to_field(millisecond(image_time), ground_to_field_at(image_time));
+        }
+        let Some(current_ground_to_field) = alignment.current_ground_to_field() else {
+            continue;
+        };
+        if milliseconds < snapshot_time {
+            continue;
+        }
+        let occluders = search_occluders_at(&alignment, millisecond(snapshot_time), &snapshot);
+        assert_eq!(occluders.len(), 1);
+        assert!((occluders[0].center - obstacle_in_field).norm() < 1e-2);
+        // The newest transform places a ground position of the snapshot somewhere else entirely.
+        if milliseconds >= snapshot_time + 200 {
+            let mixed = current_ground_to_field * snapshot[0].position;
+            assert!((mixed - obstacle_in_field).norm() > 0.5);
+            checked += 1;
+        }
+    }
+    assert!(checked > 100);
+}
+
+#[test]
+fn occluders_without_a_known_ground_frame_are_left_out() {
+    let mut alignment = GroundAlignment::default();
+    let snapshot = [Obstacle::robot(point![1.0, 0.0], 0.2, 0.25)];
+
+    alignment.push_pose(millisecond(0), Pose2::zero());
+    assert!(search_occluders_at(&alignment, millisecond(0), &snapshot).is_empty());
+
+    alignment.push_ground_to_field(millisecond(0), Isometry2::identity());
+    assert_eq!(
+        search_occluders_at(&alignment, millisecond(0), &snapshot).len(),
+        1
+    );
+
+    // The robot moved in an unknown way during the outage, in which the snapshot was taken.
+    alignment.push_pose(millisecond(1_000), Pose2::new(point![2.0, 0.0], 1.0));
+    assert!(search_occluders_at(&alignment, millisecond(500), &snapshot).is_empty());
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum DelayedInput {
+    Ball,
+    Hypothesis,
+}
+
+/// Runs the actual node on delayed data of a turning robot, and checks that the heatmap has its
+/// peak where the input is in the field all along.
+async fn assert_heatmap_marks_delayed_input_in_the_field(input: DelayedInput) {
+    let layer = tempfile::tempdir().unwrap();
+    std::fs::write(
+        layer.path().join("search_suggestor.json5"),
+        include_str!("../../../../etc/parameters/base/search_suggestor.json5"),
+    )
+    .unwrap();
+    let context = Arc::new(
+        ContextBuilder::default()
+            .with_mode("peer")
+            .disable_multicast_scouting()
+            .with_connect_endpoints(std::iter::empty::<&str>())
+            .with_listen_endpoints(["tcp/127.0.0.1:0"])
+            .with_parameter_layers([layer.path().to_path_buf()])
+            .build()
+            .await
+            .unwrap(),
+    );
+    let node = context.create_node("search_fixture").build().await.unwrap();
+    let field = FieldDimensions::SPL_2025;
+    let field_dimensions = node
+        .publisher::<FieldDimensions>("field_dimensions")
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await
+        .unwrap();
+    field_dimensions.publish(&field).await.unwrap();
+    let odometry = node
+        .publisher::<Pose2<Odometry>>("inputs/odometry")
+        .build()
+        .await
+        .unwrap();
+    let localization = node
+        .publisher::<Isometry2<Ground, Field>>("ground_to_field")
+        .build()
+        .await
+        .unwrap();
+    let balls = node
+        .publisher::<Option<BallPosition<Ground>>>("ball_filter/ball_position")
+        .build()
+        .await
+        .unwrap();
+    let hypotheses = node
+        .publisher::<Vec<HypotheticalBallPosition<Ground>>>(
+            "ball_filter/hypothetical_ball_positions",
+        )
+        .build()
+        .await
+        .unwrap();
+    let heatmaps = node
+        .subscriber::<types::heatmap::Heatmap>("ball_search_heatmap")
+        .build()
+        .await
+        .unwrap();
+    let task = tokio::spawn(run_boxed(context.clone()));
+
+    let odometry_to_field = Isometry2::<Odometry, Field>::from_parts(vector![-1.0, 2.0], 0.4);
+    let ground_to_field_at =
+        |milliseconds| odometry_to_field * walking_pose(milliseconds).as_transform::<Ground>();
+    let ball_in_field = point![<Field>, 2.0, 1.0];
+    let cell_of = |length: usize, width: usize| {
+        let x = (ball_in_field.x() + field.length / 2.0) / (field.length / length as f32);
+        let y = (ball_in_field.y() + field.width / 2.0) / (field.width / width as f32);
+        (x as usize) * width + y as usize
+    };
+
+    let start = node.clock().now();
+    let mut peaks_seen = 0;
+    tokio::time::timeout(Duration::from_secs(20), async {
+        let mut last_localization = None;
+        while peaks_seen < 10 {
+            let milliseconds = node.clock().now().duration_since(start).as_millis() as i64;
+            odometry
+                .publish_with_source_time(&walking_pose(milliseconds), millisecond(milliseconds))
+                .await
+                .unwrap();
+            let image_time = milliseconds - 120;
+            if image_time >= 0 && last_localization.is_none_or(|last| image_time >= last + 32) {
+                localization
+                    .publish_with_source_time(
+                        &ground_to_field_at(image_time),
+                        millisecond(image_time),
+                    )
+                    .await
+                    .unwrap();
+                last_localization = Some(image_time);
+            }
+            let state_time = milliseconds - 60;
+            if state_time >= 0 {
+                let position = ground_to_field_at(state_time).inverse() * ball_in_field;
+                match input {
+                    DelayedInput::Ball => balls
+                        .publish_with_source_time(
+                            &Some(BallPosition {
+                                position,
+                                velocity: vector![0.0, 0.0],
+                                last_seen: millisecond(state_time),
+                            }),
+                            millisecond(state_time),
+                        )
+                        .await
+                        .unwrap(),
+                    DelayedInput::Hypothesis => hypotheses
+                        .publish_with_source_time(
+                            &vec![HypotheticalBallPosition {
+                                position,
+                                validity: 1.0,
+                            }],
+                            millisecond(state_time),
+                        )
+                        .await
+                        .unwrap(),
+                }
+            }
+            while heatmaps.is_ready() {
+                let heatmap = heatmaps.recv().await.unwrap();
+                if milliseconds < 400 {
+                    continue;
+                }
+                let (peak, value) = heatmap
+                    .values
+                    .iter()
+                    .copied()
+                    .enumerate()
+                    .max_by(|(_, a), (_, b)| a.total_cmp(b))
+                    .unwrap();
+                if value > 0.0 {
+                    assert_eq!(
+                        peak,
+                        cell_of(heatmap.length as usize, heatmap.width as usize),
+                        "the ball is marked at the wrong place after {milliseconds} ms"
+                    );
+                    peaks_seen += 1;
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+    })
+    .await
+    .expect("the input should be marked in the heatmap");
+    task.abort();
+    let _ = task.await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn heatmap_marks_a_delayed_ball_where_it_is_in_the_field() {
+    assert_heatmap_marks_delayed_input_in_the_field(DelayedInput::Ball).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn heatmap_marks_delayed_hypotheses_where_they_are_in_the_field() {
+    assert_heatmap_marks_delayed_input_in_the_field(DelayedInput::Hypothesis).await;
 }

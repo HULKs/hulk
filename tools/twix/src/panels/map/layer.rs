@@ -6,6 +6,7 @@ use eframe::egui::Ui;
 use log::error;
 use serde_json::{Value, json};
 
+use ros_z::time::Time;
 use types::field_dimensions::FieldDimensions;
 
 use crate::backend::RobotBackend;
@@ -14,6 +15,10 @@ use twix_visualization::twix_painter::TwixPainter;
 pub trait Layer<Frame> {
     const NAME: &'static str;
     fn new(backend: Arc<RobotBackend>) -> Self;
+    /// Time of the Ground frame in the latest payload. Layers without timed data use current Ground.
+    fn ground_time(&self) -> Option<Time> {
+        None
+    }
     fn paint(&self, painter: &TwixPainter<Frame>, field_dimensions: &FieldDimensions)
     -> Result<()>;
 }
@@ -53,6 +58,10 @@ where
                 true => self.layer = None,
             }
         }
+    }
+
+    pub fn ground_time(&self) -> Option<Time> {
+        self.layer.as_ref().and_then(Layer::ground_time)
     }
 
     pub fn paint_or_disable(

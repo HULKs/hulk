@@ -1,4 +1,7 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    ops::Mul,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
@@ -17,6 +20,7 @@ use crate::{
     rule_obstacles::RuleObstacle,
 };
 
+/// What the behavior knows at one time; its ground data is in one and the same ground frame.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Message)]
 pub struct WorldState {
     pub ball: Option<BallState>,
@@ -41,6 +45,7 @@ pub enum BallSource {
     Rule,
 }
 
+/// A ball seen from the ground frame that the source time of its message refers to.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, ros_z::Message)]
 pub struct BallState {
     pub ball_in_ground: Point2<Ground>,
@@ -49,6 +54,19 @@ pub struct BallState {
     pub last_seen_ball: SystemTime,
     pub field_side: Side,
     pub source: BallSource,
+}
+
+/// The same ball seen from another ground frame; this does not change where it is in the field.
+impl Mul<BallState> for Isometry2<Ground, Ground> {
+    type Output = BallState;
+
+    fn mul(self, rhs: BallState) -> Self::Output {
+        BallState {
+            ball_in_ground: self * rhs.ball_in_ground,
+            ball_in_ground_velocity: self * rhs.ball_in_ground_velocity,
+            ..rhs
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, ros_z::Message)]

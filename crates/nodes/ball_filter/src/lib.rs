@@ -9,6 +9,7 @@ use ros_z::qos::QosDurability;
 
 use coordinate_systems::{Ground, Odometry, Pixel};
 use geometry::circle::Circle;
+use ground_frames::odometry_history::{MAXIMUM_IMAGE_POSE_DISTANCE, OdometryHistory};
 use projection::{Projection, camera_matrix::CameraMatrix};
 use ros_z::{context::Context, prelude::*, time::Time};
 use ros_z_streams::CreateFutureMapBuilder;
@@ -33,7 +34,8 @@ mod filter;
 mod hypothesis;
 
 struct BallFilterOutput {
-    ball_percepts: Vec<BallPercept>,
+    time: Option<Time>,
+    ball_percepts: Vec<TimeWrapper<Vec<BallPercept>>>,
     filter_state: BallFilter,
     best_hypothesis: Option<BallHypothesis>,
     filtered_ball: Option<BallPosition<Ground>>,
@@ -105,6 +107,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut assignment_solver = AssignmentSolver::default();
     let mut last_odometry = None;
     let mut last_prediction_time = None;
+    let mut odometry_history = OdometryHistory::new(Duration::from_secs(2));
 
     loop {
         let parameters_snapshot = parameters.snapshot();
@@ -117,29 +120,27 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         };
 
         let output = block_in_place(|| -> Result<BallFilterOutput> {
-            let output_time = future_map_item
-                .persistent
-                .last_key_value()
-                .map(|(time, _)| *time);
-            let projection_time = output_time.or_else(|| {
-                future_map_item
-                    .temporary
-                    .first_key_value()
-                    .map(|(time, _)| *time)
-            });
             let mut ball_percepts = Vec::new();
 
-            for (time, (odometry_pose, detected_objects)) in future_map_item.persistent {
-                if let Some(odometry_pose) = odometry_pose {
-                    predict_hypotheses_from_odometry(
-                        &mut ball_filter,
-                        time,
-                        odometry_pose,
-                        &mut last_odometry,
-                        &mut last_prediction_time,
-                        parameters,
-                    );
+            for (time, (pose, _)) in &future_map_item.persistent {
+                if let Some(pose) = pose {
+                    odometry_history.push_pose(*time, *pose);
                 }
+            }
+            for (time, (_, detected_objects)) in future_map_item.persistent {
+                let Some(odometry_pose) =
+                    odometry_history.pose_near(time, MAXIMUM_IMAGE_POSE_DISTANCE)
+                else {
+                    continue;
+                };
+                predict_hypotheses_from_odometry(
+                    &mut ball_filter,
+                    time,
+                    odometry_pose,
+                    &mut last_odometry,
+                    &mut last_prediction_time,
+                    parameters,
+                );
 
                 if let Some(detected_objects) = detected_objects {
                     let timed_camera_matrix = camera_matrix_cache.get_nearest(time);
@@ -162,7 +163,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                         continue;
                     };
 
-                    ball_percepts.extend_from_slice(&projected_balls);
+                    ball_percepts.push(TimeWrapper {
+                        time,
+                        inner: projected_balls.clone(),
+                    });
 
                     advance_all_hypotheses(
                         &mut ball_filter,
@@ -176,6 +180,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 }
             }
 
+            let output_time = last_prediction_time;
             if let Some(output_time) = output_time {
                 remove_invalid_and_merge_hypotheses(
                     &mut ball_filter,
@@ -206,7 +211,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 .collect();
 
             let ball_radius = field_dimensions.ball_radius;
-            let filtered_balls_in_image = if let Some(time) = projection_time
+            let filtered_balls_in_image = if let Some(time) = output_time
                 && let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time)
                 && camera_is_recent(
                     time,
@@ -221,6 +226,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 hypothetical_ball_positions(&ball_filter, parameters.validity_output_threshold);
 
             Ok(BallFilterOutput {
+                time: output_time,
                 ball_percepts,
                 filter_state,
                 best_hypothesis,
@@ -230,19 +236,28 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             })
         })?;
 
-        ball_percepts_pub.publish(&output.ball_percepts).await?;
-        filter_state_pub.publish(&output.filter_state).await?;
-        best_ball_hypothesis_pub
-            .publish(&output.best_hypothesis)
-            .await?;
-        filtered_balls_in_image_pub
-            .publish(&output.filtered_balls_in_image)
-            .await?;
-
-        ball_position_pub.publish(&output.filtered_ball).await?;
-        hypothetical_ball_positions_pub
-            .publish(&output.hypothetical_ball_positions)
-            .await?;
+        for percepts in output.ball_percepts {
+            ball_percepts_pub
+                .publish_with_source_time(&percepts.inner, percepts.time)
+                .await?;
+        }
+        if let Some(time) = output.time {
+            filter_state_pub
+                .publish_with_source_time(&output.filter_state, time)
+                .await?;
+            best_ball_hypothesis_pub
+                .publish_with_source_time(&output.best_hypothesis, time)
+                .await?;
+            filtered_balls_in_image_pub
+                .publish_with_source_time(&output.filtered_balls_in_image, time)
+                .await?;
+            ball_position_pub
+                .publish_with_source_time(&output.filtered_ball, time)
+                .await?;
+            hypothetical_ball_positions_pub
+                .publish_with_source_time(&output.hypothetical_ball_positions, time)
+                .await?;
+        }
     }
 }
 
@@ -700,5 +715,110 @@ mod odometry_pose_tests {
 
         assert!(last_odometry.is_some());
         assert_eq!(last_prediction_time, Some(Time::from_nanos(1_010_000_000)));
+    }
+}
+
+#[cfg(test)]
+mod node_tests {
+    use super::*;
+    use ros_z_streams::CreateAnnouncingPublisher;
+    use std::path::Path;
+
+    /// Prediction advances the payload's Ground frame even without a new ball observation.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn output_source_time_tracks_the_predicted_state() -> Result<()> {
+        let context = Arc::new(
+            ContextBuilder::default()
+                .with_mode("peer")
+                .disable_multicast_scouting()
+                .with_connect_endpoints(std::iter::empty::<&str>())
+                .with_listen_endpoints(std::iter::empty::<&str>())
+                .with_parameter_layers([
+                    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../etc/parameters/base")
+                ])
+                .build()
+                .await?,
+        );
+        let node = context.create_node("ball_stamp_fixture").build().await?;
+        let fields = node
+            .publisher::<FieldDimensions>("field_dimensions")
+            .qos(QosProfile {
+                durability: QosDurability::TransientLocal,
+                ..Default::default()
+            })
+            .build()
+            .await?;
+        fields.publish(&FieldDimensions::SPL_2025).await?;
+        let poses = node
+            .announcing_publisher::<Pose2<Odometry>>("inputs/odometry")
+            .await?;
+        let detections = node
+            .announcing_publisher::<TimeWrapper<Vec<Object<RobocupObjectLabel>>>>(
+                "detected_objects",
+            )
+            .await?;
+        let balls = node
+            .subscriber::<Option<BallPosition<Ground>>>("ball_filter/ball_position")
+            .build()
+            .await?;
+        let hypotheses = node
+            .subscriber::<Vec<HypotheticalBallPosition<Ground>>>(
+                "ball_filter/hypothetical_ball_positions",
+            )
+            .build()
+            .await?;
+        let task = tokio::spawn(run_boxed(context.clone()));
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while hypotheses.publisher_count() == 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await?;
+        let start = node.clock().now();
+        for elapsed in [0, 20] {
+            let time = start + Duration::from_millis(elapsed);
+            poses.announce(time).await?.publish(&Pose2::zero()).await?;
+            if elapsed == 0 {
+                detections
+                    .announce(time)
+                    .await?
+                    .publish(&TimeWrapper {
+                        time,
+                        inner: vec![],
+                    })
+                    .await?;
+            }
+            let ball = tokio::time::timeout(Duration::from_secs(5), async {
+                loop {
+                    let sample = balls.recv_with_metadata().await.unwrap();
+                    assert!(
+                        sample.source_time <= time,
+                        "state stamped with publication time"
+                    );
+                    if sample.source_time == time {
+                        break sample;
+                    }
+                }
+            })
+            .await?;
+            assert!(ball.message.is_none());
+            tokio::time::timeout(Duration::from_secs(5), async {
+                loop {
+                    let sample = hypotheses.recv_with_metadata().await.unwrap();
+                    assert!(
+                        sample.source_time <= time,
+                        "hypotheses stamped with publication time"
+                    );
+                    if sample.source_time == time {
+                        break;
+                    }
+                }
+            })
+            .await?;
+        }
+        task.abort();
+        let _ = task.await;
+        context.shutdown()?;
+        Ok(())
     }
 }

@@ -6,6 +6,7 @@ use eframe::epaint::{Color32, Stroke};
 use ball_filter::{BallFilter as BallFiltering, BallMode};
 use coordinate_systems::Ground;
 use linear_algebra::{Point, vector};
+use ros_z::time::Time;
 use ros_z_debug::TopicObservation;
 use types::field_dimensions::FieldDimensions;
 
@@ -29,6 +30,10 @@ impl Layer<Ground> for BallFilter {
             .spawn();
 
         Self { filter }
+    }
+
+    fn ground_time(&self) -> Option<Time> {
+        self.filter.latest().map(|record| record.source_time)
     }
 
     fn paint(
