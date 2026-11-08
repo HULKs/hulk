@@ -1,0 +1,56 @@
+# RF-DETR Detection Training Config
+# Task: object detection on RoboCup soccer classes
+# Variant: RFDETRSmall (~32M params)
+# Resolution: 448 (divisible by 56, real-time on Jetson Orin NX 8 GB)
+
+model:
+  variant: "RFDETRSmall"        # rfdetr.RFDETRSmall
+  pretrained: true              # Use COCO-pretrained backbone
+  num_classes: 7
+  # Class order MUST match nao_data.yaml class IDs (0-6). Verified against data 2026-05-31.
+  # NOTE: data has a single "Robot" class (no red/blue team split).
+  # L/T/X-Spot = field-line junction types used for self-localization.
+  class_names:
+    - Ball          # 0
+    - GoalPost      # 1
+    - LSpot         # 2  (L-junction of field lines)
+    - PenaltySpot   # 3
+    - Robot         # 4
+    - TSpot         # 5  (T-junction)
+    - XSpot         # 6  (X-crossing)
+
+data:
+  # rfdetr auto-detects train/valid/test subdirs each containing _annotations.coco.json
+  dataset_dir: "./data/processed/coco_format"
+
+training:
+  output_dir: "./models/rf-detr-small-det"
+  epochs: 50
+  batch_size: 8                 # 448 res fits batch=8 on 12 GB VRAM
+  grad_accum_steps: 2           # Effective batch = 16
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+  resolution: 448               # MUST be divisible by 56
+  early_stopping_patience: 10
+  early_stopping_min_delta: 0.001
+  fp16: true                    # Mixed precision for 12 GB headroom
+  dataloader_num_workers: 0     # Windows compatibility — non-negotiable
+  tensorboard: true
+  logging_dir: "./outputs/logs"
+  save_total_limit: 3
+
+augmentation:
+  # Pass-through to rfdetr aug_config — Albumentations 1.4+
+  enabled: true
+  horizontal_flip_p: 0.5
+  rotate_limit: 10
+  brightness_limit: 0.2
+  contrast_limit: 0.2
+  motion_blur_p: 0.2            # Important for K1 walking-motion blur
+  gaussian_noise_p: 0.2
+
+export:
+  output_path: "./exports/rf-detr-det-448.onnx"
+  simplify: true                # Run onnx-simplifier post-export
+  static_batch: true            # Static batch=1 (avoids known TRT dynamic-batch issues)
+  parity_tolerance: 1.0e-3      # Max abs diff vs PyTorch eager
