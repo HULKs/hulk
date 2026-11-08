@@ -50,7 +50,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         if output.is_none() {
             held_ball = None;
         }
-        ball_position_pub.publish(&output).await?;
+        // A held ball stays in the ground frame of the image it was seen in.
+        ball_position_pub
+            .publish_with_source_time(&output, frame_time(output, output_time))
+            .await?;
     }
 }
 
@@ -72,6 +75,11 @@ fn held_ball_if_fresh(
     sample_timeout: Duration,
 ) -> Option<BallPosition<Ground>> {
     held_ball.filter(|ball| ball.age_at(now).is_some_and(|age| age <= sample_timeout))
+}
+
+/// Time of the ground frame of an output at `output_time`.
+fn frame_time(output: Option<BallPosition<Ground>>, output_time: Time) -> Time {
+    output.map_or(output_time, |ball| ball.last_seen)
 }
 
 #[cfg(test)]

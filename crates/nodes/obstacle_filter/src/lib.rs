@@ -10,8 +10,12 @@ use na::Matrix2;
 use nalgebra as na;
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{Field, Ground};
-use linear_algebra::{IntoFramed, Isometry2, Point2, point};
+use coordinate_systems::{Field, Ground, Odometry};
+use ground_frames::{
+    ground_alignment::ODOMETRY_QUEUE_CAPACITY,
+    odometry_history::{MAXIMUM_IMAGE_POSE_DISTANCE, OdometryHistory},
+};
+use linear_algebra::{IntoFramed, Isometry2, Point2, Pose2, point};
 use projection::{Projection, camera_matrix::CameraMatrix};
 use ros_z::{prelude::*, qos::QosDurability, time::Time};
 use ros_z_streams::CreateFutureMapBuilder;
@@ -46,6 +50,7 @@ impl Default for ObstacleFilter {
 }
 
 struct ObstacleFilterOutput {
+    time: Time,
     hypotheses: Vec<Hypothesis>,
     obstacles: Vec<Obstacle>,
 }
@@ -96,9 +101,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
-    let current_odometry_to_last_odometry_cache = node
-        .subscriber::<na::Isometry2<f32>>("current_odometry_to_last_odometry")
-        .cache(10)
+    let odometry_sub = node
+        .subscriber::<Pose2<Odometry>>("inputs/odometry")
+        .queue_capacity(ODOMETRY_QUEUE_CAPACITY)
         .build()
         .await?;
     let primary_state_cache = node
@@ -110,9 +115,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-    let ground_to_field_cache = node
+    let ground_to_field_sub = node
         .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
-        .cache(10)
         .build()
         .await?;
     let fall_detection_cache = node
@@ -137,9 +141,28 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let obstacles_pub = node.publisher::<Vec<Obstacle>>("obstacles").build().await?;
 
     let mut obstacle_filter = ObstacleFilter::default();
+    let mut odometry_history = OdometryHistory::new(Duration::from_secs(2));
+    let mut last_odometry = None;
+    let mut frame_time = None;
     let mut last_processed_player_state_times = Players::new(None);
     loop {
+        while odometry_sub.is_ready() {
+            let sample = odometry_sub.recv_with_metadata().await?;
+            odometry_history.push_pose(sample.source_time, sample.message);
+        }
+        while ground_to_field_sub.is_ready() {
+            let sample = ground_to_field_sub.recv_with_metadata().await?;
+            odometry_history.push_ground_to_field(sample.source_time, sample.message);
+        }
         tokio::select! {
+            sample = odometry_sub.recv_with_metadata() => {
+                let sample = sample?;
+                odometry_history.push_pose(sample.source_time, sample.message);
+            }
+            sample = ground_to_field_sub.recv_with_metadata() => {
+                let sample = sample?;
+                odometry_history.push_ground_to_field(sample.source_time, sample.message);
+            }
             received_detections = detections.recv() => {
                 let parameters_snapshot = parameters.snapshot();
                 let parameters = parameters_snapshot.typed();
@@ -155,16 +178,22 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                             .map(|detected_objects| detected_objects.inner)
                             .unwrap_or_default();
                         let camera_matrix = camera_matrix_cache.get_nearest(detection_time);
-                        let current_odometry_to_last_odometry =
-                            current_odometry_to_last_odometry_cache.get_nearest(detection_time);
-                        let ground_to_field = ground_to_field_cache.get_nearest(detection_time);
+                        let Some(pose) = odometry_history.pose_near(detection_time, MAXIMUM_IMAGE_POSE_DISTANCE) else {
+                            continue;
+                        };
+                        let current_to_previous = last_odometry
+                            .map(|previous| types::odometry::current_to_previous(previous, pose))
+                            .unwrap_or_else(Isometry2::identity);
+                        last_odometry = Some(pose);
+                        frame_time = Some(detection_time);
+                        let ground_to_field = odometry_history.ground_to_field_at(pose);
 
                         obstacle_filter.process_detection(
                             detection_time,
                             parameters,
                             &detected_objects,
                             camera_matrix.as_ref().map(|wrapper| &wrapper.inner),
-                            current_odometry_to_last_odometry.as_ref().map(Arc::as_ref),
+                            Some(&current_to_previous.inner),
                         );
 
                         let primary_state = primary_state_cache
@@ -177,11 +206,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                             node.clock().now(),
                             parameters,
                             field_dimensions.as_ref(),
-                            ground_to_field.as_ref().map(Arc::as_ref),
+                            ground_to_field.as_ref(),
                             primary_state,
                             fall_detection.as_ref().map(Arc::as_ref),
                         );
                         outputs.push(ObstacleFilterOutput {
+                            time: detection_time,
                             hypotheses: obstacle_filter.hypotheses.clone(),
                             obstacles,
                         });
@@ -191,9 +221,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 for output in outputs {
                     obstacle_filter_hypotheses_pub
-                        .publish(&output.hypotheses)
+                        .publish_with_source_time(&output.hypotheses, output.time)
                         .await?;
-                    obstacles_pub.publish(&output.obstacles).await?;
+                    obstacles_pub.publish_with_source_time(&output.obstacles, output.time).await?;
                 }
             }
             received_player_states = player_states_subscriber.recv() => {
@@ -209,23 +239,20 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         own_player_number,
                         &mut last_processed_player_state_times,
                     );
-                    let mut last_ground_to_field = None;
+                    // Team poses are already in Field. Convert all of them to the filter's
+                    // current Ground frame, regardless of their observation times.
+                    let frame_time = frame_time?;
+                    let ground_to_field = odometry_history
+                        .ground_to_field_at_time(frame_time, MAXIMUM_IMAGE_POSE_DISTANCE)?;
                     let mut processed_player_state = false;
 
                     for (player_state_time, player_state) in network_player_states {
-                        let Some(ground_to_field) =
-                            ground_to_field_cache.get_nearest(player_state_time)
-                        else {
-                            continue;
-                        };
-
                         obstacle_filter.process_network_player_state(
                             player_state_time,
                             parameters,
                             &player_state,
-                            ground_to_field.as_ref(),
+                            &ground_to_field,
                         );
-                        last_ground_to_field = Some(ground_to_field);
                         processed_player_state = true;
                     }
 
@@ -244,12 +271,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         node.clock().now(),
                         parameters,
                         field_dimensions.as_ref(),
-                        last_ground_to_field.as_ref().map(Arc::as_ref),
+                        Some(&ground_to_field),
                         primary_state,
                         fall_detection.as_ref().map(Arc::as_ref),
                     );
 
                     Some(ObstacleFilterOutput {
+                        time: frame_time,
                         hypotheses: obstacle_filter.hypotheses.clone(),
                         obstacles,
                     })
@@ -257,9 +285,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 if let Some(output) = output {
                     obstacle_filter_hypotheses_pub
-                        .publish(&output.hypotheses)
+                        .publish_with_source_time(&output.hypotheses, output.time)
                         .await?;
-                    obstacles_pub.publish(&output.obstacles).await?;
+                    obstacles_pub.publish_with_source_time(&output.obstacles, output.time).await?;
                 }
             }
         }
