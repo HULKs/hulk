@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::Pixel;
 use geometry::circle::Circle;
 
-use crate::multivariate_normal_distribution::MultivariateNormalDistribution;
+use filtering::multivariate_normal_distribution::MultivariateNormalDistribution;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, Message)]
 pub struct BallPercept {

@@ -2,7 +2,9 @@ use std::{boxed::Box, future::Future, pin::Pin};
 use std::{sync::Arc, time::Duration};
 
 use color_eyre::Result;
-use filtering::kalman_filter::KalmanFilter;
+use filtering::{
+    kalman_filter::KalmanFilter, multivariate_normal_distribution::MultivariateNormalDistribution,
+};
 use geometry::rectangle::Rectangle;
 use hsl_network_messages::PlayerNumber;
 use itertools::{chain, iproduct};
@@ -19,7 +21,6 @@ use tokio::task::block_in_place;
 use types::fall_detection::{FallDetection, Posture};
 use types::{
     field_dimensions::FieldDimensions,
-    multivariate_normal_distribution::MultivariateNormalDistribution,
     object_detection::{Object, RobocupObjectLabel},
     obstacle_filter::Hypothesis,
     obstacles::{Obstacle, ObstacleKind},

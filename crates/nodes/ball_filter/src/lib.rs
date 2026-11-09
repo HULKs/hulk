@@ -1,6 +1,7 @@
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use color_eyre::{Result, eyre::WrapErr};
+use filtering::multivariate_normal_distribution::MultivariateNormalDistribution;
 use linear_algebra::{IntoFramed, Isometry2, Pose2};
 use linear_sum_assignment::{AssignmentSolver, Objective};
 use nalgebra::{Matrix2, Matrix4};
@@ -17,7 +18,6 @@ use types::{
     ball_percept::BallPercept,
     ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::FieldDimensions,
-    multivariate_normal_distribution::MultivariateNormalDistribution,
     object_detection::{Object, RobocupObjectLabel},
     odometry,
     parameters::BallFilterParameters,
@@ -556,9 +556,9 @@ fn is_visible_to_camera(
 
 #[cfg(test)]
 mod tests {
+    use filtering::multivariate_normal_distribution::MultivariateNormalDistribution;
     use linear_algebra::point;
     use nalgebra::vector;
-    use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
     use super::*;
 

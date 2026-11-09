@@ -4102,9 +4102,9 @@ dependencies = [
  "nalgebra 0.34.2",
  "rand 0.9.5",
  "rand_distr 0.5.1",
+ "ros-z",
  "serde",
  "thiserror 2.0.21",
- "types",
 ]
 
 [[package]]
@@ -10825,6 +10825,7 @@ dependencies = [
  "color-eyre",
  "coordinate_systems",
  "enum-iterator",
+ "filtering",
  "geometry",
  "hsl_network_messages",
  "kinematics",
@@ -11138,6 +11139,7 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "coordinate_systems",
+ "filtering",
  "linear_algebra",
  "ros-z",
  "serde",

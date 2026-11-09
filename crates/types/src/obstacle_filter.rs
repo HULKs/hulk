@@ -1,9 +1,8 @@
+use filtering::multivariate_normal_distribution::MultivariateNormalDistribution;
 use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    multivariate_normal_distribution::MultivariateNormalDistribution, obstacles::ObstacleKind,
-};
+use crate::obstacles::ObstacleKind;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 pub struct Hypothesis {

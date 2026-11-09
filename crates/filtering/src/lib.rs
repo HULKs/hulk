@@ -3,6 +3,7 @@ pub mod hysteresis;
 pub mod kalman_filter;
 pub mod low_pass_filter;
 pub mod madgwick;
+pub mod multivariate_normal_distribution;
 pub mod pose_filter;
 pub mod statistics;
 pub mod tap_detector;
