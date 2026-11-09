@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use coordinate_systems::Ground;
-use filtering::kalman_filter::KalmanFilter;
+use filtering::kalman_filter::{KalmanError, KalmanFilter};
 use filtering::multivariate_normal_distribution::MultivariateNormalDistribution;
 use linear_algebra::Isometry2;
 use nalgebra::{Matrix2x4, Matrix4, Matrix4x2, matrix};
@@ -13,11 +13,12 @@ pub(super) trait MovingPredict {
         last_to_current_odometry: Isometry2<Ground, Ground>,
         velocity_decay: f32,
         process_noise: Matrix4<f32>,
-    );
+    ) -> Result<(), KalmanError>;
 }
 
 pub(super) trait MovingUpdate {
-    fn update(&mut self, measurement: MultivariateNormalDistribution<2>);
+    fn update(&mut self, measurement: MultivariateNormalDistribution<2>)
+    -> Result<(), KalmanError>;
 }
 
 impl MovingPredict for MultivariateNormalDistribution<4> {
@@ -27,7 +28,7 @@ impl MovingPredict for MultivariateNormalDistribution<4> {
         last_to_current_odometry: Isometry2<Ground, Ground>,
         velocity_decay: f32,
         process_noise: Matrix4<f32>,
-    ) {
+    ) -> Result<(), KalmanError> {
         let dt = delta_time.as_secs_f32();
         let constant_velocity_prediction = matrix![
             1.0, 0.0, dt, 0.0;
@@ -54,12 +55,15 @@ impl MovingPredict for MultivariateNormalDistribution<4> {
             Matrix4x2::identity(),
             translation,
             process_noise,
-        );
+        )
     }
 }
 
 impl MovingUpdate for MultivariateNormalDistribution<4> {
-    fn update(&mut self, measurement: MultivariateNormalDistribution<2>) {
+    fn update(
+        &mut self,
+        measurement: MultivariateNormalDistribution<2>,
+    ) -> Result<(), KalmanError> {
         KalmanFilter::update(
             self,
             Matrix2x4::identity(),

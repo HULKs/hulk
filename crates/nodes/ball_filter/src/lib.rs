@@ -138,7 +138,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                         &mut last_odometry,
                         &mut last_prediction_time,
                         parameters,
-                    );
+                    )?;
                 }
 
                 if let Some(detected_objects) = detected_objects {
@@ -182,7 +182,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     output_time,
                     parameters,
                     &field_dimensions,
-                );
+                )?;
             }
 
             let filter_state = ball_filter.clone();
@@ -257,7 +257,7 @@ fn predict_hypotheses_from_odometry(
     last_odometry: &mut Option<Pose2<Odometry>>,
     last_prediction_time: &mut Option<Time>,
     filter_parameters: &BallFilterParameters,
-) {
+) -> Result<()> {
     let last_to_current = match *last_odometry {
         None => Isometry2::identity(),
         Some(previous_odometry) => odometry::previous_to_current(previous_odometry, odometry_pose),
@@ -271,14 +271,16 @@ fn predict_hypotheses_from_odometry(
         .hypotheses
         .retain(|hypothesis| hypothesis.validity > filter_parameters.validity_discard_threshold);
 
-    ball_filter.predict(
-        delta_time,
-        last_to_current,
-        filter_parameters.velocity_decay_factor,
-        Matrix4::from_diagonal(&filter_parameters.noise.process_noise_moving),
-        Matrix2::from_diagonal(&filter_parameters.noise.process_noise_resting),
-        filter_parameters.log_likelihood_of_zero_velocity_threshold,
-    );
+    ball_filter
+        .predict(
+            delta_time,
+            last_to_current,
+            filter_parameters.velocity_decay_factor,
+            Matrix4::from_diagonal(&filter_parameters.noise.process_noise_moving),
+            Matrix2::from_diagonal(&filter_parameters.noise.process_noise_resting),
+            filter_parameters.log_likelihood_of_zero_velocity_threshold,
+        )
+        .wrap_err("failed to predict ball hypotheses from odometry")
 }
 
 fn advance_all_hypotheses(
@@ -330,7 +332,11 @@ fn advance_all_hypotheses(
                 let validity_increase = score.exp();
                 let percept = ball_percepts[percept_index];
                 used_percepts.push(percept_index);
-                hypothesis.update(time, percept.percept_in_ground, validity_increase);
+                hypothesis
+                    .update(time, percept.percept_in_ground, validity_increase)
+                    .wrap_err_with(|| {
+                        format!("failed to update ball hypothesis {hypothesis_index} with percept {percept_index}")
+                    })?;
             }
         }
 
@@ -348,7 +354,7 @@ fn advance_all_hypotheses(
                 time,
                 percept.percept_in_ground,
                 Matrix4::from_diagonal(&filter_parameters.noise.initial_covariance),
-            );
+            )?;
         }
     }
 
@@ -360,7 +366,7 @@ fn remove_invalid_and_merge_hypotheses(
     time: Time,
     filter_parameters: &BallFilterParameters,
     field_dimensions: &FieldDimensions,
-) {
+) -> Result<()> {
     let is_hypothesis_valid = |hypothesis: &BallHypothesis| {
         let ball = hypothesis.position();
         let Some(duration_since_last_observation) = ball.age_at(time) else {
@@ -384,13 +390,14 @@ fn remove_invalid_and_merge_hypotheses(
             _ => false,
         };
 
-    ball_filter.remove_hypotheses(is_hypothesis_valid, should_merge_hypotheses);
+    ball_filter.remove_hypotheses(is_hypothesis_valid, should_merge_hypotheses)?;
     ball_filter
         .hypotheses
         .sort_unstable_by(|a, b| b.validity.total_cmp(&a.validity));
     ball_filter
         .hypotheses
         .truncate(filter_parameters.maximum_number_of_hypotheses);
+    Ok(())
 }
 
 fn hypothetical_ball_positions(
@@ -687,7 +694,8 @@ mod odometry_pose_tests {
             &mut last_odometry,
             &mut last_prediction_time,
             &parameters,
-        );
+        )
+        .unwrap();
 
         predict_hypotheses_from_odometry(
             &mut ball_filter,
@@ -696,7 +704,8 @@ mod odometry_pose_tests {
             &mut last_odometry,
             &mut last_prediction_time,
             &parameters,
-        );
+        )
+        .unwrap();
 
         assert!(last_odometry.is_some());
         assert_eq!(last_prediction_time, Some(Time::from_nanos(1_010_000_000)));
