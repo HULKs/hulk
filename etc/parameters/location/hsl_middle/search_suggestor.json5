@@ -1,5 +1,4 @@
 {
-  // Preserve the previous uniform and initial additional growth rates.
   unseen_priority_rise_time: { secs: 600 },
   last_ball_extra_priority_rise_time: { secs: 66, nanos: 666666667 },
 

@@ -16,6 +16,8 @@ use crate::{Heatmap, heatmap_tile_center};
 
 pub type SearchOccluder = Circle<Field>;
 
+const MAX_TEAMMATE_REPLAY_STEPS: usize = 4;
+
 struct FieldOfViewDecay<'a> {
     near_half_life: f32,
     far_half_life: f32,
@@ -109,7 +111,8 @@ impl Heatmap {
         }
         let steps = (elapsed.as_secs_f64() / parameters.teammate_replay_step.as_secs_f64())
             .ceil()
-            .max(1.0) as usize;
+            .clamp(1.0, MAX_TEAMMATE_REPLAY_STEPS as f64) as usize;
+        // Bound heatmap traversals while distributing the full elapsed time over the samples.
         for step in 0..steps {
             let alpha = (step as f32 + 0.5) / steps as f32;
             let (pose, heading_direction) =
@@ -302,6 +305,63 @@ mod tests {
                     );
                 }
                 assert!((map.map[(11, 6)] - 0.5).abs() < 2e-6);
+            }
+        }
+    }
+
+    #[test]
+    fn teammate_replay_caps_samples_while_preserving_motion_and_elapsed_time() {
+        let field = FieldDimensions::SPL_2025;
+        let previous = PlayerState {
+            pose: Pose2::from_parts(vector![-1.0, 0.0].as_point(), Orientation2::new(0.0)),
+            head_yaw: -0.8,
+            ball_position: None,
+        };
+        let current = PlayerState {
+            pose: Pose2::from_parts(vector![1.0, 0.0].as_point(), Orientation2::new(0.0)),
+            head_yaw: 0.8,
+            ball_position: None,
+        };
+        let mut parameters = SearchSuggestorParameters {
+            teammate_observation_weight: 0.75,
+            observation_half_life_near: Duration::from_secs(1),
+            observation_half_life_far: Duration::from_secs(5),
+            observation_distance_range: 0.0..6.0,
+            ..Default::default()
+        };
+
+        // Four midpoint observations along the movement, each accounting for one second
+        // of the message interval at the teammate's observation weight.
+        let mut expected = Heatmap::new(field, 18);
+        expected.map.fill(1.0);
+        for (x, head_yaw) in [(-0.75, -0.6), (-0.25, -0.2), (0.25, 0.2), (0.75, 0.6)] {
+            expected.decay_tiles_in_robot_fov_with_occluders(
+                field,
+                Isometry2::from_parts(vector![x, 0.0], 0.0),
+                head_yaw,
+                Duration::from_millis(750),
+                &parameters,
+                &[],
+            );
+        }
+
+        for replay_step in [
+            Duration::from_secs(1),
+            Duration::from_millis(400),
+            Duration::from_nanos(1),
+        ] {
+            parameters.teammate_replay_step = replay_step;
+            let mut actual = Heatmap::new(field, 18);
+            actual.map.fill(1.0);
+            actual.decay_tiles_from_teammate_motion(
+                field,
+                &previous,
+                &current,
+                Duration::from_secs(4),
+                &parameters,
+            );
+            for (actual, expected) in actual.map.iter().zip(expected.map.iter()) {
+                assert!((actual - expected).abs() < 2e-6);
             }
         }
     }

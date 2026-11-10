@@ -30,6 +30,71 @@ impl SearchVoronoiSelection {
     }
 }
 
+/// Retains the last partition while its geometry, owner and source cells are unchanged.
+#[derive(Default)]
+pub struct SearchVoronoiCache {
+    entry: Option<CachedSelection>,
+    #[cfg(test)]
+    rebuilds: usize,
+}
+
+struct CachedSelection {
+    geometry: (f32, f32, usize),
+    source_cells: Vec<(Option<usize>, PlayerNumber)>,
+    selection: SearchVoronoiSelection,
+}
+
+impl SearchVoronoiCache {
+    pub fn get_or_update(
+        &mut self,
+        field_dimensions: FieldDimensions,
+        cells_x: usize,
+        owner: PlayerNumber,
+        sites: impl IntoIterator<Item = (Pose2<Field>, PlayerNumber)>,
+    ) -> &SearchVoronoiSelection {
+        let sites = sites.into_iter().collect_vec();
+        let geometry = (field_dimensions.length, field_dimensions.width, cells_x);
+        if self.entry.as_ref().is_some_and(|entry| {
+            entry.geometry != geometry
+                || entry.selection.owner != owner
+                || !entry
+                    .source_cells
+                    .iter()
+                    .copied()
+                    .eq(sites.iter().map(|(pose, number)| {
+                        (
+                            entry.selection.grid.point_to_index(pose.position()),
+                            *number,
+                        )
+                    }))
+        }) {
+            self.entry = None;
+        }
+        let entry = self.entry.get_or_insert_with(|| {
+            #[cfg(test)]
+            {
+                self.rebuilds += 1;
+            }
+            let selection = SearchVoronoiSelection::new(
+                field_dimensions,
+                cells_x,
+                owner,
+                sites.iter().copied(),
+            );
+            let source_cells = sites
+                .iter()
+                .map(|(pose, number)| (selection.grid.point_to_index(pose.position()), *number))
+                .collect();
+            CachedSelection {
+                geometry,
+                source_cells,
+                selection,
+            }
+        });
+        &entry.selection
+    }
+}
+
 fn search_voronoi_grid(field_dimensions: FieldDimensions, cells_x: usize) -> VoronoiGrid {
     let shape = crate::grid_dimensions(field_dimensions, cells_x);
     // Voronoi uses physical, square steps; sample ownership at the search cell centres.
@@ -44,3 +109,6 @@ fn search_voronoi_grid(field_dimensions: FieldDimensions, cells_x: usize) -> Vor
         resolution,
     )
 }
+
+#[cfg(test)]
+mod tests;
