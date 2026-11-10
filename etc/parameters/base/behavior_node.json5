@@ -42,6 +42,7 @@
       rotation_penalty_factor: 0.4,
       robot_radius: 0.4,
       half_rotation: { nanos: 0, secs: 3 },
+      goal_kick_striker_safty_margin: 0.5,
     },
     walk_and_stand: {
       hysteresis: [0.3, 0.3],
