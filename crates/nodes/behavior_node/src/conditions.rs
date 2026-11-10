@@ -283,7 +283,7 @@ pub fn is_simple(blackboard: &mut Blackboard) -> bool {
     blackboard.parameters.control.is_simple
 }
 
-pub fn is_inside_rule_obstacles(blackboard: &mut Blackboard) -> bool {
+pub fn is_inside_rule_obstacle(blackboard: &mut Blackboard) -> bool {
     blackboard
         .world_state
         .robot
