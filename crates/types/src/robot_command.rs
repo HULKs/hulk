@@ -11,6 +11,7 @@ pub type JointsCommand = Joints<MotorCommand>;
 #[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize, Message)]
 pub enum RobotCommand {
+    Unstiff,
     Damping,
     Prepare,
     Custom { joints_command: JointsCommand },
@@ -19,7 +20,7 @@ pub enum RobotCommand {
 impl RobotCommand {
     pub fn clamp(self, joint_limits: &JointLimits) -> Result<Self> {
         match self {
-            Self::Damping | Self::Prepare => Ok(self),
+            Self::Unstiff | Self::Damping | Self::Prepare => Ok(self),
             Self::Custom { mut joints_command } => {
                 for (joint, [minimum, maximum]) in joint_limits.position.enumerate() {
                     let command = &mut joints_command[joint];
