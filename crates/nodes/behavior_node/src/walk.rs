@@ -438,7 +438,7 @@ fn target_player_position(
     best_target.map(|(_, point)| point)
 }
 
-pub fn walk_out_off_rule_obstacles(blackboard: &mut Blackboard) -> Status {
+pub fn walk_out_of_rule_obstacles(blackboard: &mut Blackboard) -> Status {
     let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field else {
         return Status::Failure;
     };
