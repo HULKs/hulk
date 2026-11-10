@@ -3,7 +3,8 @@ use nalgebra::{
     vector,
 };
 use thiserror::Error;
-use types::multivariate_normal_distribution::MultivariateNormalDistribution;
+
+use crate::multivariate_normal_distribution::MultivariateNormalDistribution;
 
 const STATE_DIMENSION: usize = 3;
 const CUBATURE_POINT_COUNT: usize = 2 * STATE_DIMENSION;
@@ -376,7 +377,7 @@ mod tests {
     use nalgebra::{Matrix3, matrix, vector};
 
     use super::{CUBATURE_POINT_COUNT, PoseFilter, sample_cubature_points, wrap_angle};
-    use types::multivariate_normal_distribution::MultivariateNormalDistribution;
+    use crate::multivariate_normal_distribution::MultivariateNormalDistribution;
 
     #[test]
     fn identity_prediction_preserves_covariance_without_process_noise() {

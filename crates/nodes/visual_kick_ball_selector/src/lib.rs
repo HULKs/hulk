@@ -76,8 +76,8 @@ fn held_ball_if_fresh(
 
 #[cfg(test)]
 fn test_ball_percept(x: f32, y: f32) -> BallPercept {
+    use filtering::multivariate_normal_distribution::MultivariateNormalDistribution;
     use linear_algebra::nalgebra;
-    use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
     BallPercept {
         percept_in_ground: MultivariateNormalDistribution {

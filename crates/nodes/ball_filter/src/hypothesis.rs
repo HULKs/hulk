@@ -1,6 +1,8 @@
 use std::{f32::consts::PI, time::Duration};
 
-use filtering::kalman_filter::KalmanFilter;
+use filtering::{
+    kalman_filter::KalmanFilter, multivariate_normal_distribution::MultivariateNormalDistribution,
+};
 use moving::{MovingPredict, MovingUpdate};
 use nalgebra::{Matrix2, Matrix4};
 use resting::{RestingPredict, RestingUpdate};
@@ -10,9 +12,7 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::Ground;
 use linear_algebra::{IntoFramed, Isometry2, Vector2, vector};
 
-use types::{
-    ball_position::BallPosition, multivariate_normal_distribution::MultivariateNormalDistribution,
-};
+use types::ball_position::BallPosition;
 
 pub mod moving;
 pub mod resting;

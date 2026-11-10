@@ -2,12 +2,12 @@ use std::time::Duration;
 
 use coordinate_systems::Ground;
 use filtering::kalman_filter::KalmanFilter;
+use filtering::multivariate_normal_distribution::MultivariateNormalDistribution;
 use linear_algebra::{IntoFramed, Isometry2, distance};
 use nalgebra::{Matrix2, Matrix2x4, Matrix4};
 use ordered_float::NotNan;
 use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
-use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
 use crate::hypothesis::{BallHypothesis, BallMode};
 

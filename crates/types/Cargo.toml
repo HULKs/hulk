@@ -11,6 +11,7 @@ approx = { workspace = true }
 color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
 enum-iterator = { workspace = true }
+filtering = { workspace = true, features = ["ros-z"] }
 geometry = { workspace = true }
 hsl_network_messages = { workspace = true }
 kinematics = { workspace = true }

@@ -1,8 +1,8 @@
 use coordinate_systems::Ground;
 use filtering::kalman_filter::KalmanFilter;
+use filtering::multivariate_normal_distribution::MultivariateNormalDistribution;
 use linear_algebra::Isometry2;
 use nalgebra::Matrix2;
-use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
 pub(super) trait RestingPredict {
     fn predict(

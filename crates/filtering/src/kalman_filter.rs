@@ -1,5 +1,6 @@
 use nalgebra::{SMatrix, SVector};
-use types::multivariate_normal_distribution::MultivariateNormalDistribution;
+
+use crate::multivariate_normal_distribution::MultivariateNormalDistribution;
 
 pub trait KalmanFilter<const STATE_DIMENSION: usize> {
     fn predict<const CONTROL_DIMENSION: usize>(
