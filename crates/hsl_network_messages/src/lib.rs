@@ -21,6 +21,12 @@ pub use game_controller_state_message::{
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, Message)]
 pub enum HulkMessage {
     State(StateMessage),
+    Whistle(WhistleMessage),
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, Message)]
+pub struct WhistleMessage {
+    pub player_number: PlayerNumber,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, Message)]

@@ -1,4 +1,6 @@
 {
+  broadcast: false,
+  remaining_amount_of_messages_to_stop_sending: 20,
   buffer_length: 20,
   minimum_detections: 6,
 }
