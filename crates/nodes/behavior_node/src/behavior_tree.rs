@@ -36,6 +36,15 @@ pub enum Node<Blackboard> {
 
 impl<Blackboard> Node<Blackboard> {
     pub fn tick_with_trace(&self, blackboard: &mut Blackboard) -> (Status, NodeTrace) {
+        let (status, trace) = self.tick(blackboard, true);
+        (status, trace.expect("trace collection enabled"))
+    }
+
+    pub(crate) fn tick(
+        &self,
+        blackboard: &mut Blackboard,
+        record_trace: bool,
+    ) -> (Status, Option<NodeTrace>) {
         let name = match self {
             Node::Action { name, .. }
             | Node::Condition { name, .. }
@@ -45,11 +54,19 @@ impl<Blackboard> Node<Blackboard> {
             | Node::Subtree { name, .. } => name,
             Node::Failure => &"Failure",
         };
-        let mut trace = NodeTrace {
+        let mut trace = record_trace.then(|| NodeTrace {
             name: name.to_string(),
             status: Status::Failure,
             children: Vec::new(),
-        };
+        });
+        let tick_child =
+            |child: &Self, blackboard: &mut Blackboard, trace: &mut Option<NodeTrace>| {
+                let (status, child_trace) = child.tick(blackboard, record_trace);
+                if let (Some(trace), Some(child_trace)) = (trace, child_trace) {
+                    trace.children.push(child_trace);
+                }
+                status
+            };
 
         let status = match self {
             Node::Action { action, .. } => action(blackboard),
@@ -62,8 +79,7 @@ impl<Blackboard> Node<Blackboard> {
             }
             Node::Failure => Status::Failure,
             Node::Negation { child, .. } => {
-                let (child_status, child_trace) = child.tick_with_trace(blackboard);
-                trace.children.push(child_trace);
+                let child_status = tick_child(child, blackboard, &mut trace);
                 match child_status {
                     Status::Success => Status::Failure,
                     Status::Failure => Status::Success,
@@ -73,8 +89,7 @@ impl<Blackboard> Node<Blackboard> {
             Node::Selection { children, .. } => {
                 let mut selection_status = Status::Failure;
                 for child in children {
-                    let (child_status, child_trace) = child.tick_with_trace(blackboard);
-                    trace.children.push(child_trace);
+                    let child_status = tick_child(child, blackboard, &mut trace);
 
                     if matches!(child_status, Status::Success) {
                         selection_status = child_status;
@@ -86,8 +101,7 @@ impl<Blackboard> Node<Blackboard> {
             Node::Sequence { children, .. } => {
                 let mut sequence_status = Status::Success;
                 for child in children {
-                    let (child_status, child_trace) = child.tick_with_trace(blackboard);
-                    trace.children.push(child_trace);
+                    let child_status = tick_child(child, blackboard, &mut trace);
 
                     if matches!(child_status, Status::Failure) {
                         sequence_status = child_status;
@@ -96,14 +110,12 @@ impl<Blackboard> Node<Blackboard> {
                 }
                 sequence_status
             }
-            Node::Subtree { tree, .. } => {
-                let (child_status, child_trace) = tree.tick_with_trace(blackboard);
-                trace.children.push(child_trace);
-                child_status
-            }
+            Node::Subtree { tree, .. } => tick_child(tree, blackboard, &mut trace),
         };
 
-        trace.status = status.clone();
+        if let Some(trace) = &mut trace {
+            trace.status = status.clone();
+        }
         (status, trace)
     }
 
@@ -243,5 +255,71 @@ impl<Blackboard> Serialize for Node<Blackboard> {
         }
 
         state.end()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn optional_tracing_preserves_execution_and_short_circuiting() {
+        let tree = Node::Sequence {
+            name: "sequence",
+            children: vec![
+                Node::Condition {
+                    name: "condition",
+                    condition: Box::new(|visits: &mut Vec<&str>| {
+                        visits.push("condition");
+                        true
+                    }),
+                },
+                Node::Selection {
+                    name: "selection",
+                    children: vec![
+                        Node::Failure,
+                        Node::Subtree {
+                            name: "subtree",
+                            tree: Box::new(Node::Action {
+                                name: "action",
+                                action: Box::new(|visits| {
+                                    visits.push("action");
+                                    Status::Success
+                                }),
+                            }),
+                        },
+                        Node::Action {
+                            name: "skipped",
+                            action: Box::new(|_| panic!("selection did not short circuit")),
+                        },
+                    ],
+                },
+                Node::Negation {
+                    name: "negation",
+                    child: Box::new(Node::Failure),
+                },
+                Node::Failure,
+                Node::Action {
+                    name: "skipped",
+                    action: Box::new(|_| panic!("sequence did not short circuit")),
+                },
+            ],
+        };
+
+        for record_trace in [false, true] {
+            let mut visits = Vec::new();
+            let (status, trace) = tree.tick(&mut visits, record_trace);
+            assert_eq!(status, Status::Failure);
+            assert_eq!(visits, ["condition", "action"]);
+            assert_eq!(trace.is_some(), record_trace);
+            if let Some(trace) = trace {
+                assert_eq!(trace.name, "sequence");
+                assert_eq!(trace.status, status);
+                assert_eq!(trace.children.len(), 4);
+                assert_eq!(trace.children[1].children.len(), 2);
+                assert_eq!(trace.children[1].children[1].children[0].name, "action");
+                assert_eq!(trace.children[2].status, Status::Success);
+            }
+        }
     }
 }
