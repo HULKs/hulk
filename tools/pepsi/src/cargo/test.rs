@@ -223,4 +223,16 @@ impl CargoCommand for Arguments {
     fn profile(&self) -> &str {
         self.common.profile.as_deref().unwrap_or("test")
     }
+
+    fn selected_packages(&self) -> &[String] {
+        &self.packages
+    }
+
+    fn workspace_requested(&self) -> bool {
+        self.workspace || self.all
+    }
+
+    fn executes_target(&self) -> bool {
+        !self.no_run && !self.unit_graph
+    }
 }
