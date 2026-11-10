@@ -11,6 +11,7 @@ members = [
   "crates/egui_bevy",
   "crates/filtering",
   "crates/geometry",
+  "crates/ground_frames",
   "crates/hsl_network",
   "crates/hsl_network_messages",
   "crates/hula_types",
@@ -169,6 +170,7 @@ game_controller_state_filter = { path = "crates/nodes/game_controller_state_filt
 geometry = { path = "crates/geometry" }
 gilrs = "0.11.2"
 global_parameter_provider = { path = "crates/nodes/global_parameter_provider" }
+ground_frames = { path = "crates/ground_frames" }
 ground_provider = { path = "crates/nodes/ground_provider" }
 hardware_interface = { path = "crates/nodes/hardware_interface" }
 head_motion = { path = "crates/nodes/head_motion" }

@@ -5,6 +5,7 @@ use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::Ground;
 use linear_algebra::Point2;
+use ros_z::time::Time;
 use ros_z_debug::{SampleRecord, TopicObservation};
 use types::{ball_percept::BallPercept, field_dimensions::FieldDimensions};
 
@@ -28,6 +29,10 @@ impl Layer<Ground> for BallPercepts {
             .spawn();
 
         Self { ball_percepts }
+    }
+
+    fn ground_time(&self) -> Option<Time> {
+        self.ball_percepts.latest().map(|record| record.source_time)
     }
 
     fn paint(

@@ -4,6 +4,7 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::Ground;
+use ros_z::time::Time;
 use ros_z_debug::{SampleRecord, TopicObservation};
 use types::{field_dimensions::FieldDimensions, obstacles::Obstacle};
 
@@ -27,6 +28,10 @@ impl Layer<Ground> for Obstacles {
             .spawn();
 
         Self { obstacles }
+    }
+
+    fn ground_time(&self) -> Option<Time> {
+        self.obstacles.latest().map(|record| record.source_time)
     }
 
     fn paint(
