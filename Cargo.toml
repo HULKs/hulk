@@ -3,6 +3,7 @@ members = [
   "crates/aliveness",
   "crates/approx_derive",
   "crates/argument_parsers",
+  "crates/ball_tracking",
   "crates/bevy_mujoco",
   "crates/bevyhavior_simulator",
   "crates/booster",
