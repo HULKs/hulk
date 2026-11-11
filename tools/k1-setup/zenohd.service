@@ -4,7 +4,7 @@ Wants=network-online.target
 After=network-online.target
 
 [Service]
-CPUAffinity=4 5
+CPUAffinity=4
 User=zenohd
 Group=zenohd
 Environment=ZENOH_HOME=/var/lib/zenoh
