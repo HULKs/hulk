@@ -757,6 +757,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ball_tracking"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "filtering",
+ "nalgebra 0.34.2",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "base64"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
