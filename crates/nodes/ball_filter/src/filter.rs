@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use color_eyre::{Result, eyre::WrapErr};
 use coordinate_systems::Ground;
 use filtering::kalman_filter::KalmanFilter;
 use filtering::multivariate_normal_distribution::MultivariateNormalDistribution;
@@ -39,17 +40,20 @@ impl BallFilter {
         moving_process_noise: Matrix4<f32>,
         resting_process_noise: Matrix2<f32>,
         log_likelihood_of_zero_velocity_threshold: f32,
-    ) {
-        for hypothesis in self.hypotheses.iter_mut() {
-            hypothesis.predict(
-                delta_time,
-                last_to_current_odometry,
-                velocity_decay,
-                moving_process_noise,
-                resting_process_noise,
-                log_likelihood_of_zero_velocity_threshold,
-            )
+    ) -> Result<()> {
+        for (index, hypothesis) in self.hypotheses.iter_mut().enumerate() {
+            hypothesis
+                .predict(
+                    delta_time,
+                    last_to_current_odometry,
+                    velocity_decay,
+                    moving_process_noise,
+                    resting_process_noise,
+                    log_likelihood_of_zero_velocity_threshold,
+                )
+                .wrap_err_with(|| format!("failed to predict ball hypothesis {index}"))?;
         }
+        Ok(())
     }
 
     pub fn reset(&mut self) {
@@ -60,26 +64,30 @@ impl BallFilter {
         &mut self,
         is_valid: impl Fn(&BallHypothesis) -> bool,
         merge_criterion: impl Fn(&BallHypothesis, &BallHypothesis) -> bool,
-    ) -> Vec<BallHypothesis> {
+    ) -> Result<Vec<BallHypothesis>> {
         let (valid, removed): (Vec<_>, Vec<_>) = self.hypotheses.drain(..).partition(is_valid);
 
-        self.hypotheses = valid
-            .into_iter()
-            .fold(vec![], |mut deduplicated, hypothesis| {
-                let mergeable_hypothesis = deduplicated
-                    .iter_mut()
-                    .find(|existing_hypothesis| merge_criterion(existing_hypothesis, &hypothesis));
+        self.hypotheses =
+            valid
+                .into_iter()
+                .try_fold(vec![], |mut deduplicated, hypothesis| -> Result<_> {
+                    let mergeable_hypothesis =
+                        deduplicated.iter_mut().find(|existing_hypothesis| {
+                            merge_criterion(existing_hypothesis, &hypothesis)
+                        });
 
-                if let Some(mergeable_hypothesis) = mergeable_hypothesis {
-                    mergeable_hypothesis.merge(hypothesis)
-                } else {
-                    deduplicated.push(hypothesis);
-                }
+                    if let Some(mergeable_hypothesis) = mergeable_hypothesis {
+                        mergeable_hypothesis
+                            .merge(hypothesis)
+                            .wrap_err("failed to merge ball hypotheses")?;
+                    } else {
+                        deduplicated.push(hypothesis);
+                    }
 
-                deduplicated
-            });
+                    Ok(deduplicated)
+                })?;
 
-        removed
+        Ok(removed)
     }
 
     pub fn spawn(
@@ -87,7 +95,7 @@ impl BallFilter {
         detection_time: Time,
         measurement: MultivariateNormalDistribution<2>,
         initial_moving_covariance: Matrix4<f32>,
-    ) {
+    ) -> Result<()> {
         let closest_hypothesis = self.hypotheses.iter().min_by_key(|hypothesis| {
             NotNan::new(distance(
                 measurement.mean.framed().as_point(),
@@ -114,6 +122,7 @@ impl BallFilter {
                 measurement.mean,
                 measurement.covariance,
             )
+            .wrap_err("failed to initialize spawned ball hypothesis")?;
         }
 
         let new_hypothesis = BallHypothesis {
@@ -122,6 +131,7 @@ impl BallFilter {
             validity: 1.0,
         };
 
-        self.hypotheses.push(new_hypothesis)
+        self.hypotheses.push(new_hypothesis);
+        Ok(())
     }
 }
