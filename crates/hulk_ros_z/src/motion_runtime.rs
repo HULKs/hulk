@@ -1,5 +1,3 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-
 use color_eyre::{
     Result,
     eyre::{WrapErr, ensure, eyre},
@@ -13,34 +11,36 @@ use tokio::{
     sync::mpsc::{UnboundedReceiver, unbounded_channel},
 };
 
-pub struct MotionRuntime {
-    pub runtime: Runtime,
+pub struct MotionRuntimes {
+    pub runtimes: Vec<Runtime>,
     pub thread_starts: UnboundedReceiver<Result<()>>,
 }
 
 /// Call before creating the general runtime or transport threads. The caller and
 /// its future children exclude the motion CPUs.
 #[cfg(target_os = "linux")]
-pub fn build(cpus: &[usize]) -> Result<MotionRuntime> {
+pub fn build(cpus: &[usize]) -> Result<MotionRuntimes> {
     let allowed_cpus =
         sched_getaffinity(Pid::from_raw(0)).wrap_err("failed to read startup CPU affinity")?;
     let (motion_cpus, general_cpus) = partition_cpus(cpus, allowed_cpus)?;
     let worker_count = motion_cpus.len();
-    let next_cpu = AtomicUsize::new(0);
     let (thread_started, mut thread_starts) = unbounded_channel();
-
-    let runtime = Builder::new_multi_thread()
-        .worker_threads(worker_count)
-        .thread_name("hulk-motion")
-        .on_thread_start(move || {
-            // Isolated CPUs do not load-balance. Pin each async or blocking
-            // worker individually, before it can execute any application code.
-            let index = next_cpu.fetch_add(1, Ordering::Relaxed) % worker_count;
-            let _ = thread_started.send(pin_current_thread(motion_cpus[index]));
-        })
-        .enable_all()
-        .build()
-        .wrap_err("failed to build motion runtime")?;
+    let mut runtimes = Vec::with_capacity(worker_count);
+    for cpu in motion_cpus {
+        let thread_started = thread_started.clone();
+        let runtime = Builder::new_multi_thread()
+            .worker_threads(1)
+            .thread_name(format!("hulk-motion-{cpu}"))
+            .on_thread_start(move || {
+                // block_in_place can transfer the scheduler onto a blocking-pool
+                // thread. Every thread in this runtime must use the same CPU.
+                let _ = thread_started.send(pin_current_thread(cpu));
+            })
+            .enable_all()
+            .build()
+            .wrap_err_with(|| format!("failed to build motion runtime for CPU {cpu}"))?;
+        runtimes.push(runtime);
+    }
 
     // Reject initial pinning failures before starting nodes. Keep the receiver
     // so the stack can also monitor failures from later blocking workers.
@@ -52,8 +52,8 @@ pub fn build(cpus: &[usize]) -> Result<MotionRuntime> {
 
     sched_setaffinity(Pid::from_raw(0), &general_cpus)
         .wrap_err("failed to restrict the main thread to the general CPU set")?;
-    Ok(MotionRuntime {
-        runtime,
+    Ok(MotionRuntimes {
+        runtimes,
         thread_starts,
     })
 }
