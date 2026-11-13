@@ -257,6 +257,7 @@ async fn spawn_all(
     join_set.spawn(visual_kick_ball_selector::run_boxed(ctx.clone()));
     join_set.spawn(rule_obstacle_composer::run_boxed(ctx.clone()));
     join_set.spawn(search_suggestor::run_boxed(ctx.clone()));
+    join_set.spawn(sound_handler::run_boxed(ctx.clone()));
     join_set.spawn(stereo_visual_odometry::run_boxed(ctx.clone()));
     join_set.spawn(support_foot_estimator::run_boxed(ctx.clone()));
     join_set.spawn(system_info::run_boxed(ctx.clone()));

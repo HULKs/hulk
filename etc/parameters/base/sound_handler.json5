@@ -1,0 +1,6 @@
+{
+  enabled: true,
+  sounds_directory: "etc/sounds",
+  hardware_device_name: "default",
+  playback_timeout: { secs: 10, nanos: 0 },
+}

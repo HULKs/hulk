@@ -53,6 +53,7 @@ ros-z = { workspace = true }
 rule_obstacle_composer = { workspace = true }
 safe_pose_checker = { workspace = true }
 search_suggestor = { workspace = true }
+sound_handler = { workspace = true }
 stereo_visual_odometry = { workspace = true, features = ["ort-dynamic"] }
 support_foot_estimator = { workspace = true }
 system_info = { workspace = true }
