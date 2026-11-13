@@ -1,5 +1,7 @@
 # Create URDF and PROTO for NAOv6
 
+This page documents the historical NAOv6 workflow for Webots.
+
 For Webots we need a PROTO file which should contain 3D models and the scene graph of the NAOv6.
 The only source is a URDF from http://doc.aldebaran.com/2-8/family/nao_technical/kinematics_naov6.html#naov6-urdf-files.
 Meshes in OGRE mesh format can be found in e.g. the "C++ SDK" from https://developer.softbankrobotics.com/nao6/downloads/nao6-downloads-linux (in `share/alrobotmodel/meshes`).
