@@ -69,8 +69,6 @@ nav:
           - Walking: robotics/motion/walking.md
           - Kicking: robotics/motion/kicking.md
           - Fall detection: robotics/fall-detection.md
-      - Miscellaneous:
-          - Create URDF and PROTO for NAOv6: robotics/miscellaneous/create_urdf.md
   - Workflow:
       - Overview: workflow/overview.md
       - Getting Started: workflow/getting_started.md
