@@ -14,7 +14,9 @@ fn begin_frame(ui: &mut Ui) {
     let ctx = ui.ctx();
 
     if let Some(keybinds) = ctx.data(|data| data.get_temp::<Arc<Keybinds>>(Id::NULL)) {
-        let actions = ctx.input_mut(|input| consume_actions(&keybinds, input, false));
+        let text_edit_focused = ctx.text_edit_focused();
+        let actions =
+            ctx.input_mut(|input| consume_actions(&keybinds, input, false, text_edit_focused));
 
         ctx.data_mut(|data| data.insert_temp::<ActionList>(Id::NULL, Arc::new(actions)));
     }
@@ -24,6 +26,7 @@ fn consume_actions(
     keybinds: &Keybinds,
     input: &mut InputState,
     timeline: bool,
+    text_edit_focused: bool,
 ) -> Vec<KeybindAction> {
     let mut actions = Vec::new();
 
@@ -38,6 +41,7 @@ fn consume_actions(
         {
             for (trigger, action) in keybinds.iter() {
                 if action.is_timeline() == timeline
+                    && !(text_edit_focused && trigger.conflicts_with_text_editing())
                     && trigger.logical_key == *key
                     && modifiers.matches_exact(trigger.modifiers)
                 {
@@ -65,7 +69,8 @@ impl KeybindSystem for Context {
     fn consume_timeline_actions(&self) -> Vec<KeybindAction> {
         let keybinds = self.data(|data| data.get_temp::<Arc<Keybinds>>(Id::NULL));
         keybinds.map_or_else(Vec::new, |keybinds| {
-            self.input_mut(|input| consume_actions(&keybinds, input, true))
+            let text_edit_focused = self.text_edit_focused();
+            self.input_mut(|input| consume_actions(&keybinds, input, true, text_edit_focused))
         })
     }
 
@@ -121,7 +126,7 @@ mod tests {
             })
             .collect();
         assert_eq!(
-            consume_actions(&keybinds, &mut input, false),
+            consume_actions(&keybinds, &mut input, false, false),
             [KeybindAction::OpenSplit]
         );
         assert_eq!(
@@ -130,9 +135,57 @@ mod tests {
             "unfocused widgets must still receive Space"
         );
         assert_eq!(
-            consume_actions(&keybinds, &mut input, true),
+            consume_actions(&keybinds, &mut input, true, false),
             [KeybindAction::TimelineTogglePlayback]
         );
-        assert!(consume_actions(&keybinds, &mut input, true).is_empty());
+        assert!(consume_actions(&keybinds, &mut input, true, false).is_empty());
+    }
+
+    #[test]
+    fn focused_text_edit_keeps_editing_keys_but_allows_nonconflicting_shortcuts() {
+        let keybinds: Keybinds = toml::from_str(
+            r#"
+            C-t = "open_split"
+            A-ArrowLeft = "focus_left"
+            Space = "timeline_toggle_playback"
+        "#,
+        )
+        .unwrap();
+        let mut input = InputState::default();
+        input.events = [
+            (Key::T, Modifiers::COMMAND),
+            (Key::ArrowLeft, Modifiers::ALT),
+            (Key::Space, Modifiers::NONE),
+        ]
+        .into_iter()
+        .map(|(key, modifiers)| Event::Key {
+            key,
+            modifiers,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+        })
+        .collect();
+
+        assert_eq!(
+            consume_actions(&keybinds, &mut input, false, true),
+            [KeybindAction::OpenSplit]
+        );
+        assert!(consume_actions(&keybinds, &mut input, true, true).is_empty());
+        assert_eq!(input.events.len(), 2);
+        assert!(matches!(
+            input.events[0],
+            Event::Key {
+                key: Key::ArrowLeft,
+                ..
+            }
+        ));
+        assert!(matches!(
+            input.events[1],
+            Event::Key {
+                key: Key::Space,
+                ..
+            }
+        ));
     }
 }

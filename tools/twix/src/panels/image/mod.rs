@@ -217,7 +217,7 @@ impl Panel for ImagePanel {
             };
             let response = ui.add(
                 CompletionEdit::new(
-                    ui.id().with("image_topic"),
+                    ui.scope_id().with("image_topic"),
                     &completions,
                     &mut self.topic_editor,
                 )

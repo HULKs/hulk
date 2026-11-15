@@ -66,7 +66,7 @@ impl TopicSourceEditor {
         let completions = source_completions(&topics, &self.topic, sample, &self.editor);
         let response = ui
             .add(
-                CompletionEdit::new(ui.id().with("topic"), &completions, &mut self.editor)
+                CompletionEdit::new(ui.scope_id().with("topic"), &completions, &mut self.editor)
                     .select_all_on_focus(false)
                     .request_focus(std::mem::take(&mut self.focus_requested)),
             )
@@ -74,7 +74,8 @@ impl TopicSourceEditor {
                 "Topic followed by a field path, for example ",
                 "detected_objects.inner[2].bounding_box.confidence. ",
                 "Enter only the topic for the whole message. ",
-                "Ctrl+Space opens completions. Press Enter to apply.",
+                "Use arrow keys to choose a completion, Enter or click to apply, Escape to dismiss. ",
+                "Tab and Shift+Tab move between controls without applying.",
             ));
         if !response.changed() {
             return false;

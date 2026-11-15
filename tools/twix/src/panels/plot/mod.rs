@@ -321,7 +321,7 @@ impl Panel for PlotPanel {
         let end = self.history.end_time();
         // Grid and crosshair only guide reading; keep them behind the data.
         let guide_color = ui.visuals().text_color().gamma_multiply(0.3);
-        let mut plot = Plot::new(ui.id().with("time-series"))
+        let mut plot = Plot::new(ui.scope_id().with("time-series"))
             .x_axis_formatter(|mark, _| {
                 let decimals = (-mark.step_size.log10().round()).max(0.0) as usize;
                 let value = format_with_decimals_in_range(mark.value, decimals..=decimals);

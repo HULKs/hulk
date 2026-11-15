@@ -18,7 +18,7 @@ mod tree;
 pub use focus::FocusDirection;
 
 fn tree_id() -> Id {
-    Id::new(uuid::Uuid::new_v4())
+    Id::unique(uuid::Uuid::new_v4())
 }
 
 pub struct TwixLayout {

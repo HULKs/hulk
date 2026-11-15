@@ -15,7 +15,9 @@ use eframe::{
     epaint::{Color32, Stroke},
     run_native,
 };
-use egui_dock::{DockArea, DockState, Node, NodePath, Split, TabViewer};
+use egui_tiles::{
+    Behavior, Container, Linear, LinearDir, SimplificationOptions, TileId, Tiles, Tree, UiResponse,
+};
 use hsl_network_messages::{PlayerNumber, Team};
 use linear_algebra::{Isometry2, Orientation2, Pose2, point, vector};
 use serde_json::{Value, json};
@@ -80,7 +82,7 @@ struct TimelineViewerApp {
     selected_voronoi_robot: Option<SimulatorRobotId>,
     selected_trace_robot: Option<SimulatorRobotId>,
     behavior_tree_visualizer: BehaviorTreeVisualizer,
-    dock_state: DockState<TimelineViewerTab>,
+    tree: Tree<TimelineViewerTab>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -91,13 +93,15 @@ enum TimelineViewerTab {
 
 impl TimelineViewerApp {
     fn new(data: TimelineViewerData) -> Self {
-        let mut dock_state = DockState::new(vec![TimelineViewerTab::Field]);
-        dock_state.split(
-            NodePath::MAIN_ROOT,
-            Split::Below,
+        let mut tiles = Tiles::default();
+        let field = tiles.insert_pane(TimelineViewerTab::Field);
+        let behavior_tree = tiles.insert_pane(TimelineViewerTab::BehaviorTree);
+        let root = tiles.insert_container(Container::Linear(Linear::new_binary(
+            LinearDir::Vertical,
+            [field, behavior_tree],
             2.0 / 3.0,
-            Node::leaf(TimelineViewerTab::BehaviorTree),
-        );
+        )));
+        let tree = Tree::new(Id::unique("timeline_viewer_tiles"), root, tiles);
 
         Self {
             data,
@@ -115,7 +119,7 @@ impl TimelineViewerApp {
             selected_voronoi_robot: None,
             selected_trace_robot: None,
             behavior_tree_visualizer: BehaviorTreeVisualizer::default(),
-            dock_state,
+            tree,
         }
     }
 
@@ -456,9 +460,9 @@ impl TimelineViewerApp {
         });
     }
 
-    fn show_dock_area(&mut self, ui: &mut Ui) {
+    fn show_tiles(&mut self, ui: &mut Ui) {
         CentralPanel::default().show(ui, |ui| {
-            let mut tab_viewer = TimelineDockViewer {
+            let mut behavior = TimelineTileBehavior {
                 data: &self.data,
                 selected_frame: self.selected_frame,
                 zoom_and_pan: &mut self.zoom_and_pan,
@@ -467,7 +471,7 @@ impl TimelineViewerApp {
                 selected_trace_robot: &mut self.selected_trace_robot,
                 behavior_tree_visualizer: &mut self.behavior_tree_visualizer,
             };
-            DockArea::new(&mut self.dock_state).show_inside(ui, &mut tab_viewer);
+            self.tree.ui(&mut behavior, ui);
         });
     }
 }
@@ -688,11 +692,11 @@ impl App for TimelineViewerApp {
         self.show_top_panel(ui);
         self.show_side_panel(ui);
         self.show_timeline_scrubber(ui);
-        self.show_dock_area(ui);
+        self.show_tiles(ui);
     }
 }
 
-struct TimelineDockViewer<'a> {
+struct TimelineTileBehavior<'a> {
     data: &'a TimelineViewerData,
     selected_frame: usize,
     zoom_and_pan: &'a mut ZoomAndPanTransform,
@@ -702,14 +706,20 @@ struct TimelineDockViewer<'a> {
     behavior_tree_visualizer: &'a mut BehaviorTreeVisualizer,
 }
 
-impl TabViewer for TimelineDockViewer<'_> {
-    type Tab = TimelineViewerTab;
-
-    fn id(&mut self, tab: &mut Self::Tab) -> Id {
-        Id::new(*tab)
+impl Behavior<TimelineViewerTab> for TimelineTileBehavior<'_> {
+    fn simplification_options(&self) -> SimplificationOptions {
+        SimplificationOptions {
+            all_panes_must_have_tabs: true,
+            ..Default::default()
+        }
     }
 
-    fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
+    fn pane_ui(
+        &mut self,
+        ui: &mut Ui,
+        _tile_id: TileId,
+        tab: &mut TimelineViewerTab,
+    ) -> UiResponse {
         match tab {
             TimelineViewerTab::Field => {
                 show_map(
@@ -731,9 +741,10 @@ impl TabViewer for TimelineDockViewer<'_> {
                 );
             }
         }
+        UiResponse::None
     }
 
-    fn title(&mut self, tab: &mut Self::Tab) -> WidgetText {
+    fn tab_title_for_pane(&mut self, tab: &TimelineViewerTab) -> WidgetText {
         match tab {
             TimelineViewerTab::Field => "Field".into(),
             TimelineViewerTab::BehaviorTree => "Behavior Tree".into(),

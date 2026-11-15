@@ -234,7 +234,7 @@ impl Panel for ParameterPanel {
                     ui.horizontal(|ui| {
                         ui.label("Node");
                         let node_response = ui.add(CompletionEdit::new(
-                            ui.id().with("parameter_node"),
+                            ui.scope_id().with("parameter_node"),
                             &nodes,
                             &mut self.node_editor,
                         ));
@@ -248,7 +248,7 @@ impl Panel for ParameterPanel {
                     ui.horizontal(|ui| {
                         ui.label("Path");
                         let path_response = ui.add(CompletionEdit::new(
-                            ui.id().with("parameter_path"),
+                            ui.scope_id().with("parameter_path"),
                             &path_completions,
                             &mut self.path_editor,
                         ));
@@ -265,7 +265,7 @@ impl Panel for ParameterPanel {
                 ui.add_enabled_ui(self.can_edit_selectors(), |ui| {
                     ui.label("Layer");
                     let layer_response = ui.add(CompletionEdit::new(
-                        ui.id().with("parameter_layer"),
+                        ui.scope_id().with("parameter_layer"),
                         &layers,
                         &mut self.layer_editor,
                     ));

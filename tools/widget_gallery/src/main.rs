@@ -40,7 +40,7 @@ impl App for AppState {
         CentralPanel::default().show(ui, |ui| {
             ui.horizontal(|ui| {
                 let response = ui.add(CompletionEdit::new(
-                    "completion-edit",
+                    ui.scope_id().with("completion-edit"),
                     &self.searchables,
                     &mut self.search_text,
                 ));
@@ -93,11 +93,8 @@ impl App for AppState {
             ui.horizontal(|ui| {
                 ui.columns(2, |columns| {
                     let selectables = ["Dies", "Das", "Ananas", "Foo", "Bar", "Baz"];
-                    columns[0].add(SegmentedControl::new(
-                        "segmented-control",
-                        &mut self.selected,
-                        &selectables,
-                    ));
+                    let id = columns[0].scope_id().with("segmented-control");
+                    columns[0].add(SegmentedControl::new(id, &mut self.selected, &selectables));
 
                     columns[1].label(selectables[self.selected]);
                 })
