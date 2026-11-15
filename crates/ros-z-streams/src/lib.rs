@@ -78,6 +78,7 @@
 mod announce;
 mod future_map;
 mod future_queue;
+mod latest_sample;
 
 pub use announce::{
     Announcement, AnnouncingPublisher, CreateAnnouncingPublisher, PendingAnnouncement,
@@ -86,3 +87,4 @@ pub use future_map::{
     CreateFutureMapBuilder, FutureItem, FutureMap, FutureMapBuilder, FutureResult,
 };
 pub use future_queue::{CreateFutureQueue, FutureQueueSubscriber, QueueEvent};
+pub use latest_sample::LatestSample;

@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     net::SocketAddr,
     num::NonZeroUsize,
+    ops::Mul,
     pin::Pin,
     sync::Arc,
     time::{Duration, SystemTime},
@@ -10,7 +11,8 @@ use std::{
 use color_eyre::Result;
 use types::fall_detection::FallDetection;
 
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::{Field, Ground, Odometry};
+use ground_frames::ground_alignment::{GroundAlignment, ODOMETRY_QUEUE_CAPACITY};
 use hsl_network_messages::PlayerNumber;
 use kinematics::joints::head::HeadJoints;
 use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
@@ -19,6 +21,7 @@ use ros_z::{
     qos::{QosDurability, QosHistory},
     time::Time,
 };
+use ros_z_streams::LatestSample;
 use serde::{Deserialize, Serialize};
 use tokio::task::block_in_place;
 use tracing::info;
@@ -228,16 +231,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-    let ball_state_cache = node
-        .subscriber::<Option<BallState>>("ball_state")
-        .cache(1)
+    // Ground data is held as published and refers to the ground frame of its source time, so it
+    // only holds together with other data after moving it into the current ground frame.
+    let odometry_sub = node
+        .subscriber::<Pose2<Odometry>>("inputs/odometry")
+        .queue_capacity(ODOMETRY_QUEUE_CAPACITY)
         .build()
         .await?;
-    let visual_kick_ball_position_cache = node
-        .subscriber::<Option<BallPosition<Ground>>>("visual_kick/ball_position")
-        .cache(1)
-        .build()
-        .await?;
+    let mut ball_state = LatestSample::<Option<BallState>>::new(&node, "ball_state").await?;
+    let mut visual_kick_ball_position =
+        LatestSample::<Option<BallPosition<Ground>>>::new(&node, "visual_kick/ball_position")
+            .await?;
     let filtered_game_controller_state_cache = node
         .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
         .cache(1)
@@ -248,9 +252,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-    let ground_to_field_cache = node
+    let ground_to_field_sub = node
         .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
-        .cache(1)
         .build()
         .await?;
     let head_joints_command_cache = node
@@ -258,16 +261,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-    let hypothetical_ball_positions_cache = node
-        .subscriber::<Vec<HypotheticalBallPosition<Ground>>>("hypothetical_ball_positions")
-        .cache(1)
-        .build()
+    let mut hypothetical_ball_positions =
+        LatestSample::<Vec<HypotheticalBallPosition<Ground>>>::new(
+            &node,
+            "ball_filter/hypothetical_ball_positions",
+        )
         .await?;
-    let obstacles_cache = node
-        .subscriber::<Vec<Obstacle>>("obstacles")
-        .cache(1)
-        .build()
-        .await?;
+    let mut obstacles = LatestSample::<Vec<Obstacle>>::new(&node, "obstacles").await?;
     let position_of_interest_cache = node
         .subscriber::<Point2<Ground>>("position_of_interest")
         .cache(1)
@@ -282,11 +282,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .cache(1)
         .build()
         .await?;
-    let rule_ball_cache = node
-        .subscriber::<Option<BallState>>("rule_ball_state")
-        .cache(1)
-        .build()
-        .await?;
+    let mut rule_ball = LatestSample::<Option<BallState>>::new(&node, "rule_ball_state").await?;
     let rule_obstacles_cache = node
         .subscriber::<Vec<RuleObstacle>>("rule_obstacles")
         .cache(1)
@@ -398,6 +394,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         voronoi_map: None,
     };
 
+    let mut ground_alignment = GroundAlignment::default();
     let mut published_state_message_send_interval = None;
     hsl_state_message_send_interval_pub
         .publish(&published_state_message_send_interval)
@@ -481,17 +478,31 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             blackboard.remote_control_enabled = false;
         }
 
+        // Everything in the current ground frame needs to be known up to this frame's pose.
+        ball_state.update().await?;
+        visual_kick_ball_position.update().await?;
+        hypothetical_ball_positions.update().await?;
+        rule_ball.update().await?;
+        obstacles.update().await?;
+        while odometry_sub.is_ready() {
+            let odometry = odometry_sub.recv_with_metadata().await?;
+            ground_alignment.push_pose(odometry.source_time, odometry.message);
+        }
+        while ground_to_field_sub.is_ready() {
+            let ground_to_field = ground_to_field_sub.recv_with_metadata().await?;
+            ground_alignment
+                .push_ground_to_field(ground_to_field.source_time, ground_to_field.message);
+        }
+        ground_alignment.expire_if_silent(node.clock().now());
+
         blackboard.world_state.robot = RobotState {
-            ground_to_field: ground_to_field_cache
-                .get_latest()
-                .map(|ground_to_field| *ground_to_field),
+            ground_to_field: ground_alignment.current_ground_to_field(),
             primary_state,
         };
 
-        blackboard.world_state.ball = ball_state_cache.get_latest().and_then(|ball| *ball);
-        blackboard.visual_kick_ball_position = visual_kick_ball_position_cache
-            .get_latest()
-            .and_then(|ball_position| *ball_position);
+        blackboard.world_state.ball = in_current_ground(&ground_alignment, &ball_state);
+        blackboard.visual_kick_ball_position =
+            in_current_ground(&ground_alignment, &visual_kick_ball_position);
         blackboard.world_state.fall_detection = fall_detection_cache
             .get_latest()
             .map(|fall_detection| *fall_detection.as_ref());
@@ -510,21 +521,40 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 .await?;
             published_state_message_send_interval = send_interval;
         }
-        blackboard.world_state.hypothetical_ball_positions = hypothetical_ball_positions_cache
-            .get_latest()
-            .map(|positions| positions.as_ref().clone())
+        blackboard.world_state.hypothetical_ball_positions = hypothetical_ball_positions
+            .latest()
+            .and_then(|(time, positions)| {
+                let ground_to_current = ground_alignment.ground_to_current_ground(time)?;
+                Some(
+                    positions
+                        .iter()
+                        .map(|position| HypotheticalBallPosition {
+                            position: ground_to_current * position.position,
+                            ..*position
+                        })
+                        .collect(),
+                )
+            })
             .unwrap_or_default();
         blackboard.world_state.now = node.clock().now();
-        blackboard.world_state.obstacles = obstacles_cache
-            .get_latest()
-            .map(|obstacles| obstacles.as_ref().clone())
+        blackboard.world_state.obstacles = obstacles
+            .latest()
+            .and_then(|(time, obstacles)| {
+                let transform = ground_alignment.ground_to_current_ground(time)?;
+                Some(
+                    obstacles
+                        .iter()
+                        .map(|obstacle| transform * *obstacle)
+                        .collect(),
+                )
+            })
             .unwrap_or_default();
         blackboard.world_state.player_states = player_states;
         blackboard.world_state.position_of_interest = position_of_interest_cache
             .get_latest()
             .map(|position| *position)
             .unwrap_or_default();
-        blackboard.world_state.rule_ball = rule_ball_cache.get_latest().and_then(|ball| *ball);
+        blackboard.world_state.rule_ball = in_current_ground(&ground_alignment, &rule_ball);
         blackboard.world_state.rule_obstacles = rule_obstacles_cache
             .get_latest()
             .map(|obstacles| obstacles.as_ref().clone())
@@ -615,6 +645,20 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .await?;
         motion_command_pub.publish(&motion_command).await?;
     }
+}
+
+/// The latest optional ground data, if there is any and its ground frame is known.
+fn in_current_ground<T>(
+    ground_alignment: &GroundAlignment,
+    sample: &LatestSample<Option<T>>,
+) -> Option<T>
+where
+    T: Copy,
+    Option<T>: Message,
+    Isometry2<Ground, Ground>: Mul<T, Output = T>,
+{
+    let (time, data) = sample.latest()?;
+    ground_alignment.in_current_ground(time, (*data)?)
 }
 
 #[cfg(test)]

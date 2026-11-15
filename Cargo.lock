@@ -743,6 +743,7 @@ dependencies = [
  "coordinate_systems",
  "filtering",
  "geometry",
+ "ground_frames",
  "linear_algebra",
  "linear_sum_assignment",
  "nalgebra 0.34.2",
@@ -763,6 +764,7 @@ dependencies = [
  "color-eyre",
  "coordinate_systems",
  "filtering",
+ "ground_frames",
  "hsl_network_messages",
  "linear_algebra",
  "ros-z",
@@ -789,6 +791,7 @@ dependencies = [
  "color-eyre",
  "coordinate_systems",
  "filtering",
+ "ground_frames",
  "hsl_network_messages",
  "kinematics",
  "linear_algebra",
@@ -796,6 +799,7 @@ dependencies = [
  "path_planner",
  "rand 0.9.5",
  "ros-z",
+ "ros-z-streams",
  "search_suggestor",
  "serde",
  "tempfile",
@@ -4951,6 +4955,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ground_frames"
+version = "0.1.0"
+dependencies = [
+ "coordinate_systems",
+ "linear_algebra",
+ "ros-z",
+]
+
+[[package]]
 name = "ground_provider"
 version = "0.1.0"
 dependencies = [
@@ -7597,6 +7610,7 @@ dependencies = [
  "coordinate_systems",
  "filtering",
  "geometry",
+ "ground_frames",
  "hsl_network_messages",
  "itertools 0.14.0",
  "linear_algebra",
@@ -9509,10 +9523,12 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "coordinate_systems",
+ "ground_frames",
  "hsl_network_messages",
  "kinematics",
  "linear_algebra",
  "ros-z",
+ "ros-z-streams",
  "search_heatmap",
  "types",
 ]

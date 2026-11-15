@@ -3,11 +3,12 @@ use std::{sync::Arc, time::SystemTime};
 
 use color_eyre::Result;
 
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::{Field, Ground, Odometry};
 use filtering::hysteresis::greater_than_with_hysteresis;
+use ground_frames::ground_alignment::GroundAlignment;
 use hsl_network_messages::{GamePhase, SubState, Team};
-use linear_algebra::{Isometry2, Point2, Vector2, point};
-use ros_z::{prelude::*, qos::QosDurability};
+use linear_algebra::{Isometry2, Point2, Pose2, Vector2, point};
+use ros_z::{prelude::*, qos::QosDurability, time::Time};
 use types::{
     ball_position::BallPosition,
     field_dimensions::{FieldDimensions, Side},
@@ -36,9 +37,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<Option<BallPosition<Ground>>>("ball_filter/ball_position")
         .build()
         .await?;
-    let ground_to_field_cache = node
+    // Localization stamps its estimates with the time of their image, and the ball filter its
+    // balls with the time of their ground frame, which only the source time carries.
+    let ground_to_field_sub = node
         .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
-        .cache(10)
+        .build()
+        .await?;
+    let odometry_sub = node
+        .subscriber::<Pose2<Odometry>>("inputs/odometry")
         .build()
         .await?;
     let team_ball_sub = node
@@ -75,61 +81,99 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut last_ball_state = None;
     let mut ball_position = None;
     let mut team_ball = None;
+    let mut ground_alignment = GroundAlignment::default();
 
-    loop {
-        let now = node.clock().now().to_wallclock();
+    'cycle: loop {
+        let time = node.clock().now();
+        let now = time.to_wallclock();
+        ground_alignment.expire_if_silent(time);
 
         additional_last_ball_state_pub
             .publish_if_subscribed(|| async { last_ball_state })
             .await?;
 
-        tokio::select! {
-            received_ball_position = ball_position_sub.recv() => {
-                ball_position = received_ball_position?;
-            }
-            received_team_ball = team_ball_sub.recv() => {
-                team_ball = received_team_ball?;
-            }
-            received_filtered_game_controller_state = filtered_game_controller_state_sub.recv() => {
-                let filtered_game_controller_state = received_filtered_game_controller_state?;
+        loop {
+            tokio::select! {
+                odometry = odometry_sub.recv_with_metadata() => {
+                    let odometry = odometry?;
+                    ground_alignment.push_pose(odometry.source_time, odometry.message);
+                }
+                ground_to_field = ground_to_field_sub.recv_with_metadata() => {
+                    let ground_to_field = ground_to_field?;
+                    ground_alignment
+                        .push_ground_to_field(ground_to_field.source_time, ground_to_field.message);
+                }
+                received_ball_position = ball_position_sub.recv_with_metadata() => {
+                    let received_ball_position = received_ball_position?;
+                    ball_position = received_ball_position
+                        .message
+                        .map(|ball| (received_ball_position.source_time, ball));
+                    break;
+                }
+                received_team_ball = team_ball_sub.recv() => {
+                    team_ball = received_team_ball?;
+                    break;
+                }
+                received_filtered_game_controller_state = filtered_game_controller_state_sub.recv() => {
+                    let filtered_game_controller_state = received_filtered_game_controller_state?;
 
-                let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
-                    continue;
-                };
-                let field_dimensions = *field_dimensions;
+                    let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
+                        continue 'cycle;
+                    };
+                    let field_dimensions = *field_dimensions;
 
-                let Some(ground_to_field) = ground_to_field_cache.get_latest() else {
-                    continue;
-                };
-                let ground_to_field = *ground_to_field;
+                    let Some((frame_time, ground_to_field)) = ground_alignment.current_frame() else {
+                        continue 'cycle;
+                    };
 
-                let Some(primary_state) = primary_state_cache.get_latest() else { continue };
-                let rule_ball = compose_rule_ball_state(
-                    *primary_state,
-                    ground_to_field,
-                    Some(&filtered_game_controller_state),
-                    field_dimensions,
-                    now,
-                    &mut last_ball_field_side,
-                );
+                    let Some(primary_state) = primary_state_cache.get_latest() else {
+                        continue 'cycle;
+                    };
+                    let rule_ball = compose_rule_ball_state(
+                        *primary_state,
+                        ground_to_field,
+                        Some(&filtered_game_controller_state),
+                        field_dimensions,
+                        now,
+                        &mut last_ball_field_side,
+                    );
 
-                rule_ball_state_pub.publish(&rule_ball).await?;
-                continue;
+                    rule_ball_state_pub
+                        .publish_with_source_time(&rule_ball, frame_time)
+                        .await?;
+                    continue 'cycle;
+                }
             }
         }
 
-        let ball = ground_to_field_cache
-            .get_latest()
-            .and_then(|ground_to_field| {
-                compose_ball_state(
-                    ball_position,
-                    team_ball,
-                    *ground_to_field,
-                    &mut last_ball_field_side,
-                )
-            });
-        ball_state_pub.publish(&ball).await?;
+        let frame = ball_frame(&ground_alignment, ball_position);
+        let ball = frame.and_then(|(_, ground_to_field)| {
+            compose_ball_state(
+                ball_position.map(|(_, ball)| ball),
+                team_ball,
+                ground_to_field,
+                &mut last_ball_field_side,
+            )
+        });
+        // Its ground position and velocity only hold together with the time of their frame.
+        ball_state_pub
+            .publish_with_source_time(&ball, frame.map_or(time, |(frame_time, _)| frame_time))
+            .await?;
         last_ball_state = ball.map(|ball| LastBallState { time: now, ball });
+    }
+}
+
+/// The ground frame a ball state is composed in: its time and where it is in the field.
+///
+/// A ball is located in the ground frame of its time, so that frame stays its frame and is where it
+/// is brought into the field. Without an own ball, a team ball is brought into the current frame.
+fn ball_frame(
+    ground_alignment: &GroundAlignment,
+    ball_position: Option<(Time, BallPosition<Ground>)>,
+) -> Option<(Time, Isometry2<Ground, Field>)> {
+    match ball_position {
+        Some((time, _)) => Some((time, ground_alignment.ground_to_field_at(time)?)),
+        None => ground_alignment.current_frame(),
     }
 }
 

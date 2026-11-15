@@ -12,6 +12,8 @@ coordinate_systems = { workspace = true }
 hsl_network_messages = { workspace = true }
 kinematics = { workspace = true }
 linear_algebra = { workspace = true }
+ground_frames = { workspace = true }
 ros-z = { workspace = true }
+ros-z-streams = { workspace = true }
 search_heatmap = { workspace = true }
 types = { workspace = true }

@@ -68,6 +68,27 @@ pub fn estimate_sole_contact<Sole>(
     })
 }
 
+/// Origin of the ground frame in the leveled robot frame: the point between the sole origins.
+///
+/// Ground is centred between the feet, whichever foot supports the robot, so its horizontal
+/// distance to the robot origin changes with every step.
+pub fn ground_origin_in_leveled_robot<LeftSole, RightSole>(
+    left_sole_to_robot: Isometry3<LeftSole, Robot>,
+    right_sole_to_robot: Isometry3<RightSole, Robot>,
+    roll: f32,
+    pitch: f32,
+) -> Vector2<Robot> {
+    struct Level;
+
+    let level_to_robot =
+        Isometry3::<Level, Robot>::from(Orientation3::from_euler_angles(roll, pitch, 0.0).mirror());
+    let robot_to_level = level_to_robot.inverse();
+    let left_sole = robot_to_level * left_sole_to_robot.translation();
+    let right_sole = robot_to_level * right_sole_to_robot.translation();
+
+    Vector2::wrap((left_sole.xy().coords().inner + right_sole.xy().coords().inner) / 2.0)
+}
+
 pub fn select_support_side(
     left_contact: SoleContact,
     right_contact: SoleContact,

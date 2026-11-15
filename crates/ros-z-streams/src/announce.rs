@@ -48,7 +48,10 @@ impl<T: Message> AnnouncingPublisher<T> {
             })
             .await?;
 
-        Ok(PendingAnnouncement { data: Some(data) })
+        Ok(PendingAnnouncement {
+            data: Some(data),
+            time,
+        })
     }
 }
 
@@ -92,6 +95,7 @@ impl CreateAnnouncingPublisher for Node {
 #[must_use = "data must be published before the announcement is dropped"]
 pub struct PendingAnnouncement<'a, T: Message> {
     data: Option<PreparedPublication<'a, T, T::Codec>>,
+    time: Time,
 }
 
 impl<'a, T: Message> PendingAnnouncement<'a, T> {
@@ -99,10 +103,11 @@ impl<'a, T: Message> PendingAnnouncement<'a, T> {
     ///
     /// This completes the announcement-payload cycle by sending the actual data.
     /// The payload is published with the same message ID as the prior announcement,
-    /// allowing receivers to correlate them and maintain temporal ordering.
+    /// allowing receivers to correlate them and maintain temporal ordering. Its source time is
+    /// the announced time, so that the payload alone tells which time it refers to.
     pub async fn publish(mut self, value: &T) -> Result<()> {
         let data = self.data.take().expect("can only publish once");
-        data.publish(value).await
+        data.publish_with_source_time(value, self.time).await
     }
 }
 
@@ -111,5 +116,46 @@ impl<'a, T: Message> Drop for PendingAnnouncement<'a, T> {
         if self.data.is_some() {
             log::error!("dropped a PendingAnnouncement before completion")
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ros_z::prelude::*;
+    use std::time::Duration;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn payload_keeps_the_announced_source_time() {
+        let context = ContextBuilder::default()
+            .with_mode("peer")
+            .disable_multicast_scouting()
+            .with_connect_endpoints(std::iter::empty::<&str>())
+            .with_listen_endpoints(std::iter::empty::<&str>())
+            .build()
+            .await
+            .unwrap();
+        let node = context
+            .create_node("announcement_stamp")
+            .build()
+            .await
+            .unwrap();
+        let payload = node.subscriber::<u32>("data").build().await.unwrap();
+        let publisher = node.announcing_publisher::<u32>("data").await.unwrap();
+        let time = node.clock().now() - Duration::from_millis(100);
+        publisher
+            .announce(time)
+            .await
+            .unwrap()
+            .publish(&42)
+            .await
+            .unwrap();
+        let received = tokio::time::timeout(Duration::from_secs(3), payload.recv_with_metadata())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(received.message, 42);
+        assert_eq!(received.source_time, time);
+        context.shutdown().unwrap();
     }
 }

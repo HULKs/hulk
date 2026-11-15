@@ -1,13 +1,15 @@
 use color_eyre::Result;
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::{Field, Ground, Odometry};
+use ground_frames::ground_alignment::{GroundAlignment, ODOMETRY_QUEUE_CAPACITY};
 use hsl_network_messages::PlayerNumber;
 use kinematics::joints::head::HeadJoints;
-use linear_algebra::{Isometry2, Point2, Vector2};
+use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
 use ros_z::{
     prelude::*,
     qos::{QosDurability, QosHistory},
     time::Time,
 };
+use ros_z_streams::LatestSample;
 use search_heatmap::{
     Heatmap, SearchArea, SearchOccluder, SearchVoronoiSelection, ball_position_in_field,
 };
@@ -98,9 +100,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         )
         .build()
         .await?;
-    let ground_to_field_cache = node
+    // Ground data refers to the ground frame of its source time, so it only holds together with
+    // the ground-to-field transform of that frame.
+    let odometry_sub = node
+        .subscriber::<Pose2<Odometry>>("inputs/odometry")
+        .queue_capacity(ODOMETRY_QUEUE_CAPACITY)
+        .build()
+        .await?;
+    let ground_to_field_sub = node
         .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
-        .cache(10)
         .build()
         .await?;
     let primary_state_cache = node
@@ -116,11 +124,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
         .build()
         .await?;
-    let obstacles_cache = node
-        .subscriber::<Vec<Obstacle>>("obstacles")
-        .cache(1)
-        .build()
-        .await?;
+    let mut obstacles = LatestSample::<Vec<Obstacle>>::new(&node, "obstacles").await?;
     let head_joints_command_cache = node
         .subscriber::<HeadJoints<f32>>("head_joints_command")
         .cache(1)
@@ -172,6 +176,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut was_playing = false;
     let mut was_heatmap_search_enabled = true;
     let mut last_priority_update = node.clock().now();
+    let mut ground_alignment = GroundAlignment::default();
     let mut tick = node.create_timer(Duration::from_millis(20));
 
     loop {
@@ -179,6 +184,18 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let now = node.clock().now();
         let elapsed_since_last_priority_update = now.duration_since(last_priority_update);
         last_priority_update = now;
+
+        obstacles.update().await?;
+        while odometry_sub.is_ready() {
+            let odometry = odometry_sub.recv_with_metadata().await?;
+            ground_alignment.push_pose(odometry.source_time, odometry.message);
+        }
+        while ground_to_field_sub.is_ready() {
+            let ground_to_field = ground_to_field_sub.recv_with_metadata().await?;
+            ground_alignment
+                .push_ground_to_field(ground_to_field.source_time, ground_to_field.message);
+        }
+        ground_alignment.expire_if_silent(now);
 
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
@@ -226,9 +243,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 .map(|interval| interval.mul_f32(1.2)),
         };
 
-        let ground_to_field = ground_to_field_cache
-            .get_latest()
-            .map(|ground_to_field| *ground_to_field)
+        let ground_to_field = ground_alignment
+            .current_ground_to_field()
             .filter(|ground_to_field| ground_to_field_is_finite(*ground_to_field));
         let primary_state = primary_state_cache.get_latest();
         let primary_state = primary_state.as_deref();
@@ -241,7 +257,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let mut ball_was_seen = false;
 
         while ball_position_sub.is_ready() {
-            match (ball_position_sub.recv().await?, ground_to_field) {
+            let received = ball_position_sub.recv_with_metadata().await?;
+            let source_time = received.source_time;
+            match (
+                received.message,
+                ground_alignment
+                    .ground_to_field_at(source_time)
+                    .filter(|ground_to_field| ground_to_field_is_finite(*ground_to_field)),
+            ) {
                 (Some(ball_position), Some(ground_to_field)) => {
                     if !ball_position.position.x().is_finite()
                         || !ball_position.position.y().is_finite()
@@ -264,16 +287,17 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             }
         }
         while hypothetical_ball_positions_sub.is_ready() {
-            if let Some(ground_to_field) = ground_to_field {
-                let hypothetical_ball_positions = hypothetical_ball_positions_sub.recv().await?;
+            let received = hypothetical_ball_positions_sub.recv_with_metadata().await?;
+            if let Some(ground_to_field) = ground_alignment
+                .ground_to_field_at(received.source_time)
+                .filter(|ground_to_field| ground_to_field_is_finite(*ground_to_field))
+            {
                 heatmap.update_with_hypothetical_ball_positions(
                     field_dimensions,
-                    &hypothetical_ball_positions,
+                    &received.message,
                     ground_to_field,
                     parameters,
                 );
-            } else {
-                hypothetical_ball_positions_sub.recv().await?;
             }
         }
         while last_received_player_states_sub.is_ready() {
@@ -337,11 +361,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             && !ball_was_seen
             && let Some(ground_to_field) = ground_to_field
         {
-            let occluders = obstacles_cache
-                .get_latest()
-                .map(|obstacles| {
-                    search_occluders_from_obstacles(obstacles.as_ref(), ground_to_field)
-                })
+            let occluders = obstacles
+                .latest()
+                .map(|(time, obstacles)| search_occluders_at(&ground_alignment, time, obstacles))
                 .unwrap_or_default();
             let head_yaw = head_joints_command_cache
                 .get_latest()
@@ -576,6 +598,19 @@ fn active_minimum_search_priority(
     } else {
         parameters.minimum_search_priority
     }
+}
+
+/// Occluders in the field from obstacles in the ground frame of `time`, if that frame is known.
+fn search_occluders_at(
+    ground_alignment: &GroundAlignment,
+    time: Time,
+    obstacles: &[Obstacle],
+) -> Vec<SearchOccluder> {
+    ground_alignment
+        .ground_to_field_at(time)
+        .map_or_else(Vec::new, |ground_to_field| {
+            search_occluders_from_obstacles(obstacles, ground_to_field)
+        })
 }
 
 fn search_occluders_from_obstacles(

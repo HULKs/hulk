@@ -5,6 +5,7 @@ use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::Ground;
 use linear_algebra::Point2;
+use ros_z::time::Time;
 use ros_z_debug::TopicObservation;
 use types::{field_dimensions::FieldDimensions, obstacle_filter::Hypothesis};
 
@@ -28,6 +29,10 @@ impl Layer<Ground> for ObstacleFilter {
             .spawn();
 
         Self { hypotheses }
+    }
+
+    fn ground_time(&self) -> Option<Time> {
+        self.hypotheses.latest().map(|record| record.source_time)
     }
 
     fn paint(

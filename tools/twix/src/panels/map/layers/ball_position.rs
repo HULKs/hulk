@@ -1,18 +1,20 @@
 use std::{sync::Arc, time::Duration};
 
-use color_eyre::{Result, eyre::OptionExt};
+use color_eyre::Result;
 use eframe::epaint::Color32;
 
 use coordinate_systems::{Field, Ground};
-use linear_algebra::Isometry2;
 use ros_z_debug::{RetentionPolicy, SampleRecord, TopicObservation};
 use types::field_dimensions::FieldDimensions;
 
-use crate::{backend::RobotBackend, panels::map::layer::Layer};
+use crate::{
+    backend::RobotBackend,
+    panels::map::{ground_frames::GroundFrames, layer::Layer},
+};
 use twix_visualization::twix_painter::TwixPainter;
 
 pub struct BallPosition {
-    ground_to_field: TopicObservation<Isometry2<Ground, Field>>,
+    ground_frames: GroundFrames,
     ball_position: TopicObservation<Option<types::ball_position::BallPosition<Ground>>>,
     team_ball: TopicObservation<Option<types::ball_position::BallPosition<Field>>>,
 }
@@ -23,12 +25,7 @@ impl Layer<Field> for BallPosition {
     fn new(backend: Arc<RobotBackend>) -> Self {
         let _runtime_handle = backend.runtime_handle().enter();
 
-        let ground_to_field = backend
-            .observer()
-            .observe_typed("ground_to_field")
-            .expect("failed to construct ground_to_field observer")
-            .retention(RetentionPolicy::time_window(Duration::from_secs(2)).unwrap())
-            .spawn();
+        let ground_frames = GroundFrames::new(&backend);
 
         let ball_position = backend
             .observer()
@@ -44,7 +41,7 @@ impl Layer<Field> for BallPosition {
             .spawn();
 
         Self {
-            ground_to_field,
+            ground_frames,
             ball_position,
             team_ball,
         }
@@ -55,6 +52,7 @@ impl Layer<Field> for BallPosition {
         painter: &TwixPainter<Field>,
         field_dimensions: &FieldDimensions,
     ) -> Result<()> {
+        let alignment = self.ground_frames.alignment();
         for ball_position_sample in self.ball_position.get_all() {
             let SampleRecord {
                 value: Some(ball),
@@ -65,17 +63,13 @@ impl Layer<Field> for BallPosition {
                 continue;
             };
 
-            let ground_to_field = self
-                .ground_to_field
-                .get_nearest(source_time)
-                .ok_or_eyre("failed to find matching ground_to_field")?
-                .value;
-
-            painter.circle_filled(
-                ground_to_field * ball.position,
-                field_dimensions.ball_radius,
-                Color32::from_white_alpha(10),
-            );
+            if let Some(ground_to_field) = alignment.ground_to_field_at(source_time) {
+                painter.circle_filled(
+                    ground_to_field * ball.position,
+                    field_dimensions.ball_radius,
+                    Color32::from_white_alpha(10),
+                );
+            }
         }
 
         if let Some(SampleRecord {
@@ -86,12 +80,11 @@ impl Layer<Field> for BallPosition {
         }
 
         if let Some(SampleRecord {
-            value: Some(ball), ..
+            value: Some(ball),
+            source_time,
+            ..
         }) = self.ball_position.latest().as_deref()
-            && let Some(SampleRecord {
-                value: ground_to_field,
-                ..
-            }) = self.ground_to_field.latest().as_deref()
+            && let Some(ground_to_field) = alignment.ground_to_field_at(*source_time)
         {
             painter.ball(
                 ground_to_field * ball.position,

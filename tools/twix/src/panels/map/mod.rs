@@ -13,7 +13,12 @@ use twix_visualization::{
     zoom_and_pan::ZoomAndPanTransform,
 };
 
-use self::layer::{EnabledLayer, Layer};
+use self::{
+    ground_frames::{GroundAlignment, GroundFrames},
+    layer::{EnabledLayer, Layer},
+};
+
+mod ground_frames;
 
 mod layer;
 mod layers;
@@ -24,37 +29,53 @@ enum PlotType {
     Ground,
 }
 
+/// The picture all layers are painted into.
+struct Picture<'a> {
+    painter: TwixPainter<Field>,
+    plot_type: PlotType,
+    alignment: GroundAlignment<'a>,
+    /// The ground frame shown in the ground view, which is the current one.
+    displayed_ground_to_field: Isometry2<Ground, Field>,
+}
+
 trait GenericLayer {
-    fn generic_paint(
-        &mut self,
-        painter: &TwixPainter<Field>,
-        ground_to_field: Isometry2<Ground, Field>,
-        field_dimensions: &FieldDimensions,
-    );
+    fn generic_paint(&mut self, picture: &Picture, field_dimensions: &FieldDimensions);
 }
 
 impl<T: Layer<Field>> GenericLayer for EnabledLayer<T, Field> {
-    fn generic_paint(
-        &mut self,
-        painter: &TwixPainter<Field>,
-        _ground_to_field: Isometry2<Ground, Field>,
-        field_dimensions: &FieldDimensions,
-    ) {
-        self.paint_or_disable(painter, field_dimensions)
+    fn generic_paint(&mut self, picture: &Picture, field_dimensions: &FieldDimensions) {
+        self.paint_or_disable(&picture.painter, field_dimensions)
     }
 }
 
 impl<T: Layer<Ground>> GenericLayer for EnabledLayer<T, Ground> {
-    fn generic_paint(
-        &mut self,
-        painter: &TwixPainter<Field>,
-        ground_to_field: Isometry2<Ground, Field>,
-        field_dimensions: &FieldDimensions,
-    ) {
-        self.paint_or_disable(
-            &painter.transform_painter(ground_to_field.inverse()),
-            field_dimensions,
-        )
+    fn generic_paint(&mut self, picture: &Picture, field_dimensions: &FieldDimensions) {
+        let Picture {
+            painter,
+            plot_type,
+            alignment,
+            displayed_ground_to_field,
+        } = picture;
+        let time = self.ground_time();
+        // Data of a frame that cannot be placed is left out instead of drawn in another frame.
+        let ground_to_picture = match plot_type {
+            PlotType::Field => time.map_or_else(
+                || alignment.current_ground_to_field(),
+                |time| alignment.ground_to_field_at(time),
+            ),
+            // The ground view stays with the robot, which needs only odometry.
+            PlotType::Ground => time.map_or(Some(*displayed_ground_to_field), |time| {
+                alignment
+                    .ground_to_current_ground(time)
+                    .map(|ground_to_current| *displayed_ground_to_field * ground_to_current)
+            }),
+        };
+        if let Some(ground_to_picture) = ground_to_picture {
+            self.paint_or_disable(
+                &painter.transform_painter(ground_to_picture.inverse()),
+                field_dimensions,
+            );
+        }
     }
 }
 
@@ -62,7 +83,7 @@ pub struct MapPanel {
     current_plot_type: PlotType,
 
     field_dimensions: TopicObservation<FieldDimensions>,
-    ground_to_field: TopicObservation<Isometry2<Ground, Field>>,
+    ground_frames: GroundFrames,
     zoom_and_pan: ZoomAndPanTransform,
 
     field: EnabledLayer<layers::Field, Field>,
@@ -112,12 +133,7 @@ impl Panel for MapPanel {
                 }),
             )
             .spawn();
-        let ground_to_field = context
-            .backend
-            .observer()
-            .observe_typed("ground_to_field")
-            .expect("failed to construct ground_to_field observer")
-            .spawn();
+        let ground_frames = GroundFrames::new(&context.backend);
 
         let current_plot_type = context
             .value
@@ -133,7 +149,7 @@ impl Panel for MapPanel {
         Self {
             current_plot_type,
             field_dimensions,
-            ground_to_field,
+            ground_frames,
             zoom_and_pan,
             field,
             ball_search_heatmap,
@@ -204,11 +220,9 @@ impl Panel for MapPanel {
             }
         };
 
-        let ground_to_field = self
-            .ground_to_field
-            .latest()
-            .map(|sample_record| sample_record.value)
-            .unwrap_or_default();
+        let alignment = self.ground_frames.alignment();
+        let displayed_ground_to_field = alignment.current_ground_to_field().unwrap_or_default();
+        let plot_type = self.current_plot_type;
         let (response, mut painter) = match self.current_plot_type {
             PlotType::Field => {
                 let width = field_dimensions.width;
@@ -232,36 +246,40 @@ impl Panel for MapPanel {
                     point![1.0, -1.0],
                     Orientation::RightHanded,
                 );
-                (response, painter.transform_painter(ground_to_field))
+                (
+                    response,
+                    painter.transform_painter(displayed_ground_to_field),
+                )
             }
         };
         self.zoom_and_pan.apply(ui, &mut painter, &response);
 
+        let picture = Picture {
+            painter,
+            plot_type,
+            alignment,
+            displayed_ground_to_field,
+        };
+
         // draw largest layers first so they don't obscure smaller ones
-        self.field
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.field.generic_paint(&picture, &field_dimensions);
 
         self.ball_search_heatmap
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
+            .generic_paint(&picture, &field_dimensions);
         self.path_obstacles
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.obstacles
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.path
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.robot_pose
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.odometry
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
+            .generic_paint(&picture, &field_dimensions);
+        self.obstacles.generic_paint(&picture, &field_dimensions);
+        self.path.generic_paint(&picture, &field_dimensions);
+        self.robot_pose.generic_paint(&picture, &field_dimensions);
+        self.odometry.generic_paint(&picture, &field_dimensions);
         self.ball_percepts
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
+            .generic_paint(&picture, &field_dimensions);
         self.ball_position
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.ball_filter
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
+            .generic_paint(&picture, &field_dimensions);
+        self.ball_filter.generic_paint(&picture, &field_dimensions);
         self.obstacle_filter
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
+            .generic_paint(&picture, &field_dimensions);
         self.voronoi_cells
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
+            .generic_paint(&picture, &field_dimensions);
     }
 }
