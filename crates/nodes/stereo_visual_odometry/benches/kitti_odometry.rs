@@ -4,7 +4,6 @@ use std::{
     hint::black_box,
     io::{Cursor, Read},
     path::{Path, PathBuf},
-    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -277,7 +276,7 @@ fn kitti_image_to_nv12(image: GrayImage) -> Image {
         encoding: "nv12".to_string(),
         is_bigendian: 0,
         step: MODEL_WIDTH,
-        data: Arc::from(nv12.into_boxed_slice()),
+        data: nv12,
         ..Default::default()
     }
 }

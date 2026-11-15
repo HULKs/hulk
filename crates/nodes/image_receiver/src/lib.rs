@@ -11,7 +11,7 @@ use ros_z::prelude::*;
 use ros_z::qos::QosDurability;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{stereo_camera_info::StereoCameraInfo, stereo_image_pair::StereoImagePair};
-use x5_receiver::receiver::{Side, X5Receiver};
+use x5_receiver::receiver::X5Receiver;
 
 const X5_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 127, 10)), 7654);
 
@@ -48,8 +48,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    let x5_receiver = X5Receiver::new(X5_ADDRESS);
-    let camera_info = x5_receiver.wait_for_camera_info().await;
+    let mut receiver = X5Receiver::new(X5_ADDRESS);
+    let camera_info = receiver.camera_info.recv().await;
     let stereo_camera_info = StereoCameraInfo {
         left: camera_info.left_camera_info(),
         right: camera_info.right_camera_info(),
@@ -57,18 +57,16 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let mut camera_info_timer = node.clock().interval(Duration::from_secs(1));
     let mut stereo_image_pairer = StereoImagePairer::default();
-    let mut left_frame_receiver = x5_receiver.subscribe_image(Side::Left);
-    let mut right_frame_receiver = x5_receiver.subscribe_image(Side::Right);
 
     loop {
         let stereo_image_pair = tokio::select! {
-            left_image = left_frame_receiver.recv() => {
+            left_image = receiver.left.recv() => {
                 let frame_identifier = left_image.header.frame_identifier;
                 let image: Image = left_image.into();
                 left_image_pub.publish(&image).await?;
                 stereo_image_pairer.insert(CameraSide::Left, frame_identifier, image)
             }
-            right_image = right_frame_receiver.recv() => {
+            right_image = receiver.right.recv() => {
                 let frame_identifier = right_image.header.frame_identifier;
                 let image: Image = right_image.into();
                 right_image_pub.publish_if_subscribed(|| ready(&image)).await?;

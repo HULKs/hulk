@@ -52,14 +52,41 @@ fn serializer_encodes_struct_fields_as_little_endian_cdr_bytes() {
     assert_eq!(serialized, expected);
 }
 
-#[test]
-fn test_serializer_bytes() {
-    let data = vec![0u8, 1, 2, 3, 4, 5];
-    let serialized = to_vec::<_, LittleEndian>(&data, 16).unwrap();
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+struct Bytes(#[serde(with = "serde_bytes")] Vec<u8>);
 
-    assert_eq!(serialized.len(), 4 + 6);
-    assert_eq!(&serialized[0..4], &[6, 0, 0, 0]);
-    assert_eq!(&serialized[4..], &[0, 1, 2, 3, 4, 5]);
+#[test]
+fn bulk_bytes_match_cdr_wire_format_and_roundtrip_with_aligned_scalar() {
+    for data in [&[][..], &[0, 1, 127, 128, 254, 255, 42][..]] {
+        let bytes = Bytes(data.to_vec());
+        let serialized = to_vec::<_, LittleEndian>(&bytes, 16).unwrap();
+        let mut expected = (data.len() as u32).to_le_bytes().to_vec();
+        expected.extend_from_slice(data);
+        assert_eq!(serialized, expected);
+
+        let (decoded, consumed) = from_bytes::<Bytes, LittleEndian>(&serialized).unwrap();
+        assert_eq!(decoded, bytes);
+        assert_eq!(consumed, serialized.len());
+
+        let original = (bytes, 0x0123_4567_89ab_cdef_u64);
+        let serialized = to_vec::<_, LittleEndian>(&original, 24).unwrap();
+        expected.resize(expected.len().next_multiple_of(8), 0);
+        expected.extend_from_slice(&original.1.to_le_bytes());
+        assert_eq!(serialized, expected);
+
+        let (decoded, consumed) = from_bytes::<(Bytes, u64), LittleEndian>(&serialized).unwrap();
+        assert_eq!(decoded, original);
+        assert_eq!(consumed, serialized.len());
+    }
+}
+
+#[test]
+fn bulk_bytes_reject_incomplete_payloads() {
+    let mut serialized = to_vec::<_, LittleEndian>(&Bytes(vec![0, 128, 255]), 16).unwrap();
+    assert!(from_bytes::<Bytes, LittleEndian>(&serialized[..serialized.len() - 1]).is_err());
+
+    serialized[..4].copy_from_slice(&u32::MAX.to_le_bytes());
+    assert!(from_bytes::<Bytes, LittleEndian>(&serialized).is_err());
 }
 
 #[test]

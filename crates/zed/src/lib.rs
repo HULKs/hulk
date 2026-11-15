@@ -75,7 +75,7 @@ impl RGBDSensors {
             encoding: "rgb8".to_string(),
             is_bigendian: 0,
             step: width,
-            data: rgb.into(),
+            data: rgb,
         };
 
         let depth_image = Image {

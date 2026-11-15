@@ -13,6 +13,7 @@ nalgebra = { workspace = true }
 pyo3 = { workspace = true, optional = true }
 ros-z = { workspace = true }
 serde = { workspace = true }
+serde_bytes = { workspace = true }
 yuv = { workspace = true }
 
 [features]

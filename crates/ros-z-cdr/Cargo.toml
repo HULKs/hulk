@@ -17,3 +17,4 @@ zenoh-buffers = { workspace = true }
 [dev-dependencies]
 proptest = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+serde_bytes = { workspace = true }

@@ -120,6 +120,7 @@ approx = "0.5.1"
 approx_derive = { path = "crates/approx_derive" }
 arc-swap = "1.7"
 argument_parsers = { path = "crates/argument_parsers" }
+async-channel = "2.5.0"
 atty = "0.2.14"
 ball_filter = { path = "crates/nodes/ball_filter" }
 ball_state_composer = { path = "crates/nodes/ball_state_composer" }
@@ -274,6 +275,7 @@ search_heatmap = { path = "crates/search_heatmap" }
 search_suggestor = { path = "crates/nodes/search_suggestor" }
 semver = "1.0.25"
 serde = { version = "1.0.228", features = ["derive", "rc"] }
+serde_bytes = "0.11.19"
 serde_json = "1.0.138"
 serial_test = "3.0"
 sha2 = "0.10.8"
