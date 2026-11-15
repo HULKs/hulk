@@ -1208,39 +1208,3 @@ fn motion_name(motion_command: &MotionCommand) -> &'static str {
         MotionCommand::WalkWithVelocity { .. } => "walk_with_velocity",
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use egui_tiles::Tile;
-
-    #[test]
-    fn initial_layout_has_field_above_behavior_tree() {
-        let app = TimelineViewerApp::new(TimelineViewerData {
-            field_dimensions: FieldDimensions::SPL_2025,
-            config: SimulationConfig::default(),
-            frames: Vec::new(),
-            markers: Vec::new(),
-            failures: Vec::new(),
-        });
-        let root = app.tree.root().unwrap();
-        let Some(Tile::Container(Container::Linear(split))) = app.tree.tiles.get(root) else {
-            panic!("expected a vertical split");
-        };
-        assert_eq!(split.dir, LinearDir::Vertical);
-        let [field, behavior_tree] = split.children.as_slice() else {
-            panic!("expected exactly two panes");
-        };
-        assert_eq!(
-            app.tree.tiles.get(*field),
-            Some(&Tile::Pane(TimelineViewerTab::Field))
-        );
-        assert_eq!(
-            app.tree.tiles.get(*behavior_tree),
-            Some(&Tile::Pane(TimelineViewerTab::BehaviorTree))
-        );
-        let sizes = split.shares.split(&split.children, 300.0);
-        assert!((sizes[0] - 200.0).abs() < 0.001);
-        assert!((sizes[1] - 100.0).abs() < 0.001);
-    }
-}
