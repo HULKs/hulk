@@ -38,7 +38,9 @@ def balance_argument(match):
         return match[0]
     other_flags = [flag for flag in flags if flag != "domain"]
     if remaining and other_flags:
-        raise ValueError("cannot split mixed isolcpus flags across motion and other CPUs")
+        raise ValueError(
+            "cannot split mixed isolcpus flags across motion and other CPUs"
+        )
     if remaining:
         return "isolcpus=" + ",".join(map(str, sorted(remaining)))
     if other_flags:
