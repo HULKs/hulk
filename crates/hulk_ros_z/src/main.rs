@@ -1,11 +1,4 @@
-use std::{
-    env,
-    future::Future,
-    path::PathBuf,
-    pin::Pin,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{env, future::Future, path::PathBuf, sync::Arc, time::Duration};
 
 use clap::Parser;
 use color_eyre::{
@@ -74,26 +67,25 @@ fn main() -> Result<()> {
         .init();
 
     let args = Args::parse();
-    let (motion_runtimes, thread_starts) = if args.motion_cpus.is_empty() {
-        (Vec::new(), None)
+    let (motion_runtime, thread_starts) = if args.motion_cpus.is_empty() {
+        (None, None)
     } else {
         let motion = motion_runtime::build(&args.motion_cpus)?;
-        (motion.runtimes, Some(motion.thread_starts))
+        (Some(motion.runtime), Some(motion.thread_starts))
     };
-    let motion_handles = motion_runtimes
-        .iter()
-        .map(|runtime| runtime.handle().clone())
-        .collect();
+    let motion_handle = motion_runtime
+        .as_ref()
+        .map(|runtime| runtime.handle().clone());
     run_with_shutdown_timeout(
-        run(args, motion_handles, thread_starts),
-        motion_runtimes,
+        run(args, motion_handle, thread_starts),
+        motion_runtime,
         RUNTIME_SHUTDOWN_TIMEOUT,
     )?
 }
 
 fn run_with_shutdown_timeout<F>(
     future: F,
-    motion_runtimes: Vec<tokio::runtime::Runtime>,
+    motion_runtime: Option<tokio::runtime::Runtime>,
     shutdown_timeout: Duration,
 ) -> Result<F::Output>
 where
@@ -104,9 +96,8 @@ where
         .build()
         .wrap_err("failed to build Tokio runtime")?;
     let output = runtime.block_on(future);
-    let deadline = Instant::now() + shutdown_timeout;
-    for motion_runtime in motion_runtimes {
-        motion_runtime.shutdown_timeout(deadline.saturating_duration_since(Instant::now()));
+    if let Some(motion_runtime) = motion_runtime {
+        motion_runtime.shutdown_timeout(shutdown_timeout);
     }
     runtime.shutdown_timeout(shutdown_timeout);
     Ok(output)
@@ -114,7 +105,7 @@ where
 
 async fn run(
     args: Args,
-    motion_handles: Vec<tokio::runtime::Handle>,
+    motion_handle: Option<tokio::runtime::Handle>,
     thread_starts: Option<tokio::sync::mpsc::UnboundedReceiver<Result<()>>>,
 ) -> Result<()> {
     let Some(hardware_id) = env::var_os("HARDWARE_ID") else {
@@ -146,7 +137,7 @@ async fn run(
     let ctx = Arc::new(builder.build().await?);
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .wrap_err("failed to register SIGTERM handler")?;
-    let mut running = spawn_all(ctx.clone(), args.log_path, motion_handles).await?;
+    let mut running = spawn_all(ctx.clone(), args.log_path, motion_handle).await?;
     if let Some(mut thread_starts) = thread_starts {
         running.join_set.spawn(async move {
             while let Some(result) = thread_starts.recv().await {
@@ -211,33 +202,25 @@ fn derive_namespace(robot: &str) -> String {
 async fn spawn_all(
     ctx: Arc<Context>,
     log_path: Option<PathBuf>,
-    mut motion_handles: Vec<tokio::runtime::Handle>,
+    motion_handle: Option<tokio::runtime::Handle>,
 ) -> Result<RunningStack> {
     let mut join_set = JoinSet::new();
     let stop = CancellationToken::new();
 
-    if motion_handles.is_empty() {
-        motion_handles.push(tokio::runtime::Handle::current());
-    }
-    type NodeMain = fn(Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>>;
-    let motion_nodes: [NodeMain; 11] = [
-        button_event_bridge::run_boxed,
-        button_event_handler::run_boxed,
-        controller_handler::run_boxed,
-        fall_detection::run_boxed,
-        hardware_interface::run_boxed,
-        head_motion::run_boxed,
-        low_state_bridge::run_boxed,
-        motion::run_boxed,
-        motion_inference::run_boxed,
-        primary_state_filter::run_boxed,
-        safe_pose_checker::run_boxed,
-    ];
-    // Assign nodes, rather than new threads, across CPU-owned runtimes. Nested
-    // tasks and blocking-pool handoffs then retain each node's assigned CPU.
-    for (run, handle) in motion_nodes.into_iter().zip(motion_handles.iter().cycle()) {
-        join_set.spawn_on(run(ctx.clone()), handle);
-    }
+    let motion_handle = motion_handle.unwrap_or_else(tokio::runtime::Handle::current);
+    // Poll these nodes on the isolated runtime from the start, so their nested
+    // tasks and lazily created blocking/inference threads inherit its affinity.
+    join_set.spawn_on(button_event_bridge::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(button_event_handler::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(controller_handler::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(fall_detection::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(hardware_interface::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(head_motion::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(low_state_bridge::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(motion::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(motion_inference::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(primary_state_filter::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(safe_pose_checker::run_boxed(ctx.clone()), &motion_handle);
 
     // Behavior includes tactical decisions and Voronoi computation, so it stays
     // on the general runtime alongside perception and planning.
@@ -342,54 +325,41 @@ mod tests {
 
     #[test]
     fn runtime_shutdown_timeout_does_not_wait_forever_for_blocking_tasks() {
-        for motion_runtime_count in [0, 1, 2] {
-            check_blocking_shutdown(motion_runtime_count);
+        for separate_motion_runtime in [false, true] {
+            check_blocking_shutdown(separate_motion_runtime);
         }
     }
 
-    fn check_blocking_shutdown(motion_runtime_count: usize) {
-        let motion_runtimes: Vec<_> = (0..motion_runtime_count)
-            .map(|_| {
-                tokio::runtime::Builder::new_multi_thread()
-                    .worker_threads(1)
-                    .enable_all()
-                    .build()
-                    .unwrap()
-            })
-            .collect();
-        let mut motion_handles: Vec<_> = motion_runtimes
-            .iter()
-            .map(|runtime| runtime.handle().clone())
-            .collect();
+    fn check_blocking_shutdown(separate_motion_runtime: bool) {
+        let motion_runtime = separate_motion_runtime.then(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .build()
+                .unwrap()
+        });
+        let motion_handle = motion_runtime
+            .as_ref()
+            .map(|runtime| runtime.handle().clone());
         let (started_sender, started_receiver) = std::sync::mpsc::channel();
-        let mut releases = Vec::new();
+        let (release_sender, release_receiver) = std::sync::mpsc::channel::<()>();
         let started_at = std::time::Instant::now();
 
         let result = run_with_shutdown_timeout(
             async move {
-                if motion_handles.is_empty() {
-                    motion_handles.push(tokio::runtime::Handle::current());
-                }
-                let count = motion_handles.len();
-                for handle in motion_handles {
-                    let started = started_sender.clone();
-                    let (release, wait) = std::sync::mpsc::channel::<()>();
-                    releases.push(release);
-                    handle.spawn_blocking(move || {
-                        started.send(()).expect("started signal should send");
-                        let _ = wait.recv();
-                    });
-                }
-                for _ in 0..count {
-                    started_receiver.recv().expect("blocking task should start");
-                }
-                releases
+                let handle = motion_handle.unwrap_or_else(tokio::runtime::Handle::current);
+                handle.spawn_blocking(move || {
+                    started_sender.send(()).expect("started signal should send");
+                    let _ = release_receiver.recv();
+                });
+                started_receiver.recv().expect("blocking task should start");
             },
-            motion_runtimes,
+            motion_runtime,
             std::time::Duration::from_millis(10),
         );
 
-        drop(result.expect("runtime should build and run"));
+        drop(release_sender);
+        result.expect("runtime should build and run");
         assert!(started_at.elapsed() < std::time::Duration::from_secs(1));
     }
 }

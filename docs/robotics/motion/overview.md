@@ -20,27 +20,30 @@ Motion finishes by collecting and optimizing all motor commands in the `motor_co
 
 ## ROS-Z Booster Path
 
-### CPU isolation
+### Motion CPU scheduling
 
-`--motion-cpus 4,5` runs motion, low-state input, fall/pose checks, and
-operator-input/state nodes on separate Tokio runtimes, one worker per CPU. The
-general runtime and process-wide transport threads exclude those CPUs.
-Behavior, including Voronoi and planning, stays on the general runtime; safety
-command selection still depends on it.
+`--motion-cpus 4,5` runs motion, low-state input, fall/pose checks, and operator-input/state nodes on a separate Tokio runtime.
+Every async and blocking worker has affinity `4-5`, including workers created during scheduler handoffs.
+Child threads inherit this set.
+Linux chooses each thread's CPU as load changes.
+The general HULK runtime and shared transport exclude these CPUs; behavior, including Voronoi and planning, stays on the general runtime.
 Without the flag, all nodes share one runtime.
 
-Nodes are assigned round robin across those runtimes at startup. Each runtime's
-async and blocking threads use its single CPU, so nested tasks and scheduler
-handoffs retain the node's placement. The selected CPUs remain shared with vendor
-processes. Different node workloads can still produce unequal CPU utilization.
+The Zenoh router and DDS bridge also use `CPUAffinity=4 5`.
+Both CPUs remain shared with vendor processes.
+No nodes or services are assigned to individual CPUs, and the vendor processes' existing affinity and priority are preserved.
 
-The DDS bridge and Zenoh router use CPU4 to reduce contention with Booster motion
-on CPU5.
+`pepsi gammaray` removes CPUs 4 and 5 from kernel domain isolation and reboots when needed.
+This enables scheduler load balancing; affinity alone cannot undo `isolcpus` domain isolation.
+See [gammaray boot configuration](../../tooling/pepsi.md#motion-cpu-balancing).
 
-Deploy both the binary and `/usr/bin/launch-hulk`, which supplies the flag.
-Verify `Cpus_allowed_list` matches the CPU in each `hulk-motion-4` or
-`hulk-motion-5` thread name in `/proc/<pid>/task/<tid>/status`, and measure
-timing and stop-response latency under perception load.
+After gammaray installs the launcher, deploy the updated binary with `pepsi upload`.
+Verify `Cpus_allowed_list` is `4-5` for every motion and Zenoh thread in `/proc/<pid>/task/<tid>/status`, including after parameter binding and inference initialize.
+General HULK workers should exclude CPUs 4 and 5.
+
+The scheduler balances runnable threads.
+Equal utilization and continuous migration are not required, especially when vendor threads are pinned to one CPU.
+Measure motion deadlines, input freshness, and stop-response latency under perception and vendor-process load.
 
 ### Command path
 
