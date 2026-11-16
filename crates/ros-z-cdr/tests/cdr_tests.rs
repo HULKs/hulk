@@ -56,8 +56,8 @@ fn serializer_encodes_struct_fields_as_little_endian_cdr_bytes() {
 struct Bytes(#[serde(with = "serde_bytes")] Vec<u8>);
 
 #[test]
-fn bulk_bytes_match_cdr_wire_format_and_roundtrip_with_aligned_scalar() {
-    for data in [&[][..], &[0, 1, 127, 128, 254, 255, 42][..]] {
+fn byte_buffers_match_cdr_wire_format_and_roundtrip() {
+    for data in [[].as_slice(), [0, 1, 127, 128, 254, 255, 42].as_slice()] {
         let bytes = Bytes(data.to_vec());
         let serialized = to_vec::<_, LittleEndian>(&bytes, 16).unwrap();
         let mut expected = (data.len() as u32).to_le_bytes().to_vec();
@@ -67,9 +67,16 @@ fn bulk_bytes_match_cdr_wire_format_and_roundtrip_with_aligned_scalar() {
         let (decoded, consumed) = from_bytes::<Bytes, LittleEndian>(&serialized).unwrap();
         assert_eq!(decoded, bytes);
         assert_eq!(consumed, serialized.len());
+    }
+}
 
-        let original = (bytes, 0x0123_4567_89ab_cdef_u64);
+#[test]
+fn byte_buffers_preserve_alignment_of_subsequent_fields() {
+    for data in [[].as_slice(), [0, 1, 127, 128, 254, 255, 42].as_slice()] {
+        let original = (Bytes(data.to_vec()), 0x0123_4567_89ab_cdef_u64);
         let serialized = to_vec::<_, LittleEndian>(&original, 24).unwrap();
+        let mut expected = (data.len() as u32).to_le_bytes().to_vec();
+        expected.extend_from_slice(data);
         expected.resize(expected.len().next_multiple_of(8), 0);
         expected.extend_from_slice(&original.1.to_le_bytes());
         assert_eq!(serialized, expected);
