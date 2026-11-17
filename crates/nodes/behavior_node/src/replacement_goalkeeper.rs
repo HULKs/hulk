@@ -99,7 +99,7 @@ pub fn refresh_replacement_goalkeeper_role(blackboard: &mut Blackboard) -> Statu
             .is_some_and(|state| state.penalties[regular_goalkeeper_number].is_some()),
         primary_state: world_state.robot.primary_state,
         own_player_number: blackboard.player_number,
-        regular_goalkeeper_number: regular_goalkeeper_number,
+        regular_goalkeeper_number,
         available_field_players: calculate_available_field_players(
             blackboard,
             regular_goalkeeper_number,
@@ -134,7 +134,7 @@ pub(crate) fn build_replacement_goalkeeper_input(
             .is_some_and(|state| state.penalties[regular_goalkeeper_number].is_some()),
         primary_state: world_state.robot.primary_state,
         own_player_number: own_number,
-        regular_goalkeeper_number: regular_goalkeeper_number,
+        regular_goalkeeper_number,
         available_field_players,
         is_eligible_candidate,
         is_closest_available_field_player_to_own_goal:
