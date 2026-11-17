@@ -1,5 +1,4 @@
 /// coordinator for decentralized replacement goalkeeper election
-
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::point;
 use ros_z::time::Time;
