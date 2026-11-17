@@ -1,8 +1,8 @@
-use std::{io, net::SocketAddr, sync::Arc, time::Duration};
+use std::{io, net::SocketAddr, time::Duration};
 
+use async_channel::{Receiver, Sender};
 use futures_util::TryFutureExt;
-use tokio::{io::AsyncReadExt, net::TcpStream, sync::watch};
-use tokio_util::task::AbortOnDropHandle;
+use tokio::{io::AsyncReadExt, net::TcpStream, task::JoinHandle};
 
 use crate::types::{
     MAGIC_IDENTIFIER_CAMERA_INFO, MAGIC_IDENTIFIER_FRAME, X5CameraFrame, X5CameraFrameHeader,
@@ -13,112 +13,115 @@ pub const MAX_ALLOCATION_SIZE: usize = 4 * 1024 * 1024;
 pub const EXPOSURE_TIME: Duration = Duration::from_millis(12);
 
 pub struct X5Receiver {
-    _task: AbortOnDropHandle<()>,
-    left_frame_sender: watch::Sender<Option<X5CameraFrame>>,
-    right_frame_sender: watch::Sender<Option<X5CameraFrame>>,
-    camera_info_sender: watch::Sender<Option<X5CameraInfo>>,
+    pub left: X5ImageReceiver,
+    pub right: X5ImageReceiver,
+    pub camera_info: X5CameraInfoReceiver,
+    pub task: JoinHandle<()>,
 }
 
 pub struct X5ImageReceiver {
-    frame_receiver: watch::Receiver<Option<X5CameraFrame>>,
+    frame_receiver: Receiver<X5CameraFrame>,
 }
 
-pub enum Side {
-    Left,
-    Right,
+pub struct X5CameraInfoReceiver {
+    camera_info_receiver: Receiver<X5CameraInfo>,
 }
 
 impl X5Receiver {
+    /// Starts receiving frames and calibration until all receiving endpoints are dropped.
     pub fn new(address: SocketAddr) -> Self {
-        let (left_frame_sender, _) = watch::channel(None);
-        let (right_frame_sender, _) = watch::channel(None);
-        let (camera_info_sender, _) = watch::channel(None);
-        let task = AbortOnDropHandle::new(tokio::spawn(restarting_x5_receiver_task(
+        let (left_frame_sender, left_frame_receiver) = async_channel::bounded(1);
+        let (right_frame_sender, right_frame_receiver) = async_channel::bounded(1);
+        let (camera_info_sender, camera_info_receiver) = async_channel::bounded(1);
+        let task = tokio::spawn(restarting_x5_receiver_task(
             address,
-            left_frame_sender.clone(),
-            right_frame_sender.clone(),
-            camera_info_sender.clone(),
-        )));
-        Self {
-            _task: task,
             left_frame_sender,
             right_frame_sender,
             camera_info_sender,
+        ));
+        Self {
+            left: X5ImageReceiver {
+                frame_receiver: left_frame_receiver,
+            },
+            right: X5ImageReceiver {
+                frame_receiver: right_frame_receiver,
+            },
+            camera_info: X5CameraInfoReceiver {
+                camera_info_receiver,
+            },
+            task,
         }
     }
+}
 
-    pub fn subscribe_image(&self, side: Side) -> X5ImageReceiver {
-        let sender = match side {
-            Side::Left => &self.left_frame_sender,
-            Side::Right => &self.right_frame_sender,
-        };
-
-        X5ImageReceiver {
-            frame_receiver: sender.subscribe(),
-        }
-    }
-
-    pub async fn wait_for_camera_info(&self) -> X5CameraInfo {
-        let mut receiver = self.camera_info_sender.subscribe();
-        receiver
-            .wait_for(|value| value.is_some())
+impl X5CameraInfoReceiver {
+    /// Receives the latest unread calibration.
+    pub async fn recv(&mut self) -> X5CameraInfo {
+        self.camera_info_receiver
+            .recv()
             .await
             .expect("x5 receiver must be running")
-            .expect("camera info must not be None")
     }
 }
 
 impl X5ImageReceiver {
     pub async fn recv(&mut self) -> X5CameraFrame {
         self.frame_receiver
-            .changed()
+            .recv()
             .await
-            .expect("x5 receiver must be running");
-        self.frame_receiver
-            .borrow_and_update()
-            .clone()
-            .expect("image must not be None")
+            .expect("x5 receiver must be running")
     }
 }
 
 async fn restarting_x5_receiver_task(
     address: SocketAddr,
-    left_frame_sender: watch::Sender<Option<X5CameraFrame>>,
-    right_frame_sender: watch::Sender<Option<X5CameraFrame>>,
-    camera_info_sender: watch::Sender<Option<X5CameraInfo>>,
+    left_frame_sender: Sender<X5CameraFrame>,
+    right_frame_sender: Sender<X5CameraFrame>,
+    camera_info_sender: Sender<X5CameraInfo>,
 ) {
     const RETRY_INTERVAL: Duration = Duration::from_secs(5);
-    loop {
-        let result = X5ReceiverTask::connect(
-            address,
-            left_frame_sender.clone(),
-            right_frame_sender.clone(),
-            camera_info_sender.clone(),
-        )
-        .and_then(async |connection| connection.run().await)
-        .await;
+    tokio::select! {
+        _ = async {
+            tokio::join!(
+                left_frame_sender.closed(),
+                right_frame_sender.closed(),
+                camera_info_sender.closed(),
+            );
+        } => {}
+        _ = async {
+            loop {
+                let result = X5ReceiverTask::connect(
+                    address,
+                    left_frame_sender.clone(),
+                    right_frame_sender.clone(),
+                    camera_info_sender.clone(),
+                )
+                .and_then(async |connection| connection.run().await)
+                .await;
 
-        if let Err(error) = result {
-            log::error!("x5 receiver error: {}", error);
-            tokio::time::sleep(RETRY_INTERVAL).await;
-            log::info!("reconnecting to camera");
-        }
+                if let Err(error) = result {
+                    log::error!("x5 receiver error: {}", error);
+                    tokio::time::sleep(RETRY_INTERVAL).await;
+                    log::info!("reconnecting to camera");
+                }
+            }
+        } => {}
     }
 }
 
 struct X5ReceiverTask {
     connection: TcpStream,
-    left_frame_sender: watch::Sender<Option<X5CameraFrame>>,
-    right_frame_sender: watch::Sender<Option<X5CameraFrame>>,
-    camera_info_sender: watch::Sender<Option<X5CameraInfo>>,
+    left_frame_sender: Sender<X5CameraFrame>,
+    right_frame_sender: Sender<X5CameraFrame>,
+    camera_info_sender: Sender<X5CameraInfo>,
 }
 
 impl X5ReceiverTask {
     async fn connect(
         address: SocketAddr,
-        left_frame_sender: watch::Sender<Option<X5CameraFrame>>,
-        right_frame_sender: watch::Sender<Option<X5CameraFrame>>,
-        camera_info_sender: watch::Sender<Option<X5CameraInfo>>,
+        left_frame_sender: Sender<X5CameraFrame>,
+        right_frame_sender: Sender<X5CameraFrame>,
+        camera_info_sender: Sender<X5CameraInfo>,
     ) -> io::Result<Self> {
         let connection = TcpStream::connect(address).await?;
 
@@ -136,12 +139,13 @@ impl X5ReceiverTask {
             match magic {
                 MAGIC_IDENTIFIER_FRAME => {
                     let camera_frame = self.receive_frame().await?;
+                    // Keep reading the shared stream if a camera receiver is dropped.
                     match camera_frame.header.channel {
                         0 => {
-                            self.left_frame_sender.send_replace(Some(camera_frame));
+                            let _ = self.left_frame_sender.force_send(camera_frame);
                         }
                         1 => {
-                            self.right_frame_sender.send_replace(Some(camera_frame));
+                            let _ = self.right_frame_sender.force_send(camera_frame);
                         }
                         _ => {
                             return Err(io::Error::new(
@@ -153,7 +157,7 @@ impl X5ReceiverTask {
                 }
                 MAGIC_IDENTIFIER_CAMERA_INFO => {
                     let camera_info = self.receive_camera_info().await?;
-                    self.camera_info_sender.send_replace(Some(camera_info));
+                    let _ = self.camera_info_sender.force_send(camera_info);
                 }
                 _ => {}
             }
@@ -178,12 +182,8 @@ impl X5ReceiverTask {
         }
         header.timestamp_nanoseconds += EXPOSURE_TIME.as_nanos() as u64 / 2;
 
-        let nv12_data = Arc::<[u8]>::new_zeroed_slice(header.payload_size as usize);
-        let mut nv12_data = unsafe { nv12_data.assume_init() };
-
-        self.connection
-            .read_exact(Arc::get_mut(&mut nv12_data).expect("no other reference"))
-            .await?;
+        let mut nv12_data = vec![0; header.payload_size as usize];
+        self.connection.read_exact(&mut nv12_data).await?;
 
         Ok(X5CameraFrame { header, nv12_data })
     }
@@ -207,5 +207,140 @@ impl X5ReceiverTask {
             unsafe { std::mem::transmute::<[u8; 490], X5CameraInfo>(payload_data) };
 
         Ok(camera_information)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::pin::pin;
+
+    use futures_util::poll;
+    use tokio::{io::AsyncWriteExt, net::TcpListener, time::timeout};
+
+    use super::*;
+
+    async fn send_frame(connection: &mut TcpStream, channel: u8, frame_identifier: u32) {
+        connection
+            .write_u32_le(MAGIC_IDENTIFIER_FRAME)
+            .await
+            .unwrap();
+        connection.write_u8(channel).await.unwrap();
+        connection.write_u32_le(frame_identifier).await.unwrap();
+        connection.write_u64_le(1_000_000_000).await.unwrap();
+        connection.write_u16_le(2).await.unwrap();
+        connection.write_u16_le(2).await.unwrap();
+        connection.write_u32_le(6).await.unwrap();
+        connection
+            .write_all(&[frame_identifier as u8; 6])
+            .await
+            .unwrap();
+    }
+
+    async fn send_camera_info(connection: &mut TcpStream, width: u16) {
+        connection
+            .write_u32_le(MAGIC_IDENTIFIER_CAMERA_INFO)
+            .await
+            .unwrap();
+        connection.write_u32_le(490).await.unwrap();
+        let mut payload = [0; 490];
+        payload[..2].copy_from_slice(&width.to_le_bytes());
+        connection.write_all(&payload).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn delivers_only_latest_unread_frames_without_repeating_consumed_frames() {
+        timeout(Duration::from_secs(10), async {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let X5Receiver {
+                mut left,
+                mut right,
+                mut camera_info,
+                task,
+            } = X5Receiver::new(listener.local_addr().unwrap());
+            let (mut connection, _) = listener.accept().await.unwrap();
+
+            send_frame(&mut connection, 0, 1).await;
+            send_frame(&mut connection, 1, 10).await;
+            send_frame(&mut connection, 0, 2).await;
+            send_frame(&mut connection, 1, 11).await;
+            // Calibration follows the frames on the same stream, so receiving it
+            // ensures all preceding frames have been processed.
+            send_camera_info(&mut connection, 640).await;
+            camera_info.recv().await;
+
+            assert_eq!(left.recv().await.nv12_data, [2; 6]);
+            assert_eq!(right.recv().await.nv12_data, [11; 6]);
+            assert!(poll!(pin!(left.recv())).is_pending());
+            assert!(poll!(pin!(right.recv())).is_pending());
+
+            task.abort();
+        })
+        .await
+        .expect("test timed out");
+    }
+
+    #[tokio::test]
+    async fn dropped_camera_does_not_interrupt_other_camera_or_calibration() {
+        timeout(Duration::from_secs(10), async {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let X5Receiver {
+                left,
+                mut right,
+                mut camera_info,
+                task,
+            } = X5Receiver::new(listener.local_addr().unwrap());
+            let (mut connection, _) = listener.accept().await.unwrap();
+            drop(left);
+
+            send_frame(&mut connection, 0, 1).await;
+            send_frame(&mut connection, 1, 10).await;
+            send_frame(&mut connection, 0, 2).await;
+            send_camera_info(&mut connection, 640).await;
+
+            let width = camera_info.recv().await.width;
+            assert_eq!(width, 640);
+            assert_eq!(right.recv().await.nv12_data, [10; 6]);
+
+            send_camera_info(&mut connection, 800).await;
+            send_frame(&mut connection, 1, 11).await;
+            let width = camera_info.recv().await.width;
+            assert_eq!(width, 800);
+            assert_eq!(right.recv().await.nv12_data, [11; 6]);
+
+            drop((right, camera_info));
+            task.await.unwrap();
+            assert_eq!(connection.read(&mut [0]).await.unwrap(), 0);
+        })
+        .await
+        .expect("dropping one camera must not interrupt the shared reader");
+    }
+
+    #[tokio::test]
+    async fn calibration_interest_keeps_reading_until_dropped() {
+        timeout(Duration::from_secs(10), async {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let X5Receiver {
+                left,
+                right,
+                mut camera_info,
+                task,
+            } = X5Receiver::new(listener.local_addr().unwrap());
+            let (mut connection, _) = listener.accept().await.unwrap();
+            drop(left);
+            drop(right);
+
+            assert!(poll!(pin!(camera_info.recv())).is_pending());
+            send_frame(&mut connection, 0, 1).await;
+            send_frame(&mut connection, 1, 10).await;
+            send_camera_info(&mut connection, 640).await;
+            let width = camera_info.recv().await.width;
+            assert_eq!(width, 640);
+            assert!(poll!(pin!(camera_info.recv())).is_pending());
+
+            drop(camera_info);
+            task.await.unwrap();
+        })
+        .await
+        .expect("calibration must keep the shared reader alive until dropped");
     }
 }

@@ -3,7 +3,7 @@ use color_eyre::{Result, eyre::eyre};
 use image::{ImageError, RgbImage, error::DecodingError};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
-use std::{path::Path, sync::Arc};
+use std::path::Path;
 use yuv::{
     YuvBiPlanarImage, YuvConversionMode, YuvRange, YuvStandardMatrix, bgr_to_rgb, yuv_nv12_to_rgb,
 };
@@ -46,7 +46,8 @@ pub struct Image {
     /// Full row length in bytes
     pub step: u32,
     /// actual matrix data, size is (step * rows)
-    pub data: Arc<[u8]>,
+    #[serde(with = "serde_bytes")]
+    pub data: Vec<u8>,
 }
 
 #[cfg(feature = "pyo3")]
@@ -73,7 +74,7 @@ impl Image {
             encoding: "rgb8".to_string(),
             is_bigendian: 0,
             step: width,
-            data: rgb.into(),
+            data: rgb,
         }
     }
 }
@@ -162,7 +163,7 @@ impl Image {
         self.width = dest_width as u32;
         self.height = dest_height as u32;
         self.step = dest_step as u32;
-        self.data = dest_data.into();
+        self.data = dest_data;
 
         Ok(())
     }
@@ -173,7 +174,7 @@ impl TryFrom<Image> for RgbImage {
 
     fn try_from(image: Image) -> Result<Self, ImageError> {
         match image.encoding.as_str() {
-            "rgb8" => RgbImage::from_raw(image.width, image.height, image.data.to_vec()).ok_or(
+            "rgb8" => RgbImage::from_raw(image.width, image.height, image.data).ok_or(
                 ImageError::Decoding(DecodingError::from_format_hint(
                     image::error::ImageFormatHint::Unknown,
                 )),
@@ -311,7 +312,7 @@ mod tests {
             encoding: "mono16".to_string(),
             is_bigendian,
             step: width * 2,
-            data: data.into(),
+            data,
             ..Image::default()
         }
     }

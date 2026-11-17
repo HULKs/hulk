@@ -479,7 +479,7 @@ mod tests {
             height: 1,
             step: 3,
             encoding: "rgb8".into(),
-            data: pixel.to_vec().into(),
+            data: pixel.to_vec(),
             ..Default::default()
         };
         image.header.stamp = Time::from_nanos(time as i64).to_wallclock().into();

@@ -9141,6 +9141,7 @@ dependencies = [
  "byteorder",
  "proptest",
  "serde",
+ "serde_bytes",
  "thiserror 2.0.21",
  "zenoh-buffers",
 ]
@@ -9232,6 +9233,7 @@ dependencies = [
  "pyo3",
  "ros-z",
  "serde",
+ "serde_bytes",
  "yuv",
 ]
 
@@ -9581,6 +9583,16 @@ source = "git+https://github.com/HULKs/serde.git?rev=ef30eb8fdd0ee12e4e6f3f5615c
 dependencies = [
  "serde_core",
  "serde_derive",
+]
+
+[[package]]
+name = "serde_bytes"
+version = "0.11.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5d440709e79d88e51ac01c4b72fc6cb7314017bb7da9eeff678aa94c10e3ea8"
+dependencies = [
+ "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -12444,11 +12456,11 @@ checksum = "ea6fc2961e4ef194dcbfe56bb845534d0dc8098940c7e5c012a258bfec6701bd"
 name = "x5_receiver"
 version = "0.1.0"
 dependencies = [
+ "async-channel",
  "futures-util",
  "log",
  "ros2",
  "tokio",
- "tokio-util",
 ]
 
 [[package]]
