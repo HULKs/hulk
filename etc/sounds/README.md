@@ -1,3 +1,3 @@
-# How to convert sounds into Ogg Opus
+# How to convert sounds into Wav format
 
-`ffmpeg -i /path/to/input.file -c:a libopus -ac 1 etc/sounds/output.ogg`
+`ffmpeg -i input.file -c:a pcm_s16le -ac 1 etc/sounds/output.wav`
