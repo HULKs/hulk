@@ -266,9 +266,10 @@ fn select_kickoff_pose(
     let field_center = point![0.0, 0.0];
     if player_number == goalkeeper_player_number {
         let relative_position = kickoff_parameters.relative_goalkeeper_position;
+        let offset = kickoff_parameters.goalkeeper_position_offset;
         let position = point![
-            relative_position.x() * field_dimensions.length / 2.0,
-            relative_position.y() * field_dimensions.width / 2.0
+            (relative_position.x() * field_dimensions.length / 2.0) + offset.x(),
+            (relative_position.y() * field_dimensions.width / 2.0) + offset.y()
         ];
         let orientation = Orientation2::from_vector(field_center - position);
         return Pose2::from_parts(position, orientation);

@@ -95,7 +95,7 @@
     relative_goalkeeper_position: [-1.0, 0.0],
     goalkeeper_position_offset: [0.0, 0.0],
     relative_striker_position: [0.0, 0.0],
-    striker_position_offset: [-0.2, 0.0],
+    striker_position_offset: [-0.2, 0.2],
     relative_striker_side_kick_position: [0.0, 0.0],
     striker_side_kick_position_offset: [0.0, -0.4],
     /// Own-kickoff support slots, filled in order by descending active player number.
