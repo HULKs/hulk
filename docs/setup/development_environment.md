@@ -25,20 +25,20 @@ Most of these dependencies are needed for the compilation of local tools.
 All dependencies needed for a cross-compilation for the NAO are included in the NAO SDK.
 Use your distribution's package manager to install the following dependencies:
 
--   [Git](https://git-scm.com/), [Git LFS](https://git-lfs.com/)
--   [clang](https://clang.llvm.org/)
--   [cmake](https://cmake.org/)
--   [python3](https://www.python.org/)
--   [which](https://carlowood.github.io/which/)
--   [zstd](http://www.zstd.net/)
--   [xz](https://tukaani.org/xz/)
--   [file](https://darwinsys.com/file/)
--   [rsync](https://rsync.samba.org/)
--   [opusfile](https://opus-codec.org/)
--   [hdf5](https://www.hdfgroup.org/solutions/hdf5/)
--   [luajit](https://luajit.org/)
--   [systemd](https://www.freedesktop.org/wiki/Software/systemd/)
--   [podman](https://podman.io/)
+- [Git](https://git-scm.com/), [Git LFS](https://git-lfs.com/)
+- [clang](https://clang.llvm.org/)
+- [cmake](https://cmake.org/)
+- [python3](https://www.python.org/)
+- [which](https://carlowood.github.io/which/)
+- [zstd](http://www.zstd.net/)
+- [xz](https://tukaani.org/xz/)
+- [file](https://darwinsys.com/file/)
+- [rsync](https://rsync.samba.org/)
+- [opusfile](https://opus-codec.org/)
+- [hdf5](https://www.hdfgroup.org/solutions/hdf5/)
+- [luajit](https://luajit.org/)
+- [systemd](https://www.freedesktop.org/wiki/Software/systemd/)
+- [podman](https://podman.io/)
 
 === "Arch Linux"
 
@@ -60,14 +60,23 @@ Use your distribution's package manager to install the following dependencies:
 
 If you are using a non-linux operating system (e.g. macOS or Windows), you additionally have to install [docker](https://docs.docker.com/engine/install/).
 
-??? "If you want to use our simulator Webots"
+### Apple Silicon macOS (limited use)
 
-    Usually, the Webots simulator is **not needed** for normal development.
-    If you want to use it, you can install it with your packet manager or download it from the [official website](https://cyberbotics.com/).
-    You will also need to install the OpenVino™ runtime.
-    The HULKs SDK already contains the runtime for use with the NAOs.
+Most HULKs development happens on Linux. On an Apple Silicon Mac, Pepsi can build the ARM64 Linux SDK image locally and use it for workspace builds. This setup has only limited use within the team so far.
 
-    -   [Installation Instructions (Linux)](https://docs.openvino.ai/2024/get-started/install-openvino/install-openvino-linux.html)
+In addition to [Rust](#installing-rust), install the Xcode Command Line Tools, Git LFS, GNU coreutils, and the Docker CLI. The HULKs scripts use `grealpath` from GNU coreutils. Docker also needs a running daemon; [Colima](https://github.com/abiosoft/colima) is one way to provide it without moving the editor into a container. With [Homebrew](https://brew.sh/), for example:
+
+```sh
+xcode-select --install
+brew install git-lfs coreutils docker colima
+git lfs install
+colima start
+docker info
+```
+
+After cloning the repository, build the SDK image once with `./pepsi sdk build`. Pepsi then selects the SDK for macOS workspace builds as described under [Build Options](../tooling/pepsi.md#build-options). Linux libraries such as ALSA are supplied by the SDK image; they do not need to be installed on macOS.
+
+If you use VS Code's rust-analyzer for the whole workspace, allocate enough memory to the Docker VM. In our setup, 8 GiB caused rust-analyzer to run out of memory and 12 GiB worked (bit less might also be enougth). To change an existing Colima VM, stop it and restart it with `colima start --memory 12`; the setting is kept in its configuration. See [VS Code on Apple Silicon macOS](../tooling/pepsi.md#vs-code-on-apple-silicon-macos) for the editor settings.
 
 ### Inference runtime compatibility
 

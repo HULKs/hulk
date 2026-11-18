@@ -1,14 +1,27 @@
-use clap::Subcommand;
-use color_eyre::{
-    Result,
-    eyre::{Context, bail},
-};
+use clap::{Args, Subcommand};
+use color_eyre::{Result, eyre::Context};
 
 use repository::{
     Repository,
-    sdk::{SDKImage, build_sdk_container, pull_sdk_image},
+    sdk::{
+        ContainerRuntime, SDKImage, build_sdk_container_with, list_sdk_images_with,
+        pull_sdk_image_with,
+    },
 };
-use tokio::process::Command;
+
+#[derive(Args, Debug, Clone, Copy)]
+pub struct RuntimeArguments {
+    /// Container runtime to use. Defaults to Docker on macOS and Podman elsewhere.
+    #[arg(long, value_name = "RUNTIME")]
+    runtime: Option<ContainerRuntime>,
+}
+
+impl RuntimeArguments {
+    fn resolve(self) -> ContainerRuntime {
+        self.runtime
+            .unwrap_or_else(ContainerRuntime::default_for_host)
+    }
+}
 
 #[derive(Subcommand)]
 pub enum Arguments {
@@ -18,6 +31,8 @@ pub enum Arguments {
         /// SDK version e.g. `1.0.0`. If not provided, version specified by `hulk.toml` is used.
         #[arg(long, visible_alias = "abbild", visible_alias = "bild")]
         image: Option<String>,
+        #[command(flatten)]
+        runtime: RuntimeArguments,
     },
     /// Builds the SDK image
     #[command(visible_alias = "bau")]
@@ -25,9 +40,14 @@ pub enum Arguments {
         /// SDK version e.g. `3.3.1`. If not provided, version specified by `hulk.toml` is used.
         #[arg(long, visible_alias = "abbild", visible_alias = "bild")]
         image: Option<String>,
+        #[command(flatten)]
+        runtime: RuntimeArguments,
     },
     #[command(visible_alias = "aufzähl")]
-    List,
+    List {
+        #[command(flatten)]
+        runtime: RuntimeArguments,
+    },
 }
 
 pub async fn sdk(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -43,29 +63,22 @@ pub async fn sdk(arguments: Arguments, repository: &Repository) -> Result<()> {
     };
 
     match arguments {
-        Arguments::Install { image } => {
+        Arguments::Install { image, runtime } => {
             if let Some(image) = image {
                 sdk_image = sdk_image.parse_and_update(&image)
             }
 
-            pull_sdk_image(&sdk_image).await?;
+            pull_sdk_image_with(&sdk_image, runtime.resolve()).await?;
         }
-        Arguments::Build { image } => {
+        Arguments::Build { image, runtime } => {
             if let Some(image) = image {
                 sdk_image = sdk_image.parse_and_update(&image)
             }
 
-            build_sdk_container(repository, &sdk_image).await?;
+            build_sdk_container_with(repository, &sdk_image, runtime.resolve()).await?;
         }
-        Arguments::List => {
-            let status = Command::new("podman")
-                .args(["image", "list", "--filter", "reference=k1sdk"])
-                .status()
-                .await?;
-
-            if !status.success() {
-                bail!("podman failed with {status}");
-            }
+        Arguments::List { runtime } => {
+            list_sdk_images_with(runtime.resolve()).await?;
         }
     }
 
