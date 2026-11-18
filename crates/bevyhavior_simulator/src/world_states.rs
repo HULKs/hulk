@@ -259,6 +259,7 @@ mod tests {
                 position: point![x + 1.0, y],
             }),
             head_yaw: 0.0,
+            replacement_goalkeeper_claim: false,
         })
     }
 
@@ -410,6 +411,7 @@ mod tests {
                                 },
                                 ros_z::time::Time::from_wallclock(received_at),
                             )),
+                            replacement_goalkeeper_claim: false,
                         }),
                         ..Default::default()
                     },

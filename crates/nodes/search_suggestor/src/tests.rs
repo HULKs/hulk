@@ -22,6 +22,7 @@ fn search_partition_excludes_assigned_goalkeeper_and_keeps_its_search_independen
                 pose: pose.as_pose(),
                 head_yaw: 0.0,
                 ball_position: None,
+                replacement_goalkeeper_claim: false,
             },
         });
     }
@@ -201,6 +202,7 @@ fn player_state_snapshots_are_processed_once_and_removed_when_cleared() {
                     velocity: Default::default(),
                     last_seen: Time::from_nanos(42),
                 }),
+                replacement_goalkeeper_claim: false,
             },
         }),
         ..Players::new(None)
@@ -262,6 +264,7 @@ fn stale_last_received_state_does_not_add_team_ball_priority() {
                     velocity: Default::default(),
                     last_seen: Time::from_nanos(42),
                 }),
+                replacement_goalkeeper_claim: false,
             },
         }),
         ..Players::new(None)

@@ -43,6 +43,14 @@ pub struct BehaviorParameters {
     pub kickoff: KickoffParameters,
     pub voronoi: VoronoiParameters,
     pub network: HslNetworkParameters,
+    pub replacement_goalkeeper: ReplacementGoalkeeperParameters,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
+pub struct ReplacementGoalkeeperParameters {
+    pub election_window: Duration,
+    pub no_claim_timeout: Duration,
+    pub backoff_step: Duration,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]

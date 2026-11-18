@@ -90,6 +90,7 @@ pub struct PlayerState {
     pub pose: Pose2<Field>,
     pub head_yaw: f32,
     pub ball_position: Option<BallPosition<Field>>,
+    pub replacement_goalkeeper_claim: bool,
 }
 
 impl PlayerState {
