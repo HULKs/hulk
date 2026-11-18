@@ -103,12 +103,17 @@ pub struct GoalkeeperParameters {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
 pub struct KickoffParameters {
     pub relative_goalkeeper_position: Point2<NormalizedField>,
+    pub goalkeeper_position_offset: Point2<Field>,
     pub relative_striker_position: Point2<NormalizedField>,
+    pub striker_position_offset: Point2<Field>,
     pub relative_striker_side_kick_position: Point2<NormalizedField>,
+    pub striker_side_kick_position_offset: Point2<Field>,
     /// Own-kickoff support slots, filled in order by descending active player number.
     pub relative_aggressive_positions: [Point2<NormalizedField>; 3],
+    pub agressive_positions_offset: [Point2<Field>; 3],
     /// Opponent-kickoff slots, filled in order by descending active player number.
     pub relative_defensive_positions: [Point2<NormalizedField>; 4],
+    pub defensive_positions_offset: [Point2<Field>; 4],
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, ros_z::Message)]
