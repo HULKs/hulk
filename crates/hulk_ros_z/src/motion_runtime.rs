@@ -1,5 +1,3 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-
 use color_eyre::{
     Result,
     eyre::{WrapErr, ensure, eyre},
@@ -26,23 +24,27 @@ pub fn build(cpus: &[usize]) -> Result<MotionRuntime> {
         sched_getaffinity(Pid::from_raw(0)).wrap_err("failed to read startup CPU affinity")?;
     let (motion_cpus, general_cpus) = partition_cpus(cpus, allowed_cpus)?;
     let worker_count = motion_cpus.len();
-    let next_cpu = AtomicUsize::new(0);
+    let mut motion_affinity = CpuSet::new();
+    for cpu in motion_cpus {
+        motion_affinity.set(cpu)?;
+    }
     let (thread_started, mut thread_starts) = unbounded_channel();
 
     let runtime = Builder::new_multi_thread()
         .worker_threads(worker_count)
         .thread_name("hulk-motion")
         .on_thread_start(move || {
-            // Isolated CPUs do not load-balance. Pin each async or blocking
-            // worker individually, before it can execute any application code.
-            let index = next_cpu.fetch_add(1, Ordering::Relaxed) % worker_count;
-            let _ = thread_started.send(pin_current_thread(motion_cpus[index]));
+            // Apply the whole set to every async and blocking worker, including
+            // replacements created by block_in_place. Linux chooses their CPU.
+            let result = sched_setaffinity(Pid::from_raw(0), &motion_affinity)
+                .wrap_err("failed to set motion worker CPU affinity");
+            let _ = thread_started.send(result);
         })
         .enable_all()
         .build()
         .wrap_err("failed to build motion runtime")?;
 
-    // Reject initial pinning failures before starting nodes. Keep the receiver
+    // Reject initial affinity failures before starting nodes. Keep the receiver
     // so the stack can also monitor failures from later blocking workers.
     for _ in 0..worker_count {
         thread_starts
@@ -76,11 +78,4 @@ fn partition_cpus(cpus: &[usize], mut general_cpus: CpuSet) -> Result<(Vec<usize
     );
 
     Ok((cpus, general_cpus))
-}
-
-fn pin_current_thread(cpu: usize) -> Result<()> {
-    let mut affinity = CpuSet::new();
-    affinity.set(cpu)?;
-    sched_setaffinity(Pid::from_raw(0), &affinity)
-        .wrap_err_with(|| format!("failed to pin motion worker to CPU {cpu}"))
 }

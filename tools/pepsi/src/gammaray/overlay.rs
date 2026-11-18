@@ -20,6 +20,7 @@ const INIT: &str = include_str!("overlay-init.sh");
 const LOWER_ROOT: &str = include_str!("overlay-lower-root.sh");
 const BOOT_TARGET: &str = include_str!("hulks-overlay-boot.target");
 const BOOT_SERVICE: &str = include_str!("hulks-overlay-boot.service");
+const CPU_BALANCING: &str = include_str!("configure-cpu-balancing.py");
 
 #[derive(Args)]
 pub(crate) struct Arguments {
@@ -215,14 +216,16 @@ pub(super) async fn ensure(robot: &Robot, clean: bool, progress: &ProgressBar) -
     if !matches!(root, "normal" | "overlay") {
         bail!("unexpected overlay status: {initial}");
     }
+    progress.set_message("configuring motion CPU load balancing");
+    let reboot_for_cpus = configure_cpu_balancing(robot).await?;
     control(robot, Action::Enable, clean, progress).await?;
-    if root == "overlay" && !clean {
+    if root == "overlay" && !clean && !reboot_for_cpus {
         return Ok(());
     }
     robot
         .ssh_to_robot()?
         .arg("sudo -n systemd-run --unit=hulks-overlay-reboot --on-active=2s /bin/systemctl reboot")
-        .ssh_with_log("rebooting into saved overlay", progress)
+        .ssh_with_log("rebooting for overlay and CPU configuration", progress)
         .await?;
 
     progress.set_message("waiting for robot to restart into overlay");
@@ -237,4 +240,19 @@ pub(super) async fn ensure(robot: &Robot, clean: bool, progress: &ProgressBar) -
         }
     }
     bail!("robot did not enter managed overlay within 180 seconds; provisioning was not started")
+}
+
+async fn configure_cpu_balancing(robot: &Robot) -> Result<bool> {
+    let output = on_lower_root(
+        robot,
+        &format!(
+            "python3 - \"${{root%/}}/boot/extlinux/extlinux.conf\" <<'HULKS_CPU_BALANCING'\n{CPU_BALANCING}\nHULKS_CPU_BALANCING"
+        ),
+    )
+    .await?;
+    match output.trim() {
+        "ready" => Ok(false),
+        "reboot-required" => Ok(true),
+        other => bail!("unexpected CPU balancing status: {other}"),
+    }
 }

@@ -77,7 +77,8 @@ Booster firmware must provide `bdb` and the recognized dynamic configuration sta
 
 Gammaray runs inside a persistent writable OverlayFS root.
 All changes to the filesystem while the overlay is active are written to the overlay instead of the lower root filesystem.
-Changes in the overlay survive reboot while the underlying NVIDIA L4T and Booster installation stays unchanged.
+Changes in the overlay survive reboot.
+The underlying NVIDIA L4T and Booster installation is preserved apart from the boot setup described below.
 Overlay data is stored in `/var/lib/hulks-overlay` on the existing ext4 filesystem and shares available disk space.
 
 #### Gammaraying a robot
@@ -86,11 +87,27 @@ Overlay data is stored in `/var/lib/hulks-overlay` on the existing ext4 filesyst
 ./pepsi gammaray 42
 ```
 
-Gammaray first enables overlay autostart and reboots if the overlay is not already active.
+Gammaray first configures motion CPU balancing and enables overlay autostart.
+It reboots if the overlay is not already active or the running kernel still isolates a motion CPU.
+These changes share one reboot.
 If there is an overlay already, it is used instead, though `--clean` can be used to clear the overlay and start fresh.
 
 Afterwards, gammaray writes our HULKs OS configuration into the overlay.
 It is not currently possible to gammaray into the lower root filesystem without an overlay.
+
+#### Motion CPU balancing
+
+Gammaray edits the default entry in the lower root's `/boot/extlinux/extlinux.conf` to remove CPUs 4 and 5 from `isolcpus` domain isolation.
+The bootloader reads this file before the overlay is activated, so this change must be made in the lower filesystem.
+The motion runtime and Zenoh services can then share both CPUs and let Linux balance runnable threads.
+Other isolated CPUs and non-domain isolation flags are preserved.
+Ambiguous combinations of flags and CPU sets fail before the boot file is changed.
+
+Repeated gammarays leave an already configured boot file unchanged and do not require another reboot when neither overlay activation nor CPU balancing needs one.
+Boot configuration persists when the overlay is disabled or the robot is boosterized.
+
+Gammaray configures the host and launcher.
+Deploy the matching motion-runtime binary with `pepsi upload`.
 
 #### Boot selection
 
@@ -117,7 +134,7 @@ It works both on gammarayed and stock robots.
 Gammaray enables passwordless sudo before activation; when performed on the underlying installation, this change persists there.
 Overlay boot scripts, data, and boot-target configuration also reside on the underlying installation.
 An early systemd target activates the overlay after device initialization.
-Bootloader and initramfs configuration are unchanged.
+The default extlinux entry is updated for motion CPU balancing; the kernel and initramfs images are unchanged.
 
 ### Offline runtime installation
 
