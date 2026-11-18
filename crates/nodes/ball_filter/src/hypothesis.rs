@@ -1,7 +1,8 @@
 use std::{f32::consts::PI, time::Duration};
 
 use filtering::{
-    kalman_filter::KalmanFilter, multivariate_normal_distribution::MultivariateNormalDistribution,
+    kalman_filter::{KalmanError, KalmanFilter},
+    multivariate_normal_distribution::MultivariateNormalDistribution,
 };
 use moving::{MovingPredict, MovingUpdate};
 use nalgebra::{Matrix2, Matrix4};
@@ -69,10 +70,10 @@ impl BallHypothesis {
         moving_process_noise: Matrix4<f32>,
         resting_process_noise: Matrix2<f32>,
         log_likelihood_of_zero_velocity_threshold: f32,
-    ) {
+    ) -> Result<(), KalmanError> {
         match &mut self.mode {
             BallMode::Resting(resting) => {
-                RestingPredict::predict(resting, last_to_current_odometry, resting_process_noise)
+                RestingPredict::predict(resting, last_to_current_odometry, resting_process_noise)?;
             }
             BallMode::Moving(moving) => {
                 MovingPredict::predict(
@@ -81,7 +82,7 @@ impl BallHypothesis {
                     last_to_current_odometry,
                     velocity_decay,
                     moving_process_noise,
-                );
+                )?;
 
                 let velocity_covariance = moving.covariance.fixed_view::<2, 2>(2, 2);
                 let velocity = nalgebra::vector![moving.mean.z, moving.mean.w];
@@ -105,6 +106,7 @@ impl BallHypothesis {
                 }
             }
         }
+        Ok(())
     }
 
     pub fn update(
@@ -112,17 +114,18 @@ impl BallHypothesis {
         detection_time: Time,
         measurement: MultivariateNormalDistribution<2>,
         validity_bonus: f32,
-    ) {
-        self.last_seen = detection_time;
-        self.validity += validity_bonus;
-
+    ) -> Result<(), KalmanError> {
         match &mut self.mode {
             BallMode::Resting(resting) => RestingUpdate::update(resting, measurement),
             BallMode::Moving(moving) => MovingUpdate::update(moving, measurement),
-        }
+        }?;
+
+        self.last_seen = detection_time;
+        self.validity += validity_bonus;
+        Ok(())
     }
 
-    pub fn merge(&mut self, other: BallHypothesis) {
+    pub fn merge(&mut self, other: BallHypothesis) -> Result<(), KalmanError> {
         match (&mut self.mode, other.mode) {
             (BallMode::Resting(resting), BallMode::Resting(distribution)) => {
                 KalmanFilter::update(
@@ -130,7 +133,7 @@ impl BallHypothesis {
                     Matrix2::identity(),
                     distribution.mean,
                     distribution.covariance,
-                );
+                )?;
                 self.validity = self.validity.max(other.validity);
             }
             (BallMode::Moving(moving), BallMode::Moving(distribution)) => {
@@ -139,11 +142,12 @@ impl BallHypothesis {
                     Matrix4::identity(),
                     distribution.mean,
                     distribution.covariance,
-                );
+                )?;
                 self.validity = self.validity.max(other.validity);
             }
             _ => (), // deny merge
         };
+        Ok(())
     }
 }
 
@@ -168,14 +172,16 @@ mod tests {
                 },
                 Time::zero(),
             );
-            hypothesis.predict(
-                Duration::ZERO,
-                Isometry2::identity(),
-                1.0,
-                Matrix4::zeros(),
-                Matrix2::zeros(),
-                0.5,
-            );
+            hypothesis
+                .predict(
+                    Duration::ZERO,
+                    Isometry2::identity(),
+                    1.0,
+                    Matrix4::zeros(),
+                    Matrix2::zeros(),
+                    0.5,
+                )
+                .unwrap();
             assert_eq!(matches!(hypothesis.mode, BallMode::Resting(_)), should_rest);
         }
     }

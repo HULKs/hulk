@@ -1,5 +1,5 @@
 use coordinate_systems::Ground;
-use filtering::kalman_filter::KalmanFilter;
+use filtering::kalman_filter::{KalmanError, KalmanFilter};
 use filtering::multivariate_normal_distribution::MultivariateNormalDistribution;
 use linear_algebra::Isometry2;
 use nalgebra::Matrix2;
@@ -9,11 +9,12 @@ pub(super) trait RestingPredict {
         &mut self,
         last_to_current_odometry: Isometry2<Ground, Ground>,
         process_noise: Matrix2<f32>,
-    );
+    ) -> Result<(), KalmanError>;
 }
 
 pub(super) trait RestingUpdate {
-    fn update(&mut self, measurement: MultivariateNormalDistribution<2>);
+    fn update(&mut self, measurement: MultivariateNormalDistribution<2>)
+    -> Result<(), KalmanError>;
 }
 
 impl RestingPredict for MultivariateNormalDistribution<2> {
@@ -21,7 +22,7 @@ impl RestingPredict for MultivariateNormalDistribution<2> {
         &mut self,
         last_to_current_odometry: Isometry2<Ground, Ground>,
         process_noise: Matrix2<f32>,
-    ) {
+    ) -> Result<(), KalmanError> {
         let rotation = last_to_current_odometry.inner.rotation.to_rotation_matrix();
         let translation = last_to_current_odometry.inner.translation.vector;
 
@@ -31,12 +32,15 @@ impl RestingPredict for MultivariateNormalDistribution<2> {
             Matrix2::identity(),
             translation,
             process_noise,
-        );
+        )
     }
 }
 
 impl RestingUpdate for MultivariateNormalDistribution<2> {
-    fn update(&mut self, measurement: MultivariateNormalDistribution<2>) {
+    fn update(
+        &mut self,
+        measurement: MultivariateNormalDistribution<2>,
+    ) -> Result<(), KalmanError> {
         KalmanFilter::update(
             self,
             Matrix2::identity(),
