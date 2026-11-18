@@ -242,6 +242,13 @@ impl PrimaryStateFilter {
             (
                 _,
                 Buttons {
+                    f1: Some(ButtonPressType::Long),
+                    ..
+                },
+            ) => PrimaryState::Unstiff,
+            (
+                _,
+                Buttons {
                     f1: Some(ButtonPressType::Short),
                     ..
                 },

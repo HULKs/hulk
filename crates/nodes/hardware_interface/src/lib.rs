@@ -11,6 +11,7 @@ use std::{
 };
 
 use color_eyre::{Result, eyre::WrapErr};
+use kinematics::joints::Joints;
 use serde::{Deserialize, Serialize};
 use tokio::sync::watch;
 use tracing::{error, info, warn};
@@ -18,7 +19,10 @@ use tracing::{error, info, warn};
 use booster::{LedColor, LowCommand, RobotMode};
 use retry_worker::{RetryCommand, run_retrying_rpc_worker};
 use ros_z::{parameter::NodeParameters, prelude::*};
-use types::robot_command::{JointsCommand, RobotCommand};
+use types::{
+    motor_command::MotorCommand,
+    robot_command::{JointsCommand, RobotCommand},
+};
 
 mod joint_control;
 mod light_client;
@@ -182,6 +186,14 @@ async fn joints_command_worker(
             RobotCommand::Prepare => RobotMode::Prepare,
             RobotCommand::Custom { joints_command } => {
                 let low_command = low_command_from_joints_command(joints_command);
+
+                joint_control_publisher.publish(&low_command).await?;
+
+                RobotMode::Custom
+            }
+            RobotCommand::Unstiff => {
+                let low_command =
+                    low_command_from_joints_command(Joints::fill(MotorCommand::zeros()));
 
                 joint_control_publisher.publish(&low_command).await?;
 

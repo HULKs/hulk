@@ -4993,6 +4993,7 @@ dependencies = [
  "booster",
  "cdr",
  "color-eyre",
+ "kinematics",
  "ros-z",
  "serde",
  "serde_json",
