@@ -1,10 +1,8 @@
 use std::{thread, time::Duration};
 
-use ros_z::{
-    Message, ServiceTypeInfo, context::ContextBuilder, entity::TypeInfo, message::Service,
-};
+use ros_z::context::ContextBuilder;
+use ros_z::{Message, ServiceTypeInfo, entity::TypeInfo, message::Service};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 // Simple test service request
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ros_z::Message)]
@@ -54,9 +52,7 @@ fn assert_service_timeout(error: &ros_z::Error, expected_service: &str) {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn service_factories_defer_name_errors_to_build() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -95,9 +91,7 @@ async fn service_factories_defer_name_errors_to_build() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_basic_service_request_response() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -158,9 +152,7 @@ async fn test_basic_service_request_response() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_async_service_request_response() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -227,9 +219,7 @@ async fn test_async_service_request_response() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_multiple_service_requests() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -295,9 +285,7 @@ async fn test_multiple_service_requests() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_blocking_call_waits_for_service_response() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -352,10 +340,10 @@ async fn test_blocking_call_waits_for_service_response() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_blocking_call_with_timeout_can_exceed_old_builder_timeout() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
+async fn test_blocking_call_with_timeout_accepts_delayed_reply_with_extended_query_budget() {
+    let context = ContextBuilder::isolated_for_test()
+        // Both the native query budget and caller deadline must allow the reply.
+        .with_json("queries_default_timeout", 15000)
         .build()
         .await
         .expect("Failed to create context");
@@ -414,10 +402,10 @@ async fn test_blocking_call_with_timeout_can_exceed_old_builder_timeout() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn test_async_call_with_timeout_can_exceed_old_builder_timeout() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
+async fn test_async_call_with_timeout_accepts_delayed_reply_with_extended_query_budget() {
+    let context = ContextBuilder::isolated_for_test()
+        // Both the native query budget and caller deadline must allow the reply.
+        .with_json("queries_default_timeout", 15000)
         .build()
         .await
         .expect("Failed to create context");
@@ -481,9 +469,7 @@ async fn test_async_call_with_timeout_can_exceed_old_builder_timeout() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_blocking_call_with_timeout_reports_timeout_when_no_service_matches() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -515,9 +501,7 @@ async fn test_blocking_call_with_timeout_reports_timeout_when_no_service_matches
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn async_call_with_timeout_reports_timeout_when_no_service_matches() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -545,9 +529,7 @@ async fn async_call_with_timeout_reports_timeout_when_no_service_matches() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_blocking_call_with_timeout_returns_response_before_deadline() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -608,9 +590,7 @@ async fn test_blocking_call_with_timeout_returns_response_before_deadline() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_blocking_call_with_timeout_reports_real_timeout_while_waiting_for_reply() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -674,9 +654,7 @@ async fn test_blocking_call_with_timeout_reports_real_timeout_while_waiting_for_
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_blocking_call_with_timeout_reports_timeout_without_reply() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -724,9 +702,7 @@ async fn test_blocking_call_with_timeout_reports_timeout_without_reply() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn async_call_with_timeout_reports_timeout_without_reply() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");

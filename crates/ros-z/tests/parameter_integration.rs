@@ -5,9 +5,9 @@ use std::{
     time::Duration,
 };
 
+use ros_z::context::ContextBuilder;
 use ros_z::{
     Message, SchemaHash,
-    context::ContextBuilder,
     parameter::{
         GetNodeParameterTypeInfoSrv, GetNodeParameterValueRequest, GetNodeParameterValueSrv,
         GetNodeParametersSnapshotSrv, NodeParameterEvent, NodeParametersExt, ParameterError,
@@ -91,9 +91,7 @@ fn write_layer_file(layer: &Path, parameter_key: &str, contents: &str) {
 }
 
 async fn build_ctx(layers: &TestLayers) -> ros_z::Result<ros_z::context::Context> {
-    ContextBuilder::default()
-        .with_mode("peer")
-        .disable_multicast_scouting()
+    ContextBuilder::isolated_for_test()
         .with_parameter_layers([
             layers.base.clone(),
             layers.location.clone(),
@@ -104,11 +102,7 @@ async fn build_ctx(layers: &TestLayers) -> ros_z::Result<ros_z::context::Context
 }
 
 async fn build_empty_layers_ctx() -> ros_z::Result<ros_z::context::Context> {
-    ContextBuilder::default()
-        .with_mode("peer")
-        .disable_multicast_scouting()
-        .build()
-        .await
+    ContextBuilder::isolated_for_test().build().await
 }
 
 async fn wait_for_service(

@@ -146,6 +146,8 @@ mod tests {
 
     use super::*;
 
+    use crate::config::isolated_config;
+
     fn unique_node_name(prefix: &str) -> String {
         format!(
             "{prefix}_{}",
@@ -158,7 +160,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn graph_wait_until_returns_immediately_when_predicate_is_true() -> Result<()> {
-        let session = zenoh::open(zenoh::Config::default())
+        let session = zenoh::open(isolated_config())
             .await
             .map_err(|source| Error::zenoh("open Zenoh session", source))?;
         let graph = Graph::new(&session).await?;
@@ -188,7 +190,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn graph_wait_until_observes_later_graph_revision() -> Result<()> {
-        let session = zenoh::open(zenoh::Config::default())
+        let session = zenoh::open(isolated_config())
             .await
             .map_err(|source| Error::zenoh("open Zenoh session", source))?;
         let graph = Arc::new(Graph::new(&session).await?);
@@ -227,7 +229,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn graph_revision_watch_current_does_not_block_revision_publication() -> Result<()> {
-        let session = zenoh::open(zenoh::Config::default())
+        let session = zenoh::open(isolated_config())
             .await
             .map_err(|source| Error::zenoh("open Zenoh session", source))?;
         let graph = Arc::new(Graph::new(&session).await?);
@@ -259,7 +261,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn local_entity_add_and_remove_advance_graph_revision() -> Result<()> {
-        let session = zenoh::open(zenoh::Config::default())
+        let session = zenoh::open(isolated_config())
             .await
             .map_err(|source| Error::zenoh("open Zenoh session", source))?;
         let graph = Graph::new(&session).await?;
@@ -299,7 +301,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn cloned_graph_data_captures_current_graph_revision() -> Result<()> {
-        let session = zenoh::open(zenoh::Config::default())
+        let session = zenoh::open(isolated_config())
             .await
             .map_err(|source| Error::zenoh("open Zenoh session", source))?;
         let graph = Graph::new(&session).await?;
@@ -326,7 +328,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn unchanged_local_readd_does_not_advance_graph_revision() -> Result<()> {
-        let session = zenoh::open(zenoh::Config::default())
+        let session = zenoh::open(isolated_config())
             .await
             .map_err(|source| Error::zenoh("open Zenoh session", source))?;
         let graph = Graph::new(&session).await?;

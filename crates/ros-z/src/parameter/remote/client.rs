@@ -207,7 +207,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn rejects_non_absolute_target_fqn() {
-        let context = ContextBuilder::default()
+        let context = ContextBuilder::isolated_for_test()
             .build()
             .await
             .expect("build context");
@@ -225,7 +225,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn builds_absolute_service_and_event_names() {
-        let context = ContextBuilder::default()
+        let context = ContextBuilder::isolated_for_test()
             .build()
             .await
             .expect("build context");

@@ -763,7 +763,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn projection_leases_release_unused_indexes() {
-        let context = ros_z::context::ContextBuilder::default()
+        let context = ros_z::context::ContextBuilder::isolated_for_test()
             .build()
             .await
             .unwrap();

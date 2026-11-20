@@ -52,8 +52,7 @@ extern crate self as ros_z;
 pub mod attachment;
 /// Timestamp-indexed, capacity-bounded message cache.
 pub mod cache;
-/// Configuration types and builder helpers.
-pub mod config;
+mod config;
 /// Zenoh session context and context builder.
 pub mod context;
 /// Dynamic (schema-less) message support.

@@ -276,7 +276,8 @@ where
             .map_err(|source| crate::Error::decode(<T::Response as Message>::type_name(), source))
     }
 
-    /// Call the service and wait indefinitely for the first reply.
+    /// Call the service and wait for the first reply, subject to Zenoh's
+    /// `queries_default_timeout`.
     ///
     /// This is a blocking API. Do not call it from async contexts; use
     /// [`call_async`](Self::call_async) there.
@@ -292,7 +293,8 @@ where
         self.decode_response(sample)
     }
 
-    /// Call the service and wait indefinitely for the first reply.
+    /// Call the service and wait for the first reply, subject to Zenoh's
+    /// `queries_default_timeout`.
     pub async fn call_async(&self, message: &T::Request) -> Result<T::Response>
     where
         for<'a> <T::Request as Message>::Codec: WireEncoder<Input<'a> = &'a T::Request>,
@@ -306,6 +308,9 @@ where
     }
 
     /// Call the service and fail if no reply arrives before `timeout` elapses.
+    ///
+    /// This caller-side deadline does not extend Zenoh's
+    /// `queries_default_timeout`; either timeout may expire first.
     ///
     /// This is a blocking API. Do not call it from async contexts; use
     /// [`call_with_timeout_async`](Self::call_with_timeout_async) there.
@@ -322,6 +327,9 @@ where
     }
 
     /// Call the service and fail if no reply arrives before `timeout` elapses.
+    ///
+    /// This caller-side deadline does not extend Zenoh's
+    /// `queries_default_timeout`; either timeout may expire first.
     pub async fn call_with_timeout_async(
         &self,
         message: &T::Request,
@@ -859,7 +867,6 @@ mod tests {
     };
     use ros_z_schema::ServiceDef;
     use serde::{Deserialize, Serialize};
-    use serde_json::json;
 
     #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, crate::Message)]
     #[message(name = "test_msgs::AddTwoIntsRequest")]
@@ -918,9 +925,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn service_builder_warning_helpers_report_same_name_type_mismatches() {
-        let context = ContextBuilder::default()
-            .disable_multicast_scouting()
-            .with_json("connect/endpoints", json!([]))
+        let context = ContextBuilder::isolated_for_test()
             .build()
             .await
             .expect("Failed to create context");
@@ -963,9 +968,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn service_request_without_attachment_returns_clear_error() {
-        let context = ContextBuilder::default()
-            .disable_multicast_scouting()
-            .with_json("connect/endpoints", json!([]))
+        let context = ContextBuilder::isolated_for_test()
             .build()
             .await
             .expect("Failed to create context");

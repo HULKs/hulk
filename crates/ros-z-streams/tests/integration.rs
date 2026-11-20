@@ -7,7 +7,7 @@ use tokio::time::{sleep, timeout};
 
 async fn setup_node(namespace: &str) -> zenoh::Result<(Node, Clock)> {
     let logical_clock = Clock::logical(Time::zero());
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .with_namespace(namespace)
         .with_clock(logical_clock.clone())
         .build()
