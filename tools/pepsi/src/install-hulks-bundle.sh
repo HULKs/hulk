@@ -39,11 +39,12 @@ EOF
 if [[ ! -e /etc/containers/policy.json ]]; then
     echo '{"default":[{"type":"insecureAcceptAnything"}]}' > /etc/containers/policy.json
 fi
-# Existing containers can reference the old static runtime. Migrate explicitly;
-# a failure must not be hidden or treated as successful provisioning.
+# Import legacy databases before normal Podman commands, renumber locks, then
+# apply the configured OCI runtime to the imported containers.
 # File locks avoid incompatible shared-memory mutex layouts between Podman builds.
+"$root/bin/podman" system migrate --migrate-db
 "$root/bin/podman" system renumber
-"$root/bin/podman" system migrate --new-runtime crun --migrate-db
+"$root/bin/podman" system migrate --new-runtime crun
 # Other Pepsi commands invoke `sudo podman`; keep their PATH entry managed too.
 mkdir -p /usr/local/bin
 ln -sfn /nix/var/nix/profiles/hulks/bin/podman /usr/local/bin/podman
