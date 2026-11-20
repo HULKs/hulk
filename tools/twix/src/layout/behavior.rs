@@ -235,9 +235,13 @@ mod tests {
         context.set_keybinds(Arc::new(Configuration::default().keys));
         keybind_plugin::register(&context);
         let backend = Arc::new(
-            RobotBackend::new(Handle::current(), None, "/".into())
-                .await
-                .unwrap(),
+            RobotBackend::with_context(
+                Handle::current(),
+                "/".into(),
+                crate::backend::isolated_context().await,
+            )
+            .await
+            .unwrap(),
         );
         backend.replay().status = Some(ReplayStatus {
             instance: "test".into(),

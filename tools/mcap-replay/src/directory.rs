@@ -146,7 +146,6 @@ struct Directory<'a> {
     base: &'a str,
     context: &'a Context,
     cache: Arc<IndexCache>,
-    router: &'a str,
     serving: BTreeMap<PathBuf, Serving>,
     failures: BTreeMap<PathBuf, String>,
 }
@@ -154,8 +153,7 @@ struct Directory<'a> {
 impl Directory<'_> {
     async fn start(&self, path: &Path, stamp: Stamp) -> Result<Serving> {
         let namespace = namespace(self.base, path.strip_prefix(&self.root)?)?;
-        let (node, recording, name) =
-            open_recording(self.context, path, &namespace, self.router).await?;
+        let (node, recording, name) = open_recording(self.context, path, &namespace).await?;
 
         let (stop, stopped) = oneshot::channel();
         let cache = Arc::clone(&self.cache);
@@ -256,7 +254,6 @@ pub async fn watch(
     base: &str,
     context: &Context,
     cache: Arc<IndexCache>,
-    router: &str,
 ) -> Result<()> {
     let root = root
         .canonicalize()
@@ -266,7 +263,6 @@ pub async fn watch(
         base,
         context,
         cache,
-        router,
         serving: BTreeMap::new(),
         failures: BTreeMap::new(),
     };

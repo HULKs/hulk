@@ -6,10 +6,10 @@ Open an indexed ROS-Z recording:
 cargo run -p mcap-replay -- recording.mcap
 ```
 
-The server starts a Zenoh router and prints a Twix connection command:
+The server prints a Twix connection command:
 
 ```sh
-./twix /replay --router tcp/127.0.0.1:7447
+./twix /replay
 ```
 
 Recordings need a summary and chunk indexes. Recover/reindex incomplete recordings first.
@@ -50,11 +50,9 @@ Pass options after `--` in the Cargo command above.
 | Option | Purpose |
 | --- | --- |
 | `--namespace /replay` | Single-file namespace or directory prefix; must be `/replay` or below it. |
-| `--listen tcp/127.0.0.1:0` | Choose a router listen address; port `0` selects an available port. |
-| `--router tcp/127.0.0.1:7447` | Connect to an existing router instead of starting one. |
 | `--index-cache-mib 1024` | Global timestamp-index memory budget; defaults to 1 GiB (1024 MiB). |
 
-`--listen` and `--router` are mutually exclusive. Use `--help` for all options.
+Use `--help` for all options.
 
 ## Playback
 

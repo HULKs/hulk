@@ -296,9 +296,13 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn namespace_change_after_retry_restores_live_connection() {
-        let backend = RobotBackend::new(Handle::current(), None, "/recording".into())
-            .await
-            .unwrap();
+        let backend = RobotBackend::with_context(
+            Handle::current(),
+            "/recording".into(),
+            crate::backend::isolated_context().await,
+        )
+        .await
+        .unwrap();
         let mut replay = session();
         replay.namespace = backend.namespace();
         backend

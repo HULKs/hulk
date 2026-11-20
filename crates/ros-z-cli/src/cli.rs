@@ -1,4 +1,4 @@
-use std::{num::NonZeroUsize, time::Duration};
+use std::{num::NonZeroUsize, path::PathBuf, time::Duration};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
@@ -51,9 +51,9 @@ pub enum InfoTarget {
 #[command(name = "rosz")]
 #[command(about = "Scriptable command-line companion to ros-z")]
 pub struct Cli {
-    /// Zenoh router address
-    #[arg(long, default_value = "tcp/127.0.0.1:7447", global = true)]
-    pub router: String,
+    /// Load Zenoh configuration from this overlay file
+    #[arg(long, global = true, value_name = "PATH")]
+    pub config: Option<PathBuf>,
 
     /// Emit JSON output when supported
     #[arg(long, global = true)]
@@ -217,7 +217,6 @@ mod tests {
     fn parses_echo_command_with_defaults() {
         let cli = Cli::parse_from(["rosz", "echo", "/chatter", "--count", "1"]);
 
-        assert_eq!(cli.router, "tcp/127.0.0.1:7447");
         assert!(!cli.json);
 
         match cli.command {
@@ -336,13 +335,15 @@ mod tests {
             "rosz",
             "list",
             "topics",
-            "--router",
-            "tcp/192.168.1.10:7447",
             "--json",
+            "--config",
+            "zenoh.json5",
         ]);
-
-        assert_eq!(cli.router, "tcp/192.168.1.10:7447");
         assert!(cli.json);
+        assert_eq!(
+            cli.config.as_deref(),
+            Some(std::path::Path::new("zenoh.json5"))
+        );
 
         match cli.command {
             Command::Online(OnlineCommand::List { target }) => {

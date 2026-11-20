@@ -532,9 +532,13 @@ mod tests {
     async fn incompatible_overlay_schema_does_not_hold_back_live_images() {
         let namespace = format!("/wrong_overlay_{}", Uuid::new_v4().simple());
         let backend = Arc::new(
-            RobotBackend::new(Handle::current(), None, namespace.clone())
-                .await
-                .unwrap(),
+            RobotBackend::with_context(
+                Handle::current(),
+                namespace.clone(),
+                crate::backend::isolated_context().await,
+            )
+            .await
+            .unwrap(),
         );
         let node = backend.node();
         let images = node
@@ -599,9 +603,13 @@ mod tests {
     async fn sustained_live_plan_presents_matching_overlays_without_cursor_chasing() {
         let namespace = format!("/plan_image_{}", Uuid::new_v4().simple());
         let backend = Arc::new(
-            RobotBackend::new(Handle::current(), None, namespace.clone())
-                .await
-                .unwrap(),
+            RobotBackend::with_context(
+                Handle::current(),
+                namespace.clone(),
+                crate::backend::isolated_context().await,
+            )
+            .await
+            .unwrap(),
         );
         let node = backend.node();
         let images = node

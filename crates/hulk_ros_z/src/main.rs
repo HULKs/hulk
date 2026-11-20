@@ -3,9 +3,8 @@ use std::{env, future::Future, path::PathBuf, sync::Arc, time::Duration};
 use clap::Parser;
 use color_eyre::{
     Result,
-    eyre::{Context as _, ContextCompat, bail, eyre},
+    eyre::{Context as _, ContextCompat, bail},
 };
-use repository::{Repository, team::Team};
 use ros_z::prelude::*;
 use tokio::{
     task::{JoinHandle, JoinSet},
@@ -25,8 +24,6 @@ struct Args {
     location: String,
     #[arg(long, default_value = "parameters")]
     parameter_root: PathBuf,
-    #[arg(long)]
-    router: Option<String>,
     #[arg(long)]
     log_path: Option<PathBuf>,
     /// Run motion, sensor input, and safety nodes on these Linux CPUs (comma-separated).
@@ -115,24 +112,10 @@ async fn run(
         .into_string()
         .ok()
         .wrap_err("id was not valid UTF-8")?;
-    let robot_number = load_robot_number(&hardware_id).await?;
-    let namespace = derive_namespace(&robot_number.to_string());
-
     let parameter_layers =
         derive_parameter_layers(&args.parameter_root, &args.location, &hardware_id);
 
-    let mut builder = ContextBuilder::default()
-        .with_namespace(&namespace)
-        .with_parameter_layers(parameter_layers);
-
-    builder = match args.router {
-        Some(router) => builder.with_mode("client").with_router_endpoint(router)?,
-        None => builder
-            .with_mode("router")
-            .disable_multicast_scouting()
-            .with_connect_endpoints(std::iter::empty::<&str>())
-            .with_listen_endpoints(["tcp/127.0.0.1:7447"]),
-    };
+    let builder = ContextBuilder::default().with_parameter_layers(parameter_layers);
 
     let ctx = Arc::new(builder.build().await?);
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
@@ -174,29 +157,6 @@ fn derive_parameter_layers(
         parameter_root.join("location").join(location),
         parameter_root.join("robot").join(robot),
     ]
-}
-
-async fn load_robot_number(hardware_id: &str) -> Result<u8> {
-    let repository =
-        Repository::new(env::current_dir().wrap_err("failed to get current directory")?);
-    let team = repository.read_team_configuration().await?;
-    robot_number_for_hardware_id(&team, hardware_id)
-}
-
-fn robot_number_for_hardware_id(team: &Team, hardware_id: &str) -> Result<u8> {
-    team.robots
-        .iter()
-        .find(|robot| robot.id == hardware_id)
-        .map(|robot| robot.number)
-        .ok_or_else(|| eyre!(r#"ID "{hardware_id}" not found in team.toml"#))
-}
-
-fn derive_namespace(robot: &str) -> String {
-    if robot.starts_with('/') {
-        robot.to_string()
-    } else {
-        format!("/{robot}")
-    }
 }
 
 async fn spawn_all(
@@ -312,15 +272,6 @@ mod tests {
         assert_eq!(args.motion_cpus, [4, 5]);
         let args = Args::try_parse_from(["hulk_ros_z", "--location", "test"]).unwrap();
         assert!(args.motion_cpus.is_empty());
-    }
-
-    #[test]
-    fn derive_namespace_prefixes_bare_robot_without_sanitizing() {
-        assert_eq!(derive_namespace("42"), "/42");
-        assert_eq!(derive_namespace("robot-01"), "/robot-01");
-        assert_eq!(derive_namespace("robot//42"), "/robot//42");
-        assert_eq!(derive_namespace("/robot/42"), "/robot/42");
-        assert_eq!(derive_namespace("robot%01"), "/robot%01");
     }
 
     #[test]

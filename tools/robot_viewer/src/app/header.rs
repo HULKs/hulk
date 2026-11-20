@@ -14,8 +14,6 @@ impl RobotViewerApp {
                     ui.separator();
                     ui.label(RichText::new(format!("namespace {}", self.namespace)).monospace());
                     ui.separator();
-                    ui.label(RichText::new(format!("router {}", self.router)).monospace());
-                    ui.separator();
                     connection_status(ui, &state.connection);
                 });
                 ui.add_space(4.0);

@@ -22,7 +22,7 @@ use crate::{
 /// Run the CLI with parsed command-line arguments.
 pub async fn run(cli: Cli) -> Result<ExitCode> {
     let Cli {
-        router,
+        config,
         json,
         command,
     } = cli;
@@ -35,17 +35,17 @@ pub async fn run(cli: Cli) -> Result<ExitCode> {
         }
         Command::Online(command) => {
             let output_mode = OutputMode::from_json_flag(json);
-            run_online_command(router, output_mode, command).await
+            run_online_command(config, output_mode, command).await
         }
     }
 }
 
 async fn run_online_command(
-    router: String,
+    config: Option<std::path::PathBuf>,
     output_mode: OutputMode,
     command: OnlineCommand,
 ) -> Result<ExitCode> {
-    let app = AppContext::new(&router).await?;
+    let app = AppContext::new(config).await?;
     let mut exit_code = ExitCode::SUCCESS;
 
     let result = match command {

@@ -29,24 +29,20 @@ pub struct RobotBackend {
 }
 
 impl RobotBackend {
-    pub async fn new(
-        runtime_handle: Handle,
-        router: Option<String>,
-        namespace: String,
-    ) -> Result<Self> {
-        let mut builder = ContextBuilder::default();
-        if let Some(router) = router {
-            builder = builder
-                .with_router_endpoint(router)
-                .wrap_err("failed to configure ROS-Z router endpoint")?;
-        }
+    pub async fn new(runtime_handle: Handle, namespace: String) -> Result<Self> {
+        let context = ContextBuilder::default()
+            .build()
+            .await
+            .wrap_err("failed to build ROS-Z context")?;
+        Self::with_context(runtime_handle, namespace, context).await
+    }
 
-        let context = Arc::new(
-            builder
-                .build()
-                .await
-                .wrap_err("failed to build ROS-Z context")?,
-        );
+    pub(crate) async fn with_context(
+        runtime_handle: Handle,
+        namespace: String,
+        context: Context,
+    ) -> Result<Self> {
+        let context = Arc::new(context);
         let node_name = twix_node_name();
         let node = Arc::new(
             context
@@ -207,4 +203,9 @@ fn sanitize_node_component(value: &str) -> String {
     } else {
         sanitized
     }
+}
+
+#[cfg(test)]
+pub(crate) async fn isolated_context() -> Context {
+    ContextBuilder::isolated_for_test().build().await.unwrap()
 }

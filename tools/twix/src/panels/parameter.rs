@@ -1191,9 +1191,13 @@ mod tests {
         use crate::{backend::RobotBackend, panel::PanelUiContext};
 
         let backend = Arc::new(
-            RobotBackend::new(tokio::runtime::Handle::current(), None, "/".into())
-                .await
-                .unwrap(),
+            RobotBackend::with_context(
+                tokio::runtime::Handle::current(),
+                "/".into(),
+                crate::backend::isolated_context().await,
+            )
+            .await
+            .unwrap(),
         );
         for width in [240.0, 800.0] {
             let context = Context::default();

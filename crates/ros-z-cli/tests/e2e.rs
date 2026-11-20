@@ -109,6 +109,12 @@ impl TestRouter {
         config
             .insert_json5("scouting/multicast/enabled", "false")
             .expect("disable multicast scouting");
+        config
+            .insert_json5("scouting/gossip/enabled", "false")
+            .expect("disable gossip scouting");
+        config
+            .insert_json5("connect/endpoints", "[]")
+            .expect("no outbound connections");
         let session = zenoh::open(config).wait()?;
 
         Ok(Self {
@@ -141,10 +147,9 @@ impl TestEnv {
     }
 
     async fn create_context(&self) -> ros_z::Result<Context> {
-        ContextBuilder::default()
+        ContextBuilder::isolated_for_test()
             .with_mode("client")
             .with_connect_endpoints([self.router.endpoint()])
-            .disable_multicast_scouting()
             .build()
             .await
     }
@@ -278,12 +283,14 @@ fn json_array_contains_field(value: &Value, field: &str, expected: &str) -> bool
 
 struct RoszCommand {
     args: Vec<OsString>,
+    gateway: String,
 }
 
 impl RoszCommand {
-    fn new(router: &str) -> Self {
+    fn new(gateway: &str) -> Self {
         Self {
-            args: vec!["--router".into(), router.into()],
+            args: Vec::new(),
+            gateway: gateway.to_owned(),
         }
     }
 
@@ -301,6 +308,9 @@ impl RoszCommand {
     fn run(self) -> CommandOutput {
         let binary = env!("CARGO_BIN_EXE_rosz");
         let mut child = Command::new(binary)
+            .env("ROS_Z_GATEWAY", &self.gateway)
+            .env_remove("ZENOH_SESSION_CONFIG_URI")
+            .env_remove("ROS_Z_NAMESPACE")
             .args(&self.args)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
