@@ -60,8 +60,6 @@ for service in services:
     "${bdb[@]}" config validate
     "${bdb[@]}" config apply
 
-    # Applying saves the config; containerd rebuilds its live service list on restart.
-    systemctl restart booster-daemon
-    wait_for_config
+    # Applying persists the config; the final provisioning reboot rebuilds the live list.
 fi
 systemctl "$mode" --now joystick_ros2

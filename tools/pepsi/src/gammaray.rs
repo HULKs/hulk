@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
     process::Stdio,
     str,
+    sync::atomic::{AtomicBool, Ordering},
 };
 
 use clap::Args;
@@ -25,6 +26,7 @@ use self::overlay::RobotOverlayExt;
 use crate::progress_indicator::ProgressIndicator;
 
 mod bundle;
+mod identity;
 pub(crate) mod overlay;
 
 #[derive(Args)]
@@ -58,6 +60,7 @@ pub struct Arguments {
 }
 
 const WIFI_PASSWORD: &str = "HSL?!HSL?!";
+const WIFI_INTERFACE: &str = "wlP1p1s0";
 
 const BUNDLE_INSTALLATION_SCRIPT: &str = include_str!("install-hulks-bundle.sh");
 const REMOTE_BUNDLE: &str = "/home/booster/.cache/hulk/hulks";
@@ -67,6 +70,27 @@ const PRESERVE_BOOSTER_CONFIG_SCRIPT: &str = include_str!("gammaray/preserve-boo
 const MANUFACTURER_SERVICES_SCRIPT: &str = include_str!("gammaray/manufacturer-services.sh");
 const LOWER_ROOT_SCRIPT: &str = include_str!("gammaray/overlay-lower-root.sh");
 const RESTORE_BOOSTER_TEMPLATE_SCRIPT: &str = include_str!("gammaray/restore-booster-template.sh");
+const INSTALL_PAM_ENVIRONMENT_COMMAND: &str = r#"sudo -n sh -se <<'HULKS_PAM_ENVIRONMENT'
+rule='session optional pam_env.so conffile=/dev/null envfile=/etc/hulk/identity.env readenv=1 user_readenv=0'
+# SSH and login use common-session; sudo uses common-session-noninteractive.
+for stack in /etc/pam.d/common-session /etc/pam.d/common-session-noninteractive; do
+    if grep -Fx -- "$rule" "$stack" >/dev/null; then
+        continue
+    else
+        status=$?
+        [ "$status" -eq 1 ] || exit "$status"
+    fi
+    last_byte=$(tail -c 1 -- "$stack")
+    {
+        if [ -n "$last_byte" ]; then printf '\n'; fi
+        printf '%s\n' "$rule"
+    } >> "$stack"
+done
+HULKS_PAM_ENVIRONMENT"#;
+const FINAL_REBOOT_COMMAND: &str =
+    "sudo -n systemd-run --unit=hulks-provision-reboot --on-active=2s /bin/systemctl reboot";
+const ENABLE_SERVICES_COMMAND: &str =
+    "sudo systemctl enable hulks-firewall zenohd zenoh-bridge-dds hulk jetson-clocks-refresh.timer";
 
 pub(super) fn manufacturer_services_command(mode: &str) -> String {
     format!(
@@ -84,13 +108,14 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
     let progress = ProgressIndicator::new();
 
     let team = repository.read_team_configuration().await?;
+    let failed = AtomicBool::new(false);
 
     progress
         .map_tasks(
             arguments.robots,
             "Sending gammaray to robot".to_string(),
             |robot, progress_bar| {
-                gammaray_robot(
+                let result = gammaray_robot(
                     robot,
                     progress_bar,
                     &arguments.password,
@@ -100,11 +125,22 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
                     &team,
                     setup_path,
                     &bundle,
-                )
+                );
+                let failed = &failed;
+                async move {
+                    let result = result.await;
+                    if result.is_err() {
+                        failed.store(true, Ordering::Relaxed);
+                    }
+                    result
+                }
             },
         )
         .await;
 
+    if failed.load(Ordering::Relaxed) {
+        bail!("provisioning failed; see robot errors above");
+    }
     Ok(())
 }
 
@@ -119,7 +155,7 @@ async fn gammaray_robot(
     team: &Team,
     setup: &Path,
     bundle: &Path,
-) -> Result<()> {
+) -> Result<&'static str> {
     let robot = Robot::try_new_with_ping(robot.ip).await?;
 
     progress_bar.set_message("getting robot ID");
@@ -136,9 +172,7 @@ async fn gammaray_robot(
     }
     let id = String::from_utf8(output.stdout)?;
     let id = id.trim();
-    let Some(team_robot) = team.robots.iter().find(|robot| robot.id == id) else {
-        bail!(r#"ID "{id}" not found in team.toml"#);
-    };
+    let team_robot = identity::robot_by_serial(team, id)?;
     progress_bar.set_prefix(format!("[{robot} {}]", team_robot.hostname));
 
     robot
@@ -158,6 +192,10 @@ async fn gammaray_robot(
 
     overlay::ensure(&robot, clean, &progress_bar).await?;
 
+    // Persist the next boot's addresses without disrupting the current SSH session.
+    set_up_wifi(&robot, team_robot, team.team_number, &progress_bar).await?;
+    set_up_static_ips(&robot, team_robot, team.team_number, &progress_bar).await?;
+
     robot
         .ssh_to_overlay()?
         .arg(format!(
@@ -175,43 +213,45 @@ async fn gammaray_robot(
         .ssh_with_log("generating nvidia CDI", &progress_bar)
         .await?;
 
-    robot
-        .rsync_with_overlay_sudo()?
-        .arg("--info=progress2")
-        .arg(setup.join("zenohd.json5"))
-        .arg(format!("{}:/etc/zenohd/zenohd.json5", robot.address))
-        .rsync_with_log("uploading zenohd config", &progress_bar)
-        .await?;
-
-    robot
-        .rsync_with_overlay_sudo()?
-        .arg("--info=progress2")
-        .arg(setup.join("zenoh-bridge-dds.json5"))
-        .arg(format!(
-            "{}:/etc/zenoh-bridge-dds/conf.json5",
-            robot.address
-        ))
-        .rsync_with_log("uploading zenoh-bridge-dds config", &progress_bar)
-        .await?;
+    // The bundle installer has stopped all managed consumers. They remain stopped
+    // until reboot, so no process observes a partially staged identity/profile pair.
+    install_identity(&robot, team_robot.number, &progress_bar).await?;
 
     robot
         .ssh_to_overlay()?
-        .arg("sudo mkdir -p /etc/systemd/system/zenoh-bridge-dds.service.d/")
-        .ssh_with_log(
-            "creating zenoh-bridge-dds systemd override directory",
-            &progress_bar,
+        .arg(
+            "sudo mkdir -p /etc/zenoh /etc/systemd/system/service.d \
+             /etc/systemd/system/zenoh-bridge-dds.service.d",
         )
+        .ssh_with_log("creating profile and drop-in directories", &progress_bar)
         .await?;
 
+    for (source, destination) in [
+        ("robot-peer.json5", "/etc/zenoh/robot-peer.json5"),
+        ("zenohd.json5", "/etc/zenohd/zenohd.json5"),
+        ("zenoh-bridge-dds.json5", "/etc/zenoh-bridge-dds/conf.json5"),
+        (
+            "10-hulk-identity.conf",
+            "/etc/systemd/system/service.d/10-hulk-identity.conf",
+        ),
+        (
+            "zenoh-bridge-dds.service.override.conf",
+            "/etc/systemd/system/zenoh-bridge-dds.service.d/override.conf",
+        ),
+    ] {
+        robot
+            .rsync_with_overlay_sudo()?
+            .arg("--info=progress2")
+            .arg(setup.join(source))
+            .arg(format!("{}:{destination}", robot.address))
+            .rsync_with_log(&format!("uploading {source}"), &progress_bar)
+            .await?;
+    }
+
     robot
-        .rsync_with_overlay_sudo()?
-        .arg("--info=progress2")
-        .arg(setup.join("zenoh-bridge-dds.service.override.conf"))
-        .arg(format!(
-            "{}:/etc/systemd/system/zenoh-bridge-dds.service.d/override.conf",
-            robot.address
-        ))
-        .rsync_with_log("uploading zenoh-bridge-dds service override", &progress_bar)
+        .ssh_to_overlay()?
+        .arg(INSTALL_PAM_ENVIRONMENT_COMMAND)
+        .ssh_with_log("installing session identity environment", &progress_bar)
         .await?;
 
     robot
@@ -290,17 +330,18 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_overlay()?
-        .arg("sudo systemctl daemon-reload")
-        .ssh_with_log("reloading service daemon", &progress_bar)
+        .arg(
+            r#"sudo systemctl daemon-reload &&
+state=$(sudo systemctl show --property=LoadState --value hulk-runtime.service) &&
+test "$state" = loaded"#,
+        )
+        .ssh_with_log(
+            "reloading systemd and checking hulk-runtime Quadlet",
+            &progress_bar,
+        )
         .await?;
 
-    robot
-        .ssh_to_overlay()?
-        .arg("sudo systemctl enable hulks-firewall && sudo systemctl reload-or-restart hulks-firewall")
-        .ssh_with_log("applying firewall rules", &progress_bar)
-        .await?;
-
-    // Stop replaced DDS publishers before starting the bridge.
+    // Disable replaced DDS publishers before the bridge's next boot.
     robot
         .ssh_to_overlay()?
         .arg(format!(
@@ -318,41 +359,40 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_overlay()?
-        .arg("sudo systemctl enable zenohd && sudo systemctl restart zenohd")
-        .ssh_with_log("enabling and restarting zenohd services", &progress_bar)
+        .arg(ENABLE_SERVICES_COMMAND)
+        .ssh_with_log("enabling services for next boot", &progress_bar)
         .await?;
 
+    // This must be the final remote operation. The staged network may change the
+    // address at boot; an unsuccessful acknowledgement is not treated as success.
     robot
         .ssh_to_overlay()?
-        .arg("sudo systemctl enable zenoh-bridge-dds && sudo systemctl restart zenoh-bridge-dds")
-        .ssh_with_log(
-            "enabling and restarting zenoh-bridge-dds services",
-            &progress_bar,
-        )
+        .arg(FINAL_REBOOT_COMMAND)
+        .ssh_with_log("queuing final provisioning reboot", &progress_bar)
         .await?;
 
+    Ok("Provisioning complete; reboot queued.")
+}
+
+async fn install_identity(robot: &Robot, number: u8, progress_bar: &ProgressBar) -> Result<()> {
+    let environment = identity::render(number);
     robot
         .ssh_to_overlay()?
-        .arg("sudo systemctl enable --now jetson-clocks-refresh.timer")
-        .ssh_with_log("enabling jetson clocks refresh timer", &progress_bar)
-        .await?;
-
-    robot
-        .ssh_to_overlay()?
-        .arg("sudo systemctl enable hulk && sudo systemctl stop hulk && sudo systemctl restart hulk-runtime && sudo systemctl start hulk")
-        .ssh_with_log("enabling and restarting hulk and its runtime", &progress_bar)
-        .await?;
-
-    robot
-        .ssh_to_overlay()?
-        .arg("for service in hulks-firewall zenohd zenoh-bridge-dds hulk-runtime hulk; do sudo systemctl is-active \"$service\" || exit 1; done")
-        .ssh_with_log("verifying services", &progress_bar)
-        .await?;
-
-    set_up_wifi(&robot, team_robot, team.team_number, &progress_bar).await?;
-    set_up_static_ips(&robot, team_robot, team.team_number, &progress_bar).await?;
-
-    Ok(())
+        .arg(format!(
+            r#"sudo -n sh -se <<'HULKS_INSTALL_IDENTITY'
+install -d -o root -g root -m 0755 /etc/hulk
+path=/etc/hulk/identity.env
+temporary=$(mktemp "$path.XXXXXX")
+trap 'rm -f "$temporary"' EXIT
+cat > "$temporary" <<'HULKS_IDENTITY'
+{environment}HULKS_IDENTITY
+chown root:root "$temporary"
+chmod 0644 "$temporary"
+mv -fT "$temporary" "$path"
+HULKS_INSTALL_IDENTITY"#,
+        ))
+        .ssh_with_log("installing /etc/hulk/identity.env", progress_bar)
+        .await
 }
 
 async fn deploy_nix(robot: &Robot, bundle: &Path, progress_bar: &ProgressBar) -> Result<()> {
@@ -394,12 +434,7 @@ async fn set_up_static_ips(
         r#"sudo nmcli connection modify "{CONNECTION_NAME}" ipv4.addresses "{ethernet_ip}/24, 192.168.10.102/24" ipv4.gateway 10.1.{team_number}.1 802-3-ethernet.cloned-mac-address "E6:4A:A0:37:19:{robot_number}""#,
     )).ssh_with_log("setting static IP", progress_bar).await?;
 
-    robot
-        .ssh_to_overlay()?
-        // Unlike up/down-ing the connection, reapply doesn't break existing connections
-        .arg("sudo nmcli connection up Wired\\ connection\\ 2")
-        .ssh_with_log("applying network configuration", progress_bar)
-        .await
+    Ok(())
 }
 
 async fn set_up_wifi(
@@ -410,6 +445,7 @@ async fn set_up_wifi(
 ) -> Result<()> {
     for network in Network::all() {
         let ssid = network.to_string();
+        progress_bar.set_message(format!("staging Wi-Fi configuration for {ssid}"));
         let mut command = robot.ssh_to_overlay()?;
         command.arg(format!(
             "sudo tee /etc/NetworkManager/system-connections/{ssid}.nmconnection > /dev/null \
@@ -437,12 +473,6 @@ async fn set_up_wifi(
             .await
             .wrap_err_with(|| format!("failed to create NetworkManager config for {ssid}"))?;
     }
-
-    robot
-        .ssh_to_overlay()?
-        .arg("sudo systemctl restart NetworkManager")
-        .ssh_with_log("restarting NetworkManager", progress_bar)
-        .await?;
 
     Ok(())
 }
@@ -478,7 +508,9 @@ impl CommandExt for Command {
         progress_bar.set_message(name.to_string());
         self.stdout(Stdio::piped());
         self.stderr(Stdio::piped());
-        let mut process = self.spawn().unwrap();
+        let mut process = self
+            .spawn()
+            .wrap_err_with(|| format!("failed to start process for {name}"))?;
         let mut stdout_lines = BufReader::new(process.stdout.take().unwrap()).split(line_delimiter);
         let mut stderr_lines = BufReader::new(process.stderr.take().unwrap()).split(b'\n');
         let mut stdout = String::new();
@@ -486,7 +518,8 @@ impl CommandExt for Command {
 
         loop {
             select! {
-                Ok(Some(buffer)) = stdout_lines.next_segment() => {
+                Some(segment) = async { stdout_lines.next_segment().await.transpose() } => {
+                    let buffer = segment.wrap_err_with(|| format!("{name}: reading stdout"))?;
                     if let Ok(text) = str::from_utf8(&buffer) {
                         writeln!(&mut stdout, "{text}")?;
                         let message = if name.is_empty() {
@@ -500,7 +533,8 @@ impl CommandExt for Command {
                         }
                     }
                 }
-                Ok(Some(buffer)) = stderr_lines.next_segment() => {
+                Some(segment) = async { stderr_lines.next_segment().await.transpose() } => {
+                    let buffer = segment.wrap_err_with(|| format!("{name}: reading stderr"))?;
                     if let Ok(text) = str::from_utf8(&buffer) {
                         writeln!(&mut stderr, "{text}")?;
                         progress_bar.println(text);
@@ -515,7 +549,7 @@ impl CommandExt for Command {
             Some(code) => bail!(
                 "{name}: process exited with error code {code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
             ),
-            None => bail!("process was killed"),
+            None => bail!("{name}: process was killed"),
         }
     }
 }
@@ -554,7 +588,7 @@ id={ssid}
 uuid={uuid}
 type=wifi
 autoconnect=false
-interface-name=wlP1p1s0
+interface-name={WIFI_INTERFACE}
 
 [wifi]
 mode=infrastructure
