@@ -5,12 +5,13 @@ use parking_lot::{Mutex, MutexGuard};
 use tokio::sync::watch;
 
 use super::GraphRevision;
-use crate::entity::{Entity, LivelinessKE};
+use crate::entity::{EndpointKind, Entity, LivelinessKE};
 
 #[derive(Debug, Clone)]
 pub struct GraphData {
     revision: GraphRevision,
     entities: HashMap<LivelinessKE, Entity>,
+    subscriber_counts: HashMap<String, usize>,
 }
 
 pub(super) struct GraphInner {
@@ -23,6 +24,7 @@ impl GraphData {
         Self {
             revision: GraphRevision::INITIAL,
             entities: HashMap::new(),
+            subscriber_counts: HashMap::new(),
         }
     }
 
@@ -30,22 +32,64 @@ impl GraphData {
         self.revision
     }
 
+    pub(crate) fn subscriber_count(&self, topic: &str) -> usize {
+        self.subscriber_counts.get(topic).copied().unwrap_or(0)
+    }
+
     pub(super) fn insert(&mut self, key_expr: LivelinessKE, entity: Entity) -> bool {
-        match self.entities.entry(key_expr) {
-            Entry::Vacant(entry) => {
-                entry.insert(entity);
-                true
-            }
+        let (old, new) = match self.entities.entry(key_expr) {
+            Entry::Vacant(entry) => (None, entry.insert(entity)),
             Entry::Occupied(mut entry) if entry.get() != &entity => {
-                entry.insert(entity);
-                true
+                let old = entry.insert(entity);
+                (Some(old), entry.into_mut())
             }
-            Entry::Occupied(_) => false,
-        }
+            Entry::Occupied(_) => return false,
+        };
+        Self::update_subscriber_counts(&mut self.subscriber_counts, old.as_ref(), Some(new));
+        true
     }
 
     pub(super) fn remove(&mut self, key_expr: &LivelinessKE) -> bool {
-        self.entities.remove(key_expr).is_some()
+        let Some(old) = self.entities.remove(key_expr) else {
+            return false;
+        };
+        Self::update_subscriber_counts(&mut self.subscriber_counts, Some(&old), None);
+        true
+    }
+
+    fn update_subscriber_counts(
+        counts: &mut HashMap<String, usize>,
+        old: Option<&Entity>,
+        new: Option<&Entity>,
+    ) {
+        fn subscription_topic(entity: &Entity) -> Option<&str> {
+            entity
+                .as_endpoint()
+                .filter(|endpoint| endpoint.kind == EndpointKind::Subscription)
+                .map(|endpoint| endpoint.topic.as_str())
+        }
+
+        let old_topic = old.and_then(subscription_topic);
+        let new_topic = new.and_then(subscription_topic);
+        if old_topic == new_topic {
+            return;
+        }
+        if let Some(topic) = old_topic {
+            let count = counts
+                .get_mut(topic)
+                .expect("stored subscription has a count");
+            *count -= 1;
+            if *count == 0 {
+                counts.remove(topic);
+            }
+        }
+        if let Some(topic) = new_topic {
+            if let Some(count) = counts.get_mut(topic) {
+                *count += 1;
+            } else {
+                counts.insert(topic.to_owned(), 1);
+            }
+        }
     }
 
     pub(super) fn entities_raw(&self) -> impl Iterator<Item = &Entity> + '_ {
@@ -106,7 +150,7 @@ impl GraphInner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entity::{EndpointEntity, EndpointKind, NodeEntity, SchemaHash, TypeInfo};
+    use crate::entity::{EndpointEntity, NodeEntity, SchemaHash, TypeInfo};
     use zenoh::session::ZenohId;
 
     fn node(name: &str) -> NodeEntity {
@@ -192,6 +236,69 @@ mod tests {
 
         assert!(!data.remove(&key));
         assert_eq!(data.entities_raw().count(), 0);
+    }
+
+    #[test]
+    fn subscriber_count_matches_scan_after_graph_changes() {
+        let inner = GraphInner::new();
+        let node = node("subscriber_count_node");
+        let first = EndpointEntity {
+            kind: EndpointKind::Subscription,
+            ..publisher(&node, 2, "/topic")
+        };
+        let second = EndpointEntity {
+            id: 3,
+            ..first.clone()
+        };
+        let changed_type = EndpointEntity {
+            type_info: TypeInfo::new("std_msgs::Int32", SchemaHash::zero()),
+            ..first.clone()
+        };
+        let moved = EndpointEntity {
+            topic: "/topic/".to_owned(),
+            ..changed_type.clone()
+        };
+        let changed_kind = EndpointEntity {
+            kind: EndpointKind::Publisher,
+            ..moved.clone()
+        };
+        let first_key = key_for(&Entity::Endpoint(first.clone()));
+        let second_key = key_for(&Entity::Endpoint(second.clone()));
+
+        let mut revision = GraphRevision::INITIAL;
+        for (key, replacement, expected_change) in [
+            (&first_key, None, false),
+            (&first_key, Some(first.clone()), true),
+            (&first_key, Some(first), false),
+            (&first_key, Some(changed_type), true),
+            (&second_key, Some(second), true),
+            (&first_key, Some(moved.clone()), true),
+            (&first_key, Some(changed_kind), true),
+            (&first_key, Some(moved), true),
+            (&first_key, None, true),
+            (&first_key, None, false),
+            (&second_key, None, true),
+        ] {
+            let changed = match replacement {
+                Some(endpoint) => inner.insert(key.clone(), Entity::Endpoint(endpoint)),
+                None => inner.remove(key),
+            };
+            assert_eq!(changed, expected_change);
+            if expected_change {
+                revision = revision.next();
+            }
+
+            let data = inner.lock();
+            assert_eq!(data.revision(), revision);
+            for topic in ["/topic", "/topic/", "topic", "/**", "/absent"] {
+                assert_eq!(
+                    data.subscriber_count(topic),
+                    data.subscriptions_on(topic).count(),
+                    "topic {topic:?} at revision {revision:?}",
+                );
+            }
+            assert!(data.subscriber_counts.values().all(|&count| count > 0));
+        }
     }
 
     #[test]
