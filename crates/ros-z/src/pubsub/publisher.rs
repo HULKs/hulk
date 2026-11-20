@@ -181,14 +181,11 @@ where
         self.publish_with_source_time(message, source_time).await
     }
 
-    #[tracing::instrument(name = "publish", skip_all, fields(
-        topic = %self.publisher.entity.topic,
-        sequence_number = self.publication_id.sequence_number(),
-        endpoint_global_id = %self.publication_id.endpoint_global_id(),
+    #[tracing::instrument(name = "publish", level = "trace", skip_all, fields(
+        publication_id = %self.publication_id, topic = %self.publisher.entity.topic,
+        node_name = %self.publisher.entity.node.name, node_namespace = %self.publisher.entity.node.namespace,
         ?source_time,
-        payload_len = tracing::field::Empty,
-        used_shm = tracing::field::Empty,
-    ))]
+    ), err(level = "trace"))]
     pub async fn publish_with_source_time(self, message: &T, source_time: Time) -> Result<()> {
         let (payload, attachment) =
             self.publisher
@@ -413,6 +410,11 @@ where
             &prepared.entity,
         );
 
+        trace!(name: "publisher_created",
+            endpoint_id = %prepared.endpoint_global_id, topic = %prepared.entity.topic,
+            node_zid = %prepared.entity.node.z_id, node_id = prepared.entity.node.id,
+            node_name = %prepared.entity.node.name, node_namespace = %prepared.entity.node.namespace,
+        );
         Ok(Publisher {
             entity: prepared.entity,
             sequence_number: AtomicUsize::new(0),
@@ -508,7 +510,10 @@ where
 
     fn reserve_id(&self) -> PublicationId {
         let sequence_number = self.sequence_number.fetch_add(1, Ordering::Relaxed) as i64;
-        PublicationId::new(self.endpoint_global_id, sequence_number)
+        let id = PublicationId::new(self.endpoint_global_id, sequence_number);
+        trace!(name: "publication_id_reserved", publication_id = %id, topic = %self.entity.topic,
+            node_name = %self.entity.node.name, node_namespace = %self.entity.node.namespace);
+        id
     }
 
     /// Serialize and publish `message` on the topic.
@@ -523,6 +528,10 @@ where
             .await
     }
 
+    #[tracing::instrument(level = "trace", skip_all, fields(
+        publication_id = %PublicationId::from(&attachment), topic = %self.entity.topic,
+        node_name = %self.entity.node.name, node_namespace = %self.entity.node.namespace,
+    ), err(level = "trace"))]
     async fn put_payload(
         &self,
         zbytes: zenoh::bytes::ZBytes,
@@ -546,47 +555,42 @@ where
     ) -> Result<(zenoh::bytes::ZBytes, Attachment)> {
         use zenoh_buffers::buffer::Buffer;
 
+        let span = tracing::trace_span!("prepare_payload",
+            publication_id = %publication_id, topic = %self.entity.topic,
+            node_name = %self.entity.node.name, node_namespace = %self.entity.node.namespace,
+            payload_len = tracing::field::Empty, used_shm = tracing::field::Empty,
+        )
+        .entered();
+
         if let Some(schema) = self.dyn_schema.as_ref()
             && let Some(message) = (message as &dyn std::any::Any).downcast_ref::<DynamicPayload>()
         {
             validate_dynamic_publish_schema(Some(schema), message)?;
         }
 
-        // Try direct SHM serialization if configured
-        let (zbuf, actual_size) = if let Some(ref shm_cfg) = self.shm_config {
-            let estimated_size = C::serialized_size_hint(message);
-
-            if estimated_size >= shm_cfg.threshold() {
-                match C::serialize_to_shm(message, estimated_size, shm_cfg.provider()) {
-                    Ok((zbuf, actual_size)) => {
-                        tracing::Span::current().record("used_shm", true);
-                        (zbuf, actual_size)
-                    }
-                    Err(error) => {
-                        warn!(error = %error, "SHM serialization failed; falling back to heap payload");
-                        tracing::Span::current().record("used_shm", false);
-                        let zbuf = C::serialize_to_zbuf(message).map_err(|source| {
-                            crate::Error::encode(std::any::type_name::<T>(), source)
-                        })?;
-                        let size = zbuf.len();
-                        (zbuf, size)
-                    }
-                }
-            } else {
-                tracing::Span::current().record("used_shm", false);
-                let zbuf = C::serialize_to_zbuf(message)
-                    .map_err(|source| crate::Error::encode(std::any::type_name::<T>(), source))?;
-                let size = zbuf.len();
-                (zbuf, size)
+        let shm_payload = self.shm_config.as_ref().and_then(|config| {
+            let estimate = C::serialized_size_hint(message);
+            if estimate < config.threshold() {
+                return None;
             }
-        } else {
-            tracing::Span::current().record("used_shm", false);
-            let zbuf = C::serialize_to_zbuf(message)
-                .map_err(|source| crate::Error::encode(std::any::type_name::<T>(), source))?;
-            let size = zbuf.len();
-            (zbuf, size)
+            C::serialize_to_shm(message, estimate, config.provider())
+                .inspect_err(
+                    |error| warn!(%error, "SHM serialization failed; falling back to heap payload"),
+                )
+                .ok()
+        });
+        let (zbuf, shm_len) = match shm_payload {
+            Some((zbuf, size)) => (zbuf, Some(size)),
+            None => (
+                C::serialize_to_zbuf(message)
+                    .map_err(|source| crate::Error::encode(std::any::type_name::<T>(), source))?,
+                None,
+            ),
         };
-        tracing::Span::current().record("payload_len", actual_size);
+        if !span.is_disabled() {
+            span.record("used_shm", shm_len.is_some());
+            span.record("payload_len", shm_len.unwrap_or_else(|| zbuf.len()));
+        }
 
         let zbytes = zenoh::bytes::ZBytes::from(zbuf);
         trace!(
@@ -609,6 +613,11 @@ where
         attachment: &Attachment,
     ) {
         if let Some(cache) = &self.transient_local_cache {
+            let _span = tracing::trace_span!("retain",
+                publication_id = %PublicationId::from(attachment), topic = %self.entity.topic,
+                node_name = %self.entity.node.name, node_namespace = %self.entity.node.namespace,
+            )
+            .entered();
             cache.retain(RetainedSample {
                 payload: payload.clone(),
                 encoding: Some((*self.encoding).clone()),
