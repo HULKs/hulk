@@ -35,6 +35,7 @@ zenoh-ext = { workspace = true }
 
 [dev-dependencies]
 serial_test = { workspace = true }
+tracing-chrome = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [features]
@@ -49,6 +50,11 @@ required-features = []
 [[example]]
 name = "pubsub_listener"
 path = "examples/pubsub/listener.rs"
+required-features = []
+
+[[example]]
+name = "pubsub_lifecycle"
+path = "examples/pubsub/lifecycle.rs"
 required-features = []
 
 [[example]]
