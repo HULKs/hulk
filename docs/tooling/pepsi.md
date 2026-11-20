@@ -138,7 +138,8 @@ No Debian packages or UFW installation are needed.
 The image tar must contain `hulk-runtime:latest`.
 It may be omitted when that image already exists in rootful Podman storage; registry pulls are disabled.
 Services are stopped during activation.
-Package/profile rollback alone does not undo Podman database migrations.
+Upgrading a managed Podman 5 runtime to Podman 6 requires `--clean --image-file /path/to/hulk-runtime.tar`; there is no in-place migration.
+Back up anything needed from the saved overlay first, including the deployed HULK binary. Cleaning discards the entire writable overlay, not just containers.
 Network reconfiguration runs last, and robot failures are reported individually.
 
 ## Build Options

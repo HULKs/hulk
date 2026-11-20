@@ -81,6 +81,40 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
         return Ok(());
     }
 
+    if arguments.clean {
+        let image = arguments.image_file.as_deref().ok_or_else(|| {
+            eyre!(
+                "--clean discards the runtime image; provide --image-file /path/to/hulk-runtime.tar"
+            )
+        })?;
+        if !image.is_file() {
+            bail!("runtime image is not a local file: {}", image.display());
+        }
+    } else {
+        // Check every target before starting any provisioning tasks.
+        for address in &arguments.robots {
+            let check = Robot::new(address.ip)
+                .ssh_to_robot()?
+                .arg(format!(
+                    r#"profile=/nix/var/nix/profiles/hulks; if test -e "$profile" || test -L "$profile"; then {PODMAN} --version; else echo fresh; fi"#
+                ))
+                .output()
+                .await?;
+            if !check.status.success() {
+                bail!(
+                    "{address}: cannot check managed Podman: {}",
+                    String::from_utf8_lossy(&check.stderr)
+                );
+            }
+            let version = str::from_utf8(&check.stdout)?.trim();
+            if version != "fresh" && !version.starts_with("podman version 6.") {
+                bail!(
+                    "{address}: cannot reuse {version}. Back up overlay data, then rerun with --clean --image-file /path/to/hulk-runtime.tar"
+                );
+            }
+        }
+    }
+
     let progress = ProgressIndicator::new();
 
     let team = repository.read_team_configuration().await?;

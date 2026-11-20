@@ -206,6 +206,14 @@ async fn status(robot: &Robot) -> Result<String> {
     Ok(String::from_utf8(output.stdout)?.trim().to_owned())
 }
 
+// A clean boot discards upper/work, not the lower root or separately mounted storage.
+const FRESH_RUNTIME: &str = r#"profile=${root%/}/nix/var/nix/profiles/hulks
+store=${root%/}/var/lib/containers/storage
+if test -e "$profile" || test -L "$profile" || { test -e "$store" && test -z "$(find "$store" -maxdepth 0 -type d -empty -print)"; } || test -L "$store"; then
+    echo 'Expected a clean runtime, but the managed profile or rootful container store remains. Restore a clean lower root before provisioning.' >&2
+    exit 1
+fi"#;
+
 pub(super) async fn ensure(robot: &Robot, clean: bool, progress: &ProgressBar) -> Result<()> {
     progress.set_message("checking robot root filesystem");
     let initial = status(robot).await?;
@@ -214,6 +222,26 @@ pub(super) async fn ensure(robot: &Robot, clean: bool, progress: &ProgressBar) -
     };
     if !matches!(root, "normal" | "overlay") {
         bail!("unexpected overlay status: {initial}");
+    }
+    if clean {
+        on_lower_root(robot, FRESH_RUNTIME).await?;
+    } else {
+        robot
+            .ssh_to_robot()?
+            .arg(format!(
+                r#"sudo -n sh -es <<'HULKS_REUSE'
+if test -d /var/lib/hulks-overlay/upper || test -f /var/lib/hulks-overlay/clean; then
+    echo 'Boot the saved overlay first to verify its runtime, or use --clean --image-file.' >&2
+    exit 1
+fi
+root=/
+if test ! -e /nix/var/nix/profiles/hulks; then
+{FRESH_RUNTIME}
+fi
+HULKS_REUSE"#
+            ))
+            .ssh_with_log("checking for saved runtime state", progress)
+            .await?;
     }
     control(robot, Action::Enable, clean, progress).await?;
     if root == "overlay" && !clean {
@@ -233,6 +261,10 @@ pub(super) async fn ensure(robot: &Robot, clean: bool, progress: &ProgressBar) -
             && let Some(current_boot) = current.strip_prefix("overlay ")
             && current_boot != boot_id
         {
+            if clean {
+                robot.ssh_to_overlay()?.arg(format!("sudo -n sh -es <<'HULKS_FRESH_RUNTIME'\nroot=/\n{FRESH_RUNTIME}\nHULKS_FRESH_RUNTIME"))
+                    .ssh_with_log("checking clean runtime after reboot", progress).await?;
+            }
             return Ok(());
         }
     }
