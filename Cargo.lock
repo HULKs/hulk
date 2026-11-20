@@ -2343,6 +2343,7 @@ dependencies = [
  "cdr",
  "color-eyre",
  "ros-z",
+ "zenoh",
 ]
 
 [[package]]
@@ -4022,6 +4023,7 @@ dependencies = [
  "color-eyre",
  "ros-z",
  "tokio",
+ "zenoh",
 ]
 
 [[package]]
@@ -5277,6 +5279,7 @@ dependencies = [
  "whistle_filter",
  "world_state_composer",
  "world_to_field_provider",
+ "zenoh",
 ]
 
 [[package]]
@@ -6387,6 +6390,7 @@ dependencies = [
  "ros2",
  "tokio",
  "tracing",
+ "zenoh",
 ]
 
 [[package]]
@@ -7641,6 +7645,7 @@ dependencies = [
  "ros-z",
  "ros-z-streams",
  "tokio",
+ "zenoh",
 ]
 
 [[package]]

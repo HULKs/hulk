@@ -120,7 +120,9 @@ async fn run(
     let ctx = Arc::new(builder.build().await?);
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .wrap_err("failed to register SIGTERM handler")?;
-    let mut running = spawn_all(ctx.clone(), args.log_path, motion_handle).await?;
+    let booster_session = open_booster_session().await?;
+    let mut running =
+        spawn_all(ctx.clone(), &booster_session, args.log_path, motion_handle).await?;
     if let Some(mut thread_starts) = thread_starts {
         running.join_set.spawn(async move {
             while let Some(result) = thread_starts.recv().await {
@@ -147,6 +149,28 @@ async fn run(
     result
 }
 
+async fn open_booster_session() -> Result<zenoh::Session> {
+    // Peer connects retry in the background; skip the initial wait for the bridge.
+    let config = zenoh::Config::from_json5(
+        r#"{
+            mode: "peer",
+            listen: { endpoints: [] },
+            connect: { endpoints: ["tcp/127.0.0.1:7448"] },
+            scouting: {
+                multicast: { enabled: false },
+                gossip: { enabled: false },
+            },
+            open: { return_conditions: { connect_scouted: false } },
+            transport: { shared_memory: { enabled: false } },
+        }"#,
+    )
+    .map_err(|error| color_eyre::eyre::eyre!("invalid Booster Zenoh config: {error}"))?;
+
+    zenoh::open(config)
+        .await
+        .map_err(|error| color_eyre::eyre::eyre!("failed to open Booster Zenoh session: {error}"))
+}
+
 fn derive_parameter_layers(
     parameter_root: &std::path::Path,
     location: &str,
@@ -161,6 +185,7 @@ fn derive_parameter_layers(
 
 async fn spawn_all(
     ctx: Arc<Context>,
+    booster_session: &zenoh::Session,
     log_path: Option<PathBuf>,
     motion_handle: Option<tokio::runtime::Handle>,
 ) -> Result<RunningStack> {
@@ -170,13 +195,22 @@ async fn spawn_all(
     let motion_handle = motion_handle.unwrap_or_else(tokio::runtime::Handle::current);
     // Poll these nodes on the isolated runtime from the start, so their nested
     // tasks and lazily created blocking/inference threads inherit its affinity.
-    join_set.spawn_on(button_event_bridge::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(
+        button_event_bridge::run_boxed(ctx.clone(), booster_session.clone()),
+        &motion_handle,
+    );
     join_set.spawn_on(button_event_handler::run_boxed(ctx.clone()), &motion_handle);
     join_set.spawn_on(controller_handler::run_boxed(ctx.clone()), &motion_handle);
     join_set.spawn_on(fall_detection::run_boxed(ctx.clone()), &motion_handle);
-    join_set.spawn_on(hardware_interface::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(
+        hardware_interface::run_boxed(ctx.clone(), booster_session.clone()),
+        &motion_handle,
+    );
     join_set.spawn_on(head_motion::run_boxed(ctx.clone()), &motion_handle);
-    join_set.spawn_on(low_state_bridge::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(
+        low_state_bridge::run_boxed(ctx.clone(), booster_session.clone()),
+        &motion_handle,
+    );
     join_set.spawn_on(motion::run_boxed(ctx.clone()), &motion_handle);
     join_set.spawn_on(motion_inference::run_boxed(ctx.clone()), &motion_handle);
     join_set.spawn_on(primary_state_filter::run_boxed(ctx.clone()), &motion_handle);
@@ -190,7 +224,10 @@ async fn spawn_all(
     join_set.spawn(behavior_node::run_boxed(ctx.clone()));
     join_set.spawn(camera_matrix_calculator::run_boxed(ctx.clone()));
     join_set.spawn(detection::run_boxed(ctx.clone()));
-    join_set.spawn(fall_down_state_receiver::run_boxed(ctx.clone()));
+    join_set.spawn(fall_down_state_receiver::run_boxed(
+        ctx.clone(),
+        booster_session.clone(),
+    ));
     join_set.spawn(field_mark_association::run_boxed(ctx.clone()));
     join_set.spawn(game_controller_filter::run_boxed(ctx.clone()));
     join_set.spawn(game_controller_state_filter::run_boxed(ctx.clone()));
@@ -211,7 +248,10 @@ async fn spawn_all(
     join_set.spawn(microphone_recorder::run_boxed(ctx.clone()));
     join_set.spawn(motor_commands_collector::run_boxed(ctx.clone()));
     join_set.spawn(obstacle_filter::run_boxed(ctx.clone()));
-    join_set.spawn(odometer_bridge::run_boxed(ctx.clone()));
+    join_set.spawn(odometer_bridge::run_boxed(
+        ctx.clone(),
+        booster_session.clone(),
+    ));
     join_set.spawn(odometry::run_boxed(ctx.clone()));
     join_set.spawn(player_states_receiver::run_boxed(ctx.clone()));
     join_set.spawn(visual_kick_ball_selector::run_boxed(ctx.clone()));
