@@ -165,7 +165,7 @@ fn record_queue_push<T>(
     context: &QueueDropContext,
     sample: T,
 ) {
-    if !queue.push(sample) {
+    if queue.push(sample).is_none() {
         return;
     }
 
