@@ -119,21 +119,15 @@ impl ImagePanel {
                 .attach(inputs)
                 .observe(connection.backend, connection.cursor)?;
             let repaint = observation.raw().repaint_on_updates(context);
-            let cache = match &mut self.observation {
-                Ok(Some(old))
-                    if old.binding.namespace == binding.namespace
-                        && old.binding.topic == binding.topic
-                        && old.binding.generation == binding.generation =>
-                {
-                    std::mem::replace(&mut old.render_cache, RenderedImageCache::new())
-                }
-                _ => RenderedImageCache::new(),
+            let render_cache = match self.observation.as_mut().ok().and_then(Option::take) {
+                Some(old) => old.render_cache.rebind(&old.binding, &binding),
+                None => RenderedImageCache::new(),
             };
             Ok(Some(ObservedImage {
                 observation,
                 binding,
                 _repaint: repaint,
-                render_cache: cache,
+                render_cache,
             }))
         })();
         self.observation = result.map_err(|error| format!("{error:#}"));
@@ -353,6 +347,17 @@ impl RenderedImageCache {
         }
     }
 
+    fn rebind(self, previous: &Binding, next: &Binding) -> Self {
+        if previous.namespace == next.namespace
+            && previous.topic == next.topic
+            && previous.generation == next.generation
+        {
+            self
+        } else {
+            Self::new()
+        }
+    }
+
     fn refresh(&mut self, context: &Context, sample: &Sample) -> bool {
         let identity = SampleIdentity::from(sample);
         if self.sample.as_ref().is_some_and(|old| *old == identity) {
@@ -471,6 +476,43 @@ mod tests {
         assert!(cache.error.is_some());
         assert!(cache.refresh(&context, &sample(1, 1)));
         assert!(cache.error.is_none());
+    }
+
+    #[test]
+    fn image_cache_invalidates_on_connection_replacement() {
+        let live = Binding {
+            namespace: "/robot".into(),
+            topic: "/image".into(),
+            generation: 0,
+            follow: true,
+            overlays: 0,
+        };
+        let overlay_update = Binding {
+            namespace: live.namespace.clone(),
+            topic: live.topic.clone(),
+            overlays: 1,
+            ..live
+        };
+        let context = Context::default();
+        let mut cache = RenderedImageCache::new();
+        let sample = raw_sample("/image", 1, 1, 1, &image(1, [255, 0, 0]));
+        assert!(cache.refresh(&context, &sample));
+        let texture = cache.texture.as_ref().unwrap().id();
+
+        let cache = cache.rebind(&live, &overlay_update);
+        assert_eq!(cache.texture.as_ref().unwrap().id(), texture);
+
+        let replacement = Binding {
+            namespace: overlay_update.namespace.clone(),
+            topic: overlay_update.topic.clone(),
+            generation: 1,
+            ..overlay_update
+        };
+        let mut cache = cache.rebind(&overlay_update, &replacement);
+        assert!(cache.texture.is_none());
+        // Record identities are scoped to a connection and can repeat after replacement.
+        assert!(cache.refresh(&context, &sample));
+        assert_ne!(cache.texture.as_ref().unwrap().id(), texture);
     }
 
     fn image(time: u64, pixel: [u8; 3]) -> RosImage {

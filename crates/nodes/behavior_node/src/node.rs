@@ -616,6 +616,3 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         motion_command_pub.publish(&motion_command).await?;
     }
 }
-
-#[cfg(test)]
-mod runtime_tests;

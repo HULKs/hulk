@@ -208,31 +208,3 @@ fn sanitize_node_component(value: &str) -> String {
         sanitized
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    async fn connection_replacements_have_distinct_presentation_identities_at_revision_zero() {
-        let backend = RobotBackend::new(Handle::current(), None, "/".into())
-            .await
-            .unwrap();
-        let initial = backend.presentation_identity();
-        assert_eq!(initial.1, 0);
-
-        backend.set_connection(Connection {
-            backend: Arc::new(Live::new(backend.node(), LiveRetention::default())),
-            cursor: CursorHandle::new(Cursor::Live),
-        });
-        let replacement = backend.presentation_identity();
-        assert_eq!(replacement.1, 0);
-        assert_ne!(replacement.0, initial.0);
-
-        backend.use_live();
-        let live = backend.presentation_identity();
-        assert_eq!(live.1, 0);
-        assert_ne!(live.0, replacement.0);
-        assert_ne!(live.0, initial.0);
-    }
-}

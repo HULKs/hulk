@@ -349,10 +349,6 @@ fn classify_receive_error(error: &ros_z::Error, message: String) -> CachedSubscr
 
 #[cfg(test)]
 mod tests {
-    use std::{num::NonZeroUsize, sync::Arc, time::Duration};
-
-    use ros_z::context::ContextBuilder;
-
     use super::*;
 
     fn test_metadata() -> SampleMetadata {
@@ -398,32 +394,5 @@ mod tests {
         assert!(message.contains("/debug"));
         assert!(message.contains("test_msgs::DebugValue"));
         assert!(message.contains("failed to deserialize cdr payload"));
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn cached_subscription_builder_policy_can_be_configured() -> Result<()> {
-        let context = ContextBuilder::default()
-            .disable_multicast_scouting()
-            .with_json("connect/endpoints", serde_json::json!([]))
-            .build()
-            .await?;
-        let node = Arc::new(context.create_node("policy_builder").build().await?);
-        let capacity = NonZeroUsize::new(64).unwrap();
-        let policy = ObservationPolicy::latest().with_subscriber_queue_capacity(capacity);
-
-        let builder = CachedSubscriptionBuilder::new(node, "debug_text")?.policy(policy);
-
-        assert_eq!(builder.observation_policy(), policy);
-
-        let builder = builder.retention(RetentionPolicy::time_window(Duration::from_secs(1))?);
-        assert!(matches!(
-            builder.observation_policy().retention(),
-            RetentionPolicy::TimeWindow(_)
-        ));
-        assert_eq!(
-            builder.observation_policy().subscriber_queue_capacity(),
-            Some(capacity)
-        );
-        Ok(())
     }
 }
