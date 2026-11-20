@@ -1,4 +1,4 @@
-use std::{error::Error as StdError, fmt, time::Duration};
+use std::{error::Error as StdError, fmt, path::PathBuf, time::Duration};
 
 use ros_z_protocol::ProtocolError;
 
@@ -36,7 +36,7 @@ pub enum Error {
         source: TopicNameError,
     },
 
-    /// Configuration override processing failed.
+    /// Configuration resolution failed.
     #[error(transparent)]
     Config(Box<ConfigError>),
 
@@ -116,38 +116,51 @@ impl fmt::Display for NameKind {
     }
 }
 
-/// Errors produced while loading or applying ros-z configuration overrides.
+/// Errors produced while resolving ros-z configuration.
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
-    /// Config override value could not be serialized.
-    #[error("failed to serialize config override '{key}'")]
-    SerializeOverride {
-        key: String,
+    /// Namespace environment variable was not Unicode.
+    #[error("ROS_Z_NAMESPACE must contain valid Unicode")]
+    NamespaceEnv {
         #[source]
-        source: serde_json::Error,
+        source: std::env::VarError,
     },
 
-    /// Config override value could not be rendered as JSON.
-    #[error("failed to render config override '{key}' as JSON")]
-    RenderOverride {
-        key: String,
-        #[source]
-        source: serde_json::Error,
-    },
-
-    /// Environment override value could not be parsed.
-    #[error("failed to parse ZENOH_CONFIG_OVERRIDE value for '{key}' ({value})")]
-    ParseEnvOverride {
-        key: String,
+    /// Namespace environment variable failed graph namespace validation.
+    #[error("invalid ROS_Z_NAMESPACE '{value}': {source}")]
+    InvalidNamespaceEnv {
         value: String,
         #[source]
-        source: json5::Error,
+        source: TopicNameError,
     },
 
-    /// Environment override did not use the expected `key=value` form.
-    #[error("invalid ZENOH_CONFIG_OVERRIDE pair '{pair}'; expected 'key=value'")]
-    InvalidEnvOverride { pair: String },
+    #[error("could not serialize Zenoh config override '{key}'")]
+    SerializeOverride { key: String },
+
+    #[error("invalid Zenoh config override for '{key}'")]
+    InvalidOverride { key: String },
+
+    #[error("ROS_Z_GATEWAY must contain a Unicode Zenoh endpoint")]
+    GatewayNotUnicode,
+
+    #[error("failed to read Zenoh session config '{}': {source}", path.display())]
+    ReadSessionFile {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("invalid Zenoh session config '{}': {reason}", path.display())]
+    InvalidSessionFile { path: PathBuf, reason: &'static str },
+
+    #[error(
+        "plugin __config__ includes are not supported in session overlays; inline the referenced plugin settings or pass a native Config::from_file via with_zenoh_config"
+    )]
+    PluginInclude,
+
+    #[error("invalid merged Zenoh session config: {reason}")]
+    InvalidSession { reason: &'static str },
 }
 
 /// Errors produced while encoding, decoding, or validating wire data.

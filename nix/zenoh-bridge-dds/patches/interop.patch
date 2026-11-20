@@ -1,0 +1,41 @@
+From 2691f027f1f35e6d720d57585238540b35943655 Mon Sep 17 00:00:00 2001
+From: Gijs de Jong <berichtaangijs@gmail.com>
+Date: Thu, 24 Sep 2026 18:13:52 +0200
+Subject: [PATCH] Skip DDS entities whose topic name is not a valid key
+ expression
+
+---
+ zenoh-plugin-dds/src/dds_mgt.rs | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/zenoh-plugin-dds/src/dds_mgt.rs b/zenoh-plugin-dds/src/dds_mgt.rs
+index c31e184f..046ca23a 100644
+--- a/zenoh-plugin-dds/src/dds_mgt.rs
++++ b/zenoh-plugin-dds/src/dds_mgt.rs
+@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize, Serializer};
+ use tracing::{debug, error, warn};
+ use zenoh::{
+     bytes::ZBytes,
+-    key_expr::{KeyExpr, OwnedKeyExpr},
++    key_expr::{keyexpr, KeyExpr, OwnedKeyExpr},
+     qos::CongestionControl,
+     Session, Wait,
+ };
+@@ -265,6 +265,17 @@ unsafe extern "C" fn on_data(dr: dds_entity_t, arg: *mut std::os::raw::c_void) {
+                         );
+                         continue;
+                     }
++                    // The topic name becomes a chunk of the entity's admin space and route key
++                    // expressions, which are unwrapped by the discovery task. A name that is not a
++                    // valid key expression (e.g. a leading '/') would panic that task and stop all
++                    // routing, so skip the entity instead.
++                    if keyexpr::new(topic_name).is_err() {
++                        warn!(
++                            "Ignoring discovery of {} ({} is not a valid key expression)",
++                            key, topic_name
++                        );
++                        continue;
++                    }
+ 
+                     let type_name = match CStr::from_ptr((*sample).type_name).to_str() {
+                         Ok(s) => s,

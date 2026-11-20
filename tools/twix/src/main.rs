@@ -58,10 +58,6 @@ struct Arguments {
     /// Target ROS-Z namespace, for example /42.
     namespace: Option<String>,
 
-    /// Router endpoint passed to ROS-Z, for example tcp/127.0.0.1:7447.
-    #[arg(long)]
-    router: Option<String>,
-
     /// Alternative repository root for local Twix version checks.
     #[arg(long)]
     repository_root: Option<PathBuf>,
@@ -292,11 +288,7 @@ fn main() -> eframe::Result<()> {
                 .clone()
                 .or_else(|| creation_context.storage?.get_string("namespace"))
                 .unwrap_or_else(|| "/".to_string());
-            let backend = runtime.block_on(RobotBackend::new(
-                runtime_handle.clone(),
-                arguments.router.clone(),
-                namespace,
-            ))?;
+            let backend = runtime.block_on(RobotBackend::new(runtime_handle.clone(), namespace))?;
             Ok(Box::new(TwixApp::create(
                 creation_context,
                 arguments.clone(),

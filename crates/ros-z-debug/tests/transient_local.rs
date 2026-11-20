@@ -21,12 +21,7 @@ async fn wait_until(check: impl Fn() -> bool) {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn cached_and_observed_subscriptions_replay_retained_values_unless_overridden()
 -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_connect_endpoints(Vec::<String>::new())
-        .with_listen_endpoints(Vec::<String>::new())
-        .build()
-        .await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let robot = context.create_node("robot").build().await?;
     let twix = Arc::new(context.create_node("twix").build().await?);
     let mut cached = Box::pin(
@@ -83,12 +78,7 @@ async fn cached_and_observed_subscriptions_replay_retained_values_unless_overrid
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn observations_adapt_durability_when_publishers_change() -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_connect_endpoints(Vec::<String>::new())
-        .with_listen_endpoints(Vec::<String>::new())
-        .build()
-        .await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let robot = context.create_node("robot").build().await?;
     let twix = Arc::new(context.create_node("twix").build().await?);
     let observer = TopicObserver::new(twix, TopicObserverOptions::default());

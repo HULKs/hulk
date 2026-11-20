@@ -1,7 +1,5 @@
 [Unit]
 Description=Zenoh DDS bridge
-Requires=zenohd.service
-After=zenohd.service
 
 [Service]
 CPUAffinity=4 5

@@ -442,9 +442,13 @@ mod tests {
     async fn presets_render_round_trip_and_isolate_focus() {
         use eframe::egui::{CentralPanel, RawInput, Rect, vec2};
         let backend = Arc::new(
-            RobotBackend::new(tokio::runtime::Handle::current(), None, "/".into())
-                .await
-                .unwrap(),
+            RobotBackend::with_context(
+                tokio::runtime::Handle::current(),
+                "/".into(),
+                crate::backend::isolated_context().await,
+            )
+            .await
+            .unwrap(),
         );
         let context = Context::default();
         egui_material_icons::initialize(&context);

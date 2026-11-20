@@ -327,9 +327,13 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn new_tab_reveal_settles_for_fitting_and_oversized_tabs() {
         let backend = Arc::new(
-            RobotBackend::new(tokio::runtime::Handle::current(), None, "/".into())
-                .await
-                .unwrap(),
+            RobotBackend::with_context(
+                tokio::runtime::Handle::current(),
+                "/".into(),
+                crate::backend::isolated_context().await,
+            )
+            .await
+            .unwrap(),
         );
         for width in [140.0, 240.0, 640.0, 1200.0] {
             let context = Context::default();

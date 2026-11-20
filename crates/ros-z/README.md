@@ -70,7 +70,6 @@ cargo run -p ros-z --example custom_message_status_publisher
 cargo run -p ros-z --example custom_message_status_subscriber
 cargo run -p ros-z --example service_server
 cargo run -p ros-z --example service_client
-cargo run -p ros-z --example zenoh_router
 ```
 
 Dynamic message examples live under `examples/dynamic_message` and are exposed as `dynamic_message_basic`, `dynamic_message_serialization`, and `dynamic_message_interop`.

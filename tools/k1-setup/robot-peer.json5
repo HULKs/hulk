@@ -1,0 +1,23 @@
+{
+  region_name: 'robot',
+  listen: {
+    endpoints: ['tcp/127.0.0.1:0'],
+  },
+  connect: {
+    endpoints: ['tcp/127.0.0.1:7447'],
+  },
+  scouting: {
+    multicast: {
+      interface: '127.0.0.1',
+      address: '224.0.0.224:17446',
+    },
+  },
+  timestamping: {
+    enabled: true,
+  },
+  transport: {
+    shared_memory: {
+      enabled: false,
+    },
+  },
+}

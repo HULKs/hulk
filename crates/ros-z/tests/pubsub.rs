@@ -1,9 +1,9 @@
 use std::{num::NonZeroUsize, time::Duration};
 
+use ros_z::context::ContextBuilder;
 use ros_z::{
     Message,
     attachment::Attachment,
-    context::ContextBuilder,
     entity::{EndpointEntity, EndpointKind, SchemaHash, TypeInfo},
     message::{SerdeCdrCodec, WireEncoder},
     qos::{QosDurability, QosHistory, QosProfile, QosReliability},
@@ -12,7 +12,6 @@ use ros_z::{
 };
 use ros_z_schema::{SchemaBundle, StructDef, TypeDef, TypeDefinition, TypeDefinitions, TypeName};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Message)]
 struct TestMessage {
     data: Vec<u8>,
@@ -64,7 +63,7 @@ fn dynamic_schema(root_name: &str) -> ros_z::dynamic::Schema {
 }
 
 async fn test_context() -> ros_z::Result<ros_z::context::Context> {
-    ContextBuilder::default().build().await
+    ContextBuilder::isolated_for_test().build().await
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -144,7 +143,7 @@ async fn node_builder_rejects_protocol_reserved_identity_before_formatting() -> 
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn raw_subscriber_receives_sample_payload() -> zenoh::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let node = context.create_node("raw_subscriber_node").build().await?;
     let publisher = node.publisher::<TestMessage>("/raw_topic").build().await?;
     let mut subscriber = node
@@ -168,7 +167,7 @@ async fn raw_subscriber_receives_sample_payload() -> zenoh::Result<()> {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn dynamic_publisher_build_rejects_schema_root_that_differs_from_type_info() {
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -214,7 +213,7 @@ async fn dynamic_publisher_build_rejects_schema_root_that_differs_from_type_info
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn dynamic_publisher_build_rejects_schema_hash_that_differs_from_type_info() {
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -251,7 +250,7 @@ async fn dynamic_publisher_build_rejects_schema_hash_that_differs_from_type_info
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn dynamic_subscriber_build_rejects_schema_hash_that_differs_from_type_info() {
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -288,7 +287,7 @@ async fn dynamic_subscriber_build_rejects_schema_hash_that_differs_from_type_inf
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn endpoint_factories_defer_topic_errors_to_build() {
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -349,7 +348,7 @@ async fn endpoint_factories_defer_topic_errors_to_build() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_basic_pubsub() {
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -388,7 +387,7 @@ async fn test_basic_pubsub() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn transient_local_build_waits_for_initial_replay() -> ros_z::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let pub_node = context
         .create_node("transient_build_order_pub")
         .build()
@@ -435,7 +434,7 @@ async fn transient_local_build_waits_for_initial_replay() -> ros_z::Result<()> {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_multiple_messages() {
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -478,7 +477,7 @@ async fn test_multiple_messages() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn dynamic_publisher_advertises_explicit_schema_hash() {
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -528,7 +527,7 @@ async fn dynamic_publisher_advertises_explicit_schema_hash() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn recv_with_metadata_includes_transport_and_source_timestamps() {
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -574,7 +573,7 @@ async fn recv_with_metadata_includes_transport_and_source_timestamps() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn publish_with_source_time_sets_metadata_source_time() {
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -622,7 +621,7 @@ async fn publish_with_source_time_sets_metadata_source_time() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn prepared_publish_with_source_time_sets_metadata_source_time() {
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -671,9 +670,7 @@ async fn prepared_publish_with_source_time_sets_metadata_source_time() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn typed_subscriber_errors_when_sample_has_no_attachment() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -720,7 +717,7 @@ async fn typed_subscriber_errors_when_sample_has_no_attachment() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_large_payload() {
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -764,7 +761,7 @@ async fn test_logical_clock_is_used_for_attachment_timestamps() {
     let clock = Clock::logical(Time::zero());
     clock.advance(Duration::from_secs(5)).unwrap();
 
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .with_clock(clock.clone())
         .build()
         .await
@@ -811,9 +808,7 @@ async fn test_logical_clock_is_used_for_attachment_timestamps() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_vec_u8_pubsub() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");

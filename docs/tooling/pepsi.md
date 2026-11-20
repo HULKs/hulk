@@ -49,12 +49,8 @@ The existing flake lock pins Podman, Zenoh, nftables, and their dependencies.
 ARM64 binaries are fetched from the Nix cache; cache misses require an ARM64 builder or emulation.
 Environment assembly runs on x86_64 Linux.
 
-The runtime uses a custom `zenoh-bridge-dds` 1.9.0 build for Booster firmware 1.8.
-`nix/zenoh-bridge-dds` uses two patches made by IntelligentRoboticsLab for `cyclors` and `zenoh-plugin-dds`.
-These omit the conflicting DDS discovery parameter and skip invalid Zenoh topic names.
-The bridge is cross-compiled from source on x86_64 Linux via nix during bundle preparation of `gammaray` or `gammaray --prepare`.
+The `zenoh-bridge-dds` package is cross-compiled from source on x86_64 Linux via nix during bundle preparation of `gammaray` or `gammaray --prepare`.
 It can also be built separately with `nix build .#packages.aarch64-linux.zenoh-bridge-dds`.
-Gammaray installs it through the runtime profile.
 
 ```sh
 pepsi gammaray --prepare
@@ -91,6 +87,12 @@ If there is an overlay already, it is used instead, though `--clean` can be used
 
 Afterwards, gammaray writes our HULKs OS configuration into the overlay.
 It is not currently possible to gammaray into the lower root filesystem without an overlay.
+
+Gammaray looks up the robot's physical serial in `team.toml` to determine its robot number. A successful full run schedules a reboot. Reconnect using the configured address after the robot restarts.
+
+Gammaray does not upload the HULK application.
+On an existing robot, upload a matching application with `./pepsi upload 42 --no-restart` before running gammaray.
+On a fresh robot, run gammaray first, then upload the application after reboot.
 
 #### Boot selection
 
@@ -140,9 +142,8 @@ No Debian packages or UFW installation are needed.
 
 The image tar must contain `hulk-runtime:latest`.
 It may be omitted when that image already exists in rootful Podman storage; registry pulls are disabled.
-Services are stopped during activation.
 Package/profile rollback alone does not undo Podman database migrations.
-Network reconfiguration runs last, and robot failures are reported individually.
+Robot failures are reported individually.
 
 ## Build Options
 

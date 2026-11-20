@@ -12,16 +12,17 @@ use linear_algebra::{Pose2, point};
 use ros_z::prelude::*;
 use ros_z_streams::CreateAnnouncingPublisher;
 
-pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
-    Box::pin(run(ctx))
+pub fn run_boxed(
+    ctx: Arc<Context>,
+    booster_session: zenoh::Session,
+) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx, booster_session))
 }
 
-async fn run(ctx: Arc<Context>) -> Result<()> {
+async fn run(ctx: Arc<Context>, booster_session: zenoh::Session) -> Result<()> {
     let node = ctx.create_node("odometer_bridge").build().await?;
 
-    let zenoh_session = ctx.session();
-
-    let odometer_sub = zenoh_session
+    let odometer_sub = booster_session
         .declare_subscriber("rt/odometer_state")
         .await
         .map_err(|error| eyre!("{error}"))?;

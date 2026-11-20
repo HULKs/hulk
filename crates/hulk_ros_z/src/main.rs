@@ -3,9 +3,8 @@ use std::{env, future::Future, path::PathBuf, sync::Arc, time::Duration};
 use clap::Parser;
 use color_eyre::{
     Result,
-    eyre::{Context as _, ContextCompat, bail, eyre},
+    eyre::{Context as _, ContextCompat, bail},
 };
-use repository::{Repository, team::Team};
 use ros_z::prelude::*;
 use tokio::{
     task::{JoinHandle, JoinSet},
@@ -25,8 +24,6 @@ struct Args {
     location: String,
     #[arg(long, default_value = "parameters")]
     parameter_root: PathBuf,
-    #[arg(long)]
-    router: Option<String>,
     #[arg(long)]
     log_path: Option<PathBuf>,
     /// Run motion, sensor input, and safety nodes on these Linux CPUs (comma-separated).
@@ -115,29 +112,17 @@ async fn run(
         .into_string()
         .ok()
         .wrap_err("id was not valid UTF-8")?;
-    let robot_number = load_robot_number(&hardware_id).await?;
-    let namespace = derive_namespace(&robot_number.to_string());
-
     let parameter_layers =
         derive_parameter_layers(&args.parameter_root, &args.location, &hardware_id);
 
-    let mut builder = ContextBuilder::default()
-        .with_namespace(&namespace)
-        .with_parameter_layers(parameter_layers);
-
-    builder = match args.router {
-        Some(router) => builder.with_mode("client").with_router_endpoint(router)?,
-        None => builder
-            .with_mode("router")
-            .disable_multicast_scouting()
-            .with_connect_endpoints(std::iter::empty::<&str>())
-            .with_listen_endpoints(["tcp/127.0.0.1:7447"]),
-    };
+    let builder = ContextBuilder::default().with_parameter_layers(parameter_layers);
 
     let ctx = Arc::new(builder.build().await?);
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .wrap_err("failed to register SIGTERM handler")?;
-    let mut running = spawn_all(ctx.clone(), args.log_path, motion_handle).await?;
+    let booster_session = open_booster_session().await?;
+    let mut running =
+        spawn_all(ctx.clone(), &booster_session, args.log_path, motion_handle).await?;
     if let Some(mut thread_starts) = thread_starts {
         running.join_set.spawn(async move {
             while let Some(result) = thread_starts.recv().await {
@@ -164,6 +149,28 @@ async fn run(
     result
 }
 
+async fn open_booster_session() -> Result<zenoh::Session> {
+    // Peer connects retry in the background; skip the initial wait for the bridge.
+    let config = zenoh::Config::from_json5(
+        r#"{
+            mode: "peer",
+            listen: { endpoints: [] },
+            connect: { endpoints: ["tcp/127.0.0.1:7448"] },
+            scouting: {
+                multicast: { enabled: false },
+                gossip: { enabled: false },
+            },
+            open: { return_conditions: { connect_scouted: false } },
+            transport: { shared_memory: { enabled: false } },
+        }"#,
+    )
+    .map_err(|error| color_eyre::eyre::eyre!("invalid Booster Zenoh config: {error}"))?;
+
+    zenoh::open(config)
+        .await
+        .map_err(|error| color_eyre::eyre::eyre!("failed to open Booster Zenoh session: {error}"))
+}
+
 fn derive_parameter_layers(
     parameter_root: &std::path::Path,
     location: &str,
@@ -176,31 +183,9 @@ fn derive_parameter_layers(
     ]
 }
 
-async fn load_robot_number(hardware_id: &str) -> Result<u8> {
-    let repository =
-        Repository::new(env::current_dir().wrap_err("failed to get current directory")?);
-    let team = repository.read_team_configuration().await?;
-    robot_number_for_hardware_id(&team, hardware_id)
-}
-
-fn robot_number_for_hardware_id(team: &Team, hardware_id: &str) -> Result<u8> {
-    team.robots
-        .iter()
-        .find(|robot| robot.id == hardware_id)
-        .map(|robot| robot.number)
-        .ok_or_else(|| eyre!(r#"ID "{hardware_id}" not found in team.toml"#))
-}
-
-fn derive_namespace(robot: &str) -> String {
-    if robot.starts_with('/') {
-        robot.to_string()
-    } else {
-        format!("/{robot}")
-    }
-}
-
 async fn spawn_all(
     ctx: Arc<Context>,
+    booster_session: &zenoh::Session,
     log_path: Option<PathBuf>,
     motion_handle: Option<tokio::runtime::Handle>,
 ) -> Result<RunningStack> {
@@ -210,13 +195,22 @@ async fn spawn_all(
     let motion_handle = motion_handle.unwrap_or_else(tokio::runtime::Handle::current);
     // Poll these nodes on the isolated runtime from the start, so their nested
     // tasks and lazily created blocking/inference threads inherit its affinity.
-    join_set.spawn_on(button_event_bridge::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(
+        button_event_bridge::run_boxed(ctx.clone(), booster_session.clone()),
+        &motion_handle,
+    );
     join_set.spawn_on(button_event_handler::run_boxed(ctx.clone()), &motion_handle);
     join_set.spawn_on(controller_handler::run_boxed(ctx.clone()), &motion_handle);
     join_set.spawn_on(fall_detection::run_boxed(ctx.clone()), &motion_handle);
-    join_set.spawn_on(hardware_interface::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(
+        hardware_interface::run_boxed(ctx.clone(), booster_session.clone()),
+        &motion_handle,
+    );
     join_set.spawn_on(head_motion::run_boxed(ctx.clone()), &motion_handle);
-    join_set.spawn_on(low_state_bridge::run_boxed(ctx.clone()), &motion_handle);
+    join_set.spawn_on(
+        low_state_bridge::run_boxed(ctx.clone(), booster_session.clone()),
+        &motion_handle,
+    );
     join_set.spawn_on(motion::run_boxed(ctx.clone()), &motion_handle);
     join_set.spawn_on(motion_inference::run_boxed(ctx.clone()), &motion_handle);
     join_set.spawn_on(primary_state_filter::run_boxed(ctx.clone()), &motion_handle);
@@ -230,7 +224,10 @@ async fn spawn_all(
     join_set.spawn(behavior_node::run_boxed(ctx.clone()));
     join_set.spawn(camera_matrix_calculator::run_boxed(ctx.clone()));
     join_set.spawn(detection::run_boxed(ctx.clone()));
-    join_set.spawn(fall_down_state_receiver::run_boxed(ctx.clone()));
+    join_set.spawn(fall_down_state_receiver::run_boxed(
+        ctx.clone(),
+        booster_session.clone(),
+    ));
     join_set.spawn(field_mark_association::run_boxed(ctx.clone()));
     join_set.spawn(game_controller_filter::run_boxed(ctx.clone()));
     join_set.spawn(game_controller_state_filter::run_boxed(ctx.clone()));
@@ -251,7 +248,10 @@ async fn spawn_all(
     join_set.spawn(microphone_recorder::run_boxed(ctx.clone()));
     join_set.spawn(motor_commands_collector::run_boxed(ctx.clone()));
     join_set.spawn(obstacle_filter::run_boxed(ctx.clone()));
-    join_set.spawn(odometer_bridge::run_boxed(ctx.clone()));
+    join_set.spawn(odometer_bridge::run_boxed(
+        ctx.clone(),
+        booster_session.clone(),
+    ));
     join_set.spawn(odometry::run_boxed(ctx.clone()));
     join_set.spawn(player_states_receiver::run_boxed(ctx.clone()));
     join_set.spawn(visual_kick_ball_selector::run_boxed(ctx.clone()));
@@ -312,15 +312,6 @@ mod tests {
         assert_eq!(args.motion_cpus, [4, 5]);
         let args = Args::try_parse_from(["hulk_ros_z", "--location", "test"]).unwrap();
         assert!(args.motion_cpus.is_empty());
-    }
-
-    #[test]
-    fn derive_namespace_prefixes_bare_robot_without_sanitizing() {
-        assert_eq!(derive_namespace("42"), "/42");
-        assert_eq!(derive_namespace("robot-01"), "/robot-01");
-        assert_eq!(derive_namespace("robot//42"), "/robot//42");
-        assert_eq!(derive_namespace("/robot/42"), "/robot/42");
-        assert_eq!(derive_namespace("robot%01"), "/robot%01");
     }
 
     #[test]

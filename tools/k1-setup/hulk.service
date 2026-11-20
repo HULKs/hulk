@@ -4,6 +4,7 @@ Requires=hulk-runtime.service
 After=hulk-runtime.service
 
 [Service]
+EnvironmentFile=/etc/hulk/identity.env
 Type=simple
 ExecStartPre=/usr/bin/jetson_clocks
 ExecStartPre=/nix/var/nix/profiles/hulks/bin/podman wait --condition running hulk

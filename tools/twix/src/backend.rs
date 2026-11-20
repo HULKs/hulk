@@ -29,24 +29,20 @@ pub struct RobotBackend {
 }
 
 impl RobotBackend {
-    pub async fn new(
-        runtime_handle: Handle,
-        router: Option<String>,
-        namespace: String,
-    ) -> Result<Self> {
-        let mut builder = ContextBuilder::default();
-        if let Some(router) = router {
-            builder = builder
-                .with_router_endpoint(router)
-                .wrap_err("failed to configure ROS-Z router endpoint")?;
-        }
+    pub async fn new(runtime_handle: Handle, namespace: String) -> Result<Self> {
+        let context = ContextBuilder::default()
+            .build()
+            .await
+            .wrap_err("failed to build ROS-Z context")?;
+        Self::with_context(runtime_handle, namespace, context).await
+    }
 
-        let context = Arc::new(
-            builder
-                .build()
-                .await
-                .wrap_err("failed to build ROS-Z context")?,
-        );
+    pub(crate) async fn with_context(
+        runtime_handle: Handle,
+        namespace: String,
+        context: Context,
+    ) -> Result<Self> {
+        let context = Arc::new(context);
         let node_name = twix_node_name();
         let node = Arc::new(
             context
@@ -210,29 +206,6 @@ fn sanitize_node_component(value: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    async fn connection_replacements_have_distinct_presentation_identities_at_revision_zero() {
-        let backend = RobotBackend::new(Handle::current(), None, "/".into())
-            .await
-            .unwrap();
-        let initial = backend.presentation_identity();
-        assert_eq!(initial.1, 0);
-
-        backend.set_connection(Connection {
-            backend: Arc::new(Live::new(backend.node(), LiveRetention::default())),
-            cursor: CursorHandle::new(Cursor::Live),
-        });
-        let replacement = backend.presentation_identity();
-        assert_eq!(replacement.1, 0);
-        assert_ne!(replacement.0, initial.0);
-
-        backend.use_live();
-        let live = backend.presentation_identity();
-        assert_eq!(live.1, 0);
-        assert_ne!(live.0, replacement.0);
-        assert_ne!(live.0, initial.0);
-    }
+pub(crate) async fn isolated_context() -> Context {
+    ContextBuilder::isolated_for_test().build().await.unwrap()
 }

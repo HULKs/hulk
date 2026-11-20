@@ -9,10 +9,6 @@ pub(crate) struct Arguments {
     /// Explicit ROS-Z namespace. Omit for root namespace.
     #[arg(long)]
     pub(crate) namespace: Option<String>,
-
-    /// Zenoh router endpoint, e.g. tcp/10.0.24.1:7447. Defaults to localhost router.
-    #[arg(long)]
-    pub(crate) router: Option<String>,
 }
 
 impl Arguments {
@@ -22,12 +18,6 @@ impl Arguments {
             (None, Some(robot)) => normalize_namespace(robot),
             (None, None) => "/".to_string(),
         }
-    }
-
-    pub(crate) fn router_display(&self) -> String {
-        self.router
-            .clone()
-            .unwrap_or_else(|| "tcp/localhost:7447".to_string())
     }
 }
 

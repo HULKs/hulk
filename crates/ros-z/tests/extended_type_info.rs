@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use ros_z::{
     Message,
-    context::ContextBuilder,
     dynamic::{DynamicValue, EnumPayloadValue, SchemaRegistry},
 };
 use ros_z_schema::{
@@ -171,6 +170,11 @@ impl TestRouter {
             .insert_json5("scouting/multicast/enabled", "false")
             .unwrap();
 
+        config.insert_json5("connect/endpoints", "[]").unwrap();
+        config
+            .insert_json5("scouting/gossip/enabled", "false")
+            .unwrap();
+
         let session = zenoh::open(config)
             .wait()
             .expect("failed to open test router");
@@ -188,8 +192,8 @@ impl TestRouter {
 }
 
 async fn create_context_with_router(router: &TestRouter) -> ros_z::Result<ros_z::context::Context> {
-    ContextBuilder::default()
-        .disable_multicast_scouting()
+    ros_z::context::ContextBuilder::isolated_for_test()
+        .with_mode("client")
         .with_connect_endpoints([router.endpoint()])
         .build()
         .await

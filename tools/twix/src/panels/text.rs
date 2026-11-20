@@ -338,11 +338,14 @@ mod tests {
             .expect("runtime should build");
         let backend = Arc::new(
             runtime
-                .block_on(RobotBackend::new(
-                    runtime.handle().clone(),
-                    None,
-                    "/".to_string(),
-                ))
+                .block_on(async {
+                    RobotBackend::with_context(
+                        runtime.handle().clone(),
+                        "/".to_string(),
+                        crate::backend::isolated_context().await,
+                    )
+                    .await
+                })
                 .expect("backend should build"),
         );
         for field_path in [None, Some(".pose.x")] {

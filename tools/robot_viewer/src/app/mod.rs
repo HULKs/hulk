@@ -36,7 +36,6 @@ pub(crate) struct RobotViewerApp {
     widget: BevyWidget,
     state: SharedState,
     namespace: String,
-    router: String,
     pose_source: PoseSource,
     camera_texture: Option<TextureHandle>,
     camera_texture_sequence: u64,
@@ -80,7 +79,6 @@ impl RobotViewerApp {
         creation_context.egui_ctx.set_visuals(egui::Visuals::dark());
 
         let namespace = arguments.namespace();
-        let router = arguments.router_display();
         let state = Arc::new(Mutex::new(ViewerState::default()));
 
         let mut widget = BevyWidget::new(
@@ -104,7 +102,6 @@ impl RobotViewerApp {
             widget,
             state,
             namespace,
-            router,
             pose_source: PoseSource::default(),
             camera_texture: None,
             camera_texture_sequence: 0,

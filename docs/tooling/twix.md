@@ -12,10 +12,10 @@ The positional namespace is optional.
 If provided, it must be an absolute ROS-Z namespace such as `/42`; bare values such as `42` are invalid.
 If omitted, Twix uses the last stored namespace and then falls back to `/`.
 
-To connect through a specific Zenoh router endpoint at startup, pass `--router`:
+To connect through a specific gateway:
 
 ```bash
-./twix /42 --router tcp/127.0.0.1:7447
+ROS_Z_GATEWAY=tcp/192.0.2.1:7447 ./twix /42
 ```
 
 To start with one blank workspace instead of restoring the saved session, run Twix with `--clear`.
@@ -48,7 +48,7 @@ The trash icon beside a user preset in the **+** picker deletes it after confirm
 The save dialog selects its name field immediately; type a name and press Enter to save, or Escape to cancel.
 
 Presets include nested groups, names, splits, active tabs, focus, and panel settings.
-Namespace, router, and theme remain global.
+Namespace and theme remain global.
 The whole docking layout is autosaved and restored on restart.
 Named groups retain their identity when moved or reduced to one child.
 Only saved panel settings are restored, not live samples or unfinished parameter value edits.
@@ -130,10 +130,8 @@ The X axis shows the seconds before the newest sample, and **History** sets the 
 
 ## MCAP Timeline
 
-Start a recording with `cargo run -p mcap-replay -- recovered.mcap`. The tool starts
-an embedded Zenoh router and prints its router URI and a Twix connection command.
-Use `--router <URI>` to connect the replay tool to an existing router instead, or
-`--listen tcp/127.0.0.1:0` to allocate an available embedded-router port.
+Serve a recording with `cargo run -p mcap-replay -- recovered.mcap`.
+The tool prints a Twix command such as `./twix /replay`.
 
 In Twix, open **+ → Timeline**. Dock it alongside other views or save it in a
 layout. Its Blender-style view uses the full panel, with an adaptive time ruler,

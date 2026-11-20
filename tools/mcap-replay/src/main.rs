@@ -13,7 +13,6 @@ use color_eyre::{
 };
 use recording::{IndexCache, PendingQuery, QueryRecording, Recording};
 use ros_z::{
-    config::RouterConfigBuilder,
     context::{Context, ContextBuilder},
     node::Node,
     time::Time,
@@ -46,31 +45,9 @@ struct Arguments {
     /// Namespace or directory prefix: /replay or a namespace below it.
     #[arg(long, default_value = "/replay")]
     namespace: String,
-    /// Connect to an external router instead of starting an embedded router.
-    #[arg(long, conflicts_with = "listen")]
-    router: Option<String>,
-    /// Embedded router listen endpoint. Use port 0 to pick an available port.
-    #[arg(long, default_value = "tcp/0.0.0.0:7447")]
-    listen: String,
     /// Global memory budget for lazy timestamp indexes, in MiB. Idle indexes are evicted.
     #[arg(long, default_value = "1024")]
     index_cache_mib: NonZeroUsize,
-}
-
-impl Arguments {
-    async fn connect(&self) -> Result<Context> {
-        let builder = if let Some(router) = &self.router {
-            ContextBuilder::default().with_router_endpoint(router)?
-        } else {
-            let config = RouterConfigBuilder::new()
-                .with_listen_endpoint(&self.listen)
-                .build_config()
-                .map_err(Error::other)
-                .wrap_err("configuring embedded router")?;
-            ContextBuilder::default().with_zenoh_config(config)
-        };
-        builder.build().await.wrap_err("connecting replay server")
-    }
 }
 
 #[tokio::main]
@@ -88,37 +65,18 @@ async fn main() -> Result<()> {
         .namespace()
         .to_owned();
 
-    let context = args.connect().await?;
-    let router_uris = if let Some(router) = &args.router {
-        vec![router.clone()]
-    } else {
-        context
-            .session()
-            .info()
-            .locators()
-            .await
-            .into_iter()
-            .map(|locator| locator.to_string())
-            .collect::<Vec<_>>()
-    };
-    let router = router_uris
-        .first()
-        .ok_or_eyre("embedded router has no reachable listen URI")?;
-
-    for uri in &router_uris {
-        println!("Router URI: {uri}");
-    }
-
+    let context = ContextBuilder::default()
+        .build()
+        .await
+        .wrap_err("connecting replay server")?;
     let (cache, cleanup) = IndexCache::new(index_budget)?;
     let cache = Arc::new(cache);
     let result = async {
         if args.file.is_dir() {
-            return directory::watch(&args.file, &namespace, &context, Arc::clone(&cache), router)
-                .await;
+            return directory::watch(&args.file, &namespace, &context, Arc::clone(&cache)).await;
         }
 
-        let (node, recording, name) =
-            open_recording(&context, &args.file, &namespace, router).await?;
+        let (node, recording, name) = open_recording(&context, &args.file, &namespace).await?;
         serve_queries(&node, recording, name, Arc::clone(&cache), async {
             let _ = ctrl_c().await;
         })
@@ -135,7 +93,6 @@ async fn open_recording(
     context: &Context,
     path: &Path,
     namespace: &str,
-    router: &str,
 ) -> Result<(Node, Recording, String)> {
     let file = path.to_owned();
     let ns = namespace.to_owned();
@@ -149,7 +106,7 @@ async fn open_recording(
         .await
         .wrap_err_with(|| format!("creating node in {namespace}"))?;
 
-    println!("Twix: ./twix {namespace} --router {router}");
+    println!("Twix: ./twix {namespace}");
     Ok((node, recording, path.display().to_string()))
 }
 
@@ -360,24 +317,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cli_preserves_router_options() {
+    fn cli_requires_a_positive_index_budget_and_preserves_namespace() {
         let defaults = Arguments::try_parse_from(["mcap-replay", "test.mcap"]).unwrap();
-        assert_eq!(defaults.listen, "tcp/0.0.0.0:7447");
+        assert_eq!(defaults.file, Path::new("test.mcap"));
+        assert_eq!(defaults.namespace, "/replay");
         assert_eq!(defaults.index_cache_mib.get(), 1024);
         assert!(
             Arguments::try_parse_from(["mcap-replay", "test.mcap", "--index-cache-mib", "0"])
                 .is_err()
         );
-        assert!(
-            Arguments::try_parse_from([
-                "mcap-replay",
-                "test.mcap",
-                "--listen",
-                "tcp/127.0.0.1:0",
-                "--router",
-                "tcp/127.0.0.1:7447"
-            ])
-            .is_err()
-        );
+        let custom = Arguments::try_parse_from([
+            "mcap-replay",
+            "recordings",
+            "--namespace",
+            "/replay/game",
+            "--index-cache-mib",
+            "32",
+        ])
+        .unwrap();
+        assert_eq!(custom.namespace, "/replay/game");
+        assert_eq!(custom.index_cache_mib.get(), 32);
     }
 }

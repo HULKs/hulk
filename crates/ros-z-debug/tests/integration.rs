@@ -29,9 +29,7 @@ fn string_message_schema() -> ros_z::dynamic::Schema {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn typed_subscription_receives_latest_sample() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", serde_json::json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("context should build");
@@ -104,9 +102,7 @@ async fn typed_subscription_receives_latest_sample() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn typed_subscription_resolves_relative_topic_against_target_namespace() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", serde_json::json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("context should build");
@@ -162,9 +158,7 @@ async fn typed_subscription_resolves_relative_topic_against_target_namespace() {
 async fn dynamic_subscription_renders_json_view() {
     use ros_z::dynamic::{DynamicPayload, DynamicStruct};
 
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", serde_json::json!([]))
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("context should build");
