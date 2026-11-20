@@ -8,18 +8,18 @@ use tracing::{debug, warn};
 use zenoh::liveliness::LivelinessToken;
 use zenoh::{Session, sample::Sample};
 
-use crate::Result;
 use crate::dynamic::{DynamicCdrCodec, DynamicPayload, Schema};
 use crate::endpoint_builder::{EndpointBuilderContext, MessageEndpointType};
 use crate::entity::{EndpointEntity, EndpointKind};
 use crate::graph::Graph;
 use crate::message::WireDecoder;
-use crate::pubsub::metadata::Received;
+use crate::pubsub::metadata::{Received, publication_id_from_sample};
 use crate::pubsub::raw::{self, RawSubscriberBuilder};
 use crate::pubsub::replay::{self, TransientLocalReplayCoordinator};
 use crate::qos::QosProfile;
 use crate::queue::BoundedQueue;
 use crate::topic_name::qualify_topic_name;
+use crate::{EndpointGlobalId, Result};
 use ros_z_protocol::qos::{QosDurability, QosHistory};
 
 pub(super) fn subscriber_queue_capacity(
@@ -128,6 +128,7 @@ struct PreparedSubscriberBuild {
 
 #[derive(Debug, Clone)]
 struct QueueDropContext {
+    subscriber_id: EndpointGlobalId,
     log_prefix: &'static str,
     topic: String,
     node_namespace: String,
@@ -148,6 +149,7 @@ impl QueueDropContext {
             .map_err(|source| crate::Error::topic_name(entity.topic.clone(), source))?;
 
         Ok(Self {
+            subscriber_id: EndpointGlobalId::from(entity),
             log_prefix,
             topic,
             node_namespace: entity.node.namespace.clone(),
@@ -159,15 +161,27 @@ impl QueueDropContext {
     }
 }
 
-fn record_queue_push<T>(
-    queue: &BoundedQueue<T>,
+// Admission to the local queue, after any transient-local replay coordination.
+#[tracing::instrument(name = "enqueue_sample", level = "trace", skip_all, fields(
+    publication_id = trace_publication_id(&sample), subscriber_id = %context.subscriber_id,
+    topic = %context.topic, node_name = %context.node_name, node_namespace = %context.node_namespace,
+    queue_capacity = context.queue_capacity,
+))]
+fn record_queue_push(
+    queue: &BoundedQueue<Sample>,
     dropped_samples: &AtomicU64,
     context: &QueueDropContext,
-    sample: T,
+    sample: Sample,
 ) {
-    if !queue.push(sample) {
+    let Some(victim) = queue.push(sample) else {
         return;
-    }
+    };
+    // The containing enqueue span describes the incoming sample, not the victim.
+    tracing::trace!(name: "discarded", parent: None,
+        publication_id = trace_publication_id(&victim), subscriber_id = %context.subscriber_id,
+        topic = %context.topic, node_name = %context.node_name, node_namespace = %context.node_namespace,
+        reason = "queue_overflow", queue_capacity = context.queue_capacity,
+    );
 
     let total_dropped_samples = dropped_samples.fetch_add(1, Ordering::Relaxed) + 1;
     match context.queue_overflow_reporting {
@@ -201,6 +215,36 @@ fn record_queue_push<T>(
             );
         }
     }
+}
+
+// Only call inside a tracing field: raw samples need not have a ROS-Z attachment.
+fn trace_publication_id(sample: &Sample) -> Option<impl tracing::field::Value> {
+    // The `log` fallback can evaluate span fields even without a dispatcher.
+    if tracing::level_filters::LevelFilter::current() < tracing::Level::TRACE {
+        return None;
+    }
+    publication_id_from_sample(sample).map(tracing::field::display)
+}
+
+pub(super) fn trace_dequeue(id: EndpointGlobalId, entity: &EndpointEntity, sample: &Sample) {
+    tracing::trace!(name: "dequeue",
+        publication_id = trace_publication_id(sample), subscriber_id = %id,
+        topic = %entity.topic, node_name = %entity.node.name, node_namespace = %entity.node.namespace,
+    );
+}
+
+#[tracing::instrument(level = "trace", skip_all, fields(
+    publication_id = trace_publication_id(sample), subscriber_id = %id,
+    topic = %entity.topic, node_name = %entity.node.name, node_namespace = %entity.node.namespace,
+), err(level = "trace"))]
+fn process_sample<T>(
+    id: EndpointGlobalId,
+    entity: &EndpointEntity,
+    sample: &Sample,
+    decode: impl FnOnce(&[u8]) -> Result<T>,
+) -> Result<Received<T>> {
+    let message = decode(&sample.payload().to_bytes())?;
+    Received::try_from_sample(sample, message)
 }
 
 async fn declare_liveliness(session: &Session, entity: &EndpointEntity) -> Result<LivelinessToken> {
@@ -318,35 +362,55 @@ impl<T, C> SubscriberBuilder<T, C> {
 
     pub(crate) async fn build_raw_queue_async(self) -> Result<raw::RawSubscriber> {
         let prepared = self.prepare_build("RAW_SUB")?;
-        let entity = &prepared.entity;
-        let queue_size = subscriber_queue_capacity(&entity.qos, prepared.options.queue_capacity);
-        let queue = Arc::new(BoundedQueue::new(queue_size));
-        let raw_queue = queue.clone();
-        let dropped_samples = Arc::new(AtomicU64::new(0));
-        let raw_dropped_samples = dropped_samples.clone();
-        let drop_context = QueueDropContext::from_entity(
-            "RAW_SUB",
-            entity,
-            queue_size,
-            prepared.options.queue_overflow_reporting,
-        )?;
-        let resources = prepared
-            .build_subscriber_resources(
-                entity,
-                move |sample| {
-                    record_queue_push(&raw_queue, &raw_dropped_samples, &drop_context, sample);
-                },
-                "RAW_SUB",
-            )
-            .await?;
-
-        prepared.warn_about_incompatible_endpoints("RAW_SUB");
-
-        Ok(raw::RawSubscriber::new(queue, resources))
+        let (subscriber_id, queue, resources) = prepared.build_queue("RAW_SUB").await?;
+        Ok(raw::RawSubscriber::new(
+            subscriber_id,
+            prepared.entity,
+            queue,
+            resources,
+        ))
     }
 }
 
 impl PreparedSubscriberBuild {
+    async fn build_queue(
+        &self,
+        log_prefix: &'static str,
+    ) -> Result<(
+        EndpointGlobalId,
+        Arc<BoundedQueue<Sample>>,
+        SubscriberResources,
+    )> {
+        let capacity = subscriber_queue_capacity(&self.entity.qos, self.options.queue_capacity);
+        let queue = Arc::new(BoundedQueue::new(capacity));
+        let receiving_queue = queue.clone();
+        let context = QueueDropContext::from_entity(
+            log_prefix,
+            &self.entity,
+            capacity,
+            self.options.queue_overflow_reporting,
+        )?;
+        let id = context.subscriber_id;
+        let dropped = AtomicU64::new(0);
+        let resources = self
+            .build_subscriber_resources(
+                &self.entity,
+                move |sample| {
+                    record_queue_push(&receiving_queue, &dropped, &context, sample);
+                },
+                log_prefix,
+            )
+            .await?;
+        self.warn_about_incompatible_endpoints(log_prefix);
+        // Report successful ownership only. Initial replay may already have enqueued samples.
+        tracing::trace!(name: "subscriber_created",
+            endpoint_id = %id, topic = %self.entity.topic,
+            node_zid = %self.entity.node.z_id, node_id = self.entity.node.id,
+            node_name = %self.entity.node.name, node_namespace = %self.entity.node.namespace,
+        );
+        Ok((id, queue, resources))
+    }
+
     fn warn_about_incompatible_endpoints(&self, log_prefix: &str) {
         for endpoint in self
             .context
@@ -505,36 +569,8 @@ where
         C: WireDecoder,
     {
         let prepared = self.prepare_build("SUB")?;
-        let entity = &prepared.entity;
-        let queue_size = subscriber_queue_capacity(&entity.qos, prepared.options.queue_capacity);
-        let queue = Arc::new(BoundedQueue::new(queue_size));
-        let subscriber_queue = queue.clone();
-        let dropped_samples = Arc::new(AtomicU64::new(0));
-        let subscriber_dropped_samples = dropped_samples.clone();
-        let drop_context = QueueDropContext::from_entity(
-            "SUB",
-            entity,
-            queue_size,
-            prepared.options.queue_overflow_reporting,
-        )?;
-        let resources = prepared
-            .build_subscriber_resources(
-                entity,
-                move |sample| {
-                    record_queue_push(
-                        &subscriber_queue,
-                        &subscriber_dropped_samples,
-                        &drop_context,
-                        sample,
-                    );
-                },
-                "SUB",
-            )
-            .await?;
-
-        prepared.warn_about_incompatible_endpoints("SUB");
-
-        debug!("[SUB] Subscriber ready: topic={}", entity.topic);
+        let (subscriber_id, queue, resources) = prepared.build_queue("SUB").await?;
+        debug!("[SUB] Subscriber ready: topic={}", prepared.entity.topic);
 
         let PreparedSubscriberBuild {
             context,
@@ -544,6 +580,7 @@ where
         } = prepared;
 
         Ok(Subscriber {
+            subscriber_id,
             entity,
             _resources: resources,
             queue,
@@ -555,6 +592,7 @@ where
 }
 
 pub struct Subscriber<T, C: WireDecoder = <T as crate::Message>::Codec> {
+    subscriber_id: EndpointGlobalId,
     entity: EndpointEntity,
     queue: Arc<BoundedQueue<Sample>>,
     _resources: SubscriberResources,
@@ -637,12 +675,17 @@ where
     }
 
     /// Receive and deserialize the next message together with metadata.
+    #[tracing::instrument(level = "trace", skip_all, fields(
+        subscriber_id = %self.subscriber_id, topic = %self.entity.topic,
+        node_name = %self.entity.node.name, node_namespace = %self.entity.node.namespace,
+    ))]
     pub async fn recv_with_metadata(&self) -> Result<Received<C::Output>> {
         let sample = self.queue.recv_async().await;
-        let payload = sample.payload().to_bytes();
-        let message = C::deserialize(&payload)
-            .map_err(|source| crate::Error::decode(std::any::type_name::<C::Output>(), source))?;
-        Received::try_from_sample(&sample, message)
+        trace_dequeue(self.subscriber_id, &self.entity, &sample);
+        process_sample(self.subscriber_id, &self.entity, &sample, |payload| {
+            C::deserialize(payload)
+                .map_err(|source| crate::Error::decode(std::any::type_name::<C::Output>(), source))
+        })
     }
 }
 
@@ -659,14 +702,14 @@ impl Subscriber<DynamicPayload, DynamicCdrCodec> {
     /// - The subscriber was built with a callback (no queue available)
     /// - The dynamic schema was not set by the dynamic subscriber factory
     /// - Deserialization fails
-    #[tracing::instrument(name = "recv_dynamic", skip(self), fields(
-        topic = %self.entity.topic,
-        payload_len = tracing::field::Empty
-    ))]
     pub async fn recv(&self) -> Result<DynamicPayload> {
         self.recv_with_metadata().await.map(Received::into_message)
     }
 
+    #[tracing::instrument(level = "trace", skip_all, fields(
+        subscriber_id = %self.subscriber_id, topic = %self.entity.topic,
+        node_name = %self.entity.node.name, node_namespace = %self.entity.node.namespace,
+    ))]
     pub async fn recv_with_metadata(&self) -> Result<Received<DynamicPayload>> {
         let schema = self.dyn_schema.as_ref().ok_or_else(|| {
             crate::error::WireError::MissingDynamicSchema {
@@ -675,11 +718,11 @@ impl Subscriber<DynamicPayload, DynamicCdrCodec> {
         })?;
 
         let sample = self.queue.recv_async().await;
-        let payload = sample.payload().to_bytes();
-
-        let message = DynamicCdrCodec::deserialize((&payload, schema))
-            .map_err(|source| crate::Error::decode("ros_z::dynamic::DynamicPayload", source))?;
-        Received::try_from_sample(&sample, message)
+        trace_dequeue(self.subscriber_id, &self.entity, &sample);
+        process_sample(self.subscriber_id, &self.entity, &sample, |payload| {
+            DynamicCdrCodec::deserialize((payload, schema))
+                .map_err(|source| crate::Error::decode("ros_z::dynamic::DynamicPayload", source))
+        })
     }
 
     /// Get the dynamic schema.
@@ -694,6 +737,7 @@ mod tests {
 
     fn queue_drop_context(reporting: QueueOverflowReporting) -> QueueDropContext {
         QueueDropContext {
+            subscriber_id: EndpointGlobalId::ZERO,
             log_prefix: "TEST_SUB",
             topic: "/test_topic".to_owned(),
             node_namespace: "/".to_owned(),
@@ -704,33 +748,29 @@ mod tests {
         }
     }
 
-    fn assert_record_queue_push_drops_oldest_and_counts(reporting: QueueOverflowReporting) {
+    fn overflow_queue(reporting: QueueOverflowReporting) {
         let queue = BoundedQueue::new(2);
         let dropped_samples = AtomicU64::new(0);
         let context = queue_drop_context(reporting);
 
-        record_queue_push(&queue, &dropped_samples, &context, 1);
-        record_queue_push(&queue, &dropped_samples, &context, 2);
-        record_queue_push(&queue, &dropped_samples, &context, 3);
+        // Raw samples without ROS-Z attachments still participate in overflow.
+        for byte in [1, 2, 3] {
+            let key = "test/key".parse::<zenoh::key_expr::KeyExpr>().unwrap();
+            let sample = zenoh::sample::SampleBuilder::put(key, [byte]).into();
+            record_queue_push(&queue, &dropped_samples, &context, sample);
+        }
 
-        assert_eq!(queue.try_recv(), Some(2));
-        assert_eq!(queue.try_recv(), Some(3));
-        assert_eq!(queue.try_recv(), None);
+        assert_eq!(&*queue.try_recv().unwrap().payload().to_bytes(), &[2]);
+        assert_eq!(&*queue.try_recv().unwrap().payload().to_bytes(), &[3]);
+        assert!(queue.try_recv().is_none());
         assert_eq!(dropped_samples.load(Ordering::Relaxed), 1);
     }
 
     #[test]
-    fn record_queue_push_drops_oldest_and_counts_for_silent_reporting() {
-        assert_record_queue_push_drops_oldest_and_counts(QueueOverflowReporting::Silent);
-    }
-
-    #[test]
-    fn record_queue_push_drops_oldest_and_counts_for_debug_reporting() {
-        assert_record_queue_push_drops_oldest_and_counts(QueueOverflowReporting::Debug);
-    }
-
-    #[test]
-    fn record_queue_push_drops_oldest_and_counts_for_warn_reporting() {
-        assert_record_queue_push_drops_oldest_and_counts(QueueOverflowReporting::Warn);
+    fn overflow_drops_oldest_and_counts_regardless_of_reporting() {
+        use QueueOverflowReporting::{Debug, Silent, Warn};
+        for policy in [Silent, Debug, Warn] {
+            overflow_queue(policy);
+        }
     }
 }

@@ -38,19 +38,20 @@ impl<T> BoundedQueue<T> {
 
     /// Push an item to the queue, dropping the OLDEST if at capacity.
     ///
-    /// Returns `true` if an item was dropped, `false` otherwise.
-    pub fn push(&self, item: T) -> bool {
+    /// Returns `Some(oldest)` if an item was evicted, or `None` otherwise.
+    /// The incoming item is always queued, even at capacity zero, where it
+    /// replaces any stored item (or returns `None` if the queue was empty).
+    pub fn push(&self, item: T) -> Option<T> {
         let mut data = self.data.lock();
-        let dropped = if data.len() >= self.capacity {
-            data.pop_front();
-            true
+        let evicted = if data.len() >= self.capacity {
+            data.pop_front()
         } else {
-            false
+            None
         };
         data.push_back(item);
         self.not_empty.notify_one();
         self.event.notify(1);
-        dropped
+        evicted
     }
 
     /// Blocking receive - waits until an item is available.
@@ -112,5 +113,21 @@ impl<T> BoundedQueue<T> {
             // Wait for notification
             listener.await;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BoundedQueue;
+
+    #[test]
+    fn zero_capacity_retains_incoming_item_and_returns_actual_victim() {
+        let queue = BoundedQueue::new(0);
+        assert_eq!(queue.push(1), None);
+        assert_eq!(queue.push(2), Some(1));
+        assert_eq!(queue.try_recv(), Some(2));
+        assert!(queue.is_empty());
+        assert_eq!(queue.push(3), None);
+        assert_eq!(queue.try_recv(), Some(3));
     }
 }

@@ -5,8 +5,8 @@ use ros_z::queue::BoundedQueue;
 #[test]
 fn test_push_pop_basic() {
     let q = BoundedQueue::new(5);
-    assert!(!q.push(1));
-    assert!(!q.push(2));
+    assert_eq!(q.push(1), None);
+    assert_eq!(q.push(2), None);
     assert_eq!(q.try_recv(), Some(1));
     assert_eq!(q.try_recv(), Some(2));
     assert_eq!(q.try_recv(), None);
@@ -15,11 +15,11 @@ fn test_push_pop_basic() {
 #[test]
 fn test_drop_oldest_on_overflow() {
     let q = BoundedQueue::new(3);
-    assert!(!q.push(1));
-    assert!(!q.push(2));
-    assert!(!q.push(3));
-    assert!(q.push(4)); // Should drop 1
-    assert!(q.push(5)); // Should drop 2
+    assert_eq!(q.push(1), None);
+    assert_eq!(q.push(2), None);
+    assert_eq!(q.push(3), None);
+    assert_eq!(q.push(4), Some(1));
+    assert_eq!(q.push(5), Some(2));
     assert_eq!(q.try_recv(), Some(3));
     assert_eq!(q.try_recv(), Some(4));
     assert_eq!(q.try_recv(), Some(5));
@@ -41,7 +41,7 @@ fn test_recv_timeout_succeeds() {
 
     let handle = thread::spawn(move || {
         thread::sleep(Duration::from_millis(10));
-        q2.push(42);
+        let _ = q2.push(42);
     });
 
     let result = q.receive_with_timeout(Duration::from_millis(100));
@@ -56,7 +56,7 @@ fn test_blocking_recv() {
 
     let handle = thread::spawn(move || {
         thread::sleep(Duration::from_millis(10));
-        q2.push(42);
+        let _ = q2.push(42);
     });
 
     let val = q.recv();
@@ -71,7 +71,7 @@ async fn test_recv_async() {
 
     let handle = tokio::spawn(async move {
         tokio::time::sleep(Duration::from_millis(10)).await;
-        q2.push(42);
+        let _ = q2.push(42);
     });
 
     let val = q.recv_async().await;
@@ -82,8 +82,8 @@ async fn test_recv_async() {
 #[test]
 fn test_capacity_one() {
     let q = BoundedQueue::new(1);
-    assert!(!q.push(1));
-    assert!(q.push(2)); // Drops 1
-    assert!(q.push(3)); // Drops 2
+    assert_eq!(q.push(1), None);
+    assert_eq!(q.push(2), Some(1));
+    assert_eq!(q.push(3), Some(2));
     assert_eq!(q.try_recv(), Some(3));
 }

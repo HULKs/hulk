@@ -3,8 +3,7 @@ use std::{fmt::Display, ops::Deref};
 use zenoh::sample::Sample;
 
 use crate::attachment::{Attachment, EndpointGlobalId};
-use crate::error::WireError;
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::time::Time;
 
 /// A deserialized message together with the transport and source timestamps seen
@@ -52,13 +51,17 @@ impl Display for PublicationId {
     }
 }
 
+impl From<&Attachment> for PublicationId {
+    fn from(attachment: &Attachment) -> Self {
+        Self::new(attachment.source_global_id, attachment.sequence_number)
+    }
+}
+
 pub(super) fn publication_id_from_sample(sample: &Sample) -> Option<PublicationId> {
-    sample
-        .attachment()
-        .and_then(|raw| Attachment::try_from(raw).ok())
-        .map(|attachment| {
-            PublicationId::new(attachment.source_global_id, attachment.sequence_number)
-        })
+    Attachment::try_from(sample)
+        .ok()
+        .as_ref()
+        .map(PublicationId::from)
 }
 
 impl<T> Received<T> {
@@ -68,14 +71,7 @@ impl<T> Received<T> {
             .timestamp()
             .map(|ts| Time::from_wallclock(ts.get_time().to_system_time()));
 
-        let attachment = {
-            let raw = sample
-                .attachment()
-                .ok_or(WireError::MissingSampleAttachment)?;
-
-            Attachment::try_from(raw)
-                .map_err(|source| Error::from(WireError::SampleAttachmentDecode { source }))?
-        };
+        let attachment = Attachment::try_from(sample)?;
 
         Ok(Self {
             message,
@@ -128,13 +124,17 @@ impl<T: PartialEq> PartialEq for Received<T> {
 mod tests {
     use super::PublicationId;
     use crate::EndpointGlobalId;
+    use crate::attachment::Attachment;
+    use crate::time::Time;
 
     #[test]
-    fn publication_id_display_formats_full_endpoint_and_sequence_number() {
-        let publication_id = PublicationId::new(
-            EndpointGlobalId::from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]),
+    fn publication_id_from_attachment_formats_full_endpoint_and_sequence_number() {
+        let attachment = Attachment::with_source_time(
             42,
+            EndpointGlobalId::from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]),
+            Time::zero(),
         );
+        let publication_id = PublicationId::from(&attachment);
 
         assert_eq!(
             publication_id.to_string(),
