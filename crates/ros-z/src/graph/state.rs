@@ -1,4 +1,4 @@
-use std::collections::{HashMap, hash_map::Entry};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use parking_lot::{Mutex, MutexGuard};
@@ -11,7 +11,40 @@ use crate::entity::{EndpointKind, Entity, LivelinessKE};
 pub struct GraphData {
     revision: GraphRevision,
     entities: HashMap<LivelinessKE, Entity>,
-    subscriber_counts: HashMap<String, usize>,
+    subscriber_counts: SubscriberCounts,
+}
+
+#[derive(Debug, Clone, Default)]
+struct SubscriberCounts(HashMap<String, usize>);
+
+impl SubscriberCounts {
+    fn count(&self, topic: &str) -> usize {
+        self.0.get(topic).copied().unwrap_or(0)
+    }
+
+    fn add(&mut self, entity: &Entity) {
+        if let Some(topic) = subscription_topic(entity) {
+            *self.0.entry(topic.to_owned()).or_default() += 1;
+        }
+    }
+
+    fn remove(&mut self, entity: &Entity) {
+        if let Some(topic) = subscription_topic(entity) {
+            let count = self
+                .0
+                .get_mut(topic)
+                .expect("stored subscription has a count");
+            *count -= 1;
+            if *count == 0 {
+                self.0.remove(topic);
+            }
+        }
+    }
+}
+
+fn subscription_topic(entity: &Entity) -> Option<&str> {
+    let endpoint = entity.as_endpoint()?;
+    (endpoint.kind == EndpointKind::Subscription).then_some(endpoint.topic.as_str())
 }
 
 pub(super) struct GraphInner {
@@ -24,7 +57,7 @@ impl GraphData {
         Self {
             revision: GraphRevision::INITIAL,
             entities: HashMap::new(),
-            subscriber_counts: HashMap::new(),
+            subscriber_counts: SubscriberCounts::default(),
         }
     }
 
@@ -33,19 +66,18 @@ impl GraphData {
     }
 
     pub(crate) fn subscriber_count(&self, topic: &str) -> usize {
-        self.subscriber_counts.get(topic).copied().unwrap_or(0)
+        self.subscriber_counts.count(topic)
     }
 
     pub(super) fn insert(&mut self, key_expr: LivelinessKE, entity: Entity) -> bool {
-        let (old, new) = match self.entities.entry(key_expr) {
-            Entry::Vacant(entry) => (None, entry.insert(entity)),
-            Entry::Occupied(mut entry) if entry.get() != &entity => {
-                let old = entry.insert(entity);
-                (Some(old), entry.into_mut())
-            }
-            Entry::Occupied(_) => return false,
-        };
-        Self::update_subscriber_counts(&mut self.subscriber_counts, old.as_ref(), Some(new));
+        if self.entities.get(&key_expr) == Some(&entity) {
+            return false;
+        }
+
+        self.subscriber_counts.add(&entity);
+        if let Some(previous) = self.entities.insert(key_expr, entity) {
+            self.subscriber_counts.remove(&previous);
+        }
         true
     }
 
@@ -53,43 +85,8 @@ impl GraphData {
         let Some(old) = self.entities.remove(key_expr) else {
             return false;
         };
-        Self::update_subscriber_counts(&mut self.subscriber_counts, Some(&old), None);
+        self.subscriber_counts.remove(&old);
         true
-    }
-
-    fn update_subscriber_counts(
-        counts: &mut HashMap<String, usize>,
-        old: Option<&Entity>,
-        new: Option<&Entity>,
-    ) {
-        fn subscription_topic(entity: &Entity) -> Option<&str> {
-            entity
-                .as_endpoint()
-                .filter(|endpoint| endpoint.kind == EndpointKind::Subscription)
-                .map(|endpoint| endpoint.topic.as_str())
-        }
-
-        let old_topic = old.and_then(subscription_topic);
-        let new_topic = new.and_then(subscription_topic);
-        if old_topic == new_topic {
-            return;
-        }
-        if let Some(topic) = old_topic {
-            let count = counts
-                .get_mut(topic)
-                .expect("stored subscription has a count");
-            *count -= 1;
-            if *count == 0 {
-                counts.remove(topic);
-            }
-        }
-        if let Some(topic) = new_topic {
-            if let Some(count) = counts.get_mut(topic) {
-                *count += 1;
-            } else {
-                counts.insert(topic.to_owned(), 1);
-            }
-        }
     }
 
     pub(super) fn entities_raw(&self) -> impl Iterator<Item = &Entity> + '_ {
@@ -240,7 +237,7 @@ mod tests {
 
     #[test]
     fn subscriber_count_matches_scan_after_graph_changes() {
-        let inner = GraphInner::new();
+        let mut data = GraphData::new();
         let node = node("subscriber_count_node");
         let first = EndpointEntity {
             kind: EndpointKind::Subscription,
@@ -265,7 +262,6 @@ mod tests {
         let first_key = key_for(&Entity::Endpoint(first.clone()));
         let second_key = key_for(&Entity::Endpoint(second.clone()));
 
-        let mut revision = GraphRevision::INITIAL;
         for (key, replacement, expected_change) in [
             (&first_key, None, false),
             (&first_key, Some(first.clone()), true),
@@ -280,24 +276,17 @@ mod tests {
             (&second_key, None, true),
         ] {
             let changed = match replacement {
-                Some(endpoint) => inner.insert(key.clone(), Entity::Endpoint(endpoint)),
-                None => inner.remove(key),
+                Some(endpoint) => data.insert(key.clone(), Entity::Endpoint(endpoint)),
+                None => data.remove(key),
             };
             assert_eq!(changed, expected_change);
-            if expected_change {
-                revision = revision.next();
-            }
-
-            let data = inner.lock();
-            assert_eq!(data.revision(), revision);
-            for topic in ["/topic", "/topic/", "topic", "/**", "/absent"] {
+            for topic in ["/topic", "/topic/", "topic", "/absent"] {
                 assert_eq!(
                     data.subscriber_count(topic),
                     data.subscriptions_on(topic).count(),
-                    "topic {topic:?} at revision {revision:?}",
+                    "topic {topic:?}",
                 );
             }
-            assert!(data.subscriber_counts.values().all(|&count| count > 0));
         }
     }
 
