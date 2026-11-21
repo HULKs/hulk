@@ -5,6 +5,7 @@ After=hulks-firewall.service
 
 [Container]
 ContainerName=hulk
+User=1000
 Image=hulk-runtime:latest
 Pull=never
 Network=host

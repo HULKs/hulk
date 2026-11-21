@@ -14,9 +14,9 @@ export NIX_CONFIG=$'substituters =\nbuilders =\n'
 "$nix_bin/nix-store" --import < "$bundle/nix.export"
 root=$(cat "$bundle/root-path")
 
-for service in hulk hulk-runtime zenoh-bridge-dds zenohd; do
-    if systemctl cat "$service.service" >/dev/null 2>&1; then
-        systemctl stop "$service.service"
+for unit in hulk.service hulk-runtime.service zenoh-bridge-dds.service zenohd.service podman.socket podman.service; do
+    if systemctl cat "$unit" >/dev/null 2>&1; then
+        systemctl stop "$unit"
     fi
 done
 "$nix_bin/nix-env" --profile /nix/var/nix/profiles/hulks --set "$root"
@@ -39,11 +39,9 @@ EOF
 if [[ ! -e /etc/containers/policy.json ]]; then
     echo '{"default":[{"type":"insecureAcceptAnything"}]}' > /etc/containers/policy.json
 fi
-# Existing containers can reference the old static runtime. Migrate explicitly;
-# a failure must not be hidden or treated as successful provisioning.
 # File locks avoid incompatible shared-memory mutex layouts between Podman builds.
 "$root/bin/podman" system renumber
-"$root/bin/podman" system migrate --new-runtime crun --migrate-db
+"$root/bin/podman" system migrate --new-runtime crun
 # Other Pepsi commands invoke `sudo podman`; keep their PATH entry managed too.
 mkdir -p /usr/local/bin
 ln -sfn /nix/var/nix/profiles/hulks/bin/podman /usr/local/bin/podman
