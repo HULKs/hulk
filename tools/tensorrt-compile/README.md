@@ -1,6 +1,7 @@
 # TensorRT compile guide (Hydra NV12 ONNX)
 
 This guide describes the host + robot workflow for compiling TensorRT engines for a Hydra ONNX model and syncing the compiled cache back into the repository.
+The robot must have the [Nix runtime installed](../../docs/tooling/pepsi.md#offline-runtime-installation).
 
 The example model can be produced with [`tools/machine-learning/multi-task-yolo/REPRODUCE.md`](../machine-learning/multi-task-yolo/REPRODUCE.md).
 
@@ -21,7 +22,7 @@ Run from repository root:
 ./pepsi build tools/tensorrt-compile
 ```
 
-This uses the cross-compilation environment and produces an aarch64 binary under `target/container/aarch64-unknown-linux-gnu/debug/`.
+This uses the cross-compilation environment and produces an aarch64 binary under `target/robot/aarch64-unknown-linux-gnu/debug/`.
 
 ## Step 2: Upload to sync model file to robot
 
@@ -35,7 +36,7 @@ Copy the binary to the robot.
 If you built with `--target-dir`, use that directory in the source path instead:
 
 ```bash
-rsync -av target/container/aarch64-unknown-linux-gnu/debug/tensorrt-compile \
+rsync -av target/robot/aarch64-unknown-linux-gnu/debug/tensorrt-compile \
   booster@<robot-ip>:~/hulk/bin/tensorrt-compile
 ```
 
@@ -51,22 +52,16 @@ Then ensure the ONNX model exists in:
 
 - `~/hulk/etc/neural_networks`
 
-Stop hulk process, if it is already running:
+Stop HULK before compilation:
 
 ```bash
-hulk stop
-```
-
-If hulk is still running after that:
-
-```bash
-sudo podman kill hulk
+sudo systemctl stop hulk
 ```
 
 Start compilation:
 
 ```bash
-launchHULK --executable ~/hulk/bin/tensorrt-compile \
+~/hulk/bin/tensorrt-compile \
   --cache-path /home/booster/hulk/etc/neural_networks \
   /home/booster/hulk/etc/neural_networks/hydra-nv12.onnx
 ```

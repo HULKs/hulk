@@ -7,10 +7,11 @@
 This section describes the steps required to set up and get started with the HULKs robotics software.
 The following pages include documentation to
 
--   setup the [Development Environment](./development_environment.md),
--   acquire or build the latest [NAO operating system image](./nao_image_and_sdk.md) and Software Development Toolkit (SDK) to cross-compile for the NAO,
--   [setup the NAO](./nao_setup.md) by flashing the operating system image to the NAO,
--   and [compile, upload, and run](./upload.md) the HULKs robotics software on the robot
+-   set up the [Development Environment](./development_environment.md),
+-   [provision the runtime](../tooling/pepsi.md#offline-runtime-installation) on the Booster robot,
+-   and [compile, upload, and run](./upload.md) HULK on the robot.
+
+For historical NAO setups, see [NAO Image & SDK](./nao_image_and_sdk.md) and [NAO Setup](./nao_setup.md).
 
 !!! tip
 
