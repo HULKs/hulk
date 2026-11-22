@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use color_eyre::{
     Result,
     eyre::{ContextCompat, bail},
@@ -87,4 +89,27 @@ pub async fn image_exists_locally(sdk_image: &SDKImage) -> bool {
         .expect("failed to check for image existence");
 
     status.success()
+}
+
+pub fn native_cargo_command(root: &Path) -> Command {
+    let mut command = native_command(root);
+    command.arg("cargo");
+    command
+}
+
+pub fn native_command(root: &Path) -> Command {
+    shell_command(root, "default")
+}
+
+fn shell_command(root: &Path, shell: &str) -> Command {
+    let mut command = Command::new("bash");
+    command
+        .args([
+            "-c",
+            include_str!("../../../tools/run-nix-shell"),
+            "hulk-sdk",
+        ])
+        .arg(root)
+        .arg(shell);
+    command
 }

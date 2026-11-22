@@ -1,5 +1,5 @@
 #!/usr/bin/env -S bash -e
 
-THIS_DIRECTORY="$(dirname $(readlink -f $0))"
+THIS_DIRECTORY="$(dirname "$(readlink -f "$0")")"
 
-cargo run --manifest-path="${THIS_DIRECTORY}/tools/twix/Cargo.toml" -- "$@"
+exec cargo run --locked --manifest-path="${THIS_DIRECTORY}/tools/twix/Cargo.toml" -- "$@"

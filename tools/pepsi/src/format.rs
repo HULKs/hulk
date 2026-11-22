@@ -1,4 +1,4 @@
-use std::{path::Path, process::Stdio};
+use std::path::Path;
 
 use clap::Args;
 use color_eyre::{
@@ -19,33 +19,31 @@ pub struct Arguments {
 }
 
 async fn rustfmt(root: impl AsRef<Path>, check: bool) -> Result<()> {
-    let check_flag = if check { "--check" } else { "" };
-    let output = Command::new("sh")
-        .stderr(Stdio::piped())
-        .arg("-c")
-        .arg(format!(
-            "cd {} && cargo fmt {check_flag}",
-            root.as_ref().display()
-        ))
-        .output()
-        .await
-        .wrap_err("rustfmt failed")?;
+    let mut command = Command::new("cargo");
+    command.current_dir(root.as_ref()).arg("fmt");
+    if check {
+        command.arg("--check");
+    }
+    let output = command.output().await.wrap_err("rustfmt failed")?;
 
     if output.status.success() {
         return Ok(());
     }
 
-    bail!(String::from_utf8(output.stderr).expect("stderr was not utf8"))
+    bail!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    )
 }
 
 async fn taplo_fmt(root: impl AsRef<Path>, check: bool) -> Result<()> {
     let format_or_check = if check { "check" } else { "format" };
-    let output = Command::new("sh")
-        .stderr(Stdio::piped())
-        .arg("-c")
+    let output = Command::new("bash")
+        .current_dir(root.as_ref())
+        .args(["-o", "pipefail", "-c"])
         .arg(format!(
-            "cd {} && git ls-files -z '*.toml' | xargs -0 taplo {format_or_check}",
-            root.as_ref().display()
+            "git ls-files -z '*.toml' | xargs -0r taplo {format_or_check}"
         ))
         .output()
         .await
@@ -60,25 +58,44 @@ async fn taplo_fmt(root: impl AsRef<Path>, check: bool) -> Result<()> {
 
 async fn ruff_fmt(root: impl AsRef<Path>, check: bool) -> Result<()> {
     let check_flag = if check { "--check" } else { "" };
-    let output = Command::new("sh")
-        .stderr(Stdio::piped())
-        .arg("-c")
+    let output = Command::new("bash")
+        .current_dir(root.as_ref())
+        .args(["-o", "pipefail", "-c"])
         .arg(format!(
-            "cd {} && git ls-files -z '*.py' '*.pyi' | xargs -0 uvx ruff format {check_flag}",
-            root.as_ref().display()
+            "git ls-files -z '*.py' '*.pyi' | xargs -0r ruff format {check_flag}"
         ))
         .output()
         .await
-        .wrap_err("taplo fmt failed")?;
+        .wrap_err("ruff fmt failed")?;
 
     if output.status.success() {
         return Ok(());
     }
 
-    bail!(String::from_utf8(output.stderr).expect("stderr was not utf8"))
+    bail!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    )
 }
 
 pub async fn format(arguments: Arguments, repository: &Repository) -> Result<()> {
+    if std::env::var("HULK_NATIVE_SHELL").as_deref() != Ok("1") {
+        let mut command = repository::sdk::native_command(&repository.root);
+        command.arg(std::env::current_exe()?).arg("fmt");
+        if arguments.check {
+            command.arg("--check");
+        }
+        let status = command
+            .status()
+            .await
+            .wrap_err("failed to run formatters")?;
+        if !status.success() {
+            bail!("formatting failed with {status}");
+        }
+        return Ok(());
+    }
+
     let progress_indicator = ProgressIndicator::new();
 
     let (rustfmt_result, taplo_result, ruff_result) = tokio::join!(
