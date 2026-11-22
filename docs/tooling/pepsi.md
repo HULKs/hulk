@@ -124,7 +124,8 @@ Build/install Pepsi and prepare the runtime-image tar before disconnecting:
 pepsi gammaray 42 --image-file /path/to/hulk-runtime.tar
 ```
 
-With the bundle already prepared, neither host nor robot needs internet during this command.
+Then run `pepsi upload 42 --env podman --release` to install and start HULK.
+With the bundle already prepared, `gammaray` does not need internet on the host or robot.
 Nix is bootstrapped from the local installer without channels; the closure is imported without building or fetching packages.
 The active runtime lives at `/nix/var/nix/profiles/hulks`, retained by a Nix profile.
 Ubuntu systemd runs the supplied Zenoh services and Nix Podman's Quadlet generator.
@@ -138,7 +139,6 @@ No Debian packages or UFW installation are needed.
 The image tar must contain `hulk-runtime:latest`.
 It may be omitted when that image already exists in rootful Podman storage; registry pulls are disabled.
 Services are stopped during activation.
-Upgrading a managed Podman 5 runtime to Podman 6 requires `--clean --image-file /path/to/hulk-runtime.tar`; there is no in-place migration.
 Back up anything needed from the saved overlay first, including the deployed HULK binary. Cleaning discards the entire writable overlay, not just containers.
 Network reconfiguration runs last, and robot failures are reported individually.
 

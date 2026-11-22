@@ -1,5 +1,6 @@
 [Unit]
 Description=HULK Application Service
+ConditionFileIsExecutable=/home/booster/hulk/bin/hulk_ros_z
 Requires=hulk-runtime.service
 After=hulk-runtime.service
 

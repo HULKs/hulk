@@ -76,51 +76,29 @@ pub(super) fn manufacturer_services_command(mode: &str) -> String {
 
 pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<()> {
     let setup_path = &repository.root.join("tools/k1-setup");
+    if !arguments.prepare {
+        match arguments.image_file.as_deref() {
+            Some(image) if !image.is_file() => {
+                bail!("runtime image is not a local file: {}", image.display());
+            }
+            None if arguments.clean => {
+                bail!(
+                    "--clean discards the runtime image; provide --image-file /path/to/hulk-runtime.tar"
+                );
+            }
+            _ => {}
+        }
+    }
     let bundle = bundle::prepare(repository).await?;
     if arguments.prepare {
         return Ok(());
     }
 
-    if arguments.clean {
-        let image = arguments.image_file.as_deref().ok_or_else(|| {
-            eyre!(
-                "--clean discards the runtime image; provide --image-file /path/to/hulk-runtime.tar"
-            )
-        })?;
-        if !image.is_file() {
-            bail!("runtime image is not a local file: {}", image.display());
-        }
-    } else {
-        // Check every target before starting any provisioning tasks.
-        for address in &arguments.robots {
-            let check = Robot::new(address.ip)
-                .ssh_to_robot()?
-                .arg(format!(
-                    r#"profile=/nix/var/nix/profiles/hulks; if test -e "$profile" || test -L "$profile"; then {PODMAN} --version; else echo fresh; fi"#
-                ))
-                .output()
-                .await?;
-            if !check.status.success() {
-                bail!(
-                    "{address}: cannot check managed Podman: {}",
-                    String::from_utf8_lossy(&check.stderr)
-                );
-            }
-            let version = str::from_utf8(&check.stdout)?.trim();
-            if version != "fresh" && !version.starts_with("podman version 6.") {
-                bail!(
-                    "{address}: cannot reuse {version}. Back up overlay data, then rerun with --clean --image-file /path/to/hulk-runtime.tar"
-                );
-            }
-        }
-    }
-
     let progress = ProgressIndicator::new();
-
     let team = repository.read_team_configuration().await?;
 
-    progress
-        .map_tasks(
+    let failed = progress
+        .map_tasks_count_failures(
             arguments.robots,
             "Sending gammaray to robot".to_string(),
             |robot, progress_bar| {
@@ -138,6 +116,9 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
             },
         )
         .await;
+    if failed > 0 {
+        bail!("gammaray failed on {failed} robot(s)");
+    }
 
     Ok(())
 }
@@ -202,6 +183,7 @@ async fn gammaray_robot(
         .await?;
 
     deploy_nix(&robot, bundle, &progress_bar).await?;
+    ensure_runtime_image(&robot, image_file, &progress_bar).await?;
 
     robot
         .ssh_to_overlay()?
@@ -263,25 +245,9 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_overlay()?
-        .arg("mkdir -p /home/booster/.cache/hulk/tensor-rt/")
-        .ssh_with_log("creating tensorrt cache directory", &progress_bar)
+        .arg("mkdir -p /home/booster/hulk /home/booster/.cache/hulk/tensor-rt/")
+        .ssh_with_log("creating runtime directories", &progress_bar)
         .await?;
-
-    if let Some(image_file) = image_file {
-        const REMOTE_IMAGE_PATH: &str = "/home/booster/.cache/hulk/runtime-container-image.tar";
-        robot
-            .rsync_with_overlay()?
-            .arg("--info=progress2")
-            .arg(image_file)
-            .arg(format!("{}:{REMOTE_IMAGE_PATH}", robot.address))
-            .rsync_with_log("uploading podman image", &progress_bar)
-            .await?;
-        robot
-            .ssh_to_overlay()?
-            .arg(format!("sudo {PODMAN} load -i {REMOTE_IMAGE_PATH}"))
-            .ssh_with_log("loading podman image", &progress_bar)
-            .await?;
-    }
 
     if let Some(update_x5_file) = update_x5_file {
         robot
@@ -373,13 +339,15 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_overlay()?
-        .arg("sudo systemctl enable hulk && sudo systemctl stop hulk && sudo systemctl restart hulk-runtime && sudo systemctl start hulk")
-        .ssh_with_log("enabling and restarting hulk and its runtime", &progress_bar)
+        .arg("sudo systemctl enable hulk.service && sudo systemctl stop hulk.service && sudo systemctl restart hulk-runtime.service")
+        .ssh_with_log("enabling hulk and restarting its runtime only", &progress_bar)
         .await?;
 
     robot
         .ssh_to_overlay()?
-        .arg("for service in hulks-firewall zenohd zenoh-bridge-dds hulk-runtime hulk; do sudo systemctl is-active \"$service\" || exit 1; done")
+        .arg(r#"for unit in hulks-firewall.service zenohd.service zenoh-bridge-dds.service jetson-clocks-refresh.timer hulk-runtime.service; do
+    sudo systemctl is-active --quiet "$unit" || { echo "$unit is not active" >&2; exit 1; }
+done"#)
         .ssh_with_log("verifying services", &progress_bar)
         .await?;
 
@@ -410,6 +378,42 @@ async fn deploy_nix(robot: &Robot, bundle: &Path, progress_bar: &ProgressBar) ->
         .ssh_with_log("installing nix bundle", progress_bar)
         .await
         .wrap_err("offline package installation failed")
+}
+
+async fn ensure_runtime_image(
+    robot: &Robot,
+    image_file: Option<&Path>,
+    progress_bar: &ProgressBar,
+) -> Result<()> {
+    if let Some(image_file) = image_file {
+        const REMOTE_IMAGE_PATH: &str = "/home/booster/.cache/hulk/runtime-container-image.tar";
+        robot
+            .rsync_with_overlay()?
+            .arg("--info=progress2")
+            .arg(image_file)
+            .arg(format!("{}:{REMOTE_IMAGE_PATH}", robot.address))
+            .rsync_with_log("uploading podman image", progress_bar)
+            .await?;
+        robot
+            .ssh_to_overlay()?
+            .arg(format!("sudo {PODMAN} load -i {REMOTE_IMAGE_PATH}"))
+            .ssh_with_log("loading podman image", progress_bar)
+            .await?;
+    }
+
+    robot
+        .ssh_to_overlay()?
+        .arg(format!(
+            r#"sudo {PODMAN} image exists hulk-runtime:latest || {{
+    status=$?
+    if [ "$status" -eq 1 ]; then
+        echo 'Missing hulk-runtime:latest; provide --image-file /path/to/hulk-runtime.tar containing that image.' >&2
+    fi
+    exit "$status"
+}}"#
+        ))
+        .ssh_with_log("checking runtime image", progress_bar)
+        .await
 }
 
 async fn set_up_static_ips(
@@ -512,7 +516,9 @@ impl CommandExt for Command {
         progress_bar.set_message(name.to_string());
         self.stdout(Stdio::piped());
         self.stderr(Stdio::piped());
-        let mut process = self.spawn().unwrap();
+        let mut process = self
+            .spawn()
+            .wrap_err_with(|| format!("{name}: failed to start process"))?;
         let mut stdout_lines = BufReader::new(process.stdout.take().unwrap()).split(line_delimiter);
         let mut stderr_lines = BufReader::new(process.stderr.take().unwrap()).split(b'\n');
         let mut stdout = String::new();
