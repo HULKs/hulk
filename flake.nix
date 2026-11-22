@@ -110,6 +110,14 @@
         name = "hulk-runtime";
         paths = with import nixpkgs { system = "aarch64-linux"; }; [ podman zenoh robotBridge catatonit nftables sshpass ];
         pathsToLink = [ "/bin" "/libexec" "/lib/systemd" ];
+        postBuild = ''
+          mkdir -p "$out/share/hulk-runtime"
+          printf '%s' ${pkgs.lib.escapeShellArg (builtins.toJSON {
+            runtime_version = (fromTOML (builtins.readFile ./hulk.toml)).runtime_version;
+            system = "aarch64-linux";
+            l4t = "36.4.3";
+          })} > "$out/share/hulk-runtime/runtime.json"
+        '';
       };
 
       devShells.${system} = {

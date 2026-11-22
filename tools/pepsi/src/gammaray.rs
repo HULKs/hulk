@@ -1,8 +1,10 @@
 use std::{
     fmt::Write,
+    num::NonZeroUsize,
     path::{Path, PathBuf},
     process::Stdio,
     str,
+    thread::available_parallelism,
 };
 
 use clap::Args;
@@ -37,10 +39,15 @@ pub struct Arguments {
     #[arg(long, visible_alias = "sauber")]
     clean: bool,
 
-    /// Ensure cached runtime image exists,
+    /// Ensure the offline runtime bundle exists,
     /// but exit without gammaraying robots
     #[arg(long, visible_alias = "vorbereit")]
     prepare: bool,
+
+    /// Parallel compilation jobs per package during bundle preparation
+    /// (defaults to the available CPUs minus two, at least one)
+    #[arg(short, long, default_value_t = default_build_jobs())]
+    jobs: NonZeroUsize,
 
     /// The password for the `booster` user
     #[arg(short, long, default_value = "123456")]
@@ -50,6 +57,10 @@ pub struct Arguments {
     /// e.g. rust-trt-inference-image.tar
     #[arg(short, long)]
     image_file: Option<PathBuf>,
+
+    /// Install a prepared runtime bundle without building or downloading
+    #[arg(long, conflicts_with = "prepare")]
+    bundle: Option<PathBuf>,
 
     /// Optional `update_x5` path
     /// e.g. `../update_x5`
@@ -68,6 +79,11 @@ const MANUFACTURER_SERVICES_SCRIPT: &str = include_str!("gammaray/manufacturer-s
 const LOWER_ROOT_SCRIPT: &str = include_str!("gammaray/overlay-lower-root.sh");
 const RESTORE_BOOSTER_TEMPLATE_SCRIPT: &str = include_str!("gammaray/restore-booster-template.sh");
 
+fn default_build_jobs() -> NonZeroUsize {
+    let cores = available_parallelism().unwrap_or(NonZeroUsize::MIN);
+    NonZeroUsize::new(cores.get().saturating_sub(2)).unwrap_or(NonZeroUsize::MIN)
+}
+
 pub(super) fn manufacturer_services_command(mode: &str) -> String {
     format!(
         "set -e\nsudo -n unshare --mount bash -s <<'HULKS_BOOSTER_TEMPLATE'\n{LOWER_ROOT_SCRIPT}\n{RESTORE_BOOSTER_TEMPLATE_SCRIPT}\nHULKS_BOOSTER_TEMPLATE\nsudo bash -s -- {mode} <<'HULKS_MANUFACTURER_SERVICES'\n{PRESERVE_BOOSTER_CONFIG_SCRIPT}\n{MANUFACTURER_SERVICES_SCRIPT}\nHULKS_MANUFACTURER_SERVICES"
@@ -76,7 +92,12 @@ pub(super) fn manufacturer_services_command(mode: &str) -> String {
 
 pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<()> {
     let setup_path = &repository.root.join("tools/k1-setup");
-    let bundle = bundle::prepare(repository).await?;
+    let bundle = match arguments.bundle {
+        Some(bundle) => {
+            bundle::validate(&bundle, &repository.read_runtime_version().await?).await?
+        }
+        None => bundle::prepare(repository, arguments.jobs).await?,
+    };
     if arguments.prepare {
         return Ok(());
     }
@@ -364,6 +385,7 @@ async fn deploy_nix(robot: &Robot, bundle: &Path, progress_bar: &ProgressBar) ->
     robot
         .rsync_with_overlay()?
         .arg("--delete")
+        .arg("--info=progress2")
         .arg(bundle.join("."))
         .arg(format!("{}:{REMOTE_BUNDLE}/", robot.address))
         .rsync_with_log("uploading offline package bundle", progress_bar)
@@ -577,4 +599,22 @@ method=disabled
 [proxy]
 "
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use clap::Parser;
+
+    #[test]
+    fn offline_commands_need_no_signing_keys() -> color_eyre::Result<()> {
+        crate::Arguments::try_parse_from(["pepsi", "gammaray", "--prepare"])?;
+        crate::Arguments::try_parse_from([
+            "pepsi",
+            "gammaray",
+            "42",
+            "--bundle",
+            "runtime-bundle",
+        ])?;
+        Ok(())
+    }
 }
