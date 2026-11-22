@@ -26,6 +26,7 @@ use crate::{
     cargo::{self, build, construct_cargo_command, environment::EnvironmentArguments},
     gammaray::CommandExt,
     progress_indicator::{ProgressIndicator, Task},
+    upload::check_robot_runtime,
 };
 
 pub const BINARY_NAME: &str = "tensorrt-compile";
@@ -60,6 +61,7 @@ pub struct TensorRtCompileArguments {
 
 pub async fn tensorrt_compile(arguments: Arguments, repository: &Repository) -> Result<()> {
     let robot = Robot::try_new_with_ping(arguments.tensorrt_compile.host.ip).await?;
+    check_robot_runtime(&robot, repository).await?;
     let multiprogres = ProgressIndicator::new();
     let progress_build = multiprogres.task("Build compiler", false);
     let progress_upload = multiprogres.task("Upload", false);

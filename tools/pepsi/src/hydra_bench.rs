@@ -18,6 +18,7 @@ use crate::{
     gammaray::CommandExt,
     progress_indicator::ProgressIndicator,
     tensorrt_compile,
+    upload::check_robot_runtime,
 };
 
 #[derive(Args)]
@@ -86,6 +87,7 @@ pub async fn hydra_bench(arguments: Arguments, repository: &Repository) -> Resul
         );
     }
     let robot = Robot::try_new_with_ping(arguments.hydra_bench.host.ip).await?;
+    check_robot_runtime(&robot, repository).await?;
     let multiprogress = ProgressIndicator::new();
     let progress_build = multiprogress.task("Build hydra-bench", false);
     let progress_upload = multiprogress.task("Upload", false);
