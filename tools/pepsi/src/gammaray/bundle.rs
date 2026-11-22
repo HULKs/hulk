@@ -1,6 +1,7 @@
 use std::{
     num::NonZeroUsize,
     path::{Path, PathBuf},
+    process::Stdio,
 };
 
 use color_eyre::{
@@ -65,7 +66,11 @@ pub(super) async fn validate(bundle: &Path, version: &str) -> Result<PathBuf> {
     Ok(bundle)
 }
 
-pub(super) async fn prepare(repository: &Repository, jobs: NonZeroUsize) -> Result<PathBuf> {
+pub(super) async fn prepare(
+    repository: &Repository,
+    jobs: NonZeroUsize,
+    remote: Option<&str>,
+) -> Result<PathBuf> {
     let version = repository.read_runtime_version().await?;
     let destination = repository
         .resolve_data_home()
@@ -88,10 +93,15 @@ pub(super) async fn prepare(repository: &Repository, jobs: NonZeroUsize) -> Resu
         .prefix(".hulks-")
         .tempdir_in(parent)?;
     let result = temporary.path().join("result");
+    let store = remote.map(|host| format!("ssh-ng://{host}"));
     // Keep Nix's temporary archives off the potentially quota-limited /tmp tmpfs.
     let nix_tmp = tempfile::tempdir_in("/var/tmp")
         .wrap_err("failed to create Nix temporary directory in /var/tmp")?;
     eprintln!("Preparing package bundle at {}", destination.display());
+    eprintln!(
+        "Building runtime ({})...",
+        store.as_deref().unwrap_or("local Nix store")
+    );
     let mut build = Command::new("nix");
     build
         .env("TMPDIR", nix_tmp.path())
@@ -109,16 +119,57 @@ pub(super) async fn prepare(repository: &Repository, jobs: NonZeroUsize) -> Resu
             "1",
             "--cores",
         ])
-        .arg(jobs.to_string())
-        .arg("--out-link")
-        .arg(&result);
+        .arg(jobs.to_string());
 
-    run(&mut build, "building hulk-runtime environment").await?;
-    let root = fs::read_link(&result).await?;
-    export_cache(&root, temporary.path(), nix_tmp.path()).await?;
-    let metadata = fs::read(root.join("share/hulk-runtime/runtime.json"))
-        .await
-        .wrap_err("failed to read runtime metadata")?;
+    let root = if let Some(store) = &store {
+        // shortcut: remote output is unpinned during export; add a remote GC root if builders run concurrent GC.
+        build
+            .args(["--store", store, "--no-link", "--print-out-paths"])
+            .stderr(Stdio::inherit());
+        let output = build
+            .output()
+            .await
+            .wrap_err("failed to start building hulk-runtime environment")?;
+        ensure!(
+            output.status.success(),
+            "building hulk-runtime environment failed: {}",
+            output.status
+        );
+        PathBuf::from(String::from_utf8(output.stdout)?.trim())
+    } else {
+        build.arg("--out-link").arg(&result);
+        run(&mut build, "building hulk-runtime environment").await?;
+        fs::read_link(&result).await?
+    };
+    eprintln!("Exporting runtime to the local bundle cache...");
+    export_cache(&root, temporary.path(), nix_tmp.path(), store.as_deref()).await?;
+    let metadata_path = root.join("share/hulk-runtime/runtime.json");
+    let metadata = if let Some(store) = &store {
+        let output = Command::new("nix")
+            .env("TMPDIR", nix_tmp.path())
+            .args([
+                "--extra-experimental-features",
+                "nix-command",
+                "store",
+                "cat",
+            ])
+            .args(["--store", store])
+            .arg(&metadata_path)
+            .stderr(Stdio::inherit())
+            .output()
+            .await
+            .wrap_err("failed to read remote runtime metadata")?;
+        ensure!(
+            output.status.success(),
+            "reading remote runtime metadata failed: {}",
+            output.status
+        );
+        output.stdout
+    } else {
+        fs::read(&metadata_path)
+            .await
+            .wrap_err("failed to read runtime metadata")?
+    };
     let runtime = serde_json::from_slice(&metadata)?;
     let manifest = Manifest { root, runtime };
     fs::write(
@@ -126,9 +177,13 @@ pub(super) async fn prepare(repository: &Repository, jobs: NonZeroUsize) -> Resu
         serde_json::to_vec_pretty(&manifest)?,
     )
     .await?;
+    eprintln!("Downloading Nix installer...");
     download_installer(temporary.path()).await?;
+    eprintln!("Verifying offline bundle...");
     validate(temporary.path(), &version).await?;
-    fs::remove_file(&result).await?;
+    if store.is_none() {
+        fs::remove_file(&result).await?;
+    }
     fs::rename(temporary.path(), &destination)
         .await
         .wrap_err("failed to publish package bundle")?;
@@ -136,13 +191,20 @@ pub(super) async fn prepare(repository: &Repository, jobs: NonZeroUsize) -> Resu
     Ok(destination)
 }
 
-async fn export_cache(root: &Path, bundle: &Path, nix_tmp: &Path) -> Result<()> {
+async fn export_cache(
+    root: &Path,
+    bundle: &Path,
+    nix_tmp: &Path,
+    store: Option<&str>,
+) -> Result<()> {
     let mut copy = Command::new("nix");
     copy.env("TMPDIR", nix_tmp)
         .args([
             "--extra-experimental-features",
             "nix-command",
             "copy",
+            "--log-format",
+            "bar-with-logs",
             "--to",
         ])
         .arg(format!(
@@ -150,6 +212,9 @@ async fn export_cache(root: &Path, bundle: &Path, nix_tmp: &Path) -> Result<()> 
             bundle.join("cache").display()
         ))
         .arg(root);
+    if let Some(store) = store {
+        copy.args(["--from", store]);
+    }
     run(&mut copy, "exporting runtime binary cache").await
 }
 

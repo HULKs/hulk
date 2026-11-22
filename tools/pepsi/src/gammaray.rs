@@ -49,6 +49,10 @@ pub struct Arguments {
     #[arg(short, long, default_value_t = default_build_jobs())]
     jobs: NonZeroUsize,
 
+    /// Build through Nix over SSH (defaults to REMOTE_WORKSPACE or .REMOTE_WORKSPACE)
+    #[arg(long, num_args = 0..=1, value_name = "SSH_HOST", conflicts_with = "bundle")]
+    remote: Option<Option<String>>,
+
     /// The password for the `booster` user
     #[arg(short, long, default_value = "123456")]
     password: String,
@@ -89,7 +93,13 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
         Some(bundle) => {
             bundle::validate(&bundle, &repository.read_runtime_version().await?).await?
         }
-        None => bundle::prepare(repository, arguments.jobs).await?,
+        None => {
+            let remote = match arguments.remote {
+                Some(host) => Some(resolve_remote(repository, host).await?),
+                None => None,
+            };
+            bundle::prepare(repository, arguments.jobs, remote.as_deref()).await?
+        }
     };
     if arguments.prepare {
         return Ok(());
@@ -117,6 +127,38 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
         .await;
 
     Ok(())
+}
+
+async fn resolve_remote(repository: &Repository, host: Option<String>) -> Result<String> {
+    let host = match host {
+        Some(host) => host,
+        None => {
+            let workspace = match std::env::var("REMOTE_WORKSPACE") {
+                Ok(value) if !value.is_empty() => value,
+                Ok(_) | Err(std::env::VarError::NotPresent) => {
+                    tokio::fs::read_to_string(repository.root.join(".REMOTE_WORKSPACE"))
+                        .await
+                        .wrap_err(
+                            "--remote needs SSH_HOST, REMOTE_WORKSPACE, or .REMOTE_WORKSPACE",
+                        )?
+                }
+                Err(error) => return Err(error).wrap_err("invalid REMOTE_WORKSPACE"),
+            };
+            let (host, path) = workspace.trim().split_once(':').ok_or_else(|| {
+                eyre!("remote workspace must have the form user@host:path/to/repo")
+            })?;
+            if path.is_empty() {
+                bail!("remote workspace path must not be empty");
+            }
+            host.to_owned()
+        }
+    };
+    if !regex::Regex::new(r"^(?:[a-zA-Z0-9_][a-zA-Z0-9_.-]*@)?[a-zA-Z0-9_][a-zA-Z0-9_.-]*$")?
+        .is_match(&host)
+    {
+        bail!("invalid remote SSH host {host:?}: expected [user@]hostname or an SSH alias");
+    }
+    Ok(host)
 }
 
 async fn gammaray_robot(

@@ -77,6 +77,7 @@ Copy the entire printed bundle directory, then install it without internet acces
 Only install trusted bundles: signature checks are bypassed for this local import. Without `--bundle`, Gammaray uses the versioned local cache and prepares a missing bundle. Bump `runtime_version` in `hulk.toml` when runtime packages or static configuration change.
 
 Use `--jobs N` to limit compilation parallelism.
+Use `./pepsi gammaray --prepare --remote user@buildhost` to build through Nix over SSH and export the bundle directly to the local cache. With no host argument, `--remote` uses the host from `REMOTE_WORKSPACE` or `.REMOTE_WORKSPACE`. Avoid garbage-collecting the remote store during export.
 
 Gammaray installs the runtime and systemd services, not the HULK binary. Use `upload` separately. The runtime requires **L4T 36.4.3**; the robot supplies kernel drivers and Tegra libraries. TensorRT uses the Orin GPU, not DLA. After a runtime upgrade, regenerate the YOLO and VO engine caches on a robot without setting `LD_LIBRARY_PATH` or `LD_PRELOAD`, then verify GPU inference and clean shutdown.
 
