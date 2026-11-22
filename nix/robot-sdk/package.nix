@@ -13,7 +13,8 @@ robotPkgs.mkShell {
     pkgs.util-linux
   ];
   depsBuildBuild = [ pkgs.stdenv.cc pkgs.pkg-config pkgs.openssl ];
-  buildInputs = libraries ++ [ onnxruntime ];
+  # ort-sys uses pregenerated bindings and links the library shipped in the runtime bundle.
+  buildInputs = libraries ++ [ onnxruntime.out ];
 
   CARGO_BUILD_TARGET = target;
   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = "${compiler}/bin/${compiler.targetPrefix}cc";
