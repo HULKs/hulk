@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
     fmt::{Debug, Display},
-    future::ready,
     time::Duration,
 };
 
@@ -108,20 +107,7 @@ impl ProgressIndicator {
         items: impl IntoIterator<Item = T>,
         message: impl Into<Cow<'static, str>> + Clone,
         task: impl Fn(T, ProgressBar) -> F,
-    ) where
-        T: ToString,
-        F: Future<Output = Result<M>>,
-        M: TaskMessage,
-    {
-        self.map_tasks_count_failures(items, message, task).await;
-    }
-
-    pub async fn map_tasks_count_failures<T, F, M>(
-        &self,
-        items: impl IntoIterator<Item = T>,
-        message: impl Into<Cow<'static, str>> + Clone,
-        task: impl Fn(T, ProgressBar) -> F,
-    ) -> usize
+    ) -> Vec<Result<M>>
     where
         T: ToString,
         F: Future<Output = Result<M>>,
@@ -137,12 +123,11 @@ impl ProgressIndicator {
                 async move {
                     let result = future.await;
                     progress.finish_with(result.as_ref());
-                    result.is_err()
+                    result
                 }
             })
             .collect::<FuturesUnordered<_>>()
-            .filter(|failed| ready(*failed))
-            .count()
+            .collect()
             .await
     }
 }

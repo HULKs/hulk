@@ -97,8 +97,8 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
     let progress = ProgressIndicator::new();
     let team = repository.read_team_configuration().await?;
 
-    let failed = progress
-        .map_tasks_count_failures(
+    let results = progress
+        .map_tasks(
             arguments.robots,
             "Sending gammaray to robot".to_string(),
             |robot, progress_bar| {
@@ -116,6 +116,7 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
             },
         )
         .await;
+    let failed = results.iter().filter(|result| result.is_err()).count();
     if failed > 0 {
         bail!("gammaray failed on {failed} robot(s)");
     }

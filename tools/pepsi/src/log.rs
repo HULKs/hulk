@@ -57,7 +57,7 @@ pub async fn logs(arguments: Arguments) -> Result<()> {
                             .wrap_err_with(|| format!("failed to delete logs on {robot_address}"))
                     },
                 )
-                .await
+                .await;
         }
         Arguments::Download {
             log_directory,
@@ -82,7 +82,7 @@ pub async fn logs(arguments: Arguments) -> Result<()> {
                         }
                     },
                 )
-                .await
+                .await;
         }
         Arguments::List { robots } => {
             ProgressIndicator::new()
@@ -94,7 +94,7 @@ pub async fn logs(arguments: Arguments) -> Result<()> {
                         robot.list_logs().await.wrap_err("failed to retrieve logs")
                     },
                 )
-                .await
+                .await;
         }
         Arguments::Show { robots } => {
             ProgressIndicator::new()
@@ -109,7 +109,7 @@ pub async fn logs(arguments: Arguments) -> Result<()> {
                             .wrap_err("failed to retrieve logs")
                     },
                 )
-                .await
+                .await;
         }
     }
 
