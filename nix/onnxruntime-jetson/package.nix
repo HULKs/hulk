@@ -44,6 +44,13 @@ in
       *':${cudaCompat}/lib:'*) ;;
       *) echo "CUDA provider is missing the Orin compatibility library path" >&2; exit 1 ;;
     esac
+
+    # TensorRT can initialize CUDA before the CUDA provider loads the driver.
+    provider="$out/lib/libonnxruntime_providers_tensorrt.so"
+    rpath=$(patchelf --print-rpath "$provider")
+    patchelf --add-needed libcuda.so.1 \
+      --set-rpath "${cudaCompat}/lib''${rpath:+:$rpath}" "$provider"
+    patchelf --print-needed "$provider" | grep -Fx libcuda.so.1
   '';
   passthru = previous.passthru // {
     inherit cudaCompat;
