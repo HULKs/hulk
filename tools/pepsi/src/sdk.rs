@@ -1,73 +1,41 @@
-use clap::Subcommand;
+use clap::{Args, Subcommand};
 use color_eyre::{
     Result,
     eyre::{Context, bail},
 };
+use repository::{Repository, sdk};
 
-use repository::{
-    Repository,
-    sdk::{SDKImage, build_sdk_container, pull_sdk_image},
-};
-use tokio::process::Command;
+use crate::cargo::environment::{Environment, EnvironmentArguments};
 
 #[derive(Subcommand)]
 pub enum Arguments {
-    /// Pulls the SDK image from ghcr.io/hulks
-    #[command(visible_alias = "installier")]
-    Install {
-        /// SDK version e.g. `1.0.0`. If not provided, version specified by `hulk.toml` is used.
-        #[arg(long, visible_alias = "abbild", visible_alias = "bild")]
-        image: Option<String>,
-    },
-    /// Builds the SDK image
-    #[command(visible_alias = "bau")]
-    Build {
-        /// SDK version e.g. `3.3.1`. If not provided, version specified by `hulk.toml` is used.
-        #[arg(long, visible_alias = "abbild", visible_alias = "bild")]
-        image: Option<String>,
-    },
-    #[command(visible_alias = "aufzähl")]
-    List,
+    /// Download or build the pinned robot SDK (without compiling robot code)
+    #[command(visible_aliases = ["install", "installier", "build", "bau"])]
+    Prepare(PrepareArguments),
+}
+
+#[derive(Args)]
+pub struct PrepareArguments {
+    #[command(flatten)]
+    pub environment: EnvironmentArguments,
 }
 
 pub async fn sdk(arguments: Arguments, repository: &Repository) -> Result<()> {
-    let sdk_version = repository
-        .read_sdk_version()
-        .await
-        .wrap_err("failed to get HULK OS version")?;
-
-    let mut sdk_image = SDKImage {
-        registry: "ghcr.io/hulks".to_string(),
-        name: "k1sdk".to_string(),
-        tag: sdk_version,
-    };
-
-    match arguments {
-        Arguments::Install { image } => {
-            if let Some(image) = image {
-                sdk_image = sdk_image.parse_and_update(&image)
-            }
-
-            pull_sdk_image(&sdk_image).await?;
-        }
-        Arguments::Build { image } => {
-            if let Some(image) = image {
-                sdk_image = sdk_image.parse_and_update(&image)
-            }
-
-            build_sdk_container(repository, &sdk_image).await?;
-        }
-        Arguments::List => {
-            let status = Command::new("podman")
-                .args(["image", "list", "--filter", "reference=k1sdk"])
-                .status()
-                .await?;
-
-            if !status.success() {
-                bail!("podman failed with {status}");
-            }
-        }
+    let Arguments::Prepare(arguments) = arguments;
+    if arguments.environment.remote {
+        bail!("prepare the SDK on the remote host, or let a remote build prepare it automatically");
     }
-
+    if matches!(arguments.environment.env, Some(Environment::Native)) {
+        bail!("SDK preparation requires the robot environment (--env nix)");
+    }
+    let status = sdk::robot_command(&repository.root)
+        .arg("true")
+        .current_dir(&repository.root)
+        .status()
+        .await
+        .wrap_err("failed to prepare robot SDK")?;
+    if !status.success() {
+        bail!("SDK preparation failed with {status}");
+    }
     Ok(())
 }

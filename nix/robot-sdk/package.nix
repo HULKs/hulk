@@ -19,7 +19,7 @@ robotPkgs.mkShell {
   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = "${compiler}/bin/${compiler.targetPrefix}cc";
   # CUDA providers and the compatibility driver resolve transitive libraries through this RPATH.
   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS =
-    "-Clink-arg=-Wl,--disable-new-dtags,-rpath,${onnxruntime.cudaCompat}/lib:/usr/lib/aarch64-linux-gnu/tegra";
+    "-Ctarget-cpu=cortex-a78ae -Clink-arg=-Wl,--disable-new-dtags,-rpath,${onnxruntime.cudaCompat}/lib:/usr/lib/aarch64-linux-gnu/tegra";
   ORT_LIB_PATH = "${pkgs.lib.getLib onnxruntime}/lib";
   ORT_PREFER_DYNAMIC_LINK = "1";
   CC_aarch64_unknown_linux_gnu = "${compiler}/bin/${compiler.targetPrefix}cc";

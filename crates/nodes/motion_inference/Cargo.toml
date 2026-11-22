@@ -13,7 +13,7 @@ coordinate_systems.workspace = true
 kinematics.workspace = true
 linear_algebra.workspace = true
 nalgebra.workspace = true
-ort = { workspace = true, features = ["load-dynamic"] }
+ort.workspace = true
 ros-z.workspace = true
 ros-z-schema.workspace = true
 serde = { workspace = true, features = ["derive"] }

@@ -1,12 +1,12 @@
 use std::str::FromStr;
 
 use clap::Args;
-use color_eyre::eyre::{Context, Error, Result, bail};
-use repository::{Repository, cargo::Environment as RepositoryEnvironment, sdk::SDKImage};
+use color_eyre::eyre::{Error, Result, bail};
+use repository::cargo::Environment as RepositoryEnvironment;
 
 #[derive(Args, Debug, Clone)]
 pub struct EnvironmentArguments {
-    /// The execution environment (default: native)
+    /// Build for the workstation (native) or robot (nix, alias: auto)
     #[arg(long, visible_alias = "umgebung", visible_alias = "umg")]
     pub env: Option<Environment>,
     /// Use a remote machine for execution, see ./scripts/remote for details
@@ -17,54 +17,26 @@ pub struct EnvironmentArguments {
 #[derive(Debug, Clone)]
 pub enum Environment {
     Native,
-    Podman { image: Option<String> },
-    Docker { image: Option<String> },
+    Robot,
 }
 
 impl FromStr for Environment {
     type Err = Error;
 
-    fn from_str(string: &str) -> Result<Self, Self::Err> {
-        let (left, right) = string
-            .split_once(":")
-            .map_or((string, None), |(left, right)| (left, Some(right)));
-
-        Ok(match left {
-            "native" | "ureinwohner" | "einheimisch" => Self::Native,
-            "podman" | "kapselmann" | "hülsenmann" => Self::Podman {
-                image: right.map(str::to_owned),
-            },
-            "docker" | "hafenarbeiter" => Self::Docker {
-                image: right.map(str::to_owned),
-            },
-            _ => bail!("unknown option {left}"),
-        })
+    fn from_str(string: &str) -> Result<Self> {
+        match string {
+            "native" | "ureinwohner" | "einheimisch" => Ok(Self::Native),
+            "nix" | "auto" => Ok(Self::Robot),
+            _ => bail!("unknown environment {string}"),
+        }
     }
 }
 
 impl Environment {
-    pub async fn resolve(self, repository: &Repository) -> Result<RepositoryEnvironment> {
-        let sdk_version = repository
-            .read_sdk_version()
-            .await
-            .wrap_err("failed to get HULK OS version")?;
-
-        let sdk_image = SDKImage {
-            registry: "ghcr.io/hulks".to_string(),
-            name: "k1sdk".to_string(),
-            tag: sdk_version,
-        };
-
-        Ok(match self {
-            Environment::Native => RepositoryEnvironment::Native,
-            Environment::Podman { image: Some(image) } => RepositoryEnvironment::Podman {
-                sdk_image: sdk_image.parse_and_update(&image),
-            },
-            Environment::Podman { image: None } => RepositoryEnvironment::Podman { sdk_image },
-            Environment::Docker { image: Some(image) } => RepositoryEnvironment::Docker {
-                sdk_image: sdk_image.parse_and_update(&image),
-            },
-            Environment::Docker { image: None } => RepositoryEnvironment::Docker { sdk_image },
-        })
+    pub fn resolve(self) -> RepositoryEnvironment {
+        match self {
+            Self::Native => RepositoryEnvironment::Native,
+            Self::Robot => RepositoryEnvironment::Robot,
+        }
     }
 }

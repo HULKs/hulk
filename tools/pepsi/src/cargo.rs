@@ -60,7 +60,7 @@ pub struct Arguments<CargoArguments: Args> {
 }
 
 pub trait CargoCommand {
-    const SUB_COMMAND: &'static str;
+    const SUB_COMMAND: &'static [&'static str];
 
     fn apply(&self, cmd: &mut Cargo);
     fn profile(&self) -> &str;
@@ -80,26 +80,21 @@ impl<CargoArguments: Args> Arguments<CargoArguments> {
     async fn resolve_environment(
         &self,
         manifest_path: Option<&Path>,
-        repository: &Repository,
     ) -> Result<repository::cargo::Environment> {
-        match self.environment.env.clone() {
-            Some(environment) => environment,
+        Ok(match &self.environment.env {
+            Some(environment) => environment.clone(),
             None => read_requested_environment(manifest_path)
                 .await
                 .wrap_err("failed to read requested environment")?,
         }
-        .resolve(repository)
-        .await
-        .wrap_err("failed to resolve environment")
+        .resolve())
     }
 }
 
 impl Arguments<build::Arguments> {
     pub async fn binary_path(&self, repository: &Repository, binary_name: &str) -> Result<PathBuf> {
         let manifest_path = self.manifest_path(repository).await?;
-        let environment = self
-            .resolve_environment(manifest_path.as_deref(), repository)
-            .await?;
+        let environment = self.resolve_environment(manifest_path.as_deref()).await?;
         let is_native = matches!(environment, repository::cargo::Environment::Native);
         let target_dir = self.cargo.common.target_dir.clone().or_else(|| {
             if is_native && !self.environment.remote {
@@ -110,13 +105,9 @@ impl Arguments<build::Arguments> {
         });
         let target_dir = match target_dir {
             None if is_native => PathBuf::from("target"),
-            None => PathBuf::from(repository::cargo::CONTAINER_TARGET_DIRECTORY),
-            Some(path) if path.is_absolute() && !is_native => path
-                .strip_prefix("/hulk")
-                .wrap_err("container target directory must be under /hulk to retrieve binaries")?
-                .to_path_buf(),
+            None => PathBuf::from(repository::cargo::ROBOT_TARGET_DIRECTORY),
             Some(path) if path.is_absolute() && self.environment.remote => {
-                bail!("use a relative --target-dir to retrieve binaries from a remote native build")
+                bail!("use a relative --target-dir to retrieve binaries from a remote build")
             }
             Some(path) if path.is_absolute() => diff_paths(path, &repository.root)
                 .wrap_err("failed to express target directory relative to repository root")?,
@@ -158,25 +149,21 @@ pub async fn construct_cargo_command<CargoArguments: Args + CargoCommand>(
 ) -> Result<tokio::process::Command, color_eyre::eyre::Error> {
     let manifest_path = arguments.manifest_path(repository).await?;
     let environment = arguments
-        .resolve_environment(manifest_path.as_deref(), repository)
+        .resolve_environment(manifest_path.as_deref())
         .await?;
     let mut cargo = if arguments.environment.remote {
         Cargo::remote(environment)
     } else {
         Cargo::local(environment)
     };
-    cargo
-        .setup(repository)
-        .await
-        .wrap_err("failed to set up cargo environment")?;
-    cargo.arg(CargoArguments::SUB_COMMAND);
+    cargo.args(CargoArguments::SUB_COMMAND.iter().copied());
     if let Some(manifest_path) = manifest_path {
         let manifest_path = diff_paths(
             manifest_path,
             &current_dir().wrap_err("failed to get current directory")?,
         )
         .wrap_err("failed to express manifest relative to current directory")?;
-        if CargoArguments::SUB_COMMAND == "install" {
+        if CargoArguments::SUB_COMMAND == ["install"] {
             cargo.arg("--path");
             cargo.arg(
                 manifest_path
@@ -221,7 +208,7 @@ async fn read_requested_environment(manifest_path: Option<&Path>) -> Result<Envi
         return Ok(Environment::Native);
     }
 
-    Ok(Environment::Podman { image: None })
+    Ok(Environment::Robot)
 }
 
 async fn resolve_manifest_path(

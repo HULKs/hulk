@@ -46,37 +46,30 @@ manifest, runtime = (json.loads(pathlib.Path(p).read_text()) for p in sys.argv[1
 if runtime != {key: manifest[key] for key in ("runtime_version", "system", "l4t")}:
     sys.exit("Runtime metadata does not match bundle manifest")
 PY
+rootfs_overlay="$root/share/hulk-runtime/rootfs_overlay"
+test -d "$rootfs_overlay/etc"
+test -d "$rootfs_overlay/usr"
 
-for service in hulk hulk-runtime zenoh-bridge-dds zenohd; do
-    if systemctl cat "$service.service" >/dev/null 2>&1; then
-        systemctl stop "$service.service"
+for unit in hulk.service hulk-runtime.service zenoh-bridge-dds.service zenohd.service jetson-clocks-refresh.timer; do
+    if systemctl cat "$unit" >/dev/null 2>&1; then
+        systemctl stop "$unit"
     fi
+done
+
+rm -f /etc/containers/systemd/hulk-runtime.container /etc/containers/containers.conf.d/90-nix-runtime.conf
+for link in /etc/systemd/system-generators/podman-system-generator /usr/local/bin/podman; do
+    case $(readlink "$link" || true) in
+        /nix/var/nix/profiles/hulks/*) rm "$link" ;;
+    esac
 done
 "$nix_bin/nix-env" --profile /nix/var/nix/profiles/hulks --set "$root"
 getent group zenohd >/dev/null || groupadd --system zenohd
 id zenohd >/dev/null 2>&1 || useradd --system --gid zenohd --home-dir /var/lib/zenoh --shell /usr/sbin/nologin zenohd
 install -d -o zenohd -g zenohd /var/lib/zenoh
-mkdir -p /etc/zenohd /etc/zenoh-bridge-dds /etc/containers/systemd /etc/containers/containers.conf.d /etc/systemd/system-generators
-ln -sfn /nix/var/nix/profiles/hulks/lib/systemd/system-generators/podman-system-generator \
-    /etc/systemd/system-generators/podman-system-generator
-cat > /etc/containers/containers.conf.d/90-nix-runtime.conf <<EOF
-[containers]
-init_path = "$root/bin/catatonit"
-[engine]
-runtime = "crun"
-lock_type = "file"
-conmon_path = ["$root/libexec/podman/conmon"]
-[engine.runtimes]
-crun = ["$root/libexec/podman/crun"]
-EOF
-if [[ ! -e /etc/containers/policy.json ]]; then
-    echo '{"default":[{"type":"insecureAcceptAnything"}]}' > /etc/containers/policy.json
-fi
-# Existing containers can reference the old static runtime. Migrate explicitly;
-# a failure must not be hidden or treated as successful provisioning.
-# File locks avoid incompatible shared-memory mutex layouts between Podman builds.
-"$root/bin/podman" system renumber
-"$root/bin/podman" system migrate --new-runtime crun --migrate-db
-# Other Pepsi commands invoke `sudo podman`; keep their PATH entry managed too.
-mkdir -p /usr/local/bin
-ln -sfn /nix/var/nix/profiles/hulks/bin/podman /usr/local/bin/podman
+# Copy only bundled files; don't change existing host directories or mirror deletions.
+(
+    cd "$rootfs_overlay"
+    find . \( -type f -o -type l \) -print0 |
+        rsync -lp --ignore-times --relative --no-implied-dirs --chmod=Fu+w \
+            --from0 --files-from=- ./ /
+)

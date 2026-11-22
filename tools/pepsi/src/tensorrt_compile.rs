@@ -113,7 +113,7 @@ pub async fn tensorrt_compile(arguments: Arguments, repository: &Repository) -> 
     );
     let mut command = robot.ssh_to_robot()?;
     command.arg(format!(
-        "sudo podman exec hulk ./bin/tensorrt-compile {compile_args} 2>&1"
+        "cd hulk && ./bin/tensorrt-compile {compile_args} 2>&1"
     ));
     run_with_printed_log(&mut command, &progress_compile)
         .await
@@ -210,7 +210,7 @@ pub async fn compile_models(
     );
     for onnx_path in onnx_paths {
         let compile_command = format!(
-            "sudo podman exec --user $(id -u booster) hulk ./bin/{BINARY_NAME} {}",
+            "./bin/{BINARY_NAME} {}",
             shell_quote(&onnx_path.display().to_string()),
         );
         command.push_str(&format!(
@@ -239,7 +239,7 @@ pub async fn compile_model(
     progress_bar: &ProgressBar,
 ) -> Result<()> {
     let compile_command = format!(
-        "sudo podman exec --user $(id -u booster) hulk ./bin/{BINARY_NAME} {}",
+        "./bin/{BINARY_NAME} {}",
         shell_quote(&onnx_path.display().to_string()),
     );
     let name = format!("compiling {}", onnx_path.display());

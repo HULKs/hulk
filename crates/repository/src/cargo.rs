@@ -1,40 +1,27 @@
-use core::fmt;
 use std::{
-    ffi::{OsStr, OsString},
+    ffi::OsString,
     fmt::{Display, Formatter},
     path::Path,
 };
 
-use color_eyre::{
-    Result,
-    eyre::{Context, bail},
-};
+use color_eyre::Result;
 use tokio::process::Command;
 
-use crate::{
-    Repository,
-    sdk::{SDKImage, build_sdk_container, image_exists_locally},
-};
+use crate::{Repository, sdk};
 
 #[derive(Debug, Clone)]
 pub enum Environment {
     Native,
-    Podman { sdk_image: SDKImage },
-    Docker { sdk_image: SDKImage },
+    Robot,
 }
 
-pub const CONTAINER_TARGET_DIRECTORY: &str = "target/container";
+pub const ROBOT_TARGET_DIRECTORY: &str = "target/robot";
 
 impl Display for Environment {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Environment::Native => write!(f, "Native"),
-            Environment::Podman { sdk_image } => {
-                write!(f, "Podman ({})", sdk_image.name_tagged())
-            }
-            Environment::Docker { sdk_image } => {
-                write!(f, "Docker ({})", sdk_image.name_tagged())
-            }
+            Self::Native => write!(f, "Native"),
+            Self::Robot => write!(f, "Robot SDK"),
         }
     }
 }
@@ -69,38 +56,6 @@ impl Cargo {
         }
     }
 
-    pub async fn setup(&self, repository: &Repository) -> Result<()> {
-        if let Environment::Podman { sdk_image } = &self.environment {
-            match self.host {
-                Host::Local => {
-                    if !image_exists_locally(sdk_image).await {
-                        build_sdk_container(repository, sdk_image)
-                            .await
-                            .wrap_err("failed to build SDK container")?
-                    }
-                }
-                Host::Remote => {
-                    let mut command =
-                        Command::new(repository.root.join("scripts/remote_workspace"));
-
-                    let status = command
-                        .arg(format!("podman image exists {}", sdk_image.name_tagged()))
-                        .arg("|| ./pepsi sdk build --image")
-                        .arg(sdk_image.name_tagged())
-                        .status()
-                        .await
-                        .wrap_err("failed to run pepsi")?;
-
-                    if !status.success() {
-                        bail!("pepsi failed with {status}");
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     pub fn arg(&mut self, argument: impl Into<OsString>) -> &mut Self {
         self.arguments.push(argument.into());
         self
@@ -116,100 +71,34 @@ impl Cargo {
         repository: &Repository,
         compiler_artifacts: &[impl AsRef<Path>],
     ) -> Result<Command> {
-        let arguments = self.arguments.join(OsStr::new(" "));
-
-        let data_home_script = repository.data_home_script()?;
-
-        let command_string = match self.environment {
-            Environment::Native => {
-                let mut command = OsString::from("cargo ");
-                command.push(arguments);
-                command
-            }
-            Environment::Podman { sdk_image } => {
-                let cargo_home = format!("$({data_home_script})/container-cargo-home/");
-                // TODO: Make image generic over SDK/native by modifying entry point; source SDK not here
-                let pwd = Path::new("/hulk").join(&repository.root_to_current_dir()?);
-                let root = repository.current_dir_to_root()?;
-                let tagged_image_name = sdk_image.name_tagged();
-                let mut command = OsString::from(build_command_string(
-                    "podman",
-                    cargo_home,
-                    root.display().to_string(),
-                    tagged_image_name,
-                    pwd.display().to_string(),
-                ));
-                command.push(arguments);
-                command.push(OsStr::new("\""));
-                command
-            }
-            Environment::Docker { sdk_image } => {
-                let cargo_home = format!("$({data_home_script})/container-cargo-home/");
-                // TODO: Make image generic over SDK/native by modifying entry point; source SDK not here
-                let pwd = Path::new("/hulk").join(&repository.root_to_current_dir()?);
-                let root = repository.current_dir_to_root()?;
-                let tagged_image_name = sdk_image.name_tagged();
-                let mut command = OsString::from(build_command_string(
-                    "docker",
-                    cargo_home,
-                    root.display().to_string(),
-                    tagged_image_name,
-                    pwd.display().to_string(),
-                ));
-                command.push(arguments);
-                command.push(OsStr::new("'"));
+        let root = match self.host {
+            Host::Local => repository.root.clone(),
+            Host::Remote => repository.current_dir_to_root()?,
+        };
+        let mut command = match self.environment {
+            Environment::Native => sdk::native_cargo_command(&root),
+            Environment::Robot => {
+                let mut command = sdk::robot_command(&root);
+                command.arg("cargo");
                 command
             }
         };
+        command.args(self.arguments);
 
-        let mut command = match self.host {
-            Host::Local => {
-                let mut command = Command::new("sh");
-                command.arg("-c");
-                command
-            }
-            Host::Remote => {
-                let mut command = Command::new(repository.root.join("scripts/remote_workspace"));
+        if matches!(self.host, Host::Local) {
+            return Ok(command);
+        }
 
-                for path in compiler_artifacts {
-                    command.arg("--return-file").arg(path.as_ref());
-                }
-                let current_dir = repository.root_to_current_dir()?;
-                command.arg("--cd").arg(Path::new("./").join(current_dir));
-                command
-            }
-        };
-        command.arg(command_string);
-
-        Ok(command)
+        let mut remote = Command::new(repository.root.join("scripts/remote_workspace"));
+        for path in compiler_artifacts {
+            remote.arg("--return-file").arg(path.as_ref());
+        }
+        remote.arg("--cd").arg(repository.root_to_current_dir()?);
+        let command = command.as_std();
+        let arguments = std::iter::once(command.get_program()).chain(command.get_args());
+        for argument in arguments {
+            remote.arg(argument);
+        }
+        Ok(remote)
     }
-}
-
-fn build_command_string(
-    container_runtime: &str,
-    cargo_home: String,
-    root: String,
-    tagged_image_name: String,
-    pwd: String,
-) -> String {
-    format!(
-        "\
-            mkdir -p {cargo_home}/git && \
-            mkdir -p {cargo_home}/registry && \
-            {container_runtime} run \
-                --env=CARGO_TARGET_DIR=/hulk/{CONTAINER_TARGET_DIRECTORY} \
-                --volume={root}:/hulk:z \
-                --volume={cargo_home}/git:/root/.cargo/git:z \
-                --volume={cargo_home}/registry:/root/.cargo/registry:z \
-                --rm \
-                --network=host \
-                --interactive \
-                --pull=never \
-                --tty \
-                {tagged_image_name} \
-                /bin/sh -c \"\
-                    cd {pwd} && \
-                    cargo \
-        "
-    )
 }
