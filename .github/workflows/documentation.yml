@@ -13,6 +13,8 @@ jobs:
     container:
       image: ghcr.io/hulks/hulk-ci:1.100
       options: --user=1000:1000
+      volumes:
+        - hulk-nix:/nix
     steps:
       - uses: actions/checkout@v4
         with:
