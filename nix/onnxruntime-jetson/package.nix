@@ -1,5 +1,6 @@
-{ lib, _cuda, cudaPackages_13_2, nativeCuda, callPackage }:
+{ lib, _cuda, cudaPackages_13_2, nativeCuda, callPackage, patchelf }:
 let
+  cudaCompat = callPackage ../cuda-compat-orin/package.nix { };
   cuda = (cudaPackages_13_2.override {
     manifests = cudaPackages_13_2.manifests // {
       cudnn = _cuda.manifests.cudnn."9.13.0";
@@ -24,6 +25,7 @@ in
   openvinoSupport = false;
   ncclSupport = false;
 }).overrideAttrs (previous: {
+  nativeBuildInputs = previous.nativeBuildInputs ++ [ patchelf ];
   buildInputs = previous.buildInputs ++ [ cuda.tensorrt ];
   cmakeFlags = previous.cmakeFlags ++ [
     (lib.cmakeFeature "CMAKE_CUDA_ARCHITECTURES" "87-real")
@@ -34,8 +36,17 @@ in
     test -f "$out/lib/libonnxruntime_providers_cuda.so"
     test -f "$out/lib/libonnxruntime_providers_tensorrt.so"
   '';
+  postFixup = (previous.postFixup or "") + ''
+    # The provider's RUNPATH, not the executable's RPATH, resolves libcuda.so.1.
+    provider="$out/lib/libonnxruntime_providers_cuda.so"
+    patchelf --add-rpath '${cudaCompat}/lib' "$provider"
+    case ":$(patchelf --print-rpath "$provider"):" in
+      *':${cudaCompat}/lib:'*) ;;
+      *) echo "CUDA provider is missing the Orin compatibility library path" >&2; exit 1 ;;
+    esac
+  '';
   passthru = previous.passthru // {
-    cudaCompat = callPackage ../cuda-compat-orin/package.nix { };
+    inherit cudaCompat;
     l4tRelease = "36.4.3";
   };
 })
