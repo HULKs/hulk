@@ -13,11 +13,29 @@
       system = "x86_64-linux";
       workspace = fromTOML (builtins.readFile ./Cargo.toml);
       rustVersion = workspace.workspace.package.rust-version;
-      pkgs = import nixpkgs { inherit system; overlays = [ (import rust-overlay) ]; };
-      robotPkgs = import nixpkgs { system = "aarch64-linux"; };
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [ (import rust-overlay) ];
+        config.allowUnfree = true;
+      };
+      robotPkgs = import nixpkgs {
+        localSystem = system;
+        crossSystem = "aarch64-linux";
+        config = {
+          allowUnfree = true;
+          cudaForwardCompat = false;
+        };
+      };
       robotBridge = pkgs.pkgsCross.aarch64-multiplatform.callPackage ./nix/zenoh-bridge-dds/package.nix { };
+      robotOnnxruntime = robotPkgs.callPackage ./nix/onnxruntime-jetson/package.nix {
+        nativeCuda = pkgs.cudaPackages_13_2;
+      };
+      robotLibraries = robotPkgs.callPackage ./nix/robot-dependencies.nix { };
+      rustToolchain = pkgs.rust-bin.stable.${rustVersion}.default;
       craneLibrary =
-        (crane.mkLib pkgs).overrideToolchain pkgs.rust-bin.stable.${rustVersion}.default;
+        (crane.mkLib pkgs).overrideToolchain rustToolchain;
+      nativeStdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.stdenv;
+      nativeOrt = "${pkgs.lib.getLib pkgs.onnxruntime}/lib";
 
       src = pkgs.lib.fileset.toSource {
         root = ./.;
@@ -85,16 +103,72 @@
 
       packages.aarch64-linux.zenoh-bridge-dds = robotBridge;
 
+      packages.aarch64-linux.onnxruntime-jetson = robotOnnxruntime;
+
       packages.aarch64-linux.hulk-runtime = pkgs.buildEnv {
         name = "hulk-runtime";
-        paths = with robotPkgs; [ podman zenoh robotBridge catatonit nftables sshpass ];
+        paths = with import nixpkgs { system = "aarch64-linux"; }; [ podman zenoh robotBridge catatonit nftables sshpass ];
         pathsToLink = [ "/bin" "/libexec" "/lib/systemd" ];
       };
 
-      devShells.${system}.default = craneLibrary.devShell {
-        inputsFrom = [ pepsi twix rosz ];
-        packages = with pkgs; [ rust-analyzer rsync openssh systemd.dev pkg-config openssl mesa ];
-        env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (guiLibraries ++ [ pkgs.systemd ]);
+      devShells.${system} = {
+        default = (pkgs.mkShell.override { stdenv = nativeStdenv; }) {
+          strictDeps = true;
+          nativeBuildInputs = with pkgs; [
+            rustToolchain
+            rust-analyzer
+            cargo-nextest
+            taplo
+            ruff
+            patchelf
+            pkg-config
+            rustPlatform.bindgenHook
+            rsync
+            openssh
+          ];
+          buildInputs = with pkgs; guiLibraries ++ [
+            alsa-lib
+            fontconfig
+            mesa
+            onnxruntime
+            openssl
+            systemdLibs
+          ];
+          env = {
+            HULK_NATIVE_SHELL = "1";
+            NIX_NO_SELF_RPATH = "1";
+            CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = "${nativeStdenv.cc}/bin/cc";
+            # Use the wrapper's mold, not rustc's bundled LLD or a distro linker from Cargo config.
+            CARGO_ENCODED_RUSTFLAGS = "-Clink-arg=-fuse-ld=mold";
+            ORT_LIB_PATH = nativeOrt;
+            ORT_PREFER_DYNAMIC_LINK = "1";
+            LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath guiLibraries;
+          };
+        };
+        android =
+          let
+            ndk = (pkgs.androidenv.composeAndroidPackages {
+              includeNDK = true;
+              ndkVersion = "27.3.13750724";
+            }).ndk-bundle;
+            ndkBin = "${ndk}/libexec/android-sdk/ndk-bundle/toolchains/llvm/prebuilt/linux-x86_64/bin";
+            linker = "${ndkBin}/aarch64-linux-android21-clang";
+          in
+          pkgs.mkShell {
+            nativeBuildInputs = [
+              (rustToolchain.override { targets = [ "aarch64-linux-android" ]; })
+            ];
+            env = {
+              CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER = linker;
+              CC_aarch64_linux_android = linker;
+              AR_aarch64_linux_android = "${ndkBin}/llvm-ar";
+            };
+          };
+        robot-sdk = import ./nix/robot-sdk/package.nix {
+          inherit pkgs robotPkgs rustVersion;
+          libraries = robotLibraries;
+          onnxruntime = robotOnnxruntime;
+        };
       };
     };
 }

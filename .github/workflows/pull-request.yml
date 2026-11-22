@@ -3,6 +3,9 @@ on:
   pull_request:
   merge_group:
     types: [checks_requested]
+defaults:
+  run:
+    shell: nix develop .#default --no-update-lock-file --command bash -eo pipefail "{0}"
 env:
   CARGO_HOME: /__w/hulk/cargo
   CARGO_TARGET_DIR: /__w/hulk/target
@@ -16,7 +19,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.99.1
+      image: ghcr.io/hulks/hulk-ci:1.100
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +38,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.99.1
+      image: ghcr.io/hulks/hulk-ci:1.100
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +53,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.99.1
+      image: ghcr.io/hulks/hulk-ci:1.100
       options: --user=1000:1000
     steps:
       - name: Install uv
@@ -71,18 +74,12 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.99.1
+      image: ghcr.io/hulks/hulk-ci:1.100
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
-      - name: Install cargo-binstall
-        uses: cargo-bins/cargo-binstall@v1.20.1
-        with:
-          version: 1.20.1
-      - name: Install cargo-nextest
-        run: cargo binstall cargo-nextest --secure --no-confirm --disable-strategies compile
       - name: Test
         run: ./pepsi nextest
       - name: Doctests
@@ -99,7 +96,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.99.1
+      image: ghcr.io/hulks/hulk-ci:1.100
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -114,18 +111,20 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.99.1
+      image: ghcr.io/hulks/hulk-ci:1.100
       options: --user=1000:1000
-    env:
-      TARGET: aarch64-linux-android
     steps:
       - uses: actions/checkout@v4
       - name: Build
-        run: ./pepsi build --locked --release --target ${{ env.TARGET }} pepsi
+        shell: nix develop .#android --no-update-lock-file --command bash -eo pipefail "{0}"
+        run: cargo build --locked --release --target aarch64-linux-android -p pepsi
 
   build_mkdocs:
     name: Build mkdocs
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:

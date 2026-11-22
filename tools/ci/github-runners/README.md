@@ -1,5 +1,16 @@
 # Build GitHub Actions Runner v3 for Proxmox LXC
 
+## Publish the CI job image
+
+Before merging a new `hulk-ci` tag, dispatch **Build and Push CI Image** from
+the branch. On a `v3` runner, smoke-test the image as UID 1000 from a mounted checkout:
+
+```sh
+nix develop .#default --no-update-lock-file --command cargo nextest --version
+```
+
+The flake supplies Rust for native and Android jobs (`nix develop .#android`).
+
 ## Build root filesystem
 
 - Install [distrobuilder](https://linuxcontainers.org/distrobuilder/introduction/)
