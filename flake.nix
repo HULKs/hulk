@@ -1,6 +1,14 @@
 {
   description = "Development environment and tools for HULKs";
 
+  nixConfig = {
+    fallback = true;
+    extra-substituters = [ "https://nix-cache.hulks.dev/hulk" ];
+    extra-trusted-public-keys = [
+      "hulk:724ZyCrz/G8uthHJmwTxfsk3qNDHArarIm6yFyU8t9I="
+    ];
+  };
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     crane.url = "github:ipetkov/crane";
