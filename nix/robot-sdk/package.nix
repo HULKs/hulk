@@ -2,12 +2,18 @@
 let
   target = "aarch64-unknown-linux-gnu";
   compiler = robotPkgs.stdenv.cc;
+  rustToolchain =
+    (pkgs.rust-bin.stable.${rustVersion}.default.override { targets = [ target ]; }).overrideAttrs
+      (previous: {
+        # The native compiler belongs in depsBuildBuild, not the toolchain's propagated host role.
+        propagatedBuildInputs = pkgs.lib.remove pkgs.stdenv.cc (previous.propagatedBuildInputs or [ ]);
+      });
 in
 robotPkgs.mkShell {
   strictDeps = true;
   NIX_NO_SELF_RPATH = 1;
   nativeBuildInputs = [
-    (pkgs.rust-bin.stable.${rustVersion}.default.override { targets = [ target ]; })
+    rustToolchain
     robotPkgs.buildPackages.pkg-config
     robotPkgs.rustPlatform.bindgenHook
     pkgs.util-linux
@@ -28,6 +34,7 @@ robotPkgs.mkShell {
   AR_aarch64_unknown_linux_gnu = "${compiler.bintools}/bin/${compiler.targetPrefix}ar";
 
   # Cargo also compiles native build dependencies inside the cross shell.
+  CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = "${pkgs.stdenv.cc}/bin/cc";
   CC_x86_64_unknown_linux_gnu = "${pkgs.stdenv.cc}/bin/cc";
   CXX_x86_64_unknown_linux_gnu = "${pkgs.stdenv.cc}/bin/c++";
   AR_x86_64_unknown_linux_gnu = "${pkgs.stdenv.cc.bintools}/bin/ar";
