@@ -258,12 +258,14 @@ pub(crate) fn se23_to_isometry3_and_velocity(
 mod tests {
     use std::time::{Duration, SystemTime};
 
+    use linear_algebra::vector;
+
     use crate::measurements::SensorMeasurement;
 
     use super::*;
 
     fn translation(x: f32, y: f32, z: f32) -> Isometry3<Robot, Camera> {
-        Isometry3::from_translation(x, y, z)
+        Isometry3::from_translation(vector![x, y, z])
     }
 
     #[test]

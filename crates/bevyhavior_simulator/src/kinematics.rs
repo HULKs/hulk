@@ -42,9 +42,9 @@ pub fn resolve_collisions(
         let Ok((_, _, mut ground_to_world)) = robots.get_mut(entity) else {
             continue;
         };
-        let rotation = ground_to_world.ground_to_world.orientation().angle();
+        let orientation = ground_to_world.ground_to_world.orientation();
         ground_to_world.ground_to_world =
-            Isometry2::from_parts(resolved_position.coords(), rotation);
+            Isometry2::from_parts(resolved_position.coords(), orientation);
     }
 
     if let Some(simulated_ball) = &mut ball.state {
@@ -333,7 +333,7 @@ fn apply_walk_to_pose<Frame>(
 
     let max_rotation = config.walk_rotation_speed * dt;
     let step_rotation = (step.turn * dt).clamp(-max_rotation, max_rotation);
-    let delta = Isometry2::from_parts(step_translation, step_rotation);
+    let delta = Isometry2::new(step_translation, step_rotation);
     ground_to_frame * delta
 }
 
@@ -347,7 +347,7 @@ fn apply_walk_with_velocity_to_pose<Frame>(
     let dt = tick_duration.as_secs_f32();
     let translation = velocity * config.walk_with_velocity_scale * dt;
     let rotation = angular_velocity * config.walk_with_velocity_scale * dt;
-    let delta = Isometry2::from_parts(translation, rotation);
+    let delta = Isometry2::new(translation, rotation);
     ground_to_frame * delta
 }
 

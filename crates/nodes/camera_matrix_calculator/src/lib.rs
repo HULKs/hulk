@@ -178,8 +178,9 @@ mod tests {
             correction_in_camera: vector![-0.4, 0.5, -0.6],
         };
         let mut robot_kinematics = RobotKinematics::default();
-        robot_kinematics.head.head_to_robot = Isometry3::from_translation(0.02, -0.03, 0.3);
-        let robot_to_ground = Isometry3::from_translation(0.1, -0.2, 0.5);
+        robot_kinematics.head.head_to_robot =
+            Isometry3::from_translation(vector![0.02, -0.03, 0.3]);
+        let robot_to_ground = Isometry3::from_translation(vector![0.1, -0.2, 0.5]);
         let camera_info = camera_info();
 
         let camera_matrix = compute_camera_matrix(

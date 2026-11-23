@@ -149,7 +149,7 @@ pub fn left_ankle_to_left_tibia(angles: &LegJoints<f32>) -> Isometry3<LeftAnkle,
 }
 
 pub fn left_foot_to_left_ankle(angles: &LegJoints<f32>) -> Isometry3<LeftFoot, LeftAnkle> {
-    Isometry3::from_rotation(Vector3::x_axis() * angles.ankle_down)
+    Isometry3::from_axis_angle(Vector3::x_axis() * angles.ankle_down)
 }
 
 pub fn left_sole_to_robot(angles: &LegJoints<f32>) -> Isometry3<LeftSole, Robot> {
@@ -199,7 +199,7 @@ pub fn right_ankle_to_right_tibia(angles: &LegJoints<f32>) -> Isometry3<RightAnk
 }
 
 pub fn right_foot_to_right_ankle(angles: &LegJoints<f32>) -> Isometry3<RightFoot, RightAnkle> {
-    Isometry3::from_rotation(Vector3::x_axis() * angles.ankle_down)
+    Isometry3::from_axis_angle(Vector3::x_axis() * angles.ankle_down)
 }
 
 pub fn right_sole_to_robot(angles: &LegJoints<f32>) -> Isometry3<RightSole, Robot> {

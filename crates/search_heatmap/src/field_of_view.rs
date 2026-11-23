@@ -238,7 +238,7 @@ mod tests {
             observation_distance_range: 0.0..3.0,
             ..Default::default()
         };
-        let ground_to_field = Isometry2::<Ground, Field>::from_parts(vector![0.0, 0.0], 0.0);
+        let ground_to_field = Isometry2::<Ground, Field>::new(vector![0.0, 0.0], 0.0);
 
         heatmap.decay_tiles_in_robot_fov_with_occluders(
             field_dimensions,
@@ -290,7 +290,7 @@ mod tests {
             for steps in [1, 10, 50] {
                 let mut map = Heatmap::new(field, 18);
                 map.map.fill(1.0);
-                let pose = Isometry2::from_parts(vector![target.x() - distance, target.y()], 0.0);
+                let pose = Isometry2::new(vector![target.x() - distance, target.y()], 0.0);
                 for _ in 0..steps {
                     map.decay_tiles_in_robot_fov_with_occluders(
                         field,

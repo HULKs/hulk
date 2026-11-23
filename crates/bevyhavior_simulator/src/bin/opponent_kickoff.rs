@@ -81,7 +81,7 @@ fn startup(
         SimulatorRobotBundle::new(
             Team::Hulks,
             PLAYER,
-            Isometry2::from_parts(vector![-4.0, -2.0], 0.0),
+            Isometry2::new(vector![-4.0, -2.0], 0.0),
             field_dimensions.0,
             parameters,
         )

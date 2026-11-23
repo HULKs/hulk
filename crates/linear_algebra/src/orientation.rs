@@ -10,6 +10,7 @@ where
     T: SimdRealField + Copy,
     T::Element: SimdRealField,
 {
+    /// Creates an orientation from an angle in radians.
     pub fn new(angle: T) -> Self {
         Self::wrap(nalgebra::UnitComplex::new(angle))
     }
@@ -36,10 +37,12 @@ where
         ))
     }
 
+    /// Labels the existing local frame as `From`, preserving its rotation into `Frame`.
     pub fn as_transform<From>(&self) -> Rotation2<From, Frame, T> {
         Rotation2::wrap(self.inner)
     }
 
+    /// Returns the orientation angle in radians.
     pub fn angle(&self) -> T {
         self.inner.angle()
     }
@@ -64,10 +67,12 @@ where
     T: SimdRealField + RealField,
     T::Element: SimdRealField,
 {
+    /// Creates an orientation from an axis in `Frame` scaled by the angle in radians.
     pub fn new(axis_angle: Vector3<Frame, T>) -> Self {
         Self::wrap(nalgebra::UnitQuaternion::new(axis_angle.inner))
     }
 
+    /// Creates an orientation from roll, pitch, and yaw in radians.
     pub fn from_euler_angles(roll: T, pitch: T, yaw: T) -> Self {
         Self::wrap(nalgebra::UnitQuaternion::from_euler_angles(
             roll, pitch, yaw,
@@ -86,14 +91,16 @@ where
         Rotation3::wrap(self.inner.rotation_to(&other.inner))
     }
 
-    pub fn rotation<From>(self) -> Rotation3<From, Frame, T> {
-        Rotation3::wrap(self.inner)
+    /// Labels the existing local frame as `From`, preserving its rotation into `Frame`.
+    pub fn as_transform<From>(&self) -> Rotation3<From, Frame, T> {
+        Rotation3::wrap(self.inner.clone())
     }
 
     pub fn slerp(&self, other: Self, t: T) -> Self {
         Self::wrap(self.inner.slerp(&other.inner, t))
     }
 
+    /// Returns roll, pitch, and yaw in radians.
     pub fn euler_angles(&self) -> (T, T, T) {
         self.inner.euler_angles()
     }

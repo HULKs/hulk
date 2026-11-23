@@ -191,8 +191,8 @@ mod tests {
             vector![<Robot>, 0.1, -0.2, -0.5],
             Orientation3::from_euler_angles(0.03, -0.04, 0.0),
         );
-        let robot_to_head = Isometry3::from_translation(0.0, 0.0, 0.3);
-        let head_to_camera = Isometry3::from_translation(0.05, 0.0, 0.02);
+        let robot_to_head = Isometry3::from_translation(vector![0.0, 0.0, 0.3]);
+        let head_to_camera = Isometry3::from_translation(vector![0.05, 0.0, 0.02]);
         let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
             nalgebra::vector![0.5, 0.5],
             nalgebra::point![0.5, 0.5],

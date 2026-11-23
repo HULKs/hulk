@@ -94,8 +94,7 @@ fn border_penalty_changes_choice_with_turn_preference() {
         observation_distance_range: 0.0..0.0,
         ..Default::default()
     };
-    let pose =
-        Isometry2::<Ground, Field>::from_parts(vector![0.0, 0.0], -std::f32::consts::FRAC_PI_4);
+    let pose = Isometry2::<Ground, Field>::new(vector![0.0, 0.0], -std::f32::consts::FRAC_PI_4);
 
     assert_eq!(
         heatmap.get_suggested_search_index(
@@ -157,7 +156,7 @@ fn exhausted_search_selects_best_remaining_cell_and_yields_to_regular_target() {
         fallback_minimum_search_priority: 0.05,
         ..Default::default()
     };
-    let pose = Isometry2::<Ground, Field>::from_parts(vector![0.0, 0.0], 0.0);
+    let pose = Isometry2::<Ground, Field>::new(vector![0.0, 0.0], 0.0);
     let selection = SearchVoronoiSelection::new(
         field,
         18,
@@ -223,7 +222,7 @@ fn exhausted_search_keeps_edge_target_when_scores_are_negative() {
         tile_switch_hysteresis: 0.7,
         ..Default::default()
     };
-    let pose = Isometry2::<Ground, Field>::from_parts(vector![0.0, 0.0], 0.0);
+    let pose = Isometry2::<Ground, Field>::new(vector![0.0, 0.0], 0.0);
     let selection = SearchVoronoiSelection::new(
         field,
         18,

@@ -32,7 +32,7 @@ fn startup(
         SimulatorRobotBundle::new(
             Team::Hulks,
             PlayerNumber::Three,
-            Isometry2::from_parts(vector![0.0, 0.0], 0.0),
+            Isometry2::new(vector![0.0, 0.0], 0.0),
             field_dimensions.0,
             parameters.clone(),
         )
@@ -43,7 +43,7 @@ fn startup(
         SimulatorRobotBundle::new(
             Team::Hulks,
             PlayerNumber::Four,
-            Isometry2::from_parts(vector![-1.0, 1.0], 0.0),
+            Isometry2::new(vector![-1.0, 1.0], 0.0),
             field_dimensions.0,
             parameters,
         )
