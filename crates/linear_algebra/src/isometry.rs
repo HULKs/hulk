@@ -5,7 +5,9 @@ use crate::{
     Transform, Vector2, Vector3,
 };
 
-/// A rigid coordinate mapping that rotates, then translates, from `From` to `To`.
+/// A rigid coordinate mapping from `From` to `To`.
+///
+/// Points are rotated, then translated; vectors are only rotated.
 pub type Isometry<From, To, const DIMENSION: usize, T, Rotation> =
     Transform<From, To, nalgebra::Isometry<T, Rotation, DIMENSION>>;
 pub type Isometry2<From, To, T = f32> = Isometry<From, To, 2, T, nalgebra::UnitComplex<T>>;
@@ -207,6 +209,11 @@ mod tests {
 
         assert_abs_diff_eq!(from_angle * source, expected, epsilon = 1.0e-6);
         assert_abs_diff_eq!(from_parts * source, expected, epsilon = 1.0e-6);
+        assert_abs_diff_eq!(
+            from_parts * vector![<Robot>, 1.0, 0.0],
+            vector![<Field>, 0.0, 1.0],
+            epsilon = 1.0e-6,
+        );
     }
 
     #[test]

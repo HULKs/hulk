@@ -6,11 +6,23 @@ use std::{
 };
 
 use approx::{AbsDiffEq, RelativeEq};
+use num_traits::Num;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use ros_z::{Message, MessageSchema, SchemaBuilder, SerdeCdrCodec};
 
 /// A value expressed in the coordinate frame `Frame`.
+///
+/// Multiplication and division require numeric right-hand operands. Unframed geometric
+/// transforms cannot be composed this way; use [`crate::Transform`] for frame-checked composition.
+///
+/// ```compile_fail
+/// use linear_algebra::{Pose2, nalgebra::Translation2, point};
+///
+/// struct Field;
+/// let pose = Pose2::<Field>::new(point![1.0, 2.0], 0.5);
+/// let _ = pose * Translation2::new(3.0, 4.0);
+/// ```
 #[derive(Debug)]
 // `repr(transparent)` ensures this struct has the same memory layout as `inner`.
 // This guarantees that transmuting between `Framed<Frame, Inner>` and `Inner` is safe.
@@ -220,6 +232,7 @@ where
 impl<Frame, Inner, T> Mul<T> for Framed<Frame, Inner>
 where
     Inner: Mul<T, Output = Inner>,
+    T: Num,
 {
     type Output = Framed<Frame, Inner::Output>;
 
@@ -231,6 +244,7 @@ where
 impl<Frame, Inner, T> MulAssign<T> for Framed<Frame, Inner>
 where
     Inner: MulAssign<T>,
+    T: Num,
 {
     fn mul_assign(&mut self, rhs: T) {
         self.inner *= rhs;
@@ -240,6 +254,7 @@ where
 impl<Frame, Inner, T> Div<T> for Framed<Frame, Inner>
 where
     Inner: Div<T, Output = Inner>,
+    T: Num,
 {
     type Output = Framed<Frame, Inner::Output>;
 
@@ -251,6 +266,7 @@ where
 impl<Frame, Inner, T> DivAssign<T> for Framed<Frame, Inner>
 where
     Inner: DivAssign<T>,
+    T: Num,
 {
     fn div_assign(&mut self, rhs: T) {
         self.inner /= rhs;
@@ -347,25 +363,20 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::ops::Mul;
-
-    use crate::Framed;
+    use crate::{Vector2, vector};
 
     #[test]
-    fn scaling_requires_only_the_inner_operation() {
-        struct Frame;
-        struct Scale(i32);
+    fn numeric_scaling_preserves_the_frame() {
+        #[derive(Debug)]
+        struct Field;
 
-        impl Mul<Scale> for i32 {
-            type Output = Self;
-
-            fn mul(self, scale: Scale) -> Self::Output {
-                self * scale.0
-            }
-        }
-
-        let result: Framed<Frame, i32> = Framed::wrap(3) * Scale(2);
-        assert_eq!(result.inner, 6);
+        let value = vector![<Field>, 6, 12];
+        let mut scaled: Vector2<Field, i32> = value * 2;
+        assert_eq!(scaled, vector![12, 24]);
+        scaled /= 3;
+        assert_eq!(scaled, vector![4, 8]);
+        scaled *= 3;
+        assert_eq!(scaled / 2, value);
     }
 }
 
