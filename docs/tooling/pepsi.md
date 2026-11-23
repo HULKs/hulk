@@ -42,6 +42,18 @@ Packages marked `package.metadata.pepsi.cross-compile = true` use the Nix robot 
 
 Without a manifest argument, builds default to the workstation. For robot builds selected with `-p`, pass `--env nix`. Deploy the matching runtime bundle before uploading.
 
+#### Publishing the SDK cache
+
+Trusted developers can publish the pinned robot SDK and its dependency closure:
+
+```sh
+./pepsi sdk push-cache
+```
+
+This builds any missing SDK dependencies and pushes to `https://nix-cache.hulks.dev/hulk`.
+It fetches Attic on demand from the locked nixpkgs; normal development and SDK preparation do not require Attic.
+For CI, provide the token through the `ATTIC_TOKEN` secret environment variable.
+
 ### Build options
 
 Use `--profile` to select a build profile, for example `./pepsi build -p twix --profile release`.

@@ -32,5 +32,16 @@ trap 'rm -rf "$sdk_source"' EXIT
 cp "$root/flake.nix" "$root/flake.lock" "$root/Cargo.toml" "$root/hulk.toml" "$sdk_source/"
 cp -r "$root/nix" "$sdk_source/"
 
+if [[ $shell == push-cache ]]; then
+    nix --extra-experimental-features 'nix-command flakes' build \
+        "$sdk_source#devShells.x86_64-linux.robot-sdk" --accept-flake-config \
+        --no-update-lock-file --out-link "$sdk_source/sdk"
+    nix --extra-experimental-features 'nix-command flakes' shell \
+        --inputs-from "$sdk_source" nixpkgs#attic-client --accept-flake-config \
+        --no-update-lock-file --command env XDG_CONFIG_HOME="$1" \
+        attic push hulks:hulk "$sdk_source/sdk"
+    exit 0
+fi
+
 nix --extra-experimental-features 'nix-command flakes' develop \
     "$sdk_source#$shell" --no-update-lock-file --command "$@"
