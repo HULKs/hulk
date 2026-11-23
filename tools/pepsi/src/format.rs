@@ -82,7 +82,10 @@ async fn ruff_fmt(root: impl AsRef<Path>, check: bool) -> Result<()> {
 pub async fn format(arguments: Arguments, repository: &Repository) -> Result<()> {
     if std::env::var("HULK_NATIVE_SHELL").as_deref() != Ok("1") {
         let mut command = repository::sdk::native_command(&repository.root);
-        command.arg(std::env::current_exe()?).arg("fmt");
+        command
+            .current_dir(&repository.root)
+            .arg(std::env::current_exe()?)
+            .arg("fmt");
         if arguments.check {
             command.arg("--check");
         }
