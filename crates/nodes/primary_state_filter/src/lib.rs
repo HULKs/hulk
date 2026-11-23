@@ -73,7 +73,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let mut primary_state_filter = PrimaryStateFilter::default();
     primary_state_pub
-        .publish(&primary_state_filter.primary_state)
+        .publish(node.clock().now(), &primary_state_filter.primary_state)
         .await?;
 
     loop {
@@ -155,7 +155,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         }
 
         primary_state_pub
-            .publish(&primary_state_filter.primary_state)
+            .publish(node.clock().now(), &primary_state_filter.primary_state)
             .await?;
     }
 }

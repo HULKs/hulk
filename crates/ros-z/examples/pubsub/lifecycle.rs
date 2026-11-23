@@ -55,7 +55,9 @@ async fn trace_messages() -> Result<()> {
     loop {
         // The typed subscriber reads both messages; the depth-one raw queue keeps only the second.
         for message in ["first", "second"] {
-            publisher.publish(&message.to_owned()).await?;
+            publisher
+                .publish(source.clock().now(), &message.to_owned())
+                .await?;
             let received = subscriber.recv_with_metadata().await?;
             println!("{}: {}", received.publication_id(), received.message());
         }

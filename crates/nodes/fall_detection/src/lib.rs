@@ -324,7 +324,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         && now.duration_since(time) <= parameters.maximum_observation_age
                 });
         if let Some(fall_detection) = detector.update(observation, stand_up_requested, parameters) {
-            fall_detection_publisher.publish(&fall_detection).await?;
+            fall_detection_publisher
+                .publish(node.clock().now(), &fall_detection)
+                .await?;
         }
 
         // Match the magnitude comparisons in the fallen and readiness guards.
@@ -336,13 +338,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .fold(0.0, f32::max);
         let joint_speed_sum = observation.velocities.into_iter().map(f32::abs).sum();
         tilt_publisher
-            .publish_with_source_time(&observation.tilt, observation.time)
+            .publish(observation.time, &observation.tilt)
             .await?;
         maximum_joint_speed_publisher
-            .publish_with_source_time(&maximum_joint_speed, observation.time)
+            .publish(observation.time, &maximum_joint_speed)
             .await?;
         joint_speed_sum_publisher
-            .publish_with_source_time(&joint_speed_sum, observation.time)
+            .publish(observation.time, &joint_speed_sum)
             .await?;
     }
 }

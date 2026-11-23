@@ -21,7 +21,7 @@ use crate::pubsub::metadata::PublicationId;
 use crate::pubsub::replay::{self, RetainedSample, TransientLocalCache};
 use crate::qos::QosProfile;
 use crate::shm::ShmConfig;
-use crate::time::{Clock, Time};
+use crate::time::Time;
 use crate::topic_name;
 use ros_z_protocol::qos::{QosDurability, QosHistory, QosReliability};
 use ros_z_schema::SchemaBundle;
@@ -49,7 +49,6 @@ pub struct Publisher<T, C: WireEncoder = <T as crate::Message>::Codec> {
     endpoint_global_id: EndpointGlobalId,
     inner: zenoh::pubsub::Publisher<'static>,
     _lv_token: LivelinessToken,
-    clock: Clock,
     shm_config: Option<Arc<ShmConfig>>,
     /// Schema for dynamic message publishing.
     dyn_schema: Option<Schema>,
@@ -68,6 +67,7 @@ where
 {
     publisher: &'a Publisher<T, C>,
     publication_id: PublicationId,
+    source_time: Time,
 }
 
 struct ReplayTaskGuard(Option<JoinHandle<()>>);
@@ -93,7 +93,6 @@ impl Drop for ReplayTaskGuard {
 struct PreparedPublisherBuild {
     session: Session,
     graph: Arc<Graph>,
-    clock: Clock,
     shm_config: Option<Arc<ShmConfig>>,
     entity: EndpointEntity,
     key_expr: zenoh::key_expr::KeyExpr<'static>,
@@ -176,20 +175,16 @@ where
         self.publication_id
     }
 
-    pub async fn publish(self, message: &T) -> Result<()> {
-        let source_time = self.publisher.clock.now();
-        self.publish_with_source_time(message, source_time).await
-    }
-
+    /// Publish with the ID and source time fixed by [`Publisher::prepare`].
     #[tracing::instrument(name = "publish", level = "trace", skip_all, fields(
         publication_id = %self.publication_id, topic = %self.publisher.entity.topic,
         node_name = %self.publisher.entity.node.name, node_namespace = %self.publisher.entity.node.namespace,
-        ?source_time,
+        source_time = ?self.source_time,
     ), err(level = "trace"))]
-    pub async fn publish_with_source_time(self, message: &T, source_time: Time) -> Result<()> {
+    pub async fn publish(self, message: &T) -> Result<()> {
         let (payload, attachment) =
             self.publisher
-                .prepare_payload(message, self.publication_id, source_time)?;
+                .prepare_payload(message, self.publication_id, self.source_time)?;
         // Retain before put so replay queries cannot miss a just-published sample.
         self.publisher
             .retain_transient_local_sample(&payload, &attachment);
@@ -348,7 +343,6 @@ where
         Ok(PreparedPublisherBuild {
             session: self.context.session.clone(),
             graph: self.context.graph.clone(),
-            clock: self.context.clock.clone(),
             shm_config: self.shm_config,
             entity,
             key_expr,
@@ -421,7 +415,6 @@ where
             inner,
             _lv_token: lv_token,
             endpoint_global_id: prepared.endpoint_global_id,
-            clock: prepared.clock,
             shm_config: prepared.shm_config,
             dyn_schema: prepared.dyn_schema,
             encoding,
@@ -500,11 +493,12 @@ where
         }
     }
 
-    /// Prepare a single publish operation with a reserved publisher-owned id.
-    pub fn prepare(&self) -> PreparedPublication<'_, T, C> {
+    /// Reserve a publication ID and fix the source time before the message is ready.
+    pub fn prepare(&self, source_time: Time) -> PreparedPublication<'_, T, C> {
         PreparedPublication {
             publisher: self,
             publication_id: self.reserve_id(),
+            source_time,
         }
     }
 
@@ -516,16 +510,9 @@ where
         id
     }
 
-    /// Serialize and publish `message` on the topic.
-    pub async fn publish(&self, message: &T) -> Result<()> {
-        self.prepare().publish(message).await
-    }
-
-    /// Serialize and publish `message` while using `source_time` in the ROS-Z attachment.
-    pub async fn publish_with_source_time(&self, message: &T, source_time: Time) -> Result<()> {
-        self.prepare()
-            .publish_with_source_time(message, source_time)
-            .await
+    /// Serialize and publish `message` with `source_time` in its metadata.
+    pub async fn publish(&self, source_time: Time, message: &T) -> Result<()> {
+        self.prepare(source_time).publish(message).await
     }
 
     #[tracing::instrument(level = "trace", skip_all, fields(
@@ -627,9 +614,13 @@ where
     }
 
     /// Publish when subscribed or when transient-local history must be retained.
-    /// Lazily builds an owned or borrowed message only when needed.
+    /// Skips reserving an ID and building the message if neither is needed.
     /// Returns whether a message was published.
-    pub async fn publish_if_subscribed<F, Fut, M>(&self, build: F) -> Result<bool>
+    pub async fn publish_if_subscribed<F, Fut, M>(
+        &self,
+        source_time: Time,
+        build: F,
+    ) -> Result<bool>
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = M>,
@@ -640,7 +631,7 @@ where
         }
 
         let message = build().await;
-        self.publish(message.borrow()).await?;
+        self.publish(source_time, message.borrow()).await?;
         Ok(true)
     }
 }

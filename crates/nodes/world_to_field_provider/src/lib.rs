@@ -34,6 +34,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             }
         });
 
-        world_to_field_pub.publish(&world_to_field).await?;
+        world_to_field_pub
+            .publish(node.clock().now(), &world_to_field)
+            .await?;
     }
 }

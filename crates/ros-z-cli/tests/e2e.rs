@@ -466,7 +466,7 @@ struct PublishingFixture {
     node_fqn: String,
     publisher: Arc<Publisher<Telemetry>>,
     publish_task: Mutex<Option<tokio::task::JoinHandle<()>>>,
-    _node: Node,
+    node: Node,
     _context: Context,
 }
 
@@ -501,13 +501,14 @@ impl PublishingFixture {
             node_fqn: "/cli_e2e/schema_fixture".to_string(),
             publisher: Arc::new(publisher),
             publish_task: Mutex::new(None),
-            _node: node,
+            node,
             _context: context,
         })
     }
 
     fn start_publishing(&self) {
         let publisher = self.publisher.clone();
+        let clock = self.node.clock().clone();
         let handle = tokio::spawn(async move {
             let message = Telemetry {
                 label: "robot-7".to_string(),
@@ -516,7 +517,7 @@ impl PublishingFixture {
             };
 
             loop {
-                if publisher.publish(&message).await.is_err() {
+                if publisher.publish(clock.now(), &message).await.is_err() {
                     break;
                 }
                 tokio::time::sleep(Duration::from_millis(50)).await;

@@ -45,10 +45,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 if !should_filter_message_out {
                     filtered_message_pub.publish(
+                        node.clock().now(),
                         &TimeWrapper {
                             time: time_wrapped_message.time,
-                            inner: time_wrapped_message.inner
-                        }
+                            inner: time_wrapped_message.inner,
+                        },
                     ).await?;
                 }
             }

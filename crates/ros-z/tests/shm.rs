@@ -44,7 +44,7 @@ async fn test_shm_pubsub_large_message() {
 
     // Publish
     publisher
-        .publish(&message)
+        .publish(node.clock().now(), &message)
         .await
         .expect("Failed to publish");
 
@@ -99,7 +99,7 @@ async fn test_shm_pubsub_small_message() {
 
     // Publish (should use regular memory, not SHM)
     publisher
-        .publish(&message)
+        .publish(node.clock().now(), &message)
         .await
         .expect("Failed to publish");
 
@@ -152,7 +152,7 @@ async fn test_shm_threshold_boundary() {
     let message = boundary_data.clone();
 
     publisher
-        .publish(&message)
+        .publish(node.clock().now(), &message)
         .await
         .expect("Failed to publish");
 
@@ -209,7 +209,7 @@ async fn test_shm_config_hierarchy_node_override() {
     let message = data.clone();
 
     publisher
-        .publish(&message)
+        .publish(node.clock().now(), &message)
         .await
         .expect("Failed to publish");
 
@@ -259,7 +259,7 @@ async fn test_without_shm() {
 
     // Should publish without SHM despite being large
     publisher
-        .publish(&message)
+        .publish(node.clock().now(), &message)
         .await
         .expect("Failed to publish");
 
@@ -312,7 +312,7 @@ async fn test_publisher_shm_override() {
     let message = data.clone();
 
     publisher
-        .publish(&message)
+        .publish(node.clock().now(), &message)
         .await
         .expect("Failed to publish");
 
@@ -380,8 +380,12 @@ async fn test_multiple_publishers_different_thresholds() {
     let data = vec![0x11; 3_000];
     let message = data.clone();
 
-    pub1.publish(&message).await.expect("Failed to publish 1");
-    pub2.publish(&message).await.expect("Failed to publish 2");
+    pub1.publish(node.clock().now(), &message)
+        .await
+        .expect("Failed to publish 1");
+    pub2.publish(node.clock().now(), &message)
+        .await
+        .expect("Failed to publish 2");
 
     let recv1 = tokio::time::timeout(Duration::from_secs(2), sub1.recv())
         .await

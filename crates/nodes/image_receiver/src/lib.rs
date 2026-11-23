@@ -63,21 +63,21 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             left_image = receiver.left.recv() => {
                 let frame_identifier = left_image.header.frame_identifier;
                 let image: Image = left_image.into();
-                left_image_pub.publish(&image).await?;
+                left_image_pub.publish(node.clock().now(), &image).await?;
                 stereo_image_pairer.insert(CameraSide::Left, frame_identifier, image)
             }
             right_image = receiver.right.recv() => {
                 let frame_identifier = right_image.header.frame_identifier;
                 let image: Image = right_image.into();
-                right_image_pub.publish_if_subscribed(|| ready(&image)).await?;
+                right_image_pub.publish_if_subscribed(node.clock().now(), || ready(&image)).await?;
                 stereo_image_pairer.insert(CameraSide::Right, frame_identifier, image)
             }
             _ = camera_info_timer.tick() => {
                 camera_info_pub
-                    .publish(&stereo_camera_info.left)
+                    .publish(node.clock().now(), &stereo_camera_info.left)
                     .await?;
                 stereo_camera_info_pub
-                    .publish(&stereo_camera_info)
+                    .publish(node.clock().now(), &stereo_camera_info)
                     .await?;
                 continue
             }
@@ -91,7 +91,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let Some(stereo_image_pair) = stereo_image_pair else {
             continue;
         };
-        stereo_image_pair_pub.publish(&stereo_image_pair).await?;
+        stereo_image_pair_pub
+            .publish(node.clock().now(), &stereo_image_pair)
+            .await?;
     }
 }
 

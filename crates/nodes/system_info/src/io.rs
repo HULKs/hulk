@@ -5,7 +5,10 @@ use std::{
 
 use color_eyre::Result;
 use procfs::{DiskStat, net::DeviceStatus};
-use ros_z::prelude::{Message, Publisher};
+use ros_z::{
+    prelude::{Message, Publisher},
+    time::Clock,
+};
 use tracing::warn;
 use types::system_info::{DiskIo, DiskIoRates, NetworkIo, NetworkIoRates};
 
@@ -14,9 +17,13 @@ struct Sample<T> {
     data: T,
 }
 
-pub(super) async fn run_disk(publisher: Publisher<BTreeMap<String, DiskIo>>) -> Result<()> {
+pub(super) async fn run_disk(
+    publisher: Publisher<BTreeMap<String, DiskIo>>,
+    clock: &Clock,
+) -> Result<()> {
     poll(
         publisher,
+        clock,
         || {
             procfs::diskstats().map(|disks| {
                 disks
@@ -30,12 +37,16 @@ pub(super) async fn run_disk(publisher: Publisher<BTreeMap<String, DiskIo>>) -> 
     .await
 }
 
-pub(super) async fn run_network(publisher: Publisher<BTreeMap<String, NetworkIo>>) -> Result<()> {
-    poll(publisher, procfs::net::dev_status, network_metrics).await
+pub(super) async fn run_network(
+    publisher: Publisher<BTreeMap<String, NetworkIo>>,
+    clock: &Clock,
+) -> Result<()> {
+    poll(publisher, clock, procfs::net::dev_status, network_metrics).await
 }
 
 async fn poll<T: Message + Send + Sync + 'static, S: Send + 'static>(
     publisher: Publisher<T>,
+    clock: &Clock,
     read: fn() -> procfs::ProcResult<S>,
     metrics: fn(&Sample<S>, &Sample<S>) -> T,
 ) -> Result<()> {
@@ -64,7 +75,7 @@ async fn poll<T: Message + Send + Sync + 'static, S: Send + 'static>(
                 if let Some(metrics) = metrics
                     && publisher.has_subscribers()
                 {
-                    publisher.publish(&metrics).await?;
+                    publisher.publish(clock.now(), &metrics).await?;
                 }
             }
             Err(error) => {

@@ -45,7 +45,11 @@ async fn cached_and_observed_subscriptions_replay_retained_values_unless_overrid
         })
         .build()
         .await?;
-    assert!(publisher.publish_if_subscribed(|| async { 42 }).await?);
+    assert!(
+        publisher
+            .publish_if_subscribed(robot.clock().now(), || async { 42 })
+            .await?
+    );
     let cached = cached.await?;
 
     let observer = TopicObserver::new(twix, TopicObserverOptions::default());
@@ -76,7 +80,7 @@ async fn cached_and_observed_subscriptions_replay_retained_values_unless_overrid
     );
     assert!(volatile.latest().is_none());
 
-    publisher.publish(&43).await?;
+    publisher.publish(robot.clock().now(), &43).await?;
     wait_until(|| volatile.latest().is_some_and(|record| record.value == 43)).await;
     Ok(())
 }
@@ -115,7 +119,7 @@ async fn observations_adapt_durability_when_publishers_change() -> ros_z_debug::
         .build()
         .await?;
     drop(volatile);
-    retained.publish(&2).await?;
+    retained.publish(robot.clock().now(), &2).await?;
     wait_until(|| {
         subscriptions_have_durability(QosDurability::TransientLocal)
             && typed.latest().is_some_and(|record| record.value == 2)
@@ -125,7 +129,7 @@ async fn observations_adapt_durability_when_publishers_change() -> ros_z_debug::
 
     let volatile = robot.publisher::<i32>("layout").build().await?;
     wait_until(|| subscriptions_have_durability(QosDurability::Volatile)).await;
-    volatile.publish(&3).await?;
+    volatile.publish(robot.clock().now(), &3).await?;
     wait_until(|| {
         typed.latest().is_some_and(|record| record.value == 3)
             && dynamic.latest_json() == Some(serde_json::json!(3))

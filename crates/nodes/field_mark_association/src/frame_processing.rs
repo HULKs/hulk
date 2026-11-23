@@ -4,7 +4,12 @@ use color_eyre::Result;
 use coordinate_systems::{Camera, Field, Robot};
 use linear_algebra::Isometry3;
 use projection::camera_matrix::CameraMatrix;
-use ros_z::{cache::Cache, parameter::NodeParameters, pubsub::Publisher, time::Time};
+use ros_z::{
+    cache::Cache,
+    parameter::NodeParameters,
+    pubsub::Publisher,
+    time::{Clock, Time},
+};
 use ros_z_streams::FutureItem;
 use types::{
     field_dimensions::FieldDimensions,
@@ -25,6 +30,7 @@ type DetectedObjects = TimeWrapper<Vec<Object<RobocupObjectLabel>>>;
 type DetectedObjectsItem<'a> = FutureItem<'a, (Option<DetectedObjects>,)>;
 
 pub(crate) struct DetectionProcessingContext<'a> {
+    pub(crate) clock: &'a Clock,
     pub(crate) parameters: &'a NodeParameters<FieldMarkAssociationParameters>,
     pub(crate) camera_matrix_cache: &'a Cache<TimeWrapper<CameraMatrix>>,
     pub(crate) field_dimensions_cache: &'a Cache<FieldDimensions>,
@@ -90,6 +96,7 @@ pub(crate) async fn process_detected_objects(
         };
 
         publish_localization_frame(
+            ctx.clock,
             ctx.associations_publisher,
             ctx.global_localization_publisher,
             processed_frame,
@@ -169,23 +176,27 @@ fn associate_detection_frame(
 }
 
 async fn publish_localization_frame(
+    clock: &Clock,
     associations_publisher: &Publisher<TimeWrapper<VisualLocalizationFrame>>,
     global_localization_publisher: &Publisher<Option<GlobalLocalizationDebug>>,
     processed_frame: ProcessedDetectionFrame,
 ) -> Result<()> {
     let debug = processed_frame.localization.debug.clone();
     global_localization_publisher
-        .publish_if_subscribed(|| ready(debug))
+        .publish_if_subscribed(clock.now(), || ready(debug))
         .await?;
     associations_publisher
-        .publish(&TimeWrapper {
-            time: processed_frame.image_time,
-            inner: VisualLocalizationFrame {
-                robot_to_camera: processed_frame.robot_to_camera,
-                associations: processed_frame.localization.associations,
-                backend_reset: processed_frame.localization.accepted_global_pose,
+        .publish(
+            clock.now(),
+            &TimeWrapper {
+                time: processed_frame.image_time,
+                inner: VisualLocalizationFrame {
+                    robot_to_camera: processed_frame.robot_to_camera,
+                    associations: processed_frame.localization.associations,
+                    backend_reset: processed_frame.localization.accepted_global_pose,
+                },
             },
-        })
+        )
         .await?;
     Ok(())
 }

@@ -66,17 +66,19 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .as_ref()
             .is_some_and(is_penalty_phase_or_sub_state)
         {
-            team_ball_pub.publish(&None).await?;
+            team_ball_pub.publish(node.clock().now(), &None).await?;
             continue;
         }
 
         let team_ball = team_ball_filter.get_last_valid_received_ball(now, parameters.maximum_age);
         team_balls_pub
-            .publish_if_subscribed(|| async {
+            .publish_if_subscribed(node.clock().now(), || async {
                 team_ball_filter.filtered_received_balls(now, parameters.maximum_age)
             })
             .await?;
-        team_ball_pub.publish(&team_ball).await?;
+        team_ball_pub
+            .publish(node.clock().now(), &team_ball)
+            .await?;
     }
 }
 

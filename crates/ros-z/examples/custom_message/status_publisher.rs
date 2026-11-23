@@ -29,7 +29,7 @@ async fn main() -> Result<()> {
             "Publishing {} at ({:.1}, {:.1}) with {:.1}% battery",
             message.robot_id, message.position_x, message.position_y, message.battery_percentage
         );
-        publisher.publish(&message).await?;
+        publisher.publish(node.clock().now(), &message).await?;
 
         tokio::time::sleep(Duration::from_secs(1)).await;
     }

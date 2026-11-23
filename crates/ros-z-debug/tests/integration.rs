@@ -61,7 +61,7 @@ async fn typed_subscription_receives_latest_sample() {
         .expect("subscription should build");
 
     publisher
-        .publish(&"hello".to_string())
+        .publish(publisher_node.clock().now(), &"hello".to_string())
         .await
         .expect("publish should work");
 
@@ -81,7 +81,7 @@ async fn typed_subscription_receives_latest_sample() {
     }
 
     publisher
-        .publish(&"goodbye".to_string())
+        .publish(publisher_node.clock().now(), &"goodbye".to_string())
         .await
         .expect("second publish should work");
 
@@ -138,7 +138,7 @@ async fn typed_subscription_resolves_relative_topic_against_target_namespace() {
         .expect("subscription should build");
 
     publisher
-        .publish(&"hello target".to_string())
+        .publish(publisher_node.clock().now(), &"hello target".to_string())
         .await
         .expect("publish should work");
 
@@ -202,7 +202,7 @@ async fn dynamic_subscription_renders_json_view() {
     let payload = DynamicPayload::from_struct(message).expect("dynamic payload");
 
     publisher
-        .publish(&payload)
+        .publish(publisher_node.clock().now(), &payload)
         .await
         .expect("publish should work");
 

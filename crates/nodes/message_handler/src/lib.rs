@@ -42,7 +42,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     time: ctx.clock().now(),
                     inner: message?,
                 };
-                incoming_message_pub.publish(&message).await?;
+                incoming_message_pub.publish(node.clock().now(), &message).await?;
             }
             message = outgoing_message_sub.recv() => {
                 endpoint.write(message?).await;

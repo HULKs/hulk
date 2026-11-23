@@ -110,11 +110,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     .unzip()
             });
         detected_whistle_pub
-            .publish(&Whistle { is_detected })
+            .publish(node.clock().now(), &Whistle { is_detected })
             .await?;
 
-        audio_spectrums_pub.publish(&audio_spectrums).await?;
-        detection_infos_pub.publish(&detection_infos).await?;
+        audio_spectrums_pub
+            .publish(node.clock().now(), &audio_spectrums)
+            .await?;
+        detection_infos_pub
+            .publish(node.clock().now(), &detection_infos)
+            .await?;
     }
 }
 

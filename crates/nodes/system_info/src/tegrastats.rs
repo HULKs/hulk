@@ -4,7 +4,7 @@ use color_eyre::{
     Result,
     eyre::{ensure, eyre},
 };
-use ros_z::prelude::Publisher;
+use ros_z::{prelude::Publisher, time::Clock};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
@@ -12,7 +12,11 @@ use tokio::{
 use tracing::warn;
 use types::system_info::{CpuInfo, MemoryUsage, Power, Tegrastats, Temperature};
 
-pub(super) async fn run(publisher: Publisher<Tegrastats>, mut command: Command) -> Result<()> {
+pub(super) async fn run(
+    publisher: Publisher<Tegrastats>,
+    mut command: Command,
+    clock: &Clock,
+) -> Result<()> {
     command.stdout(Stdio::piped()).kill_on_drop(true);
     let mut timer = crate::sample_timer();
     loop {
@@ -51,7 +55,7 @@ pub(super) async fn run(publisher: Publisher<Tegrastats>, mut command: Command) 
                         break;
                     }
                     match parse(&line) {
-                        Ok(info) => publisher.publish(&info).await?,
+                        Ok(info) => publisher.publish(clock.now(), &info).await?,
                         Err(error) => warn!(%error, "ignoring malformed tegrastats sample"),
                     }
                 }

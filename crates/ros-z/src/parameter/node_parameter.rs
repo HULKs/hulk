@@ -514,7 +514,7 @@ where
 
     fn publish_event(&self, event: &NodeParameterEvent) -> Result<()> {
         if let Some(remote) = self.inner.remote.get() {
-            block_on_parameter_future(remote.publish_event(event))?;
+            block_on_parameter_future(remote.publish_event(event, self.inner.clock.now()))?;
         }
         Ok(())
     }

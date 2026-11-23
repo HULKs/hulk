@@ -320,7 +320,10 @@ async fn nalgebra_fields_roundtrip_via_standard_discovery() {
     let expected_json = serde_json::to_value(&expected).expect("serde snapshot json");
     let publish_task = tokio::spawn(async move {
         for _ in 0..20 {
-            publisher.publish(&expected).await.expect("publish");
+            publisher
+                .publish(pub_node.clock().now(), &expected)
+                .await
+                .expect("publish");
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
     });
@@ -395,7 +398,10 @@ async fn single_schema_discovery_works_with_basic_nalgebra_fields() {
         serde_json::to_value(expected.target_pose).expect("serde target_pose json");
     let publish_task = tokio::spawn(async move {
         for _ in 0..20 {
-            publisher.publish(&expected).await.expect("publish");
+            publisher
+                .publish(pub_node.clock().now(), &expected)
+                .await
+                .expect("publish");
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
     });

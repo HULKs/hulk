@@ -11,8 +11,11 @@
 //! let context = ContextBuilder::default().build().await?;
 //! let node = context.create_node("talker").build().await?;
 //! let publisher = node.publisher::<String>("/chatter").build().await?;
-//! publisher.publish(&"hello".to_owned()).await?;
+//! publisher.publish(node.clock().now(), &"hello".to_owned()).await?;
 //! ```
+//!
+//! Publishers require an explicit source time. Use the node clock for messages
+//! stamped at publication, or pass a known event time to preserve it.
 //!
 //! ## Endpoint builders
 //!

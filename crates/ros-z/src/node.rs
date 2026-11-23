@@ -457,7 +457,7 @@ impl Node {
     /// let mut message = DynamicStruct::default_for_schema(&schema)?;
     /// message.set("data", "Hello, world!")?;
     /// let payload = DynamicPayload::from_struct(message)?;
-    /// publisher.publish(&payload).await?;
+    /// publisher.publish(node.clock().now(), &payload).await?;
     /// ```
     pub fn dynamic_publisher(
         &self,

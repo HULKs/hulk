@@ -181,10 +181,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     statuses
-        .publish(&Status {
-            time: node.clock().now(),
-            state: State::Idle,
-        })
+        .publish(
+            node.clock().now(),
+            &Status {
+                time: node.clock().now(),
+                state: State::Idle,
+            },
+        )
         .await?;
     let inference_parameters = parameters.snapshot().typed.clone();
     let initialized = tokio::task::spawn_blocking(move || {
@@ -199,12 +202,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         Ok(controller) => Some(controller),
         Err(error) => {
             statuses
-                .publish(&Status {
-                    time: node.clock().now(),
-                    state: State::Fault {
-                        reason: format!("{error:#}"),
+                .publish(
+                    node.clock().now(),
+                    &Status {
+                        time: node.clock().now(),
+                        state: State::Fault {
+                            reason: format!("{error:#}"),
+                        },
                     },
-                })
+                )
                 .await?;
             return Err(error);
         }
@@ -233,10 +239,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let (trace, records) = Trace::channel(node.clock().clone(), traces);
     let mut requests = Requests::new(&node, qos, trace.clone()).await?;
     statuses
-        .publish(&Status {
-            time: node.clock().now(),
-            state: State::Initialized,
-        })
+        .publish(
+            node.clock().now(),
+            &Status {
+                time: node.clock().now(),
+                state: State::Initialized,
+            },
+        )
         .await?;
     let snapshot = parameters.snapshot();
     let runtime = Runtime::new(
@@ -418,10 +427,13 @@ impl Runtime {
                 };
 
                 statuses
-                    .publish(&Status {
-                        time: self.clock.now(),
-                        state,
-                    })
+                    .publish(
+                        self.clock.now(),
+                        &Status {
+                            time: self.clock.now(),
+                            state,
+                        },
+                    )
                     .await?;
 
                 published_fault = fault;
@@ -666,7 +678,10 @@ impl Runtime {
         if !reply_sent || self.clock.now() >= expires_at {
             self.reset_execution();
         }
-        if let Err(error) = timings.publish_if_subscribed(|| async { timing }).await {
+        if let Err(error) = timings
+            .publish_if_subscribed(self.clock.now(), || async { timing })
+            .await
+        {
             warn!(%error, "failed to publish inference timing");
         }
     }

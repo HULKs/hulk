@@ -72,25 +72,25 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let joint_position_difference_to_safe =
             serial_motor_states.positions() - parameters.prep_mode_serial_motor_states.positions();
         joint_position_difference_to_safe_pub
-            .publish(&joint_position_difference_to_safe)
+            .publish(node.clock().now(), &joint_position_difference_to_safe)
             .await?;
 
         let joint_velocities_difference_to_safe = serial_motor_states.velocities()
             - parameters.prep_mode_serial_motor_states.velocities();
         joint_velocities_difference_to_safe_pub
-            .publish(&joint_velocities_difference_to_safe)
+            .publish(node.clock().now(), &joint_velocities_difference_to_safe)
             .await?;
 
         let linear_accelerations_difference_to_safe =
             imu_state.linear_acceleration - parameters.prep_mode_imu_state.linear_acceleration;
         linear_accelerations_difference_to_safe_pub
-            .publish(&linear_accelerations_difference_to_safe)
+            .publish(node.clock().now(), &linear_accelerations_difference_to_safe)
             .await?;
 
         let angular_velocities_difference_to_safe =
             imu_state.angular_velocity - parameters.prep_mode_imu_state.angular_velocity;
         angular_velocities_difference_to_safe_pub
-            .publish(&angular_velocities_difference_to_safe)
+            .publish(node.clock().now(), &angular_velocities_difference_to_safe)
             .await?;
 
         let motor_states_are_safe = motor_states_are_safe(
@@ -109,7 +109,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let is_safe_pose = motor_states_are_safe && imu_state_is_safe;
 
-        is_safe_pose_pub.publish(&is_safe_pose).await?;
+        is_safe_pose_pub
+            .publish(node.clock().now(), &is_safe_pose)
+            .await?;
     }
 }
 

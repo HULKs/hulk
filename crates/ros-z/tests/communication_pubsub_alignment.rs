@@ -40,7 +40,7 @@ async fn publisher_message_id_is_reserved_and_observable() {
     );
 
     let message = AlignmentMessage { value: 42 };
-    let publish = publisher.prepare();
+    let publish = publisher.prepare(node.clock().now());
     let publication_id = publish.id();
 
     publish
@@ -90,7 +90,7 @@ async fn publisher_direct_publish_attaches_publication_id() {
     let message = AlignmentMessage { value: 7 };
 
     publisher
-        .publish(&message)
+        .publish(node.clock().now(), &message)
         .await
         .expect("Failed to publish message");
 

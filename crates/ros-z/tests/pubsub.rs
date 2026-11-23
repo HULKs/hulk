@@ -2,7 +2,6 @@ use std::{num::NonZeroUsize, time::Duration};
 
 use ros_z::{
     Message,
-    attachment::Attachment,
     context::ContextBuilder,
     entity::{EndpointEntity, EndpointKind, SchemaHash, TypeInfo},
     message::{SerdeCdrCodec, WireEncoder},
@@ -155,10 +154,13 @@ async fn raw_subscriber_receives_sample_payload() -> zenoh::Result<()> {
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     publisher
-        .publish(&TestMessage {
-            data: vec![4, 2],
-            counter: 42,
-        })
+        .publish(
+            node.clock().now(),
+            &TestMessage {
+                data: vec![4, 2],
+                counter: 42,
+            },
+        )
         .await?;
 
     let sample = tokio::time::timeout(Duration::from_secs(1), subscriber.recv()).await??;
@@ -377,7 +379,10 @@ async fn test_basic_pubsub() {
         data: vec![1, 2, 3, 4, 5],
         counter: 42,
     };
-    publisher.publish(&message).await.unwrap();
+    publisher
+        .publish(node.clock().now(), &message)
+        .await
+        .unwrap();
 
     let received_msg = tokio::time::timeout(Duration::from_secs(1), subscriber.recv())
         .await
@@ -414,7 +419,7 @@ async fn transient_local_build_waits_for_initial_replay() -> ros_z::Result<()> {
         data: vec![1, 3, 5],
         counter: 13,
     };
-    publisher.publish(&message).await?;
+    publisher.publish(pub_node.clock().now(), &message).await?;
 
     let subscriber = sub_node
         .subscriber::<TestMessage>(topic)
@@ -464,7 +469,10 @@ async fn test_multiple_messages() {
             data: vec![i as u8; 100],
             counter: i,
         };
-        publisher.publish(&message).await.unwrap();
+        publisher
+            .publish(node.clock().now(), &message)
+            .await
+            .unwrap();
     }
 
     for i in 0..5 {
@@ -556,7 +564,10 @@ async fn recv_with_metadata_includes_transport_and_source_timestamps() {
         data: vec![9, 8, 7],
         counter: 7,
     };
-    publisher.publish(&message).await.unwrap();
+    publisher
+        .publish(node.clock().now(), &message)
+        .await
+        .unwrap();
 
     let received = tokio::time::timeout(Duration::from_secs(1), subscriber.recv_with_metadata())
         .await
@@ -573,7 +584,7 @@ async fn recv_with_metadata_includes_transport_and_source_timestamps() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn publish_with_source_time_sets_metadata_source_time() {
+async fn direct_publish_preserves_explicit_source_time() {
     let context = ContextBuilder::default()
         .build()
         .await
@@ -604,10 +615,7 @@ async fn publish_with_source_time_sets_metadata_source_time() {
     };
     let source_time = Time::from_nanos(123_456_789);
 
-    publisher
-        .publish_with_source_time(&message, source_time)
-        .await
-        .unwrap();
+    publisher.publish(source_time, &message).await.unwrap();
 
     let received = tokio::time::timeout(Duration::from_secs(1), subscriber.recv_with_metadata())
         .await
@@ -621,8 +629,10 @@ async fn publish_with_source_time_sets_metadata_source_time() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn prepared_publish_with_source_time_sets_metadata_source_time() {
+async fn prepared_publish_keeps_its_source_time_and_id_until_polled() {
+    let clock = Clock::logical(Time::zero());
     let context = ContextBuilder::default()
+        .with_clock(clock.clone())
         .build()
         .await
         .expect("Failed to create context");
@@ -646,27 +656,43 @@ async fn prepared_publish_with_source_time_sets_metadata_source_time() {
 
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let message = TestMessage {
+    let first_message = TestMessage {
         data: vec![6, 5, 4],
         counter: 43,
     };
-    let source_time = Time::from_nanos(987_654_321);
+    let first_time = Time::from_nanos(987_654_321);
+    let first = publisher.prepare(first_time);
+    let first_id = first.id();
 
-    publisher
-        .prepare()
-        .publish_with_source_time(&message, source_time)
-        .await
-        .unwrap();
+    clock.advance(Duration::from_secs(5)).unwrap();
+    let publish_first = first.publish(&first_message);
 
-    let received = tokio::time::timeout(Duration::from_secs(1), subscriber.recv_with_metadata())
-        .await
-        .expect("receive should not time out")
-        .expect("receive should succeed");
+    let second_message = TestMessage {
+        data: vec![3, 2, 1],
+        counter: 44,
+    };
+    let second_time = Time::from_nanos(123_456_789);
+    let second = publisher.prepare(second_time);
+    let second_id = second.id();
+    assert_ne!(first_id, second_id);
 
-    assert_eq!(received.message, message);
-    assert_eq!(received.source_time, source_time);
-    assert_eq!(received.sequence_number, 0);
-    assert_ne!(received.source_global_id, ros_z::EndpointGlobalId::ZERO);
+    clock.advance(Duration::from_secs(5)).unwrap();
+    second.publish(&second_message).await.unwrap();
+    publish_first.await.unwrap();
+
+    for (message, source_time, reserved_id) in [
+        (second_message, second_time, second_id),
+        (first_message, first_time, first_id),
+    ] {
+        let received =
+            tokio::time::timeout(Duration::from_secs(1), subscriber.recv_with_metadata())
+                .await
+                .expect("receive should not time out")
+                .expect("receive should succeed");
+        assert_eq!(received.message, message);
+        assert_eq!(received.source_time, source_time);
+        assert_eq!(received.publication_id(), reserved_id);
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -748,7 +774,10 @@ async fn test_large_payload() {
         data: vec![0xAB; 1024 * 1024],
         counter: 999,
     };
-    publisher.publish(&message).await.unwrap();
+    publisher
+        .publish(node.clock().now(), &message)
+        .await
+        .unwrap();
 
     let received_msg = tokio::time::timeout(Duration::from_secs(2), subscriber.recv())
         .await
@@ -757,55 +786,6 @@ async fn test_large_payload() {
     assert_eq!(received_msg.counter, 999);
     assert_eq!(received_msg.data.len(), 1024 * 1024);
     assert_eq!(received_msg.data[0], 0xAB);
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn prepared_publish_samples_the_logical_clock_when_polled() {
-    let clock = Clock::logical(Time::zero());
-    clock.advance(Duration::from_secs(5)).unwrap();
-
-    let context = ContextBuilder::default()
-        .with_clock(clock.clone())
-        .build()
-        .await
-        .expect("Failed to create context");
-    let node = context
-        .create_node("sim_clock_node")
-        .build()
-        .await
-        .expect("Failed to create node");
-
-    let publisher = node
-        .publisher::<TestMessage>("/sim_clock")
-        .build()
-        .await
-        .unwrap();
-    let mut subscriber = node
-        .subscriber::<TestMessage>("/sim_clock")
-        .raw()
-        .build()
-        .await
-        .unwrap();
-
-    tokio::time::sleep(Duration::from_millis(100)).await;
-
-    let prepared = publisher.prepare();
-    let id = prepared.id();
-    let message = TestMessage {
-        data: vec![1],
-        counter: 1,
-    };
-    let publish = prepared.publish(&message);
-    clock.advance(Duration::from_secs(5)).unwrap();
-    publish.await.unwrap();
-
-    let sample = tokio::time::timeout(Duration::from_secs(1), subscriber.recv())
-        .await
-        .expect("receive should not time out")
-        .expect("receive should succeed");
-    let attachment = Attachment::try_from(&sample).unwrap();
-    assert_eq!(id, (&attachment).into());
-    assert_eq!(attachment.source_time(), clock.now());
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -840,7 +820,7 @@ async fn test_vec_u8_pubsub() {
             // Give the subscriber time to declare before publishing
             tokio::time::sleep(Duration::from_millis(500)).await;
             publisher
-                .publish(&message)
+                .publish(node.clock().now(), &message)
                 .await
                 .expect("Failed to publish");
             tokio::time::sleep(Duration::from_millis(100)).await;

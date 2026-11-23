@@ -50,7 +50,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         if output.is_none() {
             held_ball = None;
         }
-        ball_position_pub.publish(&output).await?;
+        ball_position_pub
+            .publish(node.clock().now(), &output)
+            .await?;
     }
 }
 

@@ -40,9 +40,9 @@ async fn run_with_command(ctx: Arc<Context>, command: Command) -> Result<()> {
         .build()
         .await?;
     tokio::try_join!(
-        tegrastats::run(tegrastats, command),
-        io::run_disk(disk),
-        io::run_network(network),
+        tegrastats::run(tegrastats, command, node.clock()),
+        io::run_disk(disk, node.clock()),
+        io::run_network(network, node.clock()),
     )?;
     Ok(())
 }

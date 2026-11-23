@@ -1,7 +1,10 @@
 use color_eyre::Result;
 use coordinate_systems::{Field, Robot};
 use linear_algebra::Isometry3;
-use ros_z::{pubsub::Publisher, time::Time};
+use ros_z::{
+    pubsub::Publisher,
+    time::{Clock, Time},
+};
 use types::{
     field_dimensions::FieldDimensions,
     time_wrapper::TimeWrapper,
@@ -14,6 +17,7 @@ use crate::{
 
 #[derive(Clone, Copy)]
 pub(crate) struct LocalizationPublishers<'a> {
+    pub(crate) clock: &'a Clock,
     localization: &'a Publisher<Option<Isometry3<Field, Robot>>>,
     pose_3d: &'a Publisher<TimeWrapper<Option<Isometry3<Field, Robot>>>>,
     association_pose_hint: &'a Publisher<TimeWrapper<Option<AssociationPoseHint>>>,
@@ -21,11 +25,13 @@ pub(crate) struct LocalizationPublishers<'a> {
 
 impl<'a> LocalizationPublishers<'a> {
     pub(crate) fn new(
+        clock: &'a Clock,
         localization: &'a Publisher<Option<Isometry3<Field, Robot>>>,
         pose_3d: &'a Publisher<TimeWrapper<Option<Isometry3<Field, Robot>>>>,
         association_pose_hint: &'a Publisher<TimeWrapper<Option<AssociationPoseHint>>>,
     ) -> Self {
         Self {
+            clock,
             localization,
             pose_3d,
             association_pose_hint,
@@ -39,15 +45,23 @@ impl<'a> LocalizationPublishers<'a> {
         pose_3d: Option<Isometry3<Field, Robot>>,
         source: AssociationPoseHintSource,
     ) -> Result<()> {
-        self.localization.publish(&localization).await?;
+        self.localization
+            .publish(self.clock.now(), &localization)
+            .await?;
         self.pose_3d
-            .publish(&TimeWrapper {
-                time,
-                inner: pose_3d,
-            })
+            .publish(
+                self.clock.now(),
+                &TimeWrapper {
+                    time,
+                    inner: pose_3d,
+                },
+            )
             .await?;
         self.association_pose_hint
-            .publish(&association_pose_hint(time, pose_3d, source))
+            .publish(
+                self.clock.now(),
+                &association_pose_hint(time, pose_3d, source),
+            )
             .await?;
         Ok(())
     }

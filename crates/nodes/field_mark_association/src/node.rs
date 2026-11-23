@@ -112,6 +112,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 process_detected_objects(
                     item,
                     DetectionProcessingContext {
+                        clock: node.clock(),
                         parameters: &parameters,
                         camera_matrix_cache: &camera_matrix_cache,
                         field_dimensions_cache: &field_dimensions_cache,

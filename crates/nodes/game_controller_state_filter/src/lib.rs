@@ -113,10 +113,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             );
 
         whistle_in_set_ball_position_pub
-            .publish(&game_controller_state_filter.whistle_in_set_ball_position)
+            .publish(
+                node.clock().now(),
+                &game_controller_state_filter.whistle_in_set_ball_position,
+            )
             .await?;
         filtered_game_controller_state_pub
-            .publish(&filtered_game_controller_state)
+            .publish(node.clock().now(), &filtered_game_controller_state)
             .await?;
     }
 }

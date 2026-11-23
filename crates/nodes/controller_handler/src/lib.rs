@@ -32,7 +32,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         ticker.tick().await;
         let controller_input = read_controller_input(&mut gilrs);
-        controller_input_pub.publish(&controller_input).await?;
+        controller_input_pub
+            .publish(node.clock().now(), &controller_input)
+            .await?;
     }
 }
 

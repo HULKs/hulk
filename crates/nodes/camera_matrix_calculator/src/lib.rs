@@ -74,10 +74,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let geometry = compute_camera_geometry(parameters, &kinematics.inner, &camera_info);
 
                 camera_geometry_pub
-                    .publish(&TimeWrapper {
-                        time: kinematics.time,
-                        inner: geometry,
-                    })
+                    .publish(
+                        node.clock().now(),
+                        &TimeWrapper {
+                            time: kinematics.time,
+                            inner: geometry,
+                        },
+                    )
                     .await?;
             }
             Either::Right((ground, _)) => {
@@ -100,10 +103,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 );
 
                 camera_matrix_pub
-                    .publish(&TimeWrapper {
-                        time: ground.time,
-                        inner: matrix,
-                    })
+                    .publish(
+                        node.clock().now(),
+                        &TimeWrapper {
+                            time: ground.time,
+                            inner: matrix,
+                        },
+                    )
                     .await?;
             }
         }
