@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::framed::Framed;
 
+/// A coordinate mapping from the source frame `From` to the destination frame `To`.
 #[derive(Debug)]
 pub struct Transform<From, To, Inner> {
     from: PhantomData<From>,
@@ -25,6 +26,7 @@ where
 impl<From, To, Inner> Copy for Transform<From, To, Inner> where Inner: Copy {}
 
 impl<From, To, Transformer> Transform<From, To, Transformer> {
+    /// Labels an existing mapping with its source and destination frames without changing it.
     pub fn wrap(inner: Transformer) -> Self {
         Self {
             from: PhantomData,
@@ -106,61 +108,92 @@ where
 
 impl<From, To, Inner> Eq for Transform<From, To, Inner> where Inner: Eq {}
 
-impl<From, To, Transformer, Entity> Mul<Framed<From, Entity>> for Transform<From, To, Transformer>
+impl<From, To, Lhs, Rhs> Mul<Framed<From, Rhs>> for Transform<From, To, Lhs>
 where
-    Transformer: Mul<Entity, Output = Entity>,
+    Lhs: Mul<Rhs>,
 {
-    type Output = Framed<To, Entity>;
+    type Output = Framed<To, Lhs::Output>;
 
-    fn mul(self, rhs: Framed<From, Entity>) -> Self::Output {
+    fn mul(self, rhs: Framed<From, Rhs>) -> Self::Output {
         Self::Output::wrap(self.inner * rhs.inner)
     }
 }
 
-impl<From, Intermediate, To, Transformer, Inner, Output> Mul<Transform<From, Intermediate, Inner>>
-    for Transform<Intermediate, To, Transformer>
+impl<'lhs, From, To, Lhs, Rhs> Mul<Framed<From, Rhs>> for &'lhs Transform<From, To, Lhs>
 where
-    Transformer: Mul<Inner, Output = Output>,
+    &'lhs Lhs: Mul<Rhs>,
 {
-    type Output = Transform<From, To, Output>;
+    type Output = Framed<To, <&'lhs Lhs as Mul<Rhs>>::Output>;
 
-    fn mul(self, rhs: Transform<From, Intermediate, Inner>) -> Self::Output {
+    fn mul(self, rhs: Framed<From, Rhs>) -> Self::Output {
+        Self::Output::wrap(&self.inner * rhs.inner)
+    }
+}
+
+impl<'rhs, From, To, Lhs, Rhs> Mul<&'rhs Framed<From, Rhs>> for Transform<From, To, Lhs>
+where
+    Lhs: Mul<&'rhs Rhs>,
+{
+    type Output = Framed<To, <Lhs as Mul<&'rhs Rhs>>::Output>;
+
+    fn mul(self, rhs: &'rhs Framed<From, Rhs>) -> Self::Output {
+        Self::Output::wrap(self.inner * &rhs.inner)
+    }
+}
+
+impl<'lhs, 'rhs, From, To, Lhs, Rhs> Mul<&'rhs Framed<From, Rhs>> for &'lhs Transform<From, To, Lhs>
+where
+    &'lhs Lhs: Mul<&'rhs Rhs>,
+{
+    type Output = Framed<To, <&'lhs Lhs as Mul<&'rhs Rhs>>::Output>;
+
+    fn mul(self, rhs: &'rhs Framed<From, Rhs>) -> Self::Output {
+        Self::Output::wrap(&self.inner * &rhs.inner)
+    }
+}
+
+impl<From, Mid, To, Lhs, Rhs> Mul<Transform<From, Mid, Rhs>> for Transform<Mid, To, Lhs>
+where
+    Lhs: Mul<Rhs>,
+{
+    type Output = Transform<From, To, Lhs::Output>;
+
+    fn mul(self, rhs: Transform<From, Mid, Rhs>) -> Self::Output {
         Self::Output::wrap(self.inner * rhs.inner)
     }
 }
 
-impl<From, Intermediate, To, Transformer, Inner, Output> Mul<Transform<From, Intermediate, Inner>>
-    for &Transform<Intermediate, To, Transformer>
+impl<'lhs, From, Mid, To, Lhs, Rhs> Mul<Transform<From, Mid, Rhs>> for &'lhs Transform<Mid, To, Lhs>
 where
-    Transformer: Mul<Inner, Output = Output> + Copy,
+    &'lhs Lhs: Mul<Rhs>,
 {
-    type Output = Transform<From, To, Output>;
+    type Output = Transform<From, To, <&'lhs Lhs as Mul<Rhs>>::Output>;
 
-    fn mul(self, rhs: Transform<From, Intermediate, Inner>) -> Self::Output {
-        Self::Output::wrap(self.inner * rhs.inner)
+    fn mul(self, rhs: Transform<From, Mid, Rhs>) -> Self::Output {
+        Self::Output::wrap(&self.inner * rhs.inner)
     }
 }
 
-impl<From, To, Transformer, Entity> Mul<&Framed<From, Entity>> for Transform<From, To, Transformer>
+impl<'rhs, From, Mid, To, Lhs, Rhs> Mul<&'rhs Transform<From, Mid, Rhs>> for Transform<Mid, To, Lhs>
 where
-    Transformer: Mul<Entity, Output = Entity>,
-    Entity: Copy,
+    Lhs: Mul<&'rhs Rhs>,
 {
-    type Output = Framed<To, Entity>;
+    type Output = Transform<From, To, <Lhs as Mul<&'rhs Rhs>>::Output>;
 
-    fn mul(self, rhs: &Framed<From, Entity>) -> Self::Output {
-        Self::Output::wrap(self.inner * rhs.inner)
+    fn mul(self, rhs: &'rhs Transform<From, Mid, Rhs>) -> Self::Output {
+        Self::Output::wrap(self.inner * &rhs.inner)
     }
 }
 
-impl<From, To, Transformer, Entity> Mul<Framed<From, Entity>> for &Transform<From, To, Transformer>
+impl<'lhs, 'rhs, From, Mid, To, Lhs, Rhs> Mul<&'rhs Transform<From, Mid, Rhs>>
+    for &'lhs Transform<Mid, To, Lhs>
 where
-    Transformer: Mul<Entity, Output = Entity> + Copy,
+    &'lhs Lhs: Mul<&'rhs Rhs>,
 {
-    type Output = Framed<To, Entity>;
+    type Output = Transform<From, To, <&'lhs Lhs as Mul<&'rhs Rhs>>::Output>;
 
-    fn mul(self, rhs: Framed<From, Entity>) -> Self::Output {
-        Self::Output::wrap(self.inner * rhs.inner)
+    fn mul(self, rhs: &'rhs Transform<From, Mid, Rhs>) -> Self::Output {
+        Self::Output::wrap(&self.inner * &rhs.inner)
     }
 }
 
@@ -194,5 +227,41 @@ where
         D: serde::Deserializer<'a>,
     {
         Ok(Self::wrap(Inner::deserialize(deserializer)?))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nalgebra::{DMatrix, SMatrix};
+
+    use crate::{Transform, Vector3, vector};
+
+    #[derive(Debug)]
+    struct A;
+    #[derive(Debug)]
+    struct B;
+    #[derive(Debug)]
+    struct C;
+
+    #[test]
+    fn compose_borrowed_dynamic_matrices_without_consuming_them() {
+        let a_to_b = Transform::<A, B, _>::wrap(DMatrix::from_row_slice(2, 2, &[1, 2, 0, 1]));
+        let b_to_c = Transform::<B, C, _>::wrap(DMatrix::from_row_slice(2, 2, &[2, 0, 0, 3]));
+
+        let a_to_c: Transform<A, C, _> = &b_to_c * &a_to_b;
+
+        assert_eq!(a_to_c.inner, DMatrix::from_row_slice(2, 2, &[2, 4, 0, 3]));
+        assert_eq!(b_to_c.clone() * &a_to_b, a_to_c);
+        assert_eq!(&b_to_c * a_to_b, a_to_c);
+    }
+
+    #[test]
+    fn rectangular_transform_changes_the_vector_dimension() {
+        let a_to_b =
+            Transform::<A, B, _>::wrap(SMatrix::<i32, 3, 2>::from_row_slice(&[1, 0, 0, 1, 2, 3]));
+
+        let output: Vector3<B, _> = a_to_b * vector![<A>, 2, 3];
+
+        assert_eq!(output, vector![<B>, 2, 3, 13]);
     }
 }

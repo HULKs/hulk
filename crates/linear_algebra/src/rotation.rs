@@ -10,6 +10,7 @@ where
     T: SimdRealField,
     T::Element: SimdRealField,
 {
+    /// Creates a rotation from the source frame to the destination frame by `angle` radians.
     pub fn new(angle: T) -> Self {
         Self::wrap(nalgebra::UnitComplex::new(angle))
     }
@@ -24,6 +25,7 @@ where
         ))
     }
 
+    /// Returns the rotation angle in radians.
     pub fn angle(&self) -> T {
         self.inner.angle()
     }
@@ -57,10 +59,12 @@ where
     T: SimdRealField + Copy,
     T::Element: SimdRealField,
 {
+    /// Creates a rotation from an axis in `To` scaled by the angle in radians.
     pub fn new(axis_angle: Vector3<To, T>) -> Self {
         Self::wrap(nalgebra::UnitQuaternion::new(axis_angle.inner))
     }
 
+    /// Creates a rotation from roll (`x`), pitch (`y`), and yaw (`z`) in radians.
     pub fn from_euler_angles(x: T, y: T, z: T) -> Self {
         Self::wrap(nalgebra::UnitQuaternion::from_euler_angles(x, y, z))
     }

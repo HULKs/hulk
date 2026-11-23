@@ -2,7 +2,9 @@ use nalgebra::SimdRealField;
 
 use crate::{Framed, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Point3};
 
+/// A 2D position and orientation expressed in one reference frame.
 pub type Pose2<Frame, T = f32> = Framed<Frame, nalgebra::Isometry2<T>>;
+/// A 3D position and orientation expressed in one reference frame.
 pub type Pose3<Frame, T = f32> = Framed<Frame, nalgebra::Isometry3<T>>;
 
 // 2 Dimension
@@ -12,6 +14,7 @@ where
     T: SimdRealField + Copy,
     T::Element: SimdRealField,
 {
+    /// Creates a pose from a position and an orientation angle in radians.
     pub fn new(position: Point2<Frame, T>, angle: T) -> Self {
         Self::wrap(nalgebra::Isometry2::new(position.inner.coords, angle))
     }
@@ -27,6 +30,7 @@ where
         Default::default()
     }
 
+    /// Labels the existing local frame as `From`, preserving its mapping into `Frame`.
     pub fn as_transform<From>(&self) -> Isometry2<From, Frame, T> {
         Isometry2::wrap(self.inner)
     }
@@ -42,6 +46,7 @@ where
         Orientation2::wrap(self.inner.rotation)
     }
 
+    /// Returns the orientation angle in radians.
     pub fn angle(&self) -> T {
         self.inner.rotation.angle()
     }
@@ -70,6 +75,8 @@ where
             orientation.inner,
         ))
     }
+
+    /// Labels the existing local frame as `From`, preserving its mapping into `Frame`.
     pub fn as_transform<From>(&self) -> Isometry3<From, Frame, T> {
         Isometry3::wrap(self.inner)
     }

@@ -6,11 +6,11 @@ use std::{
 };
 
 use approx::{AbsDiffEq, RelativeEq};
-use num_traits::Num;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use ros_z::{Message, MessageSchema, SchemaBuilder, SerdeCdrCodec};
 
+/// A value expressed in the coordinate frame `Frame`.
 #[derive(Debug)]
 // `repr(transparent)` ensures this struct has the same memory layout as `inner`.
 // This guarantees that transmuting between `Framed<Frame, Inner>` and `Inner` is safe.
@@ -23,6 +23,7 @@ pub struct Framed<Frame, Inner> {
 impl<Frame, Inner> Copy for Framed<Frame, Inner> where Inner: Copy {}
 
 impl<Frame, Inner> Framed<Frame, Inner> {
+    /// Labels a value already expressed in `Frame` without changing it.
     pub const fn wrap(inner: Inner) -> Self {
         Self {
             frame: PhantomData,
@@ -219,7 +220,6 @@ where
 impl<Frame, Inner, T> Mul<T> for Framed<Frame, Inner>
 where
     Inner: Mul<T, Output = Inner>,
-    T: Num,
 {
     type Output = Framed<Frame, Inner::Output>;
 
@@ -231,7 +231,6 @@ where
 impl<Frame, Inner, T> MulAssign<T> for Framed<Frame, Inner>
 where
     Inner: MulAssign<T>,
-    T: Num,
 {
     fn mul_assign(&mut self, rhs: T) {
         self.inner *= rhs;
@@ -241,7 +240,6 @@ where
 impl<Frame, Inner, T> Div<T> for Framed<Frame, Inner>
 where
     Inner: Div<T, Output = Inner>,
-    T: Num,
 {
     type Output = Framed<Frame, Inner::Output>;
 
@@ -253,7 +251,6 @@ where
 impl<Frame, Inner, T> DivAssign<T> for Framed<Frame, Inner>
 where
     Inner: DivAssign<T>,
-    T: Num,
 {
     fn div_assign(&mut self, rhs: T) {
         self.inner /= rhs;
@@ -345,6 +342,30 @@ where
 {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         Self::wrap(iter.map(|framed| framed.inner).sum())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ops::Mul;
+
+    use crate::Framed;
+
+    #[test]
+    fn scaling_requires_only_the_inner_operation() {
+        struct Frame;
+        struct Scale(i32);
+
+        impl Mul<Scale> for i32 {
+            type Output = Self;
+
+            fn mul(self, scale: Scale) -> Self::Output {
+                self * scale.0
+            }
+        }
+
+        let result: Framed<Frame, i32> = Framed::wrap(3) * Scale(2);
+        assert_eq!(result.inner, 6);
     }
 }
 

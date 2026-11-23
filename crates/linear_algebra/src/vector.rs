@@ -8,6 +8,15 @@ pub type Vector<Frame, const DIMENSION: usize, Scalar = f32> =
 pub type Vector2<Frame, Scalar = f32> = Vector<Frame, 2, Scalar>;
 pub type Vector3<Frame, Scalar = f32> = Vector<Frame, 3, Scalar>;
 
+/// Creates a vector with an inferred or explicitly named coordinate frame.
+///
+/// ```
+/// use linear_algebra::{Vector2, vector};
+///
+/// struct World;
+/// let offset: Vector2<World> = vector![1.0, 2.0];
+/// let direction = vector![<World>, 0.0, 1.0];
+/// ```
 #[macro_export]
 macro_rules! vector {
     (<$frame:ty>, $($parameters:expr),* $(,)?) => {
