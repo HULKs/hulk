@@ -39,6 +39,11 @@ async fn real_search_and_behavior_nodes_start_and_share_live_cell_geometry() -> 
         .qos(retained)
         .build()
         .await?;
+    let primary_pub = fixture
+        .publisher::<PrimaryState>("primary_state")
+        .qos(retained)
+        .build()
+        .await?;
     let sizes = fixture
         .subscriber::<Vector2<Field>>(SEARCH_CELL_SIZE_TOPIC)
         .qos(retained)
@@ -55,6 +60,7 @@ async fn real_search_and_behavior_nodes_start_and_share_live_cell_geometry() -> 
     };
     field_pub.publish(&field).await?;
     player_pub.publish(&PlayerNumber::One).await?;
+    primary_pub.publish(&PrimaryState::Stop).await?;
     let mut nodes = tokio::task::JoinSet::new();
     nodes.spawn(search_suggestor::run_boxed(context.clone()));
     let size = tokio::time::timeout(Duration::from_secs(5), async {

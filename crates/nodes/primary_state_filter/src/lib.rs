@@ -1,9 +1,11 @@
 use std::{boxed::Box, future::Future, pin::Pin};
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
+use booster::RobotMode;
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
+use hardware_interface::LocoClient;
 use hsl_network_messages::{GamePhase, PlayerNumber};
 use ros_z::{prelude::*, qos::QosDurability};
 use tracing::{info, warn};
@@ -28,6 +30,10 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("primary_state_filter").build().await?;
+
+    let mut primary_state_filter = PrimaryStateFilter {
+        primary_state: read_initial_state(&ctx).await?,
+    };
 
     let parameters = node.bind_parameter_as::<Parameters>("primary_state_filter")?;
     let player_number_cache = node
@@ -71,7 +77,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    let mut primary_state_filter = PrimaryStateFilter::default();
     primary_state_pub
         .publish(&primary_state_filter.primary_state)
         .await?;
@@ -160,16 +165,38 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     }
 }
 
-struct PrimaryStateFilter {
-    pub primary_state: PrimaryState,
+async fn read_initial_state(ctx: &Context) -> Result<PrimaryState> {
+    const REQUEST_TIMEOUT: Duration = Duration::from_millis(100);
+    const RETRY_DELAY: Duration = Duration::from_millis(100);
+
+    let client = LocoClient::new(ctx.session()).await?;
+    loop {
+        match client.get_mode(REQUEST_TIMEOUT).await {
+            Ok(mode) => {
+                if let Some(state) = state_from_startup_mode(mode) {
+                    return Ok(state);
+                }
+            }
+            Err(error) => {
+                warn!(error = %format_args!("{error:#}"), "failed to read Booster startup mode")
+            }
+        }
+        tokio::time::sleep(RETRY_DELAY).await;
+    }
 }
 
-impl Default for PrimaryStateFilter {
-    fn default() -> Self {
-        Self {
-            primary_state: PrimaryState::Damping,
+fn state_from_startup_mode(mode: RobotMode) -> Option<PrimaryState> {
+    match mode {
+        RobotMode::Unknown => None,
+        RobotMode::Damping => Some(PrimaryState::Damping),
+        RobotMode::Prepare | RobotMode::Walking | RobotMode::Custom | RobotMode::Soccer => {
+            Some(PrimaryState::Prepare)
         }
     }
+}
+
+struct PrimaryStateFilter {
+    pub primary_state: PrimaryState,
 }
 
 impl PrimaryStateFilter {
@@ -310,6 +337,23 @@ fn game_state_to_primary_state(game_state: FilteredGameState, is_penalized: bool
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unknown_mode_stays_pending_and_only_observed_damping_starts_in_damping() {
+        assert_eq!(state_from_startup_mode(RobotMode::Unknown), None);
+        assert_eq!(
+            state_from_startup_mode(RobotMode::Damping),
+            Some(PrimaryState::Damping)
+        );
+        for mode in [
+            RobotMode::Prepare,
+            RobotMode::Custom,
+            RobotMode::Walking,
+            RobotMode::Soccer,
+        ] {
+            assert_eq!(state_from_startup_mode(mode), Some(PrimaryState::Prepare));
+        }
+    }
 
     #[test]
     fn update_with_buttons_enters_playing_from_initial_with_safe_long_stand_press() {

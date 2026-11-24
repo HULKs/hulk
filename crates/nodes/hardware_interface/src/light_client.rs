@@ -24,13 +24,15 @@ impl LightClient {
     pub async fn set_led_light_color(&self, color: LedColor, timeout: Duration) -> Result<()> {
         self.rpc
             .call(SET_LED_LIGHT_COLOR_API_ID, led_color_body(color), timeout)
-            .await
+            .await?;
+        Ok(())
     }
 
     pub async fn stop_led_light_control(&self, timeout: Duration) -> Result<()> {
         self.rpc
             .call(STOP_LED_LIGHT_CONTROL_API_ID, "", timeout)
-            .await
+            .await?;
+        Ok(())
     }
 }
 

@@ -217,11 +217,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     motion_command
                 }
             }
-            None => {
-                warn!("behavior did not provide a motion command (yet)!");
-
-                Arc::new(MotionCommand::Damping)
-            }
+            None => continue,
         };
 
         let motion_plan = MotionPlan::from_motion_command(
