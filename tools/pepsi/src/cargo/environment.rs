@@ -6,7 +6,7 @@ use repository::cargo::Environment as RepositoryEnvironment;
 
 #[derive(Args, Debug, Clone)]
 pub struct EnvironmentArguments {
-    /// Build for the workstation (native) or robot (nix, alias: auto)
+    /// Use the workstation Nix shell (native) or robot SDK (nix, alias: auto)
     #[arg(long, visible_alias = "umgebung", visible_alias = "umg")]
     pub env: Option<Environment>,
     /// Use a remote machine for execution, see ./scripts/remote for details

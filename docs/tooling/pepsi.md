@@ -29,11 +29,11 @@ See [Remote Control](remote_control.md) for setup, gamepad bindings, and restora
 ./pepsi build -p twix
 ```
 
-`./pepsi` builds Pepsi itself from the working tree with the Cargo on your `PATH`. Run `nix develop` first if you don't have Rust installed. Pepsi runs workstation project builds in the default Nix shell; use `--env native` to select it explicitly. ONNX Runtime is linked from Nix.
+`./pepsi` builds Pepsi itself from the working tree with Cargo on your `PATH`. By default, Pepsi also uses Cargo on the build host's `PATH` for workstation commands. Run `nix develop` first if you need Rust or libraries from the flake, such as ONNX Runtime. Use `--env native` to have Pepsi select the workstation Nix shell explicitly.
 
 ### Robot SDK
 
-Packages marked `package.metadata.pepsi.cross-compile = true` use the Nix robot SDK. Use `--env nix` (or `--env auto`) to select it explicitly. Local and remote build hosts need Nix on x86_64 Linux.
+Packages marked `package.metadata.pepsi.cross-compile = true` use the Nix robot SDK. If the flag is missing or `false`, Pepsi uses host Cargo. Use `--env nix` (or `--env auto`) to select the robot SDK explicitly. The robot SDK requires Nix on x86_64 Linux, whether the build is local or remote.
 
 ```sh
 ./pepsi sdk prepare                  # optional: warm the cache
@@ -142,7 +142,7 @@ Generate a script for your shell, for example:
 ```
 
 Dynamic robot suggestions in Zsh, Bash, and Fish require `pepsi` on `PATH`.
-Install it with `./pepsi install pepsi` and add `~/.cargo/bin` to `PATH` if needed.
+With a host Rust toolchain and linker, run `./pepsi install pepsi` outside `nix develop` and add `~/.cargo/bin` to `PATH` if needed.
 
 ## Remote compilation
 

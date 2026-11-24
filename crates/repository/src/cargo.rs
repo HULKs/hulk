@@ -11,6 +11,7 @@ use crate::{Repository, sdk};
 
 #[derive(Debug, Clone)]
 pub enum Environment {
+    HostCargo,
     Native,
     Robot,
 }
@@ -20,6 +21,7 @@ pub const ROBOT_TARGET_DIRECTORY: &str = "target/robot";
 impl Display for Environment {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::HostCargo => write!(f, "Host Cargo"),
             Self::Native => write!(f, "Native"),
             Self::Robot => write!(f, "Robot SDK"),
         }
@@ -76,6 +78,7 @@ impl Cargo {
             Host::Remote => repository.current_dir_to_root()?,
         };
         let mut command = match self.environment {
+            Environment::HostCargo => Command::new("cargo"),
             Environment::Native => sdk::native_cargo_command(&root),
             Environment::Robot => {
                 let mut command = sdk::robot_command(&root);

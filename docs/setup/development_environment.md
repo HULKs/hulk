@@ -49,19 +49,22 @@ nix develop
 
 `./pepsi` and `./twix` use the Cargo on your `PATH`. Run `nix develop` first if you don't have Rust installed.
 Outside the Nix shell, your Rust toolchain must meet the version in `Cargo.toml`, and Twix also needs the GUI libraries.
-Pepsi still uses Nix for project builds.
+Pepsi uses Cargo on your `PATH` for workstation builds by default. Run `nix develop` first for builds that need libraries supplied by the flake, or select the workstation Nix shell with `--env native`.
 
 For robot builds and deployment, see the [Pepsi guide](../tooling/pepsi.md).
 
 !!! tip
 
-    To use Pepsi or [Twix](../tooling/twix.md) without the repository launchers, install them from the checkout:
+    To install Pepsi or [Twix](../tooling/twix.md) from the checkout without Nix, run these commands outside `nix develop`:
 
     ```sh
     ./pepsi install pepsi
     ./pepsi install twix
     ```
 
+    These commands use the Cargo and linker on your `PATH` without opening a Nix shell.
+    Use a host Rust toolchain that meets the version in `Cargo.toml`.
+    For Twix, also provide `pkg-config`, libclang for bindgen, and the native GUI libraries for your distribution.
     Add `~/.cargo/bin` to `PATH` if needed, and reinstall after updating the checkout to pick up changes.
 
 ### Inference runtime compatibility

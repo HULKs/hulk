@@ -10,10 +10,13 @@ use color_eyre::{
     Result,
     eyre::{Context, ContextCompat, bail},
 };
-use environment::{Environment, EnvironmentArguments};
+use environment::EnvironmentArguments;
 use lazy_static::lazy_static;
 use pathdiff::diff_paths;
-use repository::{Repository, cargo::Cargo};
+use repository::{
+    Repository,
+    cargo::{Cargo, Environment as BuildEnvironment},
+};
 use tokio::fs::read_to_string;
 use toml::Table;
 use tracing::debug;
@@ -77,17 +80,13 @@ impl<CargoArguments: Args> Arguments<CargoArguments> {
         }
     }
 
-    async fn resolve_environment(
-        &self,
-        manifest_path: Option<&Path>,
-    ) -> Result<repository::cargo::Environment> {
-        Ok(match &self.environment.env {
-            Some(environment) => environment.clone(),
+    async fn resolve_environment(&self, manifest_path: Option<&Path>) -> Result<BuildEnvironment> {
+        match &self.environment.env {
+            Some(environment) => Ok(environment.clone().resolve()),
             None => read_requested_environment(manifest_path)
                 .await
-                .wrap_err("failed to read requested environment")?,
+                .wrap_err("failed to read requested environment"),
         }
-        .resolve())
     }
 }
 
@@ -95,7 +94,10 @@ impl Arguments<build::Arguments> {
     pub async fn binary_path(&self, repository: &Repository, binary_name: &str) -> Result<PathBuf> {
         let manifest_path = self.manifest_path(repository).await?;
         let environment = self.resolve_environment(manifest_path.as_deref()).await?;
-        let is_native = matches!(environment, repository::cargo::Environment::Native);
+        let is_native = matches!(
+            environment,
+            BuildEnvironment::HostCargo | BuildEnvironment::Native
+        );
         let target_dir = self.cargo.common.target_dir.clone().or_else(|| {
             if is_native && !self.environment.remote {
                 std::env::var_os("CARGO_TARGET_DIR").map(PathBuf::from)
@@ -183,9 +185,9 @@ pub async fn construct_cargo_command<CargoArguments: Args + CargoCommand>(
     Ok(cargo_command)
 }
 
-async fn read_requested_environment(manifest_path: Option<&Path>) -> Result<Environment> {
+async fn read_requested_environment(manifest_path: Option<&Path>) -> Result<BuildEnvironment> {
     let Some(manifest_path) = manifest_path else {
-        return Ok(Environment::Native);
+        return Ok(BuildEnvironment::HostCargo);
     };
 
     let manifest = read_to_string(manifest_path).await.wrap_err_with(|| {
@@ -195,20 +197,17 @@ async fn read_requested_environment(manifest_path: Option<&Path>) -> Result<Envi
         )
     })?;
     let manifest: Table = toml::from_str(&manifest).wrap_err("failed to parse manifest")?;
-    let Some(package_metadata) = package_metadata(&manifest) else {
-        return Ok(Environment::Native);
-    };
-
-    let is_cross_compile_requested = package_metadata
-        .get("cross-compile")
-        .and_then(|value| value.as_bool())
-        .unwrap_or(false);
-
-    if !is_cross_compile_requested {
-        return Ok(Environment::Native);
-    }
-
-    Ok(Environment::Robot)
+    Ok(
+        if package_metadata(&manifest)
+            .and_then(|metadata| metadata.get("cross-compile"))
+            .and_then(toml::Value::as_bool)
+            == Some(true)
+        {
+            BuildEnvironment::Robot
+        } else {
+            BuildEnvironment::HostCargo
+        },
+    )
 }
 
 async fn resolve_manifest_path(
