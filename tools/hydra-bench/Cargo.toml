@@ -13,7 +13,7 @@ cross-compile = true
 clap = { workspace = true }
 color-eyre = { workspace = true }
 ndarray = { workspace = true }
-ort = { workspace = true, features = ["cuda", "tensorrt", "load-dynamic"] }
+ort = { workspace = true, features = ["cuda", "tensorrt"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

@@ -8,7 +8,6 @@ use crate::Repository;
 pub struct Configuration {
     pub os_version: String,
     pub runtime_version: String,
-    pub sdk_version: String,
 }
 
 impl Repository {
@@ -22,12 +21,6 @@ impl Repository {
     pub async fn read_runtime_version(&self) -> Result<String> {
         let hulk = self.read_hulk_toml().await?;
         Ok(hulk.runtime_version)
-    }
-
-    /// Get the SDK version configured in the `hulk.toml`.
-    pub async fn read_sdk_version(&self) -> Result<String> {
-        let hulk = self.read_hulk_toml().await?;
-        Ok(hulk.sdk_version)
     }
 
     pub async fn read_hulk_toml(&self) -> Result<Configuration> {

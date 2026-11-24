@@ -162,7 +162,6 @@ const GUARD: &str = "test \"$(findmnt -n -o FSTYPE --mountpoint /)\" = overlay |
 pub(super) trait RobotOverlayExt {
     fn ssh_to_overlay(&self) -> Result<Command>;
     fn rsync_with_overlay(&self) -> Result<Command>;
-    fn rsync_with_overlay_sudo(&self) -> Result<Command>;
 }
 
 impl RobotOverlayExt for Robot {
@@ -175,12 +174,6 @@ impl RobotOverlayExt for Robot {
     fn rsync_with_overlay(&self) -> Result<Command> {
         let mut command = self.rsync_with_robot()?;
         command.arg(format!("--rsync-path={GUARD} rsync"));
-        Ok(command)
-    }
-
-    fn rsync_with_overlay_sudo(&self) -> Result<Command> {
-        let mut command = self.rsync_with_robot()?;
-        command.arg(format!("--rsync-path={GUARD} sudo rsync"));
         Ok(command)
     }
 }

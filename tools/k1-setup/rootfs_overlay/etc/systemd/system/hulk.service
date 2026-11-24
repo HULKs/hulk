@@ -1,0 +1,28 @@
+[Unit]
+Description=HULK Application Service
+Requires=hulks-firewall.service
+After=hulks-firewall.service
+RequiresMountsFor=/nix/store /nix/var/nix/profiles/hulks /home/booster
+
+[Service]
+Type=simple
+User=booster
+Group=booster
+SupplementaryGroups=audio video render input
+WorkingDirectory=/home/booster/hulk
+EnvironmentFile=-/run/hulk-runtime.env
+ExecStartPre=/usr/bin/launch-hulk --check
+ExecStartPre=+/usr/bin/jetson_clocks
+ExecStartPre=+/usr/bin/mkdir -p /dev/input /home/booster/hulk/logs
+ExecStartPre=+/usr/bin/chown -R booster:booster /home/booster/hulk
+ExecStartPre=+/usr/bin/bash -ec 'hardware_id=$$(/usr/local/bin/jetson_release -s | /usr/bin/grep "Serial Number:" | /usr/bin/grep "[0-9]*$$" -o); test -n "$$hardware_id"; printf "HARDWARE_ID=%%s\n" "$$hardware_id" > /run/hulk-runtime.env'
+ExecStart=/usr/bin/launch-hulk
+ExecStartPost=/bin/sleep 5
+# Keep log collectors alive while HULK handles SIGTERM.
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=15
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

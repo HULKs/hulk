@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root=$(realpath "$1")
+shell=$2
+shift 2
+
+if [[ $shell == default && ${HULK_NATIVE_SHELL:-} == 1 ]]; then
+    exec "$@"
+fi
+if [[ $(uname -sm) != 'Linux x86_64' ]] || ! command -v nix >/dev/null; then
+    echo 'HULK builds require Nix on x86_64 Linux.' >&2
+    exit 1
+fi
+
+if [[ $shell == robot-sdk ]]; then
+    export CARGO_TARGET_DIR="$root/target/robot"
+    export CARGO_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/hulks/robot-cargo-home"
+    mkdir -p "$CARGO_HOME"
+
+    # Do not let the workstation shell supply linker flags or an x86_64 ORT to robot builds.
+    if [[ ${HULK_NATIVE_SHELL:-} == 1 ]]; then
+        unset HULK_NATIVE_SHELL CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER \
+            CARGO_ENCODED_RUSTFLAGS \
+            NIX_CFLAGS_LINK ORT_LIB_PATH ORT_PREFER_DYNAMIC_LINK ORT_SKIP_DOWNLOAD
+    fi
+fi
+
+# Remote workspaces have no .git filter; do not copy target/ into the Nix store.
+sdk_source=$(mktemp -d)
+trap 'rm -rf "$sdk_source"' EXIT
+cp "$root/flake.nix" "$root/flake.lock" "$root/Cargo.toml" "$root/hulk.toml" "$sdk_source/"
+cp -r "$root/nix" "$sdk_source/"
+
+if [[ $shell == push-cache ]]; then
+    nix --extra-experimental-features 'nix-command flakes' build \
+        "$sdk_source#devShells.x86_64-linux.robot-sdk" --accept-flake-config \
+        --no-update-lock-file --out-link "$sdk_source/sdk"
+    nix --extra-experimental-features 'nix-command flakes' shell \
+        --inputs-from "$sdk_source" nixpkgs#attic-client --accept-flake-config \
+        --no-update-lock-file --command env XDG_CONFIG_HOME="$1" \
+        attic push hulks:hulk "$sdk_source/sdk"
+    exit 0
+fi
+
+nix --extra-experimental-features 'nix-command flakes' develop \
+    "$sdk_source#$shell" --no-update-lock-file --command "$@"

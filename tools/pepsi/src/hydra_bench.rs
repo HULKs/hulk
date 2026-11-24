@@ -18,6 +18,7 @@ use crate::{
     gammaray::CommandExt,
     progress_indicator::ProgressIndicator,
     tensorrt_compile,
+    upload::check_robot_runtime,
 };
 
 #[derive(Args)]
@@ -86,6 +87,7 @@ pub async fn hydra_bench(arguments: Arguments, repository: &Repository) -> Resul
         );
     }
     let robot = Robot::try_new_with_ping(arguments.hydra_bench.host.ip).await?;
+    check_robot_runtime(&robot, repository).await?;
     let multiprogress = ProgressIndicator::new();
     let progress_build = multiprogress.task("Build hydra-bench", false);
     let progress_upload = multiprogress.task("Upload", false);
@@ -212,7 +214,7 @@ pub async fn hydra_bench(arguments: Arguments, repository: &Repository) -> Resul
                 .join("_"),
         );
         let command = format!(
-            "sudo podman exec --user $(id -u booster) hulk ./bin/hydra-bench --json --output {} --cache-path {} --warmup {} --iterations {} --parallel {}",
+            "./bin/hydra-bench --json --output {} --cache-path {} --warmup {} --iterations {} --parallel {}",
             shell_quote(&result_path.display().to_string()),
             shell_quote(&arguments.hydra_bench.cache_path.display().to_string()),
             arguments.hydra_bench.warmup,
@@ -233,7 +235,7 @@ pub async fn hydra_bench(arguments: Arguments, repository: &Repository) -> Resul
         for (onnx_path, uploaded_model) in onnx_paths.iter().zip(uploaded_models) {
             let result_path = remote_output.join(result_file_name(onnx_path)?);
             let command = format!(
-                "sudo podman exec --user $(id -u booster) hulk ./bin/hydra-bench --json --output {} --cache-path {} --warmup {} --iterations {} {}",
+                "./bin/hydra-bench --json --output {} --cache-path {} --warmup {} --iterations {} {}",
                 shell_quote(&result_path.display().to_string()),
                 shell_quote(&arguments.hydra_bench.cache_path.display().to_string()),
                 arguments.hydra_bench.warmup,

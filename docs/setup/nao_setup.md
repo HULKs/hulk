@@ -1,7 +1,8 @@
 # NAO Setup
 
-This section assumes you have a working development environment, and can successfully run `pepsi --help`.
-See [Development Environment](./development_environment.md) to learn how to setup your environment.
+This page documents the historical NAO setup.
+The current Pepsi `gammaray` command provisions Booster robots, not NAOs.
+Use the USB instructions below, or a historical Pepsi version that supports NAO flashing.
 
 !!! warning
 
@@ -10,8 +11,7 @@ See [Development Environment](./development_environment.md) to learn how to setu
 
 ## Flashing the Firmware
 
-You can flash the firmware both using [pepsi](../tooling/pepsi.md) or manually with a USB stick.
-Flashing with pepsi is the preferred option.
+You can flash the firmware manually with a USB stick or with a historical Pepsi version that supports NAO flashing.
 
 ### Using `pepsi gammaray`
 

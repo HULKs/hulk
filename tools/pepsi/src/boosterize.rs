@@ -28,14 +28,7 @@ pub async fn boosterize(arguments: Arguments) -> Result<()> {
                 crate::gammaray::overlay::disable(&robot, &progress_bar).await?;
                 robot
                     .ssh_to_robot()?
-                    .arg("sudo systemctl disable --now")
-                    .arg("hulk-runtime")
-                    .ssh_with_log("disabling hulk-runtime", &progress_bar)
-                    .await?;
-                robot
-                    .ssh_to_robot()?
-                    .arg("sudo systemctl disable --now")
-                    .arg("hulk")
+                    .arg("if systemctl cat hulk.service >/dev/null 2>&1; then sudo systemctl stop hulk.service && sudo systemctl disable hulk.service; fi")
                     .ssh_with_log("disabling hulk", &progress_bar)
                     .await?;
                 robot

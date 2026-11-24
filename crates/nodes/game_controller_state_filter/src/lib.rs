@@ -174,12 +174,8 @@ impl GameControllerStateFilter {
             let is_not_in_penalty_kick =
                 game_controller_state.sub_state != Some(SubState::PenaltyKick);
 
-            if is_not_in_penalty_kick
-                && now.duration_since(*ball_state_time) > parameters.duration_to_keep_observed_ball
-            {
-                return false;
-            }
-            true
+            !is_not_in_penalty_kick
+                || now.duration_since(*ball_state_time) <= parameters.duration_to_keep_observed_ball
         });
 
         let kicking_team = self.find_kicking_team(

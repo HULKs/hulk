@@ -1,27 +1,15 @@
 # Uploading HULK
 
-This section assumes that you have set up your development environment and flashed a Yocto image to the NAO.
-
-Uploading the software to a NAO is done with Pepsi.
-See `pepsi --help` for details on the respective commands.
-To upload the robotics software to the NAO, just run:
+To upload to a Booster robot, first [set up development](development_environment.md) and provision the robot's [runtime](../tooling/pepsi.md#offline-runtime-installation), then run:
 
 ```sh
-pepsi upload <NAO>
+./pepsi upload <robot>
 ```
 
-Pepsi takes care of downloading and installing the SDK, calling `cargo` to trigger compilation, and uploading the software to the robot.
-When successful, you are presented with a green tick in your shell, and the robot is showing rotating rainbow eyes.
+Pepsi prepares the pinned robot SDK with Nix on demand.
+To warm the cache without building HULK, run `./pepsi sdk prepare`.
+A green check mark next to a robot indicates a successful upload.
 
 !!! tip
 
-    Continue reading [here](../workflow/overview.md) about our workflow and how to contribute to the project.
-
-## SDK Management
-
-Pepsi automatically checks for the latest SDK configured in the repository and installs it if necessary.
-To manually manage your SDK installation, use the `sdk` subcommand.
-
-```sh
-pepsi sdk install --help
-```
+    Continue reading about [our workflow and how to contribute](../workflow/overview.md).

@@ -1,96 +1,112 @@
 # Pepsi
 
-Pepsi is a multi-tool we use for anything related to the code or the robots.
-It can be used to build the code, set up configuration parameters for a game, deploy to a robot or simply open a remote shell.
+Pepsi builds and deploys HULK. Run `./pepsi <subcommand> --help` for options.
 
-This page is only meant as a general overview of pepsi's subcommands.
-For detailed usage instructions, run `pepsi --help` or `pepsi <subcommand> --help`.
+## Robot workflow
 
-## Typical Robot Workflow
-
-```bash
-./pepsi upload <number or IP>
+```sh
+./pepsi upload 42
 ```
 
-This command does the following:
-
-- checks if a toolchain is installed, downloads, and installs one if necessary
-- builds the code for the Booster target
-- uploads binary, configuration parameters, motion files, neural networks, etc. to the robot(s)
-- restarts HULK service on the robot(s)
+`upload` builds HULK, transfers it and its configuration and assets, and restarts the service.
 
 ## Interaction with the Robot
 
-Robots are identified either by IP or by number.
-Numbers are converted to IPs as follows:
+Use an IP directly, `42` for `10.1.24.42`, or `42w` for `10.0.24.42`.
+Many commands accept multiple robots.
 
-- `{number}` -> `10.1.24.{number}`
-- `{number}w` -> `10.0.24.{number}`
-
-Many subcommands can act on multiple robots concurrently.
-
-`upload` builds a binary for the Booster target, and then uploads it and parameter files to one or more robot.
-
-`wifi`, `reboot`, `poweroff`, and `hulk` directly interact with the robot(s), whereas `communication`, and `playernumber` only change the local configuration parameters.
-
-`pregame` combines deactivating communication (to avoid sending illegal messages), assigning playernumbers, setting a wifi network, uploading, and restarting the HULK service.
-
-`logs` or and `postgame` can be used after a (test-)game to download logs, the latter also shuts down the HULKs binary and disables wifi.
+`wifi`, `reboot`, `poweroff`, and `hulk` interact with robots directly, whereas `playernumber` only changes local configuration.
+Use `pregame` to assign player numbers, configure Wi-Fi, deploy, and restart HULK.
+Use `postgame` to collect logs, shut down HULK, and disconnect Wi-Fi.
+To download logs without shutting down HULK, run `./pepsi log download ./logs 42`.
 
 On K1 robots, `gammaray` configures HULK and disables manufacturer controller programs; `boosterize` restores manufacturer control.
-Gammaray preserves Booster's saved runtime configuration across starts and disables services through `bdb`.
-Boosterize regenerates Booster's platform defaults.
 See [Remote Control](remote_control.md) for setup, gamepad bindings, and restoration instructions.
 
-### Offline gammaray preparation
-
-Prepare packages on an internet-connected Linux host with Nix and curl.
-The existing flake lock pins Podman, Zenoh, nftables, and their dependencies.
-ARM64 binaries are fetched from the Nix cache; cache misses require an ARM64 builder or emulation.
-Environment assembly runs on x86_64 Linux.
-
-The runtime uses a custom `zenoh-bridge-dds` 1.9.0 build for Booster firmware 1.8.
-`nix/zenoh-bridge-dds` uses two patches made by IntelligentRoboticsLab for `cyclors` and `zenoh-plugin-dds`.
-These omit the conflicting DDS discovery parameter and skip invalid Zenoh topic names.
-The bridge is cross-compiled from source on x86_64 Linux via nix during bundle preparation of `gammaray` or `gammaray --prepare`.
-It can also be built separately with `nix build .#packages.aarch64-linux.zenoh-bridge-dds`.
-Gammaray installs it through the runtime profile.
+## Workstation builds
 
 ```sh
-pepsi gammaray --prepare
+./pepsi build -p twix
 ```
 
-`--prepare` creates the bundle if absent, then exits before reading robot configuration or contacting robots.
-An existing bundle is reused without Nix commands or downloads.
-Gammaray also prepares a missing bundle, so run `--prepare` while online before gammaraying offline.
+`./pepsi` builds Pepsi itself from the working tree with the Cargo on your `PATH`. Run `nix develop` first if you don't have Rust installed. Pepsi runs workstation project builds in the default Nix shell; use `--env native` to select it explicitly. ONNX Runtime is linked from Nix.
+
+### Robot SDK
+
+Packages marked `package.metadata.pepsi.cross-compile = true` use the Nix robot SDK. Use `--env nix` (or `--env auto`) to select it explicitly. Local and remote build hosts need Nix on x86_64 Linux.
+
+```sh
+./pepsi sdk prepare                  # optional: warm the cache
+./pepsi build crates/hulk_ros_z
+```
+
+Without a manifest argument, builds default to the workstation. For robot builds selected with `-p`, pass `--env nix`. Deploy the matching runtime bundle before uploading.
+
+#### Publishing the SDK cache
+
+Trusted developers can publish the pinned robot SDK and its dependency closure:
+
+```sh
+./pepsi sdk push-cache
+```
+
+This builds any missing SDK dependencies and pushes to `https://nix-cache.hulks.dev/hulk`.
+It fetches Attic on demand from the locked nixpkgs; normal development and SDK preparation do not require Attic.
+For CI, provide the token through the `ATTIC_TOKEN` secret environment variable.
+
+### Build options
+
+Use `--profile` to select a build profile, for example `./pepsi build -p twix --profile release`.
+Cargo commands such as `build`, `check`, and `clippy` also accept `--target` to select a target triple.
+`upload` and `pregame` let you choose a profile but not a target triple.
+
+### Build directories
+
+Native builds use Cargo's `target` directory by default. Robot builds use `target/robot` and ignore host `CARGO_TARGET_DIR`. Use `--target-dir` to override the output; for remote artifact retrieval it must be relative.
+
+With `--no-build`, use the environment, profile, and target directory that produced the binary. Pepsi does not enter the SDK in this mode.
+
+## Offline runtime installation
+
+Prepare on an internet-connected x86_64 Linux machine with Nix, curl, and `sha256sum`:
+
+```sh
+./pepsi gammaray --prepare
+```
+
+`--prepare` creates or validates the cached bundle without reading robot configuration or contacting robots.
 Bundles are stored in `$XDG_DATA_HOME/hulk/image/{version}`, defaulting to `~/.local/share/hulk/image/{version}`.
 `HULK_DATA_HOME` overrides the HULK data directory.
-`version` is `runtime_version` from `hulk.toml`.
-Bump that version after runtime package changes, or remove the directory to rebuild.
+To rebuild the same version, remove its cached bundle directory and run `--prepare` again.
 Failed preparation does not publish a partial bundle.
 
-The bundle includes a version-pinned ARM64 Nix installer, complete Nix runtime closure, and root store path.
-The robot needs SSH, rsync, sudo, Bash, Python 3, tar/xz, systemd, NVIDIA tooling, and kernel support for nftables.
-Booster firmware must provide `bdb` and the recognized dynamic configuration startup script.
+Copy the entire printed bundle directory, then install it without internet access:
+
+```sh
+./pepsi gammaray 42 --bundle /path/to/runtime-bundle
+```
+
+Only install trusted bundles: signature checks are bypassed for this local import. Without `--bundle`, Gammaray uses the versioned local cache and prepares a missing bundle. Bump `runtime_version` in `hulk.toml` when runtime packages or static configuration change.
+
+Use `--jobs N` to limit compilation parallelism.
+Use `./pepsi gammaray --prepare --remote user@buildhost` to build through Nix over SSH and export the bundle directly to the local cache. With no host argument, `--remote` uses the host from `REMOTE_WORKSPACE` or `.REMOTE_WORKSPACE`. Avoid garbage-collecting the remote store during export.
+
+Gammaray installs the runtime and systemd services, not the HULK binary. Use `upload` separately. The runtime requires **L4T 36.4.3**; the robot supplies kernel drivers and Tegra libraries. TensorRT uses the Orin GPU, not DLA. After a runtime upgrade, regenerate the YOLO and VO engine caches on a robot without setting `LD_LIBRARY_PATH` or `LD_PRELOAD`, then verify GPU inference and clean shutdown.
+
+Uploaded binaries built with the robot SDK run directly and use libraries from the installed bundle. Set `HARDWARE_ID` when starting HULK manually.
+
+The active runtime lives at `/nix/var/nix/profiles/hulks`.
+The bundle installs the custom Zenoh DDS bridge, which can also be built separately with `nix build .#packages.aarch64-linux.zenoh-bridge-dds`.
+`hulks-firewall.service` loads `/etc/hulks.nft` at boot and blocks outbound UDP to destination port 9000.
 
 ### Filesystem overlay
 
-Gammaray runs inside a persistent writable OverlayFS root.
-All changes to the filesystem while the overlay is active are written to the overlay instead of the lower root filesystem.
-Changes in the overlay survive reboot while the underlying NVIDIA L4T and Booster installation stays unchanged.
-Overlay data is stored in `/var/lib/hulks-overlay` on the existing ext4 filesystem and shares available disk space.
+Gammaray enables a persistent writable overlay and reboots if needed.
+Installing the bundle directly into the lower root is not supported.
+Overlay data is stored in `/var/lib/hulks-overlay` on the existing ext4 root and shares its available disk space.
+`--clean` clears existing overlay changes.
 
-#### Gammaraying a robot
-
-```sh
-./pepsi gammaray 42
-```
-
-Gammaray first enables overlay autostart and reboots if the overlay is not already active.
-If there is an overlay already, it is used instead, though `--clean` can be used to clear the overlay and start fresh.
-
-Afterwards, gammaray writes our HULKs OS configuration into the overlay.
-It is not currently possible to gammaray into the lower root filesystem without an overlay.
+Static files in `tools/k1-setup/rootfs_overlay/` mirror the robot filesystem. Keep credentials, robot-specific settings, and writable state out of this tree. Gammaray copies these files into the mounted overlay, replacing local edits at those paths without deleting unrelated files. Switching Nix profiles does not roll back the copied files.
 
 #### Boot selection
 
@@ -100,127 +116,44 @@ It is not currently possible to gammaray into the lower root filesystem without 
 ./pepsi overlay status 42 99
 ```
 
-`enable` and `disable` select whether the overlay or the underlying installation should be used on boot.
-They work from either root, but do not apply immediately.
-A reboot is required to change into/out of the overlay.
-`status` reports both whether the overlay is currently active and whether it will be used on boot.
+`enable` and `disable` select the root for the next reboot, and `status` reports both the active and next-boot roots.
 All three actions support multiple robots.
-
-`pepsi boosterize 42` disables overlay autostart and restores Booster services in the currently running system.
-The next reboot uses the underlying installation.
+`boosterize` restores manufacturer services and selects the lower root for the next boot.
 
 #### Requirements and system changes
 
-Our overlay activation process supports NVIDIA L4T with systemd 249, an ext4 root, a static `/bin/busybox`, and kernel OverlayFS support.
-It works both on gammarayed and stock robots.
-
-Gammaray enables passwordless sudo before activation; when performed on the underlying installation, this change persists there.
-Overlay boot scripts, data, and boot-target configuration also reside on the underlying installation.
-An early systemd target activates the overlay after device initialization.
-Bootloader and initramfs configuration are unchanged.
-
-### Offline runtime installation
-
-Build/install Pepsi and prepare the runtime-image tar before disconnecting:
-
-```sh
-pepsi gammaray 42 --image-file /path/to/hulk-runtime.tar
-```
-
-With the bundle already prepared, neither host nor robot needs internet during this command.
-Nix is bootstrapped from the local installer without channels; the closure is imported without building or fetching packages.
-The active runtime lives at `/nix/var/nix/profiles/hulks`, retained by a Nix profile.
-Ubuntu systemd runs the supplied Zenoh services and Nix Podman's Quadlet generator.
-NVIDIA drivers and CDI tooling remain part of the robot baseline.
-
-`hulks-firewall.service` blocks outbound UDP destination port 9000 for IPv4 and IPv6.
-It loads `/etc/hulks.nft` at boot and atomically replaces only the `inet hulks` table on reload.
-The runtime requires this service.
-No Debian packages or UFW installation are needed.
-
-The image tar must contain `hulk-runtime:latest`.
-It may be omitted when that image already exists in rootful Podman storage; registry pulls are disabled.
-Services are stopped during activation.
-Package/profile rollback alone does not undo Podman database migrations.
-Network reconfiguration runs last, and robot failures are reported individually.
-
-## Build Options
-
-For subcommands that build a binary, you can specify a target and a build profile.
-These include `build`, `run`, `check`, and `clippy`.
-However `upload` and `pregame` only supports a profiles, since it doesn't make sense to upload a webots binary to the booster.
-
-### Build directories
-
-Native builds, including the `./pepsi` launcher, keep Cargo's default `target` directory.
-Podman and Docker builds use `target/container`, mounted at `/hulk/target/container` inside the container.
-Separating these directories prevents Cargo from repeatedly rebuilding dependencies whose source paths differ between native and container builds.
-The first container build after this change needs to populate the new cache; existing artifacts are left in place.
-
-Use `--target-dir` to override the directory for a Pepsi build command.
-Relative paths are relative to the directory where you invoke Pepsi.
-Absolute container paths use the container filesystem; keep them under `/hulk` when you need to retrieve or upload binaries.
-Native `CARGO_TARGET_DIR` is not forwarded to containers, so a custom container directory must be selected with `--target-dir`.
-Choosing the same directory for both environments can bring back the invalidation.
-
-`upload`, `pregame`, `tensorrt-compile`, and `hydra-bench` look for binaries in the selected environment's directory, including with `--no-build`.
-Use the same environment, profile, and target directory as the build that produced the binary.
-Remote container builds return binaries from the selected container directory to the matching path in your local repository.
-For remote native builds that retrieve binaries, use a relative `--target-dir`; absolute paths can refer to different locations on the two machines.
+Overlay activation requires an ext4 root, a static `/bin/busybox`, and kernel OverlayFS support.
+The lower installation keeps the overlay boot scripts, data, and boot-target configuration, as well as passwordless sudo if Gammaray enabled it there.
+The bootloader and initramfs are unchanged.
 
 ## Aliveness
 
-Using the `aliveness` subcommand, pepsi can query information from robots connected via ethernet.
-By default, only irregular information like non-active services, outdated HULKs-OS versions and battery charge levels below 95% are displayed.
-Using `-v`/`--verbose` or `-j`/`--json`, you can retrieve all information available via aliveness in either a human- or machine-readable format.
+`./pepsi aliveness` reports robot status over Ethernet, highlighting issues by default.
+Use `--verbose` for full output, `--json` for scripts, or pass robot addresses to filter the results.
+The default response timeout is 200 ms; to wait longer, run `./pepsi aliveness --timeout 500 22`.
+See [Aliveness](aliveness.md) for protocol details.
 
-You can also set a timeout via `-t`/`--timeout` (defaulting to 200ms) and specify robot addresses (e.g. `22` or `10.1.24.22`) for querying the aliveness information only from specific robots.
+## Shell completion
 
-Further information on the information available via aliveness as well as the details to the protocol can be found [here](./aliveness.md).
+Generate a script for your shell, for example:
 
-## Shell Completion
-
-Shell completions can be generated using the `completions` subcommand.
-
-Example:
-
-```bash
+```sh
 ./pepsi completions zsh > _pepsi
 ```
 
-Refer to your shell's completion documentation for details.
+Dynamic robot suggestions in Zsh, Bash, and Fish require `pepsi` on `PATH`.
+Install it with `./pepsi install pepsi` and add `~/.cargo/bin` to `PATH` if needed.
 
-The shells completions for fish, zsh and bash include dynamic suggestions for all pepsi subcommands taking a robot address as an argument (e.g. `pepsi upload`).
-Those suggestions are retrieved using the aliveness service and require a version of pepsi to be installed in the `PATH`, e.g. by using
+## Remote compilation
 
-```
-./pepsi install pepsi
-```
+Set up an account on the x86_64 Linux build host and copy your SSH key with `ssh-copy-id user@buildhost`.
+Clone the repository on the build host into a dedicated checkout such as `~/hulk`, since synchronization can overwrite or delete remote changes.
+In your local checkout, set `REMOTE_WORKSPACE` or create a `.REMOTE_WORKSPACE` file with `user@buildhost:hulk`.
 
-and adding `~/.cargo/bin` to the `PATH`.
-
-## Remote Compile
-
-To use the remote compilation you need to create an account on the remote-compiler.
-Open an ssh connection to ```root@remote-compiler.hulks.dev```.
-There create a new account by ```adduser {name}``` and set a password with ```passwd {name}```.
-
-Terminate the root ssh session and log in with your new user ```{name}@remote-compiler.hulks.dev```.
-There clone the HULKs repository using https: ```https://github.com/HULKs/hulk.git```
-
-Back on your local machine do ```ssh-copy-id {name}@remote-compiler.hulks.dev``` to allow passwordless login.
-In the hulk repo, create a `.REMOTE_WORKSPACE` file containing the username, IP, and path, e.g. `{name}@remote-compiler.hulks.dev:hulk`.
-
-Now you can use the pepsi remote features:
-
-```bash
+```sh
 ./pepsi build --remote
 ```
 
-This will sync your local files to the remote, run the build command there, and then return the final binary to you.
-Other pepsi commands such as `run`, `upload`, or `pregame` also have a `--remote` option.
-
-To use the remote compile functionality from outside the lab, you need a VPN connection.
-Ask one of the older team members to provide you a `.ovpn` file.
-Create a new VPN client with this configuration file.
-Using the VPN, you can access the remote compiler and all other internal services from outside the lab.
+This syncs your local checkout and builds on the remote host.
+`upload` and `pregame` also accept `--remote`.
+Use the lab VPN when connecting from outside the lab.

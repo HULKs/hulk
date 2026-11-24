@@ -178,7 +178,7 @@ pub struct Arguments {
 }
 
 impl CargoCommand for Arguments {
-    const SUB_COMMAND: &'static str = "check";
+    const SUB_COMMAND: &'static [&'static str] = &["check"];
 
     fn apply(&self, cmd: &mut Cargo) {
         self.common.apply(cmd);

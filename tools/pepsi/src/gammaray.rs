@@ -1,8 +1,10 @@
 use std::{
     fmt::Write,
+    num::NonZeroUsize,
     path::{Path, PathBuf},
     process::Stdio,
     str,
+    thread::available_parallelism,
 };
 
 use clap::Args;
@@ -37,19 +39,27 @@ pub struct Arguments {
     #[arg(long, visible_alias = "sauber")]
     clean: bool,
 
-    /// Ensure cached runtime image exists,
+    /// Ensure the offline runtime bundle exists,
     /// but exit without gammaraying robots
     #[arg(long, visible_alias = "vorbereit")]
     prepare: bool,
+
+    /// Parallel compilation jobs per package during bundle preparation
+    /// (defaults to the available CPUs minus two, at least one)
+    #[arg(short, long, default_value_t = default_build_jobs())]
+    jobs: NonZeroUsize,
+
+    /// Build through Nix over SSH (defaults to REMOTE_WORKSPACE or .REMOTE_WORKSPACE)
+    #[arg(long, num_args = 0..=1, value_name = "SSH_HOST", conflicts_with = "bundle")]
+    remote: Option<Option<String>>,
 
     /// The password for the `booster` user
     #[arg(short, long, default_value = "123456")]
     password: String,
 
-    /// Optional podman image for the hulk service environment
-    /// e.g. rust-trt-inference-image.tar
-    #[arg(short, long)]
-    image_file: Option<PathBuf>,
+    /// Install a prepared runtime bundle without building or downloading
+    #[arg(long, conflicts_with = "prepare")]
+    bundle: Option<PathBuf>,
 
     /// Optional `update_x5` path
     /// e.g. `../update_x5`
@@ -61,12 +71,16 @@ const WIFI_PASSWORD: &str = "HSL?!HSL?!";
 
 const BUNDLE_INSTALLATION_SCRIPT: &str = include_str!("install-hulks-bundle.sh");
 const REMOTE_BUNDLE: &str = "/home/booster/.cache/hulk/hulks";
-const PODMAN: &str = "/nix/var/nix/profiles/hulks/bin/podman";
 
 const PRESERVE_BOOSTER_CONFIG_SCRIPT: &str = include_str!("gammaray/preserve-booster-config.sh");
 const MANUFACTURER_SERVICES_SCRIPT: &str = include_str!("gammaray/manufacturer-services.sh");
 const LOWER_ROOT_SCRIPT: &str = include_str!("gammaray/overlay-lower-root.sh");
 const RESTORE_BOOSTER_TEMPLATE_SCRIPT: &str = include_str!("gammaray/restore-booster-template.sh");
+
+fn default_build_jobs() -> NonZeroUsize {
+    let cores = available_parallelism().unwrap_or(NonZeroUsize::MIN);
+    NonZeroUsize::new(cores.get().saturating_sub(2)).unwrap_or(NonZeroUsize::MIN)
+}
 
 pub(super) fn manufacturer_services_command(mode: &str) -> String {
     format!(
@@ -75,12 +89,21 @@ pub(super) fn manufacturer_services_command(mode: &str) -> String {
 }
 
 pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<()> {
-    let setup_path = &repository.root.join("tools/k1-setup");
-    let bundle = bundle::prepare(repository).await?;
+    let bundle = match arguments.bundle {
+        Some(bundle) => {
+            bundle::validate(&bundle, &repository.read_runtime_version().await?).await?
+        }
+        None => {
+            let remote = match arguments.remote {
+                Some(host) => Some(resolve_remote(repository, host).await?),
+                None => None,
+            };
+            bundle::prepare(repository, arguments.jobs, remote.as_deref()).await?
+        }
+    };
     if arguments.prepare {
         return Ok(());
     }
-
     let progress = ProgressIndicator::new();
 
     let team = repository.read_team_configuration().await?;
@@ -95,10 +118,8 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
                     progress_bar,
                     &arguments.password,
                     arguments.clean,
-                    arguments.image_file.as_deref(),
                     arguments.update_x5_file.as_deref(),
                     &team,
-                    setup_path,
                     &bundle,
                 )
             },
@@ -108,16 +129,45 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
+async fn resolve_remote(repository: &Repository, host: Option<String>) -> Result<String> {
+    let host = match host {
+        Some(host) => host,
+        None => {
+            let workspace = match std::env::var("REMOTE_WORKSPACE") {
+                Ok(value) if !value.is_empty() => value,
+                Ok(_) | Err(std::env::VarError::NotPresent) => {
+                    tokio::fs::read_to_string(repository.root.join(".REMOTE_WORKSPACE"))
+                        .await
+                        .wrap_err(
+                            "--remote needs SSH_HOST, REMOTE_WORKSPACE, or .REMOTE_WORKSPACE",
+                        )?
+                }
+                Err(error) => return Err(error).wrap_err("invalid REMOTE_WORKSPACE"),
+            };
+            let (host, path) = workspace.trim().split_once(':').ok_or_else(|| {
+                eyre!("remote workspace must have the form user@host:path/to/repo")
+            })?;
+            if path.is_empty() {
+                bail!("remote workspace path must not be empty");
+            }
+            host.to_owned()
+        }
+    };
+    if !regex::Regex::new(r"^(?:[a-zA-Z0-9_][a-zA-Z0-9_.-]*@)?[a-zA-Z0-9_][a-zA-Z0-9_.-]*$")?
+        .is_match(&host)
+    {
+        bail!("invalid remote SSH host {host:?}: expected [user@]hostname or an SSH alias");
+    }
+    Ok(host)
+}
+
 async fn gammaray_robot(
     robot: RobotAddress,
     progress_bar: ProgressBar,
     password: &str,
     clean: bool,
-    image_file: Option<&Path>,
     update_x5_file: Option<&Path>,
     team: &Team,
-    setup: &Path,
     bundle: &Path,
 ) -> Result<()> {
     let robot = Robot::try_new_with_ping(robot.ip).await?;
@@ -171,83 +221,9 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_overlay()?
-        .arg("sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml")
-        .ssh_with_log("generating nvidia CDI", &progress_bar)
+        .arg("mkdir -p /home/booster/.cache/hulk/tensor-rt/ /home/booster/hulk/logs && sudo chown -R booster:booster /home/booster/.cache/hulk/tensor-rt")
+        .ssh_with_log("preparing runtime directories", &progress_bar)
         .await?;
-
-    robot
-        .rsync_with_overlay_sudo()?
-        .arg("--info=progress2")
-        .arg(setup.join("zenohd.json5"))
-        .arg(format!("{}:/etc/zenohd/zenohd.json5", robot.address))
-        .rsync_with_log("uploading zenohd config", &progress_bar)
-        .await?;
-
-    robot
-        .rsync_with_overlay_sudo()?
-        .arg("--info=progress2")
-        .arg(setup.join("zenoh-bridge-dds.json5"))
-        .arg(format!(
-            "{}:/etc/zenoh-bridge-dds/conf.json5",
-            robot.address
-        ))
-        .rsync_with_log("uploading zenoh-bridge-dds config", &progress_bar)
-        .await?;
-
-    robot
-        .ssh_to_overlay()?
-        .arg("sudo mkdir -p /etc/systemd/system/zenoh-bridge-dds.service.d/")
-        .ssh_with_log(
-            "creating zenoh-bridge-dds systemd override directory",
-            &progress_bar,
-        )
-        .await?;
-
-    robot
-        .rsync_with_overlay_sudo()?
-        .arg("--info=progress2")
-        .arg(setup.join("zenoh-bridge-dds.service.override.conf"))
-        .arg(format!(
-            "{}:/etc/systemd/system/zenoh-bridge-dds.service.d/override.conf",
-            robot.address
-        ))
-        .rsync_with_log("uploading zenoh-bridge-dds service override", &progress_bar)
-        .await?;
-
-    robot
-        .rsync_with_overlay_sudo()?
-        .arg("--info=progress2")
-        .arg(setup.join("hulk.service"))
-        .arg(setup.join("hulks-firewall.service"))
-        .arg(setup.join("zenohd.service"))
-        .arg(setup.join("zenoh-bridge-dds.service"))
-        .arg(setup.join("jetson-clocks-refresh.service"))
-        .arg(setup.join("jetson-clocks-refresh.timer"))
-        .arg(format!("{}:/etc/systemd/system/", robot.address))
-        .rsync_with_log("uploading service files", &progress_bar)
-        .await?;
-
-    robot
-        .ssh_to_overlay()?
-        .arg("mkdir -p /home/booster/.cache/hulk/tensor-rt/")
-        .ssh_with_log("creating tensorrt cache directory", &progress_bar)
-        .await?;
-
-    if let Some(image_file) = image_file {
-        const REMOTE_IMAGE_PATH: &str = "/home/booster/.cache/hulk/runtime-container-image.tar";
-        robot
-            .rsync_with_overlay()?
-            .arg("--info=progress2")
-            .arg(image_file)
-            .arg(format!("{}:{REMOTE_IMAGE_PATH}", robot.address))
-            .rsync_with_log("uploading podman image", &progress_bar)
-            .await?;
-        robot
-            .ssh_to_overlay()?
-            .arg(format!("sudo {PODMAN} load -i {REMOTE_IMAGE_PATH}"))
-            .ssh_with_log("loading podman image", &progress_bar)
-            .await?;
-    }
 
     if let Some(update_x5_file) = update_x5_file {
         robot
@@ -265,30 +241,6 @@ async fn gammaray_robot(
     }
 
     robot
-        .rsync_with_overlay_sudo()?
-        .arg("--info=progress2")
-        .arg(setup.join("hulk"))
-        .arg(setup.join("launch-hulk"))
-        .arg(format!("{}:/usr/bin/", robot.address))
-        .rsync_with_log("uploading binaries", &progress_bar)
-        .await?;
-
-    robot
-        .rsync_with_overlay_sudo()?
-        .arg("--info=progress2")
-        .arg(setup.join("hulk-runtime.container"))
-        .arg(format!("{}:/etc/containers/systemd/", robot.address))
-        .rsync_with_log("uploading service file", &progress_bar)
-        .await?;
-
-    robot
-        .rsync_with_overlay_sudo()?
-        .arg(setup.join("hulks.nft"))
-        .arg(format!("{}:/etc/hulks.nft", robot.address))
-        .rsync_with_log("uploading firewall rules", &progress_bar)
-        .await?;
-
-    robot
         .ssh_to_overlay()?
         .arg("sudo systemctl daemon-reload")
         .ssh_with_log("reloading service daemon", &progress_bar)
@@ -296,7 +248,7 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_overlay()?
-        .arg("sudo systemctl enable hulks-firewall && sudo systemctl reload-or-restart hulks-firewall")
+        .arg("sudo systemctl reload-or-restart hulks-firewall")
         .ssh_with_log("applying firewall rules", &progress_bar)
         .await?;
 
@@ -318,34 +270,31 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_overlay()?
-        .arg("sudo systemctl enable zenohd && sudo systemctl restart zenohd")
-        .ssh_with_log("enabling and restarting zenohd services", &progress_bar)
+        .arg("sudo systemctl restart zenohd")
+        .ssh_with_log("restarting zenohd service", &progress_bar)
         .await?;
 
     robot
         .ssh_to_overlay()?
-        .arg("sudo systemctl enable zenoh-bridge-dds && sudo systemctl restart zenoh-bridge-dds")
-        .ssh_with_log(
-            "enabling and restarting zenoh-bridge-dds services",
-            &progress_bar,
-        )
+        .arg("sudo systemctl restart zenoh-bridge-dds")
+        .ssh_with_log("restarting zenoh-bridge-dds service", &progress_bar)
         .await?;
 
     robot
         .ssh_to_overlay()?
-        .arg("sudo systemctl enable --now jetson-clocks-refresh.timer")
-        .ssh_with_log("enabling jetson clocks refresh timer", &progress_bar)
+        .arg("sudo systemctl start jetson-clocks-refresh.timer")
+        .ssh_with_log("starting jetson clocks refresh timer", &progress_bar)
         .await?;
 
     robot
         .ssh_to_overlay()?
-        .arg("sudo systemctl enable hulk && sudo systemctl stop hulk && sudo systemctl restart hulk-runtime && sudo systemctl start hulk")
-        .ssh_with_log("enabling and restarting hulk and its runtime", &progress_bar)
+        .arg("if /usr/bin/launch-hulk --check; then sudo systemctl restart hulk; fi")
+        .ssh_with_log("starting hulk if uploaded", &progress_bar)
         .await?;
 
     robot
         .ssh_to_overlay()?
-        .arg("for service in hulks-firewall zenohd zenoh-bridge-dds hulk-runtime hulk; do sudo systemctl is-active \"$service\" || exit 1; done")
+        .arg("for service in hulks-firewall zenohd zenoh-bridge-dds; do sudo systemctl is-active \"$service\" || exit 1; done; if /usr/bin/launch-hulk --check >/dev/null 2>&1; then sudo systemctl is-active hulk; fi")
         .ssh_with_log("verifying services", &progress_bar)
         .await?;
 
@@ -364,6 +313,7 @@ async fn deploy_nix(robot: &Robot, bundle: &Path, progress_bar: &ProgressBar) ->
     robot
         .rsync_with_overlay()?
         .arg("--delete")
+        .arg("--info=progress2")
         .arg(bundle.join("."))
         .arg(format!("{}:{REMOTE_BUNDLE}/", robot.address))
         .rsync_with_log("uploading offline package bundle", progress_bar)
@@ -577,4 +527,22 @@ method=disabled
 [proxy]
 "
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use clap::Parser;
+
+    #[test]
+    fn offline_commands_need_no_signing_keys() -> color_eyre::Result<()> {
+        crate::Arguments::try_parse_from(["pepsi", "gammaray", "--prepare"])?;
+        crate::Arguments::try_parse_from([
+            "pepsi",
+            "gammaray",
+            "42",
+            "--bundle",
+            "runtime-bundle",
+        ])?;
+        Ok(())
+    }
 }

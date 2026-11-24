@@ -1,5 +1,29 @@
 # Build GitHub Actions Runner v3 for Proxmox LXC
 
+## Publish the CI job image
+
+Before merging a new `hulk-ci` tag, dispatch **Build and Push CI Image** from
+the branch. On a `v3` runner, smoke-test the image as UID 1000 from a mounted checkout:
+
+```sh
+nix develop .#default --no-update-lock-file --command cargo nextest --version
+```
+
+The flake supplies Rust for native and Android jobs (`nix develop .#android`).
+
+## Nix store cache
+
+Nix-enabled jobs mount the runner-local Docker volume `hulk-nix:/nix`.
+Docker seeds an empty volume from the image's `/nix`, which is owned by UID 1000.
+The volume keeps the store and its metadata across jobs on the same Docker host,
+with the same trust model as the shared Cargo target directory.
+
+To verify reuse, run two job containers on the same runner: build a Nix output
+in the first, then check that `nix path-info --offline <store-path>` finds it in
+the second. To reset the cache or switch to a newer Nix bootstrap from the image,
+run `docker volume rm hulk-nix` on the runner when no job is using it. Docker
+seeds it again on the next job.
+
 ## Build root filesystem
 
 - Install [distrobuilder](https://linuxcontainers.org/distrobuilder/introduction/)
