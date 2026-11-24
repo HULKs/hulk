@@ -1,16 +1,50 @@
-use std::collections::{HashMap, hash_map::Entry};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use parking_lot::{Mutex, MutexGuard};
 use tokio::sync::watch;
 
 use super::GraphRevision;
-use crate::entity::{Entity, LivelinessKE};
+use crate::entity::{EndpointKind, Entity, LivelinessKE};
 
 #[derive(Debug, Clone)]
 pub struct GraphData {
     revision: GraphRevision,
     entities: HashMap<LivelinessKE, Entity>,
+    subscriber_counts: SubscriberCounts,
+}
+
+#[derive(Debug, Clone, Default)]
+struct SubscriberCounts(HashMap<String, usize>);
+
+impl SubscriberCounts {
+    fn count(&self, topic: &str) -> usize {
+        self.0.get(topic).copied().unwrap_or(0)
+    }
+
+    fn add(&mut self, entity: &Entity) {
+        if let Some(topic) = subscription_topic(entity) {
+            *self.0.entry(topic.to_owned()).or_default() += 1;
+        }
+    }
+
+    fn remove(&mut self, entity: &Entity) {
+        if let Some(topic) = subscription_topic(entity) {
+            let count = self
+                .0
+                .get_mut(topic)
+                .expect("stored subscription has a count");
+            *count -= 1;
+            if *count == 0 {
+                self.0.remove(topic);
+            }
+        }
+    }
+}
+
+fn subscription_topic(entity: &Entity) -> Option<&str> {
+    let endpoint = entity.as_endpoint()?;
+    (endpoint.kind == EndpointKind::Subscription).then_some(endpoint.topic.as_str())
 }
 
 pub(super) struct GraphInner {
@@ -23,6 +57,7 @@ impl GraphData {
         Self {
             revision: GraphRevision::INITIAL,
             entities: HashMap::new(),
+            subscriber_counts: SubscriberCounts::default(),
         }
     }
 
@@ -30,22 +65,28 @@ impl GraphData {
         self.revision
     }
 
+    pub(crate) fn subscriber_count(&self, topic: &str) -> usize {
+        self.subscriber_counts.count(topic)
+    }
+
     pub(super) fn insert(&mut self, key_expr: LivelinessKE, entity: Entity) -> bool {
-        match self.entities.entry(key_expr) {
-            Entry::Vacant(entry) => {
-                entry.insert(entity);
-                true
-            }
-            Entry::Occupied(mut entry) if entry.get() != &entity => {
-                entry.insert(entity);
-                true
-            }
-            Entry::Occupied(_) => false,
+        if self.entities.get(&key_expr) == Some(&entity) {
+            return false;
         }
+
+        self.subscriber_counts.add(&entity);
+        if let Some(previous) = self.entities.insert(key_expr, entity) {
+            self.subscriber_counts.remove(&previous);
+        }
+        true
     }
 
     pub(super) fn remove(&mut self, key_expr: &LivelinessKE) -> bool {
-        self.entities.remove(key_expr).is_some()
+        let Some(old) = self.entities.remove(key_expr) else {
+            return false;
+        };
+        self.subscriber_counts.remove(&old);
+        true
     }
 
     pub(super) fn entities_raw(&self) -> impl Iterator<Item = &Entity> + '_ {
@@ -106,7 +147,7 @@ impl GraphInner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entity::{EndpointEntity, EndpointKind, NodeEntity, SchemaHash, TypeInfo};
+    use crate::entity::{EndpointEntity, NodeEntity, SchemaHash, TypeInfo};
     use zenoh::session::ZenohId;
 
     fn node(name: &str) -> NodeEntity {
@@ -192,6 +233,61 @@ mod tests {
 
         assert!(!data.remove(&key));
         assert_eq!(data.entities_raw().count(), 0);
+    }
+
+    #[test]
+    fn subscriber_count_matches_scan_after_graph_changes() {
+        let mut data = GraphData::new();
+        let node = node("subscriber_count_node");
+        let first = EndpointEntity {
+            kind: EndpointKind::Subscription,
+            ..publisher(&node, 2, "/topic")
+        };
+        let second = EndpointEntity {
+            id: 3,
+            ..first.clone()
+        };
+        let changed_type = EndpointEntity {
+            type_info: TypeInfo::new("std_msgs::Int32", SchemaHash::zero()),
+            ..first.clone()
+        };
+        let moved = EndpointEntity {
+            topic: "/topic/".to_owned(),
+            ..changed_type.clone()
+        };
+        let changed_kind = EndpointEntity {
+            kind: EndpointKind::Publisher,
+            ..moved.clone()
+        };
+        let first_key = key_for(&Entity::Endpoint(first.clone()));
+        let second_key = key_for(&Entity::Endpoint(second.clone()));
+
+        for (key, replacement, expected_change) in [
+            (&first_key, None, false),
+            (&first_key, Some(first.clone()), true),
+            (&first_key, Some(first), false),
+            (&first_key, Some(changed_type), true),
+            (&second_key, Some(second), true),
+            (&first_key, Some(moved.clone()), true),
+            (&first_key, Some(changed_kind), true),
+            (&first_key, Some(moved), true),
+            (&first_key, None, true),
+            (&first_key, None, false),
+            (&second_key, None, true),
+        ] {
+            let changed = match replacement {
+                Some(endpoint) => data.insert(key.clone(), Entity::Endpoint(endpoint)),
+                None => data.remove(key),
+            };
+            assert_eq!(changed, expected_change);
+            for topic in ["/topic", "/topic/", "topic", "/absent"] {
+                assert_eq!(
+                    data.subscriber_count(topic),
+                    data.subscriptions_on(topic).count(),
+                    "topic {topic:?}",
+                );
+            }
+        }
     }
 
     #[test]

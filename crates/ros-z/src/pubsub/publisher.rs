@@ -438,19 +438,12 @@ where
 {
     /// Return the number of matched subscribers currently visible in the graph.
     pub fn subscriber_count(&self) -> usize {
-        self.graph
-            .lock()
-            .subscriptions_on(&self.entity.topic)
-            .count()
+        self.graph.lock().subscriber_count(&self.entity.topic)
     }
 
     /// Return whether at least one subscriber is currently matched.
     pub fn has_subscribers(&self) -> bool {
-        self.graph
-            .lock()
-            .subscriptions_on(&self.entity.topic)
-            .next()
-            .is_some()
+        self.subscriber_count() != 0
     }
 
     /// Wait until at least `count` subscribers are matched on this publisher's topic,
@@ -473,17 +466,11 @@ where
         let topic = self.entity.topic.as_str();
         let wait = self
             .graph
-            .wait_until(move |data| data.subscriptions_on(topic).count() >= count);
+            .wait_until(move |data| data.subscriber_count(topic) >= count);
 
         match tokio::time::timeout(timeout, wait).await {
             Ok(true) => true,
-            Ok(false) | Err(_) => {
-                self.graph
-                    .lock()
-                    .subscriptions_on(&self.entity.topic)
-                    .count()
-                    >= count
-            }
+            Ok(false) | Err(_) => self.subscriber_count() >= count,
         }
     }
 
