@@ -1,5 +1,17 @@
 { lib, buildEnv, robotPkgs, robotBridge, onnxruntime, version, libraries, rootfsOverlay }:
 let
+  # Match the Rust workspace's Zenoh without changing the rest of the robot package set.
+  robotZenoh = robotPkgs.zenoh.overrideAttrs (final: previous: {
+    version = "1.10.2";
+    src = previous.src.override {
+      hash = "sha256-frD8Iye0lLbZBuol1d0hsiH6OQW4crjwimmy2dC0s8Q=";
+    };
+    # A cargoHash override alone leaves buildRustPackage's original vendor hash in use.
+    cargoDeps = robotPkgs.rustPlatform.fetchCargoVendor {
+      inherit (final) pname version src;
+      hash = "sha256-nnJtgS4eC3PWwHdVcZAYpZIYuBni0XQWXuSDuwA4ZBI=";
+    };
+  });
   profilingPerf = robotPkgs.perf.overrideAttrs (previous: {
     postPatch = previous.postPatch + ''
       # This robot has a Nix profile, not a NixOS system debug directory.
@@ -15,7 +27,7 @@ let
 in
 buildEnv {
   name = "hulk-runtime";
-  paths = with robotPkgs; [ zenoh robotBridge nftables patchelf sshpass profilingPerf glibc.debug ];
+  paths = with robotPkgs; [ robotZenoh robotBridge nftables patchelf sshpass profilingPerf glibc.debug ];
   pathsToLink = [ "/bin" "/lib/debug" ];
   postBuild = ''
     # nix store cat requires a regular file rather than a buildEnv symlink.
