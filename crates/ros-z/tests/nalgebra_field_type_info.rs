@@ -1,6 +1,10 @@
 #![cfg(feature = "nalgebra")]
 
+mod common;
+
 use std::time::Duration;
+
+use common::{TestRouter, create_context_with_router};
 
 use nalgebra::{
     Isometry2, Isometry3, Point2, Point3, Rotation2, Rotation3, Translation2, Translation3,
@@ -8,7 +12,6 @@ use nalgebra::{
 };
 use ros_z::{
     Message,
-    context::ContextBuilder,
     dynamic::{
         ByteRenderPolicy, DynamicJsonRenderPolicy, DynamicValue, NonFiniteFloatRenderPolicy,
     },
@@ -18,7 +21,6 @@ use ros_z_schema::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use zenoh::{Wait, config::WhatAmI};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
 #[message(name = "custom_msgs::MathSnapshot")]
@@ -51,52 +53,6 @@ struct MathCommand {
 enum MotionMode {
     Approach,
     Search { sweep_cycles: u32 },
-}
-
-struct TestRouter {
-    endpoint: String,
-    _session: zenoh::Session,
-}
-
-impl TestRouter {
-    fn new() -> Self {
-        let port = {
-            let listener =
-                std::net::TcpListener::bind("127.0.0.1:0").expect("failed to bind port 0");
-            listener.local_addr().unwrap().port()
-        };
-
-        let endpoint = format!("tcp/127.0.0.1:{port}");
-        let mut config = zenoh::Config::default();
-        config.set_mode(Some(WhatAmI::Router)).unwrap();
-        config
-            .insert_json5("listen/endpoints", &format!("[\"{endpoint}\"]"))
-            .unwrap();
-        config
-            .insert_json5("scouting/multicast/enabled", "false")
-            .unwrap();
-
-        let session = zenoh::open(config)
-            .wait()
-            .expect("failed to open test router");
-        std::thread::sleep(Duration::from_millis(300));
-
-        Self {
-            endpoint,
-            _session: session,
-        }
-    }
-
-    fn endpoint(&self) -> &str {
-        &self.endpoint
-    }
-}
-
-async fn create_context_with_router(router: &TestRouter) -> ros_z::Result<ros_z::context::Context> {
-    ContextBuilder::isolated_for_test()
-        .with_connect_endpoints([router.endpoint()])
-        .build()
-        .await
 }
 
 fn example_math_snapshot() -> MathSnapshot {
@@ -298,7 +254,7 @@ fn standard_nalgebra_schema_is_basic_only() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn nalgebra_fields_roundtrip_via_standard_discovery() {
-    let router = TestRouter::new();
+    let router = TestRouter::new().await;
 
     let pub_ctx = create_context_with_router(&router)
         .await
@@ -368,7 +324,7 @@ fn single_schema_message_can_embed_basic_nalgebra_fields() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn single_schema_discovery_works_with_basic_nalgebra_fields() {
-    let router = TestRouter::new();
+    let router = TestRouter::new().await;
 
     let pub_ctx = create_context_with_router(&router)
         .await
