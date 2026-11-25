@@ -11,7 +11,7 @@ struct AlignmentMessage {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn publisher_message_id_is_reserved_and_observable() {
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -59,7 +59,7 @@ async fn publisher_message_id_is_reserved_and_observable() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn publisher_direct_publish_attaches_publication_id() {
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");

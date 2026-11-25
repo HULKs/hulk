@@ -179,6 +179,7 @@ image = { version = "0.25.5", default-features = false, features = ["jpeg"] }
 image_receiver = { path = "crates/nodes/image_receiver" }
 indicatif = "0.18.4"
 itertools = "0.14.0"
+json-patch = "4"
 json5 = "0.4.1"
 kinematics = { path = "crates/kinematics" }
 kinematics_provider = { path = "crates/nodes/kinematics_provider" }
@@ -266,6 +267,7 @@ semver = "1.0.25"
 serde = { version = "1.0.228", features = ["derive", "rc"] }
 serde_bytes = "0.11.19"
 serde_json = "1.0.138"
+serde_yaml = "0.9.34"
 serial_test = "3.0"
 sha2 = "0.10.8"
 simba = "0.9.0"

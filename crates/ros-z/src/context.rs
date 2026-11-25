@@ -1,17 +1,23 @@
-use std::sync::{Arc, atomic::AtomicUsize};
+use std::{
+    env::{self, VarError},
+    path::PathBuf,
+    sync::{Arc, atomic::AtomicUsize},
+};
 
-use tracing::{debug, warn};
+use serde_json::json;
+use tracing::debug;
 use zenoh::{Session, Wait};
 
 use crate::{
     Result,
-    config::{SessionConfigBuilder, session_config},
     entity::normalize_node_namespace,
     error::ConfigError,
     graph::Graph,
     node::NodeBuilder,
+    session_config,
     shm::{DEFAULT_SHM_POOL_SIZE, ShmConfig, ShmProviderBuilder},
     time::Clock,
+    topic_name::validate_namespace,
 };
 
 #[derive(Debug, Default)]
@@ -22,10 +28,6 @@ impl GlobalCounter {
         self.0.fetch_add(1, std::sync::atomic::Ordering::AcqRel)
     }
 }
-
-use std::path::PathBuf;
-
-use serde_json::json;
 
 /// Parameter-related startup inputs carried from the context builder into nodes.
 ///
@@ -39,7 +41,7 @@ pub struct RuntimeParameterInputs {
 
 #[derive(Default)]
 pub struct ContextBuilder {
-    namespace: String,
+    namespace: Option<String>,
     zenoh_config: Option<zenoh::Config>,
     config_file: Option<PathBuf>,
     config_overrides: Vec<(String, serde_json::Value)>,
@@ -50,13 +52,19 @@ pub struct ContextBuilder {
 }
 
 impl ContextBuilder {
+    pub fn isolated_for_test() -> Self {
+        Self::default()
+            .with_zenoh_config(session_config::isolated_config())
+            .with_namespace("/")
+    }
+
     /// Set the default namespace inherited by nodes created from this context.
     pub fn with_namespace(mut self, namespace: impl AsRef<str>) -> Self {
-        self.namespace = normalize_node_namespace(namespace.as_ref());
+        self.namespace = Some(normalize_node_namespace(namespace.as_ref()));
         self
     }
 
-    /// Load configuration from a JSON file
+    /// Set the explicit session configuration file.
     pub fn with_config_file<P: Into<PathBuf>>(mut self, path: P) -> Self {
         self.config_file = Some(path.into());
         self
@@ -89,10 +97,10 @@ impl ContextBuilder {
         V: serde::Serialize,
     {
         let key = key.into();
-        let value_json = serde_json::to_value(&value).map_err(|source| {
-            crate::error::ConfigError::SerializeOverride {
+        let value_json = session_config::serialize_override(value).map_err(|reason| {
+            ConfigError::InvalidOverride {
                 key: key.clone(),
-                source,
+                reason,
             }
         })?;
         self.config_overrides.push((key, value_json));
@@ -128,10 +136,6 @@ impl ContextBuilder {
     }
 
     /// Convenience method: listen on specific endpoints
-    ///
-    /// By default, `ContextBuilder` will build a context that only listens for
-    /// connections from localhost. To change this so that it, for example, listens
-    /// on all interfaces, use this method as in the example below.
     ///
     /// # Example
     /// ```
@@ -198,15 +202,15 @@ impl ContextBuilder {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn with_router_endpoint<S: Into<String>>(mut self, endpoint: S) -> Result<Self> {
-        let session_config = SessionConfigBuilder::new()
-            .with_router_endpoint(&endpoint.into())
-            .build_config()
-            .map_err(|source| {
-                crate::Error::zenoh("build router endpoint session config", source)
+    pub fn with_router_endpoint<S: Into<String>>(self, endpoint: S) -> Result<Self> {
+        let endpoint = endpoint.into();
+        endpoint
+            .parse::<zenoh::config::EndPoint>()
+            .map_err(|_| ConfigError::InvalidOverride {
+                key: "connect/endpoints".into(),
+                reason: "expected a Zenoh endpoint",
             })?;
-        self.zenoh_config = Some(session_config);
-        Ok(self)
+        Ok(self.with_connect_endpoints([endpoint]))
     }
 
     /// Enable Zenoh logging initialization with default level "error"
@@ -338,154 +342,55 @@ impl ContextBuilder {
         self
     }
 
-    /// Parse and apply overrides from environment variable
-    ///
-    /// Expected format: `key1=value1;key2=value2`
-    /// Values should be valid JSON5
-    ///
-    /// # Example
-    /// ```
-    /// // In shell:
-    /// // export ZENOH_CONFIG_OVERRIDE='mode="client";connect/endpoints=["tcp/192.168.1.1:7447"]'
-    /// ```
-    fn apply_env_overrides(mut self) -> Result<Self> {
-        if let Ok(overrides_str) = std::env::var("ZENOH_CONFIG_OVERRIDE") {
-            tracing::debug!(
-                "Applying config overrides from ZENOH_CONFIG_OVERRIDE: {}",
-                overrides_str
-            );
-
-            // Parse semicolon-separated key=value pairs
-            for pair in overrides_str.split(';') {
-                let pair = pair.trim();
-                if pair.is_empty() {
-                    continue;
-                }
-
-                // Split on first '=' only
-                if let Some((key, value)) = pair.split_once('=') {
-                    let key = key.trim();
-                    let value = value.trim();
-
-                    // Parse JSON5 value
-                    match json5::from_str::<serde_json::Value>(value) {
-                        Ok(json_value) => {
-                            tracing::debug!("Override: {} = {}", key, json_value);
-                            self.config_overrides.push((key.to_string(), json_value));
-                        }
-                        Err(e) => {
-                            return Err(ConfigError::ParseEnvOverride {
-                                key: key.to_string(),
-                                value: value.to_string(),
-                                source: e,
-                            }
-                            .into());
-                        }
-                    }
-                } else {
-                    return Err(ConfigError::InvalidEnvOverride {
-                        pair: pair.to_string(),
-                    }
-                    .into());
-                }
-            }
-        }
-
-        Ok(self)
-    }
-}
-
-impl ContextBuilder {
-    #[tracing::instrument(name = "ctx_build", skip(self), fields(
-        config_file = ?self.config_file
-    ))]
+    #[tracing::instrument(name = "ctx_build", skip(self))]
     pub async fn build(self) -> Result<Context> {
-        // Priority order:
-        // 1. Custom Zenoh config passed via with_zenoh_config()
-        // 2. Config file passed via with_config_file()
-        // 3. ZENOH_SESSION_CONFIG_URI environment variable
-        // 4. Default ros-z session config (connects to router at tcp/localhost:7447)
-
-        debug!(
-            "[CTX] Building context: has_config={}",
-            self.config_file.is_some()
-        );
-
-        // Apply environment variable overrides first
-        let builder = self.apply_env_overrides()?;
-        debug!(
-            "[CTX] Applied {} env overrides",
-            builder.config_overrides.len()
-        );
-
-        // Initialize logging if enabled
-        if builder.enable_logging {
+        let namespace = resolve_namespace(self.namespace, env::var("ROS_Z_NAMESPACE"))?;
+        let config = session_config::resolve(
+            self.zenoh_config,
+            self.config_file.as_deref(),
+            self.config_overrides,
+        )?;
+        if self.enable_logging {
             zenoh::init_log_from_env_or("error");
         }
 
-        let has_custom_config = builder.zenoh_config.is_some();
-        let has_config_file = builder.config_file.is_some();
-        let has_env_config = std::env::var("ZENOH_SESSION_CONFIG_URI").is_ok();
-
-        let mut config = if let Some(config) = builder.zenoh_config {
-            config
-        } else if let Some(ref config_file) = builder.config_file {
-            // Use explicit config file
-            zenoh::Config::from_file(config_file)
-                .map_err(|source| crate::Error::zenoh("load Zenoh config file", source))?
-        } else if let Ok(uri) = std::env::var("ZENOH_SESSION_CONFIG_URI") {
-            // Use environment variable config URI.
-            zenoh::Config::from_file(uri).map_err(|source| {
-                crate::Error::zenoh("load Zenoh config from ZENOH_SESSION_CONFIG_URI", source)
-            })?
-        } else {
-            // Default ros-z session config (requires router at localhost:7447).
-            session_config().map_err(|source| {
-                crate::Error::zenoh("build default ros-z session config", source)
-            })?
-        };
-
-        // Apply all JSON overrides
-        for (key, value) in builder.config_overrides {
-            let value_str = serde_json::to_string(&value).map_err(|source| {
-                crate::error::ConfigError::RenderOverride {
-                    key: key.clone(),
-                    source,
-                }
-            })?;
-
-            config
-                .insert_json5(&key, &value_str)
-                .map_err(|source| crate::Error::zenoh("apply Zenoh config override", source))?;
-        }
-
-        // Open Zenoh session
-        let session = zenoh::open(config)
-            .await
-            .map_err(|source| crate::Error::zenoh("open Zenoh session", source))?;
+        let session = zenoh::open(config).await.map_err(|_| {
+            crate::Error::zenoh(
+                "open Zenoh session",
+                "check the configured endpoints, credentials and transport settings".into(),
+            )
+        })?;
         debug!("[CTX] Zenoh session opened: zid={}", session.zid());
-
-        // Check if router is running when using default peer mode
-        if !has_custom_config && !has_config_file && !has_env_config {
-            let mut routers_zid = session.info().routers_zid().await;
-            if routers_zid.next().is_none() {
-                warn!("[CTX] No routers connected");
-            } else {
-                debug!("[CTX] Connected to routers");
-            }
-        }
 
         let graph = Arc::new(Graph::new(&session).await?);
 
         Ok(Context {
             session,
             counter: Arc::new(GlobalCounter::default()),
-            namespace: builder.namespace,
+            namespace,
             graph,
-            shm_config: builder.shm_config,
-            clock: builder.clock.unwrap_or_default(),
-            runtime_parameter_inputs: builder.runtime_parameter_inputs,
+            shm_config: self.shm_config,
+            clock: self.clock.unwrap_or_default(),
+            runtime_parameter_inputs: self.runtime_parameter_inputs,
         })
+    }
+}
+
+fn resolve_namespace(
+    explicit: Option<String>,
+    environment: std::result::Result<String, VarError>,
+) -> Result<String> {
+    if let Some(namespace) = explicit {
+        return Ok(namespace);
+    }
+    match environment {
+        Ok(value) => {
+            let namespace = normalize_node_namespace(&value);
+            validate_namespace(&namespace).map_err(|_| ConfigError::InvalidNamespaceEnv)?;
+            Ok(namespace)
+        }
+        Err(VarError::NotPresent) => Ok(String::new()),
+        Err(VarError::NotUnicode(_)) => Err(ConfigError::InvalidNamespaceEnv.into()),
     }
 }
 
@@ -577,6 +482,113 @@ mod tests {
     use super::*;
 
     #[test]
+    fn namespace_env_only_applies_without_an_explicit_context_namespace() {
+        let inherited = resolve_namespace(None, Ok("/robot/42".to_string())).unwrap();
+        assert_eq!(inherited, "/robot/42");
+        assert!(resolve_namespace(None, Ok("/invalid/*".into())).is_err());
+        assert_eq!(
+            resolve_namespace(None, Err(VarError::NotPresent)).unwrap(),
+            ""
+        );
+        for root in ["", "/"] {
+            let explicit = ContextBuilder::default().with_namespace(root).namespace;
+            assert_eq!(
+                resolve_namespace(explicit.clone(), Ok("/from-env".into())).unwrap(),
+                ""
+            );
+            assert_eq!(
+                resolve_namespace(explicit, Ok("/invalid/*".into())).unwrap(),
+                ""
+            );
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn node_namespace_overrides_the_context_namespace_even_at_root() {
+        let context = ContextBuilder::isolated_for_test()
+            .with_namespace("/context")
+            .build()
+            .await
+            .unwrap();
+        for (explicit, expected) in [
+            (None, "/context"),
+            (Some("/node"), "/node"),
+            (Some("/"), ""),
+        ] {
+            let mut builder = context.create_node("namespaced");
+            if let Some(namespace) = explicit {
+                builder = builder.with_namespace(namespace);
+            }
+            assert_eq!(builder.build().await.unwrap().namespace(), expected);
+        }
+        context.shutdown().unwrap();
+    }
+
+    #[test]
+    fn router_endpoint_override_preserves_the_native_base() {
+        let builder = ContextBuilder::isolated_for_test()
+            .with_router_endpoint("tcp/127.0.0.1:7447")
+            .unwrap();
+        let config =
+            session_config::resolve(builder.zenoh_config, None, builder.config_overrides).unwrap();
+        assert_eq!(
+            config.get_json("connect/endpoints").unwrap(),
+            r#"["tcp/127.0.0.1:7447"]"#
+        );
+        assert_eq!(
+            config.get_json("listen/endpoints").unwrap(),
+            r#"["tcp/127.0.0.1:0"]"#
+        );
+        assert_eq!(config.get_json("scouting/gossip/enabled").unwrap(), "false");
+    }
+
+    #[test]
+    fn try_with_json_rejects_nested_non_finite_values_but_accepts_explicit_null() {
+        #[derive(serde::Serialize)]
+        enum Value {
+            Nested(Vec<Option<f64>>),
+        }
+        for non_finite in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let error = ContextBuilder::default()
+                .try_with_json("plugins/demo/value", Value::Nested(vec![Some(non_finite)]))
+                .err()
+                .unwrap();
+            assert!(error.to_string().contains("non-finite"));
+        }
+        let builder = ContextBuilder::default()
+            .try_with_json("plugins/demo/value", Value::Nested(vec![None, Some(1.5)]))
+            .unwrap()
+            .try_with_json("plugins/demo/delete", None::<f64>)
+            .unwrap();
+        assert_eq!(
+            builder.config_overrides[0].1,
+            json!({"Nested": [null, 1.5]})
+        );
+        assert!(builder.config_overrides[1].1.is_null());
+    }
+
+    #[test]
+    fn try_with_json_preserves_json_enum_names_and_number_range() {
+        #[derive(serde::Serialize)]
+        enum Value {
+            #[serde(rename = "!arm")]
+            Arm(u8),
+        }
+
+        let builder = ContextBuilder::default()
+            .try_with_json("plugins/demo/value", Value::Arm(7))
+            .unwrap();
+        assert_eq!(builder.config_overrides[0].1, json!({"!arm": 7}));
+
+        let error = ContextBuilder::default()
+            .try_with_json("plugins/demo/value", u128::MAX)
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("cannot be represented as JSON"));
+        assert!(!format!("{error:?}").contains(&u128::MAX.to_string()));
+    }
+
+    #[test]
     fn try_with_json_reports_serialization_error() {
         use serde::ser::{Serialize, Serializer};
 
@@ -597,15 +609,12 @@ mod tests {
         };
 
         assert!(error.to_string().contains("bad/key"));
-        assert!(
-            std::error::Error::source(&error)
-                .is_some_and(|source| source.to_string().contains("boom"))
-        );
+        assert!(!format!("{error:?}").contains("boom"));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn context_uses_replaced_parameter_layers() {
-        let context = ContextBuilder::default()
+        let context = ContextBuilder::isolated_for_test()
             .with_parameter_layer("./parameters/base")
             .with_parameter_layer("./parameters/robot")
             .with_parameter_layers(["./parameters/override"])
@@ -623,9 +632,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn node_uses_replaced_parameter_layers() {
-        let context = ContextBuilder::default()
-            .with_mode("peer")
-            .disable_multicast_scouting()
+        let context = ContextBuilder::isolated_for_test()
             .with_parameter_layer("./parameters/base")
             .build()
             .await

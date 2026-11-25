@@ -15,6 +15,7 @@ byteorder = { workspace = true }
 color-eyre = { workspace = true }
 event-listener = { workspace = true }
 itertools = { workspace = true }
+json-patch = { workspace = true }
 json5 = { workspace = true }
 nalgebra = { workspace = true, features = ["serde-serialize"], optional = true }
 ndarray = { workspace = true, optional = true }
@@ -25,9 +26,11 @@ ros-z-protocol = { workspace = true }
 ros-z-schema = { workspace = true }
 serde = { workspace = true, features = ["serde_derive"] }
 serde_json = { workspace = true }
+serde_yaml = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
+toml = { workspace = true }
 tracing = { workspace = true }
 zenoh = { workspace = true, features = ["shared-memory", "unstable"] }
 zenoh-buffers = { workspace = true }

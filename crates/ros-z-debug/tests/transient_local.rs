@@ -21,9 +21,7 @@ async fn wait_until(check: impl Fn() -> bool) {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn cached_and_observed_subscriptions_replay_retained_values_unless_overridden()
 -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_connect_endpoints(Vec::<String>::new())
+    let context = ContextBuilder::isolated_for_test()
         .with_listen_endpoints(Vec::<String>::new())
         .build()
         .await?;
@@ -83,9 +81,7 @@ async fn cached_and_observed_subscriptions_replay_retained_values_unless_overrid
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn observations_adapt_durability_when_publishers_change() -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_connect_endpoints(Vec::<String>::new())
+    let context = ContextBuilder::isolated_for_test()
         .with_listen_endpoints(Vec::<String>::new())
         .build()
         .await?;

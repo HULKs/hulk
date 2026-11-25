@@ -23,13 +23,13 @@ touch "${INTERNAL_LOG_PATH}/hulk.out" "${INTERNAL_LOG_PATH}/hulk.err"
 export RUST_BACKTRACE=1
 export RUST_LOG=info,ros_z=error,ort=error,factrs=error,localization_factrs=error,stereo_visual_odometry=error
 export GILRS_DISABLE_UDEV=1
+export ZENOH_SESSION_CONFIG_URI=/etc/zenoh/hulk-session.json5
 unset LD_LIBRARY_PATH LD_PRELOAD
 
 exec /home/booster/hulk/bin/hulk_ros_z \
   --motion-cpus 4,5 \
   --location default_location \
   --parameter-root etc/parameters \
-  --router tcp/127.0.0.1:7447 \
   --log-path "${INTERNAL_LOG_PATH}" \
   > >(tee "${INTERNAL_LOG_PATH}/hulk.out") \
   2> >(tee "${INTERNAL_LOG_PATH}/hulk.err")

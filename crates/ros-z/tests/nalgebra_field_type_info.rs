@@ -93,8 +93,7 @@ impl TestRouter {
 }
 
 async fn create_context_with_router(router: &TestRouter) -> ros_z::Result<ros_z::context::Context> {
-    ContextBuilder::default()
-        .disable_multicast_scouting()
+    ContextBuilder::isolated_for_test()
         .with_connect_endpoints([router.endpoint()])
         .build()
         .await

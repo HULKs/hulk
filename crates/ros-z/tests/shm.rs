@@ -9,7 +9,7 @@ use ros_z::{
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_shm_pubsub_large_message() {
     // Setup context with SHM enabled
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .with_shm_pool_size(512 * 1024) // 512KB is enough for tests
         .expect("Failed to enable SHM")
         .with_shm_threshold(1000)
@@ -65,7 +65,7 @@ async fn test_shm_pubsub_large_message() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_shm_pubsub_small_message() {
     // Setup context with SHM enabled but high threshold
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .with_shm_pool_size(512 * 1024) // 512KB is enough for tests
         .expect("Failed to enable SHM")
         .with_shm_threshold(10_000) // 10KB threshold
@@ -119,7 +119,7 @@ async fn test_shm_pubsub_small_message() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_shm_threshold_boundary() {
     // Test message exactly at threshold
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .with_shm_pool_size(512 * 1024) // 512KB is enough for tests
         .expect("Failed to enable SHM")
         .with_shm_threshold(5_000) // Exactly 5KB
@@ -167,7 +167,7 @@ async fn test_shm_threshold_boundary() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_shm_config_hierarchy_node_override() {
     // Context has SHM with one config, node overrides with another
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .with_shm_pool_size(512 * 1024) // 512KB is enough for tests
         .expect("Failed to enable SHM")
         .with_shm_threshold(10_000) // 10KB at context level
@@ -224,7 +224,7 @@ async fn test_shm_config_hierarchy_node_override() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_without_shm() {
     // Context has SHM enabled, but publisher explicitly disables it
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .with_shm_pool_size(512 * 1024) // 512KB is enough for tests
         .expect("Failed to enable SHM")
         .with_shm_threshold(1_000)
@@ -274,7 +274,7 @@ async fn test_without_shm() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_publisher_shm_override() {
     // Context has no SHM, but publisher enables it
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .build()
         .await
         .expect("Failed to create context");
@@ -328,7 +328,7 @@ async fn test_publisher_shm_override() {
 async fn test_multiple_publishers_different_thresholds() {
     // Multiple publishers with different SHM configs
     // Use smaller pool sizes to avoid exhausting system SHM limits
-    let context = ContextBuilder::default()
+    let context = ContextBuilder::isolated_for_test()
         .with_shm_pool_size(1024 * 1024) // 1MB is enough for test
         .expect("Failed to enable SHM")
         .with_shm_threshold(5_000)

@@ -1191,7 +1191,7 @@ mod tests {
         use crate::{backend::RobotBackend, panel::PanelUiContext};
 
         let backend = Arc::new(
-            RobotBackend::new(tokio::runtime::Handle::current(), None, "/".into())
+            RobotBackend::isolated_for_test(tokio::runtime::Handle::current(), "/".into())
                 .await
                 .unwrap(),
         );

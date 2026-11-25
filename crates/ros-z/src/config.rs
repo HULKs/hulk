@@ -570,7 +570,7 @@ mod tests {
     async fn test_router_config_creates_valid_session() {
         // Use port 0 to let OS assign an available port
         let config = RouterConfigBuilder::new()
-            .with_listen_endpoint("tcp/[::]:0")
+            .with_listen_endpoint("tcp/127.0.0.1:0")
             .build_config()
             .expect("Failed to build router config");
 
@@ -584,7 +584,10 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_session_config_creates_valid_session() {
-        let config = session_config().expect("Failed to build session config");
+        let config = SessionConfigBuilder::new()
+            .with_override("connect/endpoints", serde_json::json!([]), "test isolation")
+            .build_config()
+            .expect("Failed to build session config");
 
         let session = zenoh::open(config).await;
         assert!(

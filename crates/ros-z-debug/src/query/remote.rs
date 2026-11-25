@@ -487,12 +487,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn incomplete_plan_stream_reports_failure() {
-        let context = ContextBuilder::default()
-            .disable_multicast_scouting()
-            .with_json("connect/endpoints", serde_json::json!([]))
-            .build()
-            .await
-            .unwrap();
+        let context = ContextBuilder::isolated_for_test().build().await.unwrap();
         let node = Arc::new(
             context
                 .create_node("incomplete_plan")

@@ -45,9 +45,7 @@ async fn bind_merge_set_and_subscribe_work() -> TestResult {
         }"#,
     )?;
 
-    let context = ContextBuilder::default()
-        .with_mode("peer")
-        .disable_multicast_scouting()
+    let context = ContextBuilder::isolated_for_test()
         .with_parameter_layers([base.clone(), robot.clone()])
         .build()
         .await?;

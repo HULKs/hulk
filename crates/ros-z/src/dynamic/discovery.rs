@@ -736,7 +736,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn topic_candidate_wait_returns_existing_publishers_at_expired_deadline() {
-        let session = zenoh::open(zenoh::Config::default())
+        let session = zenoh::open(crate::session_config::isolated_config())
             .await
             .expect("open Zenoh session");
         let graph = Graph::new(&session).await.expect("create graph");
@@ -758,7 +758,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn visible_schema_service_wait_returns_existing_services_at_expired_deadline() {
-        let session = zenoh::open(zenoh::Config::default())
+        let session = zenoh::open(crate::session_config::isolated_config())
             .await
             .expect("open Zenoh session");
         let graph = Graph::new(&session).await.expect("create graph");
@@ -790,7 +790,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn visible_schema_service_wait_reports_no_schema_services_at_deadline() {
-        let session = zenoh::open(zenoh::Config::default())
+        let session = zenoh::open(crate::session_config::isolated_config())
             .await
             .expect("open Zenoh session");
         let graph = Graph::new(&session).await.expect("create graph");
@@ -827,7 +827,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn try_schema_service_reports_timeout_when_visible_service_budget_elapsed() {
-        let session = zenoh::open(zenoh::Config::default())
+        let session = zenoh::open(crate::session_config::isolated_config())
             .await
             .expect("open Zenoh session");
         let graph = std::sync::Arc::new(Graph::new(&session).await.expect("create graph"));
@@ -911,7 +911,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn visible_schema_service_wait_rejects_current_conflicts_before_visible_service() {
-        let session = zenoh::open(zenoh::Config::default())
+        let session = zenoh::open(crate::session_config::isolated_config())
             .await
             .expect("open Zenoh session");
         let graph = Graph::new(&session).await.expect("create graph");
@@ -961,7 +961,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn visible_schema_service_wait_rechecks_topic_candidates_after_graph_change() {
-        let session = zenoh::open(zenoh::Config::default())
+        let session = zenoh::open(crate::session_config::isolated_config())
             .await
             .expect("open Zenoh session");
         let graph = Graph::new(&session).await.expect("create graph");
@@ -1019,9 +1019,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn discover_topic_schema_rejects_empty_topic_name() {
-        let context = crate::context::ContextBuilder::default()
-            .disable_multicast_scouting()
-            .with_json("connect/endpoints", serde_json::json!([]))
+        let context = crate::context::ContextBuilder::isolated_for_test()
             .build()
             .await
             .expect("create test context");
@@ -1103,7 +1101,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn schema_candidate_wait_reports_no_publishers_when_none_arrive() {
-        let session = zenoh::open(zenoh::Config::default())
+        let session = zenoh::open(crate::session_config::isolated_config())
             .await
             .expect("open Zenoh session");
         let graph = Graph::new(&session).await.expect("create graph");

@@ -10,7 +10,7 @@ use ros_z::{
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 async fn setup_test_node(node_name: &str) -> Result<(ros_z::context::Context, ros_z::node::Node)> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let node = context.create_node(node_name).build().await?;
 
     tokio::time::sleep(Duration::from_millis(100)).await;
@@ -184,9 +184,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn publish_if_subscribed_keeps_volatile_messages_lazy() -> Result<()> {
-        let context = ContextBuilder::default()
-            .disable_multicast_scouting()
-            .with_connect_endpoints(Vec::<String>::new())
+        let context = ContextBuilder::isolated_for_test()
             .with_listen_endpoints(Vec::<String>::new())
             .build()
             .await?;
@@ -214,9 +212,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn publish_if_subscribed_borrows_lazily_and_delivers() -> Result<()> {
-        let context = ContextBuilder::default()
-            .disable_multicast_scouting()
-            .with_connect_endpoints(Vec::<String>::new())
+        let context = ContextBuilder::isolated_for_test()
             .with_listen_endpoints(Vec::<String>::new())
             .build()
             .await?;
@@ -253,7 +249,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn transient_local_replays_last_sample_to_late_subscriber() -> Result<()> {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let pub_node = context.create_node("transient_late_pub").build().await?;
         let sub_node = context.create_node("transient_late_sub").build().await?;
         let topic = "/transient_local_late_joiner";
@@ -294,7 +290,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn transient_local_retained_sample_is_queryable_after_publish_returns() -> Result<()> {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let pub_node = context
             .create_node("retain_before_publish_pub")
             .build()
@@ -327,7 +323,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn transient_local_replays_keep_last_depth_to_late_subscriber() -> Result<()> {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let pub_node = context.create_node("transient_depth_pub").build().await?;
         let sub_node = context.create_node("transient_depth_sub").build().await?;
         let topic = "/transient_local_late_joiner_depth";
@@ -359,7 +355,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn transient_local_delivers_cached_history_before_live_during_startup() -> Result<()> {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let pub_node = context.create_node("ordered_startup_pub").build().await?;
         let sub_node = context.create_node("ordered_startup_sub").build().await?;
         let topic = "/transient_local_ordered_startup";
@@ -398,7 +394,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn transient_local_late_discovered_publisher_delivers_monotonic_samples() -> Result<()> {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let sub_node = context.create_node("late_discovery_sub").build().await?;
         let pub_node = context.create_node("late_discovery_pub").build().await?;
         let topic = "/transient_local_late_discovery";
@@ -440,7 +436,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn transient_local_replay_preserves_cache_order_with_required_attachments() -> Result<()>
     {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let pub_node = context
             .create_node("required_attachment_pub")
             .build()
@@ -485,7 +481,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn transient_local_late_cache_receives_replayed_sample() -> Result<()> {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let pub_node = context.create_node("transient_cache_pub").build().await?;
         let cache_node = context.create_node("transient_cache_late").build().await?;
         let topic = "/transient_local_late_cache";
@@ -524,7 +520,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn transient_local_replay_raw_sample_uses_topic_key_expr() -> Result<()> {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let pub_node = context.create_node("transient_raw_key_pub").build().await?;
         let early_sub_node = context
             .create_node("transient_raw_key_early_sub")
@@ -681,7 +677,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn volatile_best_effort_publish_delivers_messages() -> Result<()> {
-        let context = ros_z::context::ContextBuilder::default().build().await?;
+        let context = ros_z::context::ContextBuilder::isolated_for_test()
+            .build()
+            .await?;
         let pub_node = context.create_node("sync_test_pub").build().await?;
         let sub_node = context.create_node("sync_test_sub").build().await?;
 
@@ -718,7 +716,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn volatile_best_effort_same_context_delivers_messages() -> Result<()> {
-        let context = ros_z::context::ContextBuilder::default().build().await?;
+        let context = ros_z::context::ContextBuilder::isolated_for_test()
+            .build()
+            .await?;
         let pub_node = context.create_node("sync_same_ctx_pub").build().await?;
         let sub_node = context.create_node("sync_same_ctx_sub").build().await?;
 
@@ -767,7 +767,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn deadline_and_manual_liveliness_qos_publish_delivers_messages() -> Result<()> {
-        let context = ros_z::context::ContextBuilder::default().build().await?;
+        let context = ros_z::context::ContextBuilder::isolated_for_test()
+            .build()
+            .await?;
         let pub_node = context.create_node("sync_deadline_pub").build().await?;
         let sub_node = context.create_node("sync_deadline_sub").build().await?;
 

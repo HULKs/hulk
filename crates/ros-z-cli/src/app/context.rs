@@ -1,4 +1,5 @@
 use std::{
+    path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -22,10 +23,12 @@ pub struct AppContext {
 }
 
 impl AppContext {
-    pub async fn new(router: &str) -> Result<Self> {
-        let context = ContextBuilder::default()
-            .with_mode("client")
-            .with_connect_endpoints([router])
+    pub async fn new(config: Option<PathBuf>) -> Result<Self> {
+        let mut builder = ContextBuilder::default();
+        if let Some(path) = config {
+            builder = builder.with_config_file(path);
+        }
+        let context = builder
             .build()
             .await
             .wrap_err("failed to build ros-z context")?;

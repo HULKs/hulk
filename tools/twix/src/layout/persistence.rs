@@ -442,7 +442,7 @@ mod tests {
     async fn presets_render_round_trip_and_isolate_focus() {
         use eframe::egui::{CentralPanel, RawInput, Rect, vec2};
         let backend = Arc::new(
-            RobotBackend::new(tokio::runtime::Handle::current(), None, "/".into())
+            RobotBackend::isolated_for_test(tokio::runtime::Handle::current(), "/".into())
                 .await
                 .unwrap(),
         );

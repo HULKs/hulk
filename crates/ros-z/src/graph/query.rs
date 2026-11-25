@@ -287,7 +287,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn type_incompatible_endpoints_for_returns_visible_type_mismatches_for_all_endpoint_kinds()
     -> Result<()> {
-        let session = zenoh::open(zenoh::Config::default())
+        let session = zenoh::open(crate::session_config::isolated_config())
             .await
             .map_err(|source| Error::zenoh("open Zenoh session", source))?;
         let graph = Graph::new(&session).await?;
@@ -383,7 +383,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn graph_data_pub_sub_type_mismatches_for_topic_returns_pub_sub_pairs_only() -> Result<()>
     {
-        let session = zenoh::open(zenoh::Config::default())
+        let session = zenoh::open(crate::session_config::isolated_config())
             .await
             .map_err(|source| Error::zenoh("open Zenoh session", source))?;
         let graph = Graph::new(&session).await?;

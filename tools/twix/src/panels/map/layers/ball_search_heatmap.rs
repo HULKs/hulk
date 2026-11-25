@@ -88,20 +88,19 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn shared_heatmap_message_reaches_map_and_preserves_cell_coordinates() {
-        let router = ContextBuilder::default()
+        let router = ContextBuilder::isolated_for_test()
             .with_mode("router")
-            .disable_multicast_scouting()
-            .with_connect_endpoints(std::iter::empty::<&str>())
-            .with_listen_endpoints(["tcp/127.0.0.1:0"])
             .build()
             .await
             .unwrap();
         let endpoint = router.session().info().locators().await[0].to_string();
         let backend = Arc::new(
-            RobotBackend::new(
+            RobotBackend::with_builder(
                 tokio::runtime::Handle::current(),
-                Some(endpoint),
                 "/heatmap_test".into(),
+                ContextBuilder::isolated_for_test()
+                    .with_router_endpoint(endpoint)
+                    .unwrap(),
             )
             .await
             .unwrap(),
