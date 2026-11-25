@@ -6,6 +6,7 @@ RequiresMountsFor=/nix/store /nix/var/nix/profiles/hulks /home/booster
 
 [Service]
 Type=simple
+CPUAffinity=0-5
 User=booster
 Group=booster
 SupplementaryGroups=audio video render input
