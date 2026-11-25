@@ -6,6 +6,8 @@ RequiresMountsFor=/nix/store /nix/var/nix/profiles/hulks /home/booster
 
 [Service]
 Type=simple
+# Include the isolated motion CPUs so HULK can partition its workers at startup.
+CPUAffinity=0-5
 User=booster
 Group=booster
 SupplementaryGroups=audio video render input
