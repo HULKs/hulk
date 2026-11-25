@@ -74,6 +74,7 @@ Rule-generated positions are provided separately and are not retained as last se
 ### Search
 
 The `search_suggestor` combines local, team, hypothetical, and rule-based ball information in a priority heatmap with configurable, approximately square cells and values between zero and one.
+It updates the heatmap and search target every 50 ms (20 Hz); temporal growth and decay use the actual elapsed time.
 `cells_along_field_length` fixes the longitudinal cell count; the transverse count is rounded from the field aspect ratio.
 Cell dimensions are then calculated independently to cover the field exactly.
 Changing resolution at runtime samples the old map at the new cell centres and remaps the selected target.
@@ -89,11 +90,13 @@ Areas within the estimated field of view lose priority; obstacles reduce this de
 Observation half-life is interpolated linearly from `observation_half_life_near` to `observation_half_life_far` across `observation_distance_range`.
 A visible cell is multiplied by `exp(-ln(2) * elapsed * weight / half_life)`; outside the range there is no observation decay.
 `teammate_observation_weight` scales reconstructed team exposure, with zero disabling it, and `occluded_observation_weight` scales locally occluded exposure.
-Team replay samples at most `teammate_replay_step` apart and uses the actual message interval.
+Team replay aims for samples at most `teammate_replay_step` apart, capped at four samples per message interval.
+Longer intervals use coarser sampling; the full actual message interval is distributed across the samples.
 Rule hypotheses gain one priority unit per `rule_priority_rise_time`, using elapsed simulation time.
 Corner kicks, goal kicks, and throw-ins clear the heatmap outside their restart locations, including priorities from earlier observations.
 
 The robot's own pose and fresh teammate poses define its search Voronoi region.
+The partition is cached and recomputed only when the grid geometry, owner, or participating players' Voronoi cells change; teammate freshness is checked every cycle.
 Field players exclude the configured goalkeeper from this partition, matching the behavior's goalkeeper-free Voronoi calculation.
 The goalkeeper searches independently of the field-player partition.
 Within that region, the suggestor selects a cell above the minimum priority.
