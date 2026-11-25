@@ -195,6 +195,10 @@ async fn run(
         _ = terminate.recv() => Ok(()),
     };
 
+    if let Err(error) = &run_result {
+        tracing::error!(?error, "HULK failed; shutting down");
+    }
+
     let mut errors = running.stop_tasks().await;
     if errors.is_empty() {
         let close_result = ctx.shutdown().wrap_err("failed to close ROS-Z context");
