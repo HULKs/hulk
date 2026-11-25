@@ -1,6 +1,5 @@
 ////
-//// This file presents the default configuration used by both the `zenoh-plugin-dds` plugin and the `zenoh-bridge-dds` standalone executable.
-//// The "dds" JSON5 object below can be used as such in the "plugins" part of a config file for the zenoh router (zenohd).
+//// Native Booster DDS bridge configuration.
 ////
 {
   plugins: {
@@ -163,28 +162,14 @@
   // id: "A00001",
 
   ////
-  //// mode: The bridge's mode (peer or client)
+  //// The HULK Booster peer dials this bridge directly, not the fleet router.
   ////
-  mode: "client",
-
-  ////
-  //// Which endpoints to connect to. E.g. tcp/localhost:7447.
-  //// By configuring the endpoints, it is possible to tell zenoh which router/peer to connect to at startup.
-  ////
-  connect: {
-    endpoints: [
-      "tcp/127.0.0.1:7447"
-    ]
+  mode: "peer",
+  connect: { endpoints: [] },
+  listen: { endpoints: ["tcp/127.0.0.1:7448"] },
+  scouting: {
+    multicast: { enabled: false },
+    gossip: { enabled: false },
   },
-
-  ////
-  //// Which endpoints to listen on. E.g. tcp/localhost:7447.
-  //// By configuring the endpoints, it is possible to tell zenoh which are the endpoints that other routers,
-  //// peers, or client can use to establish a zenoh session.
-  ////
-  listen: {
-    endpoints: [
-      // "<proto>/<ip>:<port>"
-    ]
-  },
+  transport: { shared_memory: { enabled: false } },
 }
