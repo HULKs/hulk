@@ -9,16 +9,17 @@ use color_eyre::{
 use booster::FallDownState;
 use ros_z::prelude::*;
 
-pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
-    Box::pin(run(ctx))
+pub fn run_boxed(
+    ctx: Arc<Context>,
+    booster_session: zenoh::Session,
+) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx, booster_session))
 }
 
-async fn run(ctx: Arc<Context>) -> Result<()> {
+async fn run(ctx: Arc<Context>, booster_session: zenoh::Session) -> Result<()> {
     let node = ctx.create_node("fall_down_state_receiver").build().await?;
 
-    let zenoh_session = ctx.session();
-
-    let fall_down_state_sub = zenoh_session
+    let fall_down_state_sub = booster_session
         .declare_subscriber("rt/fall_down")
         .await
         .map_err(|error| eyre!("{error}"))?;
