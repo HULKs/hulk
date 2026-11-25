@@ -81,8 +81,8 @@ impl<CargoArguments: Args> Arguments<CargoArguments> {
     }
 
     async fn resolve_environment(&self, manifest_path: Option<&Path>) -> Result<BuildEnvironment> {
-        match &self.environment.env {
-            Some(environment) => Ok(environment.clone().resolve()),
+        match self.environment.env {
+            Some(environment) => Ok(environment),
             None => read_requested_environment(manifest_path)
                 .await
                 .wrap_err("failed to read requested environment"),
@@ -96,7 +96,7 @@ impl Arguments<build::Arguments> {
         let environment = self.resolve_environment(manifest_path.as_deref()).await?;
         let is_native = matches!(
             environment,
-            BuildEnvironment::HostCargo | BuildEnvironment::Native
+            BuildEnvironment::PathCargo | BuildEnvironment::NixNative
         );
         let target_dir = self.cargo.common.target_dir.clone().or_else(|| {
             if is_native && !self.environment.remote {
@@ -187,7 +187,7 @@ pub async fn construct_cargo_command<CargoArguments: Args + CargoCommand>(
 
 async fn read_requested_environment(manifest_path: Option<&Path>) -> Result<BuildEnvironment> {
     let Some(manifest_path) = manifest_path else {
-        return Ok(BuildEnvironment::HostCargo);
+        return Ok(BuildEnvironment::PathCargo);
     };
 
     let manifest = read_to_string(manifest_path).await.wrap_err_with(|| {
@@ -203,9 +203,9 @@ async fn read_requested_environment(manifest_path: Option<&Path>) -> Result<Buil
             .and_then(toml::Value::as_bool)
             == Some(true)
         {
-            BuildEnvironment::Robot
+            BuildEnvironment::NixRobot
         } else {
-            BuildEnvironment::HostCargo
+            BuildEnvironment::PathCargo
         },
     )
 }

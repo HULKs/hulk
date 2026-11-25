@@ -29,18 +29,18 @@ See [Remote Control](remote_control.md) for setup, gamepad bindings, and restora
 ./pepsi build -p twix
 ```
 
-`./pepsi` builds Pepsi itself from the working tree with Cargo on your `PATH`. By default, Pepsi also uses Cargo on the build host's `PATH` for workstation commands. Run `nix develop` first if you need Rust or libraries from the flake, such as ONNX Runtime. Use `--env native` to have Pepsi select the workstation Nix shell explicitly.
+`./pepsi` builds Pepsi itself from the working tree with Cargo on your `PATH`. By default, Pepsi also uses Cargo on the build host's `PATH` for workstation commands. Select it explicitly with `--env path-cargo`. If you need Rust or libraries from the flake, such as ONNX Runtime, run `nix develop` first or use `--env nix-native` to have Pepsi select the workstation Nix shell.
 
 ### Robot SDK
 
-Packages marked `package.metadata.pepsi.cross-compile = true` use the Nix robot SDK. If the flag is missing or `false`, Pepsi uses host Cargo. Use `--env nix` (or `--env auto`) to select the robot SDK explicitly. The robot SDK requires Nix on x86_64 Linux, whether the build is local or remote.
+Packages marked `package.metadata.pepsi.cross-compile = true` use the Nix robot SDK. If the flag is missing or `false`, Pepsi uses Cargo on `PATH`. Use `--env nix-robot` to select the robot SDK explicitly. The robot SDK requires Nix on x86_64 Linux, whether the build is local or remote.
 
 ```sh
 ./pepsi sdk prepare                  # optional: warm the cache
 ./pepsi build crates/hulk_ros_z
 ```
 
-Without a manifest argument, builds default to the workstation. For robot builds selected with `-p`, pass `--env nix`. Deploy the matching runtime bundle before uploading.
+Without a manifest argument, builds default to the workstation. For robot builds selected with `-p`, pass `--env nix-robot`. Deploy the matching runtime bundle before uploading.
 
 #### Publishing the SDK cache
 

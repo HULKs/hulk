@@ -9,11 +9,13 @@ use tokio::process::Command;
 
 use crate::{Repository, sdk};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum Environment {
-    HostCargo,
-    Native,
-    Robot,
+    PathCargo,
+    #[value(alias = "native")]
+    NixNative,
+    #[value(alias = "nix", alias = "auto")]
+    NixRobot,
 }
 
 pub const ROBOT_TARGET_DIRECTORY: &str = "target/robot";
@@ -21,9 +23,9 @@ pub const ROBOT_TARGET_DIRECTORY: &str = "target/robot";
 impl Display for Environment {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::HostCargo => write!(f, "Host Cargo"),
-            Self::Native => write!(f, "Native"),
-            Self::Robot => write!(f, "Robot SDK"),
+            Self::PathCargo => write!(f, "Cargo on PATH"),
+            Self::NixNative => write!(f, "Workstation Nix shell"),
+            Self::NixRobot => write!(f, "Nix robot SDK"),
         }
     }
 }
@@ -78,9 +80,9 @@ impl Cargo {
             Host::Remote => repository.current_dir_to_root()?,
         };
         let mut command = match self.environment {
-            Environment::HostCargo => Command::new("cargo"),
-            Environment::Native => sdk::native_cargo_command(&root),
-            Environment::Robot => {
+            Environment::PathCargo => Command::new("cargo"),
+            Environment::NixNative => sdk::native_cargo_command(&root),
+            Environment::NixRobot => {
                 let mut command = sdk::robot_command(&root);
                 command.arg("cargo");
                 command
