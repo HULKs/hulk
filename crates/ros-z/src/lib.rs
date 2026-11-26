@@ -86,6 +86,7 @@ pub mod queue;
 pub mod schema;
 /// Service client and server.
 pub mod service;
+mod session_config;
 /// Shared-memory transport helpers.
 pub mod shm;
 /// Time and clock primitives for runtime and replay integration.

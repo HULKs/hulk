@@ -29,20 +29,31 @@ pub struct RobotBackend {
 }
 
 impl RobotBackend {
-    pub async fn new(
+    pub async fn new(runtime_handle: Handle, namespace: String) -> Result<Self> {
+        Self::with_builder(runtime_handle, namespace, ContextBuilder::default()).await
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn isolated_for_test(
         runtime_handle: Handle,
-        router: Option<String>,
         namespace: String,
     ) -> Result<Self> {
-        let mut builder = ContextBuilder::default();
-        if let Some(router) = router {
-            builder = builder
-                .with_router_endpoint(router)
-                .wrap_err("failed to configure ROS-Z router endpoint")?;
-        }
+        Self::with_builder(
+            runtime_handle,
+            namespace,
+            ContextBuilder::isolated_for_test(),
+        )
+        .await
+    }
 
+    pub(crate) async fn with_builder(
+        runtime_handle: Handle,
+        namespace: String,
+        builder: ContextBuilder,
+    ) -> Result<Self> {
         let context = Arc::new(
             builder
+                .with_namespace("/_twix")
                 .build()
                 .await
                 .wrap_err("failed to build ROS-Z context")?,
@@ -51,7 +62,6 @@ impl RobotBackend {
         let node = Arc::new(
             context
                 .create_node(node_name)
-                .with_namespace("/_twix")
                 .build()
                 .await
                 .wrap_err("failed to create Twix ROS-Z node")?,
@@ -214,8 +224,45 @@ mod tests {
     use super::*;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn backend_keeps_its_namespace_separate_from_target_and_environment() {
+        const CHILD: &str = "TWIX_NAMESPACE_TEST_CHILD";
+        if std::env::var_os(CHILD).is_some() {
+            let backend = RobotBackend::new(Handle::current(), "/target".into())
+                .await
+                .unwrap();
+            assert_eq!(backend.node().namespace(), "/_twix");
+            assert_eq!(backend.namespace(), "/target");
+            return;
+        }
+
+        let router = ContextBuilder::isolated_for_test()
+            .with_mode("router")
+            .build()
+            .await
+            .unwrap();
+        let endpoint = router.session().info().locators().await[0].to_string();
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "backend::tests::backend_keeps_its_namespace_separate_from_target_and_environment",
+            ])
+            .env(CHILD, "1")
+            .env("ROS_Z_NAMESPACE", "/invalid/*")
+            .env("ROS_Z_GATEWAY", endpoint)
+            .env_remove("ZENOH_SESSION_CONFIG_URI")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn connection_replacements_have_distinct_presentation_identities_at_revision_zero() {
-        let backend = RobotBackend::new(Handle::current(), None, "/".into())
+        let backend = RobotBackend::isolated_for_test(Handle::current(), "/".into())
             .await
             .unwrap();
         let initial = backend.presentation_identity();

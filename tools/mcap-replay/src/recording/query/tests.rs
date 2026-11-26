@@ -679,12 +679,7 @@ async fn remote_plans_and_independent_cursors_work_without_replay_publishers() {
 }
 
 async fn test_node(name: &str) -> Arc<Node> {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", serde_json::json!([]))
-        .build()
-        .await
-        .unwrap();
+    let context = ContextBuilder::isolated_for_test().build().await.unwrap();
     Arc::new(
         context
             .create_node(name)

@@ -120,34 +120,35 @@ impl fmt::Display for NameKind {
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
-    /// Config override value could not be serialized.
-    #[error("failed to serialize config override '{key}'")]
-    SerializeOverride {
-        key: String,
+    #[error("cannot use config override '{key}': {reason}")]
+    InvalidOverride { key: String, reason: &'static str },
+
+    #[error("cannot read session config file {path:?}: {source}")]
+    ReadSessionFile {
+        path: std::path::PathBuf,
         #[source]
-        source: serde_json::Error,
+        source: std::io::Error,
     },
 
-    /// Config override value could not be rendered as JSON.
-    #[error("failed to render config override '{key}' as JSON")]
-    RenderOverride {
-        key: String,
-        #[source]
-        source: serde_json::Error,
+    #[error("invalid session config file {path:?}: {reason}")]
+    InvalidSessionFile {
+        path: std::path::PathBuf,
+        reason: &'static str,
     },
 
-    /// Environment override value could not be parsed.
-    #[error("failed to parse ZENOH_CONFIG_OVERRIDE value for '{key}' ({value})")]
-    ParseEnvOverride {
-        key: String,
-        value: String,
-        #[source]
-        source: json5::Error,
-    },
+    #[error("invalid merged Zenoh session configuration: {reason}")]
+    InvalidSession { reason: &'static str },
 
-    /// Environment override did not use the expected `key=value` form.
-    #[error("invalid ZENOH_CONFIG_OVERRIDE pair '{pair}'; expected 'key=value'")]
-    InvalidEnvOverride { pair: String },
+    #[error(
+        "session overlays do not support plugin __config__ includes; load the file with zenoh::Config::from_file and pass it to with_zenoh_config instead"
+    )]
+    PluginInclude,
+
+    #[error("ROS_Z_GATEWAY must be a UTF-8 Zenoh endpoint")]
+    GatewayNotUnicode,
+
+    #[error("ROS_Z_NAMESPACE must be a valid UTF-8 ROS-Z namespace")]
+    InvalidNamespaceEnv,
 }
 
 /// Errors produced while encoding, decoding, or validating wire data.

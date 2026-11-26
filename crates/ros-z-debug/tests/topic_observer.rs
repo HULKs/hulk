@@ -22,7 +22,7 @@ struct FloatDebugValue {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn topic_observation_builder_policy_preserves_overrides_when_retention_changes()
 -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let observer_node = Arc::new(context.create_node("policy_observer").build().await?);
     let observer = TopicObserver::new(observer_node, TopicObserverOptions::with_namespace("/42")?);
     let queue_capacity = std::num::NonZeroUsize::new(9).unwrap();
@@ -53,7 +53,7 @@ async fn topic_observation_builder_policy_preserves_overrides_when_retention_cha
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn typed_observation_rebuilds_when_inherited_namespace_changes() -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context.create_node("typed_retarget_pub").build().await?;
     let observer_node = Arc::new(
         context
@@ -93,7 +93,7 @@ async fn typed_observation_rebuilds_when_inherited_namespace_changes() -> ros_z_
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn typed_builder_sets_initial_private_topic_node_name() -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context
         .create_node("typed_builder_node_pub")
         .build()
@@ -128,7 +128,7 @@ async fn typed_builder_sets_initial_private_topic_node_name() -> ros_z_debug::Re
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn typed_builder_can_restore_namespace_inheritance_before_spawn() -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context
         .create_node("typed_builder_inherit_namespace_pub")
         .build()
@@ -168,7 +168,7 @@ async fn typed_builder_can_restore_namespace_inheritance_before_spawn() -> ros_z
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dynamic_builder_clear_node_name_blocks_private_topic_despite_observer_default()
 -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let observer_node = Arc::new(
         context
             .create_node("dynamic_builder_clear_observer")
@@ -208,7 +208,7 @@ async fn dynamic_builder_clear_node_name_blocks_private_topic_despite_observer_d
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn absolute_typed_observation_ignores_inherited_target_changes() -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context
         .create_node("absolute_target_change_pub")
         .build()
@@ -251,7 +251,7 @@ async fn absolute_typed_observation_ignores_inherited_target_changes() -> ros_z_
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dynamic_json_observation_exposes_latest_value() -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context.create_node("dynamic_latest_pub").build().await?;
     let observer_node = Arc::new(
         context
@@ -293,7 +293,7 @@ async fn dynamic_json_observation_exposes_latest_value() -> ros_z_debug::Result<
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dynamic_json_observation_exposes_time_window_records() -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context.create_node("dynamic_window_pub").build().await?;
     let observer_node = Arc::new(
         context
@@ -344,7 +344,7 @@ async fn dynamic_json_observation_exposes_time_window_records() -> ros_z_debug::
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dynamic_json_observation_exposes_value_only_window_json() -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context
         .create_node("dynamic_value_window_pub")
         .build()
@@ -390,7 +390,7 @@ async fn dynamic_json_observation_exposes_value_only_window_json() -> ros_z_debu
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dynamic_json_observation_uses_configured_render_policy() -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context.create_node("dynamic_policy_pub").build().await?;
     let observer_node = Arc::new(
         context
@@ -433,7 +433,7 @@ async fn dynamic_json_observation_uses_configured_render_policy() -> ros_z_debug
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn private_topic_resolves_delivers_and_preserves_previous_cache_when_later_blocked()
 -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context.create_node("private_topic_pub").build().await?;
     let observer_node = Arc::new(context.create_node("private_observer").build().await?);
     let publisher = publisher_node
@@ -523,7 +523,7 @@ async fn private_topic_resolves_delivers_and_preserves_previous_cache_when_later
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn observer_clear_node_name_blocks_inherited_private_observation() -> ros_z_debug::Result<()>
 {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context
         .create_node("observer_clear_node_pub")
         .build()
@@ -586,7 +586,7 @@ async fn observer_clear_node_name_blocks_inherited_private_observation() -> ros_
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn typed_observation_clear_node_name_blocks_private_topic_despite_observer_default()
 -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context.create_node("typed_clear_node_pub").build().await?;
     let observer_node = Arc::new(
         context
@@ -637,7 +637,7 @@ async fn typed_observation_clear_node_name_blocks_private_topic_despite_observer
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dynamic_observation_clear_node_name_blocks_private_topic_despite_observer_default()
 -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context
         .create_node("dynamic_clear_node_pub")
         .build()
@@ -700,7 +700,7 @@ async fn dynamic_observation_clear_node_name_blocks_private_topic_despite_observ
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dynamic_observation_freezes_previous_cache_while_retrying_after_retarget()
 -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context
         .create_node("dynamic_retry_freeze_pub")
         .build()
@@ -769,7 +769,7 @@ async fn dynamic_observation_freezes_previous_cache_while_retrying_after_retarge
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dynamic_observation_freezes_previous_cache_during_rebuild_before_retrying()
 -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context
         .create_node("dynamic_rebuild_freeze_pub")
         .build()
@@ -839,7 +839,7 @@ async fn dynamic_observation_freezes_previous_cache_during_rebuild_before_retryi
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dropping_observer_does_not_close_live_observation_while_handle_remains()
 -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context.create_node("observer_drop_pub").build().await?;
     let observer_node = Arc::new(
         context
@@ -879,7 +879,7 @@ async fn dropping_observer_does_not_close_live_observation_while_handle_remains(
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dropping_observation_cancels_in_flight_dynamic_schema_discovery() -> ros_z_debug::Result<()>
 {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context
         .create_node("dynamic_drop_pub")
         .without_schema_service()
@@ -914,7 +914,7 @@ async fn dropping_observation_cancels_in_flight_dynamic_schema_discovery() -> ro
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dropping_last_observation_handle_closes_real_spawned_loop() -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context.create_node("drop_handle_pub").build().await?;
     let observer_node = Arc::new(context.create_node("drop_handle_observer").build().await?);
     let publisher = publisher_node
@@ -960,7 +960,7 @@ async fn dropping_last_observation_handle_closes_real_spawned_loop() -> ros_z_de
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn observing_observation_ignores_unrelated_graph_revision() -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context.create_node("graph_rebuild_pub").build().await?;
     let observer_node = Arc::new(
         context
@@ -1004,7 +1004,7 @@ async fn observing_observation_ignores_unrelated_graph_revision() -> ros_z_debug
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dynamic_observation_keeps_fresh_graph_baseline_after_late_initial_publisher()
 -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context
         .create_node("dynamic_late_baseline_pub")
         .build()
@@ -1093,7 +1093,7 @@ async fn dynamic_observation_keeps_fresh_graph_baseline_after_late_initial_publi
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dynamic_observation_restarts_when_publisher_schema_changes_during_build()
 -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context
         .create_node("dynamic_inflight_schema_pub")
         .without_schema_service()
@@ -1212,7 +1212,7 @@ async fn dynamic_observation_restarts_when_publisher_schema_changes_during_build
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dynamic_observation_cancels_in_flight_schema_query_on_relevant_graph_change()
 -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context
         .create_node("dynamic_cancel_inflight_pub")
         .without_schema_service()
@@ -1330,7 +1330,7 @@ async fn dynamic_observation_cancels_in_flight_schema_query_on_relevant_graph_ch
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn observing_observation_rebuilds_on_relevant_publisher_graph_change()
 -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context
         .create_node("relevant_graph_rebuild_pub")
         .build()
@@ -1383,7 +1383,7 @@ async fn observing_observation_rebuilds_on_relevant_publisher_graph_change()
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dynamic_observation_retries_until_schema_publisher_appears() -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let observer_node = Arc::new(
         context
             .create_node("dynamic_retry_observer")
@@ -1438,7 +1438,7 @@ async fn dynamic_observation_retries_until_schema_publisher_appears() -> ros_z_d
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn retrying_absolute_observation_ignores_inherited_target_changes() -> ros_z_debug::Result<()>
 {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let observer_node = Arc::new(
         context
             .create_node("retry_absolute_target_observer")
@@ -1477,7 +1477,7 @@ async fn retrying_absolute_observation_ignores_inherited_target_changes() -> ros
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dynamic_observation_graph_change_wakes_retry_before_retry_delay() -> ros_z_debug::Result<()>
 {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let observer_node = Arc::new(
         context
             .create_node("dynamic_graph_wakeup_observer")
@@ -1538,7 +1538,7 @@ async fn dynamic_observation_graph_change_wakes_retry_before_retry_delay() -> ro
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dynamic_observation_retries_when_schema_service_appears_for_visible_publisher()
 -> ros_z_debug::Result<()> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let publisher_node = context
         .create_node("dynamic_late_schema_service_pub")
         .without_schema_service()

@@ -57,7 +57,7 @@ impl Service for AddTwoInts {
 }
 
 async fn setup_test_node(node_name: &str) -> Result<(ros_z::context::Context, ros_z::node::Node)> {
-    let context = ContextBuilder::default().build().await?;
+    let context = ContextBuilder::isolated_for_test().build().await?;
     let node = context.create_node(node_name).build().await?;
 
     tokio::time::sleep(Duration::from_millis(100)).await;
@@ -117,6 +117,7 @@ fn isolated_peer_config(
     config.insert_json5("listen/endpoints", &listen_endpoints)?;
     config.insert_json5("connect/endpoints", &connect_endpoints)?;
     config.insert_json5("scouting/multicast/enabled", "false")?;
+    config.insert_json5("scouting/gossip/enabled", "false")?;
     Ok(config)
 }
 
@@ -368,7 +369,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn graph_data_supports_iterators_and_focused_helpers() -> Result<()> {
-        let session = zenoh::open(zenoh::Config::default()).await?;
+        let session = zenoh::open(isolated_peer_config(None, &[])?).await?;
         let graph = ros_z::graph::Graph::new(&session).await?;
         let node = NodeEntity::new(
             session.zid(),
@@ -452,7 +453,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn graph_data_exposes_nodes_and_endpoints_for_consumer_summaries() -> Result<()> {
-        let session = zenoh::open(zenoh::Config::default()).await?;
+        let session = zenoh::open(isolated_peer_config(None, &[])?).await?;
         let graph = ros_z::graph::Graph::new(&session).await?;
         let data = graph.lock().clone();
 
@@ -464,7 +465,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn node_exists_returns_false_after_only_node_removed() -> Result<()> {
-        let session = zenoh::open(zenoh::Config::default()).await?;
+        let session = zenoh::open(isolated_peer_config(None, &[])?).await?;
         let graph = ros_z::graph::Graph::new(&session).await?;
         let node = NodeEntity::new(
             session.zid(),
@@ -487,7 +488,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn node_exists_returns_true_when_only_endpoint_exists() -> Result<()> {
-        let session = zenoh::open(zenoh::Config::default()).await?;
+        let session = zenoh::open(isolated_peer_config(None, &[])?).await?;
         let graph = ros_z::graph::Graph::new(&session).await?;
         let node = NodeEntity::new(
             session.zid(),
@@ -513,7 +514,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn graph_data_endpoint_queries_are_endpoint_typed() -> Result<()> {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let node = context
             .create_node("graph_node_kind_no_panic")
             .build()
@@ -535,7 +536,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn readding_local_entity_replaces_existing_index_entry() -> Result<()> {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let node = context
             .create_node("graph_readd_local_entity")
             .build()
@@ -564,7 +565,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn graph_reports_incompatible_reliability_for_topic_endpoints() -> Result<()> {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let pub_node = context
             .create_node(unique_node_name("qos_diag_pub"))
             .build()
@@ -612,7 +613,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn graph_reports_incompatible_durability_for_topic_endpoints() -> Result<()> {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let pub_node = context
             .create_node(unique_node_name("qos_diag_dur_pub"))
             .build()
@@ -935,7 +936,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn graph_discovers_publishers_from_multiple_nodes() -> Result<()> {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let node1 = context
             .create_node(unique_node_name("test_pub_node_1"))
             .build()
@@ -964,7 +965,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn graph_discovers_subscribers_from_multiple_nodes() -> Result<()> {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let node1 = context
             .create_node(unique_node_name("test_sub_node_1"))
             .build()
@@ -993,7 +994,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn graph_discovers_services_from_multiple_nodes() -> Result<()> {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let node1 = context
             .create_node(unique_node_name("graph_service_node_1"))
             .build()
@@ -1028,7 +1029,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn graph_discovers_clients_from_multiple_nodes() -> Result<()> {
-        let context = ContextBuilder::default().build().await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let node1 = context
             .create_node(unique_node_name("graph_client_node_1"))
             .build()

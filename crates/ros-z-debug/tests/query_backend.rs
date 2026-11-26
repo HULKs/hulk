@@ -20,12 +20,7 @@ use ros_z_debug::{
 use tokio::sync::watch;
 
 async fn test_node(name: &str, serve_schema: bool) -> Arc<Node> {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", serde_json::json!([]))
-        .build()
-        .await
-        .unwrap();
+    let context = ContextBuilder::isolated_for_test().build().await.unwrap();
     let builder = context.create_node(name);
     let builder = if serve_schema {
         builder

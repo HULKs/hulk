@@ -402,11 +402,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn cached_subscription_builder_policy_can_be_configured() -> Result<()> {
-        let context = ContextBuilder::default()
-            .disable_multicast_scouting()
-            .with_json("connect/endpoints", serde_json::json!([]))
-            .build()
-            .await?;
+        let context = ContextBuilder::isolated_for_test().build().await?;
         let node = Arc::new(context.create_node("policy_builder").build().await?);
         let capacity = NonZeroUsize::new(64).unwrap();
         let policy = ObservationPolicy::latest().with_subscriber_queue_capacity(capacity);

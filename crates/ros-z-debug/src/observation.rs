@@ -2214,7 +2214,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn preinstall_dynamic_graph_change_discards_built_cache_after_marking_seen() {
-        let context = ContextBuilder::default().build().await.unwrap();
+        let context = ContextBuilder::isolated_for_test().build().await.unwrap();
         let node = context
             .create_node("dynamic_preinstall_guard")
             .without_schema_service()
@@ -2328,7 +2328,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn topic_graph_fingerprint_ignores_same_node_same_schema_endpoint_churn() {
-        let context = ContextBuilder::default().build().await.unwrap();
+        let context = ContextBuilder::isolated_for_test().build().await.unwrap();
         let node = context
             .create_node("fingerprint_same_node_pub")
             .build()
@@ -2352,7 +2352,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn topic_graph_fingerprint_distinguishes_same_schema_different_publisher_node() {
-        let context = ContextBuilder::default().build().await.unwrap();
+        let context = ContextBuilder::isolated_for_test().build().await.unwrap();
         let observer_node = context
             .create_node("fingerprint_observer")
             .build()
@@ -2403,7 +2403,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn observing_rebuild_wait_forwards_data_changed_without_refreshing_status() {
-        let context = ContextBuilder::default().build().await.unwrap();
+        let context = ContextBuilder::isolated_for_test().build().await.unwrap();
         let node = context
             .create_node("data_changed_no_status_refresh")
             .build()
@@ -2604,7 +2604,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn inherited_setters_preserve_backend_and_switches_wake_existing_workers() {
-        let context = ContextBuilder::default().build().await.unwrap();
+        let context = ContextBuilder::isolated_for_test().build().await.unwrap();
         let node = Arc::new(
             context
                 .create_node("inherited_backend")
@@ -2676,7 +2676,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn subscribed_built_cache_forwards_data_changed_before_observing_wait_starts() {
-        let context = ContextBuilder::default().build().await.unwrap();
+        let context = ContextBuilder::isolated_for_test().build().await.unwrap();
         let node = Arc::new(
             context
                 .create_node("prewait_data_changed_observer")
@@ -2761,7 +2761,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn preinstall_graph_change_discards_built_cache_after_marking_seen() {
-        let context = ContextBuilder::default().build().await.unwrap();
+        let context = ContextBuilder::isolated_for_test().build().await.unwrap();
         let node = Arc::new(
             context
                 .create_node("preinstall_graph_change_observer")

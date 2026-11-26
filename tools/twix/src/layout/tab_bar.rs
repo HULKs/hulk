@@ -327,7 +327,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn new_tab_reveal_settles_for_fitting_and_oversized_tabs() {
         let backend = Arc::new(
-            RobotBackend::new(tokio::runtime::Handle::current(), None, "/".into())
+            RobotBackend::isolated_for_test(tokio::runtime::Handle::current(), "/".into())
                 .await
                 .unwrap(),
         );

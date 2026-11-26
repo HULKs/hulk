@@ -129,6 +129,71 @@ fn candidate_router_port() -> usize {
             % 20_000
 }
 
+#[test]
+fn session_configuration_smoke() {
+    let router = TestRouter::new();
+    let dir = tempfile::tempdir().unwrap();
+    let env_file = dir.path().join("session.json5");
+    let explicit = dir.path().join("explicit.json5");
+    std::fs::write(
+        &env_file,
+        "{mode: 'client', connect: {endpoints: ['wrong']}}",
+    )
+    .unwrap();
+    std::fs::write(
+        &explicit,
+        serde_json::json!({"connect": {"endpoints": [router.endpoint()]}}).to_string(),
+    )
+    .unwrap();
+
+    let rosz = || {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_rosz"));
+        command
+            .env("ZENOH_SESSION_CONFIG_URI", &env_file)
+            .env("ROS_Z_NAMESPACE", "/smoke")
+            .env("ZENOH_CONFIG_OVERRIDE", "mode='invalid'");
+        command
+    };
+
+    for (gateway, file) in [(router.endpoint(), None), ("wrong", Some(&explicit))] {
+        let mut command = rosz();
+        command
+            .env("ROS_Z_GATEWAY", gateway)
+            .args(["graph", "--json"]);
+        if let Some(file) = file {
+            command.arg("--config").arg(file);
+        }
+        let output = command.output().unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(String::from_utf8_lossy(&output.stdout).contains("/smoke"));
+    }
+
+    let missing = dir.path().join("missing.json5");
+    let output = rosz()
+        .env("ROS_Z_GATEWAY", "wrong")
+        .args(["graph", "--config"])
+        .arg(&missing)
+        .env("ROS_Z_NAMESPACE", "/invalid/*")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("ROS_Z_NAMESPACE"));
+
+    let output = rosz()
+        .env("ROS_Z_GATEWAY", "wrong")
+        .env("ROS_Z_NAMESPACE", "/invalid/*")
+        .args(["completions", "bash", "--config"])
+        .arg(missing)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("--config"));
+}
+
 struct TestEnv {
     router: TestRouter,
 }
@@ -141,10 +206,10 @@ impl TestEnv {
     }
 
     async fn create_context(&self) -> ros_z::Result<Context> {
-        ContextBuilder::default()
+        ContextBuilder::isolated_for_test()
             .with_mode("client")
+            .with_listen_endpoints(std::iter::empty::<&str>())
             .with_connect_endpoints([self.router.endpoint()])
-            .disable_multicast_scouting()
             .build()
             .await
     }
@@ -277,13 +342,15 @@ fn json_array_contains_field(value: &Value, field: &str, expected: &str) -> bool
 }
 
 struct RoszCommand {
+    gateway: String,
     args: Vec<OsString>,
 }
 
 impl RoszCommand {
     fn new(router: &str) -> Self {
         Self {
-            args: vec!["--router".into(), router.into()],
+            gateway: router.into(),
+            args: Vec::new(),
         }
     }
 
@@ -301,6 +368,9 @@ impl RoszCommand {
     fn run(self) -> CommandOutput {
         let binary = env!("CARGO_BIN_EXE_rosz");
         let mut child = Command::new(binary)
+            .env_remove("ZENOH_SESSION_CONFIG_URI")
+            .env_remove("ROS_Z_NAMESPACE")
+            .env("ROS_Z_GATEWAY", &self.gateway)
             .args(&self.args)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())

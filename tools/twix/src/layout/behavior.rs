@@ -235,7 +235,7 @@ mod tests {
         context.set_keybinds(Arc::new(Configuration::default().keys));
         keybind_plugin::register(&context);
         let backend = Arc::new(
-            RobotBackend::new(Handle::current(), None, "/".into())
+            RobotBackend::isolated_for_test(Handle::current(), "/".into())
                 .await
                 .unwrap(),
         );

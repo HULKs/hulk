@@ -51,9 +51,9 @@ pub enum InfoTarget {
 #[command(name = "rosz")]
 #[command(about = "Scriptable command-line companion to ros-z")]
 pub struct Cli {
-    /// Zenoh router address
-    #[arg(long, default_value = "tcp/127.0.0.1:7447", global = true)]
-    pub router: String,
+    /// Zenoh session configuration overlay
+    #[arg(long, global = true, value_name = "PATH")]
+    pub config: Option<std::path::PathBuf>,
 
     /// Emit JSON output when supported
     #[arg(long, global = true)]
@@ -217,7 +217,7 @@ mod tests {
     fn parses_echo_command_with_defaults() {
         let cli = Cli::parse_from(["rosz", "echo", "/chatter", "--count", "1"]);
 
-        assert_eq!(cli.router, "tcp/127.0.0.1:7447");
+        assert_eq!(cli.config, None);
         assert!(!cli.json);
 
         match cli.command {
@@ -336,12 +336,15 @@ mod tests {
             "rosz",
             "list",
             "topics",
-            "--router",
-            "tcp/192.168.1.10:7447",
+            "--config",
+            "session.json5",
             "--json",
         ]);
 
-        assert_eq!(cli.router, "tcp/192.168.1.10:7447");
+        assert_eq!(
+            cli.config.as_deref(),
+            Some(std::path::Path::new("session.json5"))
+        );
         assert!(cli.json);
 
         match cli.command {

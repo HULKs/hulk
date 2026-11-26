@@ -1,16 +1,17 @@
+mod common;
+
 use std::time::Duration;
 
+use common::{TestRouter, create_context_with_router};
 use ros_z::{
-    Message,
-    context::ContextBuilder,
-    dynamic::{DynamicValue, EnumPayloadValue, SchemaRegistry},
+    Error, Message,
+    dynamic::{DynamicError, DynamicValue, EnumPayloadValue, SchemaRegistry},
 };
 use ros_z_schema::{
     EnumVariantDef, FieldDef, PrimitiveTypeDef, SchemaBundle, SequenceLengthDef, TypeDef,
     TypeDefinition,
 };
 use serde::{Deserialize, Serialize};
-use zenoh::{Wait, config::WhatAmI};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
 struct TelemetryLite {
@@ -148,53 +149,6 @@ fn schema_has_recursive_children(schema: &SchemaBundle) -> bool {
     })
 }
 
-struct TestRouter {
-    endpoint: String,
-    _session: zenoh::Session,
-}
-
-impl TestRouter {
-    fn new() -> Self {
-        let port = {
-            let listener =
-                std::net::TcpListener::bind("127.0.0.1:0").expect("failed to bind port 0");
-            listener.local_addr().unwrap().port()
-        };
-
-        let endpoint = format!("tcp/127.0.0.1:{port}");
-        let mut config = zenoh::Config::default();
-        config.set_mode(Some(WhatAmI::Router)).unwrap();
-        config
-            .insert_json5("listen/endpoints", &format!("[\"{endpoint}\"]"))
-            .unwrap();
-        config
-            .insert_json5("scouting/multicast/enabled", "false")
-            .unwrap();
-
-        let session = zenoh::open(config)
-            .wait()
-            .expect("failed to open test router");
-        std::thread::sleep(Duration::from_millis(300));
-
-        Self {
-            endpoint,
-            _session: session,
-        }
-    }
-
-    fn endpoint(&self) -> &str {
-        &self.endpoint
-    }
-}
-
-async fn create_context_with_router(router: &TestRouter) -> ros_z::Result<ros_z::context::Context> {
-    ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_connect_endpoints([router.endpoint()])
-        .build()
-        .await
-}
-
 #[test]
 fn extended_derive_keeps_standard_schema_for_compatible_structs() {
     let schema = TelemetryLite::schema();
@@ -289,7 +243,7 @@ fn dynamic_registry_round_trips_recursive_bundle_by_type_name_and_hash() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn discovery_uses_schema_service_for_standard_compatible_types() {
-    let router = TestRouter::new();
+    let router = TestRouter::new().await;
 
     let pub_ctx = create_context_with_router(&router)
         .await
@@ -363,7 +317,7 @@ async fn discovery_uses_schema_service_for_standard_compatible_types() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn schema_service_round_trips_recursive_bundle() {
-    let router = TestRouter::new();
+    let router = TestRouter::new().await;
 
     let pub_ctx = create_context_with_router(&router)
         .await
@@ -445,7 +399,8 @@ async fn schema_service_round_trips_recursive_bundle() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn extended_discovery_should_fail_when_the_publisher_disabled_the_schema_service() {
-    let router = TestRouter::new();
+    let router = TestRouter::new().await;
+    let topic = "/extended_robot_topic";
 
     let pub_ctx = create_context_with_router(&router)
         .await
@@ -457,8 +412,8 @@ async fn extended_discovery_should_fail_when_the_publisher_disabled_the_schema_s
         .await
         .expect("publisher node");
 
-    let publisher = pub_node
-        .publisher::<RobotEnvelope>("/extended_robot_topic")
+    let _publisher = pub_node
+        .publisher::<RobotEnvelope>(topic)
         .build()
         .await
         .expect("publisher");
@@ -472,37 +427,23 @@ async fn extended_discovery_should_fail_when_the_publisher_disabled_the_schema_s
         .await
         .expect("subscriber node");
 
-    let publish_task = tokio::spawn(async move {
-        for _ in 0..20 {
-            let message = RobotEnvelope {
-                label: "robot-9".to_string(),
-                mission_id: Some(42),
-                state: RobotState::Charging {
-                    minutes_remaining: 12,
-                },
-            };
-            publisher.publish(&message).await.expect("publish");
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-    });
-
-    tokio::time::sleep(Duration::from_millis(400)).await;
-
-    let result = sub_node
-        .dynamic_subscriber_auto("/extended_robot_topic", Duration::from_secs(3))
+    let error = sub_node
+        .dynamic_subscriber_auto(topic, Duration::from_secs(3))
         .build()
-        .await;
+        .await
+        .expect_err("discovery should fail without a schema service");
     assert!(
-        result.is_err(),
-        "extended discovery should fail when the publisher disabled the schema service"
+        matches!(&error, Error::Dynamic(source) if matches!(
+            source.as_ref(),
+            DynamicError::NoSchemaServices { topic: missing, .. } if missing == topic
+        )),
+        "expected a discovered publisher without a schema service, got {error:?}"
     );
-
-    publish_task.await.expect("publisher task");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn extended_only_types_use_schema_service_when_enabled() {
-    let router = TestRouter::new();
+    let router = TestRouter::new().await;
 
     let pub_ctx = create_context_with_router(&router)
         .await
@@ -599,7 +540,7 @@ async fn extended_only_types_use_schema_service_when_enabled() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn type_description_discovery_works_across_namespaces_for_extended_types() {
-    let router = TestRouter::new();
+    let router = TestRouter::new().await;
 
     let pub_ctx = create_context_with_router(&router)
         .await
@@ -667,7 +608,7 @@ async fn type_description_discovery_works_across_namespaces_for_extended_types()
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn top_level_enums_are_discoverable_through_the_schema_service() {
-    let router = TestRouter::new();
+    let router = TestRouter::new().await;
 
     let pub_ctx = create_context_with_router(&router)
         .await

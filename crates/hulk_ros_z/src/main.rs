@@ -29,8 +29,6 @@ struct Args {
     #[arg(long, default_value = "parameters")]
     parameter_root: PathBuf,
     #[arg(long)]
-    router: Option<String>,
-    #[arg(long)]
     log_path: Option<PathBuf>,
     /// Run motion, sensor input, and safety nodes on these Linux CPUs (comma-separated).
     #[arg(long, value_delimiter = ',')]
@@ -124,20 +122,13 @@ async fn run(
     let parameter_layers =
         derive_parameter_layers(&args.parameter_root, &args.location, &hardware_id);
 
-    let mut builder = ContextBuilder::default()
-        .with_namespace(&namespace)
-        .with_parameter_layers(parameter_layers);
-
-    builder = match args.router {
-        Some(router) => builder.with_mode("client").with_router_endpoint(router)?,
-        None => builder
-            .with_mode("router")
-            .disable_multicast_scouting()
-            .with_connect_endpoints(std::iter::empty::<&str>())
-            .with_listen_endpoints(["tcp/127.0.0.1:7447"]),
-    };
-
-    let ctx = Arc::new(builder.build().await?);
+    let ctx = Arc::new(
+        ContextBuilder::default()
+            .with_namespace(&namespace)
+            .with_parameter_layers(parameter_layers)
+            .build()
+            .await?,
+    );
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .wrap_err("failed to register SIGTERM handler")?;
     let booster_session = open_booster_session().await?;

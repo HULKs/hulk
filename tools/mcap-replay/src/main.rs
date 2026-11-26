@@ -13,7 +13,7 @@ use color_eyre::{
 };
 use recording::{IndexCache, PendingQuery, QueryRecording, Recording};
 use ros_z::{
-    config::RouterConfigBuilder,
+    config::{RouterConfigBuilder, SessionConfigBuilder},
     context::{Context, ContextBuilder},
     node::Node,
     time::Time,
@@ -59,17 +59,23 @@ struct Arguments {
 
 impl Arguments {
     async fn connect(&self) -> Result<Context> {
-        let builder = if let Some(router) = &self.router {
-            ContextBuilder::default().with_router_endpoint(router)?
+        let config = if let Some(router) = &self.router {
+            SessionConfigBuilder::new()
+                .with_router_endpoint(router)
+                .build_config()
+                .map_err(|_| Error::other("invalid external router session configuration"))?
         } else {
-            let config = RouterConfigBuilder::new()
+            RouterConfigBuilder::new()
                 .with_listen_endpoint(&self.listen)
                 .build_config()
                 .map_err(Error::other)
-                .wrap_err("configuring embedded router")?;
-            ContextBuilder::default().with_zenoh_config(config)
+                .wrap_err("configuring embedded router")?
         };
-        builder.build().await.wrap_err("connecting replay server")
+        ContextBuilder::default()
+            .with_zenoh_config(config)
+            .build()
+            .await
+            .wrap_err("connecting replay server")
     }
 }
 
@@ -149,7 +155,12 @@ async fn open_recording(
         .await
         .wrap_err_with(|| format!("creating node in {namespace}"))?;
 
-    println!("Twix: ./twix {namespace} --router {router}");
+    let shell_quote = |value: &str| format!("'{}'", value.replace('\'', "'\\''"));
+    println!(
+        "Twix: ROS_Z_GATEWAY={} ./twix {}",
+        shell_quote(router),
+        shell_quote(namespace),
+    );
     Ok((node, recording, path.display().to_string()))
 }
 

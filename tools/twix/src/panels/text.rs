@@ -338,9 +338,8 @@ mod tests {
             .expect("runtime should build");
         let backend = Arc::new(
             runtime
-                .block_on(RobotBackend::new(
+                .block_on(RobotBackend::isolated_for_test(
                     runtime.handle().clone(),
-                    None,
                     "/".to_string(),
                 ))
                 .expect("backend should build"),

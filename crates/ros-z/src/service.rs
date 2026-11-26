@@ -859,7 +859,6 @@ mod tests {
     };
     use ros_z_schema::ServiceDef;
     use serde::{Deserialize, Serialize};
-    use serde_json::json;
 
     #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, crate::Message)]
     #[message(name = "test_msgs::AddTwoIntsRequest")]
@@ -918,9 +917,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn service_builder_warning_helpers_report_same_name_type_mismatches() {
-        let context = ContextBuilder::default()
-            .disable_multicast_scouting()
-            .with_json("connect/endpoints", json!([]))
+        let context = ContextBuilder::isolated_for_test()
             .build()
             .await
             .expect("Failed to create context");
@@ -963,9 +960,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn service_request_without_attachment_returns_clear_error() {
-        let context = ContextBuilder::default()
-            .disable_multicast_scouting()
-            .with_json("connect/endpoints", json!([]))
+        let context = ContextBuilder::isolated_for_test()
             .build()
             .await
             .expect("Failed to create context");
