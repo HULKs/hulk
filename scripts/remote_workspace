@@ -72,8 +72,8 @@ echo Using remote $(tput setaf 6)$remoteWorkspace$(tput sgr 0)
 address="$(echo $remoteWorkspace | cut -d':' -f 1)"
 remotePath="$(echo $remoteWorkspace | cut -d':' -f 2-)"
 
-# send local state to remote
-rsync -rlpgoDhc --info progress2 --exclude='.git' --filter="dir-merge,- .gitignore" --delete . "$remoteWorkspace"
+# Keep a remote target directory or symlink out of the source sync.
+rsync -rlpgoDhc --info progress2 --exclude='.git' --exclude='/target' --filter="dir-merge,- .gitignore" --delete . "$remoteWorkspace"
 
 # if stdout is a tty/pty, make ssh behave as one as well
 SSH_FLAGS=""

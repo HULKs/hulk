@@ -73,6 +73,7 @@ pub(super) async fn check_robot_runtime(robot: &Robot, repository: &Repository) 
     Ok(())
 }
 
+/// Verify that the staged HULK binary matches the robot's installed runtime.
 pub(super) async fn check_hulk_candidate(
     robot: &Robot,
     repository: &Repository,
@@ -89,8 +90,8 @@ pub(super) async fn check_hulk_candidate(
         bail!("robot ONNX Runtime is missing; run pepsi gammaray first");
     }
     let ort = str::from_utf8(&ort.stdout)?.trim_end();
-    let rpath = repository::sdk::native_command(&repository.root)
-        .args(["patchelf", "--print-rpath"])
+    let rpath = crate::sdk::native_command(&repository.root, "patchelf")
+        .arg("--print-rpath")
         .arg(upload_directory.join("bin/hulk_ros_z"))
         .output()
         .await

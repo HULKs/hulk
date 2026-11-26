@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root=$1
+shell=$2
+shift 2
+
+# A path flake snapshots its source; keep the remote checkout and Cargo output out of it.
+flake=$(mktemp -d)
+trap 'rm -rf -- "$flake"' EXIT
+cp -- "$root"/{flake.nix,flake.lock,Cargo.toml} "$flake/"
+cp -R -- "$root/nix" "$flake/"
+
+nix --extra-experimental-features 'nix-command flakes' develop "$flake#$shell" "$@"

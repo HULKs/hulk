@@ -1,7 +1,6 @@
 //! Tools and utilities for managing development workflows in the repository.
 //!
-//! This crate simplifies tasks like building for specific targets, handling SDKs, and setting up
-//! configurations, making it easier to develop, configure, and deploy our robots.
+//! This crate handles repository paths and configuration for developing and deploying our robots.
 
 use std::path::PathBuf;
 
@@ -13,7 +12,6 @@ pub mod inspect_version;
 pub mod location;
 pub mod paths;
 pub mod player_number;
-pub mod sdk;
 pub mod symlink;
 pub mod team;
 pub mod upload;

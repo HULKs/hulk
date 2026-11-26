@@ -155,6 +155,6 @@ In your local checkout, set `REMOTE_WORKSPACE` or create a `.REMOTE_WORKSPACE` f
 ./pepsi build --remote
 ```
 
-This syncs your local checkout and builds on the remote host.
+This syncs your local checkout and builds on the remote host. For Nix builds, Pepsi stages only the files needed to enter the dev shell; Cargo still builds in the synced checkout.
 `upload` and `pregame` also accept `--remote`.
 Use the lab VPN when connecting from outside the lab.
