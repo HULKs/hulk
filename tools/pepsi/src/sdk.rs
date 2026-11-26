@@ -1,12 +1,17 @@
+use std::path::Path;
+
 use clap::{Args, Subcommand};
 use color_eyre::{
     Result,
     eyre::{Context, bail, ensure},
 };
-use repository::{Repository, cargo::Environment, sdk};
+use repository::{Repository, sdk};
 use tokio::process::Command;
 
-use crate::cargo::environment::EnvironmentArguments;
+use crate::cargo::environment::{Environment, EnvironmentArguments};
+
+/// Default repository-relative Cargo output directory for robot builds.
+pub const ROBOT_TARGET_DIRECTORY: &str = "target/robot";
 
 #[derive(Subcommand)]
 pub enum Arguments {
@@ -55,6 +60,48 @@ pub async fn sdk(arguments: Arguments, repository: &Repository) -> Result<()> {
         bail!("SDK preparation failed with {status}");
     }
     Ok(())
+}
+
+/// Construct a local or remote build command and request any remote artifacts.
+pub fn build_command(
+    repository: &Repository,
+    environment: Environment,
+    remote: bool,
+    program: &str,
+    artifacts: &[impl AsRef<Path>],
+) -> Result<Command> {
+    let root = if remote {
+        repository.current_dir_to_root()?
+    } else {
+        repository.root.clone()
+    };
+    let command = match environment {
+        Environment::PathCargo => Command::new(program),
+        Environment::NixNative => {
+            let mut command = sdk::native_command(&root);
+            command.arg(program);
+            command
+        }
+        Environment::NixRobot => {
+            let mut command = sdk::robot_command(&root);
+            command.arg(program);
+            command
+        }
+    };
+    if !remote {
+        return Ok(command);
+    }
+
+    let mut remote_command = Command::new(repository.root.join("scripts/remote_workspace"));
+    for artifact in artifacts {
+        remote_command.arg("--return-file").arg(artifact.as_ref());
+    }
+    remote_command
+        .arg("--cd")
+        .arg(repository.root_to_current_dir()?);
+    remote_command.arg(command.as_std().get_program());
+    remote_command.args(command.as_std().get_args());
+    Ok(remote_command)
 }
 
 /// Construct a Nix command with the flakes CLI features enabled.

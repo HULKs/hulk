@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{ArgAction, Parser};
-use repository::cargo::Cargo;
+use tokio::process::Command;
 
 use super::heading;
 
@@ -114,7 +114,8 @@ pub struct CommonOptions {
 }
 
 impl CommonOptions {
-    pub fn apply(&self, cargo: &mut Cargo) {
+    /// Append the shared Cargo options to the command.
+    pub fn apply(&self, cargo: &mut Command) {
         if self.quiet {
             cargo.arg("--quiet");
         }

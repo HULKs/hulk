@@ -1,5 +1,5 @@
 use clap::Parser;
-use repository::cargo::Cargo;
+use tokio::process::Command;
 
 use super::{CargoCommand, check::CheckOptions, common::CommonOptions, heading};
 
@@ -44,7 +44,7 @@ pub struct Arguments {
 impl CargoCommand for Arguments {
     const SUB_COMMAND: &'static [&'static str] = &["clippy"];
 
-    fn apply(&self, cargo: &mut Cargo) {
+    fn apply(&self, cargo: &mut Command) {
         self.common.apply(cargo);
         self.check.apply(cargo);
 

@@ -10,16 +10,15 @@ use color_eyre::{
     Result,
     eyre::{Context, ContextCompat, bail},
 };
-use environment::EnvironmentArguments;
+use environment::{Environment, EnvironmentArguments};
 use lazy_static::lazy_static;
 use pathdiff::diff_paths;
-use repository::{
-    Repository,
-    cargo::{Cargo, Environment as BuildEnvironment},
-};
-use tokio::fs::read_to_string;
+use repository::Repository;
+use tokio::{fs::read_to_string, process::Command};
 use toml::Table;
 use tracing::debug;
+
+use crate::sdk::{self, ROBOT_TARGET_DIRECTORY};
 
 pub mod build;
 pub mod check;
@@ -39,6 +38,7 @@ mod heading {
 }
 
 lazy_static! {
+    /// Map package aliases to their repository-relative directories.
     pub static ref MANIFEST_PATHS: HashMap<&'static str, &'static str> = {
         HashMap::from([
             ("aliveness", "services/aliveness"),
@@ -52,20 +52,28 @@ lazy_static! {
     };
 }
 
+/// Shared Pepsi arguments for running a Cargo subcommand.
 #[derive(Args)]
 #[group(skip)]
 pub struct Arguments<CargoArguments: Args> {
+    /// Path to a manifest or package directory, or a known package alias.
     pub manifest: Option<OsString>,
+    /// Build environment and execution host options.
     #[command(flatten)]
     pub environment: EnvironmentArguments,
+    /// Options forwarded to the selected Cargo subcommand.
     #[command(flatten, next_help_heading = "Cargo Options")]
     pub cargo: CargoArguments,
 }
 
+/// Arguments and profile selection for a supported Cargo subcommand.
 pub trait CargoCommand {
+    /// Arguments that identify the Cargo subcommand, in order.
     const SUB_COMMAND: &'static [&'static str];
 
-    fn apply(&self, cmd: &mut Cargo);
+    /// Append the subcommand's options to the command.
+    fn apply(&self, cmd: &mut Command);
+    /// Return the effective Cargo profile.
     fn profile(&self) -> &str;
 }
 
@@ -80,7 +88,7 @@ impl<CargoArguments: Args> Arguments<CargoArguments> {
         }
     }
 
-    async fn resolve_environment(&self, manifest_path: Option<&Path>) -> Result<BuildEnvironment> {
+    async fn resolve_environment(&self, manifest_path: Option<&Path>) -> Result<Environment> {
         match self.environment.env {
             Some(environment) => Ok(environment),
             None => read_requested_environment(manifest_path)
@@ -91,13 +99,11 @@ impl<CargoArguments: Args> Arguments<CargoArguments> {
 }
 
 impl Arguments<build::Arguments> {
+    /// Resolve the expected executable path relative to the repository root.
     pub async fn binary_path(&self, repository: &Repository, binary_name: &str) -> Result<PathBuf> {
         let manifest_path = self.manifest_path(repository).await?;
         let environment = self.resolve_environment(manifest_path.as_deref()).await?;
-        let is_native = matches!(
-            environment,
-            BuildEnvironment::PathCargo | BuildEnvironment::NixNative
-        );
+        let is_native = matches!(environment, Environment::PathCargo | Environment::NixNative);
         let target_dir = self.cargo.common.target_dir.clone().or_else(|| {
             if is_native && !self.environment.remote {
                 std::env::var_os("CARGO_TARGET_DIR").map(PathBuf::from)
@@ -107,7 +113,7 @@ impl Arguments<build::Arguments> {
         });
         let target_dir = match target_dir {
             None if is_native => PathBuf::from("target"),
-            None => PathBuf::from(repository::cargo::ROBOT_TARGET_DIRECTORY),
+            None => PathBuf::from(ROBOT_TARGET_DIRECTORY),
             Some(path) if path.is_absolute() && self.environment.remote => {
                 bail!("use a relative --target-dir to retrieve binaries from a remote build")
             }
@@ -123,6 +129,7 @@ impl Arguments<build::Arguments> {
     }
 }
 
+/// Run a Cargo subcommand in the selected build environment.
 pub async fn cargo<CargoArguments: Args + CargoCommand>(
     arguments: Arguments<CargoArguments>,
     repository: &Repository,
@@ -144,21 +151,24 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
     Ok(())
 }
 
+/// Prepare a Cargo command and any remote artifact retrieval without starting it.
 pub async fn construct_cargo_command<CargoArguments: Args + CargoCommand>(
     arguments: Arguments<CargoArguments>,
     repository: &Repository,
     compiler_artifacts: &[impl AsRef<Path>],
-) -> Result<tokio::process::Command, color_eyre::eyre::Error> {
+) -> Result<Command> {
     let manifest_path = arguments.manifest_path(repository).await?;
     let environment = arguments
         .resolve_environment(manifest_path.as_deref())
         .await?;
-    let mut cargo = if arguments.environment.remote {
-        Cargo::remote(environment)
-    } else {
-        Cargo::local(environment)
-    };
-    cargo.args(CargoArguments::SUB_COMMAND.iter().copied());
+    let mut cargo = sdk::build_command(
+        repository,
+        environment,
+        arguments.environment.remote,
+        "cargo",
+        compiler_artifacts,
+    )?;
+    cargo.args(CargoArguments::SUB_COMMAND);
     if let Some(manifest_path) = manifest_path {
         let manifest_path = diff_paths(
             manifest_path,
@@ -178,16 +188,12 @@ pub async fn construct_cargo_command<CargoArguments: Args + CargoCommand>(
         }
     }
     arguments.cargo.apply(&mut cargo);
-    let cargo_command = cargo
-        .command(repository, compiler_artifacts)
-        .wrap_err("failed to create cargo command")?;
-
-    Ok(cargo_command)
+    Ok(cargo)
 }
 
-async fn read_requested_environment(manifest_path: Option<&Path>) -> Result<BuildEnvironment> {
+async fn read_requested_environment(manifest_path: Option<&Path>) -> Result<Environment> {
     let Some(manifest_path) = manifest_path else {
-        return Ok(BuildEnvironment::PathCargo);
+        return Ok(Environment::PathCargo);
     };
 
     let manifest = read_to_string(manifest_path).await.wrap_err_with(|| {
@@ -203,9 +209,9 @@ async fn read_requested_environment(manifest_path: Option<&Path>) -> Result<Buil
             .and_then(toml::Value::as_bool)
             == Some(true)
         {
-            BuildEnvironment::NixRobot
+            Environment::NixRobot
         } else {
-            BuildEnvironment::PathCargo
+            Environment::PathCargo
         },
     )
 }

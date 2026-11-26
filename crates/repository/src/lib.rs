@@ -5,7 +5,6 @@
 
 use std::path::PathBuf;
 
-pub mod cargo;
 pub mod configuration;
 pub mod data_home;
 pub mod download;
