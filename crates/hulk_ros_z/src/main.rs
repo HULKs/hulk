@@ -2,8 +2,8 @@ use std::{env, future::Future, path::PathBuf, sync::Arc, time::Duration};
 
 use clap::Parser;
 use color_eyre::{
-    Result,
-    eyre::{Context as _, ContextCompat, bail, eyre},
+    Result, Section,
+    eyre::{Context as _, ContextCompat, Report, bail, eyre},
 };
 use repository::{Repository, team::Team};
 use ros_z::prelude::*;
@@ -19,8 +19,9 @@ mod motion_runtime;
 
 use booster_session::open_booster_session;
 
+const NODE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
+const RECORDER_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(8);
 const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
-const RECORDER_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -38,25 +39,66 @@ struct Args {
 struct RunningStack {
     join_set: JoinSet<Result<()>>,
     recorder: Option<JoinHandle<Result<()>>>,
-    stop: CancellationToken,
+    recorder_stop: CancellationToken,
 }
 
 impl RunningStack {
-    async fn shutdown(&mut self) -> Result<()> {
-        self.stop.cancel();
+    async fn stop_tasks(&mut self) -> Vec<Report> {
         self.join_set.abort_all();
-        let Some(mut recorder) = self.recorder.take() else {
-            return Ok(());
-        };
-        match timeout(RECORDER_SHUTDOWN_TIMEOUT, &mut recorder).await {
-            Ok(result) => result.wrap_err("MCAP recorder task failed to join")?,
-            Err(_) => {
-                recorder.abort();
-                bail!(
-                    "MCAP finalization exceeded {}s. Recording may need recovery",
-                    RECORDER_SHUTDOWN_TIMEOUT.as_secs()
-                );
+
+        let mut errors = Vec::new();
+        let drain = async {
+            while let Some(result) = self.join_set.join_next().await {
+                match result {
+                    Ok(Ok(())) => {}
+                    Err(error) if error.is_cancelled() => {}
+                    Ok(Err(error)) => {
+                        errors.push(error.wrap_err("node task failed during shutdown"))
+                    }
+                    Err(error) => errors.push(
+                        Report::new(error).wrap_err("node task failed to join during shutdown"),
+                    ),
+                }
             }
+        };
+        if timeout(NODE_SHUTDOWN_TIMEOUT, drain).await.is_err() {
+            errors.push(eyre!(
+                "node shutdown timed out: {} tasks remaining",
+                self.join_set.len()
+            ));
+        }
+
+        self.recorder_stop.cancel();
+        if let Some(mut recorder) = self.recorder.take() {
+            match timeout(RECORDER_SHUTDOWN_TIMEOUT, &mut recorder).await {
+                Ok(Ok(Ok(()))) => {}
+                Ok(Ok(Err(error))) => errors.push(error.wrap_err("MCAP recorder shutdown failed")),
+                Ok(Err(error)) => {
+                    errors.push(Report::new(error).wrap_err("MCAP recorder task failed to join"))
+                }
+                Err(_) => {
+                    recorder.abort();
+                    errors.push(eyre!(
+                        "MCAP finalization exceeded {}s. Recording may need recovery",
+                        RECORDER_SHUTDOWN_TIMEOUT.as_secs()
+                    ));
+                }
+            }
+        }
+        errors
+    }
+}
+
+fn report_errors(mut errors: Vec<Report>) -> Result<()> {
+    match errors.len() {
+        0 => Ok(()),
+        1 => Err(errors.remove(0)),
+        count => {
+            let mut summary = eyre!("{count} failures while stopping HULK");
+            for error in errors {
+                summary = summary.section(format!("Failure: {error:#}"));
+            }
+            Err(summary)
         }
     }
 }
@@ -143,21 +185,27 @@ async fn run(
         });
     }
 
-    let result = tokio::select! {
+    let run_result = tokio::select! {
         result = monitor(&mut running) => result,
         result = tokio::signal::ctrl_c() => result.wrap_err("Ctrl-C handler failed"),
         _ = terminate.recv() => Ok(()),
     };
 
-    let recorder_result = running.shutdown().await;
-    if let Err(error) = &recorder_result {
-        tracing::error!(?error, "MCAP recorder shutdown failed");
+    if let Err(error) = &run_result {
+        tracing::error!(?error, "HULK failed; shutting down");
     }
-    let result = result.and(recorder_result);
-    if result.is_ok() {
-        ctx.shutdown()?;
+
+    let mut errors = running.stop_tasks().await;
+    if errors.is_empty() {
+        let close_result = ctx.shutdown().wrap_err("failed to close ROS-Z context");
+        if let Err(error) = close_result {
+            errors.push(error);
+        }
     }
-    result
+    if let Err(error) = run_result {
+        errors.insert(0, error);
+    }
+    report_errors(errors)
 }
 
 fn derive_parameter_layers(
@@ -202,7 +250,7 @@ async fn spawn_all(
     motion_handle: Option<tokio::runtime::Handle>,
 ) -> Result<RunningStack> {
     let mut join_set = JoinSet::new();
-    let stop = CancellationToken::new();
+    let recorder_stop = CancellationToken::new();
 
     let motion_handle = motion_handle.unwrap_or_else(tokio::runtime::Handle::current);
     // Poll these nodes on the isolated runtime from the start, so their nested
@@ -253,7 +301,7 @@ async fn spawn_all(
     let recorder = tokio::spawn(mcap_recorder::run_boxed(
         ctx.clone(),
         log_path,
-        stop.child_token(),
+        recorder_stop.child_token(),
     ));
     join_set.spawn(message_filter::run_boxed(ctx.clone()));
     join_set.spawn(message_handler::run_boxed(ctx.clone()));
@@ -283,7 +331,7 @@ async fn spawn_all(
     Ok(RunningStack {
         join_set,
         recorder: Some(recorder),
-        stop,
+        recorder_stop,
     })
 }
 
@@ -333,6 +381,47 @@ mod tests {
         assert_eq!(derive_namespace("robot//42"), "/robot//42");
         assert_eq!(derive_namespace("/robot/42"), "/robot/42");
         assert_eq!(derive_namespace("robot%01"), "/robot%01");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn shutdown_drains_blocked_node_before_stopping_recorder() {
+        let mut join_set = JoinSet::new();
+        let (started, entered) = tokio::sync::oneshot::channel();
+        let (release, gate) = std::sync::mpsc::channel::<()>();
+        join_set.spawn(async move {
+            tokio::task::block_in_place(|| {
+                started.send(()).unwrap();
+                let _ = gate.recv();
+            });
+            std::future::pending().await
+        });
+        entered.await.unwrap();
+        let recorder_stop = CancellationToken::new();
+        let token = recorder_stop.child_token();
+        let recorder = tokio::spawn(async move {
+            token.cancelled().await;
+            bail!("recorder finalization failed in test")
+        });
+        let mut stack = RunningStack {
+            join_set,
+            recorder: Some(recorder),
+            recorder_stop: recorder_stop.clone(),
+        };
+
+        let mut shutdown = std::pin::pin!(stack.stop_tasks());
+        tokio::select! {
+            biased;
+            result = &mut shutdown => panic!("shutdown returned before node release: {result:?}"),
+            () = std::future::ready(()) => {}
+        }
+        assert!(!recorder_stop.is_cancelled());
+        drop(release);
+        let errors = shutdown.await;
+        assert_eq!(errors.len(), 1);
+        assert_eq!(
+            errors[0].root_cause().to_string(),
+            "recorder finalization failed in test"
+        );
     }
 
     #[test]
