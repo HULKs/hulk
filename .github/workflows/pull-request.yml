@@ -3,6 +3,9 @@ on:
   pull_request:
   merge_group:
     types: [checks_requested]
+defaults:
+  run:
+    shell: nix develop .#default --no-update-lock-file --command bash -eo pipefail "{0}"
 env:
   CARGO_HOME: /__w/hulk/cargo
   CARGO_TARGET_DIR: /__w/hulk/target
@@ -16,8 +19,10 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.99.1
+      image: ghcr.io/hulks/hulk-ci:1.100
       options: --user=1000:1000
+      volumes:
+        - hulk-nix:/nix
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,13 +36,14 @@ jobs:
       matrix:
         path:
           - .
-          # - services/aliveness
     runs-on:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.99.1
+      image: ghcr.io/hulks/hulk-ci:1.100
       options: --user=1000:1000
+      volumes:
+        - hulk-nix:/nix
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,15 +57,11 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.99.1
+      image: ghcr.io/hulks/hulk-ci:1.100
       options: --user=1000:1000
+      volumes:
+        - hulk-nix:/nix
     steps:
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          version: "0.10.9"
-          enable-cache: true
-          cache-local-path: "/__w/hulk/.uv-cache"
       - uses: actions/checkout@v4
         with:
           lfs: true
@@ -72,85 +74,34 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.99.1
+      image: ghcr.io/hulks/hulk-ci:1.100
       options: --user=1000:1000
+      volumes:
+        - hulk-nix:/nix
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
-      - name: Install cargo-binstall
-        uses: cargo-bins/cargo-binstall@v1.20.1
-        with:
-          version: 1.20.1
-      - name: Install cargo-nextest
-        run: cargo binstall cargo-nextest --secure --no-confirm --disable-strategies compile
       - name: Test
         run: ./pepsi nextest
       - name: Doctests
         run: ./pepsi test --doc
-
-  # build:
-  #   name: Build
-  #   strategy:
-  #     fail-fast: true
-  #     matrix:
-  #       target:
-  #         # - imagine
-  #         - replayer
-  #         - mujoco
-  #         - booster
-  #       profile:
-  #         # - dev
-  #         - release
-  #   runs-on:
-  #     - self-hosted
-  #     - v3
-  #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.99.1
-  #     options: --user=1000:1000 --privileged --device /dev/fuse:rw
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         lfs: true
-  #     - name: Build
-  #       run: ./pepsi build --locked --profile ${{ matrix.profile }} ${{ matrix.target }}
-
-  # build_services:
-  #   name: Build
-  #   strategy:
-  #     matrix:
-  #       service:
-  #         - aliveness
-  #   runs-on:
-  #     - self-hosted
-  #     - v3
-  #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.99.1
-  #     options: --user=1000:1000 --privileged --device /dev/fuse:rw
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         lfs: true
-  #     - name: Build
-  #       run: ./pepsi build --locked --release ${{ matrix.service }}
 
   build_tools:
     name: Build
     strategy:
       matrix:
         tool:
-          # - annotato
-          # - depp
-          # - fanta
           - pepsi
           - twix
-          # - widget_gallery
     runs-on:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.99.1
+      image: ghcr.io/hulks/hulk-ci:1.100
       options: --user=1000:1000
+      volumes:
+        - hulk-nix:/nix
     steps:
       - uses: actions/checkout@v4
         with:
@@ -164,18 +115,22 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.99.1
+      image: ghcr.io/hulks/hulk-ci:1.100
       options: --user=1000:1000
-    env:
-      TARGET: aarch64-linux-android
+      volumes:
+        - hulk-nix:/nix
     steps:
       - uses: actions/checkout@v4
       - name: Build
-        run: ./pepsi build --locked --release --target ${{ env.TARGET }} pepsi
+        shell: nix develop .#android --no-update-lock-file --command bash -eo pipefail "{0}"
+        run: cargo build --locked --release --target aarch64-linux-android -p pepsi
 
   build_mkdocs:
     name: Build mkdocs
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
@@ -184,107 +139,3 @@ jobs:
         run: pip install mkdocs-material
       - name: Build docs
         run: mkdocs build --strict
-
-  # check-mujoco:
-  #   name: Check Mujoco
-  #   runs-on:
-  #     - self-hosted
-  #     - v3
-  #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.99.1
-  #     options: --user=1000:1000
-  #   defaults:
-  #     run:
-  #       working-directory: tools/machine-learning/mujoco
-  #       shell: bash
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         lfs: true
-  #     - name: Install uv
-  #       uses: astral-sh/setup-uv@v5
-  #       with:
-  #         version: "0.5.21"
-  #         enable-cache: true
-  #         cache-local-path: "/__w/hulk/.uv-cache"
-  #     - name: Check
-  #       run: |
-  #         uv run ruff check --no-fix
-
-  # test-mujoco:
-  #   name: Test Mujoco
-  #   runs-on:
-  #     - self-hosted
-  #     - v3
-  #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.99.1
-  #     options: --user=1000:1000
-  #   defaults:
-  #     run:
-  #       working-directory: tools/machine-learning/mujoco
-  #       shell: bash
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         lfs: true
-  #     - name: Install uv
-  #       uses: astral-sh/setup-uv@v5
-  #       with:
-  #         version: "0.5.21"
-  #         enable-cache: true
-  #         cache-local-path: "/__w/hulk/.uv-cache"
-  #     - name: Test
-  #       run: |
-  #         uv run pytest
-
-  # format-mujoco:
-  #   name: Format Mujoco
-  #   runs-on:
-  #     - self-hosted
-  #     - v3
-  #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.99.1
-  #     options: --user=1000:1000
-  #   defaults:
-  #     run:
-  #       working-directory: tools/machine-learning/mujoco
-  #       shell: bash
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         lfs: true
-  #     - name: Install uv
-  #       uses: astral-sh/setup-uv@v5
-  #       with:
-  #         version: "0.5.21"
-  #         enable-cache: true
-  #         cache-local-path: "/__w/hulk/.uv-cache"
-  #     - name: Format
-  #       run: |
-  #         uv run ruff format --check
-
-  # check-mujoco-lock:
-  #   name: Check Mujoco uv.lock
-  #   runs-on:
-  #     - self-hosted
-  #     - v3
-  #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.99.1
-  #     options: --user=1000:1000
-  #   defaults:
-  #     run:
-  #       working-directory: tools/machine-learning/mujoco
-  #       shell: bash
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         lfs: true
-  #     - name: Install uv
-  #       uses: astral-sh/setup-uv@v5
-  #       with:
-  #         version: "0.5.21"
-  #         enable-cache: true
-  #         cache-local-path: "/__w/hulk/.uv-cache"
-  #     - name: Check Lockfile
-  #       run: |
-  #         uv sync --locked

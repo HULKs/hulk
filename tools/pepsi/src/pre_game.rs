@@ -16,6 +16,7 @@ use crate::{
     cargo::{self, build, cargo, environment::EnvironmentArguments},
     deploy_config::DeployConfig,
     progress_indicator::ProgressIndicator,
+    upload::check_hulk_candidate,
 };
 
 #[derive(Args)]
@@ -155,6 +156,7 @@ async fn setup_robot(
         }
     }
 
+    check_hulk_candidate(&robot, repository, upload_directory.as_ref()).await?;
     progress.set_message("Stopping HULK...");
     robot
         .execute_systemctl(SystemctlAction::Stop, "hulk")

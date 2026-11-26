@@ -50,6 +50,69 @@ pub struct UploadArguments {
     pub robots: Vec<RobotAddress>,
 }
 
+pub(super) async fn check_robot_runtime(robot: &Robot, repository: &Repository) -> Result<()> {
+    let expected = repository.read_runtime_version().await?;
+    let output = robot
+        .ssh_to_robot()?
+        .arg("cat /nix/var/nix/profiles/hulks/share/hulk-runtime/runtime.json")
+        .output()
+        .await
+        .wrap_err("failed to read robot runtime version")?;
+    let metadata = if output.status.success() {
+        serde_json::from_slice::<serde_json::Value>(&output.stdout)
+            .wrap_err("invalid robot runtime metadata; run pepsi gammaray first")?
+    } else {
+        bail!("robot runtime {expected} is required; run pepsi gammaray first");
+    };
+    if metadata["runtime_version"].as_str() != Some(&expected) {
+        bail!(
+            "robot runtime {expected} is required, found {}; run pepsi gammaray first",
+            metadata["runtime_version"]
+        );
+    }
+    Ok(())
+}
+
+pub(super) async fn check_hulk_candidate(
+    robot: &Robot,
+    repository: &Repository,
+    upload_directory: &Path,
+) -> Result<()> {
+    check_robot_runtime(robot, repository).await?;
+    let ort = robot
+        .ssh_to_robot()?
+        .arg("readlink -e /nix/var/nix/profiles/hulks/share/hulk-runtime/onnxruntime")
+        .output()
+        .await
+        .wrap_err("failed to locate the robot's ONNX Runtime")?;
+    if !ort.status.success() {
+        bail!("robot ONNX Runtime is missing; run pepsi gammaray first");
+    }
+    let ort = str::from_utf8(&ort.stdout)?.trim_end();
+    let rpath = repository::sdk::native_command(&repository.root)
+        .args(["patchelf", "--print-rpath"])
+        .arg(upload_directory.join("bin/hulk_ros_z"))
+        .output()
+        .await
+        .wrap_err("failed to inspect the HULK binary")?;
+    if !rpath.status.success() {
+        bail!(
+            "failed to inspect the HULK binary: {}",
+            String::from_utf8_lossy(&rpath.stderr)
+        );
+    }
+    // Match launch-hulk --check before touching the running installation.
+    if ort.is_empty()
+        || !str::from_utf8(&rpath.stdout)?
+            .trim_end()
+            .split(':')
+            .any(|path| path == ort)
+    {
+        bail!("HULK binary does not match the robot runtime; rebuild it with Pepsi");
+    }
+    Ok(())
+}
+
 async fn upload_with_progress(
     robot_address: &RobotAddress,
     upload_directory: impl AsRef<Path>,
@@ -77,6 +140,8 @@ async fn upload_with_progress(
             );
         }
     }
+
+    check_hulk_candidate(&robot, repository, upload_directory.as_ref()).await?;
 
     robot
         .ssh_to_robot()?

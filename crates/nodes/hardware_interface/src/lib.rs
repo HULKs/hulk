@@ -118,11 +118,14 @@ impl RpcAttempt {
     }
 }
 
-pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
-    Box::pin(run(ctx))
+pub fn run_boxed(
+    ctx: Arc<Context>,
+    booster_session: zenoh::Session,
+) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx, booster_session))
 }
 
-async fn run(ctx: Arc<Context>) -> Result<()> {
+async fn run(ctx: Arc<Context>, booster_session: zenoh::Session) -> Result<()> {
     let node = Arc::new(
         ctx.create_node("hardware_interface")
             .build()
@@ -137,12 +140,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let rpc_diagnostics = Arc::new(RpcDiagnostics::default());
 
     let joints_worker = joints_command_worker(
-        ctx.clone(),
         node.clone(),
         parameters.clone(),
         rpc_diagnostics.clone(),
+        &booster_session,
     );
-    let led_worker = led_command_worker(ctx, node, parameters, rpc_diagnostics.clone());
+    let led_worker = led_command_worker(node, parameters, rpc_diagnostics, &booster_session);
 
     tokio::try_join!(joints_worker, led_worker)?;
 
@@ -150,21 +153,21 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 }
 
 async fn joints_command_worker(
-    ctx: Arc<Context>,
     node: Arc<Node>,
     parameters: Arc<NodeParameters<Parameters>>,
     rpc_diagnostics: Arc<RpcDiagnostics>,
+    booster_session: &zenoh::Session,
 ) -> Result<()> {
     let robot_command_sub = node
         .subscriber::<RobotCommand>(ROBOT_COMMAND_TOPIC)
         .build()
         .await
         .wrap_err("failed to build robot_command cache")?;
-    let joint_control_publisher = JointControlPublisher::new(ctx.session())
+    let joint_control_publisher = JointControlPublisher::new(booster_session)
         .await
         .wrap_err("failed to create joint control publisher")?;
     let loco_client = Arc::new(
-        loco_client::LocoClient::new(ctx.session())
+        loco_client::LocoClient::new(booster_session)
             .await
             .wrap_err("failed to create LocoClient")?,
     );
@@ -231,10 +234,10 @@ fn low_command_from_joints_command(joints_command: JointsCommand) -> LowCommand 
 }
 
 async fn led_command_worker(
-    ctx: Arc<Context>,
     node: Arc<Node>,
     parameters: Arc<NodeParameters<Parameters>>,
     rpc_diagnostics: Arc<RpcDiagnostics>,
+    booster_session: &zenoh::Session,
 ) -> Result<()> {
     let led_command_sub = node
         .subscriber::<LedCommand>("commands/led_command")
@@ -242,7 +245,7 @@ async fn led_command_worker(
         .await
         .wrap_err("failed to build commands/led_command subscriber")?;
     let light_control_client = Arc::new(
-        light_client::LightClient::new(ctx.session())
+        light_client::LightClient::new(booster_session)
             .await
             .wrap_err("failed to create LightClient")?,
     );

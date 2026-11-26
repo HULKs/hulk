@@ -53,7 +53,7 @@ while true; do
             ;;
         --return-file)
             shift
-            files+=($1)
+            files+=("$1")
             ;;
         --cd)
             shift
@@ -81,15 +81,15 @@ if [ -t 1 ]; then
     SSH_FLAGS="-t"
 fi
 
-# invoke command remotely
-ssh \
-    $SSH_FLAGS \
-    $address \
-    "sh -c ' \
-    cd \"$remotePath\" \
-    && cd \"$path\" \
-    && $@
-'"
+# Quote each argument once for the remote login shell.
+quote() {
+    printf "'%s'" "${1//\'/\'\\\'\'}"
+}
+command="cd $(quote "$remotePath") && cd $(quote "$path") &&"
+for argument in "$@"; do
+    command+=" $(quote "$argument")"
+done
+ssh $SSH_FLAGS "$address" "$command"
 
 if [ ${#files[@]} -gt 0 ]; then
     # fetch results

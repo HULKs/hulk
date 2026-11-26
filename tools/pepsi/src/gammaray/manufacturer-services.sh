@@ -27,7 +27,6 @@ wait_for_config() {
 
 # Run the patched startup before editing the draft, including on first setup.
 # Boosterize deliberately requests fresh platform defaults.
-systemctl stop hulk
 if [[ "$mode" == enable ]]; then
     systemctl stop booster-daemon
     if [[ -f /etc/booster/config/containerd/config.yaml ]]; then

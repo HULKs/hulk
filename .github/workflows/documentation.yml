@@ -11,13 +11,16 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.98.0
+      image: ghcr.io/hulks/hulk-ci:1.100
       options: --user=1000:1000
+      volumes:
+        - hulk-nix:/nix
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
       - name: Build docs
+        shell: nix develop .#default --no-update-lock-file --command bash -eo pipefail "{0}"
         run: cargo doc --no-deps --workspace --document-private-items
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -54,7 +57,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.98.0
+      image: ghcr.io/hulks/hulk-ci:1.100
       options: --user=1000:1000
     steps:
       - name: Download mkdocs artifact

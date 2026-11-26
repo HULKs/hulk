@@ -61,7 +61,7 @@ pub struct Arguments {
 }
 
 impl CargoCommand for Arguments {
-    const SUB_COMMAND: &'static str = "run";
+    const SUB_COMMAND: &'static [&'static str] = &["run"];
 
     fn apply(&self, cargo: &mut Cargo) {
         self.common.apply(cargo);

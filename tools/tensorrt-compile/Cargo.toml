@@ -12,4 +12,4 @@ cross-compile = true
 [dependencies]
 clap = { workspace = true }
 color-eyre = { workspace = true }
-ort = { workspace = true, features = ["cuda", "tensorrt", "load-dynamic"] }
+ort = { workspace = true, features = ["cuda", "tensorrt"] }

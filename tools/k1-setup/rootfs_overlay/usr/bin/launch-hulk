@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ ${1:-} == --check ]]; then
+  runtime=/nix/var/nix/profiles/hulks
+  binary=/home/booster/hulk/bin/hulk_ros_z
+  if [[ -x $binary ]] &&
+     rpath=$("$runtime/bin/patchelf" --print-rpath "$binary") &&
+     ort=$(readlink -e "$runtime/share/hulk-runtime/onnxruntime") &&
+     [[ ":$rpath:" == *":$ort:"* ]]; then
+    exit 0
+  fi
+  echo 'Upload a HULK binary built for this runtime to start the service' >&2
+  exit 1
+fi
+
+CURRENT_DATE="$(date +%Y-%m-%dT%H:%M:%S.%3N%:z)"
+INTERNAL_LOG_PATH="/home/booster/hulk/logs/${CURRENT_DATE}"
+
+mkdir -p "${INTERNAL_LOG_PATH}"
+ln -sfn "${INTERNAL_LOG_PATH}" "/home/booster/hulk/logs/latest"
+touch "${INTERNAL_LOG_PATH}/hulk.out" "${INTERNAL_LOG_PATH}/hulk.err"
+export RUST_BACKTRACE=1
+export RUST_LOG=info,ros_z=error,ort=error,factrs=error,localization_factrs=error,stereo_visual_odometry=error
+export GILRS_DISABLE_UDEV=1
+unset LD_LIBRARY_PATH LD_PRELOAD
+
+exec /home/booster/hulk/bin/hulk_ros_z \
+  --motion-cpus 4,5 \
+  --location default_location \
+  --parameter-root etc/parameters \
+  --router tcp/127.0.0.1:7447 \
+  --log-path "${INTERNAL_LOG_PATH}" \
+  > >(tee "${INTERNAL_LOG_PATH}/hulk.out") \
+  2> >(tee "${INTERNAL_LOG_PATH}/hulk.err")

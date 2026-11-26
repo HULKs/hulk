@@ -20,7 +20,7 @@ camera_matrix_calculator = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 color-eyre = { workspace = true }
 controller_handler = { workspace = true }
-detection = { workspace = true, features = ["ort-dynamic"] }
+detection.workspace = true
 fall_detection = { workspace = true }
 fall_down_state_receiver = { workspace = true }
 field_mark_association = { workspace = true }
@@ -53,7 +53,7 @@ ros-z = { workspace = true }
 rule_obstacle_composer = { workspace = true }
 safe_pose_checker = { workspace = true }
 search_suggestor = { workspace = true }
-stereo_visual_odometry = { workspace = true, features = ["ort-dynamic"] }
+stereo_visual_odometry.workspace = true
 support_foot_estimator = { workspace = true }
 system_info = { workspace = true }
 team_ball_filter = { workspace = true }
@@ -68,6 +68,7 @@ whistle_detection = { workspace = true }
 whistle_filter = { workspace = true }
 world_state_composer = { workspace = true }
 world_to_field_provider = { workspace = true }
+zenoh = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 nix = { workspace = true }

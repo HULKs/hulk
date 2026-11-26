@@ -15,6 +15,3 @@ ros-z-streams = { workspace = true }
 ros2 = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
 types = { workspace = true }
-
-[features]
-ort-dynamic = ["ort/load-dynamic"]

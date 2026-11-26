@@ -39,7 +39,7 @@ pub struct Arguments {
 }
 
 impl CargoCommand for Arguments {
-    const SUB_COMMAND: &'static str = "nextest run";
+    const SUB_COMMAND: &'static [&'static str] = &["nextest", "run"];
 
     fn apply(&self, cargo: &mut Cargo) {
         if self.release {

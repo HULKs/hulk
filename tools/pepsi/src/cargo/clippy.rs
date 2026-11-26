@@ -42,7 +42,7 @@ pub struct Arguments {
 }
 
 impl CargoCommand for Arguments {
-    const SUB_COMMAND: &'static str = "clippy";
+    const SUB_COMMAND: &'static [&'static str] = &["clippy"];
 
     fn apply(&self, cargo: &mut Cargo) {
         self.common.apply(cargo);
