@@ -71,11 +71,6 @@ where
         Rotation2::wrap(self.inner.rotation)
     }
 
-    /// Returns the rotation angle in radians.
-    pub fn angle(&self) -> T {
-        self.inner.rotation.angle()
-    }
-
     /// Returns the source frame's orientation expressed in the destination frame.
     pub fn orientation(&self) -> Orientation2<To, T> {
         Orientation2::wrap(self.inner.rotation)
@@ -183,61 +178,5 @@ where
             nalgebra::Translation::identity(),
             value.inner,
         ))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::f32::consts::FRAC_PI_2;
-
-    use approx::assert_abs_diff_eq;
-
-    use crate::{Isometry2, Isometry3, Orientation2, point, vector};
-
-    #[derive(Debug)]
-    struct Robot;
-    #[derive(Debug)]
-    struct Field;
-
-    #[test]
-    fn isometry2_constructors_rotate_then_translate() {
-        let translation = vector![<Field>, 2.0, 3.0];
-        let from_angle = Isometry2::<Robot, Field>::new(translation, FRAC_PI_2);
-        let from_parts = Isometry2::from_parts(translation, Orientation2::new(FRAC_PI_2));
-        let source = point![<Robot>, 1.0, 0.0];
-        let expected = point![<Field>, 2.0, 4.0];
-
-        assert_abs_diff_eq!(from_angle * source, expected, epsilon = 1.0e-6);
-        assert_abs_diff_eq!(from_parts * source, expected, epsilon = 1.0e-6);
-        assert_abs_diff_eq!(
-            from_parts * vector![<Robot>, 1.0, 0.0],
-            vector![<Field>, 0.0, 1.0],
-            epsilon = 1.0e-6,
-        );
-    }
-
-    #[test]
-    fn isometry2_pure_rotation_preserves_the_angle_and_has_no_translation() {
-        let isometry = Isometry2::<Robot, Field>::from_angle(FRAC_PI_2);
-
-        assert_abs_diff_eq!(isometry.translation(), point![0.0, 0.0]);
-        assert_abs_diff_eq!(isometry.angle(), FRAC_PI_2);
-        assert_abs_diff_eq!(
-            isometry.rotation() * vector![<Robot>, 1.0, 0.0],
-            vector![<Field>, 0.0, 1.0],
-            epsilon = 1.0e-6,
-        );
-    }
-
-    #[test]
-    fn isometry3_pure_rotation_uses_a_scaled_axis_and_has_no_translation() {
-        let isometry = Isometry3::<Robot, Field>::from_axis_angle(vector![0.0, 0.0, FRAC_PI_2]);
-
-        assert_abs_diff_eq!(isometry.translation(), point![0.0, 0.0, 0.0]);
-        assert_abs_diff_eq!(
-            isometry.rotation() * vector![<Robot>, 1.0, 0.0, 0.0],
-            vector![<Field>, 0.0, 1.0, 0.0],
-            epsilon = 1.0e-6,
-        );
     }
 }

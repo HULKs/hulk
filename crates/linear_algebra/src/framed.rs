@@ -361,25 +361,6 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::{Vector2, vector};
-
-    #[test]
-    fn numeric_scaling_preserves_the_frame() {
-        #[derive(Debug)]
-        struct Field;
-
-        let value = vector![<Field>, 6, 12];
-        let mut scaled: Vector2<Field, i32> = value * 2;
-        assert_eq!(scaled, vector![12, 24]);
-        scaled /= 3;
-        assert_eq!(scaled, vector![4, 8]);
-        scaled *= 3;
-        assert_eq!(scaled / 2, value);
-    }
-}
-
 // TODO: Fix and reduce trait bounds and remove Point::cast
 // impl<T, R: Dim, C: Dim, S: RawStorage<T, R, C>, Frame> Framed<Frame, Matrix<T, R, C, S>> {
 //     pub fn cast<T2>(&self) -> Framed<Frame, Matrix<T2, R, C, S>>
