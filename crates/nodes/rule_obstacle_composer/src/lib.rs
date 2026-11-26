@@ -69,7 +69,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             parameters,
         );
 
-        rule_obstacles_pub.publish(&rule_obstacles).await?;
+        rule_obstacles_pub
+            .publish(node.clock().now(), &rule_obstacles)
+            .await?;
     }
 }
 

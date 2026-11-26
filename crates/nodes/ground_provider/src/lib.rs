@@ -79,10 +79,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         };
 
         robot_to_ground_pub
-            .publish(&robot_to_ground_message)
+            .publish(node.clock().now(), &robot_to_ground_message)
             .await?;
         ground_to_robot_pub
-            .publish(&ground_to_robot_message)
+            .publish(node.clock().now(), &ground_to_robot_message)
             .await?;
     }
 }

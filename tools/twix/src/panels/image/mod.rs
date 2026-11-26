@@ -518,13 +518,22 @@ mod tests {
         });
         tokio::time::timeout(Duration::from_secs(5), async {
             loop {
-                images.publish(&image(10, [255, 0, 0])).await.unwrap();
-                images.publish(&image(20, [0, 255, 0])).await.unwrap();
+                images
+                    .publish(node.clock().now(), &image(10, [255, 0, 0]))
+                    .await
+                    .unwrap();
+                images
+                    .publish(node.clock().now(), &image(20, [0, 255, 0]))
+                    .await
+                    .unwrap();
                 objects
-                    .publish(&TimeWrapper {
-                        time: Time::from_nanos(10),
-                        inner: 0,
-                    })
+                    .publish(
+                        node.clock().now(),
+                        &TimeWrapper {
+                            time: Time::from_nanos(10),
+                            inner: 0,
+                        },
+                    )
                     .await
                     .unwrap();
                 panel.refresh(&context);
@@ -595,21 +604,27 @@ mod tests {
             loop {
                 if !pause.load(Ordering::Relaxed) {
                     images
-                        .publish(&StereoImagePair {
-                            frame_identifier: time as u32,
-                            left: image(time, [255, 0, 0]),
-                            right: image(time + 1, [0, 255, 0]),
-                        })
+                        .publish(
+                            node.clock().now(),
+                            &StereoImagePair {
+                                frame_identifier: time as u32,
+                                left: image(time, [255, 0, 0]),
+                                right: image(time + 1, [0, 255, 0]),
+                            },
+                        )
                         .await
                         .unwrap();
                     if time > 3 {
                         objects
-                            .publish(&TimeWrapper {
-                                time: Time::from_nanos((time - 3) as i64),
-                                inner: vec![Object::<RobocupObjectLabel>::from([
-                                    0., 0., 1., 1., 0.9, 0.,
-                                ])],
-                            })
+                            .publish(
+                                node.clock().now(),
+                                &TimeWrapper {
+                                    time: Time::from_nanos((time - 3) as i64),
+                                    inner: vec![Object::<RobocupObjectLabel>::from([
+                                        0., 0., 1., 1., 0.9, 0.,
+                                    ])],
+                                },
+                            )
                             .await
                             .unwrap();
                     }

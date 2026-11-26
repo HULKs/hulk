@@ -107,7 +107,7 @@ pub(crate) async fn handle_optimization_result(
         )
         .await?;
     calibrated_intrinsics_publisher
-        .publish_if_subscribed(|| {
+        .publish_if_subscribed(publishers.clock.now(), || {
             ready(intrinsic_from_camera_intrinsics(&result.camera_intrinsics))
         })
         .await?;

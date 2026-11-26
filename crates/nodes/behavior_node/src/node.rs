@@ -343,7 +343,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let tree = create_tree();
     let static_layout = tree.static_layout_trace();
     additional_behavior_tree_layout_pub
-        .publish_if_subscribed(|| async { static_layout })
+        .publish_if_subscribed(node.clock().now(), || async { static_layout })
         .await?;
     let mut timer = node.create_timer(Duration::from_millis(20));
     let (field_dimensions, player_number) = loop {
@@ -353,7 +353,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         ) {
             break (*field_dimensions, *player_number);
         }
-        motion_command_pub.publish(&MotionCommand::Damping).await?;
+        motion_command_pub
+            .publish(node.clock().now(), &MotionCommand::Damping)
+            .await?;
         timer.tick().await;
     };
 
@@ -400,11 +402,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let mut published_state_message_send_interval = None;
     hsl_state_message_send_interval_pub
-        .publish(&published_state_message_send_interval)
+        .publish(node.clock().now(), &published_state_message_send_interval)
         .await?;
     let mut published_goalkeeper_player_number = blackboard.parameters.goalkeeper.player_number;
     goalkeeper_player_number_pub
-        .publish(&published_goalkeeper_player_number)
+        .publish(node.clock().now(), &published_goalkeeper_player_number)
         .await?;
 
     loop {
@@ -443,7 +445,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let goalkeeper_player_number = blackboard.parameters.goalkeeper.player_number;
         if goalkeeper_player_number != published_goalkeeper_player_number {
             goalkeeper_player_number_pub
-                .publish(&goalkeeper_player_number)
+                .publish(node.clock().now(), &goalkeeper_player_number)
                 .await?;
             published_goalkeeper_player_number = goalkeeper_player_number;
         }
@@ -506,7 +508,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .and_then(|state| state_message_send_interval(state, &blackboard.parameters.network));
         if send_interval != published_state_message_send_interval {
             hsl_state_message_send_interval_pub
-                .publish(&send_interval)
+                .publish(node.clock().now(), &send_interval)
                 .await?;
             published_state_message_send_interval = send_interval;
         }
@@ -600,20 +602,26 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         if let Some(message) =
             blackboard.game_controller_return_message(game_controller_address.as_ref())
         {
-            outgoing_message_pub.publish(&message).await?;
+            outgoing_message_pub
+                .publish(node.clock().now(), &message)
+                .await?;
         }
 
         if let Some(message) = blackboard.try_sending_state_message() {
-            outgoing_message_pub.publish(&message).await?;
+            outgoing_message_pub
+                .publish(node.clock().now(), &message)
+                .await?;
         }
 
         additional_behavior_trace_pub
-            .publish_if_subscribed(|| async { trace })
+            .publish_if_subscribed(node.clock().now(), || async { trace })
             .await?;
         additional_black_board_pub
-            .publish_if_subscribed(|| async { blackboard.clone() })
+            .publish_if_subscribed(node.clock().now(), || async { blackboard.clone() })
             .await?;
-        motion_command_pub.publish(&motion_command).await?;
+        motion_command_pub
+            .publish(node.clock().now(), &motion_command)
+            .await?;
     }
 }
 

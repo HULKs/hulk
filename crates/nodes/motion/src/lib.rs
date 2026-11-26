@@ -210,7 +210,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         parameters.maximum_command_age.as_millis()
                     );
 
-                    motion_state.send_emergency_stop_signal().await?;
+                    motion_state.send_emergency_stop_signal(clock.now()).await?;
 
                     Arc::new(MotionCommand::Damping)
                 } else {
@@ -278,7 +278,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             robot_command,
             &mut motion_state.reset_inference,
         );
-        robot_command_pub.publish(&robot_command).await?;
+        robot_command_pub
+            .publish(clock.now(), &robot_command)
+            .await?;
     }
 }
 
@@ -506,7 +508,7 @@ impl MotionState {
             Err(error) => {
                 error!("Invalid final robot command, sending RobotCommand::Damping: {error:#}");
 
-                self.send_emergency_stop_signal().await?;
+                self.send_emergency_stop_signal(clock.now()).await?;
 
                 RobotCommand::Damping
             }
@@ -586,7 +588,7 @@ impl MotionState {
                     <Self as InferGeneric::<S>>::INFERENCE_NAME
                 );
 
-                self.send_emergency_stop_signal().await?;
+                self.send_emergency_stop_signal(clock.now()).await?;
 
                 LowerRobotCommand::Damping
             }
@@ -596,7 +598,7 @@ impl MotionState {
                     <Self as InferGeneric::<S>>::INFERENCE_NAME
                 );
 
-                self.send_emergency_stop_signal().await?;
+                self.send_emergency_stop_signal(clock.now()).await?;
 
                 LowerRobotCommand::Damping
             }
@@ -651,7 +653,7 @@ impl MotionState {
             Ok(Err(inference_error)) => {
                 error!("GetUp Inference failed, sending RobotCommand::Damping: {inference_error}");
 
-                self.send_emergency_stop_signal().await?;
+                self.send_emergency_stop_signal(clock.now()).await?;
 
                 RobotCommand::Damping
             }
@@ -660,7 +662,7 @@ impl MotionState {
                     "Failed to call GetUp inference service, sending RobotCommand::Damping! {ros_z_error}"
                 );
 
-                self.send_emergency_stop_signal().await?;
+                self.send_emergency_stop_signal(clock.now()).await?;
 
                 RobotCommand::Damping
             }
@@ -755,8 +757,10 @@ impl MotionState {
         })
     }
 
-    async fn send_emergency_stop_signal(&self) -> Result<()> {
-        self.motion_emergency_stop_pub.publish(&()).await?;
+    async fn send_emergency_stop_signal(&self, source_time: Time) -> Result<()> {
+        self.motion_emergency_stop_pub
+            .publish(source_time, &())
+            .await?;
 
         Ok(())
     }

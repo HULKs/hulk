@@ -12,6 +12,7 @@ use crate::{
     pubsub::Publisher,
     qos::{QosDurability, QosHistory, QosProfile, QosReliability},
     service::ServiceServer,
+    time::Time,
 };
 
 use crate::parameter::node_parameter::{CommitOutcome, NodeParametersInner, ParameterJsonWrite};
@@ -108,9 +109,9 @@ where
         })
     }
 
-    pub async fn publish_event(&self, event: &NodeParameterEvent) -> Result<()> {
+    pub async fn publish_event(&self, event: &NodeParameterEvent, source_time: Time) -> Result<()> {
         self.event_publisher
-            .publish(event)
+            .publish(source_time, event)
             .await
             .map_err(|source| ParameterError::operation("publishing parameter event", source))
     }

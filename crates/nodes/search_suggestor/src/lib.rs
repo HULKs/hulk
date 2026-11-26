@@ -163,7 +163,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         field_dimensions,
         parameters.snapshot().typed().cells_along_field_length,
     );
-    cell_size_pub.publish(&published_cell_size).await?;
+    cell_size_pub
+        .publish(node.clock().now(), &published_cell_size)
+        .await?;
     let mut last_ball_position = None;
     let mut current_ball_position = None;
     let mut latest_filtered_game_controller_state = None;
@@ -184,7 +186,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let parameters = parameters_snapshot.typed();
         let cell_size = grid_cell_size(field_dimensions, parameters.cells_along_field_length);
         if cell_size != published_cell_size {
-            cell_size_pub.publish(&cell_size).await?;
+            cell_size_pub
+                .publish(node.clock().now(), &cell_size)
+                .await?;
             published_cell_size = cell_size;
         }
         if parameters.disable_heatmap_search {
@@ -197,7 +201,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 was_playing = false;
             }
             was_heatmap_search_enabled = false;
-            suggested_search_position_pub.publish(&None).await?;
+            suggested_search_position_pub
+                .publish(node.clock().now(), &None)
+                .await?;
 
             while ball_position_sub.is_ready() {
                 ball_position_sub.recv().await?;
@@ -429,11 +435,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     )
                 });
         suggested_search_position_pub
-            .publish(&suggested_search_position)
+            .publish(node.clock().now(), &suggested_search_position)
             .await?;
 
         additional_heatmap_pub
-            .publish_if_subscribed(|| async { heatmap.to_message() })
+            .publish_if_subscribed(node.clock().now(), || async { heatmap.to_message() })
             .await?;
     }
 }

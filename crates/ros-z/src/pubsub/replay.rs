@@ -552,21 +552,20 @@ impl TransientLocalReplayCoordinator {
         self.drain_live(live, &delivered);
     }
 
+    fn deliver_buffered_live(&self, sample: Sample, delivered: &HashSet<PublicationId>) {
+        if let Some(id) = metadata::publication_id_from_sample(&sample) {
+            if !delivered.contains(&id) {
+                self.handle_sequenced_sample(id, sample, self.unknown_late_live_capacity);
+            }
+        } else {
+            self.deliver(sample);
+        }
+    }
+
     fn drain_live(&self, mut live: VecDeque<Sample>, delivered: &HashSet<PublicationId>) {
         loop {
             for sample in live {
-                if is_replay_duplicate(&sample, delivered) {
-                    continue;
-                }
-                if let Some(publication_id) = metadata::publication_id_from_sample(&sample) {
-                    self.handle_sequenced_sample(
-                        publication_id,
-                        sample,
-                        self.unknown_late_live_capacity,
-                    );
-                    continue;
-                }
-                self.deliver(sample);
+                self.deliver_buffered_live(sample, delivered);
             }
 
             let mut initial_window = self.initial_window.lock();
@@ -587,18 +586,7 @@ impl TransientLocalReplayCoordinator {
     ) {
         loop {
             for sample in live {
-                if is_replay_duplicate(&sample, delivered) {
-                    continue;
-                }
-                if let Some(publication_id) = metadata::publication_id_from_sample(&sample) {
-                    self.handle_sequenced_sample(
-                        publication_id,
-                        sample,
-                        self.unknown_late_live_capacity,
-                    );
-                    continue;
-                }
-                self.deliver(sample);
+                self.deliver_buffered_live(sample, delivered);
             }
 
             let mut late_windows = self.late_windows.lock();
@@ -627,7 +615,9 @@ impl TransientLocalReplayCoordinator {
                 return;
             }
             for sample in unknown {
-                if !is_replay_duplicate(&sample, delivered) {
+                if metadata::publication_id_from_sample(&sample)
+                    .is_none_or(|id| !delivered.contains(&id))
+                {
                     self.deliver(sample);
                 }
             }
@@ -653,10 +643,6 @@ fn should_deliver_replay_id(
         Some(id) => delivered.insert(id),
         None => true,
     }
-}
-
-fn is_replay_duplicate(sample: &Sample, delivered: &HashSet<PublicationId>) -> bool {
-    metadata::publication_id_from_sample(sample).is_some_and(|id| delivered.contains(&id))
 }
 
 fn replay_has_complete_publication_ids(

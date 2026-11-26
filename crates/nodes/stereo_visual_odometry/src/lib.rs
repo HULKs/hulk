@@ -129,7 +129,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         };
 
         debug_odometry_pub
-            .publish_if_subscribed(|| ready(odometry))
+            .publish_if_subscribed(node.clock().now(), || ready(odometry))
             .await?;
         if process_failed || (had_previous_image && odometry.is_none()) {
             tracing::debug!("visual odometry estimate failed; resetting odometer epoch");
@@ -137,15 +137,18 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             previous_image_time = None;
             pipeline.reset_tracking();
             odometer_pub
-                .publish(&VisualOdometer {
-                    time: current_image_time,
-                    epoch: odometer_epoch,
-                    current_left_camera_to_visual_odometer: pipeline
-                        .current_left_camera_to_visual_odometer(),
-                })
+                .publish(
+                    node.clock().now(),
+                    &VisualOdometer {
+                        time: current_image_time,
+                        epoch: odometer_epoch,
+                        current_left_camera_to_visual_odometer: pipeline
+                            .current_left_camera_to_visual_odometer(),
+                    },
+                )
                 .await?;
             feature_duration_pub
-                .publish_if_subscribed(|| ready(duration))
+                .publish_if_subscribed(node.clock().now(), || ready(duration))
                 .await?;
             continue;
         }
@@ -153,31 +156,37 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             (previous_image_time, odometry.as_ref())
         {
             delta_odometry_pub
-                .publish(&VisualOdometryDelta {
-                    previous_time,
-                    current_time: current_image_time,
-                    current_left_camera_to_previous_left_camera:
-                        previous_left_camera_to_current_left_camera.inverse(),
-                })
+                .publish(
+                    node.clock().now(),
+                    &VisualOdometryDelta {
+                        previous_time,
+                        current_time: current_image_time,
+                        current_left_camera_to_previous_left_camera:
+                            previous_left_camera_to_current_left_camera.inverse(),
+                    },
+                )
                 .await?;
         }
         previous_image_time = Some(current_image_time);
         odometer_pub
-            .publish(&VisualOdometer {
-                time: current_image_time,
-                epoch: odometer_epoch,
-                current_left_camera_to_visual_odometer: pipeline
-                    .current_left_camera_to_visual_odometer(),
-            })
+            .publish(
+                node.clock().now(),
+                &VisualOdometer {
+                    time: current_image_time,
+                    epoch: odometer_epoch,
+                    current_left_camera_to_visual_odometer: pipeline
+                        .current_left_camera_to_visual_odometer(),
+                },
+            )
             .await?;
         if triangulated_features_pub.has_subscribers() {
             let triangulated_features = pipeline.triangulated_features();
             triangulated_features_pub
-                .publish_if_subscribed(|| ready(triangulated_features))
+                .publish_if_subscribed(node.clock().now(), || ready(triangulated_features))
                 .await?;
         }
         feature_duration_pub
-            .publish_if_subscribed(|| ready(duration))
+            .publish_if_subscribed(node.clock().now(), || ready(duration))
             .await?;
     }
 }

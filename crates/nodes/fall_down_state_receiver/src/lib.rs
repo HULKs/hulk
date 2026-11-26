@@ -36,7 +36,7 @@ async fn run(ctx: Arc<Context>, booster_session: zenoh::Session) -> Result<()> {
                 let deserialized_sample = cdr::deserialize(&fall_down_state.payload().to_bytes())
                     .wrap_err("deserialization failed")?;
                 fall_down_state_pub
-                    .publish(&deserialized_sample)
+                    .publish(node.clock().now(), &deserialized_sample)
                     .await?;
 
              }

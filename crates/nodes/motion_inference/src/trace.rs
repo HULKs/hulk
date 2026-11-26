@@ -170,7 +170,7 @@ impl Trace {
         while let Some(mut record) = records.recv().await {
             if self
                 .publisher
-                .publish_if_subscribed(|| async {
+                .publish_if_subscribed(self.clock.now(), || async {
                     record.dropped_records = self.dropped.load(Ordering::Relaxed);
                     record
                 })

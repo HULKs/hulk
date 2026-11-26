@@ -59,7 +59,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             _ = expiry_tick.tick() => {
                 let maximum_age = parameters.snapshot().typed().maximum_age;
                 if clear_old_player_states(&mut player_states, node.clock().now(), maximum_age) {
-                    player_states_pub.publish(&player_states).await?;
+                    player_states_pub.publish(node.clock().now(), &player_states).await?;
                 }
             }
             received_game_controller_state = filtered_game_controller_state_sub.recv() => {
@@ -73,8 +73,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     node.clock().now(),
                     maximum_age,
                 );
-                player_states_pub.publish(&player_states).await?;
-                last_received_player_states_pub.publish(&last_received_player_states).await?;
+                player_states_pub.publish(node.clock().now(), &player_states).await?;
+                last_received_player_states_pub.publish(node.clock().now(), &last_received_player_states).await?;
             }
             received_message = filtered_message_sub.recv() => {
                 apply_message(&mut last_received_player_states, received_message?);
@@ -87,8 +87,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     node.clock().now(),
                     maximum_age,
                 );
-                player_states_pub.publish(&player_states).await?;
-                last_received_player_states_pub.publish(&last_received_player_states).await?;
+                player_states_pub.publish(node.clock().now(), &player_states).await?;
+                last_received_player_states_pub.publish(node.clock().now(), &last_received_player_states).await?;
             }
         }
     }

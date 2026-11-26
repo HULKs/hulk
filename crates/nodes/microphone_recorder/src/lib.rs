@@ -40,7 +40,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         match block_in_place(|| microphones.read()) {
             Ok(samples) => {
                 failed_attempts = 0;
-                microphones_samples_pub.publish(&samples).await?;
+                microphones_samples_pub
+                    .publish(node.clock().now(), &samples)
+                    .await?;
             }
             Err(error) => {
                 failed_attempts += 1;

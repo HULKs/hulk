@@ -74,7 +74,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             g: light_control_parameter.g,
             b: light_control_parameter.b,
         });
-        led_command_pub.publish(&led_command).await?;
+        led_command_pub
+            .publish(node.clock().now(), &led_command)
+            .await?;
     }
 }
 

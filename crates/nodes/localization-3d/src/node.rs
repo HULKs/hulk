@@ -155,12 +155,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         ),
         initial_state.clone(),
     );
-    let mut backend_handle =
-        std::pin::pin!(spawn_backend_task(backend, solve_diagnostics_publisher));
+    let mut backend_handle = std::pin::pin!(spawn_backend_task(
+        backend,
+        solve_diagnostics_publisher,
+        node.clock().clone(),
+    ));
     let mut live_localization = LiveVisualOdometryLocalization::default();
     let mut global_visual_lock = GlobalVisualLock::Unlocked;
     let mut damping_reset_interval = tokio::time::interval(Duration::from_millis(100));
     let publishers = LocalizationPublishers::new(
+        node.clock(),
         &localization_publisher,
         &pose_3d_publisher,
         &association_pose_hint_publisher,

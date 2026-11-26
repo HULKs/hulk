@@ -43,12 +43,12 @@ struct Stamped {
 
 async fn publish_stamped(publisher: &Publisher<Stamped>, stamp: i64, source: i64, value: u32) {
     publisher
-        .publish_with_source_time(
+        .publish(
+            Time::from_nanos(source),
             &Stamped {
                 time: Time::from_nanos(stamp),
                 value,
             },
-            Time::from_nanos(source),
         )
         .await
         .unwrap();
@@ -66,13 +66,14 @@ fn reply_schema<T: Message>(request: ServiceRequest<GetSchema>) {
 }
 
 async fn publish_until_selected<T: Message + PartialEq>(
+    node: &Node,
     publisher: &Publisher<T>,
     value: &T,
     observation: &TypedPlanObservation<Option<Sample>>,
 ) -> Sample {
     tokio::time::timeout(Duration::from_secs(3), async {
         loop {
-            publisher.publish(value).await.unwrap();
+            publisher.publish(node.clock().now(), value).await.unwrap();
             if let State::Ready(Some(sample)) = observation.snapshot().state
                 && decode_record::<T>(&sample.record, &sample.topic)
                     .unwrap()
@@ -145,7 +146,7 @@ async fn typed_source_time_does_not_require_a_schema_service() {
     let dynamic = observer.observe_dynamic("raw").unwrap().spawn();
     tokio::time::timeout(Duration::from_secs(2), async {
         loop {
-            publisher.publish(&42).await.unwrap();
+            publisher.publish(node.clock().now(), &42).await.unwrap();
             if observation
                 .latest()
                 .is_some_and(|sample| sample.value == 42)
@@ -213,7 +214,10 @@ async fn live_discards_schema_discovery_from_a_replaced_publisher() {
     reply_schema::<String>(request);
     tokio::time::timeout(Duration::from_secs(3), async {
         loop {
-            fresh.publish(&"fresh".to_owned()).await.unwrap();
+            fresh
+                .publish(node.clock().now(), &"fresh".to_owned())
+                .await
+                .unwrap();
             if let State::Ready(Value::Records(records)) = &observation.snapshot().evaluation.state
                 && let Some(sample) = records.last()
             {
@@ -428,7 +432,7 @@ async fn live_fallback_follows_presence_even_while_another_schema_is_unavailable
         .unwrap();
     }
     wait_presence(&catalog, false).await;
-    let sample = publish_until_selected(&fallback, &42, &observation).await;
+    let sample = publish_until_selected(&node, &fallback, &42, &observation).await;
     assert_eq!(sample.topic.name, "/fallback");
     let advertised = catalog.snapshot();
     assert!(advertised.error.is_none());
@@ -451,11 +455,11 @@ async fn live_fallback_follows_presence_even_while_another_schema_is_unavailable
         "primary presence wins before its first sample"
     );
     let sample =
-        publish_until_selected(&primary, &"primary decoded".to_owned(), &observation).await;
+        publish_until_selected(&node, &primary, &"primary decoded".to_owned(), &observation).await;
     assert_eq!(sample.topic.name, "/primary");
     drop(primary);
     wait_presence(&catalog, false).await;
-    let sample = publish_until_selected(&fallback, &43, &observation).await;
+    let sample = publish_until_selected(&node, &fallback, &43, &observation).await;
     assert_eq!(sample.topic.name, "/fallback");
     let mut updates = observation.raw().subscribe_updates();
     drop(observation);

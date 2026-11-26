@@ -29,7 +29,7 @@ async fn demo() -> ros_z::Result<()> {
     let node = context.create_node("talker").build().await?;
     let publisher = node.publisher::<String>("/chatter").build().await?;
 
-    publisher.publish(&"hello".to_owned()).await?;
+    publisher.publish(node.clock().now(), &"hello".to_owned()).await?;
     Ok(())
 }
 ```

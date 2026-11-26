@@ -332,7 +332,10 @@ async fn discovery_uses_schema_service_for_standard_compatible_types() {
                 label: "robot-7".to_string(),
                 temperatures: vec![20.0, 20.5],
             };
-            publisher.publish(&message).await.expect("publish");
+            publisher
+                .publish(pub_node.clock().now(), &message)
+                .await
+                .expect("publish");
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
     });
@@ -411,7 +414,10 @@ async fn schema_service_round_trips_recursive_bundle() {
                     children: Vec::new(),
                 }],
             };
-            publisher.publish(&message).await.expect("publish");
+            publisher
+                .publish(pub_node.clock().now(), &message)
+                .await
+                .expect("publish");
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
     });
@@ -481,7 +487,10 @@ async fn extended_discovery_should_fail_when_the_publisher_disabled_the_schema_s
                     minutes_remaining: 12,
                 },
             };
-            publisher.publish(&message).await.expect("publish");
+            publisher
+                .publish(pub_node.clock().now(), &message)
+                .await
+                .expect("publish");
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
     });
@@ -546,7 +555,10 @@ async fn extended_only_types_use_schema_service_when_enabled() {
                     minutes_remaining: 12,
                 },
             };
-            publisher.publish(&message).await.expect("publish");
+            publisher
+                .publish(pub_node.clock().now(), &message)
+                .await
+                .expect("publish");
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
     });
@@ -636,7 +648,10 @@ async fn type_description_discovery_works_across_namespaces_for_extended_types()
                     minutes_remaining: 12,
                 },
             };
-            publisher.publish(&message).await.expect("publish");
+            publisher
+                .publish(pub_node.clock().now(), &message)
+                .await
+                .expect("publish");
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
     });
@@ -696,7 +711,10 @@ async fn top_level_enums_are_discoverable_through_the_schema_service() {
     let publish_task = tokio::spawn(async move {
         for _ in 0..20 {
             publisher
-                .publish(&RobotState::Error("battery low".to_string()))
+                .publish(
+                    pub_node.clock().now(),
+                    &RobotState::Error("battery low".to_string()),
+                )
                 .await
                 .expect("publish");
             tokio::time::sleep(Duration::from_millis(100)).await;

@@ -52,7 +52,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             time: serial_motor_states.source_time,
             inner: robot_kinematics,
         };
-        robot_kinematics_pub.publish(&message).await?;
+        robot_kinematics_pub
+            .publish(node.clock().now(), &message)
+            .await?;
     }
 }
 

@@ -14,7 +14,7 @@ async fn main() -> Result<()> {
     loop {
         let message = format!("Hello ros-z: {count}");
         println!("Publishing: {}", message);
-        publisher.publish(&message).await?;
+        publisher.publish(node.clock().now(), &message).await?;
 
         count += 1;
         tokio::time::sleep(Duration::from_secs(1)).await;

@@ -174,13 +174,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         })?;
 
         inference_duration_pub
-            .publish(&output.inference_duration)
+            .publish(node.clock().now(), &output.inference_duration)
             .await?;
         post_processing_duration_pub
-            .publish(&output.post_processing_duration)
+            .publish(node.clock().now(), &output.post_processing_duration)
             .await?;
         non_maximum_suppression_duration_pub
-            .publish(&output.non_maximum_suppression_duration)
+            .publish(node.clock().now(), &output.non_maximum_suppression_duration)
             .await?;
 
         detected_objects_pending

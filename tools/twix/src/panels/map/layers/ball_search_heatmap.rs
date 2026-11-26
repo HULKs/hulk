@@ -107,8 +107,8 @@ mod tests {
             .unwrap(),
         );
         let layer = BallSearchHeatmap::new(backend.clone());
-        let publisher = backend
-            .node()
+        let node = backend.node();
+        let publisher = node
             .publisher::<Heatmap>("/heatmap_test/ball_search_heatmap")
             .build()
             .await
@@ -122,7 +122,10 @@ mod tests {
         };
         let received = tokio::time::timeout(Duration::from_secs(5), async {
             while layer.ball_search_heatmap.latest().is_none() {
-                publisher.publish(&heatmap).await.unwrap();
+                publisher
+                    .publish(node.clock().now(), &heatmap)
+                    .await
+                    .unwrap();
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
         })

@@ -2,7 +2,9 @@ use std::time::Duration;
 
 use ros_z::prelude::*;
 use ros_z::time::{Clock, Time};
-use ros_z_streams::{CreateAnnouncingPublisher, CreateFutureMapBuilder};
+use ros_z_streams::{
+    Announcement, CreateAnnouncingPublisher, CreateFutureMapBuilder, CreateFutureQueue, QueueEvent,
+};
 use tokio::time::{sleep, timeout};
 
 async fn setup_node(namespace: &str) -> zenoh::Result<(Node, Clock)> {
@@ -14,6 +16,49 @@ async fn setup_node(namespace: &str) -> zenoh::Result<(Node, Clock)> {
         .await?;
     let node = context.create_node("integration_test_node").build().await?;
     Ok((node, logical_clock))
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn announced_payload_preserves_event_time_and_reserved_id() -> zenoh::Result<()> {
+    let (node, clock) = setup_node("/test_announced_payload").await?;
+    let topic = "observation";
+    let publisher = node.announcing_publisher::<String>(topic).await?;
+    let mut queue = node
+        .create_future_subscriber::<String>(topic, Duration::ZERO)
+        .await?;
+    let subscriber = node.subscriber::<String>(topic).build().await?;
+    let notice_subscriber = node
+        .subscriber::<Announcement>(&format!("{topic}/announce"))
+        .build()
+        .await?;
+    let receive_timeout = Duration::from_secs(2);
+
+    let event_time = Time::from_nanos(10);
+    clock.set_time(Time::from_nanos(15)).unwrap();
+    let pending = publisher.announce(event_time).await?;
+    assert!(matches!(
+        timeout(receive_timeout, queue.recv()).await??,
+        QueueEvent::Announcement
+    ));
+    let notice = timeout(receive_timeout, notice_subscriber.recv_with_metadata()).await??;
+    assert_eq!(notice.source_time, event_time);
+
+    clock.set_time(Time::from_nanos(20)).unwrap();
+    let message = "observation".to_owned();
+    pending.publish(&message).await?;
+
+    // The queue emits data only when its publication ID matches the announcement.
+    let QueueEvent::Data(queue_time, data) = timeout(receive_timeout, queue.recv()).await?? else {
+        panic!("expected matching payload after announcement");
+    };
+    assert_eq!(data, message);
+    assert_eq!(queue_time, event_time);
+
+    let received = timeout(receive_timeout, subscriber.recv_with_metadata()).await??;
+    assert_eq!(received.message, message);
+    assert_eq!(received.source_time, queue_time);
+
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

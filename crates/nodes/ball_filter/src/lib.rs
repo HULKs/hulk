@@ -209,15 +209,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             ))
         })?;
 
-        ball_percepts_pub.publish(&output.ball_percepts).await?;
+        ball_percepts_pub
+            .publish(node.clock().now(), &output.ball_percepts)
+            .await?;
         filter_state_pub
-            .publish_if_subscribed(|| async { &ball_filter })
+            .publish_if_subscribed(node.clock().now(), || async { &ball_filter })
             .await?;
         best_ball_hypothesis_pub
-            .publish_if_subscribed(|| async { &output.best_hypothesis })
+            .publish_if_subscribed(node.clock().now(), || async { &output.best_hypothesis })
             .await?;
         filtered_balls_in_image_pub
-            .publish_if_subscribed(|| async {
+            .publish_if_subscribed(node.clock().now(), || async {
                 block_in_place(|| {
                     let Some(camera) = projection_camera else {
                         return vec![];
@@ -235,9 +237,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             })
             .await?;
 
-        ball_position_pub.publish(&output.filtered_ball).await?;
+        ball_position_pub
+            .publish(node.clock().now(), &output.filtered_ball)
+            .await?;
         hypothetical_ball_positions_pub
-            .publish(&output.hypothetical_ball_positions)
+            .publish(node.clock().now(), &output.hypothetical_ball_positions)
             .await?;
     }
 }

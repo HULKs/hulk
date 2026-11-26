@@ -43,9 +43,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         };
 
         ground_to_field_publisher
-            .publish_with_source_time(
-                &ground_to_field_from_field_to_robot(field_to_robot, robot_to_ground),
+            .publish(
                 time,
+                &ground_to_field_from_field_to_robot(field_to_robot, robot_to_ground),
             )
             .await?;
     }

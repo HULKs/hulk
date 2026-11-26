@@ -87,7 +87,7 @@ mod tests {
 
         for i in 0..5 {
             let message = format!("Message {}", i);
-            pub_handle.publish(&message).await?;
+            pub_handle.publish(pub_node.clock().now(), &message).await?;
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
 
@@ -125,7 +125,7 @@ mod tests {
 
         for i in 0..5 {
             let message = format!("Message {}", i);
-            pub_handle.publish(&message).await?;
+            pub_handle.publish(pub_node.clock().now(), &message).await?;
         }
 
         let received = receive_task.await.expect("receive task should join");
@@ -167,7 +167,7 @@ mod tests {
 
         for i in 0..5 {
             let message = format!("Message {}", i);
-            pub_handle.publish(&message).await?;
+            pub_handle.publish(pub_node.clock().now(), &message).await?;
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
 
@@ -194,7 +194,7 @@ mod tests {
         let publisher = node.publisher::<i32>("lazy").build().await?;
         assert!(
             !publisher
-                .publish_if_subscribed(|| -> std::future::Ready<i32> {
+                .publish_if_subscribed(node.clock().now(), || -> std::future::Ready<i32> {
                     panic!("no subscriber needs this value")
                 })
                 .await?
@@ -206,9 +206,17 @@ mod tests {
                 .wait_for_subscribers(1, Duration::from_secs(2))
                 .await
         );
-        assert!(publisher.publish_if_subscribed(|| async { 42 }).await?);
-        let received = tokio::time::timeout(Duration::from_secs(2), subscriber.recv()).await??;
-        assert_eq!(received, 42);
+        let source_time = node.clock().now();
+        assert!(
+            publisher
+                .publish_if_subscribed(source_time, || async { 42 })
+                .await?
+        );
+        let received =
+            tokio::time::timeout(Duration::from_secs(2), subscriber.recv_with_metadata()).await??;
+        assert_eq!(received.message, 42);
+        assert_eq!(received.source_time, source_time);
+        assert_eq!(received.sequence_number, 0, "skips must not reserve IDs");
         Ok(())
     }
 
@@ -226,7 +234,7 @@ mod tests {
         let mut built = false;
         assert!(
             !publisher
-                .publish_if_subscribed(|| {
+                .publish_if_subscribed(node.clock().now(), || {
                     built = true;
                     std::future::ready(&source)
                 })
@@ -242,7 +250,7 @@ mod tests {
         );
         assert!(
             publisher
-                .publish_if_subscribed(|| std::future::ready(&source))
+                .publish_if_subscribed(node.clock().now(), || std::future::ready(&source))
                 .await?
         );
         assert_eq!(source, "unchanged");
@@ -268,9 +276,10 @@ mod tests {
         assert!(!publisher.has_subscribers());
         let mut source = String::from("cached");
         let mut built = false;
+        let source_time = pub_node.clock().now();
         assert!(
             publisher
-                .publish_if_subscribed(|| {
+                .publish_if_subscribed(source_time, || {
                     built = true;
                     std::future::ready(&source)
                 })
@@ -287,13 +296,17 @@ mod tests {
             .build()
             .await?;
 
-        let received = tokio::time::timeout(Duration::from_secs(2), subscriber.recv()).await??;
-        assert_eq!(received, "cached");
+        let received =
+            tokio::time::timeout(Duration::from_secs(2), subscriber.recv_with_metadata()).await??;
+        assert_eq!(received.message, "cached");
+        assert_eq!(received.source_time, source_time);
+        assert_eq!(received.sequence_number, 0);
         Ok(())
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn transient_local_retained_sample_is_queryable_after_publish_returns() -> Result<()> {
+    async fn transient_local_replays_direct_and_prepared_metadata_after_publish_returns()
+    -> Result<()> {
         let context = ContextBuilder::default().build().await?;
         let pub_node = context
             .create_node("retain_before_publish_pub")
@@ -312,16 +325,51 @@ mod tests {
         };
 
         let publisher = pub_node.publisher::<String>(topic).qos(qos).build().await?;
-        publisher.publish(&"retained".to_string()).await?;
-
-        let subscriber = sub_node
+        let live = sub_node
             .subscriber::<String>(topic)
-            .qos(qos)
+            .qos(QosProfile {
+                durability: QosDurability::Volatile,
+                ..qos
+            })
             .build()
             .await?;
+        let wait = Duration::from_secs(2);
+        assert!(publisher.wait_for_subscribers(1, wait).await);
 
-        let received = tokio::time::timeout(Duration::from_secs(2), subscriber.recv()).await??;
-        assert_eq!(received, "retained");
+        let check_delivery = async |message: &str, source_time| -> Result<_> {
+            let late = sub_node
+                .subscriber::<String>(topic)
+                .qos(qos)
+                .build()
+                .await?;
+            let replayed = tokio::time::timeout(wait, late.recv_with_metadata()).await??;
+            let received = tokio::time::timeout(wait, live.recv_with_metadata()).await??;
+            assert_eq!(replayed.publication_id(), received.publication_id());
+            let id = received.publication_id();
+            for sample in [replayed, received] {
+                assert_eq!(sample.message, message);
+                assert_eq!(sample.source_time, source_time);
+            }
+            Ok(id)
+        };
+
+        let direct_time = pub_node.clock().now();
+        publisher.publish(direct_time, &"direct".to_owned()).await?;
+        let direct_id = check_delivery("direct", direct_time).await?;
+        assert_eq!(direct_id.sequence_number(), 0);
+        assert_eq!(
+            direct_id.endpoint_global_id(),
+            ros_z::entity::endpoint_global_id(publisher.entity())
+        );
+
+        let prepared_time = ros_z::time::Time::from_nanos(42);
+        let prepared = publisher.prepare(prepared_time);
+        let prepared_id = prepared.id();
+        prepared.publish(&"prepared".to_owned()).await?;
+        assert_eq!(
+            check_delivery("prepared", prepared_time).await?,
+            prepared_id
+        );
         Ok(())
     }
 
@@ -340,7 +388,9 @@ mod tests {
 
         let publisher = pub_node.publisher::<String>(topic).qos(qos).build().await?;
         for data in ["one", "two", "three"] {
-            publisher.publish(&data.into()).await?;
+            publisher
+                .publish(pub_node.clock().now(), &data.into())
+                .await?;
         }
 
         let subscriber = sub_node
@@ -373,7 +423,9 @@ mod tests {
         let publisher = pub_node.publisher::<String>(topic).qos(qos).build().await?;
 
         for data in ["cached-1", "cached-2", "cached-3"] {
-            publisher.publish(&data.into()).await?;
+            publisher
+                .publish(pub_node.clock().now(), &data.into())
+                .await?;
         }
 
         let subscriber = sub_node
@@ -390,7 +442,9 @@ mod tests {
 
         assert_eq!(received, ["cached-1", "cached-2", "cached-3"]);
 
-        publisher.publish(&"live-4".into()).await?;
+        publisher
+            .publish(pub_node.clock().now(), &"live-4".into())
+            .await?;
         let live = tokio::time::timeout(Duration::from_secs(2), subscriber.recv()).await??;
         assert_eq!(live, "live-4");
         Ok(())
@@ -416,8 +470,12 @@ mod tests {
             .await?;
 
         let publisher = pub_node.publisher::<String>(topic).qos(qos).build().await?;
-        publisher.publish(&"first".to_string()).await?;
-        publisher.publish(&"second".to_string()).await?;
+        publisher
+            .publish(pub_node.clock().now(), &"first".to_string())
+            .await?;
+        publisher
+            .publish(pub_node.clock().now(), &"second".to_string())
+            .await?;
 
         let mut received = Vec::new();
         let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
@@ -459,7 +517,9 @@ mod tests {
 
         let publisher = pub_node.publisher::<String>(topic).qos(qos).build().await?;
         for data in ["one", "two", "three"] {
-            publisher.publish(&data.into()).await?;
+            publisher
+                .publish(pub_node.clock().now(), &data.into())
+                .await?;
         }
 
         let subscriber = sub_node
@@ -497,7 +557,9 @@ mod tests {
         };
 
         let publisher = pub_node.publisher::<String>(topic).qos(qos).build().await?;
-        publisher.publish(&"cached".into()).await?;
+        publisher
+            .publish(pub_node.clock().now(), &"cached".into())
+            .await?;
 
         let cache = cache_node
             .subscriber::<String>(topic)
@@ -549,7 +611,9 @@ mod tests {
             .build()
             .await?;
         let publisher = pub_node.publisher::<String>(topic).qos(qos).build().await?;
-        publisher.publish(&"cached".into()).await?;
+        publisher
+            .publish(pub_node.clock().now(), &"cached".into())
+            .await?;
 
         let mut early_subscriber = early_subscriber;
         let live_sample =
@@ -600,7 +664,7 @@ mod tests {
 
         for i in 0..5 {
             let message = format!("Message {}", i);
-            pub_handle.publish(&message).await?;
+            pub_handle.publish(pub_node.clock().now(), &message).await?;
         }
 
         let received = receive_task.await.expect("receive task should join");
@@ -635,7 +699,7 @@ mod tests {
 
         for i in 0..10 {
             let message = format!("Message {}", i);
-            pub_handle.publish(&message).await?;
+            pub_handle.publish(pub_node.clock().now(), &message).await?;
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
 
@@ -665,8 +729,11 @@ mod tests {
         let pub_handle = node.publisher::<String>(topic).qos(qos).build().await?;
         let message = "Test message".to_string();
 
-        let publish_result =
-            tokio::time::timeout(Duration::from_secs(5), pub_handle.publish(&message)).await;
+        let publish_result = tokio::time::timeout(
+            Duration::from_secs(5),
+            pub_handle.publish(node.clock().now(), &message),
+        )
+        .await;
 
         match publish_result {
             Ok(Ok(_)) => Ok(()),
@@ -705,7 +772,7 @@ mod tests {
 
         for i in 0..3 {
             let message = format!("Sync message {}", i);
-            pub_handle.publish(&message).await?;
+            pub_handle.publish(pub_node.clock().now(), &message).await?;
         }
 
         let received = receive_task.await.expect("receive task should join");
@@ -754,7 +821,7 @@ mod tests {
 
         for i in 0..3 {
             let message = format!("Same context message {}", i);
-            pub_handle.publish(&message).await?;
+            pub_handle.publish(pub_node.clock().now(), &message).await?;
         }
 
         let received = receive_task.await.expect("receive task should join");
@@ -797,7 +864,7 @@ mod tests {
 
         for i in 0..3 {
             let message = format!("Deadline/liveliness message {}", i);
-            pub_handle.publish(&message).await?;
+            pub_handle.publish(pub_node.clock().now(), &message).await?;
         }
 
         let received = receive_task.await.expect("receive task should join");

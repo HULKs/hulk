@@ -75,13 +75,17 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         let parameters_snapshot = parameters_receiver.borrow_and_update().clone();
         let parameters = parameters_snapshot.typed();
-        joint_limits_pub.publish(&parameters.joint_limits).await?;
-        player_number_pub.publish(&parameters.player_number).await?;
+        joint_limits_pub
+            .publish(node.clock().now(), &parameters.joint_limits)
+            .await?;
+        player_number_pub
+            .publish(node.clock().now(), &parameters.player_number)
+            .await?;
         field_dimensions_pub
-            .publish(&parameters.field_dimensions)
+            .publish(node.clock().now(), &parameters.field_dimensions)
             .await?;
         walking_velocity_limits_pub
-            .publish(&parameters.walking_velocity_limits)
+            .publish(node.clock().now(), &parameters.walking_velocity_limits)
             .await?;
 
         parameters_receiver.changed().await?;

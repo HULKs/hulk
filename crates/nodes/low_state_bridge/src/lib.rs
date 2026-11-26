@@ -231,17 +231,13 @@ async fn publish_matched_low_state(
     let serial_motor_states = low_state.serial_motor_states()?;
     let parallel_motor_states = low_state.parallel_motor_states().ok();
 
-    low_state_pub
-        .publish_with_source_time(&low_state, source_time)
-        .await?;
-    imu_state_pub
-        .publish_with_source_time(&imu_state, source_time)
-        .await?;
+    low_state_pub.publish(source_time, &low_state).await?;
+    imu_state_pub.publish(source_time, &imu_state).await?;
     serial_motor_states_pub
-        .publish_with_source_time(&serial_motor_states, source_time)
+        .publish(source_time, &serial_motor_states)
         .await?;
     parallel_motor_states_pub
-        .publish_with_source_time(&parallel_motor_states, source_time)
+        .publish(source_time, &parallel_motor_states)
         .await?;
 
     Ok(())

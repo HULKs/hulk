@@ -39,7 +39,7 @@ async fn run(ctx: Arc<Context>, booster_session: zenoh::Session) -> Result<()> {
                 .wrap_err("deserialization failed")?;
 
         button_event_message_pub
-            .publish(&button_event_message)
+            .publish(node.clock().now(), &button_event_message)
             .await?;
     }
 }

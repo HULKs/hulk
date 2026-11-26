@@ -53,8 +53,10 @@ async fn real_search_and_behavior_nodes_start_and_share_live_cell_geometry() -> 
         width: 9.0,
         ..FieldDimensions::SPL_2025
     };
-    field_pub.publish(&field).await?;
-    player_pub.publish(&PlayerNumber::One).await?;
+    field_pub.publish(fixture.clock().now(), &field).await?;
+    player_pub
+        .publish(fixture.clock().now(), &PlayerNumber::One)
+        .await?;
     let mut nodes = tokio::task::JoinSet::new();
     nodes.spawn(search_suggestor::run_boxed(context.clone()));
     let size = tokio::time::timeout(Duration::from_secs(5), async {

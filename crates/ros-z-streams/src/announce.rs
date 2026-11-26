@@ -32,20 +32,23 @@ pub struct AnnouncingPublisher<T: Message> {
 }
 
 impl<T: Message> AnnouncingPublisher<T> {
-    /// Announce upcoming payload timestamp and return handle to publish payload with matching id.
+    /// Announce the event time of an upcoming payload.
     ///
-    /// This method sends a timestamp announcement and returns a [`PendingAnnouncement`]
-    /// handle that must be used to publish the corresponding payload. The announcement serves
-    /// as a signal to downstream receivers that data with the given timestamp is incoming.
+    /// The announcement tells downstream receivers to expect data for `time`.
+    /// Use the returned [`PendingAnnouncement`] to publish the payload with that source time
+    /// and the reserved publication ID.
     pub async fn announce(&self, time: Time) -> Result<PendingAnnouncement<'_, T>> {
-        let data = self.data_publisher.prepare();
+        let data = self.data_publisher.prepare(time);
         let publication_id = data.id();
         self.announcement_publisher
-            .publish(&Announcement {
+            .publish(
                 time,
-                source_global_id: publication_id.endpoint_global_id(),
-                sequence_number: publication_id.sequence_number(),
-            })
+                &Announcement {
+                    time,
+                    source_global_id: publication_id.endpoint_global_id(),
+                    sequence_number: publication_id.sequence_number(),
+                },
+            )
             .await?;
 
         Ok(PendingAnnouncement { data: Some(data) })
@@ -95,11 +98,10 @@ pub struct PendingAnnouncement<'a, T: Message> {
 }
 
 impl<'a, T: Message> PendingAnnouncement<'a, T> {
-    /// Publish payload with id that matches earlier announcement.
+    /// Publish the payload with the publication ID reserved by the announcement.
     ///
-    /// This completes the announcement-payload cycle by sending the actual data.
-    /// The payload is published with the same message ID as the prior announcement,
-    /// allowing receivers to correlate them and maintain temporal ordering.
+    /// The payload's source time is the event time passed to
+    /// [`AnnouncingPublisher::announce`], not the clock time at transmission.
     pub async fn publish(mut self, value: &T) -> Result<()> {
         let data = self.data.take().expect("can only publish once");
         data.publish(value).await

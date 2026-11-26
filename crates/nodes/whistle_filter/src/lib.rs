@@ -56,10 +56,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         was_detected_last_cycle = is_detected;
 
         filtered_whistle_pub
-            .publish(&FilteredWhistle {
-                is_detected,
-                last_detection,
-            })
+            .publish(
+                node.clock().now(),
+                &FilteredWhistle {
+                    is_detected,
+                    last_detection,
+                },
+            )
             .await?;
     }
 }

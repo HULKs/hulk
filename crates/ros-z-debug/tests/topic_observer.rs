@@ -78,10 +78,10 @@ async fn typed_observation_rebuilds_when_inherited_namespace_changes() -> ros_z_
         .retention(RetentionPolicy::LatestOnly)
         .spawn();
 
-    publish_until_latest_value(&alpha, &observation, "alpha").await?;
+    publish_until_latest_value(&publisher_node, &alpha, &observation, "alpha").await?;
 
     observer.set_namespace("/beta")?;
-    publish_until_latest_value(&beta, &observation, "beta").await?;
+    publish_until_latest_value(&publisher_node, &beta, &observation, "beta").await?;
 
     assert!(matches!(
         observation.status(),
@@ -114,7 +114,7 @@ async fn typed_builder_sets_initial_private_topic_node_name() -> ros_z_debug::Re
         .node_name("behavior_node")?
         .spawn();
 
-    publish_until_latest_value(&publisher, &observation, "builder_node").await?;
+    publish_until_latest_value(&publisher_node, &publisher, &observation, "builder_node").await?;
 
     assert_eq!(
         observation
@@ -153,7 +153,13 @@ async fn typed_builder_can_restore_namespace_inheritance_before_spawn() -> ros_z
         .inherit_namespace()
         .spawn();
 
-    publish_until_latest_value(&publisher, &observation, "inherited_namespace").await?;
+    publish_until_latest_value(
+        &publisher_node,
+        &publisher,
+        &observation,
+        "inherited_namespace",
+    )
+    .await?;
 
     assert_eq!(
         observation
@@ -232,14 +238,26 @@ async fn absolute_typed_observation_ignores_inherited_target_changes() -> ros_z_
         .retention(RetentionPolicy::LatestOnly)
         .spawn();
 
-    publish_until_latest_value(&publisher, &observation, "before_target_change").await?;
+    publish_until_latest_value(
+        &publisher_node,
+        &publisher,
+        &observation,
+        "before_target_change",
+    )
+    .await?;
     let mut updates = observation.subscribe_updates().unwrap();
 
     observer.set_namespace("/beta")?;
     observer.set_node_name("ignored_node")?;
 
     assert_no_rebuilding_update_for(std::time::Duration::from_millis(200), &mut updates).await;
-    publish_until_latest_value(&publisher, &observation, "after_target_change").await?;
+    publish_until_latest_value(
+        &publisher_node,
+        &publisher,
+        &observation,
+        "after_target_change",
+    )
+    .await?;
 
     assert!(matches!(
         observation.status(),
@@ -271,7 +289,9 @@ async fn dynamic_json_observation_exposes_latest_value() -> ros_z_debug::Result<
 
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            publisher.publish(&TwixDebugValue { value: 7 }).await?;
+            publisher
+                .publish(publisher_node.clock().now(), &TwixDebugValue { value: 7 })
+                .await?;
             if observation.latest_json() == Some(serde_json::json!({ "value": 7 })) {
                 let record = observation
                     .latest_json_record()
@@ -315,8 +335,12 @@ async fn dynamic_json_observation_exposes_time_window_records() -> ros_z_debug::
 
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            publisher.publish(&TwixDebugValue { value: 1 }).await?;
-            publisher.publish(&TwixDebugValue { value: 2 }).await?;
+            publisher
+                .publish(publisher_node.clock().now(), &TwixDebugValue { value: 1 })
+                .await?;
+            publisher
+                .publish(publisher_node.clock().now(), &TwixDebugValue { value: 2 })
+                .await?;
             let records = observation.window_json_records(Time::zero(), Time::from_nanos(i64::MAX));
             if records.len() >= 2 {
                 assert!(
@@ -369,8 +393,12 @@ async fn dynamic_json_observation_exposes_value_only_window_json() -> ros_z_debu
 
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            publisher.publish(&TwixDebugValue { value: 3 }).await?;
-            publisher.publish(&TwixDebugValue { value: 4 }).await?;
+            publisher
+                .publish(publisher_node.clock().now(), &TwixDebugValue { value: 3 })
+                .await?;
+            publisher
+                .publish(publisher_node.clock().now(), &TwixDebugValue { value: 4 })
+                .await?;
             let values = observation.window_json(Time::zero(), Time::from_nanos(i64::MAX));
             if values.len() >= 2 {
                 assert!(values.contains(&serde_json::json!({ "value": 3 })));
@@ -414,7 +442,10 @@ async fn dynamic_json_observation_uses_configured_render_policy() -> ros_z_debug
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
             publisher
-                .publish(&FloatDebugValue { value: f64::NAN })
+                .publish(
+                    publisher_node.clock().now(),
+                    &FloatDebugValue { value: f64::NAN },
+                )
                 .await?;
             if observation.latest_json() == Some(serde_json::json!({ "value": null })) {
                 break;
@@ -464,7 +495,9 @@ async fn private_topic_resolves_delivers_and_preserves_previous_cache_when_later
 
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            publisher.publish(&TwixDebugValue { value: 21 }).await?;
+            publisher
+                .publish(publisher_node.clock().now(), &TwixDebugValue { value: 21 })
+                .await?;
             if observation.latest_json() == Some(serde_json::json!({ "value": 21 })) {
                 break;
             }
@@ -506,7 +539,9 @@ async fn private_topic_resolves_delivers_and_preserves_previous_cache_when_later
     .expect("blocked private observation should preserve previous cache");
 
     for _ in 0..5 {
-        publisher.publish(&TwixDebugValue { value: 22 }).await?;
+        publisher
+            .publish(publisher_node.clock().now(), &TwixDebugValue { value: 22 })
+            .await?;
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
     }
 
@@ -547,7 +582,9 @@ async fn observer_clear_node_name_blocks_inherited_private_observation() -> ros_
 
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            publisher.publish(&TwixDebugValue { value: 32 }).await?;
+            publisher
+                .publish(publisher_node.clock().now(), &TwixDebugValue { value: 32 })
+                .await?;
             if observation.latest_json() == Some(serde_json::json!({ "value": 32 })) {
                 break;
             }
@@ -607,7 +644,7 @@ async fn typed_observation_clear_node_name_blocks_private_topic_despite_observer
         .observe_typed::<String>("~typed_clear_trace")?
         .spawn();
 
-    publish_until_latest_value(&publisher, &observation, "before_clear").await?;
+    publish_until_latest_value(&publisher_node, &publisher, &observation, "before_clear").await?;
 
     observation.clear_node_name();
 
@@ -661,7 +698,9 @@ async fn dynamic_observation_clear_node_name_blocks_private_topic_despite_observ
 
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            publisher.publish(&TwixDebugValue { value: 33 }).await?;
+            publisher
+                .publish(publisher_node.clock().now(), &TwixDebugValue { value: 33 })
+                .await?;
             if observation.latest_json() == Some(serde_json::json!({ "value": 33 })) {
                 break;
             }
@@ -725,7 +764,9 @@ async fn dynamic_observation_freezes_previous_cache_while_retrying_after_retarge
 
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            publisher.publish(&TwixDebugValue { value: 1 }).await?;
+            publisher
+                .publish(publisher_node.clock().now(), &TwixDebugValue { value: 1 })
+                .await?;
             if observation.latest_json() == Some(serde_json::json!({ "value": 1 })) {
                 break;
             }
@@ -753,7 +794,9 @@ async fn dynamic_observation_freezes_previous_cache_while_retrying_after_retarge
     .expect("retargeting to a missing dynamic topic should enter retrying");
 
     for _ in 0..5 {
-        publisher.publish(&TwixDebugValue { value: 2 }).await?;
+        publisher
+            .publish(publisher_node.clock().now(), &TwixDebugValue { value: 2 })
+            .await?;
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
     }
 
@@ -794,7 +837,9 @@ async fn dynamic_observation_freezes_previous_cache_during_rebuild_before_retryi
 
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            publisher.publish(&TwixDebugValue { value: 1 }).await?;
+            publisher
+                .publish(publisher_node.clock().now(), &TwixDebugValue { value: 1 })
+                .await?;
             if observation.latest_json() == Some(serde_json::json!({ "value": 1 })) {
                 break;
             }
@@ -822,7 +867,9 @@ async fn dynamic_observation_freezes_previous_cache_during_rebuild_before_retryi
     .expect("retargeting should enter rebuilding while schema discovery is in flight");
 
     for _ in 0..5 {
-        publisher.publish(&TwixDebugValue { value: 2 }).await?;
+        publisher
+            .publish(publisher_node.clock().now(), &TwixDebugValue { value: 2 })
+            .await?;
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
     }
 
@@ -860,9 +907,9 @@ async fn dropping_observer_does_not_close_live_observation_while_handle_remains(
         .retention(RetentionPolicy::LatestOnly)
         .spawn();
 
-    publish_until_latest_value(&publisher, &observation, "alive").await?;
+    publish_until_latest_value(&publisher_node, &publisher, &observation, "alive").await?;
     drop(observer);
-    publish_until_latest_value(&publisher, &observation, "still_alive").await?;
+    publish_until_latest_value(&publisher_node, &publisher, &observation, "still_alive").await?;
 
     assert!(matches!(
         observation.status(),
@@ -930,7 +977,7 @@ async fn dropping_last_observation_handle_closes_real_spawned_loop() -> ros_z_de
         .retention(RetentionPolicy::LatestOnly)
         .spawn();
 
-    publish_until_latest_value(&publisher, &observation, "before_drop").await?;
+    publish_until_latest_value(&publisher_node, &publisher, &observation, "before_drop").await?;
     wait_for_subscription_count(&observer_node, "/42/drop_handle", 1).await;
 
     let mut updates = observation.subscribe_updates().unwrap();
@@ -981,7 +1028,13 @@ async fn observing_observation_ignores_unrelated_graph_revision() -> ros_z_debug
         .retention(RetentionPolicy::LatestOnly)
         .spawn();
 
-    publish_until_latest_value(&publisher, &observation, "before_graph_change").await?;
+    publish_until_latest_value(
+        &publisher_node,
+        &publisher,
+        &observation,
+        "before_graph_change",
+    )
+    .await?;
     let mut updates = observation.subscribe_updates().unwrap();
 
     let _unrelated = publisher_node
@@ -1061,7 +1114,9 @@ async fn dynamic_observation_keeps_fresh_graph_baseline_after_late_initial_publi
 
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            publisher.publish(&payload).await?;
+            publisher
+                .publish(publisher_node.clock().now(), &payload)
+                .await?;
             if observation.latest_json() == Some(serde_json::json!({ "value": 31 })) {
                 break;
             }
@@ -1191,7 +1246,9 @@ async fn dynamic_observation_restarts_when_publisher_schema_changes_during_build
 
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            fresh_publisher.publish(&payload).await?;
+            fresh_publisher
+                .publish(publisher_node.clock().now(), &payload)
+                .await?;
             if let Some(record) = observation.latest_json_record()
                 && record.metadata.type_info == fresh_type_info
             {
@@ -1309,7 +1366,9 @@ async fn dynamic_observation_cancels_in_flight_schema_query_on_relevant_graph_ch
 
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            fresh_publisher.publish(&payload).await?;
+            fresh_publisher
+                .publish(publisher_node.clock().now(), &payload)
+                .await?;
             if let Some(record) = observation.latest_json_record()
                 && record.metadata.type_info == fresh_type_info
             {
@@ -1354,7 +1413,13 @@ async fn observing_observation_rebuilds_on_relevant_publisher_graph_change()
         .retention(RetentionPolicy::LatestOnly)
         .spawn();
 
-    publish_until_latest_value(&publisher, &observation, "before_graph_change").await?;
+    publish_until_latest_value(
+        &publisher_node,
+        &publisher,
+        &observation,
+        "before_graph_change",
+    )
+    .await?;
     let mut updates = observation.subscribe_updates().unwrap();
 
     let _second_publisher = publisher_node
@@ -1420,7 +1485,9 @@ async fn dynamic_observation_retries_until_schema_publisher_appears() -> ros_z_d
 
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            publisher.publish(&TwixDebugValue { value: 9 }).await?;
+            publisher
+                .publish(publisher_node.clock().now(), &TwixDebugValue { value: 9 })
+                .await?;
             if observation.latest_json() == Some(serde_json::json!({ "value": 9 })) {
                 break;
             }
@@ -1520,7 +1587,9 @@ async fn dynamic_observation_graph_change_wakes_retry_before_retry_delay() -> ro
 
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            publisher.publish(&TwixDebugValue { value: 17 }).await?;
+            publisher
+                .publish(publisher_node.clock().now(), &TwixDebugValue { value: 17 })
+                .await?;
             if observation.latest_json() == Some(serde_json::json!({ "value": 17 })) {
                 break;
             }
@@ -1608,7 +1677,9 @@ async fn dynamic_observation_retries_when_schema_service_appears_for_visible_pub
 
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            publisher.publish(&payload).await?;
+            publisher
+                .publish(publisher_node.clock().now(), &payload)
+                .await?;
             if observation.latest_json() == Some(serde_json::json!({ "value": 23 })) {
                 break;
             }
@@ -1624,13 +1695,16 @@ async fn dynamic_observation_retries_when_schema_service_appears_for_visible_pub
 }
 
 async fn publish_until_latest_value(
+    node: &ros_z::node::Node,
     publisher: &ros_z::pubsub::Publisher<String>,
     observation: &ros_z_debug::TopicObservation<String>,
     expected: &str,
 ) -> ros_z_debug::Result<()> {
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            publisher.publish(&expected.to_string()).await?;
+            publisher
+                .publish(node.clock().now(), &expected.to_string())
+                .await?;
             if observation
                 .latest()
                 .is_some_and(|record| record.value == expected)

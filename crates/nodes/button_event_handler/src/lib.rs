@@ -35,6 +35,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         );
         last_button_event_types[button_event_message.button] = Some(button_event_message.event);
 
-        buttons_pub.publish(&buttons).await?;
+        buttons_pub.publish(node.clock().now(), &buttons).await?;
     }
 }

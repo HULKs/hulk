@@ -80,7 +80,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let now = node.clock().now().to_wallclock();
 
         additional_last_ball_state_pub
-            .publish_if_subscribed(|| async { last_ball_state })
+            .publish_if_subscribed(node.clock().now(), || async { last_ball_state })
             .await?;
 
         tokio::select! {
@@ -113,7 +113,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     &mut last_ball_field_side,
                 );
 
-                rule_ball_state_pub.publish(&rule_ball).await?;
+                rule_ball_state_pub.publish(node.clock().now(), &rule_ball).await?;
                 continue;
             }
         }
@@ -128,7 +128,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     &mut last_ball_field_side,
                 )
             });
-        ball_state_pub.publish(&ball).await?;
+        ball_state_pub.publish(node.clock().now(), &ball).await?;
         last_ball_state = ball.map(|ball| LastBallState { time: now, ball });
     }
 }

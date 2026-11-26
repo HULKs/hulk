@@ -4,11 +4,12 @@ use std::time::Duration;
 
 use zenoh::sample::Sample;
 
-use crate::Result;
+use crate::entity::EndpointEntity;
 use crate::message::WireDecoder;
 use crate::pubsub::subscriber::{QueueOverflowReporting, SubscriberBuilder, SubscriberResources};
 use crate::qos::QosProfile;
 use crate::queue::BoundedQueue;
+use crate::{EndpointGlobalId, Result};
 
 /// Marker payload for schema-free raw subscribers.
 ///
@@ -36,13 +37,22 @@ impl WireDecoder for RawPayloadCodec {
 /// liveliness, locality, and transient-local replay.
 /// Received samples are delivered as [`Sample`] values without deserialization.
 pub struct RawSubscriber {
+    subscriber_id: EndpointGlobalId,
+    entity: EndpointEntity,
     queue: Arc<BoundedQueue<Sample>>,
     _resources: SubscriberResources,
 }
 
 impl RawSubscriber {
-    pub(super) fn new(queue: Arc<BoundedQueue<Sample>>, resources: SubscriberResources) -> Self {
+    pub(super) fn new(
+        subscriber_id: EndpointGlobalId,
+        entity: EndpointEntity,
+        queue: Arc<BoundedQueue<Sample>>,
+        resources: SubscriberResources,
+    ) -> Self {
         Self {
+            subscriber_id,
+            entity,
             queue,
             _resources: resources,
         }
@@ -54,8 +64,14 @@ impl RawSubscriber {
     /// Zenoh and does not deserialize it into a message type. The receive is
     /// cancel-safe: cancelling this future before it completes does not remove a
     /// sample from the queue.
+    #[tracing::instrument(level = "trace", skip_all, fields(
+        subscriber_id = %self.subscriber_id, topic = %self.entity.topic,
+        node_name = %self.entity.node.name, node_namespace = %self.entity.node.namespace,
+    ))]
     pub async fn recv(&mut self) -> Result<Sample> {
-        Ok(self.queue.recv_async().await)
+        let sample = self.queue.recv_async().await;
+        super::subscriber::trace_dequeue(self.subscriber_id, &self.entity, &sample);
+        Ok(sample)
     }
 }
 

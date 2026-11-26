@@ -108,7 +108,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 inner: support_foot,
             };
 
-            support_foot_pub.publish(&message).await?;
+            support_foot_pub
+                .publish(node.clock().now(), &message)
+                .await?;
         }
 
         last_maybe_support_side = Some(support_foot);

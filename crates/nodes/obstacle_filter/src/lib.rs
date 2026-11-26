@@ -192,9 +192,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 for output in outputs {
                     obstacle_filter_hypotheses_pub
-                        .publish(&output.hypotheses)
+                        .publish(node.clock().now(), &output.hypotheses)
                         .await?;
-                    obstacles_pub.publish(&output.obstacles).await?;
+                    obstacles_pub.publish(node.clock().now(), &output.obstacles).await?;
                 }
             }
             received_player_states = player_states_subscriber.recv() => {
@@ -258,9 +258,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 if let Some(output) = output {
                     obstacle_filter_hypotheses_pub
-                        .publish(&output.hypotheses)
+                        .publish(node.clock().now(), &output.hypotheses)
                         .await?;
-                    obstacles_pub.publish(&output.obstacles).await?;
+                    obstacles_pub.publish(node.clock().now(), &output.obstacles).await?;
                 }
             }
         }

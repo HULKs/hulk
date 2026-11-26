@@ -67,7 +67,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         );
 
         last_contact_pub
-            .publish(&game_controller_filter.last_contact)
+            .publish(node.clock().now(), &game_controller_filter.last_contact)
             .await?;
 
         let last_address = game_controller_filter
@@ -77,9 +77,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .map(|(address, _time)| *address);
 
         game_controller_state_pub
-            .publish(&game_controller_filter.game_controller_state)
+            .publish(
+                node.clock().now(),
+                &game_controller_filter.game_controller_state,
+            )
             .await?;
-        game_controller_address_pub.publish(&last_address).await?;
+        game_controller_address_pub
+            .publish(node.clock().now(), &last_address)
+            .await?;
     }
 }
 
