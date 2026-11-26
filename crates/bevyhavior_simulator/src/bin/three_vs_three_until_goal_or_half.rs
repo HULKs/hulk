@@ -111,5 +111,5 @@ fn update(
 }
 
 fn pose(x: f32, y: f32, yaw: f32) -> Isometry2<Ground, World> {
-    Isometry2::from_parts(vector![x, y], yaw)
+    Isometry2::new(vector![x, y], yaw)
 }

@@ -11,6 +11,18 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use ros_z::{Message, MessageSchema, SchemaBuilder, SerdeCdrCodec};
 
+/// A value expressed in the coordinate frame `Frame`.
+///
+/// Multiplication and division require numeric right-hand operands. Unframed geometric
+/// transforms cannot be composed this way; use [`crate::Transform`] for frame-checked composition.
+///
+/// ```compile_fail
+/// use linear_algebra::{Pose2, nalgebra::Translation2, point};
+///
+/// struct Field;
+/// let pose = Pose2::<Field>::new(point![1.0, 2.0], 0.5);
+/// let _ = pose * Translation2::new(3.0, 4.0);
+/// ```
 #[derive(Debug)]
 // `repr(transparent)` ensures this struct has the same memory layout as `inner`.
 // This guarantees that transmuting between `Framed<Frame, Inner>` and `Inner` is safe.
@@ -23,6 +35,7 @@ pub struct Framed<Frame, Inner> {
 impl<Frame, Inner> Copy for Framed<Frame, Inner> where Inner: Copy {}
 
 impl<Frame, Inner> Framed<Frame, Inner> {
+    /// Labels a value already expressed in `Frame` without changing it.
     pub const fn wrap(inner: Inner) -> Self {
         Self {
             frame: PhantomData,

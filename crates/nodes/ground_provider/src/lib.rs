@@ -123,7 +123,7 @@ fn compute_ground_to_robot(
 
     let ground_to_robot_translation = center(left_sole_in_robot, right_sole_in_robot).coords();
 
-    let robot_to_horizontal = imu_orientation.rotation::<Ground>().inverse();
+    let robot_to_horizontal = imu_orientation.as_transform::<Ground>().inverse();
     let left_sole_to_right_sole = robot_to_horizontal * (right_sole_in_robot - left_sole_in_robot);
     let ground_to_left_sole = Isometry3::<Ground, LeftSoleHorizontal>::from(
         vector![

@@ -332,14 +332,8 @@ mod tests {
 
         for (player_number, pose) in [
             (PlayerNumber::One, Isometry2::identity()),
-            (
-                PlayerNumber::Two,
-                Isometry2::from_parts(vector![1.0, 0.0], 0.0),
-            ),
-            (
-                PlayerNumber::Three,
-                Isometry2::from_parts(vector![0.0, 1.0], 0.0),
-            ),
+            (PlayerNumber::Two, Isometry2::new(vector![1.0, 0.0], 0.0)),
+            (PlayerNumber::Three, Isometry2::new(vector![0.0, 1.0], 0.0)),
         ] {
             app.world_mut().spawn((
                 SimulatorRobot {

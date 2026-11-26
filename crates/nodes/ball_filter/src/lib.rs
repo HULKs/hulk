@@ -590,7 +590,7 @@ mod tests {
             linear_algebra::vector![640.0, 544.0],
             linear_algebra::Isometry3::identity(),
             linear_algebra::Isometry3::identity(),
-            linear_algebra::Isometry3::from_translation(0.0, 0.0, 1.0),
+            linear_algebra::Isometry3::from_translation(linear_algebra::vector![0.0, 0.0, 1.0]),
         );
         let position = camera
             .pixel_to_ground_with_z(point![320.0, 520.0], 0.105)

@@ -127,7 +127,7 @@ impl OdometryEstimator {
         }
 
         let current_to_previous =
-            Isometry2::<Ground, Ground>::from_parts(Vector2::wrap(translation.inner), yaw_delta);
+            Isometry2::<Ground, Ground>::new(Vector2::wrap(translation.inner), yaw_delta);
         let previous_to_odometry = self.pose.as_transform::<Ground>();
         let current_to_odometry = previous_to_odometry * current_to_previous;
         self.pose = pose_with_yaw(current_to_odometry.as_pose(), yaw);

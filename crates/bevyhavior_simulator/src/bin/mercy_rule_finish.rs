@@ -29,18 +29,9 @@ fn startup(
     parameters.ball.last_ball_timeout = Duration::from_secs(2);
 
     for (player_number, pose) in [
-        (
-            PlayerNumber::Three,
-            Isometry2::from_parts(vector![-0.4, 0.0], 0.0),
-        ),
-        (
-            PlayerNumber::Four,
-            Isometry2::from_parts(vector![-1.0, 1.0], 0.0),
-        ),
-        (
-            PlayerNumber::Five,
-            Isometry2::from_parts(vector![-1.0, -1.0], 0.0),
-        ),
+        (PlayerNumber::Three, Isometry2::new(vector![-0.4, 0.0], 0.0)),
+        (PlayerNumber::Four, Isometry2::new(vector![-1.0, 1.0], 0.0)),
+        (PlayerNumber::Five, Isometry2::new(vector![-1.0, -1.0], 0.0)),
     ] {
         commands.spawn(
             SimulatorRobotBundle::new(

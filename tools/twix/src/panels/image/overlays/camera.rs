@@ -58,6 +58,7 @@ pub(super) fn projected_camera_at(
 mod tests {
     use super::*;
     use crate::panels::image::tests::raw_sample;
+    use linear_algebra::vector;
     use ros_z_debug::query::decode_record;
 
     fn record(value: CameraMatrix, nanos: i64) -> CameraRecord {
@@ -78,7 +79,7 @@ mod tests {
     #[test]
     fn camera_interpolation_preserves_endpoints_and_requires_matching_calibration() {
         let camera = |x| CameraMatrix {
-            robot_to_head: Isometry3::from_translation(x, 0.0, 0.0),
+            robot_to_head: Isometry3::from_translation(vector![x, 0.0, 0.0]),
             ..Default::default()
         };
         let before = record(camera(2.0), 10);

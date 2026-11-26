@@ -956,7 +956,7 @@ mod tests {
             &mut ball,
             BTreeMap::from([(
                 robot_id(PlayerNumber::Three),
-                Isometry2::from_parts(vector![1.0, 0.0], 0.0),
+                Isometry2::new(vector![1.0, 0.0], 0.0),
             )]),
         ));
 

@@ -9,6 +9,15 @@ pub type Point<Frame, const DIMENSION: usize, T = f32> =
 pub type Point2<Frame, T = f32> = Point<Frame, 2, T>;
 pub type Point3<Frame, T = f32> = Point<Frame, 3, T>;
 
+/// Creates a point with an inferred or explicitly named coordinate frame.
+///
+/// ```
+/// use linear_algebra::{Point2, point};
+///
+/// struct World;
+/// let start: Point2<World> = point![1.0, 2.0];
+/// let goal = point![<World>, 3.0, 4.0];
+/// ```
 #[macro_export]
 macro_rules! point {
     (<$frame:ty>, $($parameters:expr),* $(,)?) => {

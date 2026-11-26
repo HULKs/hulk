@@ -1,13 +1,13 @@
 use std::f32::consts::PI;
 
 use coordinate_systems::{Field, Ground, World};
-use linear_algebra::{Isometry2, Point2, Vector2};
+use linear_algebra::{Isometry2, Point2};
 use types::field_dimensions::GlobalFieldSide;
 
 pub fn world_to_field_transform(global_field_side: GlobalFieldSide) -> Isometry2<World, Field> {
     match global_field_side {
         GlobalFieldSide::Home => Isometry2::identity(),
-        GlobalFieldSide::Away => Isometry2::from_parts(Vector2::zeros(), PI),
+        GlobalFieldSide::Away => Isometry2::from_angle(PI),
     }
 }
 

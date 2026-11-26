@@ -30,7 +30,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let world_to_field = game_controller_state.map(|game_controller_state| {
             match game_controller_state.global_field_side {
                 GlobalFieldSide::Home => Isometry2::identity(),
-                GlobalFieldSide::Away => Isometry2::rotation(PI),
+                GlobalFieldSide::Away => Isometry2::from_angle(PI),
             }
         });
 
