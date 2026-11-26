@@ -16,10 +16,6 @@ pub fn native_command(root: &Path) -> Command {
     shell_command(root, "default")
 }
 
-pub fn push_cache_command(root: &Path) -> Command {
-    shell_command(root, "push-cache")
-}
-
 fn shell_command(root: &Path, shell: &str) -> Command {
     let mut command = Command::new("bash");
     command
