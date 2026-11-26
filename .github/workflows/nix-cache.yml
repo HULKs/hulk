@@ -1,4 +1,4 @@
-name: Publish SDK cache
+name: Publish Nix cache
 
 on:
   push:
@@ -8,12 +8,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: sdk-cache
+  group: nix-cache
   cancel-in-progress: false
 
 jobs:
   publish:
-    name: Publish robot SDK
+    name: Publish flake outputs
     runs-on:
       - self-hosted
       - v3
@@ -26,8 +26,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
-      - name: Publish SDK cache
-        shell: nix develop .#default --accept-flake-config --no-update-lock-file --command bash -eo pipefail "{0}"
+      - name: Publish flake outputs
         env:
           ATTIC_TOKEN: ${{ secrets.ATTIC_PUBLISH_TOKEN }}
-        run: ./pepsi sdk push-cache
+        run: nix run --accept-flake-config --no-update-lock-file .#pepsi -- cache push

@@ -42,15 +42,16 @@ Packages marked `package.metadata.pepsi.cross-compile = true` use the Nix robot 
 
 Without a manifest argument, builds default to the workstation. For robot builds selected with `-p`, pass `--env nix-robot`. Deploy the matching runtime bundle before uploading.
 
-#### Publishing the SDK cache
+### Publishing the Nix cache
 
-Trusted developers can publish the pinned robot SDK and its dependency closure:
+Trusted developers can publish the packages and development environments exported by the locked flake:
 
 ```sh
-./pepsi sdk push-cache
+./pepsi cache push
 ```
 
-This builds any missing SDK dependencies and pushes to `https://nix-cache.hulks.dev/hulk`.
+This builds workstation and robot packages and the native, Android, and robot SDK shells, then pushes them and their dependencies to `https://nix-cache.hulks.dev/hulk`. It does not upload the entire local Nix store or a Gammaray offline bundle.
+Ensure the cache's access policy permits redistribution of all outputs, including NVIDIA and Android artifacts.
 It fetches Attic on demand from the locked nixpkgs; normal development and SDK preparation do not require Attic.
 For CI, provide the token through the `ATTIC_TOKEN` secret environment variable.
 

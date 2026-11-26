@@ -33,6 +33,7 @@ use wifi::wifi;
 
 mod aliveness;
 mod boosterize;
+mod cache;
 mod cargo;
 mod completions;
 mod deploy_config;
@@ -80,6 +81,9 @@ enum Command {
     /// Compile a local package and all of its dependencies
     #[command(visible_alias = "bau")]
     Build(cargo::Arguments<build::Arguments>),
+    /// Publish flake outputs to the HULKs binary cache
+    #[command(subcommand)]
+    Cache(cache::Arguments),
     /// Check a local package and all of its dependencies for errors
     #[command(visible_alias = "prüf")]
     Check(cargo::Arguments<check::Arguments>),
@@ -216,6 +220,7 @@ async fn main() -> Result<()> {
         Command::Build(arguments) => cargo(arguments, &repository?, &[] as &[&str])
             .await
             .wrap_err("failed to execute build command")?,
+        Command::Cache(arguments) => cache::cache(arguments, &repository?).await?,
         Command::Check(arguments) => cargo(arguments, &repository?, &[] as &[&str])
             .await
             .wrap_err("failed to execute check command")?,

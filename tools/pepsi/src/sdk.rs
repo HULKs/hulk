@@ -7,7 +7,7 @@ use std::{
 use clap::{Args, Subcommand};
 use color_eyre::{
     Result,
-    eyre::{Context, bail},
+    eyre::{Context, bail, ensure},
 };
 use repository::{Repository, cargo::Environment, sdk};
 use tokio::process::Command;
@@ -141,6 +141,23 @@ async fn push_cache(token: &str, mut command: Command) -> Result<()> {
     if !status.success() {
         bail!("SDK cache publication failed with {status}");
     }
+    Ok(())
+}
+
+/// Construct a Nix command with the flakes CLI features enabled.
+pub fn nix() -> Command {
+    let mut command = Command::new("nix");
+    command.args(["--extra-experimental-features", "nix-command flakes"]);
+    command
+}
+
+/// Run a command and report launch or exit failures with the operation name.
+pub async fn run(command: &mut Command, operation: &str) -> Result<()> {
+    let status = command
+        .status()
+        .await
+        .wrap_err_with(|| format!("failed to {operation}"))?;
+    ensure!(status.success(), "failed to {operation}: {status}");
     Ok(())
 }
 
