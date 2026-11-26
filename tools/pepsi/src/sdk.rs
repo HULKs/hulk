@@ -9,10 +9,10 @@ use color_eyre::{
     Result,
     eyre::{Context, bail},
 };
-use repository::{Repository, sdk};
+use repository::{Repository, cargo::Environment, sdk};
 use tokio::process::Command;
 
-use crate::cargo::environment::{Environment, EnvironmentArguments};
+use crate::cargo::environment::EnvironmentArguments;
 
 #[derive(Subcommand)]
 pub enum Arguments {
@@ -49,8 +49,11 @@ pub async fn sdk(arguments: Arguments, repository: &Repository) -> Result<()> {
 }
 
 async fn prepare(arguments: PrepareArguments, repository: &Repository) -> Result<()> {
-    if matches!(arguments.environment.env, Some(Environment::Native)) {
-        bail!("SDK preparation requires the robot environment (--env nix)");
+    if !matches!(
+        arguments.environment.env,
+        None | Some(Environment::NixRobot)
+    ) {
+        bail!("SDK preparation requires the robot environment (--env nix-robot)");
     }
     let mut command = if arguments.environment.remote {
         let mut command = Command::new(repository.root.join("scripts/remote_workspace"));
