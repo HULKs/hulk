@@ -53,6 +53,7 @@
           ./tools/pepsi/src/install-hulks-bundle.sh
           ./tools/pepsi/src/gammaray
           ./tools/run-nix-shell
+          ./tools/twix/presets
         ];
       };
 
