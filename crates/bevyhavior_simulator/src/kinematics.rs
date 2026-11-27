@@ -152,7 +152,10 @@ pub fn move_robots(
                 )
             }
             MotionCommand::StandUp => posture.posture = None,
-            MotionCommand::Damping | MotionCommand::Prepare | MotionCommand::Stand { .. } => {}
+            MotionCommand::Unstiff
+            | MotionCommand::Damping
+            | MotionCommand::Prepare
+            | MotionCommand::Stand { .. } => {}
         }
 
         head_yaw.yaw = apply_head_motion(
@@ -307,7 +310,9 @@ fn desired_head_yaw(
                 (elapsed * std::f32::consts::TAU / period).sin() * amplitude
             }
         }
-        Some(HeadMotion::Center { .. }) | Some(HeadMotion::Damping) | None => 0.0,
+        Some(HeadMotion::Center { .. })
+        | Some(HeadMotion::Damping)
+        | None => 0.0,
     }
 }
 

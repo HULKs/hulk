@@ -112,6 +112,7 @@ fn update(
 
 fn motion_name(motion_command: &MotionCommand) -> &str {
     match motion_command {
+        MotionCommand::Unstiff => "unstiff",
         MotionCommand::Damping => "damping",
         MotionCommand::Prepare => "prepare",
         MotionCommand::Stand { .. } => "stand",
