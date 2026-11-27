@@ -1,0 +1,6 @@
+[project]
+name = "ros-z-tracing"
+version = "0.1.0"
+description = "Convert ROS-Z lifecycle traces to Perfetto."
+requires-python = ">=3.10"
+dependencies = ["perfetto==0.59.1"]
