@@ -1,5 +1,6 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
+    ffi::OsString,
     fs::{self, OpenOptions},
     io::{IsTerminal, Write},
     os::unix::fs::OpenOptionsExt,
@@ -12,7 +13,6 @@ use color_eyre::{
     eyre::{Context, bail, ensure},
 };
 use repository::Repository;
-use serde::{Deserialize, de::IgnoredAny};
 use tokio::process::Command;
 
 use crate::sdk::{nix, run};
@@ -20,7 +20,7 @@ use crate::sdk::{nix, run};
 /// Nix cache subcommands.
 #[derive(Subcommand)]
 pub enum Arguments {
-    /// Build and publish the flake's packages, development shells, and their dependencies
+    /// Build and publish workstation and robot packages and development environments
     Push(PushArguments),
 }
 
@@ -32,32 +32,20 @@ pub struct PushArguments {
     token: Option<String>,
 }
 
-type SystemOutputs = BTreeMap<String, BTreeMap<String, IgnoredAny>>;
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct FlakeOutputs {
-    packages: SystemOutputs,
-    dev_shells: SystemOutputs,
-}
-
-impl FlakeOutputs {
-    fn packages(&self) -> impl Iterator<Item = String> + '_ {
-        self.packages.iter().flat_map(|(system, packages)| {
-            packages
-                .keys()
-                .map(move |name| format!(".#packages.{system}.{name}^*"))
-        })
-    }
-
-    fn dev_shells(&self) -> impl Iterator<Item = String> + '_ {
-        self.dev_shells.iter().flat_map(|(system, shells)| {
-            shells
-                .keys()
-                .map(move |name| format!(".#devShells.{system}.{name}"))
-        })
-    }
-}
+const CACHE_PACKAGES: [&str; 7] = [
+    ".#packages.x86_64-linux.pepsi^out",
+    ".#packages.x86_64-linux.twix^out",
+    ".#packages.x86_64-linux.rosz^out",
+    ".#packages.x86_64-linux.zenoh-bridge-dds^out",
+    ".#packages.aarch64-linux.zenoh-bridge-dds^out",
+    ".#packages.aarch64-linux.onnxruntime-jetson^*",
+    ".#packages.aarch64-linux.hulk-runtime^out",
+];
+const CACHE_SHELLS: [&str; 3] = [
+    ".#devShells.x86_64-linux.default",
+    ".#devShells.x86_64-linux.android",
+    ".#devShells.x86_64-linux.robot-sdk",
+];
 
 /// Run the requested Nix cache subcommand.
 pub async fn cache(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -87,27 +75,6 @@ async fn push(token: &str, root: &Path) -> Result<()> {
         command.current_dir(root).env_remove("ATTIC_TOKEN");
         command
     };
-    let output = nix()
-        .args([
-            "flake",
-            "show",
-            ".",
-            "--json",
-            "--all-systems",
-            "--no-update-lock-file",
-            "--accept-flake-config",
-        ])
-        .stderr(std::process::Stdio::inherit())
-        .output()
-        .await
-        .wrap_err("failed to list flake outputs")?;
-    ensure!(
-        output.status.success(),
-        "failed to list flake outputs: {}",
-        output.status
-    );
-    let outputs: FlakeOutputs =
-        serde_json::from_slice(&output.stdout).wrap_err("failed to decode flake outputs")?;
 
     // Keep the realized outputs rooted until Attic has copied their closures.
     let packages = directory.path().join("packages");
@@ -121,17 +88,17 @@ async fn push(token: &str, root: &Path) -> Result<()> {
                 "--out-link",
             ])
             .arg(packages.join("result"))
-            .args(outputs.packages()),
-        "build flake packages",
+            .args(CACHE_PACKAGES),
+        "build cache packages",
     )
     .await?;
     let mut paths: BTreeSet<_> = fs::read_dir(packages)?
         .map(|entry| entry?.path().canonicalize())
         .collect::<std::io::Result<_>>()?;
 
-    for (index, shell) in outputs.dev_shells().enumerate() {
+    // This realizes the environment used by `nix develop`, not the mkShell output.
+    for (index, shell) in CACHE_SHELLS.into_iter().enumerate() {
         let profile = directory.path().join(format!("dev-shell-{index}"));
-        // This realizes the environment used by `nix develop`, not the mkShell output.
         run(
             nix()
                 .args([
@@ -143,12 +110,14 @@ async fn push(token: &str, root: &Path) -> Result<()> {
                 .arg(&profile)
                 .arg(shell)
                 .stdout(std::process::Stdio::null()),
-            "build development shell environment",
+            &format!("build development shell environment {shell}"),
         )
         .await?;
         paths.insert(profile.canonicalize()?);
     }
 
+    let mut config_home = OsString::from("XDG_CONFIG_HOME=");
+    config_home.push(config_dir);
     run(
         nix()
             .args([
@@ -161,7 +130,7 @@ async fn push(token: &str, root: &Path) -> Result<()> {
                 "--command",
                 "env",
             ])
-            .arg(format!("XDG_CONFIG_HOME={}", config_dir.display()))
+            .arg(config_home)
             .args(["attic", "push", "hulks:hulk"])
             .args(paths),
         "publish flake outputs to the cache",
@@ -232,33 +201,26 @@ mod tests {
     }
 
     #[test]
-    fn selects_all_package_outputs_and_development_shells() -> Result<()> {
-        let outputs: FlakeOutputs = serde_json::from_str(
-            r#"{
-            "packages": {
-                "x86_64-linux": {"twix": {"type": "derivation"}},
-                "aarch64-linux": {"hulk-runtime": {"type": "derivation"}}
-            },
-            "devShells": {
-                "x86_64-linux": {"default": {}, "android": {}, "robot-sdk": {}}
-            }
-        }"#,
-        )?;
+    fn selects_workstation_robot_and_android_cache_outputs() {
         assert_eq!(
-            outputs.packages().collect::<Vec<_>>(),
+            CACHE_PACKAGES,
             [
-                ".#packages.aarch64-linux.hulk-runtime^*",
-                ".#packages.x86_64-linux.twix^*"
+                ".#packages.x86_64-linux.pepsi^out",
+                ".#packages.x86_64-linux.twix^out",
+                ".#packages.x86_64-linux.rosz^out",
+                ".#packages.x86_64-linux.zenoh-bridge-dds^out",
+                ".#packages.aarch64-linux.zenoh-bridge-dds^out",
+                ".#packages.aarch64-linux.onnxruntime-jetson^*",
+                ".#packages.aarch64-linux.hulk-runtime^out",
             ],
         );
         assert_eq!(
-            outputs.dev_shells().collect::<Vec<_>>(),
+            CACHE_SHELLS,
             [
-                ".#devShells.x86_64-linux.android",
                 ".#devShells.x86_64-linux.default",
-                ".#devShells.x86_64-linux.robot-sdk"
+                ".#devShells.x86_64-linux.android",
+                ".#devShells.x86_64-linux.robot-sdk",
             ],
         );
-        Ok(())
     }
 }

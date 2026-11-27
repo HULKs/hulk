@@ -44,16 +44,15 @@ Without a manifest argument, builds default to the workstation. For robot builds
 
 ### Publishing the Nix cache
 
-Trusted developers can publish the packages and development environments exported by the locked flake:
+Trusted developers can publish workstation and robot outputs from the locked flake to the private HULKs cache:
 
 ```sh
 ./pepsi cache push
 ```
 
-This builds workstation and robot packages and the native, Android, and robot SDK shells, then pushes them and their dependencies to `https://nix-cache.hulks.dev/hulk`. It does not upload the entire local Nix store or a Gammaray offline bundle.
-Ensure the cache's access policy permits redistribution of all outputs, including NVIDIA and Android artifacts.
-It fetches Attic on demand from the locked nixpkgs; normal development and SDK preparation do not require Attic.
-For CI, provide the token through the `ATTIC_TOKEN` secret environment variable.
+This publishes the workstation tools, both Zenoh DDS bridge builds, Jetson ONNX Runtime, the robot runtime, and the `default`, `android`, and `robot-sdk` development environments with their dependencies. The cache includes NVIDIA and Android artifacts. Gammaray offline bundles are separate.
+
+CI publishes on pushes to `main` that change the flake, inputs to these outputs, or the cache workflow. The command reads the token from `ATTIC_TOKEN` in CI and fetches Attic on demand from the locked nixpkgs.
 
 ### Build options
 

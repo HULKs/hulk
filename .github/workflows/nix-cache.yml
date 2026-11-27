@@ -3,6 +3,20 @@ name: Publish Nix cache
 on:
   push:
     branches: [main]
+    paths:
+      - .github/workflows/nix-cache.yml
+      - flake.nix
+      - flake.lock
+      # Match the workspace sources and assets used by the published outputs.
+      - '**/*.rs'
+      - '**/*.toml'
+      - '**/Cargo.lock'
+      - crates/hsl_network_messages/headers/RoboCupGameControlData.hpp
+      - tools/pepsi/src/install-hulks-bundle.sh
+      - tools/pepsi/src/gammaray/**
+      - tools/twix/presets/**
+      - nix/**
+      - tools/k1-setup/rootfs_overlay/**
 
 permissions:
   contents: read
@@ -24,8 +38,6 @@ jobs:
         - hulk-nix:/nix
     steps:
       - uses: actions/checkout@v4
-        with:
-          lfs: true
       - name: Publish flake outputs
         env:
           ATTIC_TOKEN: ${{ secrets.ATTIC_PUBLISH_TOKEN }}
