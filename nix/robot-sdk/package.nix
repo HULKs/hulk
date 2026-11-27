@@ -48,9 +48,13 @@ robotPkgs.mkShell {
     fi
 
     if [ -n "''${HULK_ROBOT_BUILD_ROOT:-}" ]; then
-      export CARGO_TARGET_DIR="$(realpath -- "$HULK_ROBOT_BUILD_ROOT")/target/robot"
+      if ! robot_build_root="$(realpath -e -- "$HULK_ROBOT_BUILD_ROOT")"; then
+        printf 'Robot SDK: cannot resolve HULK_ROBOT_BUILD_ROOT: %s\n' "$HULK_ROBOT_BUILD_ROOT" >&2
+        exit 1
+      fi
+      export CARGO_TARGET_DIR="$robot_build_root/target/robot"
       export CARGO_HOME="''${XDG_DATA_HOME:-$HOME/.local/share}/hulks/robot-cargo-home"
-      unset HULK_ROBOT_BUILD_ROOT
+      unset robot_build_root HULK_ROBOT_BUILD_ROOT
     fi
   '';
 }

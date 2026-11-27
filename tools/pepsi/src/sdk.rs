@@ -37,13 +37,17 @@ pub async fn sdk(arguments: Arguments, repository: &Repository) -> Result<()> {
     ) {
         bail!("SDK preparation requires the robot environment (--env nix-robot)");
     }
-    let mut command = build_command(
-        repository,
-        Environment::NixRobot,
-        arguments.environment.remote,
-        "true",
-        &[] as &[&Path],
-    )?;
+
+    let root = &repository.root;
+    let mut command = if arguments.environment.remote {
+        let remote_root = Path::new(".");
+        let build = develop(remote_root, Environment::NixRobot, true, "true".as_ref());
+        remote_command(root, remote_root, &build, &[] as &[&Path])
+    } else {
+        develop(root, Environment::NixRobot, false, "true".as_ref())
+    };
+
+    command.current_dir(root);
     run(&mut command, "prepare robot SDK").await
 }
 
@@ -80,14 +84,28 @@ pub fn build_command(
         true,
         program.as_ref(),
     );
-    let mut command = Command::new(repository.root.join("scripts/remote_workspace"));
+    Ok(remote_command(
+        &repository.root,
+        &repository.root_to_current_dir()?,
+        &build,
+        artifacts,
+    ))
+}
+
+fn remote_command(
+    root: &Path,
+    working_directory: &Path,
+    build: &Command,
+    artifacts: &[impl AsRef<Path>],
+) -> Command {
+    let mut command = Command::new(root.join("scripts/remote_workspace"));
     for artifact in artifacts {
         command.arg("--return-file").arg(artifact.as_ref());
     }
-    command.arg("--cd").arg(repository.root_to_current_dir()?);
+    command.arg("--cd").arg(working_directory);
     command.arg(build.as_std().get_program());
     command.args(build.as_std().get_args());
-    Ok(command)
+    command
 }
 
 fn develop(root: &Path, environment: Environment, remote: bool, program: &OsStr) -> Command {
@@ -97,20 +115,11 @@ fn develop(root: &Path, environment: Environment, remote: bool, program: &OsStr)
         Environment::NixNative => "default",
         Environment::NixRobot => "robot-sdk",
     };
-    let mut command = if remote {
-        let mut command = Command::new("bash");
-        command
-            .arg(root.join("scripts/remote_nix_shell"))
-            .arg(root)
-            .arg(shell);
-        command
-    } else {
-        let mut installable = root.as_os_str().to_os_string();
-        installable.push(format!("#{shell}"));
-        let mut command = nix();
-        command.arg("develop").arg(installable);
-        command
-    };
+    let mut command = Command::new("bash");
+    command
+        .arg(root.join("scripts/nix_shell"))
+        .arg(root)
+        .arg(shell);
     if environment == Environment::NixRobot {
         command
             .args(["--set-env-var", "HULK_ROBOT_BUILD_ROOT"])
@@ -129,12 +138,12 @@ pub fn nix() -> Command {
     command
 }
 
-/// Run a command and report launch or exit failures with the operation name.
+/// Run a command and report failures with the operation name.
 pub async fn run(command: &mut Command, operation: &str) -> Result<()> {
-    let status = command
-        .status()
-        .await
-        .wrap_err_with(|| format!("failed to {operation}"))?;
+    let status = command.status().await.wrap_err_with(|| {
+        let program = command.as_std().get_program().to_string_lossy();
+        format!("failed to {operation}: could not launch {program}")
+    })?;
     ensure!(status.success(), "failed to {operation}: {status}");
     Ok(())
 }

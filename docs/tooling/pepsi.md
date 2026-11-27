@@ -31,6 +31,8 @@ See [Remote Control](remote_control.md) for setup, gamepad bindings, and restora
 
 `./pepsi` builds Pepsi itself from the working tree with Cargo on your `PATH`. By default, Pepsi also uses Cargo on the build host's `PATH` for workstation commands. Select it explicitly with `--env path-cargo`. If you need Rust or libraries from the flake, such as ONNX Runtime, run `nix develop` first or use `--env nix-native` to have Pepsi select the workstation Nix shell.
 
+When Pepsi enters a Nix shell for a local or remote build, it stages only the files needed by the shell. Cargo still builds in the checkout.
+
 ### Robot SDK
 
 Packages marked `package.metadata.pepsi.cross-compile = true` use the Nix robot SDK. If the flag is missing or `false`, Pepsi uses Cargo on `PATH`. Use `--env nix-robot` to select the robot SDK explicitly. The robot SDK requires Nix on x86_64 Linux, whether the build is local or remote.
@@ -154,6 +156,6 @@ In your local checkout, set `REMOTE_WORKSPACE` or create a `.REMOTE_WORKSPACE` f
 ./pepsi build --remote
 ```
 
-This syncs your local checkout and builds on the remote host. For Nix builds, Pepsi stages only the files needed to enter the dev shell; Cargo still builds in the synced checkout.
+This syncs your local checkout and builds on the remote host.
 `upload` and `pregame` also accept `--remote`.
 Use the lab VPN when connecting from outside the lab.

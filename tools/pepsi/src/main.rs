@@ -199,6 +199,15 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|| {
             let current_directory = current_dir().wrap_err("failed to get current directory")?;
             Repository::find_root(current_directory).wrap_err("failed to find repository root")
+        })
+        .and_then(|mut repository| {
+            repository.root = repository.root.canonicalize().wrap_err_with(|| {
+                format!(
+                    "failed to canonicalize repository root {}",
+                    repository.root.display()
+                )
+            })?;
+            Ok(repository)
         });
     if let Ok(repository) = &repository
         && let Err(error) = check_for_update(

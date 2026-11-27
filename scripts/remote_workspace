@@ -5,7 +5,7 @@ set -e
 
 # cd to repository base directory for better referencing
 INVOCATION_DIR=`pwd -P`
-BASEDIR=`cd $(dirname $0); pwd -P`
+BASEDIR=$(cd -- "$(dirname -- "$0")" && pwd -P)
 BASEDIR=${BASEDIR%/*}
 cd "$BASEDIR"
 
@@ -69,8 +69,8 @@ echo Using remote $(tput setaf 6)$remoteWorkspace$(tput sgr 0)
 
 # extract login information and remote path from workspace
 # assumes workspace path of this format: `user@domain:path/to/hulk/repo`
-address="$(echo $remoteWorkspace | cut -d':' -f 1)"
-remotePath="$(echo $remoteWorkspace | cut -d':' -f 2-)"
+address="${remoteWorkspace%%:*}"
+remotePath="${remoteWorkspace#*:}"
 
 # Keep a remote target directory or symlink out of the source sync.
 rsync -rlpgoDhc --info progress2 --exclude='.git' --exclude='/target' --filter="dir-merge,- .gitignore" --delete . "$remoteWorkspace"
