@@ -757,7 +757,7 @@ async fn test_large_payload() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn test_logical_clock_is_used_for_attachment_timestamps() {
+async fn prepared_publish_samples_the_logical_clock_when_polled() {
     let clock = Clock::logical(Time::zero());
     clock.advance(Duration::from_secs(5)).unwrap();
 
@@ -786,23 +786,22 @@ async fn test_logical_clock_is_used_for_attachment_timestamps() {
 
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    publisher
-        .publish(&TestMessage {
-            data: vec![1],
-            counter: 1,
-        })
-        .await
-        .unwrap();
+    let prepared = publisher.prepare();
+    let id = prepared.id();
+    let message = TestMessage {
+        data: vec![1],
+        counter: 1,
+    };
+    let publish = prepared.publish(&message);
+    clock.advance(Duration::from_secs(5)).unwrap();
+    publish.await.unwrap();
 
     let sample = tokio::time::timeout(Duration::from_secs(1), subscriber.recv())
         .await
         .expect("receive should not time out")
         .expect("receive should succeed");
-    let attachment = sample
-        .attachment()
-        .and_then(|att| Attachment::try_from(att).ok())
-        .expect("Missing attachment");
-
+    let attachment = Attachment::try_from(&sample).unwrap();
+    assert_eq!(id, (&attachment).into());
     assert_eq!(attachment.source_time(), clock.now());
 }
 

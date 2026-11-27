@@ -460,7 +460,7 @@ impl ServiceQueryHandler {
     fn handle(&self, query: Query) {
         match self {
             ServiceQueryHandler::Queue(queue) => {
-                if queue.push(query) {
+                if queue.push(query).is_some() {
                     tracing::debug!("Queue full, dropped oldest service request");
                 }
             }
