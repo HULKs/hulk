@@ -46,7 +46,7 @@ If no branch succeeds, behavior falls back to a safe standing command.
 
 ## Ready Formations
 
-Ready uses static posistions from `behavior_node.kickoff`, expressed in normalized field coordinates and they orientate towards the center of the field.
+Ready uses static positions from `behavior_node.kickoff` in [normalized field coordinates](../perception/localization.md#coordinate-frames). Robots orient toward the center of the field.
 
 - The player selected by `goalkeeper.player_number` uses `goalkeeper_position`.
 - On our kickoff, the highest-numbered active field player uses `striker_position`.
