@@ -1,7 +1,7 @@
 use std::{boxed::Box, future::Future, pin::Pin};
 use std::{sync::Arc, time::Duration};
 
-use color_eyre::Result;
+use color_eyre::{Result, eyre::WrapErr};
 use filtering::{
     kalman_filter::KalmanFilter, multivariate_normal_distribution::MultivariateNormalDistribution,
 };
@@ -146,9 +146,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let parameters = parameters_snapshot.typed();
                 let item = received_detections?;
 
-                let outputs = block_in_place(|| {
+                let outputs = block_in_place(|| -> Result<_> {
                     let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
-                        return Vec::new();
+                        return Ok(Vec::new());
                     };
                     let mut outputs = Vec::new();
                     for (detection_time, (detected_objects,)) in item.persistent {
@@ -166,7 +166,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                             &detected_objects,
                             camera_matrix.as_ref().map(|wrapper| &wrapper.inner),
                             current_odometry_to_last_odometry.as_ref().map(Arc::as_ref),
-                        );
+                        )?;
 
                         let primary_state = primary_state_cache
                             .get_latest()
@@ -181,14 +181,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                             ground_to_field.as_ref().map(Arc::as_ref),
                             primary_state,
                             fall_detection.as_ref().map(Arc::as_ref),
-                        );
+                        )?;
                         outputs.push(ObstacleFilterOutput {
                             hypotheses: obstacle_filter.hypotheses.clone(),
                             obstacles,
                         });
                     }
-                    outputs
-                });
+                    Ok(outputs)
+                })?;
 
                 for output in outputs {
                     obstacle_filter_hypotheses_pub
@@ -201,7 +201,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let parameters_snapshot = parameters.snapshot();
                 let parameters = parameters_snapshot.typed();
                 let player_states = received_player_states?;
-                let output = block_in_place(|| {
+                let output = block_in_place(|| -> Result<_> {
                     let own_player_number = player_number_cache
                         .get_latest()
                         .map(|player_number| *player_number);
@@ -225,16 +225,18 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                             parameters,
                             &player_state,
                             ground_to_field.as_ref(),
-                        );
+                        )?;
                         last_ground_to_field = Some(ground_to_field);
                         processed_player_state = true;
                     }
 
                     if !processed_player_state {
-                        return None;
+                        return Ok(None);
                     }
 
-                    let field_dimensions = field_dimensions_cache.get_latest()?;
+                    let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
+                        return Ok(None);
+                    };
                     let primary_state = primary_state_cache
                         .get_latest()
                         .map(|primary_state| *primary_state)
@@ -248,13 +250,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         last_ground_to_field.as_ref().map(Arc::as_ref),
                         primary_state,
                         fall_detection.as_ref().map(Arc::as_ref),
-                    );
+                    )?;
 
-                    Some(ObstacleFilterOutput {
+                    Ok(Some(ObstacleFilterOutput {
                         hypotheses: obstacle_filter.hypotheses.clone(),
                         obstacles,
-                    })
-                });
+                    }))
+                })?;
 
                 if let Some(output) = output {
                     obstacle_filter_hypotheses_pub
@@ -275,14 +277,14 @@ impl ObstacleFilter {
         detected_objects: &[Object<RobocupObjectLabel>],
         camera_matrix: Option<&CameraMatrix>,
         current_odometry_to_last_odometry: Option<&na::Isometry2<f32>>,
-    ) {
+    ) -> Result<()> {
         let current_odometry_to_last_odometry = current_odometry_to_last_odometry
             .copied()
             .unwrap_or_default();
         self.predict_hypotheses_with_odometry(
             current_odometry_to_last_odometry.inverse(),
             Matrix2::from_diagonal(&parameters.process_noise),
-        );
+        )?;
 
         if let Some(camera_matrix) = camera_matrix
             && parameters.use_detected_objects
@@ -298,9 +300,11 @@ impl ObstacleFilter {
                     parameters.object_detection_measurement_matching_distance,
                     Matrix2::from_diagonal(&measurement_noise),
                     MeasurementKind::Own,
-                );
+                )
+                .wrap_err("failed to update obstacle hypotheses from object detection")?;
             }
         }
+        Ok(())
     }
 
     fn process_network_player_state(
@@ -309,7 +313,7 @@ impl ObstacleFilter {
         parameters: &ObstacleFilterParameters,
         player_state: &PlayerState,
         ground_to_field: &Isometry2<Ground, Field>,
-    ) {
+    ) -> Result<()> {
         let player_position = measured_player_position(player_state, ground_to_field);
         self.update_hypotheses_with_measurement(
             player_position,
@@ -318,7 +322,8 @@ impl ObstacleFilter {
             parameters.network_robot_measurement_matching_distance,
             Matrix2::from_diagonal(&parameters.network_robot_measurement_noise),
             MeasurementKind::NetworkRobot,
-        );
+        )
+        .wrap_err("failed to update obstacle hypotheses from network player state")
     }
 
     fn compose_outputs(
@@ -329,12 +334,12 @@ impl ObstacleFilter {
         ground_to_field: Option<&Isometry2<Ground, Field>>,
         primary_state: PrimaryState,
         fall_detection: Option<&FallDetection>,
-    ) -> Vec<Obstacle> {
+    ) -> Result<Vec<Obstacle>> {
         self.remove_hypotheses(
             now,
             parameters.hypothesis_timeout,
             parameters.hypothesis_merge_distance,
-        );
+        )?;
 
         let became_unpenalized = self.last_primary_state == PrimaryState::Penalized
             && primary_state != PrimaryState::Penalized;
@@ -391,27 +396,31 @@ impl ObstacleFilter {
             .into_iter()
             .map(|goal_post| Obstacle::goal_post(goal_post, parameters.goal_post_obstacle_radius));
 
-        chain!(obstacles, goal_post_obstacles).collect()
+        Ok(chain!(obstacles, goal_post_obstacles).collect())
     }
 
     fn predict_hypotheses_with_odometry(
         &mut self,
         last_odometry_to_current_odometry: na::Isometry2<f32>,
         process_noise: Matrix2<f32>,
-    ) {
-        for hypothesis in &mut self.hypotheses {
+    ) -> Result<()> {
+        for (index, hypothesis) in self.hypotheses.iter_mut().enumerate() {
             let state_prediction = last_odometry_to_current_odometry
                 .rotation
                 .to_rotation_matrix();
             let control_input_model = Matrix2::identity();
             let odometry_translation = last_odometry_to_current_odometry.translation.vector;
-            hypothesis.state.predict(
-                *state_prediction.matrix(),
-                control_input_model,
-                odometry_translation,
-                process_noise,
-            )
+            hypothesis
+                .state
+                .predict(
+                    *state_prediction.matrix(),
+                    control_input_model,
+                    odometry_translation,
+                    process_noise,
+                )
+                .wrap_err_with(|| format!("failed to predict obstacle hypothesis {index}"))?;
         }
+        Ok(())
     }
 
     fn update_hypotheses_with_measurement(
@@ -422,7 +431,7 @@ impl ObstacleFilter {
         matching_distance: f32,
         measurement_noise: Matrix2<f32>,
         kind: MeasurementKind,
-    ) {
+    ) -> Result<()> {
         let mut matching_hypotheses = self
             .hypotheses
             .iter_mut()
@@ -437,18 +446,22 @@ impl ObstacleFilter {
                 detection_time,
                 measurement_noise,
             );
-            return;
+            return Ok(());
         }
-        matching_hypotheses.for_each(|hypothesis| {
-            hypothesis.state.update(
-                Matrix2::identity(),
-                detected_position.inner.coords,
-                if kind == MeasurementKind::NetworkRobot {
-                    measurement_noise
-                } else {
-                    measurement_noise * (detected_position.coords().norm_squared() + f32::EPSILON)
-                },
-            );
+        for hypothesis in matching_hypotheses {
+            hypothesis
+                .state
+                .update(
+                    Matrix2::identity(),
+                    detected_position.inner.coords,
+                    if kind == MeasurementKind::NetworkRobot {
+                        measurement_noise
+                    } else {
+                        measurement_noise
+                            * (detected_position.coords().norm_squared() + f32::EPSILON)
+                    },
+                )
+                .wrap_err("failed to update matched obstacle hypothesis")?;
             hypothesis.obstacle_kind = match hypothesis.obstacle_kind {
                 ObstacleKind::Robot | ObstacleKind::GoalPost | ObstacleKind::Person => {
                     hypothesis.obstacle_kind
@@ -458,7 +471,8 @@ impl ObstacleFilter {
             };
             hypothesis.measurement_count += 1;
             hypothesis.last_update = detection_time;
-        });
+        }
+        Ok(())
     }
 
     fn spawn_hypothesis(
@@ -480,7 +494,12 @@ impl ObstacleFilter {
         self.hypotheses.push(new_hypothesis);
     }
 
-    fn remove_hypotheses(&mut self, now: Time, hypothesis_timeout: Duration, merge_distance: f32) {
+    fn remove_hypotheses(
+        &mut self,
+        now: Time,
+        hypothesis_timeout: Duration,
+        merge_distance: f32,
+    ) -> Result<()> {
         self.hypotheses
             .retain(|hypothesis| now.duration_since(hypothesis.last_update) < hypothesis_timeout);
 
@@ -495,11 +514,14 @@ impl ObstacleFilter {
                     });
             match hypothesis_in_merge_distance {
                 Some(existing_hypothesis) => {
-                    existing_hypothesis.state.update(
-                        Matrix2::identity(),
-                        hypothesis.state.mean,
-                        hypothesis.state.covariance,
-                    );
+                    existing_hypothesis
+                        .state
+                        .update(
+                            Matrix2::identity(),
+                            hypothesis.state.mean,
+                            hypothesis.state.covariance,
+                        )
+                        .wrap_err("failed to merge obstacle hypotheses")?;
                     existing_hypothesis.obstacle_kind = match existing_hypothesis.obstacle_kind {
                         ObstacleKind::Robot | ObstacleKind::GoalPost | ObstacleKind::Person => {
                             existing_hypothesis.obstacle_kind
@@ -512,6 +534,7 @@ impl ObstacleFilter {
             }
         }
         self.hypotheses = deduplicated_hypotheses;
+        Ok(())
     }
 }
 
