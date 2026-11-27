@@ -79,6 +79,20 @@
     active_defense_maximum_robot_distance: 2.0,
     distance_to_goalpost: 0.15,
   },
+  replacement_goalkeeper: {
+    election_window: {
+      secs: 0,
+      nanos: 500000000,
+    },
+    no_claim_timeout: {
+      secs: 2,
+      nanos: 0,
+    },
+    backoff_step: {
+      secs: 0,
+      nanos: 200000000,
+    },
+  },
   search: {
     position_reached_cell_fraction: 0.4,
     minimum_position_reached_distance: 0.1,

@@ -234,11 +234,16 @@ pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
         return Status::Failure;
     }
 
+    let goalkeeper_player_number = blackboard
+        .replacement_goalkeeper_coordinator
+        .replacement_goalkeeper_number()
+        .unwrap_or(blackboard.parameters.goalkeeper.player_number);
+
     let kickoff_pose = select_kickoff_pose(
         blackboard,
         player_number,
         game_controller_state,
-        blackboard.parameters.goalkeeper.player_number,
+        goalkeeper_player_number,
         &blackboard.parameters.kickoff,
         &blackboard.field_dimensions,
     );

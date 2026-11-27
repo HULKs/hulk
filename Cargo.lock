@@ -784,6 +784,7 @@ dependencies = [
  "coordinate_systems",
  "filtering",
  "hsl_network_messages",
+ "json5",
  "kinematics",
  "linear_algebra",
  "nalgebra 0.34.2",

@@ -10,6 +10,10 @@ use voronoi::Ownership;
 
 use crate::node::Blackboard;
 
+pub fn is_active_replacement_goalkeeper(blackboard: &mut Blackboard) -> bool {
+    blackboard.replacement_goalkeeper_coordinator.is_active()
+}
+
 pub fn is_ball_interception_candidate(blackboard: &mut Blackboard) -> bool {
     if let (Some(ball), Some(ground_to_field)) = (
         &blackboard.ball,
@@ -111,6 +115,7 @@ pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
             false
         };
 
+    // timer for hysteresis
     let now = blackboard.world_state.now;
     if raw_is_closest {
         blackboard.closest_to_ball_entered_area_since =

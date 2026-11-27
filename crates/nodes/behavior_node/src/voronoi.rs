@@ -7,6 +7,9 @@ use voronoi::VoronoiGrid;
 use crate::node::Blackboard;
 
 pub fn calculate_voronoi_grid(blackboard: &mut Blackboard) -> Status {
+    if blackboard.voronoi_map.is_some() {
+        return Status::Success;
+    }
     let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field else {
         return Status::Failure;
     };
