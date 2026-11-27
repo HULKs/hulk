@@ -45,16 +45,12 @@
       nativeStdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.stdenv;
       nativeOrt = "${pkgs.lib.getLib pkgs.onnxruntime}/lib";
 
-      src = pkgs.lib.fileset.toSource {
-        root = ./.;
-        fileset = pkgs.lib.fileset.unions [
-          (craneLibrary.fileset.commonCargoSources ./.)
-          ./crates/hsl_network_messages/headers/RoboCupGameControlData.hpp
-          ./tools/pepsi/src/install-hulks-bundle.sh
-          ./tools/pepsi/src/gammaray
-          ./tools/twix/presets
-        ];
-      };
+      workspaceFiles = pkgs.lib.fileset.unions [
+        (craneLibrary.fileset.commonCargoSources ./.)
+        ./crates/hsl_network_messages/headers/RoboCupGameControlData.hpp
+        ./tools/pepsi/src/install-hulks-bundle.sh
+        ./tools/pepsi/src/gammaray
+      ];
 
       guiLibraries = with pkgs; [ libGL libxkbcommon wayland libx11 vulkan-loader ];
       workspaceVersion = workspace.workspace.package.version;
@@ -63,6 +59,7 @@
         name,
         cargoToml,
         package ? name,
+        extraFiles ? [ ],
         nativeBuildInputs ? [ ],
         libraries ? [ ],
       }:
@@ -72,7 +69,11 @@
           version = if builtins.isString packageVersion then packageVersion else workspaceVersion;
         in
         craneLibrary.buildPackage {
-          inherit src version;
+          inherit version;
+          src = pkgs.lib.fileset.toSource {
+            root = ./.;
+            fileset = pkgs.lib.fileset.unions ([ workspaceFiles ] ++ extraFiles);
+          };
           pname = name;
           strictDeps = true;
           nativeBuildInputs =
@@ -94,6 +95,7 @@
       twix = mkCrate {
         name = "twix";
         cargoToml = ./tools/twix/Cargo.toml;
+        extraFiles = [ ./tools/twix/presets ];
         nativeBuildInputs = with pkgs; [ pkg-config rustPlatform.bindgenHook ];
         libraries = guiLibraries;
       };
