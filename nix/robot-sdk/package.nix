@@ -40,4 +40,21 @@ robotPkgs.mkShell {
   AR_x86_64_unknown_linux_gnu = "${pkgs.stdenv.cc.bintools}/bin/ar";
   X86_64_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR = "${pkgs.lib.getLib pkgs.openssl}/lib";
   X86_64_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR = "${pkgs.lib.getDev pkgs.openssl}/include";
+
+  shellHook = ''
+    # nix develop preserves inherited variables the SDK doesn't set itself.
+    if [ "''${HULK_NATIVE_SHELL:-}" = 1 ]; then
+      unset HULK_NATIVE_SHELL CARGO_ENCODED_RUSTFLAGS NIX_CFLAGS_LINK ORT_SKIP_DOWNLOAD
+    fi
+
+    if [ -n "''${HULK_ROBOT_BUILD_ROOT:-}" ]; then
+      if ! robot_build_root="$(realpath -e -- "$HULK_ROBOT_BUILD_ROOT")"; then
+        printf 'Robot SDK: cannot resolve HULK_ROBOT_BUILD_ROOT: %s\n' "$HULK_ROBOT_BUILD_ROOT" >&2
+        exit 1
+      fi
+      export CARGO_TARGET_DIR="$robot_build_root/target/robot"
+      export CARGO_HOME="''${XDG_DATA_HOME:-$HOME/.local/share}/hulks/robot-cargo-home"
+      unset robot_build_root HULK_ROBOT_BUILD_ROOT
+    fi
+  '';
 }

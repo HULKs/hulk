@@ -31,6 +31,8 @@ See [Remote Control](remote_control.md) for setup, gamepad bindings, and restora
 
 `./pepsi` builds Pepsi itself from the working tree with Cargo on your `PATH`. By default, Pepsi also uses Cargo on the build host's `PATH` for workstation commands. Select it explicitly with `--env path-cargo`. If you need Rust or libraries from the flake, such as ONNX Runtime, run `nix develop` first or use `--env nix-native` to have Pepsi select the workstation Nix shell.
 
+When Pepsi enters a Nix shell for a local or remote build, it stages only the files needed by the shell. Cargo still builds in the checkout.
+
 ### Robot SDK
 
 Packages marked `package.metadata.pepsi.cross-compile = true` use the Nix robot SDK. If the flag is missing or `false`, Pepsi uses Cargo on `PATH`. Use `--env nix-robot` to select the robot SDK explicitly. The robot SDK requires Nix on x86_64 Linux, whether the build is local or remote.
@@ -42,17 +44,17 @@ Packages marked `package.metadata.pepsi.cross-compile = true` use the Nix robot 
 
 Without a manifest argument, builds default to the workstation. For robot builds selected with `-p`, pass `--env nix-robot`. Deploy the matching runtime bundle before uploading.
 
-#### Publishing the SDK cache
+### Publishing the Nix cache
 
-Trusted developers can publish the pinned robot SDK and its dependency closure:
+Trusted developers can publish workstation and robot outputs from the locked flake to the private HULKs cache:
 
 ```sh
-./pepsi sdk push-cache
+./pepsi cache push
 ```
 
-This builds any missing SDK dependencies and pushes to `https://nix-cache.hulks.dev/hulk`.
-It fetches Attic on demand from the locked nixpkgs; normal development and SDK preparation do not require Attic.
-For CI, provide the token through the `ATTIC_TOKEN` secret environment variable.
+This publishes the workstation tools, both Zenoh DDS bridge builds, Jetson ONNX Runtime, the robot runtime, and the `default`, `android`, and `robot-sdk` development environments with their dependencies. The cache includes NVIDIA and Android artifacts. Gammaray offline bundles are separate.
+
+CI publishes on pushes to `main` that change the flake, inputs to these outputs, or the cache workflow. The command reads the token from `ATTIC_TOKEN` in CI and fetches Attic on demand from the locked nixpkgs.
 
 ### Build options
 

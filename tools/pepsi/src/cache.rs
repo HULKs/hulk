@@ -1,0 +1,226 @@
+use std::{
+    collections::BTreeSet,
+    ffi::OsString,
+    fs::{self, OpenOptions},
+    io::{IsTerminal, Write},
+    os::unix::fs::OpenOptionsExt,
+    path::Path,
+};
+
+use clap::{Args, Subcommand};
+use color_eyre::{
+    Result,
+    eyre::{Context, bail, ensure},
+};
+use repository::Repository;
+use tokio::process::Command;
+
+use crate::sdk::{nix, run};
+
+/// Nix cache subcommands.
+#[derive(Subcommand)]
+pub enum Arguments {
+    /// Build and publish workstation and robot packages and development environments
+    Push(PushArguments),
+}
+
+/// Options for publishing the Nix cache.
+#[derive(Args)]
+pub struct PushArguments {
+    /// Token with read/push access to the hulk cache (prefer ATTIC_TOKEN over --token)
+    #[arg(long, env = "ATTIC_TOKEN", hide_env_values = true)]
+    token: Option<String>,
+}
+
+const CACHE_PACKAGES: [&str; 7] = [
+    ".#packages.x86_64-linux.pepsi^out",
+    ".#packages.x86_64-linux.twix^out",
+    ".#packages.x86_64-linux.rosz^out",
+    ".#packages.x86_64-linux.zenoh-bridge-dds^out",
+    ".#packages.aarch64-linux.zenoh-bridge-dds^out",
+    ".#packages.aarch64-linux.onnxruntime-jetson^*",
+    ".#packages.aarch64-linux.hulk-runtime^out",
+];
+const CACHE_SHELLS: [&str; 3] = [
+    ".#devShells.x86_64-linux.default",
+    ".#devShells.x86_64-linux.android",
+    ".#devShells.x86_64-linux.robot-sdk",
+];
+
+/// Run the requested Nix cache subcommand.
+pub async fn cache(arguments: Arguments, repository: &Repository) -> Result<()> {
+    let Arguments::Push(arguments) = arguments;
+    let token = cache_token(arguments.token).await?;
+    push(&token, &repository.root).await
+}
+
+async fn push(token: &str, root: &Path) -> Result<()> {
+    let directory = tempfile::tempdir().wrap_err("failed to create temporary cache workspace")?;
+    let config_dir = directory.path().join("config");
+    fs::create_dir_all(config_dir.join("attic"))?;
+    let config = toml::toml! {
+        [servers.hulks]
+        endpoint = "https://nix-cache.hulks.dev/"
+        token = token
+    };
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(config_dir.join("attic/config.toml"))?
+        .write_all(toml::to_string(&config)?.as_bytes())?;
+
+    let nix = || {
+        let mut command = nix();
+        command.current_dir(root).env_remove("ATTIC_TOKEN");
+        command
+    };
+
+    // Keep the realized outputs rooted until Attic has copied their closures.
+    let packages = directory.path().join("packages");
+    fs::create_dir(&packages)?;
+    run(
+        nix()
+            .arg("build")
+            .args([
+                "--no-update-lock-file",
+                "--accept-flake-config",
+                "--out-link",
+            ])
+            .arg(packages.join("result"))
+            .args(CACHE_PACKAGES),
+        "build cache packages",
+    )
+    .await?;
+    let mut paths: BTreeSet<_> = fs::read_dir(packages)?
+        .map(|entry| entry?.path().canonicalize())
+        .collect::<std::io::Result<_>>()?;
+
+    // This realizes the environment used by `nix develop`, not the mkShell output.
+    for (index, shell) in CACHE_SHELLS.into_iter().enumerate() {
+        let profile = directory.path().join(format!("dev-shell-{index}"));
+        run(
+            nix()
+                .args([
+                    "print-dev-env",
+                    "--no-update-lock-file",
+                    "--accept-flake-config",
+                    "--profile",
+                ])
+                .arg(&profile)
+                .arg(shell)
+                .stdout(std::process::Stdio::null()),
+            &format!("build development shell environment {shell}"),
+        )
+        .await?;
+        paths.insert(profile.canonicalize()?);
+    }
+
+    let mut config_home = OsString::from("XDG_CONFIG_HOME=");
+    config_home.push(config_dir);
+    run(
+        nix()
+            .args([
+                "shell",
+                "--inputs-from",
+                ".",
+                "nixpkgs#attic-client",
+                "--accept-flake-config",
+                "--no-update-lock-file",
+                "--command",
+                "env",
+            ])
+            .arg(config_home)
+            .args(["attic", "push", "hulks:hulk"])
+            .args(paths),
+        "publish flake outputs to the cache",
+    )
+    .await
+}
+
+async fn cache_token(token: Option<String>) -> Result<String> {
+    let token = match token {
+        Some(token) => token,
+        None => {
+            if !std::io::stdin().is_terminal() {
+                bail!("set ATTIC_TOKEN to publish the cache non-interactively");
+            }
+            let output = Command::new("bash")
+                .args([
+                    "-c",
+                    r#"IFS= read -r -s -p 'Cache upload token: ' token
+status=$?
+printf '\n' >&2
+if [ "$status" -ne 0 ]; then exit "$status"; fi
+printf '%s' "$token""#,
+                ])
+                .stdin(std::process::Stdio::inherit())
+                .stderr(std::process::Stdio::inherit())
+                .output()
+                .await
+                .wrap_err("failed to prompt for cache upload token")?;
+            ensure!(output.status.success(), "failed to read cache upload token");
+            String::from_utf8(output.stdout).wrap_err("cache upload token is not UTF-8")?
+        }
+    };
+    ensure!(
+        !token.trim().is_empty(),
+        "cache upload token must not be empty"
+    );
+    Ok(token)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn push_help_hides_token_value() {
+        let mut command = PushArguments::augment_args(clap::Command::new("push"));
+        let token = command
+            .get_arguments()
+            .find(|argument| argument.get_id() == "token")
+            .unwrap();
+        assert_eq!(token.get_env(), Some(std::ffi::OsStr::new("ATTIC_TOKEN")));
+        assert!(token.is_hide_env_values_set());
+        assert!(
+            command
+                .render_long_help()
+                .to_string()
+                .contains("[env: ATTIC_TOKEN]")
+        );
+    }
+
+    #[tokio::test]
+    async fn cache_token_rejects_empty_credentials() {
+        assert!(cache_token(Some("  ".to_owned())).await.is_err());
+        assert_eq!(
+            cache_token(Some("token".to_owned())).await.unwrap(),
+            "token"
+        );
+    }
+
+    #[test]
+    fn selects_workstation_robot_and_android_cache_outputs() {
+        assert_eq!(
+            CACHE_PACKAGES,
+            [
+                ".#packages.x86_64-linux.pepsi^out",
+                ".#packages.x86_64-linux.twix^out",
+                ".#packages.x86_64-linux.rosz^out",
+                ".#packages.x86_64-linux.zenoh-bridge-dds^out",
+                ".#packages.aarch64-linux.zenoh-bridge-dds^out",
+                ".#packages.aarch64-linux.onnxruntime-jetson^*",
+                ".#packages.aarch64-linux.hulk-runtime^out",
+            ],
+        );
+        assert_eq!(
+            CACHE_SHELLS,
+            [
+                ".#devShells.x86_64-linux.default",
+                ".#devShells.x86_64-linux.android",
+                ".#devShells.x86_64-linux.robot-sdk",
+            ],
+        );
+    }
+}

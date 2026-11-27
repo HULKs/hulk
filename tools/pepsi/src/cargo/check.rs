@@ -1,5 +1,5 @@
 use clap::{ArgAction, Parser};
-use repository::cargo::Cargo;
+use tokio::process::Command;
 
 use super::{CargoCommand, common::CommonOptions, heading};
 
@@ -104,7 +104,8 @@ pub struct CheckOptions {
 }
 
 impl CheckOptions {
-    pub fn apply(&self, cargo: &mut Cargo) {
+    /// Append the options shared by `cargo check` and `cargo clippy`.
+    pub fn apply(&self, cargo: &mut Command) {
         for pkg in &self.packages {
             cargo.arg("--package").arg(pkg);
         }
@@ -180,7 +181,7 @@ pub struct Arguments {
 impl CargoCommand for Arguments {
     const SUB_COMMAND: &'static [&'static str] = &["check"];
 
-    fn apply(&self, cmd: &mut Cargo) {
+    fn apply(&self, cmd: &mut Command) {
         self.common.apply(cmd);
         self.check.apply(cmd);
 

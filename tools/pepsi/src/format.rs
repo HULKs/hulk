@@ -9,7 +9,7 @@ use color_eyre::{
 use repository::Repository;
 use tokio::process::Command;
 
-use crate::progress_indicator::ProgressIndicator;
+use crate::{progress_indicator::ProgressIndicator, sdk};
 
 #[derive(Args)]
 pub struct Arguments {
@@ -79,13 +79,11 @@ async fn ruff_fmt(root: impl AsRef<Path>, check: bool) -> Result<()> {
     )
 }
 
+/// Format the repository or check its formatting in the workstation Nix shell.
 pub async fn format(arguments: Arguments, repository: &Repository) -> Result<()> {
-    if std::env::var("HULK_NATIVE_SHELL").as_deref() != Ok("1") {
-        let mut command = repository::sdk::native_command(&repository.root);
-        command
-            .current_dir(&repository.root)
-            .arg(std::env::current_exe()?)
-            .arg("fmt");
+    if !sdk::in_native_shell() {
+        let mut command = sdk::native_command(&repository.root, std::env::current_exe()?);
+        command.current_dir(&repository.root).arg("fmt");
         if arguments.check {
             command.arg("--check");
         }

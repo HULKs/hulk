@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root=$1
+shell=$2
+shift 2
+
+if [[ $(uname -sm) != 'Linux x86_64' ]]; then
+    echo 'HULK Nix builds require x86_64 Linux.' >&2
+    exit 1
+fi
+if ! command -v nix >/dev/null; then
+    echo 'HULK Nix builds require nix on PATH.' >&2
+    exit 1
+fi
+
+# A path flake snapshots its source; keep the checkout and Cargo output out of it.
+# Use a fixed parent so '#' and '?' in TMPDIR cannot become Nix reference syntax.
+flake=$(mktemp -d /tmp/hulk-nix-shell.XXXXXXXXXX)
+trap 'rm -rf -- "$flake"' EXIT
+cp -- "$root"/{flake.nix,flake.lock,Cargo.toml} "$flake/"
+cp -R -- "$root/nix" "$flake/"
+
+nix --extra-experimental-features 'nix-command flakes' develop "$flake#$shell" "$@"

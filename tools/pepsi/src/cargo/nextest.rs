@@ -1,5 +1,5 @@
 use clap::{ArgAction, Parser};
-use repository::cargo::Cargo;
+use tokio::process::Command;
 
 use super::{CargoCommand, heading};
 
@@ -41,7 +41,7 @@ pub struct Arguments {
 impl CargoCommand for Arguments {
     const SUB_COMMAND: &'static [&'static str] = &["nextest", "run"];
 
-    fn apply(&self, cargo: &mut Cargo) {
+    fn apply(&self, cargo: &mut Command) {
         if self.release {
             cargo.arg("--release");
         }

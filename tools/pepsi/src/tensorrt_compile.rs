@@ -268,22 +268,21 @@ pub async fn download_neural_networks(
         .await
 }
 
+/// Build the TensorRT compiler and report Cargo diagnostics through the progress task.
 pub async fn build_binary(
     cargo_arguments: cargo::Arguments<build::Arguments>,
     repository: &Repository,
     progress_bar: &Task,
 ) -> Result<()> {
     let binary_path = cargo_arguments.binary_path(repository, BINARY_NAME).await?;
-    let mut command = construct_cargo_command(cargo_arguments, repository, &[binary_path])
-        .await
-        .expect("failed to construct cargo command");
+    let mut command = construct_cargo_command(cargo_arguments, repository, &[binary_path]).await?;
 
     command.stdout(Stdio::null());
     command.stderr(Stdio::piped());
     command.stdin(Stdio::null());
     command.kill_on_drop(true);
 
-    let mut process = command.spawn().unwrap();
+    let mut process = command.spawn()?;
 
     process.stdin.take();
     process.stdout.take();
