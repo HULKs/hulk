@@ -345,15 +345,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     additional_behavior_tree_layout_pub
         .publish_if_subscribed(|| async { static_layout })
         .await?;
+
     let mut timer = node.create_timer(Duration::from_millis(20));
-    let (field_dimensions, player_number) = loop {
-        if let (Some(field_dimensions), Some(player_number)) = (
+    let (field_dimensions, player_number, primary_state) = loop {
+        if let (Some(field_dimensions), Some(player_number), Some(primary_state)) = (
             field_dimensions_cache.get_latest(),
             player_number_cache.get_latest(),
+            primary_state_cache.get_latest(),
         ) {
-            break (*field_dimensions, *player_number);
+            break (*field_dimensions, *player_number, *primary_state);
         }
-        motion_command_pub.publish(&MotionCommand::Damping).await?;
         timer.tick().await;
     };
 
@@ -367,7 +368,23 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .and_then(|limits| limits.validate().is_ok().then_some(*limits))
             .unwrap_or_default(),
         search_cell_size: search_cell_size_cache.get_latest().map(|size| *size),
-        world_state: WorldState::default(),
+        world_state: WorldState {
+            ball: None,
+            filtered_game_controller_state: None,
+            hypothetical_ball_positions: Vec::new(),
+            now: node.clock().now(),
+            obstacles: Vec::new(),
+            player_states: Players::new(None),
+            position_of_interest: Point2::origin(),
+            robot: RobotState {
+                ground_to_field: None,
+                primary_state,
+            },
+            rule_ball: None,
+            rule_obstacles: Vec::new(),
+            fall_detection: None,
+            suggested_search_position: None,
+        },
         controller_input: None,
         remote_control_enabled: false,
 
@@ -473,10 +490,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             })
             .unwrap_or_default();
 
-        let primary_state = primary_state_cache
+        // The cache retains its latest sample once populated.
+        let primary_state = *primary_state_cache
             .get_latest()
-            .map(|state| *state)
-            .unwrap_or(PrimaryState::Damping);
+            .expect("primary state received during startup");
         if primary_state != blackboard.world_state.robot.primary_state {
             blackboard.remote_control_enabled = false;
         }

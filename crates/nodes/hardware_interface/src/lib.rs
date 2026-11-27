@@ -27,6 +27,7 @@ mod retry_worker;
 mod rpc_transport;
 
 pub use light_client::LightClient;
+pub use loco_client::LocoClient;
 pub use rpc_transport::ZenohRpcClient;
 
 use crate::joint_control::JointControlPublisher;
@@ -173,7 +174,7 @@ async fn joints_command_worker(
     );
     let mode_command_sender = spawn_mode_worker(loco_client.clone(), rpc_diagnostics.clone());
 
-    let mut assumed_robot_mode = RobotMode::Damping;
+    let mut last_requested_mode = RobotMode::Unknown;
 
     loop {
         let robot_command = robot_command_sub.recv().await?;
@@ -184,6 +185,10 @@ async fn joints_command_worker(
             RobotCommand::Damping => RobotMode::Damping,
             RobotCommand::Prepare => RobotMode::Prepare,
             RobotCommand::Custom { joints_command } => {
+                if !matches!(last_requested_mode, RobotMode::Prepare | RobotMode::Custom) {
+                    warn!(?last_requested_mode, "inhibiting unprepared custom command");
+                    continue;
+                }
                 let low_command = low_command_from_joints_command(joints_command);
 
                 joint_control_publisher.publish(&low_command).await?;
@@ -192,25 +197,10 @@ async fn joints_command_worker(
             }
         };
 
-        if assumed_robot_mode != desired_mode {
-            if is_legal_mode_transition(assumed_robot_mode, desired_mode) {
-                send_retry_command(&mode_command_sender, desired_mode, timeout, "change_mode");
-
-                assumed_robot_mode = desired_mode;
-            } else {
-                warn!(
-                    "inhibiting illegal transition from {assumed_robot_mode:?} to {desired_mode:?}"
-                );
-            }
+        if last_requested_mode != desired_mode {
+            send_retry_command(&mode_command_sender, desired_mode, timeout, "change_mode");
+            last_requested_mode = desired_mode;
         }
-    }
-}
-
-fn is_legal_mode_transition(old: RobotMode, new: RobotMode) -> bool {
-    match (old, new) {
-        (old, RobotMode::Custom) => old == RobotMode::Prepare,
-        (RobotMode::Damping, new) => new == RobotMode::Prepare,
-        _ => true,
     }
 }
 

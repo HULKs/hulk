@@ -102,7 +102,7 @@ impl ZenohRpcClient {
         api_id: i32,
         body: impl Into<String>,
         timeout: Duration,
-    ) -> Result<()> {
+    ) -> Result<String> {
         let deadline = Instant::now() + timeout;
         let request_uuid = Uuid::new_v4().to_string();
         let body = body.into();
@@ -184,7 +184,7 @@ impl ZenohRpcClient {
                     .into());
                 }
 
-                return Ok(());
+                return Ok(response.body);
             }
         }
         .await;

@@ -8261,7 +8261,9 @@ dependencies = [
 name = "primary_state_filter"
 version = "0.1.0"
 dependencies = [
+ "booster",
  "color-eyre",
+ "hardware_interface",
  "hsl_network_messages",
  "log",
  "ros-z",
