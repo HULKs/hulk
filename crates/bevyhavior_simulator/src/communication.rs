@@ -109,7 +109,9 @@ pub fn apply_incoming_hsl_messages(
             continue;
         };
 
-        let HulkMessage::State(state_message) = message;
+        let HulkMessage::State(state_message) = message else {
+            continue;
+        };
         let player_state = PlayerState {
             pose: state_message.pose,
             head_yaw: state_message.head_yaw,
